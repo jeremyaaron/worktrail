@@ -611,6 +611,35 @@ npm test --workspace apps/api -- comments activity
 npm run typecheck
 ```
 
+Status:
+
+- Completed on 2026-07-03.
+- Added shared contract DTOs for:
+  - comments;
+  - activity events;
+  - comment creation requests;
+  - work item details with embedded comments and activity.
+- Added `CommentService` for listing comments and adding comments.
+- Added `ActivityService` for work item and project timeline reads.
+- Added `GET /api/work-items/:workItemId/comments`.
+- Added `POST /api/work-items/:workItemId/comments`.
+- Added `GET /api/work-items/:workItemId/activity`.
+- Added `GET /api/projects/:projectId/activity`.
+- Updated work item detail responses to include ordered comments and timeline activity.
+- Recorded `comment.added` activity in the same database transaction as comment creation.
+- Updated comment repository reads to return comments in creation order.
+- Added Postgres-backed endpoint tests for comment creation, validation, comment listing, detail inclusion, work item activity, project activity, and workspace scoping.
+- `npm test --workspace @worktrail/api -- comments activity` passed: 5 tests in 1 test file.
+- `npm run typecheck --workspace @worktrail/api` passed.
+- `npm run typecheck` passed across all workspaces.
+- `npm test` passed across all workspaces: API 40 tests in 6 files, Angular 2 tests, contracts no-op test.
+- `npm run build` passed across contracts, API, and web.
+- Runtime smoke against the seeded local API passed:
+  - `GET /api/work-items/10000000-0000-4000-8000-000000000403` returned 2 comments and 6 activity entries;
+  - `GET /api/work-items/10000000-0000-4000-8000-000000000403/comments` returned 2 comments;
+  - `GET /api/work-items/10000000-0000-4000-8000-000000000403/activity` returned 6 activity entries;
+  - `GET /api/projects/10000000-0000-4000-8000-000000000201/activity` returned 6 activity entries.
+
 ## Phase 8: Angular App Shell And API Client
 
 Goal: make the Angular app consume the real API and establish the product shell.

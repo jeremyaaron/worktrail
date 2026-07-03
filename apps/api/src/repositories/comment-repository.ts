@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 
 import type { WorktrailDb } from '../db/client.js';
 import { comments } from '../db/schema.js';
@@ -12,8 +12,11 @@ export function createCommentRepository(db: WorktrailDb) {
     },
 
     async findByWorkItem(workItemId: string) {
-      return db.select().from(comments).where(eq(comments.workItemId, workItemId));
+      return db
+        .select()
+        .from(comments)
+        .where(eq(comments.workItemId, workItemId))
+        .orderBy(asc(comments.createdAt));
     }
   };
 }
-

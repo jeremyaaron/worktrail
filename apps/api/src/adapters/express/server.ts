@@ -1,6 +1,14 @@
 import cors from 'cors';
 import express, { type Express } from 'express';
 
+import {
+  listProjectActivityHandler,
+  listWorkItemActivityHandler
+} from '../../endpoints/activity.js';
+import {
+  createCommentHandler,
+  listCommentsHandler
+} from '../../endpoints/comments.js';
 import { healthHandler } from '../../endpoints/health.js';
 import { listMembersHandler } from '../../endpoints/members.js';
 import {
@@ -58,8 +66,24 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
       '/api/projects/:projectId/summary',
       adaptEndpoint(getProjectSummaryHandler(options.repositories))
     );
+    app.get(
+      '/api/projects/:projectId/activity',
+      adaptEndpoint(listProjectActivityHandler(options.repositories))
+    );
     app.get('/api/projects/:projectId', adaptEndpoint(getProjectHandler(options.repositories)));
     app.patch('/api/projects/:projectId', adaptEndpoint(updateProjectHandler(options.repositories)));
+    app.get(
+      '/api/work-items/:workItemId/comments',
+      adaptEndpoint(listCommentsHandler({ repositories: options.repositories, db: options.db }))
+    );
+    app.post(
+      '/api/work-items/:workItemId/comments',
+      adaptEndpoint(createCommentHandler({ repositories: options.repositories, db: options.db }))
+    );
+    app.get(
+      '/api/work-items/:workItemId/activity',
+      adaptEndpoint(listWorkItemActivityHandler(options.repositories))
+    );
     app.get(
       '/api/work-items/:workItemId',
       adaptEndpoint(getWorkItemHandler({ repositories: options.repositories, db: options.db }))

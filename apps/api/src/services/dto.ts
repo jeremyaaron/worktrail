@@ -1,4 +1,6 @@
 import type {
+  ActivityEventDto,
+  CommentDto,
   LabelDto,
   MemberDto,
   ProjectDto,
@@ -7,7 +9,11 @@ import type {
   WorkItemListItemDto
 } from '@worktrail/contracts';
 
-import type { Label, Member, Project, WorkItem } from '../repositories/types.js';
+import type { ActivityEvent, Comment, Label, Member, Project, WorkItem } from '../repositories/types.js';
+
+function toNullableRecord(value: Record<string, unknown> | null): Record<string, unknown> | null {
+  return value;
+}
 
 export function toMemberDto(member: Member): MemberDto {
   return {
@@ -54,6 +60,35 @@ export function toLabelDto(label: Label): LabelDto {
   };
 }
 
+export function toCommentDto(comment: Comment, author: Member): CommentDto {
+  return {
+    id: comment.id,
+    workspaceId: comment.workspaceId,
+    projectId: comment.projectId,
+    workItemId: comment.workItemId,
+    author: toMemberDto(author),
+    body: comment.body,
+    createdAt: comment.createdAt.toISOString(),
+    updatedAt: comment.updatedAt.toISOString()
+  };
+}
+
+export function toActivityEventDto(event: ActivityEvent, actor: Member): ActivityEventDto {
+  return {
+    id: event.id,
+    workspaceId: event.workspaceId,
+    projectId: event.projectId,
+    workItemId: event.workItemId,
+    actor: toMemberDto(actor),
+    eventType: event.eventType,
+    summary: event.summary,
+    previousValue: toNullableRecord(event.previousValue),
+    newValue: toNullableRecord(event.newValue),
+    metadata: event.metadata,
+    createdAt: event.createdAt.toISOString()
+  };
+}
+
 export function toWorkItemListItemDto(input: {
   workItem: WorkItem;
   assignee: Member | null;
@@ -83,9 +118,13 @@ export function toWorkItemDetailDto(input: {
   assignee: Member | null;
   reporter: Member;
   labels: Label[];
+  comments: CommentDto[];
+  activity: ActivityEventDto[];
 }): WorkItemDetailDto {
   return {
     ...toWorkItemListItemDto(input),
-    description: input.workItem.description
+    description: input.workItem.description,
+    comments: input.comments,
+    activity: input.activity
   };
 }

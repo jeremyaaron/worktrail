@@ -17,8 +17,13 @@ import {
   type Repositories,
   withRepositoriesTransaction
 } from '../repositories/index.js';
-import type { Label, Member, WorkItem } from '../repositories/types.js';
-import { toWorkItemDetailDto, toWorkItemListItemDto } from './dto.js';
+import type { ActivityEvent, Comment, Label, Member, WorkItem } from '../repositories/types.js';
+import {
+  toActivityEventDto,
+  toCommentDto,
+  toWorkItemDetailDto,
+  toWorkItemListItemDto
+} from './dto.js';
 
 export interface WorkItemListFilters {
   status?: WorkItemStatus;
@@ -277,7 +282,14 @@ export class WorkItemService {
     repositories: Repositories
   ): Promise<WorkItemDetailDto> {
     const labels = await repositories.labels.listByWorkItem(workItem.id);
-    return toWorkItemDetailDto(await this.toBundle(workItem, repositories, labels));
+    const comments = await repositories.comments.findByWorkItem(workItem.id);
+    const activity = await repositories.activityEvents.findByWorkItem(workItem.id);
+
+    return toWorkItemDetailDto({
+      ...(await this.toBundle(workItem, repositories, labels)),
+      comments: await this.toCommentDtos(comments, repositories),
+      activity: await this.toActivityDtos(activity, repositories)
+    });
   }
 
   private async toBundle(
@@ -299,6 +311,38 @@ export class WorkItemService {
       reporter,
       labels
     };
+  }
+
+  private async toCommentDtos(comments: Comment[], repositories: Repositories) {
+    return Promise.all(
+      comments.map(async (comment) => {
+        const author = await this.requireMember(comment.authorId, repositories, 'Comment author not found.');
+        return toCommentDto(comment, author);
+      })
+    );
+  }
+
+  private async toActivityDtos(activity: ActivityEvent[], repositories: Repositories) {
+    return Promise.all(
+      activity.map(async (event) => {
+        const actor = await this.requireMember(event.actorId, repositories, 'Activity actor not found.');
+        return toActivityEventDto(event, actor);
+      })
+    );
+  }
+
+  private async requireMember(
+    memberId: string,
+    repositories: Repositories,
+    message: string
+  ): Promise<Member> {
+    const member = await repositories.members.findById(memberId);
+
+    if (member === null || member.workspaceId !== this.context.actor.workspaceId) {
+      throw new NotFoundError(message);
+    }
+
+    return member;
   }
 
   private async recordUpdateActivity(input: {

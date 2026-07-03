@@ -15,6 +15,16 @@ export type WorkItemStatus =
   | 'canceled';
 export type WorkItemPriority = 'low' | 'medium' | 'high' | 'urgent';
 export type WorkItemSort = 'updated_desc' | 'updated_asc' | 'priority_desc' | 'priority_asc';
+export type ActivityEventType =
+  | 'work_item.created'
+  | 'work_item.title_changed'
+  | 'work_item.description_changed'
+  | 'work_item.status_changed'
+  | 'work_item.assignee_changed'
+  | 'work_item.priority_changed'
+  | 'work_item.label_added'
+  | 'work_item.label_removed'
+  | 'comment.added';
 
 export interface MemberDto {
   id: string;
@@ -89,6 +99,33 @@ export interface WorkItemListItemDto {
 
 export interface WorkItemDetailDto extends WorkItemListItemDto {
   description: string;
+  comments: CommentDto[];
+  activity: ActivityEventDto[];
+}
+
+export interface CommentDto {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  workItemId: string;
+  author: MemberDto;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ActivityEventDto {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  workItemId: string | null;
+  actor: MemberDto;
+  eventType: ActivityEventType;
+  summary: string;
+  previousValue: Record<string, unknown> | null;
+  newValue: Record<string, unknown> | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
 }
 
 export interface CreateWorkItemRequest {
@@ -116,4 +153,8 @@ export interface UpdateWorkItemRequest {
 
 export interface TransitionWorkItemRequest {
   status: WorkItemStatus;
+}
+
+export interface CreateCommentRequest {
+  body: string;
 }
