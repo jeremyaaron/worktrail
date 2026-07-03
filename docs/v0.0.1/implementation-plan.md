@@ -745,6 +745,33 @@ npm test --workspace apps/web -- projects
 npm run build:web
 ```
 
+Status:
+
+- Completed on 2026-07-03.
+- Replaced the Phase 8 project readiness route with a real project list screen.
+- Added client-side project status filtering for all, active, and archived projects.
+- Added an inline project creation form backed by `POST /api/projects`.
+- Added client-side create validation with a visible required-name message and no API post for invalid submissions.
+- Added create success behavior that inserts the created project into the active project list.
+- Added a project home screen backed by `GET /api/projects/:projectId/summary`.
+- Project home displays:
+  - project metadata;
+  - work item counts by status;
+  - recently updated work items;
+  - navigation to work item list and board;
+  - a create work item action routed to `/projects/:projectId/work-items/new`.
+- Added a placeholder route for `/projects/:projectId/work-items/new` so the project home action has a stable destination for Phase 10.
+- Added Angular tests covering project list rendering, archived filtering, create validation, project creation, and project summary rendering.
+- `npm test --workspace @worktrail/web -- --include src/app/features/projects/projects-page.component.spec.ts` passed: 4 tests.
+- `npm run typecheck --workspace @worktrail/web` passed.
+- `npm run typecheck` passed across all workspaces.
+- `npm test` passed across all workspaces: API 40 tests in 6 files, Angular 6 tests, contracts no-op test.
+- `npm run build` passed across contracts, API, and web.
+- Runtime development smoke passed through the Angular proxy:
+  - `GET http://localhost:4200/projects` returned the Angular app shell;
+  - `GET http://localhost:4200/api/projects` returned 3 seeded projects with active and archived statuses;
+  - `GET http://localhost:4200/api/projects/10000000-0000-4000-8000-000000000201/summary` returned the seeded Worktrail App summary with 6 status counts and 5 recent work items.
+
 ## Phase 10: Work Item List And Create Flow
 
 Goal: implement the dense work item list and work item creation loop.

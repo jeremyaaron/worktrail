@@ -1,0 +1,350 @@
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import type { ProjectSummaryDto, WorkItemStatus } from '@worktrail/contracts';
+
+import { WorktrailApiService } from '../../core/worktrail-api.service';
+import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
+import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
+import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
+
+const statusLabels: Record<WorkItemStatus, string> = {
+  backlog: 'Backlog',
+  ready: 'Ready',
+  in_progress: 'In progress',
+  blocked: 'Blocked',
+  done: 'Done',
+  canceled: 'Canceled'
+};
+
+@Component({
+  selector: 'app-project-home-page',
+  imports: [EmptyStateComponent, ErrorPanelComponent, LoadingIndicatorComponent, RouterLink],
+  template: `
+    @if (isLoading()) {
+      <app-loading-indicator label="Loading project summary" />
+    } @else if (error()) {
+      <app-error-panel [message]="error() ?? ''" (retry)="loadSummary()" />
+    } @else if (summary(); as summary) {
+      <section class="project-header">
+        <div>
+          <p class="eyebrow">Project</p>
+          <h1>{{ summary.project.name }}</h1>
+          <p class="project-copy">
+            {{ summary.project.description || 'No description provided.' }}
+          </p>
+        </div>
+
+        <div class="project-actions">
+          <a [routerLink]="['/projects', projectId(), 'work-items']">Work items</a>
+          <a [routerLink]="['/projects', projectId(), 'board']">Board</a>
+          <a class="project-actions__primary" [routerLink]="['/projects', projectId(), 'work-items', 'new']">
+            Create work item
+          </a>
+        </div>
+      </section>
+
+      <section class="summary-grid" aria-label="Work item status counts">
+        @for (count of summary.countsByStatus; track count.status) {
+          <article class="status-tile">
+            <span>{{ statusLabel(count.status) }}</span>
+            <strong>{{ count.count }}</strong>
+          </article>
+        }
+      </section>
+
+      <section class="home-grid">
+        <section class="panel" aria-labelledby="recent-work-heading">
+          <div class="panel__heading">
+            <h2 id="recent-work-heading">Recently updated</h2>
+            <a [routerLink]="['/projects', projectId(), 'work-items']">View all</a>
+          </div>
+
+          @if (summary.recentWorkItems.length === 0) {
+            <app-empty-state
+              title="No work items yet"
+              message="Create the first work item from this project."
+            />
+          } @else {
+            <div class="recent-list">
+              @for (item of summary.recentWorkItems; track item.id) {
+                <a class="recent-row" [routerLink]="['/work-items', item.id]">
+                  <span>{{ item.title }}</span>
+                  <small>{{ statusLabel(item.status) }} · {{ formatDate(item.updatedAt) }}</small>
+                </a>
+              }
+            </div>
+          }
+        </section>
+
+        <section class="panel" aria-labelledby="project-meta-heading">
+          <div class="panel__heading">
+            <h2 id="project-meta-heading">Project state</h2>
+          </div>
+
+          <dl class="meta-list">
+            <div>
+              <dt>Status</dt>
+              <dd>{{ summary.project.status }}</dd>
+            </div>
+            <div>
+              <dt>Created</dt>
+              <dd>{{ formatDate(summary.project.createdAt) }}</dd>
+            </div>
+            <div>
+              <dt>Updated</dt>
+              <dd>{{ formatDate(summary.project.updatedAt) }}</dd>
+            </div>
+          </dl>
+        </section>
+      </section>
+    }
+  `,
+  styles: `
+    .project-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 20px;
+      align-items: start;
+      margin-bottom: 24px;
+    }
+
+    .eyebrow {
+      margin: 0 0 6px;
+      color: #64748b;
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    p,
+    dl,
+    dd {
+      margin: 0;
+    }
+
+    h1 {
+      color: #111827;
+      font-size: 1.75rem;
+      line-height: 1.2;
+    }
+
+    h2 {
+      color: #111827;
+      font-size: 1rem;
+      line-height: 1.35;
+    }
+
+    .project-copy {
+      margin-top: 8px;
+      color: #64748b;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+
+    .project-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .project-actions a,
+    .panel__heading a {
+      min-height: 36px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 8px 12px;
+      color: #1f2937;
+      font-size: 0.875rem;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .project-actions a:hover,
+    .panel__heading a:hover {
+      border-color: #94a3b8;
+      background: #f8fafc;
+    }
+
+    .project-actions__primary {
+      border-color: #1f4f99 !important;
+      background: #1f4f99;
+      color: #ffffff !important;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .status-tile {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 14px;
+      background: #ffffff;
+    }
+
+    .status-tile span {
+      display: block;
+      color: #64748b;
+      font-size: 0.75rem;
+      font-weight: 800;
+    }
+
+    .status-tile strong {
+      display: block;
+      margin-top: 8px;
+      color: #111827;
+      font-size: 1.75rem;
+      line-height: 1;
+    }
+
+    .home-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      display: grid;
+      gap: 16px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 18px;
+      background: #ffffff;
+    }
+
+    .panel__heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .panel__heading a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 32px;
+      padding: 6px 10px;
+      color: #1d4ed8;
+    }
+
+    .recent-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .recent-row {
+      display: grid;
+      gap: 4px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 12px;
+      color: #111827;
+      text-decoration: none;
+    }
+
+    .recent-row:hover {
+      border-color: #bfdbfe;
+      background: #f8fafc;
+    }
+
+    .recent-row span {
+      font-size: 0.875rem;
+      font-weight: 800;
+      line-height: 1.35;
+    }
+
+    .recent-row small,
+    dt {
+      color: #64748b;
+      font-size: 0.75rem;
+      font-weight: 800;
+    }
+
+    .meta-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .meta-list div {
+      display: grid;
+      gap: 4px;
+    }
+
+    dd {
+      color: #111827;
+      font-size: 0.875rem;
+      font-weight: 700;
+      text-transform: capitalize;
+    }
+
+    @media (max-width: 900px) {
+      .project-header,
+      .home-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .project-actions {
+        justify-content: flex-start;
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 560px) {
+      .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+  `
+})
+export class ProjectHomePageComponent implements OnInit {
+  private readonly api = inject(WorktrailApiService);
+  private readonly route = inject(ActivatedRoute);
+
+  readonly summary = signal<ProjectSummaryDto | null>(null);
+  readonly isLoading = signal(false);
+  readonly error = signal<string | null>(null);
+  readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
+
+  ngOnInit(): void {
+    this.loadSummary();
+  }
+
+  loadSummary(): void {
+    this.isLoading.set(true);
+    this.error.set(null);
+
+    this.api.getProjectSummary(this.projectId()).subscribe({
+      next: (summary) => {
+        this.summary.set(summary);
+        this.isLoading.set(false);
+      },
+      error: () => {
+        this.error.set('Project summary could not be loaded from the API.');
+        this.isLoading.set(false);
+      }
+    });
+  }
+
+  statusLabel(status: WorkItemStatus): string {
+    return statusLabels[status];
+  }
+
+  formatDate(value: string): string {
+    return new Intl.DateTimeFormat('en', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    }).format(new Date(value));
+  }
+}
