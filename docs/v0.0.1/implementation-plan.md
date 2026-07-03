@@ -288,6 +288,36 @@ npm test --workspace apps/api
 npm run typecheck
 ```
 
+Status:
+
+- Completed on 2026-07-03.
+- Added transport-neutral `AppRequest`, `AppResponse`, and `EndpointHandler` types.
+- Added typed application errors and centralized API error response mapping.
+- Added actor context with local seeded-owner fallback.
+- Added Express actor resolution from development headers:
+  - `x-worktrail-member-id`;
+  - `x-worktrail-workspace-id`;
+  - `x-worktrail-role`.
+- Added Express endpoint adapter so route handlers no longer receive raw Express request/response objects.
+- Converted `GET /api/health` to use the endpoint adapter.
+- Added a Zod validation helper that throws structured validation errors.
+- Added basic request logging for local API requests.
+- Added backend tests with Vitest and Supertest covering:
+  - health endpoint;
+  - default local actor;
+  - actor header override;
+  - validation error mapping;
+  - unexpected error masking;
+  - validation helper success/failure.
+- Adjusted API TypeScript config so tests are included in typecheck while production build output remains rooted at `src`.
+- `npm test --workspace @worktrail/api` passed: 7 tests in 1 test file.
+- `npm run typecheck --workspace @worktrail/api` passed.
+- `npm run build:api` passed.
+- `npm run dev:api` started successfully, and `GET /api/health` returned `{"status":"ok","service":"worktrail-api"}`.
+- Full `npm run typecheck` passed.
+- Full `npm test` passed.
+- Full `npm run build` passed.
+
 ## Phase 4: Domain Rules And Repository Layer
 
 Goal: implement reusable domain constants, workflow rules, permissions, and database repositories.

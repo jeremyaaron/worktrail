@@ -1,0 +1,134 @@
+import request from 'supertest';
+import { describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
+
+import { createExpressApp } from '../src/adapters/express/server.js';
+import { ValidationError } from '../src/errors/app-error.js';
+import { parseWithSchema } from '../src/validation/parse.js';
+
+describe('Express API foundation', () => {
+  it('returns health through the endpoint adapter', async () => {
+    const app = createExpressApp();
+
+    await request(app)
+      .get('/api/health')
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual({
+          status: 'ok',
+          service: 'worktrail-api'
+        });
+      });
+  });
+
+  it('uses the local seed actor when no development actor headers are provided', async () => {
+    const app = createExpressApp({
+      testRoutes: {
+        '/api/test/actor': (appRequest) => ({
+          status: 200,
+          body: appRequest.actor
+        })
+      }
+    });
+
+    await request(app)
+      .get('/api/test/actor')
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual({
+          memberId: '10000000-0000-4000-8000-000000000101',
+          workspaceId: '10000000-0000-4000-8000-000000000001',
+          role: 'owner'
+        });
+      });
+  });
+
+  it('uses development actor headers when provided', async () => {
+    const app = createExpressApp({
+      testRoutes: {
+        '/api/test/actor': (appRequest) => ({
+          status: 200,
+          body: appRequest.actor
+        })
+      }
+    });
+
+    await request(app)
+      .get('/api/test/actor')
+      .set('x-worktrail-member-id', '20000000-0000-4000-8000-000000000001')
+      .set('x-worktrail-workspace-id', '20000000-0000-4000-8000-000000000002')
+      .set('x-worktrail-role', 'maintainer')
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual({
+          memberId: '20000000-0000-4000-8000-000000000001',
+          workspaceId: '20000000-0000-4000-8000-000000000002',
+          role: 'maintainer'
+        });
+      });
+  });
+
+  it('maps validation errors to structured 400 responses', async () => {
+    const app = createExpressApp({
+      testRoutes: {
+        '/api/test/validation': () => {
+          throw new ValidationError('Invalid test request.', { fieldErrors: { name: ['Required'] } });
+        }
+      }
+    });
+
+    await request(app)
+      .post('/api/test/validation')
+      .send({})
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body).toEqual({
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid test request.',
+            details: { fieldErrors: { name: ['Required'] } }
+          }
+        });
+      });
+  });
+
+  it('masks unexpected errors as structured 500 responses', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const app = createExpressApp({
+      testRoutes: {
+        '/api/test/unexpected-error': () => {
+          throw new Error('database exploded');
+        }
+      }
+    });
+
+    await request(app)
+      .get('/api/test/unexpected-error')
+      .expect(500)
+      .expect(({ body }) => {
+        expect(body).toEqual({
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: 'An unexpected error occurred.'
+          }
+        });
+      });
+
+    errorSpy.mockRestore();
+  });
+});
+
+describe('parseWithSchema', () => {
+  it('returns parsed values for valid input', () => {
+    const schema = z.object({ name: z.string().min(1) });
+
+    expect(parseWithSchema(schema, { name: 'Worktrail' })).toEqual({ name: 'Worktrail' });
+  });
+
+  it('throws ValidationError for invalid input', () => {
+    const schema = z.object({ name: z.string().min(1) });
+
+    expect(() => parseWithSchema(schema, { name: '' })).toThrow(ValidationError);
+  });
+});
+

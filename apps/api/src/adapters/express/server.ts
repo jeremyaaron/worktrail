@@ -1,9 +1,16 @@
 import cors from 'cors';
 import express, { type Express } from 'express';
 
-import { healthResponse } from '../../endpoints/health.js';
+import type { EndpointHandler } from '../../http/app-request.js';
+import { healthHandler } from '../../endpoints/health.js';
+import { adaptEndpoint } from './handler-adapter.js';
+import { requestLogger } from './request-logging.js';
 
-export function createExpressApp(): Express {
+export interface CreateExpressAppOptions {
+  testRoutes?: Record<string, EndpointHandler>;
+}
+
+export function createExpressApp(options: CreateExpressAppOptions = {}): Express {
   const app = express();
 
   app.use(
@@ -12,10 +19,13 @@ export function createExpressApp(): Express {
     })
   );
   app.use(express.json());
+  app.use(requestLogger);
 
-  app.get('/api/health', (_request, response) => {
-    response.status(200).json(healthResponse());
-  });
+  app.get('/api/health', adaptEndpoint(healthHandler));
+
+  for (const [path, handler] of Object.entries(options.testRoutes ?? {})) {
+    app.all(path, adaptEndpoint(handler));
+  }
 
   return app;
 }
