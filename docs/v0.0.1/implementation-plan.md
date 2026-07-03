@@ -942,6 +942,35 @@ npm test --workspace apps/web -- board
 npm run build:web
 ```
 
+Status:
+
+- Completed on 2026-07-03.
+- Added a project-scoped board route at `/projects/:projectId/board`.
+- Rendered one board column per work item status:
+  - backlog;
+  - ready;
+  - in progress;
+  - blocked;
+  - done;
+  - canceled.
+- Grouped cards by current work item status.
+- Rendered compact cards with title, type, priority, assignee, and labels.
+- Added a status menu on each card.
+- Called `POST /api/work-items/:workItemId/transitions` when a card status changes.
+- Refreshed the board from `GET /api/projects/:projectId/work-items` after successful transitions.
+- Added clear UI errors for rejected transitions.
+- Added empty states for board columns with no cards.
+- Kept the board readable at common laptop widths with horizontally scrollable fixed-width columns.
+- Added Angular tests covering column rendering, grouped cards, successful status update and refresh, and rejected transition errors.
+- `npm test --workspace @worktrail/web -- --include src/app/features/work-items/work-item-board-page.component.spec.ts` passed: 3 tests.
+- `npm run typecheck --workspace @worktrail/web` passed.
+- `npm run typecheck` passed across all workspaces.
+- `npm test` passed across all workspaces: API 40 tests in 6 files, Angular 17 tests, contracts no-op test.
+- `npm run build` passed across contracts, API, and web.
+- Runtime development smoke passed through the Angular proxy without mutating local seed data:
+  - `GET http://localhost:4200/projects/10000000-0000-4000-8000-000000000201/board` returned the Angular app shell;
+  - `GET http://localhost:4200/api/projects/10000000-0000-4000-8000-000000000201/work-items?sort=priority_desc` returned 6 seeded work items across all six statuses.
+
 ## Phase 13: Product Quality Pass
 
 Goal: bring the MVP from functional to demo-usable.
