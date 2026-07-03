@@ -1,4 +1,4 @@
-export type MemberRole = 'owner' | 'maintainer' | 'contributor';
+import type { MemberRole } from './constants.js';
 
 export interface ActorContext {
   memberId: string;
@@ -11,4 +11,3 @@ export const localSeedActor: ActorContext = {
   workspaceId: '10000000-0000-4000-8000-000000000001',
   role: 'owner'
 };
-

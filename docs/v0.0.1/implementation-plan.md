@@ -367,6 +367,39 @@ npm test --workspace apps/api -- domain repositories
 npm run typecheck
 ```
 
+Status:
+
+- Completed on 2026-07-03.
+- Added domain constants and TypeScript types for member roles, project statuses, work item types/statuses/priorities, and activity event types.
+- Updated the Drizzle schema to import the shared domain constants rather than owning duplicate enum-like values.
+- Added workflow transition helpers with coverage for:
+  - no-op transitions;
+  - normal forward transitions;
+  - blocked-to-open transitions;
+  - invalid backward transitions;
+  - maintainer/owner terminal reopen;
+  - contributor terminal reopen rejection.
+- Added permission helpers for project archive/reactivate, terminal reopen, and contributor assigned-work updates.
+- Added repository factories for:
+  - workspaces;
+  - members;
+  - projects;
+  - work items;
+  - labels;
+  - comments;
+  - activity events.
+- Added a repository aggregate and transaction helper in `apps/api/src/repositories/index.ts`.
+- Added Postgres-backed repository tests that create isolated test data and clean it up after each test.
+- Repository tests cover creating and reading members, projects, labels, work items, comments, and activity events.
+- Repository tests cover work item filtering by status, assignee, type, priority, and title search.
+- Repository tests cover project and work item status updates.
+- Repository tests cover repository use inside a transaction.
+- `npm test --workspace @worktrail/api -- domain repositories` passed: 13 tests in 2 test files.
+- `npm run typecheck --workspace @worktrail/api` passed.
+- Full `npm test` passed: API 20 tests across 3 test files, plus existing web/contracts tests.
+- Full `npm run build` passed.
+- `npm run db:generate` reported no schema changes after moving constants into the domain layer.
+
 ## Phase 5: Project And Member API
 
 Goal: expose project and member data through the real API.
