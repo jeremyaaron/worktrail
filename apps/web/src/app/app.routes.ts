@@ -3,6 +3,8 @@ import { Routes } from '@angular/router';
 import { ProjectHomePageComponent } from './features/projects/project-home-page.component';
 import { ProjectListPageComponent } from './features/projects/project-list-page.component';
 import { ProjectPlaceholderPageComponent } from './features/projects/project-placeholder-page.component';
+import { WorkItemCreatePageComponent } from './features/work-items/work-item-create-page.component';
+import { WorkItemListPageComponent } from './features/work-items/work-item-list-page.component';
 import { WorkItemPlaceholderPageComponent } from './features/work-items/work-item-placeholder-page.component';
 
 export const routes: Routes = [
@@ -18,21 +20,13 @@ export const routes: Routes = [
   },
   {
     path: 'projects/:projectId/work-items/new',
-    component: ProjectPlaceholderPageComponent,
-    title: 'Create Work Item | Worktrail',
-    data: {
-      label: 'Create work item',
-      heading: 'Create work item'
-    }
+    component: WorkItemCreatePageComponent,
+    title: 'Create Work Item | Worktrail'
   },
   {
     path: 'projects/:projectId/work-items',
-    component: ProjectPlaceholderPageComponent,
-    title: 'Work Items | Worktrail',
-    data: {
-      label: 'Work items',
-      heading: 'Project work items'
-    }
+    component: WorkItemListPageComponent,
+    title: 'Work Items | Worktrail'
   },
   {
     path: 'projects/:projectId/board',

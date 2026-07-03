@@ -815,6 +815,36 @@ npm test --workspace apps/web -- work-items
 npm run build:web
 ```
 
+Status:
+
+- Completed on 2026-07-03.
+- Added a project-scoped work item list route at `/projects/:projectId/work-items`.
+- Added dense work item rows with title, type, labels, status, assignee, priority, and updated date.
+- Added list filters for:
+  - status;
+  - assignee;
+  - type;
+  - label;
+  - priority.
+- Added title search.
+- Added sort controls for updated date and priority.
+- Kept list filters in route query parameters and sent them through to the API.
+- Added a work item create route at `/projects/:projectId/work-items/new`.
+- Added create form fields for title, description, type, priority, assignee, due date, and estimate.
+- Added required title validation with no API post for invalid submissions.
+- Added create success navigation to `/work-items/:workItemId`.
+- Extended the Angular API client to support typed work item list filters.
+- Added Angular tests covering filtered list API calls, route query-param persistence, create validation, create POST payload, and post-create navigation.
+- `npm test --workspace @worktrail/web -- --include src/app/features/work-items/work-items-page.component.spec.ts` passed: 4 tests.
+- `npm run typecheck --workspace @worktrail/web` passed.
+- `npm run typecheck` passed across all workspaces.
+- `npm test` passed across all workspaces: API 40 tests in 6 files, Angular 10 tests, contracts no-op test.
+- `npm run build` passed across contracts, API, and web.
+- Runtime development smoke passed through the Angular proxy without mutating local seed data:
+  - `GET http://localhost:4200/projects/10000000-0000-4000-8000-000000000201/work-items?status=in_progress&search=api` returned the Angular app shell;
+  - `GET http://localhost:4200/projects/10000000-0000-4000-8000-000000000201/work-items/new` returned the Angular app shell;
+  - `GET http://localhost:4200/api/projects/10000000-0000-4000-8000-000000000201/work-items?status=in_progress&sort=priority_desc` returned one seeded `in_progress` work item.
+
 ## Phase 11: Work Item Detail, Comments, And Activity UI
 
 Goal: implement the main collaboration surface.

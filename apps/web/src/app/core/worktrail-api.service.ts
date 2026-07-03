@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import type {
   ActivityEventDto,
@@ -13,12 +13,26 @@ import type {
   UpdateProjectRequest,
   UpdateWorkItemRequest,
   WorkItemDetailDto,
-  WorkItemListItemDto
+  WorkItemListItemDto,
+  WorkItemPriority,
+  WorkItemSort,
+  WorkItemStatus,
+  WorkItemType
 } from '@worktrail/contracts';
 import type { Observable } from 'rxjs';
 
 import { environment } from '../../environments/environment';
 import { CurrentUserService } from './current-user.service';
+
+export interface WorkItemListFilters {
+  status?: WorkItemStatus;
+  assigneeId?: string;
+  type?: WorkItemType;
+  labelId?: string;
+  priority?: WorkItemPriority;
+  search?: string;
+  sort?: WorkItemSort;
+}
 
 @Injectable({ providedIn: 'root' })
 export class WorktrailApiService {
@@ -56,10 +70,13 @@ export class WorktrailApiService {
     );
   }
 
-  listWorkItems(projectId: string): Observable<WorkItemListItemDto[]> {
+  listWorkItems(
+    projectId: string,
+    filters: WorkItemListFilters = {}
+  ): Observable<WorkItemListItemDto[]> {
     return this.http.get<WorkItemListItemDto[]>(
       this.url(`/projects/${projectId}/work-items`),
-      this.options()
+      this.options({ params: this.toWorkItemParams(filters) })
     );
   }
 
@@ -117,9 +134,25 @@ export class WorktrailApiService {
     return `${environment.apiBaseUrl}${path}`;
   }
 
-  private options(): { headers: Record<string, string> } {
+  private options(input: { params?: HttpParams } = {}): {
+    headers: Record<string, string>;
+    params?: HttpParams;
+  } {
     return {
-      headers: this.currentUser.actorHeaders()
+      headers: this.currentUser.actorHeaders(),
+      ...(input.params === undefined ? {} : { params: input.params })
     };
+  }
+
+  private toWorkItemParams(filters: WorkItemListFilters): HttpParams {
+    let params = new HttpParams();
+
+    for (const [key, value] of Object.entries(filters)) {
+      if (value !== undefined && value.trim() !== '') {
+        params = params.set(key, value);
+      }
+    }
+
+    return params;
   }
 }
