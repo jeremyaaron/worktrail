@@ -522,6 +522,57 @@ npm test --workspace apps/api -- work-items activity
 npm run typecheck
 ```
 
+Status:
+
+- Completed on 2026-07-03.
+- Added shared work item, label, create/update, transition, filter, and sort contract types in `packages/contracts`.
+- Added work item DTO mapping for list and detail responses.
+- Added work item repository support for:
+  - label filtering;
+  - title search;
+  - updated-date and priority sorting;
+  - status counts;
+  - recent project work item summaries;
+  - generic field updates.
+- Added label repository support for:
+  - lookup by ids;
+  - listing labels by work item;
+  - listing labels for multiple work items;
+  - replacing a work item's labels.
+- Added `WorkItemService`.
+- Implemented project-scoped work item listing with filters for status, assignee, type, label, priority, and title search.
+- Implemented work item creation from project context.
+- Implemented work item detail loading.
+- Implemented generic work item field update for title, description, type, priority, assignee, labels, due date, and estimate.
+- Implemented explicit status transition behavior through `POST /api/work-items/:workItemId/transitions`.
+- Added workflow enforcement to transitions.
+- Added activity recording for:
+  - work item created;
+  - title changed;
+  - description changed;
+  - priority changed;
+  - assignee changed;
+  - label added;
+  - label removed;
+  - status changed.
+- Added endpoint handlers for:
+  - `GET /api/projects/:projectId/work-items`;
+  - `POST /api/projects/:projectId/work-items`;
+  - `GET /api/work-items/:workItemId`;
+  - `PATCH /api/work-items/:workItemId`;
+  - `POST /api/work-items/:workItemId/transitions`.
+- Mounted work item routes in the Express app.
+- Added Postgres-backed endpoint tests covering create, validation, list filtering, detail scoping, update/activity recording, valid transition/activity recording, and invalid transition rejection.
+- `npm test --workspace @worktrail/api -- work-items activity` passed: 7 tests in 1 test file.
+- `npm run typecheck --workspace @worktrail/api` passed.
+- Full `npm run typecheck` passed.
+- Full `npm test` passed: API 35 tests across 5 test files, plus existing web/contracts tests.
+- Full `npm run build` passed.
+- `npm run db:generate` reported no schema changes.
+- Runtime checks against the seeded local database passed:
+  - `GET /api/projects/10000000-0000-4000-8000-000000000201/work-items?status=ready&assigneeId=10000000-0000-4000-8000-000000000102`;
+  - `GET /api/work-items/10000000-0000-4000-8000-000000000403`.
+
 ## Phase 7: Comments And Activity API
 
 Goal: finish collaboration and timeline behavior on the backend.

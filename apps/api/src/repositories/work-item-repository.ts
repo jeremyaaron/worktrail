@@ -1,7 +1,7 @@
-import { and, count, desc, eq, ilike } from 'drizzle-orm';
+import { and, asc, count, desc, eq, ilike, sql } from 'drizzle-orm';
 
 import type { WorktrailDb } from '../db/client.js';
-import { workItems } from '../db/schema.js';
+import { workItemLabels, workItems } from '../db/schema.js';
 import type { NewWorkItem, WorkItem } from './types.js';
 
 export interface WorkItemFilters {
@@ -9,7 +9,21 @@ export interface WorkItemFilters {
   assigneeId?: string;
   type?: WorkItem['type'];
   priority?: WorkItem['priority'];
+  labelId?: string;
   search?: string;
+  sort?: 'updated_desc' | 'updated_asc' | 'priority_desc' | 'priority_asc';
+}
+
+export interface UpdateWorkItemInput {
+  title?: string;
+  description?: string;
+  type?: WorkItem['type'];
+  status?: WorkItem['status'];
+  priority?: WorkItem['priority'];
+  assigneeId?: string | null;
+  dueDate?: string | null;
+  estimatePoints?: number | null;
+  updatedAt: Date;
 }
 
 export function createWorkItemRepository(db: WorktrailDb) {
@@ -43,14 +57,41 @@ export function createWorkItemRepository(db: WorktrailDb) {
         conditions.push(eq(workItems.priority, filters.priority));
       }
 
+      if (filters.labelId !== undefined) {
+        conditions.push(
+          sql`exists (
+            select 1 from ${workItemLabels}
+            where ${workItemLabels.workItemId} = ${workItems.id}
+            and ${workItemLabels.labelId} = ${filters.labelId}
+          )`
+        );
+      }
+
       if (filters.search !== undefined && filters.search.trim() !== '') {
         conditions.push(ilike(workItems.title, `%${filters.search.trim()}%`));
       }
 
+      const priorityRank = sql`case ${workItems.priority}
+        when 'urgent' then 4
+        when 'high' then 3
+        when 'medium' then 2
+        when 'low' then 1
+        else 0
+      end`;
+      const orderBy =
+        filters.sort === 'updated_asc'
+          ? asc(workItems.updatedAt)
+          : filters.sort === 'priority_desc'
+            ? desc(priorityRank)
+            : filters.sort === 'priority_asc'
+              ? asc(priorityRank)
+              : desc(workItems.updatedAt);
+
       return db
         .select()
         .from(workItems)
-        .where(and(...conditions));
+        .where(and(...conditions))
+        .orderBy(orderBy);
     },
 
     async countByStatus(projectId: string) {
@@ -81,6 +122,11 @@ export function createWorkItemRepository(db: WorktrailDb) {
         .set({ status, updatedAt })
         .where(eq(workItems.id, id))
         .returning();
+      return workItem ?? null;
+    },
+
+    async update(id: string, input: UpdateWorkItemInput) {
+      const [workItem] = await db.update(workItems).set(input).where(eq(workItems.id, id)).returning();
       return workItem ?? null;
     }
   };

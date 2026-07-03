@@ -4,6 +4,7 @@ import type {
   activityEvents,
   comments,
   labels,
+  workItemLabels,
   members,
   projects,
   workItems,
@@ -20,8 +21,8 @@ export type WorkItem = InferSelectModel<typeof workItems>;
 export type NewWorkItem = InferInsertModel<typeof workItems>;
 export type Label = InferSelectModel<typeof labels>;
 export type NewLabel = InferInsertModel<typeof labels>;
+export type WorkItemLabel = InferSelectModel<typeof workItemLabels>;
 export type Comment = InferSelectModel<typeof comments>;
 export type NewComment = InferInsertModel<typeof comments>;
 export type ActivityEvent = InferSelectModel<typeof activityEvents>;
 export type NewActivityEvent = InferInsertModel<typeof activityEvents>;
-

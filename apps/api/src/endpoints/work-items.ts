@@ -1,0 +1,183 @@
+import type {
+  CreateWorkItemRequest,
+  TransitionWorkItemRequest,
+  UpdateWorkItemRequest,
+  WorkItemDetailDto,
+  WorkItemListItemDto,
+  WorkItemSort
+} from '@worktrail/contracts';
+import { z } from 'zod';
+
+import type { WorktrailDb } from '../db/client.js';
+import { workItemPriorities, workItemStatuses, workItemTypes } from '../domain/constants.js';
+import type { EndpointHandler } from '../http/app-request.js';
+import type { Repositories } from '../repositories/index.js';
+import {
+  type WorkItemListFilters,
+  WorkItemService
+} from '../services/work-item-service.js';
+import { parseWithSchema } from '../validation/parse.js';
+
+const projectIdParamSchema = z.object({
+  projectId: z.string().uuid()
+});
+
+const workItemIdParamSchema = z.object({
+  workItemId: z.string().uuid()
+});
+
+const nullableUuidSchema = z.string().uuid().nullable();
+const nullableDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable();
+const nullableEstimateSchema = z.number().int().nonnegative().nullable();
+
+const createWorkItemSchema = z.object({
+  title: z.string().trim().min(1),
+  description: z.string().trim().optional(),
+  type: z.enum(workItemTypes),
+  status: z.enum(workItemStatuses).optional(),
+  priority: z.enum(workItemPriorities),
+  assigneeId: nullableUuidSchema.optional(),
+  labelIds: z.array(z.string().uuid()).optional(),
+  dueDate: nullableDateSchema.optional(),
+  estimatePoints: nullableEstimateSchema.optional()
+}) satisfies z.ZodType<CreateWorkItemRequest>;
+
+const updateWorkItemSchema = z
+  .object({
+    title: z.string().trim().min(1).optional(),
+    description: z.string().trim().optional(),
+    type: z.enum(workItemTypes).optional(),
+    priority: z.enum(workItemPriorities).optional(),
+    assigneeId: nullableUuidSchema.optional(),
+    labelIds: z.array(z.string().uuid()).optional(),
+    dueDate: nullableDateSchema.optional(),
+    estimatePoints: nullableEstimateSchema.optional()
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'At least one work item field must be provided.'
+  }) satisfies z.ZodType<UpdateWorkItemRequest>;
+
+const transitionWorkItemSchema = z.object({
+  status: z.enum(workItemStatuses)
+}) satisfies z.ZodType<TransitionWorkItemRequest>;
+
+const workItemFilterSchema = z.object({
+  status: z.enum(workItemStatuses).optional(),
+  assigneeId: z.string().uuid().optional(),
+  type: z.enum(workItemTypes).optional(),
+  labelId: z.string().uuid().optional(),
+  priority: z.enum(workItemPriorities).optional(),
+  search: z.string().trim().optional(),
+  sort: z.enum(['updated_desc', 'updated_asc', 'priority_desc', 'priority_asc']).optional()
+});
+
+function firstQueryValue(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function parseFilters(query: Record<string, string | string[] | undefined>): WorkItemListFilters {
+  const parsed = parseWithSchema(workItemFilterSchema, {
+    status: firstQueryValue(query.status),
+    assigneeId: firstQueryValue(query.assigneeId),
+    type: firstQueryValue(query.type),
+    labelId: firstQueryValue(query.labelId),
+    priority: firstQueryValue(query.priority),
+    search: firstQueryValue(query.search),
+    sort: firstQueryValue(query.sort) as WorkItemSort | undefined
+  });
+
+  return parsed;
+}
+
+export function listWorkItemsHandler(input: {
+  repositories: Repositories;
+  db?: WorktrailDb;
+}): EndpointHandler<WorkItemListItemDto[]> {
+  return async (request) => {
+    const { projectId } = parseWithSchema(projectIdParamSchema, request.params);
+    const service = new WorkItemService({
+      actor: request.actor,
+      repositories: input.repositories,
+      db: input.db
+    });
+    return {
+      status: 200,
+      body: await service.listWorkItems(projectId, parseFilters(request.query))
+    };
+  };
+}
+
+export function createWorkItemHandler(input: {
+  repositories: Repositories;
+  db?: WorktrailDb;
+}): EndpointHandler<WorkItemDetailDto> {
+  return async (request) => {
+    const { projectId } = parseWithSchema(projectIdParamSchema, request.params);
+    const body = parseWithSchema(createWorkItemSchema, request.body);
+    const service = new WorkItemService({
+      actor: request.actor,
+      repositories: input.repositories,
+      db: input.db
+    });
+    return {
+      status: 201,
+      body: await service.createWorkItem(projectId, body)
+    };
+  };
+}
+
+export function getWorkItemHandler(input: {
+  repositories: Repositories;
+  db?: WorktrailDb;
+}): EndpointHandler<WorkItemDetailDto> {
+  return async (request) => {
+    const { workItemId } = parseWithSchema(workItemIdParamSchema, request.params);
+    const service = new WorkItemService({
+      actor: request.actor,
+      repositories: input.repositories,
+      db: input.db
+    });
+    return {
+      status: 200,
+      body: await service.getWorkItem(workItemId)
+    };
+  };
+}
+
+export function updateWorkItemHandler(input: {
+  repositories: Repositories;
+  db?: WorktrailDb;
+}): EndpointHandler<WorkItemDetailDto> {
+  return async (request) => {
+    const { workItemId } = parseWithSchema(workItemIdParamSchema, request.params);
+    const body = parseWithSchema(updateWorkItemSchema, request.body);
+    const service = new WorkItemService({
+      actor: request.actor,
+      repositories: input.repositories,
+      db: input.db
+    });
+    return {
+      status: 200,
+      body: await service.updateWorkItem(workItemId, body)
+    };
+  };
+}
+
+export function transitionWorkItemHandler(input: {
+  repositories: Repositories;
+  db?: WorktrailDb;
+}): EndpointHandler<WorkItemDetailDto> {
+  return async (request) => {
+    const { workItemId } = parseWithSchema(workItemIdParamSchema, request.params);
+    const body = parseWithSchema(transitionWorkItemSchema, request.body);
+    const service = new WorkItemService({
+      actor: request.actor,
+      repositories: input.repositories,
+      db: input.db
+    });
+    return {
+      status: 200,
+      body: await service.transitionWorkItem(workItemId, body)
+    };
+  };
+}

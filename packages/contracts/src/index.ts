@@ -5,6 +5,7 @@ export interface ApiHealthResponse {
 
 export type MemberRole = 'owner' | 'maintainer' | 'contributor';
 export type ProjectStatus = 'active' | 'archived';
+export type WorkItemType = 'task' | 'bug' | 'story' | 'chore';
 export type WorkItemStatus =
   | 'backlog'
   | 'ready'
@@ -12,6 +13,8 @@ export type WorkItemStatus =
   | 'blocked'
   | 'done'
   | 'canceled';
+export type WorkItemPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type WorkItemSort = 'updated_desc' | 'updated_asc' | 'priority_desc' | 'priority_asc';
 
 export interface MemberDto {
   id: string;
@@ -59,4 +62,58 @@ export interface ProjectSummaryDto {
   project: ProjectDto;
   countsByStatus: ProjectStatusCountDto[];
   recentWorkItems: RecentWorkItemDto[];
+}
+
+export interface LabelDto {
+  id: string;
+  name: string;
+  color: string | null;
+}
+
+export interface WorkItemListItemDto {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  title: string;
+  type: WorkItemType;
+  status: WorkItemStatus;
+  priority: WorkItemPriority;
+  assignee: MemberDto | null;
+  reporter: MemberDto;
+  labels: LabelDto[];
+  dueDate: string | null;
+  estimatePoints: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkItemDetailDto extends WorkItemListItemDto {
+  description: string;
+}
+
+export interface CreateWorkItemRequest {
+  title: string;
+  description?: string;
+  type: WorkItemType;
+  status?: WorkItemStatus;
+  priority: WorkItemPriority;
+  assigneeId?: string | null;
+  labelIds?: string[];
+  dueDate?: string | null;
+  estimatePoints?: number | null;
+}
+
+export interface UpdateWorkItemRequest {
+  title?: string;
+  description?: string;
+  type?: WorkItemType;
+  priority?: WorkItemPriority;
+  assigneeId?: string | null;
+  labelIds?: string[];
+  dueDate?: string | null;
+  estimatePoints?: number | null;
+}
+
+export interface TransitionWorkItemRequest {
+  status: WorkItemStatus;
 }
