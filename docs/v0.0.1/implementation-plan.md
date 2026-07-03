@@ -214,6 +214,40 @@ npm run db:seed
 npm run typecheck
 ```
 
+Status:
+
+- Completed on 2026-07-03.
+- Added Drizzle ORM, node-postgres, drizzle-kit, and Postgres type dependencies to the API workspace.
+- Added `apps/api/drizzle.config.ts`.
+- Added the Drizzle schema at `apps/api/src/db/schema.ts` for:
+  - workspaces;
+  - members;
+  - projects;
+  - work items;
+  - labels;
+  - work item labels;
+  - comments;
+  - activity events.
+- Added check constraints for member role, project status, work item type/status/priority, and activity event type.
+- Added initial indexes from the technical design.
+- Generated and committed the initial migration at `apps/api/drizzle/0000_aberrant_centennial.sql` with Drizzle metadata.
+- Added database client, migration, reset, and seed scripts under `apps/api/src/db/`.
+- Added root scripts for `db:generate`, `db:migrate`, `db:reset`, and `db:seed`.
+- Added deterministic seed data with fixed UUIDs for one workspace, three members, two active projects, one archived project, work items across all statuses, labels, comments, and representative activity events.
+- Seed inserts use upserts or conflict-do-nothing behavior so rerunning the seed does not create duplicate demo records.
+- Updated README database setup and command documentation.
+- `npm run db:generate` passed and produced the initial migration.
+- `npm run typecheck` passed.
+- `npm run build:api` passed.
+- `npm run build` passed after the Phase 2 changes.
+- `npm test` passed after the Phase 2 changes.
+- `docker compose config` passed.
+- `npm run db:start` could not be fully verified because the Docker daemon was not running.
+- `npm run db:migrate` reached a local Postgres service but failed authentication for the default `worktrail` user, which indicates the project Docker database was not running and the existing local Postgres installation does not have the expected development credentials.
+- `npm run db:seed` was not run because migrations could not be applied against a verified database in this environment.
+- `npm audit --omit=dev --audit-level=low` passed with zero runtime dependency vulnerabilities.
+- Full `npm audit --audit-level=low` now reports the existing Angular low-severity development-tooling findings plus moderate development-tooling findings through drizzle-kit transitive `@esbuild-kit` dependencies. No runtime dependency vulnerabilities are reported.
+
 ## Phase 3: Backend Foundation
 
 Goal: build the API foundation without tying application logic to Express.

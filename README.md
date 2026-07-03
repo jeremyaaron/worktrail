@@ -34,6 +34,13 @@ Start local Postgres:
 npm run db:start
 ```
 
+Apply migrations and seed demo data:
+
+```sh
+npm run db:migrate
+npm run db:seed
+```
+
 Start the API and web app together:
 
 ```sh
@@ -64,6 +71,17 @@ npm run build
 
 ## Database Status
 
-Phase 1 adds the local Postgres container only. Migrations, schema, reset, and seed commands are part of Phase 2.
+Phase 2 adds the initial Postgres schema, Drizzle migration, and deterministic demo seed data.
+
+Useful database commands:
+
+```sh
+npm run db:generate  # generate a migration from the Drizzle schema
+npm run db:migrate   # apply committed migrations
+npm run db:seed      # upsert deterministic demo data
+npm run db:reset     # drop and recreate the local public schema
+```
+
+`npm run db:reset` refuses to run against non-local database hosts unless `WORKTRAIL_ALLOW_DATABASE_RESET=true` is set.
 
 The default development database URL is documented in [.env.example](.env.example).
