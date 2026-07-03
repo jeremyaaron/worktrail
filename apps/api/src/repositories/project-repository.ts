@@ -4,6 +4,13 @@ import type { WorktrailDb } from '../db/client.js';
 import { projects } from '../db/schema.js';
 import type { NewProject, Project } from './types.js';
 
+export interface UpdateProjectInput {
+  name?: string;
+  description?: string;
+  status?: Project['status'];
+  updatedAt: Date;
+}
+
 export function createProjectRepository(db: WorktrailDb) {
   return {
     async create(input: NewProject) {
@@ -27,7 +34,11 @@ export function createProjectRepository(db: WorktrailDb) {
         .where(eq(projects.id, id))
         .returning();
       return project ?? null;
+    },
+
+    async update(id: string, input: UpdateProjectInput) {
+      const [project] = await db.update(projects).set(input).where(eq(projects.id, id)).returning();
+      return project ?? null;
     }
   };
 }
-

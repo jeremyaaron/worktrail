@@ -1,7 +1,10 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "rootDir": "src"
+    "rootDir": "src",
+    "paths": {
+      "@worktrail/contracts": ["packages/contracts/dist/index.d.ts"]
+    }
   },
   "exclude": ["tests/**/*.ts", "**/*.test.ts", "dist"]
 }

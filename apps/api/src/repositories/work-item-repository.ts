@@ -1,4 +1,4 @@
-import { and, eq, ilike } from 'drizzle-orm';
+import { and, count, desc, eq, ilike } from 'drizzle-orm';
 
 import type { WorktrailDb } from '../db/client.js';
 import { workItems } from '../db/schema.js';
@@ -53,6 +53,28 @@ export function createWorkItemRepository(db: WorktrailDb) {
         .where(and(...conditions));
     },
 
+    async countByStatus(projectId: string) {
+      return db
+        .select({ status: workItems.status, count: count() })
+        .from(workItems)
+        .where(eq(workItems.projectId, projectId))
+        .groupBy(workItems.status);
+    },
+
+    async listRecentByProject(projectId: string, limit = 5) {
+      return db
+        .select({
+          id: workItems.id,
+          title: workItems.title,
+          status: workItems.status,
+          updatedAt: workItems.updatedAt
+        })
+        .from(workItems)
+        .where(eq(workItems.projectId, projectId))
+        .orderBy(desc(workItems.updatedAt))
+        .limit(limit);
+    },
+
     async updateStatus(id: string, status: WorkItem['status'], updatedAt: Date) {
       const [workItem] = await db
         .update(workItems)
@@ -63,4 +85,3 @@ export function createWorkItemRepository(db: WorktrailDb) {
     }
   };
 }
-

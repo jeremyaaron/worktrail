@@ -441,6 +441,40 @@ npm test --workspace apps/api -- projects members
 npm run typecheck
 ```
 
+Status:
+
+- Completed on 2026-07-03.
+- Added shared project/member DTO and request/response contract types in `packages/contracts`.
+- Added `MemberService`.
+- Added `ProjectService`.
+- Added service DTO mappers for members, projects, and recent work item summaries.
+- Added project repository update support.
+- Added work item repository support for project summary counts and recent project work items.
+- Added endpoint handlers for:
+  - `GET /api/members`;
+  - `GET /api/projects`;
+  - `POST /api/projects`;
+  - `GET /api/projects/:projectId`;
+  - `PATCH /api/projects/:projectId`;
+  - `GET /api/projects/:projectId/summary`.
+- Mounted project/member routes in the Express app when repositories are provided.
+- Updated `main.ts` to create the Postgres pool, Drizzle client, repository set, and route-enabled Express app.
+- Added Zod validation for project create/update bodies and project id params.
+- Implemented project create, list, get, update/archive/reactivate, and summary behavior.
+- Implemented maintainer/owner permission checks for archive/reactivate.
+- Added project/member endpoint tests against local Postgres with isolated test workspaces and cleanup.
+- Adjusted TypeScript path behavior so source typecheck reads contract sources while production API build consumes built contract declarations.
+- `npm test --workspace @worktrail/api -- projects members` passed: 8 tests in 1 test file.
+- `npm run typecheck --workspace @worktrail/api` passed.
+- Full `npm run typecheck` passed.
+- Full `npm test` passed: API 28 tests across 4 test files, plus existing web/contracts tests.
+- Full `npm run build` passed.
+- `npm run dev:api` started successfully.
+- Runtime checks against the seeded local database passed:
+  - `GET /api/members`;
+  - `GET /api/projects`;
+  - `GET /api/projects/10000000-0000-4000-8000-000000000201/summary`.
+
 ## Phase 6: Work Item API
 
 Goal: implement the central work item create, list, detail, update, filter, and transition behavior.
