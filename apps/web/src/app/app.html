@@ -1,12 +1,39 @@
-<main class="app-shell">
-  <section class="hero">
-    <p class="eyebrow">Project management reference app</p>
-    <h1>{{ title() }}</h1>
-    <p class="summary">
-      Local Angular shell for the v0.0.1 MVP. Project, work item, board, comment,
-      and activity views will be added in later implementation phases.
-    </p>
-  </section>
+<div class="app-shell">
+  <header class="topbar">
+    <a class="brand" routerLink="/projects" aria-label="Worktrail projects">
+      <span class="brand__mark" aria-hidden="true">W</span>
+      <span>Worktrail</span>
+    </a>
 
-  <router-outlet />
-</main>
+    <nav class="primary-nav" aria-label="Primary navigation">
+      <a routerLink="/projects" routerLinkActive="primary-nav__link--active">Projects</a>
+    </nav>
+
+    <section class="actor-selector" aria-label="Current user">
+      @if (currentUser.isLoading()) {
+        <app-loading-indicator label="Loading members" />
+      } @else if (currentUser.error()) {
+        <app-error-panel
+          title="Members unavailable"
+          [message]="currentUser.error() ?? ''"
+          (retry)="loadMembers()"
+        />
+      } @else {
+        <label for="current-member">Acting as</label>
+        <select
+          id="current-member"
+          [ngModel]="currentUser.selectedMember()?.id"
+          (ngModelChange)="selectMember($event)"
+        >
+          @for (member of currentUser.members(); track member.id) {
+            <option [value]="member.id">{{ member.name }} · {{ member.role }}</option>
+          }
+        </select>
+      }
+    </section>
+  </header>
+
+  <main class="content-shell">
+    <router-outlet />
+  </main>
+</div>

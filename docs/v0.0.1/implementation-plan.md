@@ -678,6 +678,36 @@ npm run build:web
 npm run typecheck
 ```
 
+Status:
+
+- Completed on 2026-07-03.
+- Configured the Angular environment to use same-origin `/api`.
+- Added an Angular development proxy from `/api` to the local API on `http://localhost:3000`.
+- Updated `npm run dev:web` to start Angular with the proxy configuration.
+- Added `provideHttpClient()` to the Angular application config.
+- Added a typed `WorktrailApiService` for members, projects, project summary, work items, comments, and activity endpoints.
+- Added `CurrentUserService` with local selected-member persistence and actor header generation.
+- Added a top-level Worktrail shell with primary navigation and a local current-user selector backed by `GET /api/members`.
+- Added shared loading, empty, and error UI primitives.
+- Added route configuration and placeholder screens for:
+  - `/projects`;
+  - `/projects/:projectId`;
+  - `/projects/:projectId/work-items`;
+  - `/projects/:projectId/board`;
+  - `/work-items/:workItemId`.
+- Added a lightweight projects route that calls `GET /api/projects` and renders API-backed project readiness data.
+- Updated Angular app tests for the API-backed member selector and shell navigation.
+- `npm run typecheck --workspace @worktrail/web` passed.
+- `npm test --workspace @worktrail/web` passed: 2 tests.
+- `npm run typecheck` passed across all workspaces.
+- `npm test` passed across all workspaces: API 40 tests in 6 files, Angular 2 tests, contracts no-op test.
+- `npm run build` passed across contracts, API, and web.
+- Runtime development smoke passed:
+  - `npm run dev:api` started on `http://localhost:3000`;
+  - `npm run dev:web` started on `http://localhost:4200` with the proxy config;
+  - `GET http://localhost:4200/projects` returned the Angular app shell;
+  - `GET http://localhost:4200/api/members` proxied successfully and returned 3 seeded members.
+
 ## Phase 9: Project Views
 
 Goal: implement project list and project home screens.
