@@ -138,6 +138,28 @@ npm run build
 npm test
 ```
 
+Status:
+
+- Completed on 2026-07-03.
+- Created the root npm workspace scaffold with `apps/web`, `apps/api`, and `packages/contracts`.
+- Pinned the Angular scaffold to Angular 20.x because the current local runtime is Node `20.19.1`; Angular 22 requires Node `22.22.3` or newer.
+- Added root scripts for development, build, typecheck, tests, and Postgres Docker Compose lifecycle.
+- Added a minimal Angular Worktrail shell and removed the generated Angular starter page.
+- Added a minimal TypeScript API package with a local Express adapter and `GET /api/health`.
+- Added a contracts package with an initial health response type.
+- Added Docker Compose for local Postgres and `.env.example`.
+- Updated the README with Phase 1 setup, service ports, and verification commands.
+- `npm install` passed and generated `package-lock.json`.
+- `npm run typecheck` passed across API, web, and contracts.
+- `npm test` passed across API, web, and contracts. API and contracts currently have placeholder/no-op tests; Angular has the generated app shell tests.
+- `npm run build` passed across contracts, API, and web.
+- `npm run dev:api` started successfully, and `GET /api/health` returned `{"status":"ok","service":"worktrail-api"}`.
+- `npm run dev:web` started successfully on `http://localhost:4200`; Angular analytics was disabled for the local project.
+- `docker compose config` passed.
+- `npm run db:start` could not be fully verified because the local Docker daemon was not running: `Cannot connect to the Docker daemon at unix:///Users/jeremyaaron/.docker/run/docker.sock`.
+- `npm audit --omit=dev --audit-level=low` passed with zero runtime dependency vulnerabilities.
+- Full `npm audit --audit-level=low` reports three low-severity development-tooling findings through Angular's compiler/build chain. The npm-suggested fix requires a breaking Angular downgrade, and Angular 22's fixed compiler requires a newer Node line than this environment currently has, so no dependency change was applied in Phase 1.
+
 ## Phase 2: Database Schema, Migrations, And Seed Data
 
 Goal: establish real Postgres persistence before building resource behavior.

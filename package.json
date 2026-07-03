@@ -1,0 +1,34 @@
+{
+  "name": "worktrail",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Worktrail project management reference app.",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "npm run dev --workspace @worktrail/api",
+    "dev:web": "npm run start --workspace @worktrail/web",
+    "build": "npm run build --workspace @worktrail/contracts && npm run build --workspace @worktrail/api && npm run build --workspace @worktrail/web",
+    "build:api": "npm run build --workspace @worktrail/api",
+    "build:web": "npm run build --workspace @worktrail/web",
+    "build:contracts": "npm run build --workspace @worktrail/contracts",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "db:start": "docker compose up -d postgres",
+    "db:stop": "docker compose stop postgres",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f postgres"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  },
+  "engines": {
+    "node": ">=20.19.0",
+    "npm": ">=10.0.0"
+  }
+}

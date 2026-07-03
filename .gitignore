@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+.angular/
+.env
+.env.local
+.DS_Store
+npm-debug.log*
+docker-data/
