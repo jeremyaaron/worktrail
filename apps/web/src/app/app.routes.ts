@@ -4,8 +4,8 @@ import { ProjectHomePageComponent } from './features/projects/project-home-page.
 import { ProjectListPageComponent } from './features/projects/project-list-page.component';
 import { ProjectPlaceholderPageComponent } from './features/projects/project-placeholder-page.component';
 import { WorkItemCreatePageComponent } from './features/work-items/work-item-create-page.component';
+import { WorkItemDetailPageComponent } from './features/work-items/work-item-detail-page.component';
 import { WorkItemListPageComponent } from './features/work-items/work-item-list-page.component';
-import { WorkItemPlaceholderPageComponent } from './features/work-items/work-item-placeholder-page.component';
 
 export const routes: Routes = [
   {
@@ -44,7 +44,7 @@ export const routes: Routes = [
   },
   {
     path: 'work-items/:workItemId',
-    component: WorkItemPlaceholderPageComponent,
+    component: WorkItemDetailPageComponent,
     title: 'Work Item | Worktrail'
   },
   {

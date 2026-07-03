@@ -882,6 +882,29 @@ npm test --workspace apps/web -- work-item-detail
 npm run build:web
 ```
 
+Status:
+
+- Completed on 2026-07-03.
+- Added a real work item detail route at `/work-items/:workItemId`.
+- Displayed title, description, status, type, priority, assignee, reporter, attached labels, timestamps, due date, and estimate.
+- Added editable controls for title, description, type, priority, assignee, and currently attached labels.
+- Added explicit status transition handling through `POST /api/work-items/:workItemId/transitions`.
+- Added workflow rejection error UI for failed status transitions.
+- Added comment list and comment form backed by `POST /api/work-items/:workItemId/comments`.
+- Refreshed the detail payload after comment submission so comments and activity timeline update together.
+- Added activity timeline rendering from the embedded detail activity payload.
+- Added loading, empty, and error states for detail, comments, and activity.
+- Added responsive layout behavior for narrower viewports.
+- Added Angular tests covering detail rendering, editable field updates, rejected status transitions, comment submission, and post-comment comment/activity refresh.
+- `npm test --workspace @worktrail/web -- --include src/app/features/work-items/work-item-detail-page.component.spec.ts` passed: 4 tests.
+- `npm run typecheck --workspace @worktrail/web` passed.
+- `npm run typecheck` passed across all workspaces.
+- `npm test` passed across all workspaces: API 40 tests in 6 files, Angular 14 tests, contracts no-op test.
+- `npm run build` passed across contracts, API, and web.
+- Runtime development smoke passed through the Angular proxy without mutating local seed data:
+  - `GET http://localhost:4200/work-items/10000000-0000-4000-8000-000000000403` returned the Angular app shell;
+  - `GET http://localhost:4200/api/work-items/10000000-0000-4000-8000-000000000403` returned the seeded work item detail with 2 comments and 6 activity entries.
+
 ## Phase 12: Board View
 
 Goal: implement the status board without adding unnecessary drag-and-drop complexity.
