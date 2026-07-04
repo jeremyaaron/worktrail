@@ -11,20 +11,21 @@ export class CurrentUserService {
   private readonly http = inject(HttpClient);
 
   readonly members = signal<MemberDto[]>([]);
+  readonly activeMembers = computed<MemberDto[]>(() => this.members().filter((member) => member.isActive));
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
   readonly selectedMemberId = signal<string | null>(localStorage.getItem(selectedMemberStorageKey));
 
   readonly selectedMember = computed<MemberDto | null>(() => {
     const selectedId = this.selectedMemberId();
-    const members = this.members();
+    const members = this.activeMembers();
     const selectedMember = members.find((member) => member.id === selectedId);
 
     if (selectedMember !== undefined) {
       return selectedMember;
     }
 
-    return members.length === 0 ? null : members[0];
+    return this.fallbackActiveMember(members);
   });
 
   loadMembers(): void {
@@ -35,9 +36,15 @@ export class CurrentUserService {
       next: (members) => {
         this.members.set(members);
         const currentSelection = this.selectedMemberId();
+        const selectedMember = members.find((member) => member.id === currentSelection);
+        const fallbackMember = this.fallbackActiveMember(members.filter((member) => member.isActive));
 
-        if (members.length > 0 && !members.some((member) => member.id === currentSelection)) {
-          this.selectMember(members[0].id);
+        if (selectedMember?.isActive === true) {
+          this.selectMember(selectedMember.id);
+        } else if (fallbackMember !== null) {
+          this.selectMember(fallbackMember.id);
+        } else {
+          this.clearSelectedMember();
         }
 
         this.isLoading.set(false);
@@ -50,8 +57,14 @@ export class CurrentUserService {
   }
 
   selectMember(memberId: string): void {
-    this.selectedMemberId.set(memberId);
-    localStorage.setItem(selectedMemberStorageKey, memberId);
+    const member = this.activeMembers().find((item) => item.id === memberId);
+
+    if (member === undefined) {
+      return;
+    }
+
+    this.selectedMemberId.set(member.id);
+    localStorage.setItem(selectedMemberStorageKey, member.id);
   }
 
   actorHeaders(): Record<string, string> {
@@ -65,5 +78,14 @@ export class CurrentUserService {
       'x-worktrail-workspace-id': member.workspaceId,
       'x-worktrail-member-id': member.id
     };
+  }
+
+  private fallbackActiveMember(members: MemberDto[]): MemberDto | null {
+    return members.find((member) => member.role === 'owner') ?? members[0] ?? null;
+  }
+
+  private clearSelectedMember(): void {
+    this.selectedMemberId.set(null);
+    localStorage.removeItem(selectedMemberStorageKey);
   }
 }

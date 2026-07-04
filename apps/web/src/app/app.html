@@ -7,6 +7,7 @@
 
     <nav class="primary-nav" aria-label="Primary navigation">
       <a routerLink="/projects" routerLinkActive="primary-nav__link--active">Projects</a>
+      <a routerLink="/workspace/settings" routerLinkActive="primary-nav__link--active">Workspace</a>
     </nav>
 
     <section class="actor-selector" aria-label="Current user">
@@ -20,15 +21,19 @@
         />
       } @else {
         <label for="current-member">Acting as</label>
-        <select
-          id="current-member"
-          [ngModel]="currentUser.selectedMember()?.id"
-          (ngModelChange)="selectMember($event)"
-        >
-          @for (member of currentUser.members(); track member.id) {
-            <option [value]="member.id">{{ member.name }} · {{ member.role }}</option>
-          }
-        </select>
+        @if (currentUser.activeMembers().length > 0) {
+          <select
+            id="current-member"
+            [ngModel]="currentUser.selectedMember()?.id"
+            (ngModelChange)="selectMember($event)"
+          >
+            @for (member of currentUser.activeMembers(); track member.id) {
+              <option [value]="member.id">{{ member.name }} · {{ member.role }}</option>
+            }
+          </select>
+        } @else {
+          <span class="actor-selector__empty">No active members</span>
+        }
       }
     </section>
   </header>

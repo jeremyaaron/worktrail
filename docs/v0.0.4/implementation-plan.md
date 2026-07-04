@@ -593,6 +593,34 @@ npm test --workspace @worktrail/web -- --include 'src/app/app.spec.ts'
 npm run typecheck --workspace @worktrail/web
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Extended `WorktrailApiService` with:
+  - workspace get/update;
+  - workspace capabilities;
+  - workspace activity;
+  - member create/update/deactivate/reactivate.
+- Kept frontend actor headers limited to workspace ID and member ID; `x-worktrail-role` was already removed in Phase 2.
+- Updated `CurrentUserService` with:
+  - `activeMembers` computed signal;
+  - active selected member fallback;
+  - first active owner fallback;
+  - stale inactive selection clearing from local storage.
+- Updated the app actor selector to show active members only.
+- Added a global `Workspace` navigation link.
+- Added app-level frontend tests for:
+  - shell navigation;
+  - active-member actor selector filtering;
+  - stored inactive selection fallback to the active owner.
+- Verified `npm test --workspace @worktrail/web -- --include 'src/app/app.spec.ts'`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm test --workspace @worktrail/web`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `npm run build`.
+- Verified `git diff --check` and `git diff --cached --check`.
+
 ## Phase 8: Workspace Settings Frontend
 
 Goal: add the workspace administration surface.
