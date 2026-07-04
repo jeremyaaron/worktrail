@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, ilike, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, ilike, or, sql } from 'drizzle-orm';
 
 import type { WorktrailDb } from '../db/client.js';
 import { workItemLabels, workItems } from '../db/schema.js';
@@ -7,9 +7,12 @@ import type { NewWorkItem, WorkItem } from './types.js';
 export interface WorkItemFilters {
   status?: WorkItem['status'];
   assigneeId?: string;
+  reporterId?: string;
   type?: WorkItem['type'];
   priority?: WorkItem['priority'];
   labelId?: string;
+  milestoneId?: string;
+  dueDateState?: 'overdue' | 'due_soon' | 'none';
   search?: string;
   sort?:
     | 'updated_desc'
@@ -28,6 +31,7 @@ export interface UpdateWorkItemInput {
   status?: WorkItem['status'];
   priority?: WorkItem['priority'];
   assigneeId?: string | null;
+  milestoneId?: string | null;
   dueDate?: string | null;
   estimatePoints?: number | null;
   updatedAt: Date;
@@ -56,6 +60,10 @@ export function createWorkItemRepository(db: WorktrailDb) {
         conditions.push(eq(workItems.assigneeId, filters.assigneeId));
       }
 
+      if (filters.reporterId !== undefined) {
+        conditions.push(eq(workItems.reporterId, filters.reporterId));
+      }
+
       if (filters.type !== undefined) {
         conditions.push(eq(workItems.type, filters.type));
       }
@@ -74,8 +82,34 @@ export function createWorkItemRepository(db: WorktrailDb) {
         );
       }
 
+      if (filters.milestoneId !== undefined) {
+        conditions.push(eq(workItems.milestoneId, filters.milestoneId));
+      }
+
+      if (filters.dueDateState === 'overdue') {
+        conditions.push(sql`${workItems.dueDate} < current_date`);
+        conditions.push(sql`${workItems.status} not in ('done', 'canceled')`);
+      }
+
+      if (filters.dueDateState === 'due_soon') {
+        conditions.push(sql`${workItems.dueDate} >= current_date`);
+        conditions.push(sql`${workItems.dueDate} <= current_date + interval '7 days'`);
+        conditions.push(sql`${workItems.status} not in ('done', 'canceled')`);
+      }
+
+      if (filters.dueDateState === 'none') {
+        conditions.push(sql`${workItems.dueDate} is null`);
+      }
+
       if (filters.search !== undefined && filters.search.trim() !== '') {
-        conditions.push(ilike(workItems.title, `%${filters.search.trim()}%`));
+        const search = `%${filters.search.trim()}%`;
+        conditions.push(
+          or(
+            ilike(workItems.displayKey, search),
+            ilike(workItems.title, search),
+            ilike(workItems.description, search)
+          )!
+        );
       }
 
       const priorityRank = sql`case ${workItems.priority}
@@ -85,20 +119,39 @@ export function createWorkItemRepository(db: WorktrailDb) {
         when 'low' then 1
         else 0
       end`;
-      const orderBy =
-        filters.sort === 'updated_asc'
-          ? asc(workItems.updatedAt)
-          : filters.sort === 'priority_desc'
-            ? desc(priorityRank)
-            : filters.sort === 'priority_asc'
-              ? asc(priorityRank)
-              : desc(workItems.updatedAt);
+      const orderBy = (() => {
+        if (filters.sort === 'updated_asc') {
+          return [asc(workItems.updatedAt), asc(workItems.itemNumber)];
+        }
+
+        if (filters.sort === 'priority_desc') {
+          return [desc(priorityRank), desc(workItems.updatedAt), asc(workItems.itemNumber)];
+        }
+
+        if (filters.sort === 'priority_asc') {
+          return [asc(priorityRank), desc(workItems.updatedAt), asc(workItems.itemNumber)];
+        }
+
+        if (filters.sort === 'due_date_asc') {
+          return [sql`${workItems.dueDate} asc nulls last`, asc(workItems.itemNumber)];
+        }
+
+        if (filters.sort === 'created_desc') {
+          return [desc(workItems.createdAt), asc(workItems.itemNumber)];
+        }
+
+        if (filters.sort === 'board_order') {
+          return [asc(workItems.status), asc(workItems.boardPosition), asc(workItems.itemNumber)];
+        }
+
+        return [desc(workItems.updatedAt), asc(workItems.itemNumber)];
+      })();
 
       return db
         .select()
         .from(workItems)
         .where(and(...conditions))
-        .orderBy(orderBy);
+        .orderBy(...orderBy);
     },
 
     async countByStatus(projectId: string) {

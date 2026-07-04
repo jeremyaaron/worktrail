@@ -24,7 +24,15 @@ import {
   type Repositories,
   withRepositoriesTransaction
 } from '../repositories/index.js';
-import type { ActivityEvent, Comment, Label, Member, Project, WorkItem } from '../repositories/types.js';
+import type {
+  ActivityEvent,
+  Comment,
+  Label,
+  Member,
+  Milestone,
+  Project,
+  WorkItem
+} from '../repositories/types.js';
 import {
   toActivityEventDto,
   toCommentDto,
@@ -35,9 +43,12 @@ import {
 export interface WorkItemListFilters {
   status?: WorkItemStatus;
   assigneeId?: string;
+  reporterId?: string;
   type?: WorkItem['type'];
   labelId?: string;
+  milestoneId?: string;
   priority?: WorkItem['priority'];
+  dueDateState?: 'overdue' | 'due_soon' | 'none';
   search?: string;
   sort?: WorkItemSort;
 }
@@ -55,6 +66,7 @@ interface WorkItemBundle {
   assignee: Member | null;
   reporter: Member;
   labels: Label[];
+  milestone: Milestone | null;
 }
 
 export class WorkItemService {
@@ -82,6 +94,7 @@ export class WorkItemService {
       const project = await this.requireProjectFromRepositories(projectId, repositories);
       this.assertProjectWritable(project);
       await this.validateLabels(projectId, labelIds, repositories);
+      await this.validateMilestone(projectId, input.milestoneId ?? null, repositories);
       const numberedProject = await repositories.projects.allocateWorkItemNumber(projectId, timestamp);
 
       if (numberedProject === null || numberedProject.workspaceId !== this.context.actor.workspaceId) {
@@ -105,6 +118,7 @@ export class WorkItemService {
         priority: input.priority,
         assigneeId: input.assigneeId ?? null,
         reporterId: this.context.actor.memberId,
+        milestoneId: input.milestoneId ?? null,
         dueDate: input.dueDate ?? null,
         estimatePoints: input.estimatePoints ?? null,
         createdAt: timestamp,
@@ -155,12 +169,19 @@ export class WorkItemService {
         });
       }
 
+      if (input.milestoneId !== undefined) {
+        await this.validateMilestone(current.projectId, input.milestoneId, repositories, {
+          currentMilestoneId: current.milestoneId
+        });
+      }
+
       const updated = await repositories.workItems.update(workItemId, {
         ...(input.title === undefined ? {} : { title: input.title }),
         ...(input.description === undefined ? {} : { description: input.description }),
         ...(input.type === undefined ? {} : { type: input.type }),
         ...(input.priority === undefined ? {} : { priority: input.priority }),
         ...(input.assigneeId === undefined ? {} : { assigneeId: input.assigneeId }),
+        ...(input.milestoneId === undefined ? {} : { milestoneId: input.milestoneId }),
         ...(input.dueDate === undefined ? {} : { dueDate: input.dueDate }),
         ...(input.estimatePoints === undefined ? {} : { estimatePoints: input.estimatePoints }),
         updatedAt: timestamp
@@ -302,6 +323,28 @@ export class WorkItemService {
     }
   }
 
+  private async validateMilestone(
+    projectId: string,
+    milestoneId: string | null,
+    repositories: Repositories,
+    options: { currentMilestoneId?: string | null } = {}
+  ): Promise<void> {
+    if (milestoneId === null) {
+      return;
+    }
+
+    const milestone = await repositories.milestones.findById(milestoneId);
+
+    if (
+      milestone === null ||
+      milestone.workspaceId !== this.context.actor.workspaceId ||
+      milestone.projectId !== projectId ||
+      (milestone.archivedAt !== null && milestone.id !== options.currentMilestoneId)
+    ) {
+      throw new ValidationError('Milestone is invalid for this project.');
+    }
+  }
+
   private async toListDtos(
     workItems: WorkItem[],
     repositories: Repositories
@@ -345,16 +388,23 @@ export class WorkItemService {
     const reporter = await repositories.members.findById(workItem.reporterId);
     const assignee =
       workItem.assigneeId === null ? null : await repositories.members.findById(workItem.assigneeId);
+    const milestone =
+      workItem.milestoneId === null ? null : await repositories.milestones.findById(workItem.milestoneId);
 
     if (reporter === null) {
       throw new NotFoundError('Work item reporter not found.');
+    }
+
+    if (workItem.milestoneId !== null && milestone === null) {
+      throw new NotFoundError('Work item milestone not found.');
     }
 
     return {
       workItem,
       assignee,
       reporter,
-      labels
+      labels,
+      milestone
     };
   }
 
@@ -410,6 +460,7 @@ export class WorkItemService {
     await this.recordFieldActivity(input, 'description', 'work_item.description_changed');
     await this.recordFieldActivity(input, 'priority', 'work_item.priority_changed');
     await this.recordFieldActivity(input, 'assigneeId', 'work_item.assignee_changed');
+    await this.recordMilestoneActivity(input);
 
     const currentLabelIds = new Set(input.currentLabels.map((label) => label.id));
     const nextLabelIds = new Set(input.nextLabels.map((label) => label.id));
@@ -479,6 +530,49 @@ export class WorkItemService {
       summary: `${field} changed.`,
       previousValue: { [field]: input.current[field] },
       newValue: { [field]: input.updated[field] },
+      metadata: {},
+      createdAt: input.timestamp
+    });
+  }
+
+  private async recordMilestoneActivity(input: {
+    current: WorkItem;
+    updated: WorkItem;
+    repositories: Repositories;
+    timestamp: Date;
+  }): Promise<void> {
+    if (input.current.milestoneId === input.updated.milestoneId) {
+      return;
+    }
+
+    const previousMilestone =
+      input.current.milestoneId === null
+        ? null
+        : await input.repositories.milestones.findById(input.current.milestoneId);
+    const nextMilestone =
+      input.updated.milestoneId === null
+        ? null
+        : await input.repositories.milestones.findById(input.updated.milestoneId);
+
+    await input.repositories.activityEvents.create({
+      id: this.idGenerator(),
+      workspaceId: input.updated.workspaceId,
+      projectId: input.updated.projectId,
+      workItemId: input.updated.id,
+      actorId: this.context.actor.memberId,
+      eventType: 'work_item.milestone_changed',
+      summary:
+        nextMilestone === null
+          ? 'Milestone assignment cleared.'
+          : `Milestone changed to ${nextMilestone.name}.`,
+      previousValue:
+        previousMilestone === null
+          ? null
+          : { milestoneId: previousMilestone.id, milestoneName: previousMilestone.name },
+      newValue:
+        nextMilestone === null
+          ? null
+          : { milestoneId: nextMilestone.id, milestoneName: nextMilestone.name },
       metadata: {},
       createdAt: input.timestamp
     });

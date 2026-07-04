@@ -1,5 +1,6 @@
 import type {
   CreateWorkItemRequest,
+  DueDateState,
   TransitionWorkItemRequest,
   UpdateWorkItemRequest,
   WorkItemDetailDto,
@@ -38,6 +39,7 @@ const createWorkItemSchema = z.object({
   priority: z.enum(workItemPriorities),
   assigneeId: nullableUuidSchema.optional(),
   labelIds: z.array(z.string().uuid()).optional(),
+  milestoneId: nullableUuidSchema.optional(),
   dueDate: nullableDateSchema.optional(),
   estimatePoints: nullableEstimateSchema.optional()
 }) satisfies z.ZodType<CreateWorkItemRequest>;
@@ -50,6 +52,7 @@ const updateWorkItemSchema = z
     priority: z.enum(workItemPriorities).optional(),
     assigneeId: nullableUuidSchema.optional(),
     labelIds: z.array(z.string().uuid()).optional(),
+    milestoneId: nullableUuidSchema.optional(),
     dueDate: nullableDateSchema.optional(),
     estimatePoints: nullableEstimateSchema.optional()
   })
@@ -64,11 +67,24 @@ const transitionWorkItemSchema = z.object({
 const workItemFilterSchema = z.object({
   status: z.enum(workItemStatuses).optional(),
   assigneeId: z.string().uuid().optional(),
+  reporterId: z.string().uuid().optional(),
   type: z.enum(workItemTypes).optional(),
   labelId: z.string().uuid().optional(),
+  milestoneId: z.string().uuid().optional(),
   priority: z.enum(workItemPriorities).optional(),
+  dueDateState: z.enum(['overdue', 'due_soon', 'none']).optional(),
   search: z.string().trim().optional(),
-  sort: z.enum(['updated_desc', 'updated_asc', 'priority_desc', 'priority_asc']).optional()
+  sort: z
+    .enum([
+      'updated_desc',
+      'updated_asc',
+      'priority_desc',
+      'priority_asc',
+      'due_date_asc',
+      'created_desc',
+      'board_order'
+    ])
+    .optional()
 });
 
 function firstQueryValue(value: string | string[] | undefined): string | undefined {
@@ -79,9 +95,12 @@ function parseFilters(query: Record<string, string | string[] | undefined>): Wor
   const parsed = parseWithSchema(workItemFilterSchema, {
     status: firstQueryValue(query.status),
     assigneeId: firstQueryValue(query.assigneeId),
+    reporterId: firstQueryValue(query.reporterId),
     type: firstQueryValue(query.type),
     labelId: firstQueryValue(query.labelId),
+    milestoneId: firstQueryValue(query.milestoneId),
     priority: firstQueryValue(query.priority),
+    dueDateState: firstQueryValue(query.dueDateState) as DueDateState | undefined,
     search: firstQueryValue(query.search),
     sort: firstQueryValue(query.sort) as WorkItemSort | undefined
   });

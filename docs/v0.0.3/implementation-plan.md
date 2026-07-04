@@ -289,6 +289,29 @@ npm test --workspace @worktrail/api -- work-items
 npm run typecheck
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Extended work item repository filters for reporter, milestone, due date state, display key/title/description search, and expanded sorts.
+- Added `due_date_asc`, `created_desc`, and `board_order` sort behavior.
+- Added `milestoneId` to work item repository update inputs.
+- Added work item service milestone validation for create/update:
+  - milestone must belong to the same workspace and project;
+  - archived milestones cannot be newly assigned;
+  - existing archived assignments can remain unchanged;
+  - assignments can be cleared with `null`.
+- Added milestone DTO loading for work item list/detail responses.
+- Added `work_item.milestone_changed` activity when milestone assignment changes.
+- Extended work item endpoint validation for `milestoneId`, `reporterId`, `milestoneId` filter, `dueDateState`, and expanded sort values.
+- Added API tests for milestone assignment on create, milestone assignment update/clear, archived milestone validation, milestone DTO responses, search across description/display key, reporter/milestone/due-date filters, and board order sorting.
+- Verified `npm test --workspace @worktrail/api -- work-items`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `NODE_OPTIONS=--trace-deprecation npm test --workspace @worktrail/api`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `npm run build`.
+- Verified `git diff --check`.
+
 ## Phase 4: Board Ordering Backend
 
 Goal: persist board ordering and add the board move command.

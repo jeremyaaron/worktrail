@@ -150,6 +150,26 @@ async function createWorkItem(fixture: Awaited<ReturnType<typeof createFixture>>
   });
 }
 
+async function createMilestone(
+  fixture: Awaited<ReturnType<typeof createFixture>>,
+  overrides: Partial<Parameters<typeof repositories.milestones.create>[0]> = {}
+) {
+  return repositories.milestones.create({
+    id: randomUUID(),
+    workspaceId: fixture.workspaceId,
+    projectId: fixture.projectId,
+    name: 'v0.0.3',
+    description: 'Planning milestone.',
+    status: 'active',
+    targetDate: '2026-07-18',
+    archivedAt: null,
+    archivedById: null,
+    createdAt: now(),
+    updatedAt: now(),
+    ...overrides
+  });
+}
+
 beforeAll(() => {
   pool = createPool();
   db = createDb(pool);
@@ -249,6 +269,34 @@ describe('work item API', () => {
       });
   });
 
+  it('creates work items with milestone assignment and returns milestone DTOs', async () => {
+    const fixture = await createFixture('owner');
+    const milestone = await createMilestone(fixture);
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items`)
+      .set(fixture.headers)
+      .send({
+        title: 'Milestone assigned item',
+        type: 'story',
+        priority: 'high',
+        milestoneId: milestone.id
+      })
+      .expect(201)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          title: 'Milestone assigned item',
+          milestone: {
+            id: milestone.id,
+            name: 'v0.0.3',
+            status: 'active',
+            targetDate: '2026-07-18',
+            isArchived: false
+          }
+        });
+      });
+  });
+
   it('rejects invalid work item creation requests', async () => {
     const fixture = await createFixture('owner');
 
@@ -326,6 +374,68 @@ describe('work item API', () => {
       });
   });
 
+  it('searches and filters by milestone, reporter, due date state, and board order', async () => {
+    const fixture = await createFixture('owner');
+    const milestone = await createMilestone(fixture);
+    const dueSoon = await createWorkItem(fixture, {
+      title: 'Launch checklist',
+      description: 'Contains a planning keyword.',
+      status: 'ready',
+      reporterId: fixture.actorId,
+      milestoneId: milestone.id,
+      dueDate: '2026-07-06',
+      boardPosition: 2048
+    });
+    const overdue = await createWorkItem(fixture, {
+      title: 'Overdue board item',
+      description: 'Different description.',
+      status: 'ready',
+      reporterId: fixture.actorId,
+      milestoneId: null,
+      dueDate: '2026-07-03',
+      boardPosition: 1024
+    });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items`)
+      .query({
+        milestoneId: milestone.id,
+        reporterId: fixture.actorId,
+        dueDateState: 'due_soon',
+        search: 'planning keyword',
+        sort: 'due_date_asc'
+      })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toHaveLength(1);
+        expect(body[0]).toMatchObject({
+          id: dueSoon.id,
+          milestone: { id: milestone.id },
+          dueDate: '2026-07-06'
+        });
+      });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items`)
+      .query({ search: overdue.displayKey })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toHaveLength(1);
+        expect(body[0].id).toBe(overdue.id);
+      });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items`)
+      .query({ status: 'ready', sort: 'board_order' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.map((item: { id: string }) => item.id)).toEqual([overdue.id, dueSoon.id]);
+      });
+  });
+
   it('returns work item detail scoped to the actor workspace', async () => {
     const fixture = await createFixture('owner');
     const otherFixture = await createFixture('owner');
@@ -394,6 +504,79 @@ describe('work item API', () => {
         'work_item.label_removed'
       ])
     );
+  });
+
+  it('updates and clears milestone assignment with activity', async () => {
+    const fixture = await createFixture('owner');
+    const milestone = await createMilestone(fixture);
+    const workItem = await createWorkItem(fixture);
+
+    await request(app)
+      .patch(`/api/work-items/${workItem.id}`)
+      .set(fixture.headers)
+      .send({ milestoneId: milestone.id })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.milestone).toMatchObject({ id: milestone.id, name: 'v0.0.3' });
+      });
+
+    await request(app)
+      .patch(`/api/work-items/${workItem.id}`)
+      .set(fixture.headers)
+      .send({ milestoneId: null })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.milestone).toBeNull();
+      });
+
+    const activity = await repositories.activityEvents.findByWorkItem(workItem.id);
+    expect(activity.map((event) => event.eventType)).toEqual([
+      'work_item.milestone_changed',
+      'work_item.milestone_changed'
+    ]);
+  });
+
+  it('rejects archived milestone assignment but allows clearing an archived assignment', async () => {
+    const fixture = await createFixture('owner');
+    const archivedMilestone = await createMilestone(fixture, {
+      archivedAt: now(),
+      archivedById: fixture.actorId
+    });
+    const workItem = await createWorkItem(fixture, {
+      milestoneId: archivedMilestone.id
+    });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items`)
+      .set(fixture.headers)
+      .send({
+        title: 'Rejected archived milestone assignment',
+        type: 'task',
+        priority: 'medium',
+        milestoneId: archivedMilestone.id
+      })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('VALIDATION_ERROR');
+      });
+
+    await request(app)
+      .patch(`/api/work-items/${workItem.id}`)
+      .set(fixture.headers)
+      .send({ milestoneId: archivedMilestone.id })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.milestone).toMatchObject({ id: archivedMilestone.id, isArchived: true });
+      });
+
+    await request(app)
+      .patch(`/api/work-items/${workItem.id}`)
+      .set(fixture.headers)
+      .send({ milestoneId: null })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.milestone).toBeNull();
+      });
   });
 
   it('rejects work item updates and label assignment under archived projects', async () => {
