@@ -1,5 +1,8 @@
 import type {
+  ActivityEventDto,
+  CommentDto,
   CreateWorkItemRequest,
+  MoveWorkItemOnBoardRequest,
   TransitionWorkItemRequest,
   UpdateWorkItemRequest,
   WorkItemDetailDto,
@@ -22,7 +25,15 @@ import {
   type Repositories,
   withRepositoriesTransaction
 } from '../repositories/index.js';
-import type { ActivityEvent, Comment, Label, Member, Project, WorkItem } from '../repositories/types.js';
+import type {
+  ActivityEvent,
+  Comment,
+  Label,
+  Member,
+  Milestone,
+  Project,
+  WorkItem
+} from '../repositories/types.js';
 import {
   toActivityEventDto,
   toCommentDto,
@@ -30,12 +41,17 @@ import {
   toWorkItemListItemDto
 } from './dto.js';
 
+const boardPositionStep = 1024;
+
 export interface WorkItemListFilters {
   status?: WorkItemStatus;
   assigneeId?: string;
+  reporterId?: string;
   type?: WorkItem['type'];
   labelId?: string;
+  milestoneId?: string;
   priority?: WorkItem['priority'];
+  dueDateState?: 'overdue' | 'due_soon' | 'none';
   search?: string;
   sort?: WorkItemSort;
 }
@@ -53,6 +69,7 @@ interface WorkItemBundle {
   assignee: Member | null;
   reporter: Member;
   labels: Label[];
+  milestone: Milestone | null;
 }
 
 export class WorkItemService {
@@ -80,6 +97,9 @@ export class WorkItemService {
       const project = await this.requireProjectFromRepositories(projectId, repositories);
       this.assertProjectWritable(project);
       await this.validateLabels(projectId, labelIds, repositories);
+      await this.validateMilestone(projectId, input.milestoneId ?? null, repositories);
+      const status = input.status ?? 'backlog';
+      const boardPosition = await this.getTopInsertionPosition(projectId, status, repositories);
       const numberedProject = await repositories.projects.allocateWorkItemNumber(projectId, timestamp);
 
       if (numberedProject === null || numberedProject.workspaceId !== this.context.actor.workspaceId) {
@@ -99,10 +119,12 @@ export class WorkItemService {
         itemNumber,
         displayKey: `${numberedProject.key}-${itemNumber}`,
         type: input.type,
-        status: input.status ?? 'backlog',
+        status,
         priority: input.priority,
         assigneeId: input.assigneeId ?? null,
         reporterId: this.context.actor.memberId,
+        milestoneId: input.milestoneId ?? null,
+        boardPosition,
         dueDate: input.dueDate ?? null,
         estimatePoints: input.estimatePoints ?? null,
         createdAt: timestamp,
@@ -153,12 +175,19 @@ export class WorkItemService {
         });
       }
 
+      if (input.milestoneId !== undefined) {
+        await this.validateMilestone(current.projectId, input.milestoneId, repositories, {
+          currentMilestoneId: current.milestoneId
+        });
+      }
+
       const updated = await repositories.workItems.update(workItemId, {
         ...(input.title === undefined ? {} : { title: input.title }),
         ...(input.description === undefined ? {} : { description: input.description }),
         ...(input.type === undefined ? {} : { type: input.type }),
         ...(input.priority === undefined ? {} : { priority: input.priority }),
         ...(input.assigneeId === undefined ? {} : { assigneeId: input.assigneeId }),
+        ...(input.milestoneId === undefined ? {} : { milestoneId: input.milestoneId }),
         ...(input.dueDate === undefined ? {} : { dueDate: input.dueDate }),
         ...(input.estimatePoints === undefined ? {} : { estimatePoints: input.estimatePoints }),
         updatedAt: timestamp
@@ -209,7 +238,16 @@ export class WorkItemService {
       }
 
       const timestamp = this.clock();
-      const updated = await repositories.workItems.updateStatus(workItemId, input.status, timestamp);
+      const boardPosition =
+        current.status === input.status
+          ? undefined
+          : await this.getTopInsertionPosition(current.projectId, input.status, repositories);
+      const updated = await repositories.workItems.updateStatus(
+        workItemId,
+        input.status,
+        timestamp,
+        boardPosition
+      );
 
       if (updated === null) {
         throw new NotFoundError('Work item not found.');
@@ -226,6 +264,67 @@ export class WorkItemService {
           summary: `Status changed from ${current.status} to ${updated.status}.`,
           previousValue: { status: current.status },
           newValue: { status: updated.status },
+          metadata: {},
+          createdAt: timestamp
+        });
+      }
+
+      return this.toDetailDto(updated, repositories);
+    });
+  }
+
+  async moveWorkItemOnBoard(
+    workItemId: string,
+    input: MoveWorkItemOnBoardRequest
+  ): Promise<WorkItemDetailDto> {
+    return this.withWriteRepositories(async (repositories) => {
+      const current = await this.requireWorkItem(workItemId, repositories);
+      const project = await this.requireProjectFromRepositories(current.projectId, repositories);
+      this.assertProjectWritable(project);
+
+      if (
+        !canTransitionWorkItem({
+          from: current.status,
+          to: input.status,
+          actorRole: this.context.actor.role
+        })
+      ) {
+        throw new WorkflowTransitionError('The requested status transition is not allowed.', {
+          from: current.status,
+          to: input.status
+        });
+      }
+
+      const timestamp = this.clock();
+      const boardPosition = await this.computeBoardPosition({
+        projectId: current.projectId,
+        status: input.status,
+        movingWorkItemId: current.id,
+        beforeWorkItemId: input.beforeWorkItemId ?? null,
+        afterWorkItemId: input.afterWorkItemId ?? null,
+        repositories
+      });
+      const updated = await repositories.workItems.moveOnBoard(workItemId, {
+        status: input.status,
+        boardPosition,
+        updatedAt: timestamp
+      });
+
+      if (updated === null) {
+        throw new NotFoundError('Work item not found.');
+      }
+
+      if (current.status !== updated.status) {
+        await repositories.activityEvents.create({
+          id: this.idGenerator(),
+          workspaceId: updated.workspaceId,
+          projectId: updated.projectId,
+          workItemId: updated.id,
+          actorId: this.context.actor.memberId,
+          eventType: 'work_item.status_changed',
+          summary: `Status changed from ${current.status} to ${updated.status}.`,
+          previousValue: { status: current.status, boardPosition: current.boardPosition },
+          newValue: { status: updated.status, boardPosition: updated.boardPosition },
           metadata: {},
           createdAt: timestamp
         });
@@ -278,6 +377,113 @@ export class WorkItemService {
     return workItem;
   }
 
+  private async getTopInsertionPosition(
+    projectId: string,
+    status: WorkItemStatus,
+    repositories: Repositories
+  ): Promise<number> {
+    const topPosition = await repositories.workItems.getTopBoardPosition(projectId, status);
+    return topPosition === null ? boardPositionStep : topPosition - boardPositionStep;
+  }
+
+  private async computeBoardPosition(input: {
+    projectId: string;
+    status: WorkItemStatus;
+    movingWorkItemId: string;
+    beforeWorkItemId: string | null;
+    afterWorkItemId: string | null;
+    repositories: Repositories;
+  }): Promise<number> {
+    if (
+      input.beforeWorkItemId === input.movingWorkItemId ||
+      input.afterWorkItemId === input.movingWorkItemId
+    ) {
+      throw new ValidationError('A work item cannot be positioned relative to itself.');
+    }
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const column = (
+        await input.repositories.workItems.listByProjectAndStatusForBoard(input.projectId, input.status)
+      ).filter((item) => item.id !== input.movingWorkItemId);
+
+      const position = this.tryComputeBoardPosition({
+        column,
+        beforeWorkItemId: input.beforeWorkItemId,
+        afterWorkItemId: input.afterWorkItemId
+      });
+
+      if (position !== null) {
+        return position;
+      }
+
+      await input.repositories.workItems.compactBoardPositions(input.projectId, input.status);
+    }
+
+    throw new ConflictError('Board column could not be rebalanced.');
+  }
+
+  private tryComputeBoardPosition(input: {
+    column: WorkItem[];
+    beforeWorkItemId: string | null;
+    afterWorkItemId: string | null;
+  }): number | null {
+    if (input.beforeWorkItemId === null && input.afterWorkItemId === null) {
+      const first = input.column[0];
+      return first === undefined ? boardPositionStep : first.boardPosition - boardPositionStep;
+    }
+
+    const beforeIndex =
+      input.beforeWorkItemId === null
+        ? -1
+        : input.column.findIndex((item) => item.id === input.beforeWorkItemId);
+    const afterIndex =
+      input.afterWorkItemId === null
+        ? input.column.length
+        : input.column.findIndex((item) => item.id === input.afterWorkItemId);
+
+    if (
+      beforeIndex === -1 &&
+      input.beforeWorkItemId !== null ||
+      afterIndex === -1 &&
+      input.afterWorkItemId !== null
+    ) {
+      throw new ValidationError('Board move neighbors are invalid for the target status.');
+    }
+
+    if (afterIndex !== beforeIndex + 1) {
+      throw new ValidationError('Board move neighbors are stale.');
+    }
+
+    if (input.beforeWorkItemId === null) {
+      const after = input.column[afterIndex];
+      return after === undefined ? boardPositionStep : after.boardPosition - boardPositionStep;
+    }
+
+    const before = input.column[beforeIndex];
+
+    if (before === undefined) {
+      throw new ValidationError('Board move neighbors are invalid for the target status.');
+    }
+
+    if (input.afterWorkItemId === null) {
+      return before.boardPosition + boardPositionStep;
+    }
+
+    const after = input.column[afterIndex];
+
+    if (after === undefined) {
+      throw new ValidationError('Board move neighbors are invalid for the target status.');
+    }
+
+    const gap = after.boardPosition - before.boardPosition;
+
+    if (gap <= 1) {
+      return null;
+    }
+
+    return before.boardPosition + Math.floor(gap / 2);
+  }
+
   private async validateLabels(
     projectId: string,
     labelIds: string[],
@@ -300,6 +506,28 @@ export class WorkItemService {
     }
   }
 
+  private async validateMilestone(
+    projectId: string,
+    milestoneId: string | null,
+    repositories: Repositories,
+    options: { currentMilestoneId?: string | null } = {}
+  ): Promise<void> {
+    if (milestoneId === null) {
+      return;
+    }
+
+    const milestone = await repositories.milestones.findById(milestoneId);
+
+    if (
+      milestone === null ||
+      milestone.workspaceId !== this.context.actor.workspaceId ||
+      milestone.projectId !== projectId ||
+      (milestone.archivedAt !== null && milestone.id !== options.currentMilestoneId)
+    ) {
+      throw new ValidationError('Milestone is invalid for this project.');
+    }
+  }
+
   private async toListDtos(
     workItems: WorkItem[],
     repositories: Repositories
@@ -310,12 +538,14 @@ export class WorkItemService {
       labelsByWorkItem.set(item.workItemId, [...(labelsByWorkItem.get(item.workItemId) ?? []), item.label]);
     }
 
-    return Promise.all(
-      workItems.map(async (workItem) => {
-        const bundle = await this.toBundle(workItem, repositories, labelsByWorkItem.get(workItem.id) ?? []);
-        return toWorkItemListItemDto(bundle);
-      })
-    );
+    const dtos: WorkItemListItemDto[] = [];
+
+    for (const workItem of workItems) {
+      const bundle = await this.toBundle(workItem, repositories, labelsByWorkItem.get(workItem.id) ?? []);
+      dtos.push(toWorkItemListItemDto(bundle));
+    }
+
+    return dtos;
   }
 
   private async toDetailDto(
@@ -341,39 +571,50 @@ export class WorkItemService {
     const reporter = await repositories.members.findById(workItem.reporterId);
     const assignee =
       workItem.assigneeId === null ? null : await repositories.members.findById(workItem.assigneeId);
+    const milestone =
+      workItem.milestoneId === null ? null : await repositories.milestones.findById(workItem.milestoneId);
 
     if (reporter === null) {
       throw new NotFoundError('Work item reporter not found.');
+    }
+
+    if (workItem.milestoneId !== null && milestone === null) {
+      throw new NotFoundError('Work item milestone not found.');
     }
 
     return {
       workItem,
       assignee,
       reporter,
-      labels
+      labels,
+      milestone
     };
   }
 
   private async toCommentDtos(comments: Comment[], repositories: Repositories) {
-    return Promise.all(
-      comments.map(async (comment) => {
-        const author = await this.requireMember(comment.authorId, repositories, 'Comment author not found.');
-        const deletedBy =
-          comment.deletedById === null
-            ? null
-            : await this.requireMember(comment.deletedById, repositories, 'Comment deletion actor not found.');
-        return toCommentDto(comment, author, deletedBy);
-      })
-    );
+    const dtos: CommentDto[] = [];
+
+    for (const comment of comments) {
+      const author = await this.requireMember(comment.authorId, repositories, 'Comment author not found.');
+      const deletedBy =
+        comment.deletedById === null
+          ? null
+          : await this.requireMember(comment.deletedById, repositories, 'Comment deletion actor not found.');
+      dtos.push(toCommentDto(comment, author, deletedBy));
+    }
+
+    return dtos;
   }
 
   private async toActivityDtos(activity: ActivityEvent[], repositories: Repositories) {
-    return Promise.all(
-      activity.map(async (event) => {
-        const actor = await this.requireMember(event.actorId, repositories, 'Activity actor not found.');
-        return toActivityEventDto(event, actor);
-      })
-    );
+    const dtos: ActivityEventDto[] = [];
+
+    for (const event of activity) {
+      const actor = await this.requireMember(event.actorId, repositories, 'Activity actor not found.');
+      dtos.push(toActivityEventDto(event, actor));
+    }
+
+    return dtos;
   }
 
   private async requireMember(
@@ -402,6 +643,7 @@ export class WorkItemService {
     await this.recordFieldActivity(input, 'description', 'work_item.description_changed');
     await this.recordFieldActivity(input, 'priority', 'work_item.priority_changed');
     await this.recordFieldActivity(input, 'assigneeId', 'work_item.assignee_changed');
+    await this.recordMilestoneActivity(input);
 
     const currentLabelIds = new Set(input.currentLabels.map((label) => label.id));
     const nextLabelIds = new Set(input.nextLabels.map((label) => label.id));
@@ -471,6 +713,49 @@ export class WorkItemService {
       summary: `${field} changed.`,
       previousValue: { [field]: input.current[field] },
       newValue: { [field]: input.updated[field] },
+      metadata: {},
+      createdAt: input.timestamp
+    });
+  }
+
+  private async recordMilestoneActivity(input: {
+    current: WorkItem;
+    updated: WorkItem;
+    repositories: Repositories;
+    timestamp: Date;
+  }): Promise<void> {
+    if (input.current.milestoneId === input.updated.milestoneId) {
+      return;
+    }
+
+    const previousMilestone =
+      input.current.milestoneId === null
+        ? null
+        : await input.repositories.milestones.findById(input.current.milestoneId);
+    const nextMilestone =
+      input.updated.milestoneId === null
+        ? null
+        : await input.repositories.milestones.findById(input.updated.milestoneId);
+
+    await input.repositories.activityEvents.create({
+      id: this.idGenerator(),
+      workspaceId: input.updated.workspaceId,
+      projectId: input.updated.projectId,
+      workItemId: input.updated.id,
+      actorId: this.context.actor.memberId,
+      eventType: 'work_item.milestone_changed',
+      summary:
+        nextMilestone === null
+          ? 'Milestone assignment cleared.'
+          : `Milestone changed to ${nextMilestone.name}.`,
+      previousValue:
+        previousMilestone === null
+          ? null
+          : { milestoneId: previousMilestone.id, milestoneName: previousMilestone.name },
+      newValue:
+        nextMilestone === null
+          ? null
+          : { milestoneId: nextMilestone.id, milestoneName: nextMilestone.name },
       metadata: {},
       createdAt: input.timestamp
     });

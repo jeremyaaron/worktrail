@@ -4,9 +4,10 @@ import type {
   activityEvents,
   comments,
   labels,
-  workItemLabels,
   members,
+  milestones,
   projects,
+  workItemLabels,
   workItems,
   workspaces
 } from '../db/schema.js';
@@ -17,6 +18,8 @@ export type Member = InferSelectModel<typeof members>;
 export type NewMember = InferInsertModel<typeof members>;
 export type Project = InferSelectModel<typeof projects>;
 export type NewProject = InferInsertModel<typeof projects>;
+export type Milestone = InferSelectModel<typeof milestones>;
+export type NewMilestone = InferInsertModel<typeof milestones>;
 export type WorkItem = InferSelectModel<typeof workItems>;
 export type NewWorkItem = InferInsertModel<typeof workItems>;
 export type Label = InferSelectModel<typeof labels>;

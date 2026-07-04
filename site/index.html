@@ -6,7 +6,7 @@
     <title>Worktrail | Project management reference app</title>
     <meta
       name="description"
-      content="Worktrail is a project management reference app with keyed work items, label administration, board drag and drop, comment lifecycle controls, activity, and cloud-ready application boundaries."
+      content="Worktrail is a project management reference app with milestones, planning dashboards, durable board ordering, rich filtering, comments, activity, and cloud-ready application boundaries."
     >
     <meta property="og:title" content="Worktrail">
     <meta
@@ -46,8 +46,9 @@
           <h1 id="hero-title">Worktrail</h1>
           <p class="hero-copy">
             A small but real project workflow built to expose reusable application patterns:
-            Angular screens, Postgres persistence, stable work item keys, label administration,
-            board drag and drop, audited comments, and a practical path from local development to cloud deployment.
+            Angular screens, Postgres persistence, stable work item keys, milestones,
+            planning dashboards, durable board ordering, audited comments, and a practical path
+            from local development to cloud deployment.
           </p>
           <div class="hero-actions" aria-label="Primary actions">
             <a class="button button-primary" href="https://github.com/jeremyaaron/worktrail">
@@ -78,10 +79,10 @@
           <p class="eyebrow">The app</p>
           <h2 id="app-title">A reference workflow with enough product surface to matter.</h2>
           <p>
-            Worktrail is intentionally small, but it is not a toy shell. The v0.0.2 app covers
-            project settings, label catalogs, keyed work items, lists, a drag/drop board,
-            comment lifecycle controls, local actor selection, and activity events so implementation
-            choices have real consequences.
+            Worktrail is intentionally small, but it is not a toy shell. The v0.0.3 app covers
+            project settings, milestones, label catalogs, keyed work items, auto-applied discovery
+            filters, a persisted drag/drop board, planning summaries, comment lifecycle controls,
+            local actor selection, and activity events so implementation choices have real consequences.
           </p>
         </div>
         <div class="feature-grid">
@@ -91,14 +92,24 @@
             <p>Edit metadata, manage archive/reactivate flows, and keep archived projects read-only.</p>
           </article>
           <article class="feature">
-            <span class="feature-kicker">Work items</span>
-            <h3>Stable references and complete work item forms.</h3>
-            <p>Create keyed work items with type, status, priority, assignee, labels, due dates, estimates, and comments.</p>
+            <span class="feature-kicker">Milestones</span>
+            <h3>Project-scoped planning targets.</h3>
+            <p>Create milestone goals, assign work, track lifecycle state, and keep archived history intact.</p>
+          </article>
+          <article class="feature">
+            <span class="feature-kicker">Discovery</span>
+            <h3>Search and filters that match everyday triage.</h3>
+            <p>Find work by status, type, priority, assignee, label, milestone, or search text.</p>
           </article>
           <article class="feature">
             <span class="feature-kicker">Board</span>
-            <h3>Drag/drop movement with a status-menu fallback.</h3>
-            <p>Move cards with Angular CDK drag/drop while server-side workflow validation remains authoritative.</p>
+            <h3>Drag/drop movement with durable order.</h3>
+            <p>Move and reorder cards with Angular CDK while server-side workflow validation remains authoritative.</p>
+          </article>
+          <article class="feature">
+            <span class="feature-kicker">Planning</span>
+            <h3>Dashboard signals for near-term delivery risk.</h3>
+            <p>Review milestone progress, overdue work, blocked work, unassigned work, and stale work.</p>
           </article>
           <article class="feature">
             <span class="feature-kicker">Collaboration</span>
@@ -110,13 +121,13 @@
 
       <section class="section" id="capabilities" aria-labelledby="capabilities-title">
         <div class="section-heading">
-          <p class="eyebrow">v0.0.2 capabilities</p>
+          <p class="eyebrow">v0.0.3 capabilities</p>
           <h2 id="capabilities-title">Enough product depth to exercise real patterns.</h2>
           <p>
-            The current sprint strengthens the app around adoptability: project keys, immutable
-            work item display keys, project label administration, label assignment on create,
-            archived-label handling, archived-project read-only behavior, comment edit/delete,
-            deleted-comment tombstones, and broader activity coverage.
+            The current sprint adds lightweight planning without turning the product into portfolio
+            software: project-scoped milestones, assignment and lifecycle controls, a planning
+            dashboard, richer work item discovery, persisted board ordering, and broader activity
+            coverage for planning and movement events.
           </p>
         </div>
       </section>
@@ -135,7 +146,7 @@
           <div class="stack-panel" aria-label="Architecture layers">
             <div><strong>Angular SPA</strong><span>static build suitable for S3 and CloudFront</span></div>
             <div><strong>Endpoint handlers</strong><span>transport-neutral request and response shape</span></div>
-            <div><strong>Express adapter</strong><span>local runtime only for v0.0.2</span></div>
+            <div><strong>Express adapter</strong><span>local runtime only for v0.0.3</span></div>
             <div><strong>Postgres + Drizzle</strong><span>committed SQL migrations and deterministic seed data</span></div>
             <div><strong>Playwright smoke</strong><span>browser-level workflow coverage for release readiness</span></div>
           </div>
@@ -147,10 +158,10 @@
           <p class="eyebrow">Current scope</p>
           <h2 id="mvp-title">Local-first, cloud-shaped, still honest about limits.</h2>
           <p>
-            Worktrail v0.0.2 is still a local reference app. Production authentication, custom
-            workflows, persisted board ordering, notifications, attachments, imports, and hosted
-            infrastructure are intentionally out of scope. The value today is a working product
-            surface that can accumulate evidence before patterns are extracted into broader framework ideas.
+            Worktrail v0.0.3 is still a local reference app. Production authentication, custom
+            workflows, notifications, attachments, imports, and hosted infrastructure are intentionally
+            out of scope. The value today is a working product surface that can accumulate evidence
+            before patterns are extracted into broader framework ideas.
           </p>
         </div>
       </section>
@@ -171,7 +182,7 @@ npm run dev</code></pre>
     <footer class="footer">
       <span>Worktrail</span>
       <a href="https://github.com/jeremyaaron/worktrail">GitHub</a>
-      <a href="https://github.com/jeremyaaron/worktrail/tree/main/docs/v0.0.2">Planning docs</a>
+      <a href="https://github.com/jeremyaaron/worktrail/tree/main/docs/v0.0.3">Planning docs</a>
     </footer>
   </body>
 </html>

@@ -17,10 +17,28 @@ async function dragCardToColumn(page: Page, card: Locator, column: Locator): Pro
   await page.mouse.up();
 }
 
-test('completes the v0.0.2 adoption workflow', async ({ page }) => {
+async function columnCardTitles(column: Locator): Promise<string[]> {
+  return column.locator('article.work-card a').evaluateAll((links) =>
+    links.map((link) => link.textContent?.trim() ?? '')
+  );
+}
+
+async function expectNoPageOverflow(page: Page): Promise<void> {
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const root = document.documentElement;
+        return root.scrollWidth - root.clientWidth;
+      })
+    )
+    .toBeLessThanOrEqual(1);
+}
+
+test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => {
   test.setTimeout(90_000);
 
   const runId = Date.now();
+  const milestone = `E2E milestone ${runId}`;
   const title = `E2E smoke work item ${runId}`;
   const label = `e2e-${runId}`;
   const comment = `E2E smoke comment ${runId}`;
@@ -31,6 +49,29 @@ test('completes the v0.0.2 adoption workflow', async ({ page }) => {
 
   await page.getByRole('link', { name: 'Worktrail App' }).click();
   await expect(page.getByRole('heading', { name: 'Worktrail App' })).toBeVisible();
+
+  await page.locator('.project-actions').getByRole('link', { name: 'Planning' }).click();
+  await expect(page.getByRole('heading', { name: 'Worktrail App' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Planning dashboard' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Milestone progress' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Blocked work' })).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: /WT-4 .*Choose status transition copy/ }).first()
+  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Overdue work' })).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: /WT-4 .*Choose status transition copy/ }).first()
+  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Stale in-progress work' })).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: /WT-3 .*Implement transport-neutral API handler contract/ }).first()
+  ).toBeVisible();
+
+  await page.locator('#milestone-name').fill(milestone);
+  await page.locator('#milestone-description').fill('Created by the v0.0.3 Playwright smoke test.');
+  await page.getByRole('button', { name: 'Create milestone' }).click();
+  await expect(page.getByText('Milestone created.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: milestone })).toBeVisible();
 
   await page.getByRole('link', { name: 'Settings' }).click();
   await expect(page.getByRole('heading', { name: 'Worktrail App' })).toBeVisible();
@@ -50,19 +91,32 @@ test('completes the v0.0.2 adoption workflow', async ({ page }) => {
   await page.getByRole('link', { name: 'Create work item' }).click();
   await expect(page.getByRole('heading', { name: 'New project work item' })).toBeVisible();
 
-  await page.getByLabel('Title').fill(title);
-  await page.getByLabel('Description').fill('Created by the v0.0.2 Playwright smoke test.');
   await page.getByLabel('Type').selectOption('story');
   await page.getByLabel('Priority').selectOption('high');
   await page.getByLabel('Assignee').selectOption({ label: 'Morgan Maintainer' });
+  await page.getByLabel('Milestone').selectOption({ label: milestone });
+  await page.getByLabel('Due date').fill('2026-07-16');
   await page.getByLabel('Estimate').fill('2');
   await page.getByLabel(label).check();
+  await page.locator('#work-item-title').fill(title);
+  await page.locator('#work-item-description').fill('Created by the v0.0.3 Playwright smoke test.');
+  await expect(page.locator('#work-item-title')).toHaveValue(title);
+  await expect(page.locator('#work-item-description')).toHaveValue(
+    'Created by the v0.0.3 Playwright smoke test.'
+  );
   await page.getByRole('button', { name: 'Create work item' }).click();
 
   await expect(page.getByRole('heading', { name: title })).toBeVisible();
   await expect(page.getByText(/WT-\d+/)).toBeVisible();
-  await expect(page.getByText(label)).toBeVisible();
+  await expect(page.getByLabel('Metadata').getByText(milestone)).toBeVisible();
+  await expect(page.getByLabel('Labels').getByText(label)).toBeVisible();
   await expect(page.getByText('Work item created.')).toBeVisible();
+
+  await page.goto(`/projects/${demoProjectId}/work-items`);
+  await page.getByLabel('Milestone').selectOption({ label: milestone });
+  await expect(page.getByText(`Milestone: ${milestone}`)).toBeVisible();
+  await expect(page.getByRole('row', { name: new RegExp(title) })).toBeVisible();
+  await expect(page.getByRole('row', { name: /Define project home summary cards/ })).toHaveCount(0);
 
   await page.goto(`/projects/${demoProjectId}/board`);
   await expect(page.getByRole('heading', { name: 'Project board' })).toBeVisible();
@@ -75,6 +129,25 @@ test('completes the v0.0.2 adoption workflow', async ({ page }) => {
   const backlogColumn = page.locator('section.board-column[aria-label="backlog"]');
   const readyColumn = page.locator('section.board-column[aria-label="ready"]');
   await expect(backlogColumn.getByRole('link', { name: title })).toBeVisible();
+  await expect(backlogColumn.getByRole('link', { name: 'Define project home summary cards' })).toBeVisible();
+
+  await expect
+    .poll(async () => columnCardTitles(backlogColumn))
+    .toEqual([title, 'Define project home summary cards']);
+
+  const seededBacklogCard = backlogColumn.locator('article.work-card').filter({
+    has: page.getByRole('link', { name: 'Define project home summary cards' })
+  });
+  await dragCardToColumn(page, seededBacklogCard, backlogColumn);
+  await expect
+    .poll(async () => columnCardTitles(backlogColumn))
+    .toEqual(['Define project home summary cards', title]);
+
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Project board' })).toBeVisible();
+  await expect
+    .poll(async () => columnCardTitles(page.locator('section.board-column[aria-label="backlog"]')))
+    .toEqual(['Define project home summary cards', title]);
 
   await dragCardToColumn(page, card, readyColumn);
   await expect(readyColumn.getByRole('link', { name: title })).toBeVisible();
@@ -84,7 +157,7 @@ test('completes the v0.0.2 adoption workflow', async ({ page }) => {
   });
 
   const inProgressColumn = page.locator('section.board-column[aria-label="in progress"]');
-  await dragCardToColumn(page, readyCard, inProgressColumn);
+  await readyCard.getByLabel('Status').selectOption('in_progress');
   await expect(inProgressColumn.getByRole('link', { name: title })).toBeVisible();
 
   await inProgressColumn.getByRole('link', { name: title }).click();
@@ -105,10 +178,40 @@ test('completes the v0.0.2 adoption workflow', async ({ page }) => {
   await expect(page.getByText(editedComment)).toBeVisible();
   await expect(page.getByText('Comment edited.')).toBeVisible();
 
-  await page.locator('article.comment').filter({ hasText: editedComment }).getByRole('button', { name: 'Delete' }).click();
+  await page
+    .locator('article.comment')
+    .filter({ hasText: editedComment })
+    .getByRole('button', { name: 'Delete' })
+    .click();
   await page.getByRole('button', { name: 'Delete comment' }).click();
 
   await expect(page.getByText('Comment deleted by Avery Owner')).toBeVisible();
   await expect(page.getByText('Comment deleted.')).toBeVisible();
   await expect(page.getByText('Status changed from ready to in_progress.')).toBeVisible();
+});
+
+test('keeps v0.0.3 core pages usable at common desktop widths', async ({ page }) => {
+  test.setTimeout(60_000);
+
+  const checks = [
+    `/projects/${demoProjectId}/planning`,
+    `/projects/${demoProjectId}/work-items`,
+    `/projects/${demoProjectId}/board`,
+    `/projects/${demoProjectId}/work-items/new`,
+    '/work-items/10000000-0000-4000-8000-000000000402'
+  ];
+
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 1024, height: 768 }
+  ]) {
+    await page.setViewportSize(viewport);
+
+    for (const path of checks) {
+      await page.goto(path);
+      await expect(page.locator('body')).not.toContainText('app works');
+      await expect(page.locator('body')).not.toContainText('Project placeholder');
+      await expectNoPageOverflow(page);
+    }
+  }
 });

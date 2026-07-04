@@ -1,9 +1,11 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type {
   LabelDto,
   MemberDto,
+  MilestoneDto,
+  DueDateState,
   ProjectDto,
   WorkItemListItemDto,
   WorkItemPriority,
@@ -11,6 +13,7 @@ import type {
   WorkItemStatus,
   WorkItemType
 } from '@worktrail/contracts';
+import { Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorkItemListFilters, WorktrailApiService } from '../../core/worktrail-api.service';
@@ -28,12 +31,46 @@ const statuses: WorkItemStatus[] = [
 ];
 const types: WorkItemType[] = ['task', 'bug', 'story', 'chore'];
 const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
+const dueDateStates: Array<{ label: string; value: DueDateState }> = [
+  { label: 'Overdue', value: 'overdue' },
+  { label: 'Due soon', value: 'due_soon' },
+  { label: 'No due date', value: 'none' }
+];
 const sorts: Array<{ label: string; value: WorkItemSort }> = [
   { label: 'Updated newest', value: 'updated_desc' },
   { label: 'Updated oldest', value: 'updated_asc' },
   { label: 'Priority high to low', value: 'priority_desc' },
-  { label: 'Priority low to high', value: 'priority_asc' }
+  { label: 'Priority low to high', value: 'priority_asc' },
+  { label: 'Due date', value: 'due_date_asc' },
+  { label: 'Created newest', value: 'created_desc' },
+  { label: 'Board order', value: 'board_order' }
 ];
+
+interface WorkItemFilterFormValue {
+  search: string;
+  status: string;
+  assigneeId: string;
+  reporterId: string;
+  type: string;
+  labelId: string;
+  milestoneId: string;
+  priority: string;
+  dueDateState: string;
+  sort: string;
+}
+
+const defaultFilterValues: WorkItemFilterFormValue = {
+  search: '',
+  status: '',
+  assigneeId: '',
+  reporterId: '',
+  type: '',
+  labelId: '',
+  milestoneId: '',
+  priority: '',
+  dueDateState: '',
+  sort: 'updated_desc'
+};
 
 @Component({
   selector: 'app-work-item-list-page',
@@ -53,6 +90,12 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
       </div>
 
       <nav aria-label="Project work navigation">
+        <a class="secondary-header-action" [routerLink]="['/projects', projectId(), 'board']">
+          Board
+        </a>
+        <a class="secondary-header-action" [routerLink]="['/projects', projectId(), 'planning']">
+          Planning
+        </a>
         <a class="secondary-header-action" [routerLink]="['/projects', projectId(), 'settings']">
           Settings
         </a>
@@ -74,7 +117,7 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
     <form class="filters" [formGroup]="filterForm" (ngSubmit)="applyFilters()">
       <label>
         <span>Search</span>
-        <input type="search" formControlName="search" placeholder="Title search" />
+        <input type="search" formControlName="search" placeholder="Key, title, or description" />
       </label>
 
       <label>
@@ -91,6 +134,16 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
         <span>Assignee</span>
         <select formControlName="assigneeId">
           <option value="">Any assignee</option>
+          @for (member of members(); track member.id) {
+            <option [value]="member.id">{{ member.name }}</option>
+          }
+        </select>
+      </label>
+
+      <label>
+        <span>Reporter</span>
+        <select formControlName="reporterId">
+          <option value="">Any reporter</option>
           @for (member of members(); track member.id) {
             <option [value]="member.id">{{ member.name }}</option>
           }
@@ -118,11 +171,31 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
       </label>
 
       <label>
+        <span>Milestone</span>
+        <select formControlName="milestoneId">
+          <option value="">All milestones</option>
+          @for (milestone of milestones(); track milestone.id) {
+            <option [value]="milestone.id">{{ milestone.name }}</option>
+          }
+        </select>
+      </label>
+
+      <label>
         <span>Priority</span>
         <select formControlName="priority">
           <option value="">All priorities</option>
           @for (priority of priorities; track priority) {
             <option [value]="priority">{{ formatToken(priority) }}</option>
+          }
+        </select>
+      </label>
+
+      <label>
+        <span>Due date</span>
+        <select formControlName="dueDateState">
+          <option value="">Any due date</option>
+          @for (state of dueDateStates; track state.value) {
+            <option [value]="state.value">{{ state.label }}</option>
           }
         </select>
       </label>
@@ -137,10 +210,17 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
       </label>
 
       <div class="filter-actions">
-        <button type="submit">Apply</button>
         <button type="button" class="secondary-action" (click)="clearFilters()">Clear</button>
       </div>
     </form>
+
+    @if (activeFilterLabels().length > 0) {
+      <section class="active-filters" aria-label="Active filters">
+        @for (label of activeFilterLabels(); track label) {
+          <span>{{ label }}</span>
+        }
+      </section>
+    }
 
     <section class="list-panel">
       <div class="list-heading">
@@ -153,8 +233,8 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
         <app-error-panel [message]="error() ?? ''" (retry)="loadWorkItems()" />
       } @else if (workItems().length === 0) {
         <app-empty-state
-          title="No work items found"
-          message="Adjust the filters or create a work item for this project."
+          [title]="activeFilterLabels().length > 0 ? 'No work items match these filters' : 'No work items yet'"
+          [message]="activeFilterLabels().length > 0 ? 'Clear filters or adjust the criteria to broaden the list.' : 'Create the first work item for this project.'"
         />
       } @else {
         <div class="work-item-table" role="table" aria-label="Work items">
@@ -162,6 +242,7 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
             <span>Title</span>
             <span>Status</span>
             <span>Assignee</span>
+            <span>Planning</span>
             <span>Priority</span>
             <span>Updated</span>
           </div>
@@ -173,6 +254,11 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
                 <small class="row-meta">
                   <span class="key-pill">{{ item.displayKey }}</span>
                   <span class="type-pill">{{ formatToken(item.type) }}</span>
+                  @if (item.milestone === null) {
+                    <span class="muted-pill">No milestone</span>
+                  } @else {
+                    <span class="milestone-pill">{{ item.milestone.name }}</span>
+                  }
                   @if (item.labels.length === 0) {
                     <span class="muted-pill">No labels</span>
                   } @else {
@@ -187,6 +273,12 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
               <span class="status-pill" [attr.data-status]="item.status">{{ formatToken(item.status) }}</span>
               <span class="assignee-pill" [class.assignee-pill--empty]="item.assignee === null">
                 {{ item.assignee?.name ?? 'Unassigned' }}
+              </span>
+              <span class="planning-cell">
+                <span [class.muted-pill]="item.milestone === null" [class.milestone-pill]="item.milestone !== null">
+                  {{ item.milestone?.name ?? 'No milestone' }}
+                </span>
+                <small>{{ item.dueDate === null ? 'No due date' : 'Due ' + formatDateOnly(item.dueDate) }}</small>
               </span>
               <span class="priority-pill" [attr.data-priority]="item.priority">
                 {{ formatToken(item.priority) }}
@@ -340,6 +432,24 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
       align-items: end;
     }
 
+    .active-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .active-filters span {
+      min-height: 24px;
+      border: 1px solid #bfdbfe;
+      border-radius: 999px;
+      padding: 3px 8px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: 0.75rem;
+      font-weight: 800;
+    }
+
     .list-panel {
       display: grid;
       gap: 14px;
@@ -360,9 +470,9 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
     .work-item-table__head,
     .work-item-row {
       display: grid;
-      grid-template-columns: minmax(260px, 2fr) minmax(110px, 0.8fr) minmax(140px, 1fr) minmax(100px, 0.7fr) minmax(120px, 0.8fr);
+      grid-template-columns: minmax(280px, 2fr) minmax(110px, 0.8fr) minmax(140px, 1fr) minmax(150px, 1fr) minmax(100px, 0.7fr) minmax(120px, 0.8fr);
       gap: 14px;
-      min-width: 820px;
+      min-width: 980px;
       align-items: center;
     }
 
@@ -406,6 +516,7 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
     .row-meta,
     .key-pill,
     .label-pill,
+    .milestone-pill,
     .status-pill,
     .priority-pill,
     .assignee-pill,
@@ -422,6 +533,7 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
     }
 
     .label-pill,
+    .milestone-pill,
     .key-pill,
     .status-pill,
     .priority-pill,
@@ -448,6 +560,24 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
       background: #eef2ff;
       color: #3730a3;
       border-color: #c7d2fe;
+    }
+
+    .milestone-pill {
+      background: #f0fdf4;
+      color: #166534;
+      border-color: #bbf7d0;
+    }
+
+    .planning-cell {
+      display: grid;
+      gap: 4px;
+      align-content: center;
+    }
+
+    .planning-cell small {
+      color: #64748b;
+      font-size: 0.75rem;
+      font-weight: 700;
     }
 
     .muted-pill,
@@ -535,16 +665,18 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
     }
   `
 })
-export class WorkItemListPageComponent implements OnInit {
+export class WorkItemListPageComponent implements OnDestroy, OnInit {
   private readonly api = inject(WorktrailApiService);
   private readonly currentUser = inject(CurrentUserService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly subscriptions = new Subscription();
 
   readonly statuses = statuses;
   readonly types = types;
   readonly priorities = priorities;
+  readonly dueDateStates = dueDateStates;
   readonly sorts = sorts;
   readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
   readonly members = computed<MemberDto[]>(() => this.currentUser.members());
@@ -552,6 +684,8 @@ export class WorkItemListPageComponent implements OnInit {
   readonly project = signal<ProjectDto | null>(null);
   readonly workItems = signal<WorkItemListItemDto[]>([]);
   readonly labels = signal<LabelDto[]>([]);
+  readonly milestones = signal<MilestoneDto[]>([]);
+  readonly appliedFilterValues = signal<WorkItemFilterFormValue>({ ...defaultFilterValues });
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
   readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
@@ -560,9 +694,12 @@ export class WorkItemListPageComponent implements OnInit {
     search: [''],
     status: [''],
     assigneeId: [''],
+    reporterId: [''],
     type: [''],
     labelId: [''],
+    milestoneId: [''],
     priority: [''],
+    dueDateState: [''],
     sort: ['updated_desc']
   });
 
@@ -572,22 +709,33 @@ export class WorkItemListPageComponent implements OnInit {
     }
 
     this.loadProject();
+    this.loadMilestones();
+    this.watchFilterChanges();
 
-    this.route.queryParamMap.subscribe((params) => {
-      this.filterForm.patchValue(
-        {
+    this.subscriptions.add(
+      this.route.queryParamMap.subscribe((params) => {
+        const nextFilters: WorkItemFilterFormValue = {
           search: params.get('search') ?? '',
           status: params.get('status') ?? '',
           assigneeId: params.get('assigneeId') ?? '',
+          reporterId: params.get('reporterId') ?? '',
           type: params.get('type') ?? '',
           labelId: params.get('labelId') ?? '',
+          milestoneId: params.get('milestoneId') ?? '',
           priority: params.get('priority') ?? '',
+          dueDateState: params.get('dueDateState') ?? '',
           sort: params.get('sort') ?? 'updated_desc'
-        },
-        { emitEvent: false }
-      );
-      this.loadWorkItems();
-    });
+        };
+
+        this.appliedFilterValues.set(nextFilters);
+        this.filterForm.patchValue(nextFilters, { emitEvent: false });
+        this.loadWorkItems();
+      })
+    );
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
   }
 
   applyFilters(): void {
@@ -598,15 +746,7 @@ export class WorkItemListPageComponent implements OnInit {
   }
 
   clearFilters(): void {
-    this.filterForm.reset({
-      search: '',
-      status: '',
-      assigneeId: '',
-      type: '',
-      labelId: '',
-      priority: '',
-      sort: 'updated_desc'
-    });
+    this.filterForm.reset({ ...defaultFilterValues });
     this.applyFilters();
   }
 
@@ -638,6 +778,17 @@ export class WorkItemListPageComponent implements OnInit {
     });
   }
 
+  loadMilestones(): void {
+    this.api.listProjectMilestones(this.projectId(), { includeArchived: true }).subscribe({
+      next: (milestones) => {
+        this.milestones.set(this.sortMilestones(milestones));
+      },
+      error: () => {
+        this.milestones.set([]);
+      }
+    });
+  }
+
   formatToken(value: string): string {
     return value.replaceAll('_', ' ');
   }
@@ -649,33 +800,82 @@ export class WorkItemListPageComponent implements OnInit {
     }).format(new Date(value));
   }
 
-  private filtersFromForm(): WorkItemListFilters {
-    const formValue = this.filterForm.getRawValue();
+  formatDateOnly(value: string): string {
+    const [year, month, day] = value.split('-').map(Number);
+    return new Intl.DateTimeFormat('en', {
+      month: 'short',
+      day: 'numeric'
+    }).format(new Date(year, month - 1, day));
+  }
 
+  activeFilterLabels(): string[] {
+    return this.getActiveFilterLabels();
+  }
+
+  private filtersFromForm(): WorkItemListFilters {
+    return this.toFilters(this.filterForm.getRawValue());
+  }
+
+  private toFilters(formValue: WorkItemFilterFormValue): WorkItemListFilters {
     return {
       search: this.optional(formValue.search),
       status: this.optional(formValue.status) as WorkItemStatus | undefined,
       assigneeId: this.optional(formValue.assigneeId),
+      reporterId: this.optional(formValue.reporterId),
       type: this.optional(formValue.type) as WorkItemType | undefined,
       labelId: this.optional(formValue.labelId),
+      milestoneId: this.optional(formValue.milestoneId),
       priority: this.optional(formValue.priority) as WorkItemPriority | undefined,
+      dueDateState: this.optional(formValue.dueDateState) as DueDateState | undefined,
       sort: formValue.sort as WorkItemSort
     };
   }
 
   private queryParamsFromForm(): Record<string, string | null> {
-    const filters = this.filtersFromForm();
+    return this.toQueryParams(this.filtersFromForm());
+  }
+
+  private toQueryParams(filters: WorkItemListFilters): Record<string, string | null> {
     const sort = filters.sort ?? 'updated_desc';
 
     return {
       search: filters.search ?? null,
       status: filters.status ?? null,
       assigneeId: filters.assigneeId ?? null,
+      reporterId: filters.reporterId ?? null,
       type: filters.type ?? null,
       labelId: filters.labelId ?? null,
+      milestoneId: filters.milestoneId ?? null,
       priority: filters.priority ?? null,
+      dueDateState: filters.dueDateState ?? null,
       sort: sort === 'updated_desc' ? null : sort
     };
+  }
+
+  private watchFilterChanges(): void {
+    this.subscriptions.add(
+      this.filterForm.controls.search.valueChanges
+        .pipe(debounceTime(400), distinctUntilChanged())
+        .subscribe(() => this.applyFilters())
+    );
+
+    const controls = [
+      this.filterForm.controls.status,
+      this.filterForm.controls.assigneeId,
+      this.filterForm.controls.reporterId,
+      this.filterForm.controls.type,
+      this.filterForm.controls.labelId,
+      this.filterForm.controls.milestoneId,
+      this.filterForm.controls.priority,
+      this.filterForm.controls.dueDateState,
+      this.filterForm.controls.sort
+    ];
+
+    for (const control of controls) {
+      this.subscriptions.add(
+        control.valueChanges.pipe(distinctUntilChanged()).subscribe(() => this.applyFilters())
+      );
+    }
   }
 
   private optional(value: string): string | undefined {
@@ -693,5 +893,72 @@ export class WorkItemListPageComponent implements OnInit {
     }
 
     this.labels.set([...labelsById.values()].sort((left, right) => left.name.localeCompare(right.name)));
+  }
+
+  private sortMilestones(milestones: MilestoneDto[]): MilestoneDto[] {
+    return [...milestones].sort((left, right) => {
+      if (left.isArchived !== right.isArchived) {
+        return left.isArchived ? 1 : -1;
+      }
+
+      return left.name.localeCompare(right.name);
+    });
+  }
+
+  private getActiveFilterLabels(): string[] {
+    const formValue = this.appliedFilterValues();
+    const labels: string[] = [];
+
+    if (formValue.search.trim() !== '') {
+      labels.push(`Search: ${formValue.search.trim()}`);
+    }
+
+    this.pushLookupLabel(labels, 'Status', formValue.status, (value) => this.formatToken(value));
+    this.pushLookupLabel(labels, 'Assignee', formValue.assigneeId, (value) => this.memberName(value));
+    this.pushLookupLabel(labels, 'Reporter', formValue.reporterId, (value) => this.memberName(value));
+    this.pushLookupLabel(labels, 'Type', formValue.type, (value) => this.formatToken(value));
+    this.pushLookupLabel(labels, 'Label', formValue.labelId, (value) => this.labelName(value));
+    this.pushLookupLabel(labels, 'Milestone', formValue.milestoneId, (value) => this.milestoneName(value));
+    this.pushLookupLabel(labels, 'Priority', formValue.priority, (value) => this.formatToken(value));
+    this.pushLookupLabel(labels, 'Due date', formValue.dueDateState, (value) => this.dueDateStateLabel(value));
+
+    if (formValue.sort !== 'updated_desc') {
+      labels.push(`Sort: ${this.sortLabel(formValue.sort)}`);
+    }
+
+    return labels;
+  }
+
+  private pushLookupLabel(
+    labels: string[],
+    name: string,
+    value: string,
+    formatter: (value: string) => string
+  ): void {
+    const trimmed = value.trim();
+
+    if (trimmed !== '') {
+      labels.push(`${name}: ${formatter(trimmed)}`);
+    }
+  }
+
+  private memberName(memberId: string): string {
+    return this.members().find((member) => member.id === memberId)?.name ?? memberId;
+  }
+
+  private labelName(labelId: string): string {
+    return this.labels().find((label) => label.id === labelId)?.name ?? labelId;
+  }
+
+  private milestoneName(milestoneId: string): string {
+    return this.milestones().find((milestone) => milestone.id === milestoneId)?.name ?? milestoneId;
+  }
+
+  private dueDateStateLabel(value: string): string {
+    return dueDateStates.find((state) => state.value === value)?.label ?? value;
+  }
+
+  private sortLabel(value: string): string {
+    return sorts.find((sort) => sort.value === value)?.label ?? value;
   }
 }

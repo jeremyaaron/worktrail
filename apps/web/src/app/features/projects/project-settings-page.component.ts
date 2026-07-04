@@ -29,6 +29,7 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
         <a [routerLink]="['/projects', projectId()]">Overview</a>
         <a [routerLink]="['/projects', projectId(), 'work-items']">Work items</a>
         <a [routerLink]="['/projects', projectId(), 'board']">Board</a>
+        <a [routerLink]="['/projects', projectId(), 'planning']">Planning</a>
       </nav>
     </section>
 

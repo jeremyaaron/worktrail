@@ -15,6 +15,13 @@
       "when": 1783129808675,
       "tag": "0001_easy_blade",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783180739472,
+      "tag": "0002_wide_nicolaos",
+      "breakpoints": true
     }
   ]
 }

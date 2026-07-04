@@ -114,6 +114,7 @@ type ProjectStatusFilter = 'all' | ProjectStatus;
                   </span>
                   <a [routerLink]="['/projects', project.id, 'work-items']">Work items</a>
                   <a [routerLink]="['/projects', project.id, 'board']">Board</a>
+                  <a [routerLink]="['/projects', project.id, 'planning']">Planning</a>
                   <a [routerLink]="['/projects', project.id, 'settings']">Settings</a>
                 </div>
               </article>

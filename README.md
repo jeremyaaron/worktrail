@@ -1,6 +1,6 @@
 # Worktrail
 
-Worktrail is a project management reference app. The v0.0.2 release is a local-first Angular + TypeScript API + Postgres application that can later move toward an S3/CloudFront frontend and API Gateway/Lambda backend.
+Worktrail is a project management reference app. The v0.0.3 release is a local-first Angular + TypeScript API + Postgres application that adds lightweight planning, durable board ordering, richer discovery, and a path toward an S3/CloudFront frontend with API Gateway/Lambda backend handlers.
 
 ## Repository Layout
 
@@ -13,6 +13,7 @@ packages/
 docs/
   v0.0.1/  MVP PRD, technical design, implementation plan, and extraction notes
   v0.0.2/  Adoption sprint PRD, technical design, implementation plan, and extraction notes
+  v0.0.3/  Planning sprint PRD, technical design, implementation plan, and extraction notes
 ```
 
 ## Requirements
@@ -76,6 +77,7 @@ npm run typecheck
 npm test
 npm run test:e2e
 npm run build
+npm audit --omit=dev --audit-level=low
 ```
 
 `npm run test:e2e` starts the local API and Angular dev server through Playwright. By default it also runs:
@@ -101,43 +103,49 @@ Seeded data includes:
 - one workspace;
 - three members: owner, maintainer, and contributor;
 - two active projects and one archived project;
-- work items across every status;
+- project milestones with due dates and lifecycle state;
+- work items across every status with persisted board positions;
 - project labels, comments, deleted-comment tombstones, and activity events.
 
 Use the `Acting as` selector in the top bar to switch the local placeholder actor. This is intentionally local-only behavior and is not production authentication.
 
-Suggested v0.0.2 walkthrough:
+Suggested v0.0.3 walkthrough:
 
 1. Open Projects.
 2. Open the Worktrail App project.
 3. Review the project key, status counts, recently updated work, and activity.
-4. Open Settings, create a project label, and review label activity.
-5. Create a work item, assign the new label, and note the generated display key such as `WT-6`.
-6. Open the board and drag the card through valid workflow columns. Status menus remain available as a fallback.
-7. Open the work item detail page, update fields, add and edit a comment, delete a comment, and review activity.
-8. Open the archived project to confirm read-only project/work item behavior.
+4. Open Planning and review milestone progress, overdue/due-soon work, blocked work, unassigned work, and stale work.
+5. Create a milestone, then create a work item assigned to that milestone.
+6. Use the work item list search and filters. Dropdown filters apply immediately, while search applies after a short debounce.
+7. Open the board, drag cards within a column to set planning order, reload, and confirm the order persists.
+8. Move a card through valid workflow columns with drag/drop or the status menu.
+9. Open the work item detail page, update fields, change milestone assignment, add and edit a comment, delete a comment, and review activity.
+10. Open the archived project to confirm read-only project, milestone, work item, label, comment, and transition behavior.
 
-## v0.0.2 Capabilities
+## v0.0.3 Capabilities
 
 - Project keys and immutable work item display keys.
 - Project settings for metadata, archive/reactivate, and label administration.
-- Work item list filters, create flow with labels, detail editing, status transitions, and board movement.
+- Project-scoped milestones with due dates, archive/reactivate behavior, assignment on create/edit, and activity coverage.
+- Planning dashboard with milestone progress, due-soon/overdue work, blocked work, unassigned work, stale work, and links back into filtered lists.
+- Work item list search and filters for status, type, priority, assignee, label, and milestone.
+- Persisted board ordering for same-status reorder and cross-status movement.
 - Angular CDK drag/drop board interaction backed by server-side workflow validation.
 - Comment add/edit/delete with role-aware UI affordances and deleted-comment tombstones.
-- Project, label, work item, and comment lifecycle activity.
-- Archived projects remain readable and block work item, label, comment, and transition writes.
+- Project, milestone, label, work item, board movement, and comment lifecycle activity.
+- Archived projects remain readable and block project, milestone, work item, label, comment, and transition writes.
 
-## v0.0.2 Limitations
+## v0.0.3 Limitations
 
 - Authentication is represented by local request headers and the top-bar actor selector.
 - Permissions are useful for exercising local policy paths, but they are not production authentication.
-- Custom workflows, persisted board ordering, file attachments, notifications, imports, and production auth are intentionally out of scope.
-- The local Express adapter is the only runtime adapter in v0.0.2, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
+- Custom workflows, file attachments, notifications, imports, and production auth are intentionally out of scope.
+- The local Express adapter is the only runtime adapter in v0.0.3, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
 - AWS deployment assets are not included yet; the Angular static build and transport-neutral handlers preserve that path.
 
 ## Database Status
 
-Phase 2 adds the initial Postgres schema, Drizzle migration, and deterministic demo seed data.
+The current schema includes project keys, scoped work item display keys, labels, milestones, comments, activity, due dates, and durable board positions.
 
 Useful database commands:
 

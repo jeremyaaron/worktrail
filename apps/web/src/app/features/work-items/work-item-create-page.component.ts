@@ -5,6 +5,7 @@ import type {
   CreateWorkItemRequest,
   LabelDto,
   MemberDto,
+  MilestoneDto,
   ProjectDto,
   WorkItemPriority,
   WorkItemType
@@ -95,6 +96,16 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
         </label>
 
         <label>
+          <span>Milestone</span>
+          <select formControlName="milestoneId">
+            <option value="">No milestone</option>
+            @for (milestone of availableMilestones(); track milestone.id) {
+              <option [value]="milestone.id">{{ milestone.name }}</option>
+            }
+          </select>
+        </label>
+
+        <label>
           <span>Due date</span>
           <input type="date" formControlName="dueDate" />
         </label>
@@ -109,6 +120,14 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
           />
         </label>
       </div>
+
+      @if (milestoneLoadError()) {
+        <app-error-panel
+          title="Milestones unavailable"
+          [message]="milestoneLoadError() ?? ''"
+          (retry)="loadProjectMilestones()"
+        />
+      }
 
       <section class="label-picker" aria-label="Labels">
         <h2>Labels</h2>
@@ -377,11 +396,13 @@ export class WorkItemCreatePageComponent implements OnInit {
   readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
   readonly project = signal<ProjectDto | null>(null);
   readonly availableLabels = signal<LabelDto[]>([]);
+  readonly availableMilestones = signal<MilestoneDto[]>([]);
   readonly selectedLabelIds = signal<string[]>([]);
   readonly isCreating = signal(false);
   readonly hasSubmitted = signal(false);
   readonly createError = signal<string | null>(null);
   readonly labelLoadError = signal<string | null>(null);
+  readonly milestoneLoadError = signal<string | null>(null);
   readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
 
   readonly workItemForm = this.formBuilder.nonNullable.group({
@@ -390,6 +411,7 @@ export class WorkItemCreatePageComponent implements OnInit {
     type: ['task'],
     priority: ['medium'],
     assigneeId: [''],
+    milestoneId: [''],
     dueDate: [''],
     estimatePoints: ['']
   });
@@ -401,6 +423,7 @@ export class WorkItemCreatePageComponent implements OnInit {
 
     this.loadProject();
     this.loadProjectLabels();
+    this.loadProjectMilestones();
   }
 
   createWorkItem(): void {
@@ -445,6 +468,18 @@ export class WorkItemCreatePageComponent implements OnInit {
       },
       error: () => {
         this.labelLoadError.set('Project labels could not be loaded from the API.');
+      }
+    });
+  }
+
+  loadProjectMilestones(): void {
+    this.milestoneLoadError.set(null);
+    this.api.listProjectMilestones(this.projectId()).subscribe({
+      next: (milestones) => {
+        this.availableMilestones.set(milestones.filter((milestone) => !milestone.isArchived));
+      },
+      error: () => {
+        this.milestoneLoadError.set('Project milestones could not be loaded from the API.');
       }
     });
   }
@@ -502,6 +537,7 @@ export class WorkItemCreatePageComponent implements OnInit {
       priority: formValue.priority as WorkItemPriority,
       assigneeId: formValue.assigneeId === '' ? null : formValue.assigneeId,
       labelIds: this.selectedLabelIds(),
+      milestoneId: formValue.milestoneId === '' ? null : formValue.milestoneId,
       dueDate: formValue.dueDate === '' ? null : formValue.dueDate,
       estimatePoints: estimate === '' ? null : Number.parseInt(estimate, 10)
     };

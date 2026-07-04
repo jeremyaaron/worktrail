@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, ilike, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, ilike, or, sql } from 'drizzle-orm';
 
 import type { WorktrailDb } from '../db/client.js';
 import { workItemLabels, workItems } from '../db/schema.js';
@@ -7,11 +7,21 @@ import type { NewWorkItem, WorkItem } from './types.js';
 export interface WorkItemFilters {
   status?: WorkItem['status'];
   assigneeId?: string;
+  reporterId?: string;
   type?: WorkItem['type'];
   priority?: WorkItem['priority'];
   labelId?: string;
+  milestoneId?: string;
+  dueDateState?: 'overdue' | 'due_soon' | 'none';
   search?: string;
-  sort?: 'updated_desc' | 'updated_asc' | 'priority_desc' | 'priority_asc';
+  sort?:
+    | 'updated_desc'
+    | 'updated_asc'
+    | 'priority_desc'
+    | 'priority_asc'
+    | 'due_date_asc'
+    | 'created_desc'
+    | 'board_order';
 }
 
 export interface UpdateWorkItemInput {
@@ -21,8 +31,16 @@ export interface UpdateWorkItemInput {
   status?: WorkItem['status'];
   priority?: WorkItem['priority'];
   assigneeId?: string | null;
+  milestoneId?: string | null;
+  boardPosition?: number;
   dueDate?: string | null;
   estimatePoints?: number | null;
+  updatedAt: Date;
+}
+
+export interface MoveWorkItemInput {
+  status: WorkItem['status'];
+  boardPosition: number;
   updatedAt: Date;
 }
 
@@ -38,6 +56,24 @@ export function createWorkItemRepository(db: WorktrailDb) {
       return workItem ?? null;
     },
 
+    async listByProjectAndStatusForBoard(projectId: string, status: WorkItem['status']) {
+      return db
+        .select()
+        .from(workItems)
+        .where(and(eq(workItems.projectId, projectId), eq(workItems.status, status)))
+        .orderBy(asc(workItems.boardPosition), asc(workItems.itemNumber), asc(workItems.id));
+    },
+
+    async getTopBoardPosition(projectId: string, status: WorkItem['status']) {
+      const [workItem] = await db
+        .select({ boardPosition: workItems.boardPosition })
+        .from(workItems)
+        .where(and(eq(workItems.projectId, projectId), eq(workItems.status, status)))
+        .orderBy(asc(workItems.boardPosition), asc(workItems.itemNumber), asc(workItems.id))
+        .limit(1);
+      return workItem?.boardPosition ?? null;
+    },
+
     async listByProject(projectId: string, filters: WorkItemFilters = {}) {
       const conditions = [eq(workItems.projectId, projectId)];
 
@@ -47,6 +83,10 @@ export function createWorkItemRepository(db: WorktrailDb) {
 
       if (filters.assigneeId !== undefined) {
         conditions.push(eq(workItems.assigneeId, filters.assigneeId));
+      }
+
+      if (filters.reporterId !== undefined) {
+        conditions.push(eq(workItems.reporterId, filters.reporterId));
       }
 
       if (filters.type !== undefined) {
@@ -67,8 +107,34 @@ export function createWorkItemRepository(db: WorktrailDb) {
         );
       }
 
+      if (filters.milestoneId !== undefined) {
+        conditions.push(eq(workItems.milestoneId, filters.milestoneId));
+      }
+
+      if (filters.dueDateState === 'overdue') {
+        conditions.push(sql`${workItems.dueDate} < current_date`);
+        conditions.push(sql`${workItems.status} not in ('done', 'canceled')`);
+      }
+
+      if (filters.dueDateState === 'due_soon') {
+        conditions.push(sql`${workItems.dueDate} >= current_date`);
+        conditions.push(sql`${workItems.dueDate} <= current_date + interval '7 days'`);
+        conditions.push(sql`${workItems.status} not in ('done', 'canceled')`);
+      }
+
+      if (filters.dueDateState === 'none') {
+        conditions.push(sql`${workItems.dueDate} is null`);
+      }
+
       if (filters.search !== undefined && filters.search.trim() !== '') {
-        conditions.push(ilike(workItems.title, `%${filters.search.trim()}%`));
+        const search = `%${filters.search.trim()}%`;
+        conditions.push(
+          or(
+            ilike(workItems.displayKey, search),
+            ilike(workItems.title, search),
+            ilike(workItems.description, search)
+          )!
+        );
       }
 
       const priorityRank = sql`case ${workItems.priority}
@@ -78,20 +144,39 @@ export function createWorkItemRepository(db: WorktrailDb) {
         when 'low' then 1
         else 0
       end`;
-      const orderBy =
-        filters.sort === 'updated_asc'
-          ? asc(workItems.updatedAt)
-          : filters.sort === 'priority_desc'
-            ? desc(priorityRank)
-            : filters.sort === 'priority_asc'
-              ? asc(priorityRank)
-              : desc(workItems.updatedAt);
+      const orderBy = (() => {
+        if (filters.sort === 'updated_asc') {
+          return [asc(workItems.updatedAt), asc(workItems.itemNumber)];
+        }
+
+        if (filters.sort === 'priority_desc') {
+          return [desc(priorityRank), desc(workItems.updatedAt), asc(workItems.itemNumber)];
+        }
+
+        if (filters.sort === 'priority_asc') {
+          return [asc(priorityRank), desc(workItems.updatedAt), asc(workItems.itemNumber)];
+        }
+
+        if (filters.sort === 'due_date_asc') {
+          return [sql`${workItems.dueDate} asc nulls last`, asc(workItems.itemNumber)];
+        }
+
+        if (filters.sort === 'created_desc') {
+          return [desc(workItems.createdAt), asc(workItems.itemNumber)];
+        }
+
+        if (filters.sort === 'board_order') {
+          return [asc(workItems.status), asc(workItems.boardPosition), asc(workItems.itemNumber)];
+        }
+
+        return [desc(workItems.updatedAt), asc(workItems.itemNumber)];
+      })();
 
       return db
         .select()
         .from(workItems)
         .where(and(...conditions))
-        .orderBy(orderBy);
+        .orderBy(...orderBy);
     },
 
     async countByStatus(projectId: string) {
@@ -117,13 +202,55 @@ export function createWorkItemRepository(db: WorktrailDb) {
         .limit(limit);
     },
 
-    async updateStatus(id: string, status: WorkItem['status'], updatedAt: Date) {
+    async updateStatus(
+      id: string,
+      status: WorkItem['status'],
+      updatedAt: Date,
+      boardPosition?: number
+    ) {
       const [workItem] = await db
         .update(workItems)
-        .set({ status, updatedAt })
+        .set({
+          status,
+          ...(boardPosition === undefined ? {} : { boardPosition }),
+          updatedAt
+        })
         .where(eq(workItems.id, id))
         .returning();
       return workItem ?? null;
+    },
+
+    async moveOnBoard(id: string, input: MoveWorkItemInput) {
+      const [workItem] = await db
+        .update(workItems)
+        .set({
+          status: input.status,
+          boardPosition: input.boardPosition,
+          updatedAt: input.updatedAt
+        })
+        .where(eq(workItems.id, id))
+        .returning();
+      return workItem ?? null;
+    },
+
+    async compactBoardPositions(projectId: string, status: WorkItem['status']) {
+      const items = await this.listByProjectAndStatusForBoard(projectId, status);
+      const compacted: WorkItem[] = [];
+
+      for (const [index, item] of items.entries()) {
+        const boardPosition = (index + 1) * 1024;
+        const [updated] = await db
+          .update(workItems)
+          .set({ boardPosition })
+          .where(eq(workItems.id, item.id))
+          .returning();
+
+        if (updated !== undefined) {
+          compacted.push(updated);
+        }
+      }
+
+      return compacted;
     },
 
     async update(id: string, input: UpdateWorkItemInput) {

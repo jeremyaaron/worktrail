@@ -35,6 +35,7 @@ async function cleanupWorkspace(workspaceId: string) {
   );
   await pool.query('delete from labels where workspace_id = $1', [workspaceId]);
   await pool.query('delete from work_items where workspace_id = $1', [workspaceId]);
+  await pool.query('delete from milestones where workspace_id = $1', [workspaceId]);
   await pool.query('delete from projects where workspace_id = $1', [workspaceId]);
   await pool.query('delete from members where workspace_id = $1', [workspaceId]);
   await pool.query('delete from workspaces where id = $1', [workspaceId]);

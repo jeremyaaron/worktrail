@@ -5,15 +5,22 @@ import type {
   CommentDto,
   CreateCommentRequest,
   CreateLabelRequest,
+  CreateMilestoneRequest,
   CreateProjectRequest,
   CreateWorkItemRequest,
+  DueDateState,
   LabelDto,
   MemberDto,
+  MilestoneDto,
+  MilestoneStatus,
+  MoveWorkItemOnBoardRequest,
   ProjectDto,
+  ProjectPlanningSummaryDto,
   ProjectSummaryDto,
   TransitionWorkItemRequest,
   UpdateCommentRequest,
   UpdateLabelRequest,
+  UpdateMilestoneRequest,
   UpdateProjectRequest,
   UpdateWorkItemRequest,
   WorkItemDetailDto,
@@ -31,9 +38,12 @@ import { CurrentUserService } from './current-user.service';
 export interface WorkItemListFilters {
   status?: WorkItemStatus;
   assigneeId?: string;
+  reporterId?: string;
   type?: WorkItemType;
   labelId?: string;
+  milestoneId?: string;
   priority?: WorkItemPriority;
+  dueDateState?: DueDateState;
   search?: string;
   sort?: WorkItemSort;
 }
@@ -79,6 +89,13 @@ export class WorktrailApiService {
     return this.http.get<ProjectSummaryDto>(this.url(`/projects/${projectId}/summary`), this.options());
   }
 
+  getProjectPlanningSummary(projectId: string): Observable<ProjectPlanningSummaryDto> {
+    return this.http.get<ProjectPlanningSummaryDto>(
+      this.url(`/projects/${projectId}/planning-summary`),
+      this.options()
+    );
+  }
+
   listProjectActivity(projectId: string): Observable<ActivityEventDto[]> {
     return this.http.get<ActivityEventDto[]>(
       this.url(`/projects/${projectId}/activity`),
@@ -118,6 +135,54 @@ export class WorktrailApiService {
     return this.http.post<LabelDto>(this.url(`/labels/${labelId}/reactivate`), {}, this.options());
   }
 
+  listProjectMilestones(
+    projectId: string,
+    input: { includeArchived?: boolean; status?: MilestoneStatus } = {}
+  ): Observable<MilestoneDto[]> {
+    let params = new HttpParams();
+
+    if (input.includeArchived === true) {
+      params = params.set('includeArchived', 'true');
+    }
+
+    if (input.status !== undefined) {
+      params = params.set('status', input.status);
+    }
+
+    return this.http.get<MilestoneDto[]>(
+      this.url(`/projects/${projectId}/milestones`),
+      this.options({ params })
+    );
+  }
+
+  createMilestone(projectId: string, input: CreateMilestoneRequest): Observable<MilestoneDto> {
+    return this.http.post<MilestoneDto>(
+      this.url(`/projects/${projectId}/milestones`),
+      input,
+      this.options()
+    );
+  }
+
+  updateMilestone(milestoneId: string, input: UpdateMilestoneRequest): Observable<MilestoneDto> {
+    return this.http.patch<MilestoneDto>(this.url(`/milestones/${milestoneId}`), input, this.options());
+  }
+
+  archiveMilestone(milestoneId: string): Observable<MilestoneDto> {
+    return this.http.post<MilestoneDto>(
+      this.url(`/milestones/${milestoneId}/archive`),
+      {},
+      this.options()
+    );
+  }
+
+  reactivateMilestone(milestoneId: string): Observable<MilestoneDto> {
+    return this.http.post<MilestoneDto>(
+      this.url(`/milestones/${milestoneId}/reactivate`),
+      {},
+      this.options()
+    );
+  }
+
   listWorkItems(
     projectId: string,
     filters: WorkItemListFilters = {}
@@ -154,6 +219,17 @@ export class WorktrailApiService {
   ): Observable<WorkItemDetailDto> {
     return this.http.post<WorkItemDetailDto>(
       this.url(`/work-items/${workItemId}/transitions`),
+      input,
+      this.options()
+    );
+  }
+
+  moveWorkItemOnBoard(
+    workItemId: string,
+    input: MoveWorkItemOnBoardRequest
+  ): Observable<WorkItemDetailDto> {
+    return this.http.post<WorkItemDetailDto>(
+      this.url(`/work-items/${workItemId}/board-move`),
       input,
       this.options()
     );

@@ -6,7 +6,12 @@ import {
 } from '@angular/cdk/drag-drop';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import type { ProjectDto, WorkItemListItemDto, WorkItemStatus } from '@worktrail/contracts';
+import type {
+  MoveWorkItemOnBoardRequest,
+  ProjectDto,
+  WorkItemListItemDto,
+  WorkItemStatus
+} from '@worktrail/contracts';
 
 import { WorktrailApiService } from '../../core/worktrail-api.service';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
@@ -43,6 +48,7 @@ const statuses: WorkItemStatus[] = [
 
       <nav aria-label="Project work navigation">
         <a [routerLink]="['/projects', projectId(), 'work-items']">List</a>
+        <a [routerLink]="['/projects', projectId(), 'planning']">Planning</a>
         <a [routerLink]="['/projects', projectId(), 'settings']">Settings</a>
         @if (!isArchivedProject()) {
           <a [routerLink]="['/projects', projectId(), 'work-items', 'new']">Create work item</a>
@@ -59,7 +65,7 @@ const statuses: WorkItemStatus[] = [
 
     @if (transitionError()) {
       <app-error-panel
-        title="Status not changed"
+        title="Board move failed"
         [message]="transitionError() ?? ''"
         (retry)="loadWorkItems()"
       />
@@ -121,6 +127,9 @@ const statuses: WorkItemStatus[] = [
 
                     <p>
                       <span class="type-pill">{{ formatToken(item.type) }}</span>
+                      @if (item.milestone !== null) {
+                        <span class="milestone-pill">{{ item.milestone.name }}</span>
+                      }
                       <span class="assignee-pill" [class.assignee-pill--empty]="item.assignee === null">
                         {{ item.assignee?.name ?? 'Unassigned' }}
                       </span>
@@ -341,6 +350,17 @@ const statuses: WorkItemStatus[] = [
       font-weight: 900;
     }
 
+    .milestone-pill {
+      width: fit-content;
+      border: 1px solid #bbf7d0;
+      border-radius: 999px;
+      padding: 2px 7px;
+      background: #f0fdf4;
+      color: #166534;
+      font-size: 0.75rem;
+      font-weight: 800;
+    }
+
     .work-card a {
       color: #1d4ed8;
       font-size: 0.875rem;
@@ -521,7 +541,7 @@ export class WorkItemBoardPageComponent implements OnInit {
     this.isLoading.set(true);
     this.loadError.set(null);
 
-    this.api.listWorkItems(this.projectId(), { sort: 'priority_desc' }).subscribe({
+    this.api.listWorkItems(this.projectId(), { sort: 'board_order' }).subscribe({
       next: (workItems) => {
         this.workItems.set(workItems);
         this.isLoading.set(false);
@@ -546,7 +566,11 @@ export class WorkItemBoardPageComponent implements OnInit {
       return;
     }
 
-    this.transitionItem(item, status, {
+    this.moveItemOnBoard(item, {
+      status,
+      beforeWorkItemId: null,
+      afterWorkItemId: null
+    }, {
       onError: () => {
         select.value = item.status;
       }
@@ -557,11 +581,32 @@ export class WorkItemBoardPageComponent implements OnInit {
     const item = event.item.data;
     const status = event.container.data;
 
-    if (this.isArchivedProject() || event.previousContainer === event.container || item.status === status) {
+    if (this.isArchivedProject()) {
       return;
     }
 
-    this.transitionItem(item, status);
+    if (event.previousContainer === event.container && event.previousIndex === event.currentIndex) {
+      return;
+    }
+
+    const destinationItems = (this.itemsByStatus().get(status) ?? []).filter(
+      (candidate) => candidate.id !== item.id
+    );
+    const destinationIndex = Math.max(0, Math.min(event.currentIndex, destinationItems.length));
+    const beforeWorkItemId =
+      destinationIndex === 0 ? null : destinationItems[destinationIndex - 1]?.id ?? null;
+    const afterWorkItemId =
+      destinationIndex >= destinationItems.length ? null : destinationItems[destinationIndex]?.id ?? null;
+
+    this.moveItemOnBoard(
+      item,
+      {
+        status,
+        beforeWorkItemId,
+        afterWorkItemId
+      },
+      { destinationIndex }
+    );
   }
 
   dropListId(status: WorkItemStatus): string {
@@ -572,24 +617,66 @@ export class WorkItemBoardPageComponent implements OnInit {
     return value.replaceAll('_', ' ');
   }
 
-  private transitionItem(
+  private moveItemOnBoard(
     item: WorkItemListItemDto,
-    status: WorkItemStatus,
-    options: { onError?: () => void } = {}
+    request: MoveWorkItemOnBoardRequest,
+    options: { destinationIndex?: number; onError?: () => void } = {}
   ): void {
+    const previousWorkItems = this.workItems();
     this.transitionError.set(null);
     this.transitioningWorkItemId.set(item.id);
 
-    this.api.transitionWorkItem(item.id, { status }).subscribe({
+    if (options.destinationIndex !== undefined) {
+      this.workItems.set(
+        this.moveWorkItemInMemory(previousWorkItems, item.id, request.status, options.destinationIndex)
+      );
+    } else if (request.status !== item.status) {
+      this.workItems.set(this.moveWorkItemInMemory(previousWorkItems, item.id, request.status, 0));
+    }
+
+    this.api.moveWorkItemOnBoard(item.id, request).subscribe({
       next: () => {
         this.transitioningWorkItemId.set(null);
         this.loadWorkItems();
       },
       error: () => {
         options.onError?.();
-        this.transitionError.set('The requested status transition was rejected.');
+        this.workItems.set(previousWorkItems);
+        this.transitionError.set('The board move was rejected.');
         this.transitioningWorkItemId.set(null);
       }
     });
+  }
+
+  private moveWorkItemInMemory(
+    workItems: WorkItemListItemDto[],
+    workItemId: string,
+    status: WorkItemStatus,
+    destinationIndex: number
+  ): WorkItemListItemDto[] {
+    const movingItem = workItems.find((item) => item.id === workItemId);
+
+    if (movingItem === undefined) {
+      return workItems;
+    }
+
+    const columns = new Map<WorkItemStatus, WorkItemListItemDto[]>();
+
+    for (const columnStatus of statuses) {
+      columns.set(columnStatus, []);
+    }
+
+    for (const item of workItems) {
+      if (item.id !== workItemId) {
+        columns.get(item.status)?.push(item);
+      }
+    }
+
+    const destinationItems = columns.get(status) ?? [];
+    const insertionIndex = Math.max(0, Math.min(destinationIndex, destinationItems.length));
+    destinationItems.splice(insertionIndex, 0, { ...movingItem, status });
+    columns.set(status, destinationItems);
+
+    return statuses.flatMap((columnStatus) => columns.get(columnStatus) ?? []);
   }
 }

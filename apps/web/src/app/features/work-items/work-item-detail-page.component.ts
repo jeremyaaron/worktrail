@@ -6,6 +6,7 @@ import type {
   CommentDto,
   LabelDto,
   MemberDto,
+  MilestoneDto,
   ProjectDto,
   UpdateWorkItemRequest,
   WorkItemDetailDto,
@@ -118,7 +119,25 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
                   }
                 </select>
               </label>
+
+              <label>
+                <span>Milestone</span>
+                <select formControlName="milestoneId">
+                  <option value="">No milestone</option>
+                  @for (milestone of availableMilestones(); track milestone.id) {
+                    <option [value]="milestone.id">{{ milestone.name }}</option>
+                  }
+                </select>
+              </label>
             </div>
+
+            @if (milestoneLoadError()) {
+              <app-error-panel
+                title="Milestones unavailable"
+                [message]="milestoneLoadError() ?? ''"
+                (retry)="loadProjectMilestones(item.projectId)"
+              />
+            }
 
             <section class="label-editor" aria-label="Labels">
               <h3>Labels</h3>
@@ -213,6 +232,10 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
               <div>
                 <dt>Updated</dt>
                 <dd>{{ formatDateTime(item.updatedAt) }}</dd>
+              </div>
+              <div>
+                <dt>Milestone</dt>
+                <dd>{{ item.milestone?.name ?? 'None' }}</dd>
               </div>
               <div>
                 <dt>Due date</dt>
@@ -756,7 +779,9 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly commentError = signal<string | null>(null);
   readonly commentMutationError = signal<string | null>(null);
   readonly labelLoadError = signal<string | null>(null);
+  readonly milestoneLoadError = signal<string | null>(null);
   readonly availableLabels = signal<LabelDto[]>([]);
+  readonly availableMilestones = signal<MilestoneDto[]>([]);
   readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
   readonly assignableLabels = computed(() => this.availableLabels().filter((label) => !label.isArchived));
   readonly archivedAttachedLabels = computed(() =>
@@ -768,7 +793,8 @@ export class WorkItemDetailPageComponent implements OnInit {
     description: [''],
     type: ['task'],
     priority: ['medium'],
-    assigneeId: ['']
+    assigneeId: [''],
+    milestoneId: ['']
   });
 
   readonly statusForm = this.formBuilder.nonNullable.group({
@@ -800,6 +826,7 @@ export class WorkItemDetailPageComponent implements OnInit {
         this.applyWorkItem(workItem);
         this.loadProject(workItem.projectId);
         this.loadProjectLabels(workItem.projectId);
+        this.loadProjectMilestones(workItem.projectId);
         this.isLoading.set(false);
       },
       error: () => {
@@ -1004,6 +1031,19 @@ export class WorkItemDetailPageComponent implements OnInit {
     });
   }
 
+  loadProjectMilestones(projectId: string): void {
+    this.milestoneLoadError.set(null);
+
+    this.api.listProjectMilestones(projectId).subscribe({
+      next: (milestones) => {
+        this.availableMilestones.set(this.sortMilestones(this.mergeCurrentMilestone(milestones)));
+      },
+      error: () => {
+        this.milestoneLoadError.set('Project milestones could not be loaded from the API.');
+      }
+    });
+  }
+
   loadProject(projectId: string): void {
     this.api.getProject(projectId).subscribe({
       next: (project) => {
@@ -1101,7 +1141,8 @@ export class WorkItemDetailPageComponent implements OnInit {
       description: workItem.description,
       type: workItem.type,
       priority: workItem.priority,
-      assigneeId: workItem.assignee?.id ?? ''
+      assigneeId: workItem.assignee?.id ?? '',
+      milestoneId: workItem.milestone?.id ?? ''
     });
     this.statusForm.reset({ status: workItem.status });
     this.syncReadOnlyState();
@@ -1116,8 +1157,31 @@ export class WorkItemDetailPageComponent implements OnInit {
       type: formValue.type as WorkItemType,
       priority: formValue.priority as WorkItemPriority,
       assigneeId: formValue.assigneeId === '' ? null : formValue.assigneeId,
+      milestoneId: formValue.milestoneId === '' ? null : formValue.milestoneId,
       labelIds: [...this.selectedLabelIds(), ...this.archivedAttachedLabels().map((label) => label.id)]
     };
+  }
+
+  private mergeCurrentMilestone(milestones: MilestoneDto[]): MilestoneDto[] {
+    const current = this.workItem()?.milestone;
+
+    if (current === null || current === undefined) {
+      return milestones;
+    }
+
+    const milestonesById = new Map(milestones.map((milestone) => [milestone.id, milestone]));
+    milestonesById.set(current.id, current);
+    return [...milestonesById.values()];
+  }
+
+  private sortMilestones(milestones: MilestoneDto[]): MilestoneDto[] {
+    return [...milestones].sort((left, right) => {
+      if (left.isArchived !== right.isArchived) {
+        return left.isArchived ? 1 : -1;
+      }
+
+      return left.name.localeCompare(right.name);
+    });
   }
 
   private mergeAvailableLabels(labels: LabelDto[]): void {
