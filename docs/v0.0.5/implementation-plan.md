@@ -939,6 +939,21 @@ npm run db:reset && npm run db:migrate && npm run db:seed
 git diff --check
 ```
 
+Status: Completed.
+
+Notes:
+
+- Added a v0.0.5 Playwright daily workflow covering My Work, dashboard summary navigation, filtered workspace discovery, saved view creation, saved view reopen after reload, global quick work capture, and discovery confirmation for the created item.
+- Preserved the v0.0.4 workspace governance browser workflow.
+- Preserved the v0.0.3 planning, label, milestone, board movement, comment, and activity workflow while updating it for the Phase 10 create success action.
+- Expanded responsive overflow checks to cover My Work, workspace work item discovery, global quick create, project list, project planning, project work items, project board, project create, project settings, workspace settings, and work item detail routes at common desktop widths.
+- Added practical focus checks for workspace filters, saved view actions, and global quick create controls.
+- Added an E2E `afterAll` database restore so mutation-heavy browser tests leave local data reset, migrated, and seeded.
+- Verified `npm run test:e2e`.
+- Verified `npm run build`.
+- Verified database restore via the E2E suite's post-test `db:reset`, `db:migrate`, and `db:seed` commands.
+- Verified `git diff --check`.
+
 ## Phase 13: Documentation, Site, Extraction Notes, And Release Finalization
 
 Goal: prepare v0.0.5 for merge and release.

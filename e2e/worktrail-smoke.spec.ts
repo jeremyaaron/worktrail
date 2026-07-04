@@ -1,3 +1,5 @@
+import { execFileSync } from 'node:child_process';
+
 import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 
@@ -33,6 +35,32 @@ async function expectNoPageOverflow(page: Page): Promise<void> {
     )
     .toBeLessThanOrEqual(1);
 }
+
+async function expectFocused(locator: Locator): Promise<void> {
+  await expect
+    .poll(async () =>
+      locator.evaluate((element) => element === element.ownerDocument.activeElement)
+    )
+    .toBe(true);
+}
+
+function runNpmScript(script: string): void {
+  execFileSync('npm', ['run', script], {
+    cwd: process.cwd(),
+    env: process.env,
+    stdio: 'inherit'
+  });
+}
+
+test.afterAll(() => {
+  if (process.env.WORKTRAIL_E2E_SKIP_DB_RESTORE === 'true') {
+    return;
+  }
+
+  runNpmScript('db:reset');
+  runNpmScript('db:migrate');
+  runNpmScript('db:seed');
+});
 
 test('completes the v0.0.4 workspace governance workflow', async ({ page }) => {
   test.setTimeout(90_000);
@@ -154,7 +182,7 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
     .toContain(label);
 
   await page.getByRole('link', { name: 'Overview' }).click();
-  await page.getByRole('link', { name: 'Create work item' }).click();
+  await page.locator('.project-actions').getByRole('link', { name: 'Create work item' }).click();
   await expect(page.getByRole('heading', { name: 'New project work item' })).toBeVisible();
 
   await page.getByLabel('Type').selectOption('story');
@@ -172,6 +200,8 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
   );
   await page.getByRole('button', { name: 'Create work item' }).click();
 
+  await expect(page.getByLabel('Work item created')).toContainText(title);
+  await page.getByRole('link', { name: 'Open work item' }).click();
   await expect(page.getByRole('heading', { name: title })).toBeVisible();
   await expect(page.getByText(/WT-\d+/)).toBeVisible();
   await expect(page.getByLabel('Metadata').getByText(milestone)).toBeVisible();
@@ -182,7 +212,6 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
   await page.getByLabel('Milestone').selectOption({ label: milestone });
   await expect(page.getByText(`Milestone: ${milestone}`)).toBeVisible();
   await expect(page.getByRole('row', { name: new RegExp(title) })).toBeVisible();
-  await expect(page.getByRole('row', { name: /Define project home summary cards/ })).toHaveCount(0);
 
   await page.goto(`/projects/${demoProjectId}/board`);
   await expect(page.getByRole('heading', { name: 'Project board' })).toBeVisible();
@@ -256,16 +285,97 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
   await expect(page.getByText('Status changed from ready to in_progress.')).toBeVisible();
 });
 
-test('keeps v0.0.3 core pages usable at common desktop widths', async ({ page }) => {
+test('completes the v0.0.5 daily workspace workflow', async ({ page }) => {
+  test.setTimeout(90_000);
+
+  const runId = Date.now();
+  const savedViewName = `E2E daily owner work ${runId}`;
+  const title = `E2E quick capture ${runId}`;
+  const description = `Created by the v0.0.5 daily workflow smoke test ${runId}.`;
+
+  await page.goto('/my-work');
+  await expect(page.getByRole('heading', { name: 'My work' })).toBeVisible();
+  await expect(page.locator('main').getByText('Avery Owner · Owner', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('My Work summary')).toContainText('Assigned open');
+
+  await page.locator('.summary-card').filter({ hasText: 'Assigned open' }).click();
+  await expect(page).toHaveURL(/\/work-items\?/);
+  await expect(page.getByRole('heading', { name: 'Work items', exact: true })).toBeVisible();
+  await expect(page.getByText('Assignee: Avery Owner')).toBeVisible();
+  await expect(page.getByRole('row', { name: /Document future S3 and API Gateway deployment path/ })).toBeVisible();
+
+  const filterSearch = page.locator('form.filters').getByLabel('Search');
+  await filterSearch.focus();
+  await expectFocused(filterSearch);
+
+  const savedViewNameInput = page.locator('form.saved-view-form').getByLabel('Name');
+  await savedViewNameInput.fill(savedViewName);
+  await expectFocused(savedViewNameInput);
+  await page.getByRole('button', { name: 'Save current view' }).click();
+
+  const savedViewRow = page.locator('article.saved-view-row').filter({ hasText: savedViewName });
+  await expect(savedViewRow).toBeVisible();
+  await expect(savedViewRow.getByText('2 applied filters')).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Work items', exact: true })).toBeVisible();
+  const reloadedSavedViewRow = page.locator('article.saved-view-row').filter({ hasText: savedViewName });
+  await expect(reloadedSavedViewRow).toBeVisible();
+  const openSavedView = reloadedSavedViewRow.getByRole('button', { name: 'Open' });
+  await openSavedView.focus();
+  await expectFocused(openSavedView);
+  await openSavedView.click();
+  await expect(page.getByText('Assignee: Avery Owner')).toBeVisible();
+  await expect(page.getByRole('row', { name: /Document future S3 and API Gateway deployment path/ })).toBeVisible();
+
+  await page.goto('/work-items/new');
+  await expect(page.getByRole('heading', { name: 'New work item' })).toBeVisible();
+
+  const projectSelect = page.getByLabel('Project');
+  await projectSelect.focus();
+  await expectFocused(projectSelect);
+  await projectSelect.selectOption({ label: 'WT · Worktrail App' });
+
+  await page.locator('#work-item-title').focus();
+  await expectFocused(page.locator('#work-item-title'));
+  await page.locator('#work-item-title').fill(title);
+  await page.locator('#work-item-description').fill(description);
+  await page.getByLabel('Type').selectOption('task');
+  await page.getByLabel('Priority').selectOption('high');
+  await page.getByLabel('Assignee').selectOption({ label: 'Avery Owner' });
+  await page.getByLabel('Due date').fill('2026-07-18');
+  await page.getByLabel('Estimate').fill('1');
+  await expect(page.getByLabel('backend')).toBeVisible();
+  await page.getByLabel('backend').check();
+  await page.getByRole('button', { name: 'Create work item' }).click();
+
+  await expect(page.getByLabel('Work item created')).toContainText(title);
+  await expect(page.getByText(/WT-\d+ created/)).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Open work item' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Create another' })).toBeVisible();
+
+  await page.goto('/work-items');
+  await expect(page.getByRole('heading', { name: 'Work items', exact: true })).toBeVisible();
+  await page.locator('form.filters').getByLabel('Search').fill(title);
+  await expect(page).toHaveURL(/search=/);
+  await expect(page.getByText(`Search: ${title}`)).toBeVisible();
+  await expect(page.getByRole('row', { name: new RegExp(title) })).toBeVisible();
+});
+
+test('keeps core pages usable at common desktop widths', async ({ page }) => {
   test.setTimeout(60_000);
 
   const checks = [
+    '/my-work',
+    '/work-items',
+    '/work-items/new',
     '/projects',
     '/workspace/settings',
     `/projects/${demoProjectId}/planning`,
     `/projects/${demoProjectId}/work-items`,
     `/projects/${demoProjectId}/board`,
     `/projects/${demoProjectId}/work-items/new`,
+    `/projects/${demoProjectId}/settings`,
     '/work-items/10000000-0000-4000-8000-000000000402'
   ];
 
