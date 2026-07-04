@@ -6,6 +6,7 @@ import type { ProjectDto, ProjectSummaryDto } from '@worktrail/contracts';
 
 import { ProjectHomePageComponent } from './project-home-page.component';
 import { ProjectListPageComponent } from './project-list-page.component';
+import { ProjectSettingsPageComponent } from './project-settings-page.component';
 
 const projectId = '10000000-0000-4000-8000-000000000201';
 const archivedProjectId = '10000000-0000-4000-8000-000000000203';
@@ -53,6 +54,12 @@ const projectSummary: ProjectSummaryDto = {
   ]
 };
 
+const archivedProjectSummary: ProjectSummaryDto = {
+  ...projectSummary,
+  project: archivedProject,
+  recentWorkItems: []
+};
+
 function setupProjectList() {
   const fixture = TestBed.createComponent(ProjectListPageComponent);
   const http = TestBed.inject(HttpTestingController);
@@ -79,6 +86,8 @@ describe('ProjectListPageComponent', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('WT');
+    expect(compiled.textContent).toContain('ARCH');
     expect(compiled.textContent).toContain('Worktrail App');
     expect(compiled.textContent).toContain('Archived Project');
 
@@ -175,9 +184,110 @@ describe('ProjectHomePageComponent', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Worktrail App');
+    expect(compiled.textContent).toContain('WT');
     expect(compiled.textContent).toContain('Backlog');
     expect(compiled.textContent).toContain('In progress');
     expect(compiled.textContent).toContain('Implement API client');
     expect(compiled.textContent).toContain('Create work item');
+    expect(compiled.textContent).toContain('Settings');
+  });
+
+  it('renders archived project state without the create action', () => {
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}/summary`).flush(archivedProjectSummary);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Archived project');
+    expect(compiled.textContent).toContain('ARCH');
+    expect(compiled.textContent).not.toContain('Create work item');
+  });
+});
+
+describe('ProjectSettingsPageComponent', () => {
+  let fixture: ComponentFixture<ProjectSettingsPageComponent>;
+  let http: HttpTestingController;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [ProjectSettingsPageComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              paramMap: convertToParamMap({ projectId })
+            }
+          }
+        }
+      ]
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(ProjectSettingsPageComponent);
+    http = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    http.verify();
+  });
+
+  it('loads project settings and saves metadata changes', () => {
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    fixture.detectChanges();
+
+    fixture.componentInstance.settingsForm.setValue({
+      key: 'next',
+      name: 'Renamed Worktrail App',
+      description: 'Updated project settings.'
+    });
+    fixture.componentInstance.saveSettings();
+
+    const patch = http.expectOne(`/api/projects/${projectId}`);
+    expect(patch.request.method).toBe('PATCH');
+    expect(patch.request.body).toEqual({
+      key: 'NEXT',
+      name: 'Renamed Worktrail App',
+      description: 'Updated project settings.'
+    });
+    patch.flush({
+      ...activeProject,
+      key: 'NEXT',
+      name: 'Renamed Worktrail App',
+      description: 'Updated project settings.'
+    });
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Renamed Worktrail App');
+    expect(compiled.textContent).toContain('Project settings saved.');
+  });
+
+  it('archives and reactivates projects without a page refresh', () => {
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    fixture.detectChanges();
+
+    fixture.componentInstance.archiveProject();
+    const archive = http.expectOne(`/api/projects/${projectId}/archive`);
+    expect(archive.request.method).toBe('POST');
+    archive.flush(archivedProject);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Archived project');
+
+    fixture.componentInstance.reactivateProject();
+    const reactivate = http.expectOne(`/api/projects/${projectId}/reactivate`);
+    expect(reactivate.request.method).toBe('POST');
+    reactivate.flush(activeProject);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Archived project');
   });
 });

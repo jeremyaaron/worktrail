@@ -29,6 +29,12 @@ const statusLabels: Record<WorkItemStatus, string> = {
         <div>
           <p class="eyebrow">Project</p>
           <h1>{{ summary.project.name }}</h1>
+          <div class="project-meta-pills">
+            <span>{{ summary.project.key }}</span>
+            <span [class.project-meta-pills__status--archived]="summary.project.status === 'archived'">
+              {{ summary.project.status }}
+            </span>
+          </div>
           <p class="project-copy">
             {{ summary.project.description || 'No description provided.' }}
           </p>
@@ -37,11 +43,21 @@ const statusLabels: Record<WorkItemStatus, string> = {
         <div class="project-actions">
           <a [routerLink]="['/projects', projectId(), 'work-items']">Work items</a>
           <a [routerLink]="['/projects', projectId(), 'board']">Board</a>
-          <a class="project-actions__primary" [routerLink]="['/projects', projectId(), 'work-items', 'new']">
-            Create work item
-          </a>
+          <a [routerLink]="['/projects', projectId(), 'settings']">Settings</a>
+          @if (summary.project.status === 'active') {
+            <a class="project-actions__primary" [routerLink]="['/projects', projectId(), 'work-items', 'new']">
+              Create work item
+            </a>
+          }
         </div>
       </section>
+
+      @if (summary.project.status === 'archived') {
+        <section class="notice" aria-label="Archived project">
+          <strong>Archived project</strong>
+          <p>Project work is read-only until it is reactivated in settings.</p>
+        </section>
+      }
 
       <section class="summary-grid" aria-label="Work item status counts">
         @for (count of summary.countsByStatus; track count.status) {
@@ -140,6 +156,55 @@ const statusLabels: Record<WorkItemStatus, string> = {
     .project-copy {
       margin-top: 8px;
       color: #64748b;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+
+    .project-meta-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .project-meta-pills span {
+      border: 1px solid #bfdbfe;
+      border-radius: 999px;
+      padding: 3px 9px;
+      background: #eff6ff;
+      color: #1e3a8a;
+      font-size: 0.75rem;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .project-meta-pills span:last-child {
+      border-color: #bbf7d0;
+      background: #f0fdf4;
+      color: #166534;
+      text-transform: capitalize;
+    }
+
+    .project-meta-pills__status--archived {
+      border-color: #fed7aa !important;
+      background: #fff7ed !important;
+      color: #9a3412 !important;
+    }
+
+    .notice {
+      display: grid;
+      gap: 4px;
+      margin-bottom: 18px;
+      border: 1px solid #fed7aa;
+      border-radius: 8px;
+      padding: 14px;
+      background: #fff7ed;
+      color: #9a3412;
+    }
+
+    .notice p {
+      margin: 0;
+      color: #9a3412;
       font-size: 0.875rem;
       line-height: 1.5;
     }

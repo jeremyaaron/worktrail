@@ -60,6 +60,18 @@ export class WorktrailApiService {
     return this.http.patch<ProjectDto>(this.url(`/projects/${projectId}`), input, this.options());
   }
 
+  archiveProject(projectId: string): Observable<ProjectDto> {
+    return this.http.post<ProjectDto>(this.url(`/projects/${projectId}/archive`), {}, this.options());
+  }
+
+  reactivateProject(projectId: string): Observable<ProjectDto> {
+    return this.http.post<ProjectDto>(
+      this.url(`/projects/${projectId}/reactivate`),
+      {},
+      this.options()
+    );
+  }
+
   getProjectSummary(projectId: string): Observable<ProjectSummaryDto> {
     return this.http.get<ProjectSummaryDto>(this.url(`/projects/${projectId}/summary`), this.options());
   }

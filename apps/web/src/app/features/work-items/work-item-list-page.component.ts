@@ -51,9 +51,14 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
         <p>Scan, filter, and open project work.</p>
       </div>
 
-      <a class="primary-action" [routerLink]="['/projects', projectId(), 'work-items', 'new']">
-        Create work item
-      </a>
+      <nav aria-label="Project work navigation">
+        <a class="secondary-header-action" [routerLink]="['/projects', projectId(), 'settings']">
+          Settings
+        </a>
+        <a class="primary-action" [routerLink]="['/projects', projectId(), 'work-items', 'new']">
+          Create work item
+        </a>
+      </nav>
     </section>
 
     <form class="filters" [formGroup]="filterForm" (ngSubmit)="applyFilters()">
@@ -191,6 +196,13 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
       margin-bottom: 20px;
     }
 
+    nav {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
     .eyebrow {
       margin: 0 0 6px;
       color: #64748b;
@@ -220,6 +232,7 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
     }
 
     .primary-action,
+    .secondary-header-action,
     button {
       min-height: 38px;
       border: 1px solid #1f4f99;
@@ -232,6 +245,12 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
       font-weight: 800;
       text-decoration: none;
       cursor: pointer;
+    }
+
+    .secondary-header-action {
+      border-color: #cbd5e1;
+      background: #ffffff;
+      color: #1f2937;
     }
 
     .secondary-action {

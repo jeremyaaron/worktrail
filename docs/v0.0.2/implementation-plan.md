@@ -425,6 +425,22 @@ npm test --workspace @worktrail/web -- --include src/app/features/projects/**/*.
 npm run typecheck --workspace @worktrail/web
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Added frontend API methods for project archive and reactivation commands.
+- Added `/projects/:projectId/settings` route and a standalone project settings page.
+- Implemented project key/name/description editing with validation, save state, error state, and success state.
+- Implemented archive/reactivate controls with archived-project messaging.
+- Displayed project keys in the project list and project home views.
+- Added project settings navigation from project list, project home, work item list, and board views.
+- Hid the project-home create-work-item action and showed a read-only notice when a project is archived.
+- Added Angular tests for project key display, archived project messaging, settings save, archive, and reactivation.
+- Verified `npm test --workspace @worktrail/web -- --include 'src/app/features/projects/**/*.spec.ts'`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+
 ## Phase 7: Label Administration UI And Work Item Create Labels
 
 Goal: let users manage labels and assign them during work item creation.
