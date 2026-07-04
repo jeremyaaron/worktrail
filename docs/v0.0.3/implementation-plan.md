@@ -668,6 +668,29 @@ npm test --workspace @worktrail/web -- --include '*board*'
 npm run typecheck --workspace @worktrail/web
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Changed board loading to request `sort=board_order`.
+- Replaced drag/drop transition calls with the persisted board move command.
+- Added destination neighbor calculation for board moves:
+  - top moves send `beforeWorkItemId: null`;
+  - middle moves send adjacent before/after IDs;
+  - bottom moves send `afterWorkItemId: null`.
+- Added same-column reorder support.
+- Added optimistic local board updates while a move is pending.
+- Added rollback behavior and a clear board-move error when the move API rejects a drag/drop or status-menu move.
+- Kept the status dropdown fallback by moving changed-status cards to the top of the destination column through `board-move`.
+- Preserved archived-project drag/drop and status controls as disabled.
+- Added frontend tests for board-order loading, status-menu payloads, cross-column neighbor payloads, same-column reorder payloads, same-index no-op behavior, rollback, and archived-project blocking.
+- Verified `npm test --workspace @worktrail/web -- --include 'src/app/features/work-items/*board*.spec.ts'`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm test --workspace @worktrail/web`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `npm run build`.
+- Verified `git diff --check`.
+
 ## Phase 10: Planning Dashboard UI
 
 Goal: render project planning summary as a useful review surface.
