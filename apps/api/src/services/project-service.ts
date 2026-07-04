@@ -1,6 +1,7 @@
 import type {
   CreateProjectRequest,
   ProjectDto,
+  ProjectNavigationSummaryDto,
   ProjectStatusCountDto,
   ProjectSummaryDto,
   UpdateProjectRequest
@@ -21,7 +22,7 @@ import {
   type Repositories,
   withRepositoriesTransaction
 } from '../repositories/index.js';
-import type { Project } from '../repositories/types.js';
+import type { Project, WorkItem } from '../repositories/types.js';
 import { toProjectDto, toRecentWorkItemDto } from './dto.js';
 
 function normalizeProjectKeyInput(input: string): string {
@@ -72,6 +73,49 @@ export class ProjectService {
       this.context.actor.workspaceId
     );
     return projects.map(toProjectDto);
+  }
+
+  async listProjectNavigationSummaries(): Promise<ProjectNavigationSummaryDto[]> {
+    const [projects, workItemRecords] = await Promise.all([
+      this.context.repositories.projects.listByWorkspace(this.context.actor.workspaceId),
+      this.context.repositories.workItems.listByWorkspace(this.context.actor.workspaceId, {
+        archivedProjects: 'include',
+        sort: 'updated_desc'
+      })
+    ]);
+    const today = this.clock().toISOString().slice(0, 10);
+    const workItemsByProject = new Map<string, WorkItem[]>();
+
+    for (const record of workItemRecords) {
+      workItemsByProject.set(record.workItem.projectId, [
+        ...(workItemsByProject.get(record.workItem.projectId) ?? []),
+        record.workItem
+      ]);
+    }
+
+    return projects
+      .map((project) => {
+        const workItems = workItemsByProject.get(project.id) ?? [];
+        const openWorkItems = workItems.filter((workItem) => isOpenWorkItem(workItem));
+        const mostRecentWorkItem = workItems.reduce<WorkItem | null>(
+          (mostRecent, workItem) =>
+            mostRecent === null || workItem.updatedAt.getTime() > mostRecent.updatedAt.getTime()
+              ? workItem
+              : mostRecent,
+          null
+        );
+
+        return {
+          project: toProjectDto(project),
+          openWorkItemCount: openWorkItems.length,
+          blockedWorkItemCount: workItems.filter((workItem) => workItem.status === 'blocked').length,
+          overdueWorkItemCount: openWorkItems.filter(
+            (workItem) => workItem.dueDate !== null && workItem.dueDate < today
+          ).length,
+          updatedAt: (mostRecentWorkItem?.updatedAt ?? project.updatedAt).toISOString()
+        };
+      })
+      .sort(compareNavigationSummaries);
   }
 
   async createProject(input: CreateProjectRequest): Promise<ProjectDto> {
@@ -377,4 +421,25 @@ export class ProjectService {
       });
     }
   }
+}
+
+function isOpenWorkItem(workItem: WorkItem): boolean {
+  return !['done', 'canceled'].includes(workItem.status);
+}
+
+function compareNavigationSummaries(
+  left: ProjectNavigationSummaryDto,
+  right: ProjectNavigationSummaryDto
+): number {
+  if (left.project.status !== right.project.status) {
+    return left.project.status === 'active' ? -1 : 1;
+  }
+
+  const updatedCompare = right.updatedAt.localeCompare(left.updatedAt);
+
+  if (updatedCompare !== 0) {
+    return updatedCompare;
+  }
+
+  return left.project.key.localeCompare(right.project.key);
 }

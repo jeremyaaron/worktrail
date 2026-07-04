@@ -466,6 +466,32 @@ npm run typecheck --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Added `ProjectService.listProjectNavigationSummaries`.
+- Added `GET /api/projects/navigation-summary`.
+- Computed project navigation fields:
+  - project;
+  - open work item count;
+  - blocked work item count;
+  - overdue work item count;
+  - recently updated timestamp.
+- Used the service clock for deterministic overdue calculation.
+- Sorted active projects before archived projects, then by most recent project/work-item update.
+- Used project `updatedAt` for empty projects.
+- Included archived projects with their status and work item counts.
+- Added backend tests for:
+  - active-before-archived ordering;
+  - recent-work ordering;
+  - open, blocked, and overdue counts;
+  - empty project summaries;
+  - archived project summaries;
+  - `GET /api/projects/navigation-summary`.
+- Verified `npm test --workspace @worktrail/api -- projects-members`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+
 ## Phase 6: API Client, Routes, And Shared Frontend Helpers
 
 Goal: wire frontend contracts and route structure before building full UI surfaces.

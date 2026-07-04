@@ -1,6 +1,7 @@
 import type {
   CreateProjectRequest,
   ProjectDto,
+  ProjectNavigationSummaryDto,
   ProjectSummaryDto,
   UpdateProjectRequest
 } from '@worktrail/contracts';
@@ -44,6 +45,18 @@ export function listProjectsHandler(repositories: Repositories): EndpointHandler
     return {
       status: 200,
       body: await service.listProjects()
+    };
+  };
+}
+
+export function listProjectNavigationSummariesHandler(
+  repositories: Repositories
+): EndpointHandler<ProjectNavigationSummaryDto[]> {
+  return async (request) => {
+    const service = new ProjectService({ actor: request.actor, repositories });
+    return {
+      status: 200,
+      body: await service.listProjectNavigationSummaries()
     };
   };
 }

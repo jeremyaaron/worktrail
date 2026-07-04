@@ -40,6 +40,7 @@ import {
   createProjectHandler,
   getProjectHandler,
   getProjectSummaryHandler,
+  listProjectNavigationSummariesHandler,
   listProjectsHandler,
   reactivateProjectHandler,
   updateProjectHandler
@@ -133,6 +134,10 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
       )
     );
     app.get('/api/projects', adaptEndpoint(listProjectsHandler(options.repositories), adapterOptions));
+    app.get(
+      '/api/projects/navigation-summary',
+      adaptEndpoint(listProjectNavigationSummariesHandler(options.repositories), adapterOptions)
+    );
     app.get(
       '/api/my-work',
       adaptEndpoint(getMyWorkDashboardHandler({ repositories: options.repositories }), adapterOptions)
