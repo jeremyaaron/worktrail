@@ -3,7 +3,7 @@
   "compilerOptions": {
     "rootDir": "src",
     "paths": {
-      "@worktrail/contracts": ["packages/contracts/dist/index.d.ts"]
+      "@worktrail/contracts": ["../../packages/contracts/dist/index.d.ts"]
     }
   },
   "exclude": ["tests/**/*.ts", "**/*.test.ts", "dist"]
