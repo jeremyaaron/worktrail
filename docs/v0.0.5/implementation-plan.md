@@ -877,6 +877,23 @@ npm run build --workspace @worktrail/web
 git diff --check
 ```
 
+Status: Completed.
+
+Notes:
+
+- Updated the project list to load `GET /projects/navigation-summary`.
+- Added local project search by name or key.
+- Displayed project key, status, open work item count, blocked count, overdue count, and last updated date.
+- Preserved project creation behavior by wrapping newly created projects in a local zero-count navigation summary until the next reload.
+- Clears active search after project creation so the new active project is immediately visible.
+- Visually separates archived projects with an archived section marker and muted row treatment.
+- Added component tests for navigation summary rendering, status filtering, name/key search, contributor create restrictions, and create regression behavior.
+- Verified `npm test --workspace @worktrail/web -- --include='src/app/features/projects/projects-page.component.spec.ts'`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm test --workspace @worktrail/web`.
+- Verified `npm run build --workspace @worktrail/web`; production initial bundle is 343.77 kB raw and 94.00 kB estimated transfer with no budget warnings.
+- Verified `git diff --check`.
+
 ## Phase 12: E2E, Accessibility, Responsiveness, And Regression
 
 Goal: validate the v0.0.5 daily workflow through the browser and protect prior sprint behavior.

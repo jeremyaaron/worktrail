@@ -6,6 +6,7 @@ import type {
   ActivityEventDto,
   MemberDto,
   ProjectDto,
+  ProjectNavigationSummaryDto,
   ProjectSummaryDto,
   WorkspaceCapabilitiesDto
 } from '@worktrail/contracts';
@@ -63,6 +64,22 @@ const archivedProject: ProjectDto = {
   status: 'archived',
   createdAt: '2026-07-02T12:00:00.000Z',
   updatedAt: '2026-07-03T12:00:00.000Z'
+};
+
+const activeNavigationSummary: ProjectNavigationSummaryDto = {
+  project: activeProject,
+  openWorkItemCount: 6,
+  blockedWorkItemCount: 1,
+  overdueWorkItemCount: 2,
+  updatedAt: '2026-07-04T12:00:00.000Z'
+};
+
+const archivedNavigationSummary: ProjectNavigationSummaryDto = {
+  project: archivedProject,
+  openWorkItemCount: 0,
+  blockedWorkItemCount: 0,
+  overdueWorkItemCount: 0,
+  updatedAt: '2026-06-28T12:00:00.000Z'
 };
 
 const projectSummary: ProjectSummaryDto = {
@@ -168,10 +185,10 @@ function setupProjectList() {
 
 function flushProjectListLoad(
   http: HttpTestingController,
-  projects: ProjectDto[],
+  summaries: ProjectNavigationSummaryDto[],
   capabilities: WorkspaceCapabilitiesDto = ownerCapabilities
 ) {
-  http.expectOne('/api/projects').flush(projects);
+  http.expectOne('/api/projects/navigation-summary').flush(summaries);
   http.expectOne('/api/workspace/capabilities').flush(capabilities);
 }
 
@@ -187,10 +204,10 @@ describe('ProjectListPageComponent', () => {
     TestBed.inject(HttpTestingController).verify();
   });
 
-  it('renders projects loaded from the API and filters archived projects', () => {
+  it('renders project navigation summaries and filters archived projects', () => {
     const { fixture, http } = setupProjectList();
 
-    flushProjectListLoad(http, [activeProject, archivedProject]);
+    flushProjectListLoad(http, [activeNavigationSummary, archivedNavigationSummary]);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
@@ -198,6 +215,15 @@ describe('ProjectListPageComponent', () => {
     expect(compiled.textContent).toContain('ARCH');
     expect(compiled.textContent).toContain('Worktrail App');
     expect(compiled.textContent).toContain('Archived Project');
+    expect(compiled.textContent).toContain('Open');
+    expect(compiled.textContent).toContain('6');
+    expect(compiled.textContent).toContain('Blocked');
+    expect(compiled.textContent).toContain('1');
+    expect(compiled.textContent).toContain('Overdue');
+    expect(compiled.textContent).toContain('2');
+    expect(compiled.textContent).toContain('Updated');
+    expect(compiled.textContent).toContain('Jul 4, 2026');
+    expect(compiled.textContent).toContain('Archived projects');
 
     const archivedButton = Array.from(compiled.querySelectorAll('button')).find(
       (button) => button.textContent?.trim() === 'Archived'
@@ -207,6 +233,31 @@ describe('ProjectListPageComponent', () => {
 
     expect(compiled.textContent).not.toContain('Worktrail App');
     expect(compiled.textContent).toContain('Archived Project');
+  });
+
+  it('searches projects by name or key', () => {
+    const { fixture, http } = setupProjectList();
+
+    flushProjectListLoad(http, [activeNavigationSummary, archivedNavigationSummary]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const search = compiled.querySelector<HTMLInputElement>('#project-search');
+
+    expect(search).not.toBeNull();
+    search!.value = 'arch';
+    search!.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect(compiled.textContent).not.toContain('Worktrail App');
+    expect(compiled.textContent).toContain('Archived Project');
+
+    search!.value = 'wt';
+    search!.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain('Worktrail App');
+    expect(compiled.textContent).not.toContain('Archived Project');
   });
 
   it('shows project creation validation before posting', () => {
@@ -252,6 +303,8 @@ describe('ProjectListPageComponent', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('New Product Launch');
+    expect(compiled.textContent).toContain('Open');
+    expect(compiled.textContent).toContain('0');
     expect(compiled.textContent).toContain('Project created.');
   });
 
@@ -310,7 +363,7 @@ describe('ProjectListPageComponent', () => {
   it('disables project creation for contributors', () => {
     const { fixture, http } = setupProjectList();
 
-    flushProjectListLoad(http, [activeProject], contributorCapabilities);
+    flushProjectListLoad(http, [activeNavigationSummary], contributorCapabilities);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
