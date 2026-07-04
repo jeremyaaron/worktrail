@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Worktrail | Project management reference app</title>
+    <meta
+      name="description"
+      content="Worktrail is a project management reference app for building local-first MVP workflows with cloud-ready application boundaries."
+    >
+    <meta property="og:title" content="Worktrail">
+    <meta
+      property="og:description"
+      content="A project management reference app shaped around Angular, Postgres, transport-neutral API handlers, and a path toward cloud deployment."
+    >
+    <meta property="og:type" content="website">
+    <meta name="theme-color" content="#f6f8fb">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="topbar" aria-label="Site header">
+      <a class="brand" href="#top" aria-label="Worktrail home">
+        <span class="brand-mark" aria-hidden="true">W</span>
+        <span>Worktrail</span>
+      </a>
+      <nav class="nav" aria-label="Primary navigation">
+        <a href="#app">App</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#mvp">MVP</a>
+        <a href="#run">Run locally</a>
+        <a href="https://github.com/jeremyaaron/pm-reference">GitHub</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero" aria-labelledby="hero-title">
+        <img
+          class="hero-image"
+          src="assets/worktrail-board.png"
+          alt="Worktrail project board with workflow columns and work item cards"
+        >
+        <div class="hero-overlay" aria-hidden="true"></div>
+        <div class="hero-content">
+          <p class="eyebrow">Project management reference app</p>
+          <h1 id="hero-title">Worktrail</h1>
+          <p class="hero-copy">
+            A small but real project workflow built to expose reusable application patterns:
+            Angular screens, Postgres persistence, transport-neutral API handlers, activity trails,
+            and a practical path from local development to cloud deployment.
+          </p>
+          <div class="hero-actions" aria-label="Primary actions">
+            <a class="button button-primary" href="https://github.com/jeremyaaron/pm-reference">
+              View source
+            </a>
+            <a class="button button-secondary" href="#run">Run locally</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="signal-band" aria-label="Project signals">
+        <div class="signal">
+          <span class="signal-value">Angular</span>
+          <span class="signal-label">static frontend path</span>
+        </div>
+        <div class="signal">
+          <span class="signal-value">Postgres</span>
+          <span class="signal-label">local and managed database parity</span>
+        </div>
+        <div class="signal">
+          <span class="signal-value">API</span>
+          <span class="signal-label">handlers shaped beyond Express</span>
+        </div>
+      </section>
+
+      <section class="section" id="app" aria-labelledby="app-title">
+        <div class="section-heading">
+          <p class="eyebrow">The app</p>
+          <h2 id="app-title">A reference workflow with enough product surface to matter.</h2>
+          <p>
+            Worktrail is intentionally small, but it is not a toy shell. The MVP covers project
+            spaces, work item lists, a board, comments, labels, local actor selection, and activity
+            events so implementation choices have real consequences.
+          </p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature">
+            <span class="feature-kicker">Projects</span>
+            <h3>Seeded workspaces with project summaries.</h3>
+            <p>Open projects, review status counts, and move from summary to list or board views.</p>
+          </article>
+          <article class="feature">
+            <span class="feature-kicker">Work items</span>
+            <h3>Structured work with filters and detail pages.</h3>
+            <p>Track type, status, priority, assignee, labels, due dates, estimates, and comments.</p>
+          </article>
+          <article class="feature">
+            <span class="feature-kicker">Board</span>
+            <h3>Status-driven movement without hidden behavior.</h3>
+            <p>Use explicit status menus backed by server-side workflow validation and activity events.</p>
+          </article>
+          <article class="feature">
+            <span class="feature-kicker">Activity</span>
+            <h3>A timeline that proves state changed.</h3>
+            <p>Creation, comments, labels, priority, assignee, and status changes are recorded.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section contrast" id="architecture" aria-labelledby="architecture-title">
+        <div class="architecture-layout">
+          <div>
+            <p class="eyebrow">Architecture</p>
+            <h2 id="architecture-title">Local-first now. Cloud-shaped from the first cut.</h2>
+            <p>
+              The MVP runs locally with Angular, Express, and Postgres. The internal boundaries are
+              deliberately boring: shared DTO contracts, request validation, repository-backed
+              services, actor context, and endpoint handlers that can outlive the local Express adapter.
+            </p>
+          </div>
+          <div class="stack-panel" aria-label="Architecture layers">
+            <div><strong>Angular SPA</strong><span>static build suitable for S3 and CloudFront</span></div>
+            <div><strong>Endpoint handlers</strong><span>transport-neutral request and response shape</span></div>
+            <div><strong>Express adapter</strong><span>local runtime only for v0.0.1</span></div>
+            <div><strong>Postgres + Drizzle</strong><span>committed SQL migrations and deterministic seed data</span></div>
+            <div><strong>Playwright smoke</strong><span>browser-level workflow coverage for release readiness</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="mvp" aria-labelledby="mvp-title">
+        <div class="section-heading">
+          <p class="eyebrow">MVP scope</p>
+          <h2 id="mvp-title">A public face for an early reference app.</h2>
+          <p>
+            Worktrail v0.0.1 is a local MVP. Authentication, permissions, label administration,
+            hosted infrastructure, and richer collaboration tools are intentionally limited. The
+            value today is a working reference implementation that can accumulate evidence before
+            patterns are extracted into broader framework ideas.
+          </p>
+        </div>
+      </section>
+
+      <section class="section run" id="run" aria-labelledby="run-title">
+        <div>
+          <p class="eyebrow">Run locally</p>
+          <h2 id="run-title">Clone, migrate, seed, and start.</h2>
+        </div>
+        <pre><code>npm install
+npm run db:start
+npm run db:migrate
+npm run db:seed
+npm run dev</code></pre>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>Worktrail</span>
+      <a href="https://github.com/jeremyaaron/pm-reference">GitHub</a>
+      <a href="https://github.com/jeremyaaron/pm-reference/tree/main/docs/v0.0.1">Planning docs</a>
+    </footer>
+  </body>
+</html>

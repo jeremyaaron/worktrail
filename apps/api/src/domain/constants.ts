@@ -1,0 +1,39 @@
+export const memberRoles = ['owner', 'maintainer', 'contributor'] as const;
+export const projectStatuses = ['active', 'archived'] as const;
+export const workItemTypes = ['task', 'bug', 'story', 'chore'] as const;
+export const workItemStatuses = [
+  'backlog',
+  'ready',
+  'in_progress',
+  'blocked',
+  'done',
+  'canceled'
+] as const;
+export const workItemPriorities = ['low', 'medium', 'high', 'urgent'] as const;
+export const activityEventTypes = [
+  'work_item.created',
+  'work_item.title_changed',
+  'work_item.description_changed',
+  'work_item.status_changed',
+  'work_item.assignee_changed',
+  'work_item.priority_changed',
+  'work_item.label_added',
+  'work_item.label_removed',
+  'comment.added'
+] as const;
+
+export type MemberRole = (typeof memberRoles)[number];
+export type ProjectStatus = (typeof projectStatuses)[number];
+export type WorkItemType = (typeof workItemTypes)[number];
+export type WorkItemStatus = (typeof workItemStatuses)[number];
+export type WorkItemPriority = (typeof workItemPriorities)[number];
+export type ActivityEventType = (typeof activityEventTypes)[number];
+
+export const terminalWorkItemStatuses = ['done', 'canceled'] as const satisfies readonly WorkItemStatus[];
+export const openWorkItemStatuses = [
+  'backlog',
+  'ready',
+  'in_progress',
+  'blocked'
+] as const satisfies readonly WorkItemStatus[];
+

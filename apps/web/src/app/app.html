@@ -1,0 +1,39 @@
+<div class="app-shell">
+  <header class="topbar">
+    <a class="brand" routerLink="/projects" aria-label="Worktrail projects">
+      <span class="brand__mark" aria-hidden="true">W</span>
+      <span>Worktrail</span>
+    </a>
+
+    <nav class="primary-nav" aria-label="Primary navigation">
+      <a routerLink="/projects" routerLinkActive="primary-nav__link--active">Projects</a>
+    </nav>
+
+    <section class="actor-selector" aria-label="Current user">
+      @if (currentUser.isLoading()) {
+        <app-loading-indicator label="Loading members" />
+      } @else if (currentUser.error()) {
+        <app-error-panel
+          title="Members unavailable"
+          [message]="currentUser.error() ?? ''"
+          (retry)="loadMembers()"
+        />
+      } @else {
+        <label for="current-member">Acting as</label>
+        <select
+          id="current-member"
+          [ngModel]="currentUser.selectedMember()?.id"
+          (ngModelChange)="selectMember($event)"
+        >
+          @for (member of currentUser.members(); track member.id) {
+            <option [value]="member.id">{{ member.name }} · {{ member.role }}</option>
+          }
+        </select>
+      }
+    </section>
+  </header>
+
+  <main class="content-shell">
+    <router-outlet />
+  </main>
+</div>
