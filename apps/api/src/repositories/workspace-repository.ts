@@ -4,6 +4,11 @@ import type { WorktrailDb } from '../db/client.js';
 import { workspaces } from '../db/schema.js';
 import type { NewWorkspace } from './types.js';
 
+export interface UpdateWorkspaceInput {
+  name: string;
+  updatedAt: Date;
+}
+
 export function createWorkspaceRepository(db: WorktrailDb) {
   return {
     async create(input: NewWorkspace) {
@@ -14,7 +19,15 @@ export function createWorkspaceRepository(db: WorktrailDb) {
     async findById(id: string) {
       const [workspace] = await db.select().from(workspaces).where(eq(workspaces.id, id)).limit(1);
       return workspace ?? null;
+    },
+
+    async update(id: string, input: UpdateWorkspaceInput) {
+      const [workspace] = await db
+        .update(workspaces)
+        .set(input)
+        .where(eq(workspaces.id, id))
+        .returning();
+      return workspace ?? null;
     }
   };
 }
-

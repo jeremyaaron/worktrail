@@ -1,5 +1,17 @@
 import type { ActorContext } from './actor.js';
 
+export function canManageWorkspace(actor: ActorContext): boolean {
+  return actor.role === 'owner';
+}
+
+export function canManageMembers(actor: ActorContext): boolean {
+  return canManageWorkspace(actor);
+}
+
+export function canCreateProject(actor: ActorContext): boolean {
+  return actor.role === 'owner' || actor.role === 'maintainer';
+}
+
 export function canManageProject(actor: ActorContext): boolean {
   return actor.role === 'owner' || actor.role === 'maintainer';
 }

@@ -45,6 +45,12 @@ import {
   transitionWorkItemHandler,
   updateWorkItemHandler
 } from '../../endpoints/work-items.js';
+import {
+  getWorkspaceCapabilitiesHandler,
+  getWorkspaceHandler,
+  listWorkspaceActivityHandler,
+  updateWorkspaceHandler
+} from '../../endpoints/workspace.js';
 import type { WorktrailDb } from '../../db/client.js';
 import type { EndpointHandler } from '../../http/app-request.js';
 import type { Repositories } from '../../repositories/index.js';
@@ -73,6 +79,16 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
   if (options.repositories !== undefined) {
     const adapterOptions = { repositories: options.repositories };
 
+    app.get('/api/workspace', adaptEndpoint(getWorkspaceHandler(options.repositories), adapterOptions));
+    app.patch('/api/workspace', adaptEndpoint(updateWorkspaceHandler(options.repositories), adapterOptions));
+    app.get(
+      '/api/workspace/capabilities',
+      adaptEndpoint(getWorkspaceCapabilitiesHandler(options.repositories), adapterOptions)
+    );
+    app.get(
+      '/api/workspace/activity',
+      adaptEndpoint(listWorkspaceActivityHandler(options.repositories), adapterOptions)
+    );
     app.get('/api/members', adaptEndpoint(listMembersHandler(options.repositories), adapterOptions));
     app.get('/api/projects', adaptEndpoint(listProjectsHandler(options.repositories), adapterOptions));
     app.post('/api/projects', adaptEndpoint(createProjectHandler(options.repositories), adapterOptions));

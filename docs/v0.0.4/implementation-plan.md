@@ -287,6 +287,42 @@ npm test --workspace @worktrail/api -- workspace
 npm run typecheck --workspace @worktrail/api
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Expanded `WorkspaceRepository` with update support.
+- Added `WorkspaceActivityEventRepository` with create and newest-first workspace listing.
+- Wired `workspaceActivityEvents` into the shared repository factory.
+- Added workspace permission helpers:
+  - `canManageWorkspace`;
+  - `canManageMembers`;
+  - `canCreateProject`.
+- Added `WorkspaceService` with:
+  - workspace read;
+  - owner-only workspace name update;
+  - server-derived workspace capabilities;
+  - workspace activity listing with actor mapping;
+  - workspace name change activity recording.
+- Added workspace endpoint handlers:
+  - `GET /api/workspace`;
+  - `PATCH /api/workspace`;
+  - `GET /api/workspace/capabilities`;
+  - `GET /api/workspace/activity`.
+- Wired workspace routes through the repository-backed Express adapter.
+- Added backend workspace API tests for:
+  - current workspace read;
+  - owner workspace rename and activity recording;
+  - maintainer/contributor rename rejection;
+  - owner/maintainer/contributor capability output;
+  - workspace activity ordering and actor DTO mapping.
+- Verified `npm test --workspace @worktrail/api -- workspace`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `npm run build`.
+- Verified `git diff --check` and `git diff --cached --check`.
+
 ## Phase 4: Member Administration Backend
 
 Goal: implement member create/edit/deactivate/reactivate behavior and role safety.
