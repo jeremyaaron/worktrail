@@ -1004,3 +1004,19 @@ npm audit --omit=dev --audit-level=low
 git diff --check
 git status --short --branch
 ```
+
+Status: Completed.
+
+Notes:
+
+- Updated `README.md` for v0.0.5 repository layout, setup, verification, local actor caveats, demo walkthrough, capabilities, limitations, and database status.
+- Updated the static GitHub Pages product site for My Work, cross-project discovery, personal saved views, quick work capture, project navigation summaries, and current limitations.
+- Added `docs/v0.0.5/jawstack-extraction-notes.md` covering dashboard summaries, URL-backed discovery, saved query state, quick capture, navigation summaries, deterministic browser restore, lazy frontend routes, and cloud deployment implications.
+- Updated root, app, and package versions to `0.0.5` without creating a release tag.
+- Updated the API workspace dependency on `@worktrail/contracts` to `0.0.5` and refreshed `package-lock.json`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `npm run test:e2e`; the suite restored deterministic seed data after browser mutations.
+- Verified `npm run build`; production initial bundle is 343.77 kB raw and 94.00 kB estimated transfer with no budget warnings.
+- Verified `npm audit --omit=dev --audit-level=low`; no production vulnerabilities found.
+- Verified `git diff --check`.
