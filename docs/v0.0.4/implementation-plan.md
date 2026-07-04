@@ -381,6 +381,53 @@ npm test --workspace @worktrail/api -- members
 npm run typecheck --workspace @worktrail/api
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Expanded `MemberRepository` with:
+  - member update;
+  - case-insensitive workspace email lookup;
+  - active owner counting.
+- Replaced the read-only `MemberService` with member lifecycle behavior:
+  - list members;
+  - create member;
+  - update member profile and role;
+  - deactivate member;
+  - reactivate member.
+- Added owner-only member management checks.
+- Added member name trimming and validation.
+- Added email trimming/lowercase normalization and validation.
+- Added duplicate email conflict handling.
+- Added last-active-owner protection for demotion and deactivation.
+- Added workspace activity recording for:
+  - `member.created`;
+  - `member.name_changed`;
+  - `member.email_changed`;
+  - `member.role_changed`;
+  - `member.deactivated`;
+  - `member.reactivated`.
+- Added member endpoint handlers:
+  - `POST /api/members`;
+  - `PATCH /api/members/:memberId`;
+  - `POST /api/members/:memberId/deactivate`;
+  - `POST /api/members/:memberId/reactivate`.
+- Wired member mutation routes through Express with transaction-capable handler options.
+- Expanded member API tests for:
+  - owner member creation and activity;
+  - maintainer/contributor rejection;
+  - duplicate email conflict;
+  - profile and role update activity;
+  - deactivate/reactivate lifecycle;
+  - last active owner demotion/deactivation protection.
+- Updated project/member test cleanup to remove workspace activity before members.
+- Verified `npm test --workspace @worktrail/api -- projects-members`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `npm run build`.
+- Verified `git diff --check` and `git diff --cached --check`.
+
 ## Phase 5: Project Creation Governance
 
 Goal: enforce project creation permissions and record workspace activity for project creation.

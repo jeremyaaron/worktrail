@@ -19,7 +19,13 @@ import {
   reactivateLabelHandler,
   updateLabelHandler
 } from '../../endpoints/labels.js';
-import { listMembersHandler } from '../../endpoints/members.js';
+import {
+  createMemberHandler,
+  deactivateMemberHandler,
+  listMembersHandler,
+  reactivateMemberHandler,
+  updateMemberHandler
+} from '../../endpoints/members.js';
 import {
   archiveMilestoneHandler,
   createMilestoneHandler,
@@ -90,6 +96,34 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
       adaptEndpoint(listWorkspaceActivityHandler(options.repositories), adapterOptions)
     );
     app.get('/api/members', adaptEndpoint(listMembersHandler(options.repositories), adapterOptions));
+    app.post(
+      '/api/members',
+      adaptEndpoint(
+        createMemberHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
+    );
+    app.patch(
+      '/api/members/:memberId',
+      adaptEndpoint(
+        updateMemberHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
+    );
+    app.post(
+      '/api/members/:memberId/deactivate',
+      adaptEndpoint(
+        deactivateMemberHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
+    );
+    app.post(
+      '/api/members/:memberId/reactivate',
+      adaptEndpoint(
+        reactivateMemberHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
+    );
     app.get('/api/projects', adaptEndpoint(listProjectsHandler(options.repositories), adapterOptions));
     app.post('/api/projects', adaptEndpoint(createProjectHandler(options.repositories), adapterOptions));
     app.get(
