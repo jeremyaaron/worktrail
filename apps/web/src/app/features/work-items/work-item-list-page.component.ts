@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type {
@@ -13,6 +13,7 @@ import type {
   WorkItemStatus,
   WorkItemType
 } from '@worktrail/contracts';
+import { Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorkItemListFilters, WorktrailApiService } from '../../core/worktrail-api.service';
@@ -44,6 +45,32 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
   { label: 'Created newest', value: 'created_desc' },
   { label: 'Board order', value: 'board_order' }
 ];
+
+interface WorkItemFilterFormValue {
+  search: string;
+  status: string;
+  assigneeId: string;
+  reporterId: string;
+  type: string;
+  labelId: string;
+  milestoneId: string;
+  priority: string;
+  dueDateState: string;
+  sort: string;
+}
+
+const defaultFilterValues: WorkItemFilterFormValue = {
+  search: '',
+  status: '',
+  assigneeId: '',
+  reporterId: '',
+  type: '',
+  labelId: '',
+  milestoneId: '',
+  priority: '',
+  dueDateState: '',
+  sort: 'updated_desc'
+};
 
 @Component({
   selector: 'app-work-item-list-page',
@@ -183,7 +210,6 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
       </label>
 
       <div class="filter-actions">
-        <button type="submit">Apply</button>
         <button type="button" class="secondary-action" (click)="clearFilters()">Clear</button>
       </div>
     </form>
@@ -639,12 +665,13 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
     }
   `
 })
-export class WorkItemListPageComponent implements OnInit {
+export class WorkItemListPageComponent implements OnDestroy, OnInit {
   private readonly api = inject(WorktrailApiService);
   private readonly currentUser = inject(CurrentUserService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly subscriptions = new Subscription();
 
   readonly statuses = statuses;
   readonly types = types;
@@ -658,6 +685,7 @@ export class WorkItemListPageComponent implements OnInit {
   readonly workItems = signal<WorkItemListItemDto[]>([]);
   readonly labels = signal<LabelDto[]>([]);
   readonly milestones = signal<MilestoneDto[]>([]);
+  readonly appliedFilterValues = signal<WorkItemFilterFormValue>({ ...defaultFilterValues });
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
   readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
@@ -682,10 +710,11 @@ export class WorkItemListPageComponent implements OnInit {
 
     this.loadProject();
     this.loadMilestones();
+    this.watchFilterChanges();
 
-    this.route.queryParamMap.subscribe((params) => {
-      this.filterForm.patchValue(
-        {
+    this.subscriptions.add(
+      this.route.queryParamMap.subscribe((params) => {
+        const nextFilters: WorkItemFilterFormValue = {
           search: params.get('search') ?? '',
           status: params.get('status') ?? '',
           assigneeId: params.get('assigneeId') ?? '',
@@ -696,11 +725,17 @@ export class WorkItemListPageComponent implements OnInit {
           priority: params.get('priority') ?? '',
           dueDateState: params.get('dueDateState') ?? '',
           sort: params.get('sort') ?? 'updated_desc'
-        },
-        { emitEvent: false }
-      );
-      this.loadWorkItems();
-    });
+        };
+
+        this.appliedFilterValues.set(nextFilters);
+        this.filterForm.patchValue(nextFilters, { emitEvent: false });
+        this.loadWorkItems();
+      })
+    );
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
   }
 
   applyFilters(): void {
@@ -711,18 +746,7 @@ export class WorkItemListPageComponent implements OnInit {
   }
 
   clearFilters(): void {
-    this.filterForm.reset({
-      search: '',
-      status: '',
-      assigneeId: '',
-      reporterId: '',
-      type: '',
-      labelId: '',
-      milestoneId: '',
-      priority: '',
-      dueDateState: '',
-      sort: 'updated_desc'
-    });
+    this.filterForm.reset({ ...defaultFilterValues });
     this.applyFilters();
   }
 
@@ -789,8 +813,10 @@ export class WorkItemListPageComponent implements OnInit {
   }
 
   private filtersFromForm(): WorkItemListFilters {
-    const formValue = this.filterForm.getRawValue();
+    return this.toFilters(this.filterForm.getRawValue());
+  }
 
+  private toFilters(formValue: WorkItemFilterFormValue): WorkItemListFilters {
     return {
       search: this.optional(formValue.search),
       status: this.optional(formValue.status) as WorkItemStatus | undefined,
@@ -806,7 +832,10 @@ export class WorkItemListPageComponent implements OnInit {
   }
 
   private queryParamsFromForm(): Record<string, string | null> {
-    const filters = this.filtersFromForm();
+    return this.toQueryParams(this.filtersFromForm());
+  }
+
+  private toQueryParams(filters: WorkItemListFilters): Record<string, string | null> {
     const sort = filters.sort ?? 'updated_desc';
 
     return {
@@ -821,6 +850,32 @@ export class WorkItemListPageComponent implements OnInit {
       dueDateState: filters.dueDateState ?? null,
       sort: sort === 'updated_desc' ? null : sort
     };
+  }
+
+  private watchFilterChanges(): void {
+    this.subscriptions.add(
+      this.filterForm.controls.search.valueChanges
+        .pipe(debounceTime(400), distinctUntilChanged())
+        .subscribe(() => this.applyFilters())
+    );
+
+    const controls = [
+      this.filterForm.controls.status,
+      this.filterForm.controls.assigneeId,
+      this.filterForm.controls.reporterId,
+      this.filterForm.controls.type,
+      this.filterForm.controls.labelId,
+      this.filterForm.controls.milestoneId,
+      this.filterForm.controls.priority,
+      this.filterForm.controls.dueDateState,
+      this.filterForm.controls.sort
+    ];
+
+    for (const control of controls) {
+      this.subscriptions.add(
+        control.valueChanges.pipe(distinctUntilChanged()).subscribe(() => this.applyFilters())
+      );
+    }
   }
 
   private optional(value: string): string | undefined {
@@ -851,7 +906,7 @@ export class WorkItemListPageComponent implements OnInit {
   }
 
   private getActiveFilterLabels(): string[] {
-    const formValue = this.filterForm.getRawValue();
+    const formValue = this.appliedFilterValues();
     const labels: string[] = [];
 
     if (formValue.search.trim() !== '') {

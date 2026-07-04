@@ -24,7 +24,7 @@ export default defineConfig({
       timeout: 120_000
     },
     {
-      command: `npm run start --workspace @worktrail/web -- --host ${host} --port ${webPort}`,
+      command: `npm run start --workspace @worktrail/web -- --port ${webPort}`,
       url: baseURL,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000

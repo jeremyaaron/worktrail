@@ -793,6 +793,29 @@ npm run test:e2e
 npm run build
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Extended the Playwright smoke workflow for v0.0.3:
+  - opens the planning page;
+  - verifies seeded planning dashboard risk data;
+  - creates a milestone;
+  - creates a label;
+  - creates a work item assigned to the new milestone;
+  - filters the work item list by the new milestone;
+  - reorders the backlog board column with drag/drop;
+  - reloads the board and confirms persisted order;
+  - moves the work item through the workflow and validates detail-page status;
+  - exercises comment add, edit, delete, and activity log coverage.
+- Added a Playwright responsive sanity check for planning, work item list filters, board, create milestone controls, and detail milestone controls at 1440px and 1024px desktop widths.
+- Confirmed those pages do not expose Angular placeholder text, placeholder routes, or page-level horizontal overflow at the checked widths.
+- Updated the Playwright web-server command to avoid passing duplicate `--host` flags.
+- Verified `npm run test:e2e`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `npm run build`.
+- Verified `git diff --check`.
+
 ## Phase 12: Documentation, Site, Extraction Notes, And Release Finalization
 
 Goal: prepare v0.0.3 for merge and release.
