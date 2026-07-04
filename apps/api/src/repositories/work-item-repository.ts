@@ -1,5 +1,5 @@
 import type { WorkItemQuery } from '@worktrail/contracts';
-import { and, asc, count, desc, eq, ilike, or, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 
 import type { WorktrailDb } from '../db/client.js';
 import { projects, workItemLabels, workItems } from '../db/schema.js';
@@ -207,6 +207,14 @@ export function createWorkItemRepository(db: WorktrailDb) {
 
       if (filters.status !== undefined) {
         conditions.push(eq(workItems.status, filters.status));
+      }
+
+      if (filters.workState === 'open') {
+        conditions.push(inArray(workItems.status, ['backlog', 'ready', 'in_progress', 'blocked']));
+      }
+
+      if (filters.workState === 'terminal') {
+        conditions.push(inArray(workItems.status, ['done', 'canceled']));
       }
 
       if (filters.blocked === true && filters.status === undefined) {

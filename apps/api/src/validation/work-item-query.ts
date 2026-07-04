@@ -16,6 +16,7 @@ const queryBooleanSchema = z
 const workItemQuerySchema = z.object({
   projectId: z.string().uuid().optional(),
   status: z.enum(workItemStatuses).optional(),
+  workState: z.enum(['open', 'terminal']).optional(),
   assigneeId: z.string().uuid().optional(),
   assigneeState: z.enum(['assigned', 'unassigned']).optional(),
   reporterId: z.string().uuid().optional(),
@@ -52,6 +53,7 @@ export function parseWorkItemQuery(query: Record<string, string | string[] | und
   const parsed = parseWithSchema(workItemQuerySchema, {
     projectId: emptyToUndefined(firstQueryValue(query.projectId)),
     status: emptyToUndefined(firstQueryValue(query.status)),
+    workState: emptyToUndefined(firstQueryValue(query.workState)),
     assigneeId: emptyToUndefined(firstQueryValue(query.assigneeId)),
     assigneeState: emptyToUndefined(firstQueryValue(query.assigneeState)),
     reporterId: emptyToUndefined(firstQueryValue(query.reporterId)),
@@ -83,6 +85,10 @@ export function normalizeWorkItemQuery(input: WorkItemQuery): WorkItemQuery {
 function validateWorkItemQuery(query: WorkItemQuery): void {
   if (query.blocked === true && query.status !== undefined && query.status !== 'blocked') {
     throw new ValidationError('Blocked work item queries cannot specify another status.');
+  }
+
+  if (query.status !== undefined && query.workState !== undefined) {
+    throw new ValidationError('Work item queries cannot specify both status and work state.');
   }
 
   if (query.assigneeId !== undefined && query.assigneeState === 'unassigned') {

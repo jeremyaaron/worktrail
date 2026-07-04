@@ -18,6 +18,7 @@ export type MilestoneStatus = 'planned' | 'active' | 'completed' | 'canceled';
 export type DueDateState = 'overdue' | 'due_soon' | 'none';
 export type ArchivedProjectMode = 'exclude' | 'include' | 'only';
 export type AssigneeState = 'assigned' | 'unassigned';
+export type WorkItemState = 'open' | 'terminal';
 export type WorkItemSort =
   | 'updated_desc'
   | 'updated_asc'
@@ -29,6 +30,7 @@ export type WorkItemSort =
 export interface WorkItemQuery {
   projectId?: string;
   status?: WorkItemStatus;
+  workState?: WorkItemState;
   assigneeId?: string;
   assigneeState?: AssigneeState;
   reporterId?: string;

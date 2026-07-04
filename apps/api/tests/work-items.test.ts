@@ -593,6 +593,18 @@ describe('work item API', () => {
           message: 'Unassigned work item queries cannot specify an assignee.'
         });
       });
+
+    await request(app)
+      .get('/api/work-items')
+      .query({ workState: 'open', status: 'ready' })
+      .set(fixture.headers)
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.error).toEqual({
+          code: 'VALIDATION_ERROR',
+          message: 'Work item queries cannot specify both status and work state.'
+        });
+      });
   });
 
   it('rejects work item creation under archived projects', async () => {

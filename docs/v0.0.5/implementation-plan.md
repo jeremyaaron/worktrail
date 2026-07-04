@@ -91,6 +91,7 @@ Scope:
 - Extend shared contracts with:
   - `ArchivedProjectMode`;
   - `AssigneeState`;
+  - `WorkItemState`;
   - `WorkItemQuery`;
   - `WorkspaceWorkItemListItemDto`;
   - `MyWorkSummaryCountDto`;
@@ -189,6 +190,7 @@ Scope:
 - Normalize empty strings, default sort, default archived-project mode, and bounded search text.
 - Validate enum fields, UUID fields, blocked/status combinations, and milestone/project consistency where practical.
 - Validate that `assigneeState=unassigned` is not combined with `assigneeId`.
+- Validate that `workState` is not combined with a specific `status`.
 - Add repository support for workspace-scoped work item listing:
   - project filter;
   - status;
@@ -313,6 +315,41 @@ npm test --workspace @worktrail/api
 npm run typecheck --workspace @worktrail/api
 git diff --check
 ```
+
+Status:
+
+- Completed on 2026-07-04.
+- Added `WorkItemState` / `workState` to `WorkItemQuery` so dashboard links can target non-terminal or terminal work accurately.
+- Extended query validation and workspace discovery filtering for `workState`.
+- Added `MyWorkService`.
+- Added `GET /api/my-work`.
+- Computed summary counts:
+  - assigned open;
+  - due soon;
+  - overdue;
+  - blocked;
+  - stale assigned;
+  - reported open.
+- Computed limited dashboard sections:
+  - assigned to me;
+  - due soon or overdue;
+  - blocked relevant;
+  - recently updated.
+- Used a 7-day stale threshold for assigned `in_progress` or `blocked` work.
+- Excluded archived project work from dashboard counts and sections by default.
+- Returned `WorkItemQuery` payloads on summary counts for links into `/work-items`.
+- Added backend tests for:
+  - dashboard counts and section computation;
+  - actor scoping;
+  - stale assigned threshold;
+  - archived-project exclusion;
+  - empty dashboard states;
+  - `GET /api/my-work`;
+  - invalid `status` plus `workState` query combinations.
+- Verified `npm test --workspace @worktrail/api -- my-work`.
+- Verified `npm test --workspace @worktrail/api -- my-work work-items`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
 
 ## Phase 4: Saved Work Views Backend
 

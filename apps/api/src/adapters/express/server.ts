@@ -33,6 +33,7 @@ import {
   reactivateMilestoneHandler,
   updateMilestoneHandler
 } from '../../endpoints/milestones.js';
+import { getMyWorkDashboardHandler } from '../../endpoints/my-work.js';
 import { getProjectPlanningSummaryHandler } from '../../endpoints/planning.js';
 import {
   archiveProjectHandler,
@@ -126,6 +127,10 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
       )
     );
     app.get('/api/projects', adaptEndpoint(listProjectsHandler(options.repositories), adapterOptions));
+    app.get(
+      '/api/my-work',
+      adaptEndpoint(getMyWorkDashboardHandler({ repositories: options.repositories }), adapterOptions)
+    );
     app.get(
       '/api/work-items',
       adaptEndpoint(
