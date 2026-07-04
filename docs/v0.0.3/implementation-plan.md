@@ -232,9 +232,11 @@ Status:
 - Added Express route wiring for milestone project routes and milestone command routes.
 - Added milestone API tests for listing, filters, create/update/archive/reactivate, activity, duplicate-name conflicts, contributor write rejection, and archived-project write rejection.
 - Updated API test cleanup paths to delete `milestones` before deleting projects.
+- Removed transaction-time parallel DTO lookups that triggered the `pg` client deprecation warning during API tests.
 - Verified `npm run typecheck --workspace @worktrail/api`.
 - Verified `npm test --workspace @worktrail/api -- milestones`.
 - Verified `npm test --workspace @worktrail/api`.
+- Verified `NODE_OPTIONS=--trace-deprecation npm test --workspace @worktrail/api` runs without the previous `pg` deprecation warning.
 - Verified `npm run typecheck`.
 - Verified `npm test`.
 - Verified `npm run build`.

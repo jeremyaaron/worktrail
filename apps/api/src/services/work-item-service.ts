@@ -1,4 +1,6 @@
 import type {
+  ActivityEventDto,
+  CommentDto,
   CreateWorkItemRequest,
   TransitionWorkItemRequest,
   UpdateWorkItemRequest,
@@ -310,12 +312,14 @@ export class WorkItemService {
       labelsByWorkItem.set(item.workItemId, [...(labelsByWorkItem.get(item.workItemId) ?? []), item.label]);
     }
 
-    return Promise.all(
-      workItems.map(async (workItem) => {
-        const bundle = await this.toBundle(workItem, repositories, labelsByWorkItem.get(workItem.id) ?? []);
-        return toWorkItemListItemDto(bundle);
-      })
-    );
+    const dtos: WorkItemListItemDto[] = [];
+
+    for (const workItem of workItems) {
+      const bundle = await this.toBundle(workItem, repositories, labelsByWorkItem.get(workItem.id) ?? []);
+      dtos.push(toWorkItemListItemDto(bundle));
+    }
+
+    return dtos;
   }
 
   private async toDetailDto(
@@ -355,25 +359,29 @@ export class WorkItemService {
   }
 
   private async toCommentDtos(comments: Comment[], repositories: Repositories) {
-    return Promise.all(
-      comments.map(async (comment) => {
-        const author = await this.requireMember(comment.authorId, repositories, 'Comment author not found.');
-        const deletedBy =
-          comment.deletedById === null
-            ? null
-            : await this.requireMember(comment.deletedById, repositories, 'Comment deletion actor not found.');
-        return toCommentDto(comment, author, deletedBy);
-      })
-    );
+    const dtos: CommentDto[] = [];
+
+    for (const comment of comments) {
+      const author = await this.requireMember(comment.authorId, repositories, 'Comment author not found.');
+      const deletedBy =
+        comment.deletedById === null
+          ? null
+          : await this.requireMember(comment.deletedById, repositories, 'Comment deletion actor not found.');
+      dtos.push(toCommentDto(comment, author, deletedBy));
+    }
+
+    return dtos;
   }
 
   private async toActivityDtos(activity: ActivityEvent[], repositories: Repositories) {
-    return Promise.all(
-      activity.map(async (event) => {
-        const actor = await this.requireMember(event.actorId, repositories, 'Activity actor not found.');
-        return toActivityEventDto(event, actor);
-      })
-    );
+    const dtos: ActivityEventDto[] = [];
+
+    for (const event of activity) {
+      const actor = await this.requireMember(event.actorId, repositories, 'Activity actor not found.');
+      dtos.push(toActivityEventDto(event, actor));
+    }
+
+    return dtos;
   }
 
   private async requireMember(
