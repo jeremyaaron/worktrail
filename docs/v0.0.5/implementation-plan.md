@@ -608,6 +608,26 @@ npm run build --workspace @worktrail/web
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Replaced the My Work placeholder with a dashboard backed by `GET /my-work`.
+- Reloads dashboard data when the selected local actor changes.
+- Renders the current dashboard actor name and role in the page header.
+- Renders summary count tiles as links to `/work-items` with the backend-provided query params applied.
+- Renders dashboard sections for:
+  - assigned to me;
+  - due soon or overdue;
+  - blocked relevant work;
+  - recently updated work.
+- Added dense work item rows with project identity, display key, type/status/priority metadata, milestone, due date, assignee, and updated date.
+- Added loading, API error/retry, no-active-member, and section-specific empty states.
+- Added component tests for summary links, row rendering, empty states, actor-change refresh, and error retry.
+- Verified `npm test --workspace @worktrail/web -- --include='src/app/features/my-work/my-work-page.component.spec.ts'`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm test --workspace @worktrail/web`.
+- Verified `npm run build --workspace @worktrail/web`; production initial bundle remains 343.06 kB raw and 95.22 kB estimated transfer.
+
 ## Phase 8: Cross-Project Work Discovery Frontend
 
 Goal: build the workspace-level work item discovery page.
