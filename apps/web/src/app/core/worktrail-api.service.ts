@@ -8,6 +8,7 @@ import type {
   CreateMemberRequest,
   CreateMilestoneRequest,
   CreateProjectRequest,
+  CreateSavedWorkViewRequest,
   CreateWorkItemRequest,
   DueDateState,
   LabelDto,
@@ -15,17 +16,22 @@ import type {
   MilestoneDto,
   MilestoneStatus,
   MoveWorkItemOnBoardRequest,
+  MyWorkDashboardDto,
   ProjectDto,
+  ProjectNavigationSummaryDto,
   ProjectPlanningSummaryDto,
   ProjectSummaryDto,
+  SavedWorkViewDto,
   TransitionWorkItemRequest,
   UpdateCommentRequest,
   UpdateLabelRequest,
   UpdateMemberRequest,
   UpdateMilestoneRequest,
   UpdateProjectRequest,
+  UpdateSavedWorkViewRequest,
   UpdateWorkspaceRequest,
   UpdateWorkItemRequest,
+  WorkItemQuery,
   WorkItemDetailDto,
   WorkItemListItemDto,
   WorkItemPriority,
@@ -34,11 +40,16 @@ import type {
   WorkItemType,
   WorkspaceActivityEventDto,
   WorkspaceCapabilitiesDto,
-  WorkspaceDto
+  WorkspaceDto,
+  WorkspaceWorkItemListItemDto
 } from '@worktrail/contracts';
 import type { Observable } from 'rxjs';
 
 import { environment } from '../../environments/environment';
+import {
+  queryToHttpParams,
+  workItemQueryToHttpParams
+} from '../shared/work-items/work-item-query-params';
 import { CurrentUserService } from './current-user.service';
 
 export interface WorkItemListFilters {
@@ -111,6 +122,13 @@ export class WorktrailApiService {
 
   listProjects(): Observable<ProjectDto[]> {
     return this.http.get<ProjectDto[]>(this.url('/projects'), this.options());
+  }
+
+  listProjectNavigationSummaries(): Observable<ProjectNavigationSummaryDto[]> {
+    return this.http.get<ProjectNavigationSummaryDto[]>(
+      this.url('/projects/navigation-summary'),
+      this.options()
+    );
   }
 
   createProject(input: CreateProjectRequest): Observable<ProjectDto> {
@@ -241,8 +259,42 @@ export class WorktrailApiService {
   ): Observable<WorkItemListItemDto[]> {
     return this.http.get<WorkItemListItemDto[]>(
       this.url(`/projects/${projectId}/work-items`),
-      this.options({ params: this.toWorkItemParams(filters) })
+      this.options({ params: queryToHttpParams(filters) })
     );
+  }
+
+  getMyWork(): Observable<MyWorkDashboardDto> {
+    return this.http.get<MyWorkDashboardDto>(this.url('/my-work'), this.options());
+  }
+
+  listWorkspaceWorkItems(filters: WorkItemQuery = {}): Observable<WorkspaceWorkItemListItemDto[]> {
+    return this.http.get<WorkspaceWorkItemListItemDto[]>(
+      this.url('/work-items'),
+      this.options({ params: workItemQueryToHttpParams(filters) })
+    );
+  }
+
+  listSavedWorkViews(): Observable<SavedWorkViewDto[]> {
+    return this.http.get<SavedWorkViewDto[]>(this.url('/saved-work-views'), this.options());
+  }
+
+  createSavedWorkView(input: CreateSavedWorkViewRequest): Observable<SavedWorkViewDto> {
+    return this.http.post<SavedWorkViewDto>(this.url('/saved-work-views'), input, this.options());
+  }
+
+  updateSavedWorkView(
+    savedViewId: string,
+    input: UpdateSavedWorkViewRequest
+  ): Observable<SavedWorkViewDto> {
+    return this.http.patch<SavedWorkViewDto>(
+      this.url(`/saved-work-views/${savedViewId}`),
+      input,
+      this.options()
+    );
+  }
+
+  deleteSavedWorkView(savedViewId: string): Observable<void> {
+    return this.http.delete<void>(this.url(`/saved-work-views/${savedViewId}`), this.options());
   }
 
   createWorkItem(projectId: string, input: CreateWorkItemRequest): Observable<WorkItemDetailDto> {
@@ -326,17 +378,5 @@ export class WorktrailApiService {
       headers: this.currentUser.actorHeaders(),
       ...(input.params === undefined ? {} : { params: input.params })
     };
-  }
-
-  private toWorkItemParams(filters: WorkItemListFilters): HttpParams {
-    let params = new HttpParams();
-
-    for (const [key, value] of Object.entries(filters)) {
-      if (value !== undefined && value.trim() !== '') {
-        params = params.set(key, value);
-      }
-    }
-
-    return params;
   }
 }

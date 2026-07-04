@@ -540,6 +540,30 @@ npm run build --workspace @worktrail/web
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Extended `WorktrailApiService` with:
+  - `getMyWork`;
+  - `listWorkspaceWorkItems`;
+  - saved work view list/create/update/delete methods;
+  - `listProjectNavigationSummaries`.
+- Added shared work item query-param helpers for workspace and project-scoped filter requests.
+- Added small shared display helpers for project badges/titles, work item metadata, status/priority labels, and filter pill labels.
+- Added lazy route placeholders for:
+  - `/my-work`;
+  - `/work-items`;
+  - `/work-items/new`.
+- Changed the default and wildcard routes to `/my-work`.
+- Kept `projects/:projectId/work-items/new` on the existing project-scoped create component.
+- Updated the app shell navigation with My Work, Projects, Workspace, and Create work item links.
+- Added route tests for the My Work default route and workspace work item route ordering.
+- Added API client tests for My Work, project navigation summaries, workspace work item query params, and saved work view CRUD requests.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm test --workspace @worktrail/web`.
+- Verified `npm run build --workspace @worktrail/web`; production initial bundle is 343.06 kB raw and 95.22 kB estimated transfer.
+- Verified `git diff --check`.
+
 ## Phase 7: My Work Frontend
 
 Goal: build the personal dashboard page.

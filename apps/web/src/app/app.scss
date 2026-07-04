@@ -39,6 +39,7 @@
 .primary-nav {
   display: flex;
   gap: 6px;
+  align-items: center;
 }
 
 .primary-nav a {
@@ -54,6 +55,11 @@
 .primary-nav a:hover,
 .primary-nav__link--active {
   background: #e8eef6;
+  color: #183b73;
+}
+
+.primary-nav .primary-nav__action {
+  border: 1px solid #b7c7dc;
   color: #183b73;
 }
 
