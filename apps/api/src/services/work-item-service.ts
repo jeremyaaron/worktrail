@@ -12,7 +12,12 @@ import type { WorktrailDb } from '../db/client.js';
 import type { ActorContext } from '../domain/actor.js';
 import type { WorkItemStatus } from '../domain/constants.js';
 import { canTransitionWorkItem } from '../domain/workflow.js';
-import { NotFoundError, ValidationError, WorkflowTransitionError } from '../errors/app-error.js';
+import {
+  ConflictError,
+  NotFoundError,
+  ValidationError,
+  WorkflowTransitionError
+} from '../errors/app-error.js';
 import {
   type Repositories,
   withRepositoriesTransaction
@@ -69,17 +74,19 @@ export class WorkItemService {
   }
 
   async createWorkItem(projectId: string, input: CreateWorkItemRequest): Promise<WorkItemDetailDto> {
-    await this.requireProject(projectId);
-
     return this.withWriteRepositories(async (repositories) => {
       const timestamp = this.clock();
       const labelIds = input.labelIds ?? [];
+      const project = await this.requireProjectFromRepositories(projectId, repositories);
+      this.assertProjectWritable(project);
       await this.validateLabels(projectId, labelIds, repositories);
       const numberedProject = await repositories.projects.allocateWorkItemNumber(projectId, timestamp);
 
       if (numberedProject === null || numberedProject.workspaceId !== this.context.actor.workspaceId) {
         throw new NotFoundError('Project not found.');
       }
+
+      this.assertProjectWritable(numberedProject);
 
       const itemNumber = numberedProject.nextWorkItemNumber - 1;
 
@@ -132,6 +139,8 @@ export class WorkItemService {
   ): Promise<WorkItemDetailDto> {
     return this.withWriteRepositories(async (repositories) => {
       const current = await this.requireWorkItem(workItemId, repositories);
+      const project = await this.requireProjectFromRepositories(current.projectId, repositories);
+      this.assertProjectWritable(project);
       const currentLabels = await repositories.labels.listByWorkItem(workItemId);
       const timestamp = this.clock();
       const nextLabelIds = input.labelIds;
@@ -179,6 +188,8 @@ export class WorkItemService {
   ): Promise<WorkItemDetailDto> {
     return this.withWriteRepositories(async (repositories) => {
       const current = await this.requireWorkItem(workItemId, repositories);
+      const project = await this.requireProjectFromRepositories(current.projectId, repositories);
+      this.assertProjectWritable(project);
 
       if (
         !canTransitionWorkItem({
@@ -231,13 +242,26 @@ export class WorkItemService {
   }
 
   private async requireProject(projectId: string): Promise<Project> {
-    const project = await this.context.repositories.projects.findById(projectId);
+    return this.requireProjectFromRepositories(projectId, this.context.repositories);
+  }
+
+  private async requireProjectFromRepositories(
+    projectId: string,
+    repositories: Repositories
+  ): Promise<Project> {
+    const project = await repositories.projects.findById(projectId);
 
     if (project === null || project.workspaceId !== this.context.actor.workspaceId) {
       throw new NotFoundError('Project not found.');
     }
 
     return project;
+  }
+
+  private assertProjectWritable(project: Project): void {
+    if (project.status === 'archived') {
+      throw new ConflictError('Archived projects are read-only.');
+    }
   }
 
   private async requireWorkItem(workItemId: string, repositories: Repositories): Promise<WorkItem> {

@@ -218,6 +218,34 @@ describe('work item API', () => {
       displayKey: 'WI-3',
       title: 'Create second API work item'
     });
+
+    const project = await repositories.projects.findById(fixture.projectId);
+    expect(project?.nextWorkItemNumber).toBe(4);
+  });
+
+  it('keeps display keys stable after project metadata changes', async () => {
+    const fixture = await createFixture('owner');
+    const workItem = await createWorkItem(fixture);
+
+    await request(app)
+      .patch(`/api/projects/${fixture.projectId}`)
+      .set(fixture.headers)
+      .send({
+        name: 'Renamed Work Item Test Project',
+        description: 'Project metadata changed after work item creation.'
+      })
+      .expect(200);
+
+    await request(app)
+      .get(`/api/work-items/${workItem.id}`)
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          itemNumber: 1,
+          displayKey: 'WI-1'
+        });
+      });
   });
 
   it('rejects invalid work item creation requests', async () => {
@@ -231,6 +259,31 @@ describe('work item API', () => {
       .expect(({ body }) => {
         expect(body.error.code).toBe('VALIDATION_ERROR');
       });
+  });
+
+  it('rejects work item creation under archived projects', async () => {
+    const fixture = await createFixture('owner');
+    await repositories.projects.update(fixture.projectId, {
+      status: 'archived',
+      updatedAt: now()
+    });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items`)
+      .set(fixture.headers)
+      .send({
+        title: 'Rejected archived project work item',
+        type: 'task',
+        priority: 'medium'
+      })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('CONFLICT');
+        expect(body.error.message).toBe('Archived projects are read-only.');
+      });
+
+    const project = await repositories.projects.findById(fixture.projectId);
+    expect(project?.nextWorkItemNumber).toBe(2);
   });
 
   it('lists and filters project work items', async () => {
@@ -342,6 +395,32 @@ describe('work item API', () => {
     );
   });
 
+  it('rejects work item updates and label assignment under archived projects', async () => {
+    const fixture = await createFixture('owner');
+    const workItem = await createWorkItem(fixture);
+    await repositories.projects.update(fixture.projectId, {
+      status: 'archived',
+      updatedAt: now()
+    });
+
+    await request(app)
+      .patch(`/api/work-items/${workItem.id}`)
+      .set(fixture.headers)
+      .send({
+        title: 'Should not update',
+        labelIds: [fixture.backendLabelId]
+      })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('CONFLICT');
+        expect(body.error.message).toBe('Archived projects are read-only.');
+      });
+
+    const updated = await repositories.workItems.findById(workItem.id);
+    expect(updated?.title).toBe('Existing work item');
+    expect(await repositories.labels.listByWorkItem(workItem.id)).toHaveLength(0);
+  });
+
   it('transitions work item status and records status activity', async () => {
     const fixture = await createFixture('maintainer');
     const workItem = await createWorkItem(fixture, { status: 'ready' });
@@ -357,6 +436,28 @@ describe('work item API', () => {
 
     const activity = await repositories.activityEvents.findByWorkItem(workItem.id);
     expect(activity[0]?.eventType).toBe('work_item.status_changed');
+  });
+
+  it('rejects work item transitions under archived projects', async () => {
+    const fixture = await createFixture('maintainer');
+    const workItem = await createWorkItem(fixture, { status: 'ready' });
+    await repositories.projects.update(fixture.projectId, {
+      status: 'archived',
+      updatedAt: now()
+    });
+
+    await request(app)
+      .post(`/api/work-items/${workItem.id}/transitions`)
+      .set(fixture.headers)
+      .send({ status: 'in_progress' })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('CONFLICT');
+        expect(body.error.message).toBe('Archived projects are read-only.');
+      });
+
+    const unchanged = await repositories.workItems.findById(workItem.id);
+    expect(unchanged?.status).toBe('ready');
   });
 
   it('rejects invalid status transitions', async () => {

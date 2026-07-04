@@ -254,6 +254,18 @@ npm test --workspace @worktrail/api -- work-items
 npm run typecheck
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Confirmed work item number allocation and DTO display key mapping were already in place from Phase 1.
+- Moved work item creation project validation into the write transaction and reject archived projects before counter allocation.
+- Added archived-project write guards for work item create, work item update, label assignment through work item update, and work item transition.
+- Preserved existing workflow transition rules for active projects.
+- Added backend tests for sequential key allocation, stable display keys after project metadata changes, archived-project write rejection, and unchanged transition behavior.
+- Verified `npm test --workspace @worktrail/api -- work-items`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+
 ## Phase 4: Label Administration Backend
 
 Goal: make labels a manageable project taxonomy through API and service behavior.
