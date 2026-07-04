@@ -864,3 +864,23 @@ npm audit --omit=dev --audit-level=low
 git diff --check
 git status --short --branch
 ```
+
+Status:
+
+- Completed on 2026-07-04.
+- Updated `README.md` for v0.0.3 capabilities, limitations, demo walkthrough, repository layout, database status, and verification commands.
+- Updated the static product site for milestones, planning dashboards, richer filtering, persisted board ordering, current limitations, and v0.0.3 planning docs.
+- Added `docs/v0.0.3/jawstack-extraction-notes.md` covering scoped planning entities, planning summaries, durable board ordering, applied filter state, dashboard UI, planning activity, and cloud deployment implications.
+- Updated root and workspace package versions to `0.0.3`, including the API dependency on `@worktrail/contracts@0.0.3`, and refreshed `package-lock.json`.
+- Verified:
+  - `npm run db:reset`;
+  - `npm run db:migrate`;
+  - `npm run db:seed`;
+  - `npm run typecheck`;
+  - `npm test`;
+  - `npm run test:e2e`;
+  - `npm run build`;
+  - `npm audit --omit=dev --audit-level=low`;
+  - `git diff --check`;
+  - `git status --short --branch`.
+- `npm audit --omit=dev --audit-level=low` reported `found 0 vulnerabilities`.
