@@ -6,6 +6,8 @@ import type {
   MilestoneDto,
   ProjectDto,
   RecentWorkItemDto,
+  SavedWorkViewDto,
+  WorkItemQuery,
   WorkspaceActivityEventDto,
   WorkspaceDto,
   WorkspaceWorkItemListItemDto,
@@ -20,6 +22,7 @@ import type {
   Member,
   Milestone,
   Project,
+  SavedWorkView,
   WorkItem,
   Workspace,
   WorkspaceActivityEvent
@@ -200,6 +203,19 @@ export function toWorkspaceWorkItemListItemDto(input: {
   return {
     ...toWorkItemListItemDto(input),
     project: input.project
+  };
+}
+
+export function toSavedWorkViewDto(savedView: SavedWorkView, owner: Member): SavedWorkViewDto {
+  return {
+    id: savedView.id,
+    workspaceId: savedView.workspaceId,
+    owner: toMemberDto(owner),
+    name: savedView.name,
+    visibility: savedView.visibility,
+    query: savedView.query as WorkItemQuery,
+    createdAt: savedView.createdAt.toISOString(),
+    updatedAt: savedView.updatedAt.toISOString()
   };
 }
 

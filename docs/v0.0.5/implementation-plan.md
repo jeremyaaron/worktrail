@@ -393,6 +393,41 @@ npm run typecheck --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Added saved work view repository support:
+  - create;
+  - find by id;
+  - list personal views by workspace/owner;
+  - find by owner/name case-insensitively;
+  - update;
+  - delete.
+- Added `SavedWorkViewService`.
+- Added saved work view DTO mapping.
+- Added endpoints:
+  - `GET /api/saved-work-views`;
+  - `POST /api/saved-work-views`;
+  - `PATCH /api/saved-work-views/:savedViewId`;
+  - `DELETE /api/saved-work-views/:savedViewId`.
+- Normalized saved view names with trimmed display names.
+- Persisted normalized `WorkItemQuery` payloads using `normalizeWorkItemQuery`.
+- Enforced actor ownership for list, update, and delete.
+- Enforced duplicate name conflicts for create and rename.
+- Returned `404` for missing or non-owned saved views.
+- Preserved stale UUID references in saved queries while rejecting invalid query shapes.
+- Added backend tests for:
+  - create/list behavior;
+  - query normalization;
+  - update/delete behavior;
+  - duplicate names on create and rename;
+  - actor ownership isolation;
+  - invalid saved query rejection;
+  - stale reference persistence.
+- Verified `npm test --workspace @worktrail/api -- saved-work-views`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+
 ## Phase 5: Project Navigation Summary Backend
 
 Goal: support richer project list navigation without breaking existing project APIs.

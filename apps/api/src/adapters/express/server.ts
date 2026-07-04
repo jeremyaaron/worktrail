@@ -45,6 +45,12 @@ import {
   updateProjectHandler
 } from '../../endpoints/projects.js';
 import {
+  createSavedWorkViewHandler,
+  deleteSavedWorkViewHandler,
+  listSavedWorkViewsHandler,
+  updateSavedWorkViewHandler
+} from '../../endpoints/saved-work-views.js';
+import {
   createWorkItemHandler,
   getWorkItemHandler,
   listWorkspaceWorkItemsHandler,
@@ -130,6 +136,22 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
     app.get(
       '/api/my-work',
       adaptEndpoint(getMyWorkDashboardHandler({ repositories: options.repositories }), adapterOptions)
+    );
+    app.get(
+      '/api/saved-work-views',
+      adaptEndpoint(listSavedWorkViewsHandler({ repositories: options.repositories }), adapterOptions)
+    );
+    app.post(
+      '/api/saved-work-views',
+      adaptEndpoint(createSavedWorkViewHandler({ repositories: options.repositories }), adapterOptions)
+    );
+    app.patch(
+      '/api/saved-work-views/:savedViewId',
+      adaptEndpoint(updateSavedWorkViewHandler({ repositories: options.repositories }), adapterOptions)
+    );
+    app.delete(
+      '/api/saved-work-views/:savedViewId',
+      adaptEndpoint(deleteSavedWorkViewHandler({ repositories: options.repositories }), adapterOptions)
     );
     app.get(
       '/api/work-items',
