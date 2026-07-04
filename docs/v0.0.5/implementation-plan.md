@@ -231,6 +231,42 @@ npm run typecheck --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Added shared backend work item query parsing and normalization in `validation/work-item-query.ts`.
+- Normalized empty strings, default `sort=updated_desc`, default `archivedProjects=exclude`, and search text capped at 120 characters.
+- Validated enum fields, UUID fields, `blocked=true` status conflicts, and `assigneeState=unassigned` conflicts with `assigneeId`.
+- Added `normalizeWorkItemQuery` for future saved-view persistence reuse.
+- Extended the work item repository with `listByWorkspace`, including:
+  - project filter;
+  - status;
+  - type;
+  - priority;
+  - assignee;
+  - assignee state;
+  - reporter;
+  - label;
+  - milestone;
+  - due date state;
+  - blocked state;
+  - archived project inclusion;
+  - search;
+  - sort.
+- Added `WorkspaceWorkItemListItemDto` mapping with project identity.
+- Added `WorkItemService.listWorkspaceWorkItems`.
+- Added `GET /api/work-items` before parameterized work item routes.
+- Added API tests for:
+  - active-project default behavior;
+  - project identity in returned rows;
+  - search, label, milestone, assignee state, and priority sort filters;
+  - archived project `include` and `only` modes;
+  - inactive historical assignee display;
+  - invalid blocked/status and assignee query combinations.
+- Verified `npm test --workspace @worktrail/api -- work-items`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+
 ## Phase 3: My Work Dashboard Backend
 
 Goal: add the server-side daily dashboard for the current active actor.

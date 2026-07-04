@@ -186,6 +186,24 @@ async function createMilestone(
   });
 }
 
+async function createProject(
+  fixture: Awaited<ReturnType<typeof createFixture>>,
+  overrides: Partial<Parameters<typeof repositories.projects.create>[0]> = {}
+) {
+  return repositories.projects.create({
+    id: randomUUID(),
+    workspaceId: fixture.workspaceId,
+    key: 'OPS',
+    nextWorkItemNumber: 1,
+    name: 'Operations',
+    description: 'Additional project for workspace query tests.',
+    status: 'active',
+    createdAt: now(),
+    updatedAt: now(),
+    ...overrides
+  });
+}
+
 beforeAll(() => {
   pool = createPool();
   db = createDb(pool);
@@ -367,6 +385,213 @@ describe('work item API', () => {
       .expect(201)
       .expect(({ body }) => {
         expect(body.assignee).toBeNull();
+      });
+  });
+
+  it('lists workspace work items across active projects by default', async () => {
+    const fixture = await createFixture('owner');
+    const otherProject = await createProject(fixture);
+    const archivedProject = await createProject(fixture, {
+      key: 'OLD',
+      name: 'Archived Operations',
+      status: 'archived'
+    });
+    const activeItem = await createWorkItem(fixture, {
+      title: 'Active project work',
+      updatedAt: new Date('2026-07-03T12:00:00.000Z')
+    });
+    const otherProjectItem = await createWorkItem(fixture, {
+      projectId: otherProject.id,
+      itemNumber: 1,
+      displayKey: 'OPS-1',
+      title: 'Other active project work',
+      updatedAt: new Date('2026-07-02T12:00:00.000Z')
+    });
+    await createWorkItem(fixture, {
+      projectId: archivedProject.id,
+      itemNumber: 1,
+      displayKey: 'OLD-1',
+      title: 'Archived project work',
+      updatedAt: new Date('2026-07-04T12:00:00.000Z')
+    });
+
+    await request(app)
+      .get('/api/work-items')
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.map((item: { displayKey: string }) => item.displayKey)).toEqual([
+          activeItem.displayKey,
+          otherProjectItem.displayKey
+        ]);
+        expect(body[0]).toMatchObject({
+          displayKey: activeItem.displayKey,
+          project: {
+            id: fixture.projectId,
+            key: 'WI',
+            name: 'Work Item Test Project',
+            status: 'active'
+          }
+        });
+        expect(body.every((item: { project: { status: string } }) => item.project.status === 'active')).toBe(
+          true
+        );
+      });
+  });
+
+  it('supports workspace work item filters, search, labels, and sorts', async () => {
+    const fixture = await createFixture('owner');
+    const milestone = await createMilestone(fixture);
+    const urgent = await createWorkItem(fixture, {
+      title: 'Needle urgent backend work',
+      priority: 'urgent',
+      status: 'blocked',
+      milestoneId: milestone.id,
+      dueDate: '2026-07-05',
+      updatedAt: new Date('2026-07-02T12:00:00.000Z')
+    });
+    const low = await createWorkItem(fixture, {
+      title: 'Needle low frontend work',
+      priority: 'low',
+      status: 'ready',
+      assigneeId: null,
+      dueDate: '2026-07-10',
+      updatedAt: new Date('2026-07-03T12:00:00.000Z')
+    });
+    await repositories.labels.replaceForWorkItem(urgent.id, [fixture.backendLabelId]);
+    await repositories.labels.replaceForWorkItem(low.id, [fixture.frontendLabelId]);
+
+    await request(app)
+      .get('/api/work-items')
+      .query({
+        search: 'needle',
+        labelId: fixture.backendLabelId,
+        milestoneId: milestone.id,
+        sort: 'priority_desc'
+      })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toHaveLength(1);
+        expect(body[0]).toMatchObject({
+          id: urgent.id,
+          displayKey: urgent.displayKey,
+          labels: [{ id: fixture.backendLabelId, name: 'backend' }],
+          milestone: { id: milestone.id }
+        });
+      });
+
+    await request(app)
+      .get('/api/work-items')
+      .query({ search: 'needle', assigneeState: 'unassigned' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.map((item: { id: string }) => item.id)).toEqual([low.id]);
+        expect(body[0].assignee).toBeNull();
+      });
+
+    await request(app)
+      .get('/api/work-items')
+      .query({ search: 'needle', sort: 'priority_desc' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.map((item: { id: string }) => item.id)).toEqual([urgent.id, low.id]);
+      });
+  });
+
+  it('supports archived project inclusion modes for workspace work item queries', async () => {
+    const fixture = await createFixture('owner');
+    const archivedProject = await createProject(fixture, {
+      key: 'OLD',
+      name: 'Archived Operations',
+      status: 'archived'
+    });
+    const activeItem = await createWorkItem(fixture, {
+      title: 'Shared discovery active work',
+      updatedAt: new Date('2026-07-03T12:00:00.000Z')
+    });
+    const archivedItem = await createWorkItem(fixture, {
+      projectId: archivedProject.id,
+      itemNumber: 1,
+      displayKey: 'OLD-1',
+      title: 'Shared discovery archived work',
+      updatedAt: new Date('2026-07-04T12:00:00.000Z')
+    });
+
+    await request(app)
+      .get('/api/work-items')
+      .query({ search: 'shared discovery', archivedProjects: 'include' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.map((item: { id: string }) => item.id)).toEqual([archivedItem.id, activeItem.id]);
+      });
+
+    await request(app)
+      .get('/api/work-items')
+      .query({ search: 'shared discovery', archivedProjects: 'only' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toHaveLength(1);
+        expect(body[0]).toMatchObject({
+          id: archivedItem.id,
+          project: { id: archivedProject.id, status: 'archived' }
+        });
+      });
+  });
+
+  it('keeps inactive historical assignees visible in workspace work item results', async () => {
+    const fixture = await createFixture('owner');
+    const workItem = await createWorkItem(fixture, {
+      title: 'Inactive historical assignee work',
+      assigneeId: fixture.inactiveMemberId
+    });
+
+    await request(app)
+      .get('/api/work-items')
+      .query({ assigneeId: fixture.inactiveMemberId })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toHaveLength(1);
+        expect(body[0]).toMatchObject({
+          id: workItem.id,
+          assignee: {
+            id: fixture.inactiveMemberId,
+            isActive: false
+          }
+        });
+      });
+  });
+
+  it('rejects invalid workspace work item query combinations', async () => {
+    const fixture = await createFixture('owner');
+
+    await request(app)
+      .get('/api/work-items')
+      .query({ blocked: 'true', status: 'ready' })
+      .set(fixture.headers)
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.error).toEqual({
+          code: 'VALIDATION_ERROR',
+          message: 'Blocked work item queries cannot specify another status.'
+        });
+      });
+
+    await request(app)
+      .get('/api/work-items')
+      .query({ assigneeState: 'unassigned', assigneeId: fixture.contributorId })
+      .set(fixture.headers)
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.error).toEqual({
+          code: 'VALIDATION_ERROR',
+          message: 'Unassigned work item queries cannot specify an assignee.'
+        });
       });
   });
 

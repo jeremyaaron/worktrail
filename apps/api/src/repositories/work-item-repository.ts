@@ -1,8 +1,9 @@
+import type { WorkItemQuery } from '@worktrail/contracts';
 import { and, asc, count, desc, eq, ilike, or, sql } from 'drizzle-orm';
 
 import type { WorktrailDb } from '../db/client.js';
-import { workItemLabels, workItems } from '../db/schema.js';
-import type { NewWorkItem, WorkItem } from './types.js';
+import { projects, workItemLabels, workItems } from '../db/schema.js';
+import type { NewWorkItem, Project, WorkItem } from './types.js';
 
 export interface WorkItemFilters {
   status?: WorkItem['status'];
@@ -42,6 +43,21 @@ export interface MoveWorkItemInput {
   status: WorkItem['status'];
   boardPosition: number;
   updatedAt: Date;
+}
+
+export interface WorkspaceWorkItemRecord {
+  workItem: WorkItem;
+  project: Pick<Project, 'id' | 'key' | 'name' | 'status'>;
+}
+
+function priorityRankSql() {
+  return sql`case ${workItems.priority}
+    when 'urgent' then 4
+    when 'high' then 3
+    when 'medium' then 2
+    when 'low' then 1
+    else 0
+  end`;
 }
 
 export function createWorkItemRepository(db: WorktrailDb) {
@@ -137,13 +153,7 @@ export function createWorkItemRepository(db: WorktrailDb) {
         );
       }
 
-      const priorityRank = sql`case ${workItems.priority}
-        when 'urgent' then 4
-        when 'high' then 3
-        when 'medium' then 2
-        when 'low' then 1
-        else 0
-      end`;
+      const priorityRank = priorityRankSql();
       const orderBy = (() => {
         if (filters.sort === 'updated_asc') {
           return [asc(workItems.updatedAt), asc(workItems.itemNumber)];
@@ -175,6 +185,144 @@ export function createWorkItemRepository(db: WorktrailDb) {
       return db
         .select()
         .from(workItems)
+        .where(and(...conditions))
+        .orderBy(...orderBy);
+    },
+
+    async listByWorkspace(
+      workspaceId: string,
+      filters: WorkItemQuery = {}
+    ): Promise<WorkspaceWorkItemRecord[]> {
+      const conditions = [eq(workItems.workspaceId, workspaceId)];
+
+      if (filters.projectId !== undefined) {
+        conditions.push(eq(workItems.projectId, filters.projectId));
+      }
+
+      if (filters.archivedProjects === 'only') {
+        conditions.push(eq(projects.status, 'archived'));
+      } else if (filters.archivedProjects !== 'include') {
+        conditions.push(eq(projects.status, 'active'));
+      }
+
+      if (filters.status !== undefined) {
+        conditions.push(eq(workItems.status, filters.status));
+      }
+
+      if (filters.blocked === true && filters.status === undefined) {
+        conditions.push(eq(workItems.status, 'blocked'));
+      }
+
+      if (filters.assigneeId !== undefined) {
+        conditions.push(eq(workItems.assigneeId, filters.assigneeId));
+      }
+
+      if (filters.assigneeState === 'unassigned') {
+        conditions.push(sql`${workItems.assigneeId} is null`);
+      }
+
+      if (filters.assigneeState === 'assigned') {
+        conditions.push(sql`${workItems.assigneeId} is not null`);
+      }
+
+      if (filters.reporterId !== undefined) {
+        conditions.push(eq(workItems.reporterId, filters.reporterId));
+      }
+
+      if (filters.type !== undefined) {
+        conditions.push(eq(workItems.type, filters.type));
+      }
+
+      if (filters.priority !== undefined) {
+        conditions.push(eq(workItems.priority, filters.priority));
+      }
+
+      if (filters.labelId !== undefined) {
+        conditions.push(
+          sql`exists (
+            select 1 from ${workItemLabels}
+            where ${workItemLabels.workItemId} = ${workItems.id}
+            and ${workItemLabels.labelId} = ${filters.labelId}
+          )`
+        );
+      }
+
+      if (filters.milestoneId !== undefined) {
+        conditions.push(eq(workItems.milestoneId, filters.milestoneId));
+      }
+
+      if (filters.dueDateState === 'overdue') {
+        conditions.push(sql`${workItems.dueDate} < current_date`);
+        conditions.push(sql`${workItems.status} not in ('done', 'canceled')`);
+      }
+
+      if (filters.dueDateState === 'due_soon') {
+        conditions.push(sql`${workItems.dueDate} >= current_date`);
+        conditions.push(sql`${workItems.dueDate} <= current_date + interval '7 days'`);
+        conditions.push(sql`${workItems.status} not in ('done', 'canceled')`);
+      }
+
+      if (filters.dueDateState === 'none') {
+        conditions.push(sql`${workItems.dueDate} is null`);
+      }
+
+      if (filters.search !== undefined && filters.search.trim() !== '') {
+        const search = `%${filters.search.trim()}%`;
+        conditions.push(
+          or(
+            ilike(workItems.displayKey, search),
+            ilike(workItems.title, search),
+            ilike(workItems.description, search)
+          )!
+        );
+      }
+
+      const priorityRank = priorityRankSql();
+      const orderBy = (() => {
+        if (filters.sort === 'updated_asc') {
+          return [asc(workItems.updatedAt), asc(projects.key), asc(workItems.itemNumber)];
+        }
+
+        if (filters.sort === 'priority_desc') {
+          return [desc(priorityRank), desc(workItems.updatedAt), asc(projects.key), asc(workItems.itemNumber)];
+        }
+
+        if (filters.sort === 'priority_asc') {
+          return [asc(priorityRank), desc(workItems.updatedAt), asc(projects.key), asc(workItems.itemNumber)];
+        }
+
+        if (filters.sort === 'due_date_asc') {
+          return [sql`${workItems.dueDate} asc nulls last`, asc(projects.key), asc(workItems.itemNumber)];
+        }
+
+        if (filters.sort === 'created_desc') {
+          return [desc(workItems.createdAt), asc(projects.key), asc(workItems.itemNumber)];
+        }
+
+        if (filters.sort === 'board_order') {
+          return [
+            asc(projects.key),
+            asc(workItems.status),
+            asc(workItems.boardPosition),
+            asc(workItems.itemNumber)
+          ];
+        }
+
+        return [desc(workItems.updatedAt), asc(projects.key), asc(workItems.itemNumber)];
+      })();
+
+      return db
+        .select({
+          workItem: workItems,
+          project: {
+            id: projects.id,
+            key: projects.key,
+            name: projects.name,
+            status: projects.status
+          }
+        })
+        .from(workItems)
+        .innerJoin(projects, eq(projects.id, workItems.projectId))
         .where(and(...conditions))
         .orderBy(...orderBy);
     },

@@ -5,9 +5,11 @@ import type {
   MoveWorkItemOnBoardRequest,
   TransitionWorkItemRequest,
   UpdateWorkItemRequest,
+  WorkItemQuery,
   WorkItemDetailDto,
   WorkItemListItemDto,
-  WorkItemSort
+  WorkItemSort,
+  WorkspaceWorkItemListItemDto
 } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
@@ -38,7 +40,8 @@ import {
   toActivityEventDto,
   toCommentDto,
   toWorkItemDetailDto,
-  toWorkItemListItemDto
+  toWorkItemListItemDto,
+  toWorkspaceWorkItemListItemDto
 } from './dto.js';
 
 const boardPositionStep = 1024;
@@ -88,6 +91,16 @@ export class WorkItemService {
     await this.requireProject(projectId);
     const workItems = await this.context.repositories.workItems.listByProject(projectId, filters);
     return this.toListDtos(workItems, this.context.repositories);
+  }
+
+  async listWorkspaceWorkItems(
+    filters: WorkItemQuery = {}
+  ): Promise<WorkspaceWorkItemListItemDto[]> {
+    const records = await this.context.repositories.workItems.listByWorkspace(
+      this.context.actor.workspaceId,
+      filters
+    );
+    return this.toWorkspaceListDtos(records, this.context.repositories);
   }
 
   async createWorkItem(projectId: string, input: CreateWorkItemRequest): Promise<WorkItemDetailDto> {
@@ -570,6 +583,32 @@ export class WorkItemService {
     for (const workItem of workItems) {
       const bundle = await this.toBundle(workItem, repositories, labelsByWorkItem.get(workItem.id) ?? []);
       dtos.push(toWorkItemListItemDto(bundle));
+    }
+
+    return dtos;
+  }
+
+  private async toWorkspaceListDtos(
+    records: Awaited<ReturnType<Repositories['workItems']['listByWorkspace']>>,
+    repositories: Repositories
+  ): Promise<WorkspaceWorkItemListItemDto[]> {
+    const labelsByWorkItem = new Map<string, Label[]>();
+
+    for (const item of await repositories.labels.listByWorkItems(
+      records.map((record) => record.workItem.id)
+    )) {
+      labelsByWorkItem.set(item.workItemId, [...(labelsByWorkItem.get(item.workItemId) ?? []), item.label]);
+    }
+
+    const dtos: WorkspaceWorkItemListItemDto[] = [];
+
+    for (const record of records) {
+      const bundle = await this.toBundle(
+        record.workItem,
+        repositories,
+        labelsByWorkItem.get(record.workItem.id) ?? []
+      );
+      dtos.push(toWorkspaceWorkItemListItemDto({ ...bundle, project: record.project }));
     }
 
     return dtos;

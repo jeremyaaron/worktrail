@@ -46,6 +46,7 @@ import {
 import {
   createWorkItemHandler,
   getWorkItemHandler,
+  listWorkspaceWorkItemsHandler,
   listWorkItemsHandler,
   moveWorkItemOnBoardHandler,
   transitionWorkItemHandler,
@@ -125,6 +126,13 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
       )
     );
     app.get('/api/projects', adaptEndpoint(listProjectsHandler(options.repositories), adapterOptions));
+    app.get(
+      '/api/work-items',
+      adaptEndpoint(
+        listWorkspaceWorkItemsHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
+    );
     app.post(
       '/api/projects',
       adaptEndpoint(
