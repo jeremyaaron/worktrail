@@ -1,0 +1,680 @@
+# Worktrail v0.0.5 Implementation Plan
+
+## Purpose
+
+This plan turns the v0.0.5 PRD and technical design into sequential implementation phases. v0.0.5 should make Worktrail useful as a daily operating surface by adding My Work, cross-project discovery, personal saved views, quick work capture, and project navigation polish.
+
+The release remains local-first. It should preserve the Angular static-hosting path, transport-neutral API handlers, Postgres migration discipline, deterministic seed data, lazy-loaded routes, and clean verification from a fresh checkout.
+
+## Design Decisions
+
+Use these decisions while implementing v0.0.5:
+
+- Add `/my-work` as the default app route.
+- Add `/work-items` as the workspace-level cross-project discovery route.
+- Keep project-scoped work item list behavior intact.
+- Add route-based quick create at `/work-items/new`.
+- Keep `/projects/:projectId/work-items/new` supported and backed by the same create experience.
+- Implement saved views only for cross-project discovery.
+- Implement personal saved views only in v0.0.5.
+- Store saved view query state as validated PostgreSQL `jsonb`.
+- Add a dedicated My Work/dashboard service.
+- Extend work item repository/query support for workspace-scoped discovery.
+- Add project navigation summary data instead of replacing `GET /projects`.
+- Defer workspace-visible saved views, pinned projects, full-text search indexes, configurable dashboards, notifications, production auth, AWS infrastructure, and Lambda/API Gateway adapters.
+
+## Phase Sizing
+
+Each phase should leave the repository in a coherent working state. Prefer vertical slices with contracts, backend behavior, frontend usage, and focused tests when practical. If a phase starts touching schema, multiple services, multiple route components, and e2e in one step, split it before continuing.
+
+Because v0.0.5 adds workspace-level query paths and saved query persistence, run backend tests after API phases and full verification before finalization. Keep an eye on Angular bundle budgets whenever adding route components or shared UI helpers.
+
+## Phase 0: Baseline Planning
+
+Goal: confirm v0.0.5 planning inputs and resolve implementation choices before code changes.
+
+Scope:
+
+- Confirm `docs/v0.0.5/prd.md` exists.
+- Confirm `docs/v0.0.5/technical-design.md` exists.
+- Confirm `docs/v0.0.5/implementation-plan.md` exists.
+- Confirm design decisions listed above.
+- Check repository status before implementation starts.
+- Confirm the active branch and any staged changes.
+
+Out of scope:
+
+- Dependency changes.
+- Schema changes.
+- Feature implementation.
+
+Acceptance criteria:
+
+- The three v0.0.5 planning documents exist.
+- No unresolved open decision blocks Phase 1.
+- The worktree/index state is understood before implementation starts.
+
+Suggested commands:
+
+```sh
+find docs/v0.0.5 -maxdepth 1 -type f | sort
+git status --short --branch
+```
+
+Status:
+
+- Completed on 2026-07-04.
+- Confirmed `docs/v0.0.5/prd.md`, `docs/v0.0.5/technical-design.md`, and `docs/v0.0.5/implementation-plan.md` exist.
+- Confirmed implementation decisions:
+  - `/my-work` becomes the default app route;
+  - `/work-items` becomes the workspace-level cross-project discovery route;
+  - project-scoped work item list behavior remains intact;
+  - route-based quick create is added at `/work-items/new`;
+  - `/projects/:projectId/work-items/new` remains supported by the same create experience;
+  - saved views apply only to cross-project discovery in v0.0.5;
+  - saved views are personal-only in v0.0.5;
+  - saved view query state is stored as validated PostgreSQL `jsonb`;
+  - a dedicated My Work/dashboard service is added;
+  - work item repository/query support is extended for workspace-scoped discovery;
+  - project navigation summary data is added without replacing `GET /projects`;
+  - workspace-visible saved views, pinned projects, full-text search indexes, configurable dashboards, notifications, production auth, AWS infrastructure, and Lambda/API Gateway adapters stay out of scope.
+- Confirmed current branch is `v0.0.5`.
+- Confirmed current change state: `docs/v0.0.5/` is untracked and contains the three planning documents; no code changes are present yet.
+- No unresolved open decision blocks Phase 1.
+
+## Phase 1: Contracts, Schema, Migration, And Seed
+
+Goal: establish the v0.0.5 shared API shape and persistence foundation.
+
+Scope:
+
+- Extend shared contracts with:
+  - `ArchivedProjectMode`;
+  - `WorkItemQuery`;
+  - `WorkspaceWorkItemListItemDto`;
+  - `MyWorkSummaryCountDto`;
+  - `MyWorkDashboardDto`;
+  - `SavedWorkViewVisibility`;
+  - `SavedWorkViewDto`;
+  - `CreateSavedWorkViewRequest`;
+  - `UpdateSavedWorkViewRequest`;
+  - `ProjectNavigationSummaryDto`.
+- Add backend domain constants for saved view visibility if useful.
+- Extend Drizzle schema with:
+  - `saved_work_views`;
+  - visibility check constraint;
+  - workspace/owner/updated index;
+  - case-insensitive owner/name uniqueness;
+  - workspace-level work item query indexes.
+- Update repository inferred types.
+- Generate and review a Drizzle migration.
+- Update deterministic seed data with:
+  - saved work views for seeded active members;
+  - enough cross-project work item variety for dashboard/discovery demos;
+  - due-soon, overdue, blocked, stale, assigned, reported, and unassigned examples.
+- Add temporary DTO mapping helpers as needed.
+
+Out of scope:
+
+- Saved view endpoints.
+- My Work endpoint.
+- Cross-project discovery endpoint.
+- Frontend routes.
+
+Acceptance criteria:
+
+- Migration applies after local reset.
+- Seed data demonstrates v0.0.5 dashboard and saved view scenarios.
+- Contracts compile after temporary call-site updates.
+- Existing app behavior is not intentionally changed.
+
+Suggested commands:
+
+```sh
+npm run db:generate
+npm run db:reset
+npm run db:migrate
+npm run db:seed
+npm run typecheck
+npm test --workspace @worktrail/api
+git diff --check
+```
+
+## Phase 2: Work Item Query Validation And Workspace Discovery Backend
+
+Goal: add server-side cross-project work item discovery with validated query state.
+
+Scope:
+
+- Add a shared backend parser/normalizer for `WorkItemQuery`.
+- Normalize empty strings, default sort, default archived-project mode, and bounded search text.
+- Validate enum fields, UUID fields, blocked/status combinations, and milestone/project consistency where practical.
+- Add repository support for workspace-scoped work item listing:
+  - project filter;
+  - status;
+  - type;
+  - priority;
+  - assignee;
+  - reporter;
+  - label;
+  - milestone;
+  - due date state;
+  - blocked state;
+  - archived project inclusion;
+  - search;
+  - sort.
+- Add DTO mapping for `WorkspaceWorkItemListItemDto`.
+- Add service method `WorkItemService.listWorkspaceWorkItems`.
+- Add `GET /work-items`.
+- Add backend tests for filters, sorts, archived project modes, inactive historical members, and invalid query handling.
+
+Out of scope:
+
+- Saved view persistence behavior.
+- My Work dashboard endpoint.
+- Frontend discovery page.
+
+Acceptance criteria:
+
+- `GET /work-items` returns active-project work by default.
+- Archived project work is included only when requested.
+- Returned rows include project identity.
+- Invalid query combinations return clear validation errors.
+- Existing project-scoped work item list behavior remains intact.
+
+Suggested commands:
+
+```sh
+npm test --workspace @worktrail/api -- work-item
+npm test --workspace @worktrail/api
+npm run typecheck --workspace @worktrail/api
+git diff --check
+```
+
+## Phase 3: My Work Dashboard Backend
+
+Goal: add the server-side daily dashboard for the current active actor.
+
+Scope:
+
+- Add `MyWorkService`.
+- Add `GET /my-work`.
+- Compute summary counts:
+  - assigned open;
+  - due soon;
+  - overdue;
+  - blocked;
+  - stale assigned;
+  - reported open.
+- Compute limited dashboard sections:
+  - assigned to me;
+  - due soon or overdue;
+  - blocked relevant;
+  - recently updated.
+- Use a 7-day stale threshold for assigned `in_progress` or `blocked` work.
+- Exclude archived project work by default.
+- Return query payloads on summary counts for links into `/work-items`.
+- Add tests for dashboard counts, sections, actor scoping, stale threshold, archived-project exclusion, and empty states.
+
+Out of scope:
+
+- Dashboard Angular page.
+- Saved views.
+- Notifications or digests.
+
+Acceptance criteria:
+
+- `GET /my-work` returns actor-aware summary counts and sections.
+- Dashboard links can be represented as `WorkItemQuery` objects.
+- Counts reflect all matches while sections stay limited.
+- Existing API tests remain green.
+
+Suggested commands:
+
+```sh
+npm test --workspace @worktrail/api -- my-work
+npm test --workspace @worktrail/api
+npm run typecheck --workspace @worktrail/api
+git diff --check
+```
+
+## Phase 4: Saved Work Views Backend
+
+Goal: add personal saved views backed by validated query payloads.
+
+Scope:
+
+- Add saved work view repository.
+- Add `SavedWorkViewService`.
+- Add endpoints:
+  - `GET /saved-work-views`;
+  - `POST /saved-work-views`;
+  - `PATCH /saved-work-views/:savedViewId`;
+  - `DELETE /saved-work-views/:savedViewId`.
+- Normalize and validate saved view names.
+- Persist normalized `WorkItemQuery` payloads.
+- Enforce actor ownership for list/update/delete.
+- Enforce duplicate name conflict rules.
+- Treat missing or unauthorized saved views as `404`.
+- Add backend tests for create/list/update/delete, duplicate names, invalid payloads, ownership, and stale references.
+
+Out of scope:
+
+- Workspace-visible saved views.
+- Frontend saved view UI.
+- Saved views for project-scoped lists.
+
+Acceptance criteria:
+
+- Active members can manage their own personal saved views.
+- Actors cannot see or mutate another member's saved views.
+- Saved queries are normalized before storage.
+- Invalid saved query payloads are rejected.
+
+Suggested commands:
+
+```sh
+npm test --workspace @worktrail/api -- saved
+npm test --workspace @worktrail/api
+npm run typecheck --workspace @worktrail/api
+git diff --check
+```
+
+## Phase 5: Project Navigation Summary Backend
+
+Goal: support richer project list navigation without breaking existing project APIs.
+
+Scope:
+
+- Add project summary repository query or service method for navigation summaries.
+- Add `GET /projects/navigation-summary`.
+- Compute:
+  - project;
+  - open work item count;
+  - blocked work item count;
+  - overdue work item count;
+  - recently updated timestamp.
+- Sort active projects first, then recently updated.
+- Include archived projects with clear project status in DTO.
+- Add backend tests for counts, archived project ordering, and empty projects.
+
+Out of scope:
+
+- Project pinned/recent persistence.
+- Frontend project list search UI.
+
+Acceptance criteria:
+
+- Existing `GET /projects` remains compatible.
+- Navigation summaries reflect seeded work item state.
+- Archived projects are included but can be visually separated by the frontend.
+
+Suggested commands:
+
+```sh
+npm test --workspace @worktrail/api -- project
+npm test --workspace @worktrail/api
+npm run typecheck --workspace @worktrail/api
+git diff --check
+```
+
+## Phase 6: API Client, Routes, And Shared Frontend Helpers
+
+Goal: wire frontend contracts and route structure before building full UI surfaces.
+
+Scope:
+
+- Extend `WorktrailApiService` with:
+  - `getMyWork`;
+  - `listWorkspaceWorkItems`;
+  - saved work view CRUD methods;
+  - `listProjectNavigationSummaries`.
+- Add lazy routes:
+  - `/my-work`;
+  - `/work-items`;
+  - `/work-items/new`.
+- Change default route from `/projects` to `/my-work`.
+- Keep existing project-scoped create route.
+- Add small query-param helpers for `WorkItemQuery`.
+- Add shared display helpers only where they reduce concrete duplication:
+  - project badge/title;
+  - work item row metadata;
+  - filter pill labels.
+- Update app navigation to include My Work, Projects, Workspace, and Create work item.
+- Add or update frontend tests for routing and API client parameter behavior where practical.
+
+Out of scope:
+
+- Full My Work UI.
+- Full cross-project discovery UI.
+- Saved view management UI.
+- Quick create form changes beyond route plumbing.
+
+Acceptance criteria:
+
+- App routes compile with lazy components or placeholders.
+- Default route points to My Work.
+- API client produces expected query params.
+- Existing frontend tests pass after navigation changes.
+
+Suggested commands:
+
+```sh
+npm test --workspace @worktrail/web
+npm run typecheck --workspace @worktrail/web
+npm run build --workspace @worktrail/web
+git diff --check
+```
+
+## Phase 7: My Work Frontend
+
+Goal: build the personal dashboard page.
+
+Scope:
+
+- Add `MyWorkPageComponent`.
+- Load dashboard DTO from `GET /my-work`.
+- Refresh when the selected local actor changes.
+- Render actor name and role.
+- Render summary counts as links to `/work-items` with applied query params.
+- Render dashboard sections:
+  - assigned to me;
+  - due soon or overdue;
+  - blocked relevant;
+  - recently updated.
+- Use dense, operational row layouts with project identity, display key, status, priority, due date, assignee, milestone, and updated time where useful.
+- Add specific empty states.
+- Add loading and error states.
+- Add component tests for rendering, empty states, query links, and actor refresh.
+
+Out of scope:
+
+- Saved view UI.
+- Quick create flow.
+- Dashboard customization.
+
+Acceptance criteria:
+
+- My Work is useful as the default app screen.
+- Summary counts link to workspace discovery with applied URL filters.
+- Actor changes refresh dashboard data.
+- Page remains usable at common desktop widths.
+
+Suggested commands:
+
+```sh
+npm test --workspace @worktrail/web -- my-work
+npm test --workspace @worktrail/web
+npm run typecheck --workspace @worktrail/web
+npm run build --workspace @worktrail/web
+git diff --check
+```
+
+## Phase 8: Cross-Project Work Discovery Frontend
+
+Goal: build the workspace-level work item discovery page.
+
+Scope:
+
+- Add `WorkspaceWorkItemListPageComponent`.
+- Load `GET /work-items` from URL-backed `WorkItemQuery`.
+- Render cross-project result rows with project identity.
+- Add filters for:
+  - project;
+  - status;
+  - type;
+  - priority;
+  - assignee;
+  - reporter;
+  - label;
+  - milestone after project selection;
+  - due date state;
+  - blocked;
+  - archived project inclusion.
+- Add sort controls.
+- Keep search debounced and URL-backed.
+- Apply dropdown filters immediately.
+- Show filter pills only for applied filters.
+- Add reset action.
+- Add loading, error, and empty states.
+- Add component tests for URL state, filter application, pills, reset, and result links.
+
+Out of scope:
+
+- Saved view management UI.
+- Project-scoped list redesign.
+- Full-text search.
+
+Acceptance criteria:
+
+- Users can find work across active projects without choosing a project first.
+- Dashboard links land on correctly filtered results.
+- Archived project inclusion is explicit.
+- Project-level work item list behavior remains stable.
+
+Suggested commands:
+
+```sh
+npm test --workspace @worktrail/web -- work-item
+npm test --workspace @worktrail/web
+npm run typecheck --workspace @worktrail/web
+npm run build --workspace @worktrail/web
+git diff --check
+```
+
+## Phase 9: Saved Views Frontend
+
+Goal: make cross-project discovery queries reusable.
+
+Scope:
+
+- Load saved views on the workspace work item discovery page.
+- Add UI to save the current applied query as a named personal view.
+- Add UI to open a saved view and update URL query params.
+- Add UI to rename a saved view.
+- Add UI to update a saved view from the current applied query.
+- Add UI to delete a saved view.
+- Display duplicate-name and validation errors inline.
+- Handle stale saved views that return no results.
+- Add component tests for save/open/update/rename/delete flows.
+
+Out of scope:
+
+- Workspace-visible saved views.
+- Saved views on project-scoped lists.
+- Complex foldering or pinning of saved views.
+
+Acceptance criteria:
+
+- A user can save, reload, reopen, update, rename, and delete a personal saved view.
+- Opening a saved view updates the URL.
+- Saved view operations do not mutate work items.
+- Stale/no-result saved views do not break the page.
+
+Suggested commands:
+
+```sh
+npm test --workspace @worktrail/web -- saved
+npm test --workspace @worktrail/web
+npm run typecheck --workspace @worktrail/web
+npm run build --workspace @worktrail/web
+git diff --check
+```
+
+## Phase 10: Quick Work Capture Frontend
+
+Goal: allow users to create work without navigating into a project first.
+
+Scope:
+
+- Refactor or extend the existing work item create component to support optional route `projectId`.
+- Add `/work-items/new` route behavior:
+  - project selection first;
+  - active projects only as create targets;
+  - project-dependent labels and milestones;
+  - existing assignee/member controls;
+  - existing due date, estimate, description, type, priority, and label fields.
+- Keep `/projects/:projectId/work-items/new` behavior working with project preselected.
+- Default reporter remains current actor server-side.
+- Add success actions:
+  - open created work item;
+  - create another;
+  - return to My Work or previous project context.
+- Add inline disabled copy for archived project or permission constraints.
+- Add component tests for project selection, dependent fields, validation errors, and success actions.
+
+Out of scope:
+
+- Modal overlay command palette.
+- Bulk create.
+- Template-based create.
+
+Acceptance criteria:
+
+- Users can create a work item from `/work-items/new`.
+- Project-scoped create still works.
+- Project selection drives labels and milestones correctly.
+- Create failures preserve entered values.
+
+Suggested commands:
+
+```sh
+npm test --workspace @worktrail/web -- create
+npm test --workspace @worktrail/web
+npm run typecheck --workspace @worktrail/web
+npm run build --workspace @worktrail/web
+git diff --check
+```
+
+## Phase 11: Project Navigation Polish Frontend
+
+Goal: make project navigation more useful as project count grows.
+
+Scope:
+
+- Update project list to use `GET /projects/navigation-summary`.
+- Add project search by name/key.
+- Show project key, status, open count, blocked count, overdue count, and updated timestamp.
+- Keep project creation behavior from v0.0.4.
+- Separate or visually distinguish archived projects.
+- Add responsive checks for project list layout.
+- Add component tests for search, summary signals, archived project display, and project creation regression.
+
+Out of scope:
+
+- Pinned projects.
+- Recent projects persistence.
+- Portfolio views.
+
+Acceptance criteria:
+
+- Users can quickly find projects by name or key.
+- Active projects are prioritized.
+- Archived projects remain discoverable.
+- Project creation and role-aware disabled states still work.
+
+Suggested commands:
+
+```sh
+npm test --workspace @worktrail/web -- project
+npm test --workspace @worktrail/web
+npm run typecheck --workspace @worktrail/web
+npm run build --workspace @worktrail/web
+git diff --check
+```
+
+## Phase 12: E2E, Accessibility, Responsiveness, And Regression
+
+Goal: validate the v0.0.5 daily workflow through the browser and protect prior sprint behavior.
+
+Scope:
+
+- Extend Playwright smoke test to:
+  - open My Work as a seeded actor;
+  - follow a dashboard count to filtered cross-project discovery;
+  - save a filtered view;
+  - reload and reopen the saved view;
+  - create a work item from `/work-items/new`;
+  - confirm the created item appears in cross-project discovery.
+- Preserve existing v0.0.4 governance workflow coverage.
+- Preserve existing v0.0.3 planning/adoption workflow coverage.
+- Add or update responsive overflow checks for:
+  - My Work;
+  - workspace work item discovery;
+  - quick create;
+  - project list;
+  - existing project pages.
+- Check keyboard/focus behavior for filter controls, saved view actions, and quick create form controls.
+- Restore deterministic seed data after e2e mutation.
+
+Out of scope:
+
+- Visual snapshot testing.
+- Full accessibility audit tooling beyond practical keyboard/focus and semantic checks.
+
+Acceptance criteria:
+
+- E2E smoke covers the main v0.0.5 daily workflow.
+- Existing governance and planning smoke paths still pass.
+- No common desktop width has incoherent horizontal overflow.
+- Local database is restored to seed data after e2e mutation.
+
+Suggested commands:
+
+```sh
+npm run test:e2e
+npm run build
+npm run db:reset && npm run db:migrate && npm run db:seed
+git diff --check
+```
+
+## Phase 13: Documentation, Site, Extraction Notes, And Release Finalization
+
+Goal: prepare v0.0.5 for merge and release.
+
+Scope:
+
+- Update `README.md`:
+  - repository layout;
+  - capabilities;
+  - limitations;
+  - local actor caveats;
+  - demo walkthrough;
+  - verification notes.
+- Update static product site for:
+  - My Work dashboard;
+  - cross-project discovery;
+  - personal saved views;
+  - quick work capture;
+  - project navigation polish.
+- Add `docs/v0.0.5/jawstack-extraction-notes.md`.
+- Update package versions to `0.0.5` if release/tagging is in scope at execution time.
+- Run final verification.
+- Document known warnings if any remain.
+
+Out of scope:
+
+- Publishing npm packages unless explicitly requested.
+- Creating a release tag unless explicitly requested.
+
+Acceptance criteria:
+
+- Documentation and public site reflect v0.0.5 capabilities.
+- Extraction notes capture reusable patterns and deferred abstractions.
+- Full verification passes or known residual issues are documented.
+- Worktree changes are ready for review.
+
+Suggested commands:
+
+```sh
+npm run db:reset
+npm run db:migrate
+npm run db:seed
+npm run typecheck
+npm test
+npm run test:e2e
+npm run build
+npm audit --omit=dev --audit-level=low
+git diff --check
+git status --short --branch
+```
