@@ -357,6 +357,41 @@ npm test --workspace @worktrail/api -- work-items
 npm run typecheck
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Added repository helpers for:
+  - ordered board-column reads;
+  - top-position lookup;
+  - status/board position moves;
+  - board-column compaction.
+- Added initial top-position assignment for newly created work items.
+- Updated status-menu transitions to move changed-status cards to the top of the destination column.
+- Added `moveWorkItemOnBoard` service command with:
+  - archived-project write blocking;
+  - workflow transition validation;
+  - neighbor validation;
+  - sparse integer rank calculation;
+  - compaction retry when no rank gap exists;
+  - status activity only for cross-status moves.
+- Added `POST /api/work-items/:workItemId/board-move`.
+- Added API tests for:
+  - initial create positions;
+  - status-menu transition positioning;
+  - same-column reorder without activity;
+  - cross-column move with one status activity;
+  - stale neighbor rejection;
+  - compaction path;
+  - invalid board transition rejection;
+  - archived-project board move rejection.
+- Verified `npm test --workspace @worktrail/api -- work-items`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `NODE_OPTIONS=--trace-deprecation npm test --workspace @worktrail/api`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `npm run build`.
+- Verified `git diff --check`.
+
 ## Phase 5: Planning Summary Backend
 
 Goal: add the project planning summary endpoint for dashboard data.

@@ -1,6 +1,7 @@
 import type {
   CreateWorkItemRequest,
   DueDateState,
+  MoveWorkItemOnBoardRequest,
   TransitionWorkItemRequest,
   UpdateWorkItemRequest,
   WorkItemDetailDto,
@@ -63,6 +64,12 @@ const updateWorkItemSchema = z
 const transitionWorkItemSchema = z.object({
   status: z.enum(workItemStatuses)
 }) satisfies z.ZodType<TransitionWorkItemRequest>;
+
+const moveWorkItemOnBoardSchema = z.object({
+  status: z.enum(workItemStatuses),
+  beforeWorkItemId: nullableUuidSchema.optional(),
+  afterWorkItemId: nullableUuidSchema.optional()
+}) satisfies z.ZodType<MoveWorkItemOnBoardRequest>;
 
 const workItemFilterSchema = z.object({
   status: z.enum(workItemStatuses).optional(),
@@ -197,6 +204,25 @@ export function transitionWorkItemHandler(input: {
     return {
       status: 200,
       body: await service.transitionWorkItem(workItemId, body)
+    };
+  };
+}
+
+export function moveWorkItemOnBoardHandler(input: {
+  repositories: Repositories;
+  db?: WorktrailDb;
+}): EndpointHandler<WorkItemDetailDto> {
+  return async (request) => {
+    const { workItemId } = parseWithSchema(workItemIdParamSchema, request.params);
+    const body = parseWithSchema(moveWorkItemOnBoardSchema, request.body);
+    const service = new WorkItemService({
+      actor: request.actor,
+      repositories: input.repositories,
+      db: input.db
+    });
+    return {
+      status: 200,
+      body: await service.moveWorkItemOnBoard(workItemId, body)
     };
   };
 }

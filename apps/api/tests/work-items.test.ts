@@ -216,6 +216,7 @@ describe('work item API', () => {
       assignee: { id: fixture.contributorId },
       reporter: { id: fixture.actorId },
       labels: [{ id: fixture.frontendLabelId, name: 'frontend' }],
+      boardPosition: 1024,
       dueDate: '2026-07-12',
       estimatePoints: 5
     });
@@ -237,7 +238,8 @@ describe('work item API', () => {
     expect(secondResponse.body).toMatchObject({
       itemNumber: 3,
       displayKey: 'WI-3',
-      title: 'Create second API work item'
+      title: 'Create second API work item',
+      boardPosition: 0
     });
 
     const project = await repositories.projects.findById(fixture.projectId);
@@ -620,6 +622,198 @@ describe('work item API', () => {
 
     const activity = await repositories.activityEvents.findByWorkItem(workItem.id);
     expect(activity[0]?.eventType).toBe('work_item.status_changed');
+  });
+
+  it('positions status-menu transitions at the top of the destination status', async () => {
+    const fixture = await createFixture('maintainer');
+    const existingReady = await createWorkItem(fixture, {
+      status: 'ready',
+      boardPosition: 1024
+    });
+    const backlog = await createWorkItem(fixture, {
+      status: 'backlog',
+      boardPosition: 1024
+    });
+
+    await request(app)
+      .post(`/api/work-items/${backlog.id}/transitions`)
+      .set(fixture.headers)
+      .send({ status: 'ready' })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.status).toBe('ready');
+        expect(body.boardPosition).toBe(0);
+      });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items`)
+      .query({ status: 'ready', sort: 'board_order' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.map((item: { id: string }) => item.id)).toEqual([backlog.id, existingReady.id]);
+      });
+  });
+
+  it('reorders work items within a board column without activity', async () => {
+    const fixture = await createFixture('maintainer');
+    const first = await createWorkItem(fixture, {
+      title: 'First ready card',
+      status: 'ready',
+      boardPosition: 1024
+    });
+    const second = await createWorkItem(fixture, {
+      title: 'Second ready card',
+      status: 'ready',
+      boardPosition: 2048
+    });
+    const third = await createWorkItem(fixture, {
+      title: 'Third ready card',
+      status: 'ready',
+      boardPosition: 3072
+    });
+
+    await request(app)
+      .post(`/api/work-items/${third.id}/board-move`)
+      .set(fixture.headers)
+      .send({
+        status: 'ready',
+        beforeWorkItemId: first.id,
+        afterWorkItemId: second.id
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.status).toBe('ready');
+        expect(body.boardPosition).toBe(1536);
+      });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items`)
+      .query({ status: 'ready', sort: 'board_order' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.map((item: { id: string }) => item.id)).toEqual([
+          first.id,
+          third.id,
+          second.id
+        ]);
+      });
+
+    expect(await repositories.activityEvents.findByWorkItem(third.id)).toHaveLength(0);
+  });
+
+  it('moves work items between board columns and records one status activity', async () => {
+    const fixture = await createFixture('maintainer');
+    const first = await createWorkItem(fixture, { status: 'ready', boardPosition: 1024 });
+    const second = await createWorkItem(fixture, { status: 'ready', boardPosition: 2048 });
+    const backlog = await createWorkItem(fixture, { status: 'backlog', boardPosition: 1024 });
+
+    await request(app)
+      .post(`/api/work-items/${backlog.id}/board-move`)
+      .set(fixture.headers)
+      .send({
+        status: 'ready',
+        beforeWorkItemId: first.id,
+        afterWorkItemId: second.id
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.status).toBe('ready');
+        expect(body.boardPosition).toBe(1536);
+      });
+
+    const activity = await repositories.activityEvents.findByWorkItem(backlog.id);
+    expect(activity.map((event) => event.eventType)).toEqual(['work_item.status_changed']);
+  });
+
+  it('rejects stale board move neighbors', async () => {
+    const fixture = await createFixture('maintainer');
+    const first = await createWorkItem(fixture, { status: 'ready', boardPosition: 1024 });
+    await createWorkItem(fixture, { status: 'ready', boardPosition: 2048 });
+    const third = await createWorkItem(fixture, { status: 'ready', boardPosition: 3072 });
+    const backlog = await createWorkItem(fixture, { status: 'backlog', boardPosition: 1024 });
+
+    await request(app)
+      .post(`/api/work-items/${backlog.id}/board-move`)
+      .set(fixture.headers)
+      .send({
+        status: 'ready',
+        beforeWorkItemId: first.id,
+        afterWorkItemId: third.id
+      })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('VALIDATION_ERROR');
+      });
+  });
+
+  it('compacts board positions when no rank gap exists', async () => {
+    const fixture = await createFixture('maintainer');
+    const first = await createWorkItem(fixture, { status: 'ready', boardPosition: 1024 });
+    const second = await createWorkItem(fixture, { status: 'ready', boardPosition: 1025 });
+    const backlog = await createWorkItem(fixture, { status: 'backlog', boardPosition: 1024 });
+
+    await request(app)
+      .post(`/api/work-items/${backlog.id}/board-move`)
+      .set(fixture.headers)
+      .send({
+        status: 'ready',
+        beforeWorkItemId: first.id,
+        afterWorkItemId: second.id
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.status).toBe('ready');
+        expect(body.boardPosition).toBe(1536);
+      });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items`)
+      .query({ status: 'ready', sort: 'board_order' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.map((item: { id: string; boardPosition: number }) => [item.id, item.boardPosition]))
+          .toEqual([
+            [first.id, 1024],
+            [backlog.id, 1536],
+            [second.id, 2048]
+          ]);
+      });
+  });
+
+  it('rejects invalid board move transitions', async () => {
+    const fixture = await createFixture('contributor');
+    const done = await createWorkItem(fixture, { status: 'done', boardPosition: 1024 });
+
+    await request(app)
+      .post(`/api/work-items/${done.id}/board-move`)
+      .set(fixture.headers)
+      .send({ status: 'ready' })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('WORKFLOW_TRANSITION_ERROR');
+      });
+  });
+
+  it('rejects board moves under archived projects', async () => {
+    const fixture = await createFixture('maintainer');
+    const workItem = await createWorkItem(fixture, { status: 'ready', boardPosition: 1024 });
+    await repositories.projects.update(fixture.projectId, {
+      status: 'archived',
+      updatedAt: now()
+    });
+
+    await request(app)
+      .post(`/api/work-items/${workItem.id}/board-move`)
+      .set(fixture.headers)
+      .send({ status: 'in_progress' })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('CONFLICT');
+        expect(body.error.message).toBe('Archived projects are read-only.');
+      });
   });
 
   it('rejects work item transitions under archived projects', async () => {

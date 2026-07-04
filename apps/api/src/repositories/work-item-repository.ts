@@ -32,8 +32,15 @@ export interface UpdateWorkItemInput {
   priority?: WorkItem['priority'];
   assigneeId?: string | null;
   milestoneId?: string | null;
+  boardPosition?: number;
   dueDate?: string | null;
   estimatePoints?: number | null;
+  updatedAt: Date;
+}
+
+export interface MoveWorkItemInput {
+  status: WorkItem['status'];
+  boardPosition: number;
   updatedAt: Date;
 }
 
@@ -47,6 +54,24 @@ export function createWorkItemRepository(db: WorktrailDb) {
     async findById(id: string) {
       const [workItem] = await db.select().from(workItems).where(eq(workItems.id, id)).limit(1);
       return workItem ?? null;
+    },
+
+    async listByProjectAndStatusForBoard(projectId: string, status: WorkItem['status']) {
+      return db
+        .select()
+        .from(workItems)
+        .where(and(eq(workItems.projectId, projectId), eq(workItems.status, status)))
+        .orderBy(asc(workItems.boardPosition), asc(workItems.itemNumber), asc(workItems.id));
+    },
+
+    async getTopBoardPosition(projectId: string, status: WorkItem['status']) {
+      const [workItem] = await db
+        .select({ boardPosition: workItems.boardPosition })
+        .from(workItems)
+        .where(and(eq(workItems.projectId, projectId), eq(workItems.status, status)))
+        .orderBy(asc(workItems.boardPosition), asc(workItems.itemNumber), asc(workItems.id))
+        .limit(1);
+      return workItem?.boardPosition ?? null;
     },
 
     async listByProject(projectId: string, filters: WorkItemFilters = {}) {
@@ -177,13 +202,55 @@ export function createWorkItemRepository(db: WorktrailDb) {
         .limit(limit);
     },
 
-    async updateStatus(id: string, status: WorkItem['status'], updatedAt: Date) {
+    async updateStatus(
+      id: string,
+      status: WorkItem['status'],
+      updatedAt: Date,
+      boardPosition?: number
+    ) {
       const [workItem] = await db
         .update(workItems)
-        .set({ status, updatedAt })
+        .set({
+          status,
+          ...(boardPosition === undefined ? {} : { boardPosition }),
+          updatedAt
+        })
         .where(eq(workItems.id, id))
         .returning();
       return workItem ?? null;
+    },
+
+    async moveOnBoard(id: string, input: MoveWorkItemInput) {
+      const [workItem] = await db
+        .update(workItems)
+        .set({
+          status: input.status,
+          boardPosition: input.boardPosition,
+          updatedAt: input.updatedAt
+        })
+        .where(eq(workItems.id, id))
+        .returning();
+      return workItem ?? null;
+    },
+
+    async compactBoardPositions(projectId: string, status: WorkItem['status']) {
+      const items = await this.listByProjectAndStatusForBoard(projectId, status);
+      const compacted: WorkItem[] = [];
+
+      for (const [index, item] of items.entries()) {
+        const boardPosition = (index + 1) * 1024;
+        const [updated] = await db
+          .update(workItems)
+          .set({ boardPosition })
+          .where(eq(workItems.id, item.id))
+          .returning();
+
+        if (updated !== undefined) {
+          compacted.push(updated);
+        }
+      }
+
+      return compacted;
     },
 
     async update(id: string, input: UpdateWorkItemInput) {

@@ -40,6 +40,7 @@ import {
   createWorkItemHandler,
   getWorkItemHandler,
   listWorkItemsHandler,
+  moveWorkItemOnBoardHandler,
   transitionWorkItemHandler,
   updateWorkItemHandler
 } from '../../endpoints/work-items.js';
@@ -145,6 +146,10 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
     app.post(
       '/api/work-items/:workItemId/transitions',
       adaptEndpoint(transitionWorkItemHandler({ repositories: options.repositories, db: options.db }))
+    );
+    app.post(
+      '/api/work-items/:workItemId/board-move',
+      adaptEndpoint(moveWorkItemOnBoardHandler({ repositories: options.repositories, db: options.db }))
     );
     app.patch(
       '/api/labels/:labelId',

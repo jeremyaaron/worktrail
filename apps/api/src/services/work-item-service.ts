@@ -2,6 +2,7 @@ import type {
   ActivityEventDto,
   CommentDto,
   CreateWorkItemRequest,
+  MoveWorkItemOnBoardRequest,
   TransitionWorkItemRequest,
   UpdateWorkItemRequest,
   WorkItemDetailDto,
@@ -39,6 +40,8 @@ import {
   toWorkItemDetailDto,
   toWorkItemListItemDto
 } from './dto.js';
+
+const boardPositionStep = 1024;
 
 export interface WorkItemListFilters {
   status?: WorkItemStatus;
@@ -95,6 +98,8 @@ export class WorkItemService {
       this.assertProjectWritable(project);
       await this.validateLabels(projectId, labelIds, repositories);
       await this.validateMilestone(projectId, input.milestoneId ?? null, repositories);
+      const status = input.status ?? 'backlog';
+      const boardPosition = await this.getTopInsertionPosition(projectId, status, repositories);
       const numberedProject = await repositories.projects.allocateWorkItemNumber(projectId, timestamp);
 
       if (numberedProject === null || numberedProject.workspaceId !== this.context.actor.workspaceId) {
@@ -114,11 +119,12 @@ export class WorkItemService {
         itemNumber,
         displayKey: `${numberedProject.key}-${itemNumber}`,
         type: input.type,
-        status: input.status ?? 'backlog',
+        status,
         priority: input.priority,
         assigneeId: input.assigneeId ?? null,
         reporterId: this.context.actor.memberId,
         milestoneId: input.milestoneId ?? null,
+        boardPosition,
         dueDate: input.dueDate ?? null,
         estimatePoints: input.estimatePoints ?? null,
         createdAt: timestamp,
@@ -232,7 +238,16 @@ export class WorkItemService {
       }
 
       const timestamp = this.clock();
-      const updated = await repositories.workItems.updateStatus(workItemId, input.status, timestamp);
+      const boardPosition =
+        current.status === input.status
+          ? undefined
+          : await this.getTopInsertionPosition(current.projectId, input.status, repositories);
+      const updated = await repositories.workItems.updateStatus(
+        workItemId,
+        input.status,
+        timestamp,
+        boardPosition
+      );
 
       if (updated === null) {
         throw new NotFoundError('Work item not found.');
@@ -249,6 +264,67 @@ export class WorkItemService {
           summary: `Status changed from ${current.status} to ${updated.status}.`,
           previousValue: { status: current.status },
           newValue: { status: updated.status },
+          metadata: {},
+          createdAt: timestamp
+        });
+      }
+
+      return this.toDetailDto(updated, repositories);
+    });
+  }
+
+  async moveWorkItemOnBoard(
+    workItemId: string,
+    input: MoveWorkItemOnBoardRequest
+  ): Promise<WorkItemDetailDto> {
+    return this.withWriteRepositories(async (repositories) => {
+      const current = await this.requireWorkItem(workItemId, repositories);
+      const project = await this.requireProjectFromRepositories(current.projectId, repositories);
+      this.assertProjectWritable(project);
+
+      if (
+        !canTransitionWorkItem({
+          from: current.status,
+          to: input.status,
+          actorRole: this.context.actor.role
+        })
+      ) {
+        throw new WorkflowTransitionError('The requested status transition is not allowed.', {
+          from: current.status,
+          to: input.status
+        });
+      }
+
+      const timestamp = this.clock();
+      const boardPosition = await this.computeBoardPosition({
+        projectId: current.projectId,
+        status: input.status,
+        movingWorkItemId: current.id,
+        beforeWorkItemId: input.beforeWorkItemId ?? null,
+        afterWorkItemId: input.afterWorkItemId ?? null,
+        repositories
+      });
+      const updated = await repositories.workItems.moveOnBoard(workItemId, {
+        status: input.status,
+        boardPosition,
+        updatedAt: timestamp
+      });
+
+      if (updated === null) {
+        throw new NotFoundError('Work item not found.');
+      }
+
+      if (current.status !== updated.status) {
+        await repositories.activityEvents.create({
+          id: this.idGenerator(),
+          workspaceId: updated.workspaceId,
+          projectId: updated.projectId,
+          workItemId: updated.id,
+          actorId: this.context.actor.memberId,
+          eventType: 'work_item.status_changed',
+          summary: `Status changed from ${current.status} to ${updated.status}.`,
+          previousValue: { status: current.status, boardPosition: current.boardPosition },
+          newValue: { status: updated.status, boardPosition: updated.boardPosition },
           metadata: {},
           createdAt: timestamp
         });
@@ -299,6 +375,113 @@ export class WorkItemService {
     }
 
     return workItem;
+  }
+
+  private async getTopInsertionPosition(
+    projectId: string,
+    status: WorkItemStatus,
+    repositories: Repositories
+  ): Promise<number> {
+    const topPosition = await repositories.workItems.getTopBoardPosition(projectId, status);
+    return topPosition === null ? boardPositionStep : topPosition - boardPositionStep;
+  }
+
+  private async computeBoardPosition(input: {
+    projectId: string;
+    status: WorkItemStatus;
+    movingWorkItemId: string;
+    beforeWorkItemId: string | null;
+    afterWorkItemId: string | null;
+    repositories: Repositories;
+  }): Promise<number> {
+    if (
+      input.beforeWorkItemId === input.movingWorkItemId ||
+      input.afterWorkItemId === input.movingWorkItemId
+    ) {
+      throw new ValidationError('A work item cannot be positioned relative to itself.');
+    }
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const column = (
+        await input.repositories.workItems.listByProjectAndStatusForBoard(input.projectId, input.status)
+      ).filter((item) => item.id !== input.movingWorkItemId);
+
+      const position = this.tryComputeBoardPosition({
+        column,
+        beforeWorkItemId: input.beforeWorkItemId,
+        afterWorkItemId: input.afterWorkItemId
+      });
+
+      if (position !== null) {
+        return position;
+      }
+
+      await input.repositories.workItems.compactBoardPositions(input.projectId, input.status);
+    }
+
+    throw new ConflictError('Board column could not be rebalanced.');
+  }
+
+  private tryComputeBoardPosition(input: {
+    column: WorkItem[];
+    beforeWorkItemId: string | null;
+    afterWorkItemId: string | null;
+  }): number | null {
+    if (input.beforeWorkItemId === null && input.afterWorkItemId === null) {
+      const first = input.column[0];
+      return first === undefined ? boardPositionStep : first.boardPosition - boardPositionStep;
+    }
+
+    const beforeIndex =
+      input.beforeWorkItemId === null
+        ? -1
+        : input.column.findIndex((item) => item.id === input.beforeWorkItemId);
+    const afterIndex =
+      input.afterWorkItemId === null
+        ? input.column.length
+        : input.column.findIndex((item) => item.id === input.afterWorkItemId);
+
+    if (
+      beforeIndex === -1 &&
+      input.beforeWorkItemId !== null ||
+      afterIndex === -1 &&
+      input.afterWorkItemId !== null
+    ) {
+      throw new ValidationError('Board move neighbors are invalid for the target status.');
+    }
+
+    if (afterIndex !== beforeIndex + 1) {
+      throw new ValidationError('Board move neighbors are stale.');
+    }
+
+    if (input.beforeWorkItemId === null) {
+      const after = input.column[afterIndex];
+      return after === undefined ? boardPositionStep : after.boardPosition - boardPositionStep;
+    }
+
+    const before = input.column[beforeIndex];
+
+    if (before === undefined) {
+      throw new ValidationError('Board move neighbors are invalid for the target status.');
+    }
+
+    if (input.afterWorkItemId === null) {
+      return before.boardPosition + boardPositionStep;
+    }
+
+    const after = input.column[afterIndex];
+
+    if (after === undefined) {
+      throw new ValidationError('Board move neighbors are invalid for the target status.');
+    }
+
+    const gap = after.boardPosition - before.boardPosition;
+
+    if (gap <= 1) {
+      return null;
+    }
+
+    return before.boardPosition + Math.floor(gap / 2);
   }
 
   private async validateLabels(
