@@ -87,6 +87,10 @@ npm run db:seed
 
 That keeps the smoke test deterministic, but it means the local `public` schema for the configured database is dropped and recreated. Set `WORKTRAIL_E2E_SKIP_DB_RESET=true` only when you intentionally want to run the smoke test against an already prepared local database.
 
+## Public Site
+
+The static GitHub Pages site lives in `site/`. The Pages workflow publishes that directory when changes land on `main`.
+
 ## Demo Walkthrough
 
 After migrating and seeding the database, open <http://localhost:4200>.
