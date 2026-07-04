@@ -27,6 +27,7 @@ import {
   reactivateMilestoneHandler,
   updateMilestoneHandler
 } from '../../endpoints/milestones.js';
+import { getProjectPlanningSummaryHandler } from '../../endpoints/planning.js';
 import {
   archiveProjectHandler,
   createProjectHandler,
@@ -84,6 +85,10 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
     app.get(
       '/api/projects/:projectId/summary',
       adaptEndpoint(getProjectSummaryHandler(options.repositories))
+    );
+    app.get(
+      '/api/projects/:projectId/planning-summary',
+      adaptEndpoint(getProjectPlanningSummaryHandler({ repositories: options.repositories }))
     );
     app.get(
       '/api/projects/:projectId/activity',

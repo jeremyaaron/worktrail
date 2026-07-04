@@ -432,6 +432,32 @@ npm test --workspace @worktrail/api -- planning
 npm run typecheck
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Added `PlanningService` with centralized planning thresholds:
+  - due soon = today through today + 7 days;
+  - stale in progress = no update for 7 days.
+- Implemented project planning summary assembly from existing repository boundaries, keeping the service boundary ready for a future query-optimized repository if summary volume requires it.
+- Added milestone progress for active, non-archived planned/active milestones, including total, done, blocked, and overdue counts.
+- Added risk lists for:
+  - blocked work;
+  - overdue open work;
+  - due-soon open work;
+  - unassigned ready/in-progress work;
+  - stale in-progress work.
+- Excluded done/canceled work from overdue and due-soon risk classification.
+- Preserved archived-project readability for planning summaries.
+- Added `GET /api/projects/:projectId/planning-summary`.
+- Added deterministic API tests for planning summaries, archived-project reads, milestone progress, risk lists, and fake service clock behavior.
+- Verified `npm test --workspace @worktrail/api -- planning`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `npm run build`.
+- Verified `git diff --check`.
+
 ## Phase 6: Frontend API Client, Routing, And Shared Model Updates
 
 Goal: make v0.0.3 backend capabilities available to Angular components.
