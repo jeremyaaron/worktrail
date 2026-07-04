@@ -303,7 +303,7 @@ export class WorkItemCreatePageComponent implements OnInit {
 
   private toRequest(): CreateWorkItemRequest {
     const formValue = this.workItemForm.getRawValue();
-    const estimate = formValue.estimatePoints.trim();
+    const estimate = this.normalizeEstimate(formValue.estimatePoints);
 
     return {
       title: formValue.title.trim(),
@@ -314,5 +314,9 @@ export class WorkItemCreatePageComponent implements OnInit {
       dueDate: formValue.dueDate === '' ? null : formValue.dueDate,
       estimatePoints: estimate === '' ? null : Number.parseInt(estimate, 10)
     };
+  }
+
+  private normalizeEstimate(value: string | number): string {
+    return typeof value === 'number' ? value.toString() : value.trim();
   }
 }

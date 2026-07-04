@@ -107,11 +107,17 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
 
             <section class="label-editor" aria-label="Labels">
               <h3>Labels</h3>
-              @if (item.labels.length === 0) {
-                <p>No labels are attached.</p>
+              @if (labelLoadError()) {
+                <app-error-panel
+                  title="Labels unavailable"
+                  [message]="labelLoadError() ?? ''"
+                  (retry)="loadProjectLabels(item.projectId)"
+                />
+              } @else if (availableLabels().length === 0) {
+                <p>No project labels are available.</p>
               } @else {
                 <div class="label-options">
-                  @for (label of item.labels; track label.id) {
+                  @for (label of availableLabels(); track label.id) {
                     <label class="label-option">
                       <input
                         type="checkbox"
@@ -426,6 +432,15 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
       font-weight: 700;
     }
 
+    .label-option input[type='checkbox'] {
+      width: 16px;
+      height: 16px;
+      min-height: 16px;
+      margin: 0;
+      padding: 0;
+      flex: 0 0 auto;
+    }
+
     .label-option span {
       width: 12px;
       height: 12px;
@@ -534,6 +549,8 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly updateError = signal<string | null>(null);
   readonly statusError = signal<string | null>(null);
   readonly commentError = signal<string | null>(null);
+  readonly labelLoadError = signal<string | null>(null);
+  readonly availableLabels = signal<LabelDto[]>([]);
 
   readonly detailForm = this.formBuilder.nonNullable.group({
     title: ['', [Validators.required]],
@@ -566,6 +583,7 @@ export class WorkItemDetailPageComponent implements OnInit {
     this.api.getWorkItem(this.workItemId()).subscribe({
       next: (workItem) => {
         this.applyWorkItem(workItem);
+        this.loadProjectLabels(workItem.projectId);
         this.isLoading.set(false);
       },
       error: () => {
@@ -655,6 +673,19 @@ export class WorkItemDetailPageComponent implements OnInit {
     return this.selectedLabelIds().includes(labelId);
   }
 
+  loadProjectLabels(projectId: string): void {
+    this.labelLoadError.set(null);
+
+    this.api.listProjectLabels(projectId).subscribe({
+      next: (labels) => {
+        this.availableLabels.set(labels);
+      },
+      error: () => {
+        this.labelLoadError.set('Project labels could not be loaded from the API.');
+      }
+    });
+  }
+
   showTitleError(): boolean {
     const control = this.detailForm.controls.title;
     return control.invalid && (control.touched || this.hasSubmittedDetail());
@@ -699,6 +730,7 @@ export class WorkItemDetailPageComponent implements OnInit {
   private applyWorkItem(workItem: WorkItemDetailDto): void {
     this.workItem.set(workItem);
     this.selectedLabelIds.set(workItem.labels.map((label) => label.id));
+    this.mergeAvailableLabels(workItem.labels);
     this.detailForm.reset({
       title: workItem.title,
       description: workItem.description,
@@ -720,5 +752,15 @@ export class WorkItemDetailPageComponent implements OnInit {
       assigneeId: formValue.assigneeId === '' ? null : formValue.assigneeId,
       labelIds: this.selectedLabelIds()
     };
+  }
+
+  private mergeAvailableLabels(labels: LabelDto[]): void {
+    const labelsById = new Map(this.availableLabels().map((label) => [label.id, label]));
+
+    for (const label of labels) {
+      labelsById.set(label.id, label);
+    }
+
+    this.availableLabels.set([...labelsById.values()].sort((left, right) => left.name.localeCompare(right.name)));
   }
 }

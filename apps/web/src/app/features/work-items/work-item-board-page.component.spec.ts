@@ -86,6 +86,7 @@ describe('WorkItemBoardPageComponent', () => {
     expect(compiled.textContent).toContain('in progress');
     expect(compiled.textContent).toContain('Ready board item');
     expect(compiled.textContent).toContain('No cards');
+    expect(compiled.querySelector('select')?.value).toBe('ready');
   });
 
   it('moves a card through the status menu and refreshes board state', () => {

@@ -217,4 +217,29 @@ describe('WorkItemCreatePageComponent', () => {
       '10000000-0000-4000-8000-000000000499'
     ]);
   });
+
+  it('normalizes numeric estimate values before posting', () => {
+    const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    fixture.componentInstance.workItemForm.patchValue({
+      title: 'Create estimate normalization',
+      type: 'task',
+      priority: 'medium'
+    });
+    fixture.componentInstance.workItemForm.controls.estimatePoints.setValue(8 as unknown as string);
+    fixture.componentInstance.createWorkItem();
+
+    const request = http.expectOne(`/api/projects/${projectId}/work-items`);
+    expect(request.request.body.estimatePoints).toBe(8);
+    request.flush({
+      ...workItem,
+      id: '10000000-0000-4000-8000-000000000498',
+      title: 'Create estimate normalization',
+      description: '',
+      comments: [],
+      activity: []
+    } satisfies WorkItemDetailDto);
+  });
 });

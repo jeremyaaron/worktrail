@@ -12,6 +12,7 @@ const workItemId = '10000000-0000-4000-8000-000000000403';
 const ownerId = '10000000-0000-4000-8000-000000000101';
 const contributorId = '10000000-0000-4000-8000-000000000103';
 const labelId = '10000000-0000-4000-8000-000000000302';
+const frontendLabelId = '10000000-0000-4000-8000-000000000301';
 
 const owner: MemberDto = {
   id: ownerId,
@@ -87,6 +88,10 @@ function setup() {
   const http = TestBed.inject(HttpTestingController);
   fixture.detectChanges();
   http.expectOne(`/api/work-items/${workItemId}`).flush(detail);
+  http.expectOne(`/api/projects/${projectId}/labels`).flush([
+    { id: frontendLabelId, name: 'frontend', color: '#2563eb' },
+    { id: labelId, name: 'backend', color: '#059669' }
+  ]);
   fixture.detectChanges();
   return { fixture, http };
 }
@@ -122,11 +127,13 @@ describe('WorkItemDetailPageComponent', () => {
     const compiled = fixture.nativeElement as HTMLElement;
 
     expect(compiled.textContent).toContain('Implement detail surface');
+    expect(compiled.textContent).toContain('frontend');
+    expect(compiled.textContent).toContain('backend');
     expect(compiled.textContent).toContain('Initial implementation note.');
     expect(compiled.textContent).toContain('Avery Owner created this work item.');
   });
 
-  it('updates editable fields through the patch endpoint', () => {
+  it('updates editable fields and project labels through the patch endpoint', () => {
     const { fixture, http } = setup();
     fixture.componentInstance.detailForm.patchValue({
       title: 'Updated detail surface',
@@ -135,6 +142,9 @@ describe('WorkItemDetailPageComponent', () => {
       priority: 'urgent',
       assigneeId: owner.id
     });
+    fixture.componentInstance.toggleLabel(frontendLabelId, {
+      target: { checked: true }
+    } as unknown as Event);
     fixture.componentInstance.updateWorkItem();
 
     const request = http.expectOne(`/api/work-items/${workItemId}`);
@@ -145,7 +155,7 @@ describe('WorkItemDetailPageComponent', () => {
       type: 'story',
       priority: 'urgent',
       assigneeId: owner.id,
-      labelIds: [labelId]
+      labelIds: [labelId, frontendLabelId]
     });
     request.flush({
       ...detail,

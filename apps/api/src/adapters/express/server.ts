@@ -10,6 +10,7 @@ import {
   listCommentsHandler
 } from '../../endpoints/comments.js';
 import { healthHandler } from '../../endpoints/health.js';
+import { listProjectLabelsHandler } from '../../endpoints/labels.js';
 import { listMembersHandler } from '../../endpoints/members.js';
 import {
   createProjectHandler,
@@ -69,6 +70,10 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
     app.get(
       '/api/projects/:projectId/activity',
       adaptEndpoint(listProjectActivityHandler(options.repositories))
+    );
+    app.get(
+      '/api/projects/:projectId/labels',
+      adaptEndpoint(listProjectLabelsHandler(options.repositories))
     );
     app.get('/api/projects/:projectId', adaptEndpoint(getProjectHandler(options.repositories)));
     app.patch('/api/projects/:projectId', adaptEndpoint(updateProjectHandler(options.repositories)));

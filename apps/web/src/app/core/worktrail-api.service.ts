@@ -6,6 +6,7 @@ import type {
   CreateCommentRequest,
   CreateProjectRequest,
   CreateWorkItemRequest,
+  LabelDto,
   MemberDto,
   ProjectDto,
   ProjectSummaryDto,
@@ -68,6 +69,10 @@ export class WorktrailApiService {
       this.url(`/projects/${projectId}/activity`),
       this.options()
     );
+  }
+
+  listProjectLabels(projectId: string): Observable<LabelDto[]> {
+    return this.http.get<LabelDto[]>(this.url(`/projects/${projectId}/labels`), this.options());
   }
 
   listWorkItems(

@@ -1011,6 +1011,25 @@ npm run build
 npm test
 ```
 
+Status:
+
+- Completed on 2026-07-03.
+- Fixed QA/UAT issues found during the product-quality pass:
+  - detail-page label checkboxes now render at normal control size;
+  - detail-page labels load from a project label catalog, so labels can be added back after removal;
+  - board status menus now reflect each card's current status, including backlog;
+  - board layout now uses the available desktop width instead of constraining columns into an unnecessarily narrow content shell;
+  - create-work-item estimate handling now accepts numeric form values without throwing before the API request.
+- Added `GET /api/projects/:projectId/labels` so the frontend can present all project labels without depending only on the labels already attached to a work item.
+- Improved visual distinction for statuses, priorities, labels, assignees, and work item types in list rows and board cards.
+- Added status color accents to project home summary tiles.
+- Reviewed and tightened text wrapping in dense card/list surfaces so core labels and titles fit their containers.
+- Added README usage notes with a demo walkthrough and documented v0.0.1 limitations.
+- Added `docs/v0.0.1/jawstack-extraction-notes.md` with candidate patterns and anti-patterns observed from the MVP implementation.
+- `npm run typecheck` passed across API, web, and contracts.
+- `npm test` passed across all workspaces: API 41 tests in 6 files, Angular 18 tests, contracts no-op test.
+- `npm run build` passed across contracts, API, and web.
+
 ## Phase 14: End-To-End Smoke Test And Release Readiness
 
 Goal: verify the MVP as a complete local app.

@@ -322,5 +322,30 @@ describe('projects API', () => {
         });
       });
   });
-});
 
+  it('returns project labels scoped to the actor workspace', async () => {
+    const fixture = await createWorkspaceFixture('owner');
+    const otherFixture = await createWorkspaceFixture('owner');
+    const project = await createProject({ workspaceId: fixture.workspaceId });
+
+    await repositories.labels.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      projectId: project.id,
+      name: 'backend',
+      color: '#059669',
+      createdAt: now(),
+      updatedAt: now()
+    });
+
+    await request(app)
+      .get(`/api/projects/${project.id}/labels`)
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual([{ id: expect.any(String), name: 'backend', color: '#059669' }]);
+      });
+
+    await request(app).get(`/api/projects/${project.id}/labels`).set(otherFixture.headers).expect(404);
+  });
+});

@@ -65,10 +65,17 @@ const statuses: WorkItemStatus[] = [
                   <article class="work-card">
                     <div class="work-card__heading">
                       <a [routerLink]="['/work-items', item.id]">{{ item.title }}</a>
-                      <span>{{ formatToken(item.priority) }}</span>
+                      <span class="priority-pill" [attr.data-priority]="item.priority">
+                        {{ formatToken(item.priority) }}
+                      </span>
                     </div>
 
-                    <p>{{ formatToken(item.type) }} · {{ item.assignee?.name ?? 'Unassigned' }}</p>
+                    <p>
+                      <span class="type-pill">{{ formatToken(item.type) }}</span>
+                      <span class="assignee-pill" [class.assignee-pill--empty]="item.assignee === null">
+                        {{ item.assignee?.name ?? 'Unassigned' }}
+                      </span>
+                    </p>
 
                     @if (item.labels.length > 0) {
                       <div class="labels" aria-label="Labels">
@@ -86,7 +93,9 @@ const statuses: WorkItemStatus[] = [
                         (change)="transitionCard(item, $event)"
                       >
                         @for (targetStatus of statuses; track targetStatus) {
-                          <option [value]="targetStatus">{{ formatToken(targetStatus) }}</option>
+                          <option [value]="targetStatus" [selected]="targetStatus === item.status">
+                            {{ formatToken(targetStatus) }}
+                          </option>
                         }
                       </select>
                     </label>
@@ -100,6 +109,12 @@ const statuses: WorkItemStatus[] = [
     }
   `,
   styles: `
+    :host {
+      display: block;
+      width: min(1680px, calc(100vw - 48px));
+      margin-left: calc((100% - min(1680px, calc(100vw - 48px))) / 2);
+    }
+
     .page-header {
       display: flex;
       justify-content: space-between;
@@ -156,7 +171,7 @@ const statuses: WorkItemStatus[] = [
 
     .board {
       display: grid;
-      grid-template-columns: repeat(6, minmax(220px, 1fr));
+      grid-template-columns: repeat(6, minmax(190px, 1fr));
       gap: 12px;
       overflow-x: auto;
       padding-bottom: 8px;
@@ -166,7 +181,7 @@ const statuses: WorkItemStatus[] = [
       display: grid;
       align-content: start;
       gap: 10px;
-      min-width: 220px;
+      min-width: 0;
       border: 1px solid #dbe3ea;
       border-radius: 8px;
       padding: 10px;
@@ -223,10 +238,13 @@ const statuses: WorkItemStatus[] = [
       font-size: 0.875rem;
       font-weight: 800;
       line-height: 1.35;
+      overflow-wrap: anywhere;
       text-decoration: none;
     }
 
-    .work-card__heading span,
+    .priority-pill,
+    .type-pill,
+    .assignee-pill,
     .labels span {
       width: fit-content;
       border: 1px solid #cbd5e1;
@@ -239,9 +257,47 @@ const statuses: WorkItemStatus[] = [
     }
 
     .work-card p {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
       color: #64748b;
       font-size: 0.8125rem;
       line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+
+    .type-pill {
+      background: #eef2ff;
+      color: #3730a3;
+      border-color: #c7d2fe;
+    }
+
+    .assignee-pill--empty {
+      background: #f8fafc;
+      color: #64748b;
+    }
+
+    .priority-pill[data-priority='low'] {
+      background: #f8fafc;
+      color: #475569;
+    }
+
+    .priority-pill[data-priority='medium'] {
+      background: #fefce8;
+      color: #854d0e;
+      border-color: #fde68a;
+    }
+
+    .priority-pill[data-priority='high'] {
+      background: #fff7ed;
+      color: #c2410c;
+      border-color: #fed7aa;
+    }
+
+    .priority-pill[data-priority='urgent'] {
+      background: #fef2f2;
+      color: #b91c1c;
+      border-color: #fecaca;
     }
 
     .labels {
@@ -271,6 +327,11 @@ const statuses: WorkItemStatus[] = [
     }
 
     @media (max-width: 980px) {
+      :host {
+        width: 100%;
+        margin-left: 0;
+      }
+
       .page-header {
         flex-direction: column;
       }

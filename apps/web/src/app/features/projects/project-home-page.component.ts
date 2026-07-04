@@ -45,7 +45,7 @@ const statusLabels: Record<WorkItemStatus, string> = {
 
       <section class="summary-grid" aria-label="Work item status counts">
         @for (count of summary.countsByStatus; track count.status) {
-          <article class="status-tile">
+          <article class="status-tile" [attr.data-status]="count.status">
             <span>{{ statusLabel(count.status) }}</span>
             <strong>{{ count.count }}</strong>
           </article>
@@ -184,6 +184,7 @@ const statusLabels: Record<WorkItemStatus, string> = {
 
     .status-tile {
       border: 1px solid #e5e7eb;
+      border-top-width: 4px;
       border-radius: 8px;
       padding: 14px;
       background: #ffffff;
@@ -202,6 +203,30 @@ const statusLabels: Record<WorkItemStatus, string> = {
       color: #111827;
       font-size: 1.75rem;
       line-height: 1;
+    }
+
+    .status-tile[data-status='backlog'] {
+      border-top-color: #94a3b8;
+    }
+
+    .status-tile[data-status='ready'] {
+      border-top-color: #06b6d4;
+    }
+
+    .status-tile[data-status='in_progress'] {
+      border-top-color: #2563eb;
+    }
+
+    .status-tile[data-status='blocked'] {
+      border-top-color: #f97316;
+    }
+
+    .status-tile[data-status='done'] {
+      border-top-color: #10b981;
+    }
+
+    .status-tile[data-status='canceled'] {
+      border-top-color: #64748b;
     }
 
     .home-grid {
