@@ -2,7 +2,13 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
-import type { MemberDto, ProjectDto, WorkItemDetailDto, WorkItemListItemDto } from '@worktrail/contracts';
+import type {
+  MemberDto,
+  MilestoneDto,
+  ProjectDto,
+  WorkItemDetailDto,
+  WorkItemListItemDto
+} from '@worktrail/contracts';
 import { BehaviorSubject } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
@@ -38,6 +44,20 @@ const archivedProject: ProjectDto = {
   status: 'archived'
 };
 
+const activeMilestone: MilestoneDto = {
+  id: '10000000-0000-4000-8000-000000000501',
+  workspaceId: member.workspaceId,
+  projectId,
+  name: 'v0.0.3',
+  description: 'Planning release.',
+  status: 'active',
+  targetDate: '2026-07-18',
+  isArchived: false,
+  archivedAt: null,
+  createdAt: '2026-07-03T12:00:00.000Z',
+  updatedAt: '2026-07-04T12:00:00.000Z'
+};
+
 const workItem: WorkItemListItemDto = {
   id: workItemId,
   workspaceId: member.workspaceId,
@@ -59,7 +79,7 @@ const workItem: WorkItemListItemDto = {
       archivedAt: null
     }
   ],
-  milestone: null,
+  milestone: activeMilestone,
   boardPosition: 1024,
   dueDate: null,
   estimatePoints: 5,
@@ -105,8 +125,11 @@ describe('WorkItemListPageComponent', () => {
           useValue: routeStub({
             status: 'in_progress',
             assigneeId: contributorId,
+            reporterId: contributorId,
+            milestoneId: activeMilestone.id,
+            dueDateState: 'due_soon',
             search: 'api',
-            sort: 'priority_desc'
+            sort: 'due_date_asc'
           })
         }
       ]
@@ -124,14 +147,18 @@ describe('WorkItemListPageComponent', () => {
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
 
     const request = http.expectOne((candidate) => {
       return (
         candidate.url === `/api/projects/${projectId}/work-items` &&
         candidate.params.get('status') === 'in_progress' &&
         candidate.params.get('assigneeId') === contributorId &&
+        candidate.params.get('reporterId') === contributorId &&
+        candidate.params.get('milestoneId') === activeMilestone.id &&
+        candidate.params.get('dueDateState') === 'due_soon' &&
         candidate.params.get('search') === 'api' &&
-        candidate.params.get('sort') === 'priority_desc'
+        candidate.params.get('sort') === 'due_date_asc'
       );
     });
     request.flush([workItem]);
@@ -142,6 +169,8 @@ describe('WorkItemListPageComponent', () => {
     expect(compiled.textContent).toContain('Implement work item API client');
     expect(compiled.textContent).toContain('Case Contributor');
     expect(compiled.textContent).toContain('backend');
+    expect(compiled.textContent).toContain('v0.0.3');
+    expect(compiled.textContent).toContain('Due date: Due soon');
   });
 
   it('keeps applied filters in route query parameters', () => {
@@ -152,16 +181,20 @@ describe('WorkItemListPageComponent', () => {
     fixture.detectChanges();
 
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
     http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([]);
 
     fixture.componentInstance.filterForm.patchValue({
       search: 'client',
       status: 'ready',
       assigneeId: contributorId,
+      reporterId: contributorId,
       type: 'task',
       labelId: workItem.labels[0].id,
+      milestoneId: activeMilestone.id,
       priority: 'high',
-      sort: 'priority_desc'
+      dueDateState: 'overdue',
+      sort: 'created_desc'
     });
     fixture.componentInstance.applyFilters();
 
@@ -171,10 +204,13 @@ describe('WorkItemListPageComponent', () => {
         search: 'client',
         status: 'ready',
         assigneeId: contributorId,
+        reporterId: contributorId,
         type: 'task',
         labelId: workItem.labels[0].id,
+        milestoneId: activeMilestone.id,
         priority: 'high',
-        sort: 'priority_desc'
+        dueDateState: 'overdue',
+        sort: 'created_desc'
       }
     });
   });
@@ -207,6 +243,7 @@ describe('WorkItemCreatePageComponent', () => {
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones`).flush([activeMilestone]);
     http.expectOne(`/api/projects/${projectId}/labels`).flush([backendLabel]);
 
     fixture.componentInstance.createWorkItem();
@@ -224,6 +261,7 @@ describe('WorkItemCreatePageComponent', () => {
     const navigate = spyOn(router, 'navigate').and.resolveTo(true);
     fixture.detectChanges();
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones`).flush([activeMilestone]);
     http.expectOne(`/api/projects/${projectId}/labels`).flush([backendLabel, archivedLabel]);
     fixture.detectChanges();
 
@@ -236,6 +274,7 @@ describe('WorkItemCreatePageComponent', () => {
       type: 'story',
       priority: 'urgent',
       assigneeId: contributorId,
+      milestoneId: activeMilestone.id,
       dueDate: '2026-07-20',
       estimatePoints: '8'
     });
@@ -253,6 +292,7 @@ describe('WorkItemCreatePageComponent', () => {
       priority: 'urgent',
       assigneeId: contributorId,
       labelIds: [backendLabel.id],
+      milestoneId: activeMilestone.id,
       dueDate: '2026-07-20',
       estimatePoints: 8
     });
@@ -276,6 +316,7 @@ describe('WorkItemCreatePageComponent', () => {
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones`).flush([]);
     http.expectOne(`/api/projects/${projectId}/labels`).flush([]);
 
     fixture.componentInstance.workItemForm.patchValue({
@@ -289,6 +330,7 @@ describe('WorkItemCreatePageComponent', () => {
     const request = http.expectOne(`/api/projects/${projectId}/work-items`);
     expect(request.request.body.estimatePoints).toBe(8);
     expect(request.request.body.labelIds).toEqual([]);
+    expect(request.request.body.milestoneId).toBeNull();
     request.flush({
       ...workItem,
       id: '10000000-0000-4000-8000-000000000498',
@@ -304,6 +346,7 @@ describe('WorkItemCreatePageComponent', () => {
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
     http.expectOne(`/api/projects/${projectId}`).flush(archivedProject);
+    http.expectOne(`/api/projects/${projectId}/milestones`).flush([activeMilestone]);
     http.expectOne(`/api/projects/${projectId}/labels`).flush([backendLabel]);
     fixture.detectChanges();
 

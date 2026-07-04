@@ -122,6 +122,9 @@ const statuses: WorkItemStatus[] = [
 
                     <p>
                       <span class="type-pill">{{ formatToken(item.type) }}</span>
+                      @if (item.milestone !== null) {
+                        <span class="milestone-pill">{{ item.milestone.name }}</span>
+                      }
                       <span class="assignee-pill" [class.assignee-pill--empty]="item.assignee === null">
                         {{ item.assignee?.name ?? 'Unassigned' }}
                       </span>
@@ -340,6 +343,17 @@ const statuses: WorkItemStatus[] = [
       color: #3730a3;
       font-size: 0.6875rem;
       font-weight: 900;
+    }
+
+    .milestone-pill {
+      width: fit-content;
+      border: 1px solid #bbf7d0;
+      border-radius: 999px;
+      padding: 2px 7px;
+      background: #f0fdf4;
+      color: #166534;
+      font-size: 0.75rem;
+      font-weight: 800;
     }
 
     .work-card a {

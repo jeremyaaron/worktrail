@@ -610,6 +610,29 @@ npm test --workspace @worktrail/web -- --include '*work-item*'
 npm run typecheck --workspace @worktrail/web
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Added milestone selection to the work item create page.
+- Added milestone selection to the work item detail page, including clear support through the `No milestone` option.
+- Added milestone display to work item list rows and board cards.
+- Extended work item list filters for:
+  - search across key/title/description;
+  - reporter;
+  - milestone;
+  - due date state;
+  - due date, created date, and board order sorts.
+- Preserved URL initialization and apply behavior for the expanded filters.
+- Added active filter chips and filter-aware empty-state messages.
+- Updated frontend work item tests for milestone create/detail payloads, expanded list URL filters, milestone rendering, and read-only behavior.
+- Verified `npm test --workspace @worktrail/web -- --include 'src/app/features/work-items/*work-item*.spec.ts'`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm test --workspace @worktrail/web`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `npm run build`.
+- Verified `git diff --check`.
+
 ## Phase 9: Persisted Board Ordering UI
 
 Goal: wire Angular CDK board interactions to the persisted board move command.

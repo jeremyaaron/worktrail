@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import type { MemberDto, ProjectDto, WorkItemDetailDto } from '@worktrail/contracts';
+import type { MemberDto, MilestoneDto, ProjectDto, WorkItemDetailDto } from '@worktrail/contracts';
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorkItemDetailPageComponent } from './work-item-detail-page.component';
@@ -14,6 +14,8 @@ const contributorId = '10000000-0000-4000-8000-000000000103';
 const labelId = '10000000-0000-4000-8000-000000000302';
 const frontendLabelId = '10000000-0000-4000-8000-000000000301';
 const archivedLabelId = '10000000-0000-4000-8000-000000000399';
+const milestoneId = '10000000-0000-4000-8000-000000000501';
+const nextMilestoneId = '10000000-0000-4000-8000-000000000502';
 
 const owner: MemberDto = {
   id: ownerId,
@@ -49,6 +51,28 @@ const archivedProject: ProjectDto = {
   status: 'archived'
 };
 
+const activeMilestone: MilestoneDto = {
+  id: milestoneId,
+  workspaceId: owner.workspaceId,
+  projectId,
+  name: 'v0.0.3',
+  description: 'Planning release.',
+  status: 'active',
+  targetDate: '2026-07-18',
+  isArchived: false,
+  archivedAt: null,
+  createdAt: '2026-07-03T12:00:00.000Z',
+  updatedAt: '2026-07-04T12:00:00.000Z'
+};
+
+const nextMilestone: MilestoneDto = {
+  ...activeMilestone,
+  id: nextMilestoneId,
+  name: 'v0.0.4',
+  status: 'planned',
+  targetDate: '2026-08-01'
+};
+
 const detail: WorkItemDetailDto = {
   id: workItemId,
   workspaceId: owner.workspaceId,
@@ -63,7 +87,7 @@ const detail: WorkItemDetailDto = {
   assignee: contributor,
   reporter: owner,
   labels: [{ id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }],
-  milestone: null,
+  milestone: activeMilestone,
   boardPosition: 1024,
   dueDate: '2026-07-20',
   estimatePoints: 5,
@@ -121,6 +145,7 @@ function setup(input: { workItem?: WorkItemDetailDto; project?: ProjectDto } = {
     { id: frontendLabelId, name: 'frontend', color: '#2563eb', isArchived: false, archivedAt: null },
     { id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }
   ]);
+  http.expectOne(`/api/projects/${projectId}/milestones`).flush([activeMilestone, nextMilestone]);
   fixture.detectChanges();
   return { fixture, http };
 }
@@ -159,6 +184,7 @@ describe('WorkItemDetailPageComponent', () => {
     expect(compiled.textContent).toContain('Implement detail surface');
     expect(compiled.textContent).toContain('frontend');
     expect(compiled.textContent).toContain('backend');
+    expect(compiled.textContent).toContain('v0.0.3');
     expect(compiled.textContent).toContain('Initial implementation note.');
     expect(compiled.textContent).toContain('Avery Owner created this work item.');
   });
@@ -349,7 +375,8 @@ describe('WorkItemDetailPageComponent', () => {
       description: 'Updated description.',
       type: 'story',
       priority: 'urgent',
-      assigneeId: owner.id
+      assigneeId: owner.id,
+      milestoneId: nextMilestone.id
     });
     fixture.componentInstance.toggleLabel(frontendLabelId, {
       target: { checked: true }
@@ -364,6 +391,7 @@ describe('WorkItemDetailPageComponent', () => {
       type: 'story',
       priority: 'urgent',
       assigneeId: owner.id,
+      milestoneId: nextMilestone.id,
       labelIds: [labelId, frontendLabelId]
     });
     request.flush({
@@ -402,6 +430,7 @@ describe('WorkItemDetailPageComponent', () => {
       { id: frontendLabelId, name: 'frontend', color: '#2563eb', isArchived: false, archivedAt: null },
       { id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }
     ]);
+    http.expectOne(`/api/projects/${projectId}/milestones`).flush([activeMilestone]);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
@@ -413,6 +442,7 @@ describe('WorkItemDetailPageComponent', () => {
     fixture.componentInstance.updateWorkItem();
     const request = http.expectOne(`/api/work-items/${workItemId}`);
     expect(request.request.body.labelIds).toEqual([labelId, archivedLabelId]);
+    expect(request.request.body.milestoneId).toEqual(activeMilestone.id);
     request.flush(archivedDetail);
   });
 
@@ -426,6 +456,7 @@ describe('WorkItemDetailPageComponent', () => {
       { id: frontendLabelId, name: 'frontend', color: '#2563eb', isArchived: false, archivedAt: null },
       { id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }
     ]);
+    http.expectOne(`/api/projects/${projectId}/milestones`).flush([activeMilestone]);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
