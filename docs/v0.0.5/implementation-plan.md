@@ -90,6 +90,7 @@ Scope:
 
 - Extend shared contracts with:
   - `ArchivedProjectMode`;
+  - `AssigneeState`;
   - `WorkItemQuery`;
   - `WorkspaceWorkItemListItemDto`;
   - `MyWorkSummaryCountDto`;
@@ -140,6 +141,44 @@ npm test --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Extended shared contracts with:
+  - `ArchivedProjectMode`;
+  - `AssigneeState`;
+  - `WorkItemQuery`;
+  - `WorkspaceWorkItemListItemDto`;
+  - `MyWorkSummaryCountDto`;
+  - `MyWorkDashboardDto`;
+  - `SavedWorkViewVisibility`;
+  - `SavedWorkViewDto`;
+  - `CreateSavedWorkViewRequest`;
+  - `UpdateSavedWorkViewRequest`;
+  - `ProjectNavigationSummaryDto`.
+- Added backend `savedWorkViewVisibilities` domain constants.
+- Extended the Drizzle schema with:
+  - `saved_work_views`;
+  - saved view visibility check constraint;
+  - saved view workspace/owner/updated index;
+  - saved view case-insensitive owner/name unique index;
+  - workspace-level work item indexes for status, assignee, reporter, priority, due date, and updated timestamp.
+- Generated migration `0004_modern_jane_foster.sql` and reviewed the generated SQL.
+- Updated repository inferred types with `SavedWorkView` and `NewSavedWorkView`.
+- Updated deterministic seed data with:
+  - active unassigned work;
+  - contributor-assigned overdue/stale work;
+  - owner-assigned blocked cloud work;
+  - label coverage for the new work items;
+  - 12 personal saved work views, four for each active seeded member.
+- Added `AssigneeState` / `assigneeState` to represent unassigned saved views without overloading `assigneeId` with a non-UUID sentinel.
+- Verified `npm run db:reset && npm run db:migrate && npm run db:seed`.
+- Verified seeded saved views and work item variety through the existing API database helper.
+- Verified `npm run typecheck`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `npm test`.
+- Verified `npm run build`; production Angular initial bundle remains 342.04 kB raw and 94.38 kB estimated transfer.
+
 ## Phase 2: Work Item Query Validation And Workspace Discovery Backend
 
 Goal: add server-side cross-project work item discovery with validated query state.
@@ -149,6 +188,7 @@ Scope:
 - Add a shared backend parser/normalizer for `WorkItemQuery`.
 - Normalize empty strings, default sort, default archived-project mode, and bounded search text.
 - Validate enum fields, UUID fields, blocked/status combinations, and milestone/project consistency where practical.
+- Validate that `assigneeState=unassigned` is not combined with `assigneeId`.
 - Add repository support for workspace-scoped work item listing:
   - project filter;
   - status;

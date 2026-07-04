@@ -108,11 +108,13 @@ Promote the current project list filter shape into shared contracts and extend i
 
 ```ts
 export type ArchivedProjectMode = 'exclude' | 'include' | 'only';
+export type AssigneeState = 'assigned' | 'unassigned';
 
 export interface WorkItemQuery {
   projectId?: string;
   status?: WorkItemStatus;
   assigneeId?: string;
+  assigneeState?: AssigneeState;
   reporterId?: string;
   type?: WorkItemType;
   priority?: WorkItemPriority;
@@ -132,6 +134,7 @@ Rules:
 - Workspace discovery accepts the full query.
 - `archivedProjects` defaults to `exclude`.
 - `blocked=true` is equivalent to `status=blocked` for v0.0.5, but it keeps dashboard links readable and leaves room for future explicit blocker state.
+- `assigneeState=unassigned` represents work with no assignee; it must not be combined with `assigneeId`.
 - `milestoneId` is only valid when the milestone belongs to the selected project or when the backend can resolve it unambiguously in the workspace. The initial UI should only expose milestone filtering after a project is selected.
 
 ### Cross-Project Work Item DTO
@@ -629,4 +632,3 @@ No blocking open questions remain for implementation planning. The following are
 - configurable dashboards;
 - notifications or digests;
 - production authentication.
-

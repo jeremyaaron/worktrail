@@ -16,6 +16,8 @@ export type WorkItemStatus =
 export type WorkItemPriority = 'low' | 'medium' | 'high' | 'urgent';
 export type MilestoneStatus = 'planned' | 'active' | 'completed' | 'canceled';
 export type DueDateState = 'overdue' | 'due_soon' | 'none';
+export type ArchivedProjectMode = 'exclude' | 'include' | 'only';
+export type AssigneeState = 'assigned' | 'unassigned';
 export type WorkItemSort =
   | 'updated_desc'
   | 'updated_asc'
@@ -24,6 +26,22 @@ export type WorkItemSort =
   | 'due_date_asc'
   | 'created_desc'
   | 'board_order';
+export interface WorkItemQuery {
+  projectId?: string;
+  status?: WorkItemStatus;
+  assigneeId?: string;
+  assigneeState?: AssigneeState;
+  reporterId?: string;
+  type?: WorkItemType;
+  priority?: WorkItemPriority;
+  labelId?: string;
+  milestoneId?: string;
+  dueDateState?: DueDateState;
+  blocked?: boolean;
+  archivedProjects?: ArchivedProjectMode;
+  search?: string;
+  sort?: WorkItemSort;
+}
 export type ActivityEventType =
   | 'project.name_changed'
   | 'project.description_changed'
@@ -169,6 +187,14 @@ export interface ProjectSummaryDto {
   recentWorkItems: RecentWorkItemDto[];
 }
 
+export interface ProjectNavigationSummaryDto {
+  project: ProjectDto;
+  openWorkItemCount: number;
+  blockedWorkItemCount: number;
+  overdueWorkItemCount: number;
+  updatedAt: string;
+}
+
 export interface LabelDto {
   id: string;
   name: string;
@@ -216,6 +242,55 @@ export interface WorkItemDetailDto extends WorkItemListItemDto {
   description: string;
   comments: CommentDto[];
   activity: ActivityEventDto[];
+}
+
+export interface WorkspaceWorkItemListItemDto extends WorkItemListItemDto {
+  project: Pick<ProjectDto, 'id' | 'key' | 'name' | 'status'>;
+}
+
+export interface MyWorkSummaryCountDto {
+  key:
+    | 'assigned_open'
+    | 'due_soon'
+    | 'overdue'
+    | 'blocked'
+    | 'stale_assigned'
+    | 'reported_open';
+  label: string;
+  count: number;
+  query: WorkItemQuery;
+}
+
+export interface MyWorkDashboardDto {
+  actor: MemberDto;
+  summaryCounts: MyWorkSummaryCountDto[];
+  assignedToMe: WorkspaceWorkItemListItemDto[];
+  dueSoonOrOverdue: WorkspaceWorkItemListItemDto[];
+  blockedRelevant: WorkspaceWorkItemListItemDto[];
+  recentlyUpdated: WorkspaceWorkItemListItemDto[];
+}
+
+export type SavedWorkViewVisibility = 'personal';
+
+export interface SavedWorkViewDto {
+  id: string;
+  workspaceId: string;
+  owner: MemberDto;
+  name: string;
+  visibility: SavedWorkViewVisibility;
+  query: WorkItemQuery;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSavedWorkViewRequest {
+  name: string;
+  query: WorkItemQuery;
+}
+
+export interface UpdateSavedWorkViewRequest {
+  name?: string;
+  query?: WorkItemQuery;
 }
 
 export interface CommentDto {

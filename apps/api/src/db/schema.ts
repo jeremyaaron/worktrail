@@ -19,6 +19,7 @@ import {
   type MemberRole,
   type MilestoneStatus,
   type ProjectStatus,
+  type SavedWorkViewVisibility,
   type WorkItemPriority,
   type WorkItemStatus,
   type WorkItemType,
@@ -27,6 +28,7 @@ import {
   memberRoles,
   milestoneStatuses,
   projectStatuses,
+  savedWorkViewVisibilities,
   workItemPriorities,
   workItemStatuses,
   workItemTypes,
@@ -168,8 +170,44 @@ export const workItems = pgTable(
     index('work_items_project_id_reporter_id_idx').on(table.projectId, table.reporterId),
     index('work_items_project_id_updated_at_idx').on(table.projectId, table.updatedAt.desc()),
     index('work_items_project_id_title_idx').on(table.projectId, table.title),
+    index('work_items_workspace_id_status_idx').on(table.workspaceId, table.status),
+    index('work_items_workspace_id_assignee_id_idx').on(table.workspaceId, table.assigneeId),
+    index('work_items_workspace_id_reporter_id_idx').on(table.workspaceId, table.reporterId),
+    index('work_items_workspace_id_priority_idx').on(table.workspaceId, table.priority),
+    index('work_items_workspace_id_due_date_idx').on(table.workspaceId, table.dueDate),
+    index('work_items_workspace_id_updated_at_idx').on(table.workspaceId, table.updatedAt.desc()),
     uniqueIndex('work_items_project_id_item_number_unique').on(table.projectId, table.itemNumber),
     uniqueIndex('work_items_workspace_id_display_key_unique').on(table.workspaceId, table.displayKey)
+  ]
+);
+
+export const savedWorkViews = pgTable(
+  'saved_work_views',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    ownerMemberId: uuid('owner_member_id')
+      .notNull()
+      .references(() => members.id),
+    name: text('name').notNull(),
+    visibility: text('visibility').$type<SavedWorkViewVisibility>().notNull(),
+    query: jsonb('query').$type<Record<string, unknown>>().notNull(),
+    ...timestamps
+  },
+  (table) => [
+    check('saved_work_views_visibility_check', enumCheckSql('visibility', savedWorkViewVisibilities)),
+    index('saved_work_views_workspace_owner_updated_idx').on(
+      table.workspaceId,
+      table.ownerMemberId,
+      table.updatedAt.desc()
+    ),
+    uniqueIndex('saved_work_views_workspace_owner_name_unique').on(
+      table.workspaceId,
+      table.ownerMemberId,
+      sql`lower(${table.name})`
+    )
   ]
 );
 
