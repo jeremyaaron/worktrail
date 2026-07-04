@@ -1,14 +1,14 @@
-import type { CommentDto, CreateCommentRequest } from '@worktrail/contracts';
+import type { CommentDto, CreateCommentRequest, UpdateCommentRequest } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
 import type { WorktrailDb } from '../db/client.js';
 import type { ActorContext } from '../domain/actor.js';
-import { NotFoundError } from '../errors/app-error.js';
+import { ConflictError, ForbiddenError, NotFoundError } from '../errors/app-error.js';
 import {
   type Repositories,
   withRepositoriesTransaction
 } from '../repositories/index.js';
-import type { Comment, Member, WorkItem } from '../repositories/types.js';
+import type { Comment, Member, Project, WorkItem } from '../repositories/types.js';
 import { toCommentDto } from './dto.js';
 
 export interface CommentServiceContext {
@@ -37,6 +37,8 @@ export class CommentService {
   async addComment(workItemId: string, input: CreateCommentRequest): Promise<CommentDto> {
     return this.withWriteRepositories(async (repositories) => {
       const workItem = await this.requireWorkItem(workItemId, repositories);
+      const project = await this.requireProject(workItem.projectId, repositories);
+      this.assertProjectWritable(project);
       const timestamp = this.clock();
 
       const comment = await repositories.comments.create({
@@ -68,6 +70,78 @@ export class CommentService {
     });
   }
 
+  async updateComment(commentId: string, input: UpdateCommentRequest): Promise<CommentDto> {
+    return this.withWriteRepositories(async (repositories) => {
+      const current = await this.requireComment(commentId, repositories);
+      this.assertCommentWritable(current);
+      this.assertCanModifyComment(current);
+      const project = await this.requireProject(current.projectId, repositories);
+      this.assertProjectWritable(project);
+      const timestamp = this.clock();
+      const updated = await repositories.comments.updateBody(commentId, {
+        body: input.body,
+        editedAt: timestamp,
+        updatedAt: timestamp
+      });
+
+      if (updated === null) {
+        throw new NotFoundError('Comment not found.');
+      }
+
+      await repositories.activityEvents.create({
+        id: this.idGenerator(),
+        workspaceId: updated.workspaceId,
+        projectId: updated.projectId,
+        workItemId: updated.workItemId,
+        actorId: this.context.actor.memberId,
+        eventType: 'comment.edited',
+        summary: 'Comment edited.',
+        previousValue: null,
+        newValue: null,
+        metadata: { commentId: updated.id },
+        createdAt: timestamp
+      });
+
+      return this.toCommentDto(updated, repositories);
+    });
+  }
+
+  async deleteComment(commentId: string): Promise<CommentDto> {
+    return this.withWriteRepositories(async (repositories) => {
+      const current = await this.requireComment(commentId, repositories);
+      this.assertCommentWritable(current);
+      this.assertCanModifyComment(current);
+      const project = await this.requireProject(current.projectId, repositories);
+      this.assertProjectWritable(project);
+      const timestamp = this.clock();
+      const deleted = await repositories.comments.softDelete(commentId, {
+        deletedAt: timestamp,
+        deletedById: this.context.actor.memberId,
+        updatedAt: timestamp
+      });
+
+      if (deleted === null) {
+        throw new NotFoundError('Comment not found.');
+      }
+
+      await repositories.activityEvents.create({
+        id: this.idGenerator(),
+        workspaceId: deleted.workspaceId,
+        projectId: deleted.projectId,
+        workItemId: deleted.workItemId,
+        actorId: this.context.actor.memberId,
+        eventType: 'comment.deleted',
+        summary: 'Comment deleted.',
+        previousValue: null,
+        newValue: null,
+        metadata: { commentId: deleted.id },
+        createdAt: timestamp
+      });
+
+      return this.toCommentDto(deleted, repositories);
+    });
+  }
+
   private async withWriteRepositories<T>(
     callback: (repositories: Repositories) => Promise<T>
   ): Promise<T> {
@@ -88,6 +162,50 @@ export class CommentService {
     return workItem;
   }
 
+  private async requireComment(commentId: string, repositories: Repositories): Promise<Comment> {
+    const comment = await repositories.comments.findById(commentId);
+
+    if (comment === null || comment.workspaceId !== this.context.actor.workspaceId) {
+      throw new NotFoundError('Comment not found.');
+    }
+
+    return comment;
+  }
+
+  private async requireProject(projectId: string, repositories: Repositories): Promise<Project> {
+    const project = await repositories.projects.findById(projectId);
+
+    if (project === null || project.workspaceId !== this.context.actor.workspaceId) {
+      throw new NotFoundError('Project not found.');
+    }
+
+    return project;
+  }
+
+  private assertProjectWritable(project: Project): void {
+    if (project.status === 'archived') {
+      throw new ConflictError('Archived projects are read-only.');
+    }
+  }
+
+  private assertCommentWritable(comment: Comment): void {
+    if (comment.deletedAt !== null) {
+      throw new ConflictError('Deleted comments cannot be modified.');
+    }
+  }
+
+  private assertCanModifyComment(comment: Comment): void {
+    if (this.context.actor.role === 'owner' || this.context.actor.role === 'maintainer') {
+      return;
+    }
+
+    if (comment.authorId === this.context.actor.memberId) {
+      return;
+    }
+
+    throw new ForbiddenError('You do not have permission to modify this comment.');
+  }
+
   private async toCommentDtos(
     comments: Comment[],
     repositories: Repositories
@@ -97,7 +215,9 @@ export class CommentService {
 
   private async toCommentDto(comment: Comment, repositories: Repositories): Promise<CommentDto> {
     const author = await this.requireMember(comment.authorId, repositories);
-    return toCommentDto(comment, author);
+    const deletedBy =
+      comment.deletedById === null ? null : await this.requireMember(comment.deletedById, repositories);
+    return toCommentDto(comment, author, deletedBy);
   }
 
   private async requireMember(memberId: string, repositories: Repositories): Promise<Member> {

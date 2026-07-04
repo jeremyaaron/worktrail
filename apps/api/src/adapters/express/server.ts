@@ -7,7 +7,9 @@ import {
 } from '../../endpoints/activity.js';
 import {
   createCommentHandler,
-  listCommentsHandler
+  deleteCommentHandler,
+  listCommentsHandler,
+  updateCommentHandler
 } from '../../endpoints/comments.js';
 import { healthHandler } from '../../endpoints/health.js';
 import {
@@ -104,6 +106,14 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
     app.post(
       '/api/work-items/:workItemId/comments',
       adaptEndpoint(createCommentHandler({ repositories: options.repositories, db: options.db }))
+    );
+    app.patch(
+      '/api/comments/:commentId',
+      adaptEndpoint(updateCommentHandler({ repositories: options.repositories, db: options.db }))
+    );
+    app.delete(
+      '/api/comments/:commentId',
+      adaptEndpoint(deleteCommentHandler({ repositories: options.repositories, db: options.db }))
     );
     app.get(
       '/api/work-items/:workItemId/activity',

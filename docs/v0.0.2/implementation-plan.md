@@ -370,6 +370,22 @@ npm test --workspace @worktrail/api -- comments
 npm run typecheck --workspace @worktrail/api
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Added comment repository support for finding by id, updating body with `edited_at`, and soft-deleting with `deleted_at`/`deleted_by_id`.
+- Added `CommentService` update and delete behavior with owner/maintainer any-comment permissions and contributor own-comment permissions.
+- Rejected edit/delete operations for deleted comments and all comment writes under archived projects.
+- Added `PATCH /api/comments/:commentId` and `DELETE /api/comments/:commentId` endpoint handlers and routes.
+- Returned tombstone DTOs for deleted comments, including `deletedBy`, while hiding deleted comment body text.
+- Recorded `comment.edited` and `comment.deleted` activity without storing comment body text in activity values.
+- Updated work item detail comment mapping to include deleted-by actors.
+- Added backend tests for edit/delete permissions, tombstone DTOs, deleted-comment conflicts, archived-project write rejection, and lifecycle activity.
+- Verified `npm test --workspace @worktrail/api -- comments`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+
 ## Phase 6: Frontend Contracts And Project Settings UI
 
 Goal: expose project keys and settings in the Angular app.

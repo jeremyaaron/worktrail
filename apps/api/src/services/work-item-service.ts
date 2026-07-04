@@ -353,7 +353,11 @@ export class WorkItemService {
     return Promise.all(
       comments.map(async (comment) => {
         const author = await this.requireMember(comment.authorId, repositories, 'Comment author not found.');
-        return toCommentDto(comment, author);
+        const deletedBy =
+          comment.deletedById === null
+            ? null
+            : await this.requireMember(comment.deletedById, repositories, 'Comment deletion actor not found.');
+        return toCommentDto(comment, author, deletedBy);
       })
     );
   }

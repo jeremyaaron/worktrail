@@ -94,7 +94,12 @@ async function createFixture(role: 'owner' | 'maintainer' | 'contributor' = 'own
     actorId,
     contributorId,
     projectId,
-    headers: actorHeaders({ workspaceId, memberId: actorId, role })
+    headers: actorHeaders({ workspaceId, memberId: actorId, role }),
+    contributorHeaders: actorHeaders({
+      workspaceId,
+      memberId: contributorId,
+      role: 'contributor'
+    })
   };
 }
 
@@ -208,6 +213,164 @@ describe('comments and activity API', () => {
       });
   });
 
+  it('updates comments for owners and authors and records edit activity without body text', async () => {
+    const fixture = await createFixture('owner');
+    const workItem = await createWorkItem(fixture);
+    const comment = await repositories.comments.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      projectId: fixture.projectId,
+      workItemId: workItem.id,
+      authorId: fixture.contributorId,
+      body: 'Original body',
+      createdAt: now(),
+      updatedAt: now()
+    });
+
+    await request(app)
+      .patch(`/api/comments/${comment.id}`)
+      .set(fixture.headers)
+      .send({ body: 'Owner edited body.' })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          id: comment.id,
+          body: 'Owner edited body.',
+          isEdited: true,
+          isDeleted: false,
+          editedAt: expect.any(String),
+          deletedAt: null,
+          deletedBy: null
+        });
+      });
+
+    const authorComment = await repositories.comments.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      projectId: fixture.projectId,
+      workItemId: workItem.id,
+      authorId: fixture.contributorId,
+      body: 'Contributor body',
+      createdAt: now(),
+      updatedAt: now()
+    });
+
+    await request(app)
+      .patch(`/api/comments/${authorComment.id}`)
+      .set(fixture.contributorHeaders)
+      .send({ body: 'Contributor edited own body.' })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.body).toBe('Contributor edited own body.');
+      });
+
+    const activity = await repositories.activityEvents.findByWorkItem(workItem.id);
+    const editedEvents = activity.filter((event) => event.eventType === 'comment.edited');
+    expect(editedEvents).toHaveLength(2);
+    expect(editedEvents[0]).toMatchObject({
+      previousValue: null,
+      newValue: null,
+      metadata: { commentId: expect.any(String) }
+    });
+    expect(JSON.stringify(editedEvents)).not.toContain('Owner edited body.');
+    expect(JSON.stringify(editedEvents)).not.toContain('Original body');
+  });
+
+  it('rejects contributor edits to other members comments', async () => {
+    const fixture = await createFixture('owner');
+    const workItem = await createWorkItem(fixture);
+    const comment = await repositories.comments.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      projectId: fixture.projectId,
+      workItemId: workItem.id,
+      authorId: fixture.actorId,
+      body: 'Owner-authored comment',
+      createdAt: now(),
+      updatedAt: now()
+    });
+
+    await request(app)
+      .patch(`/api/comments/${comment.id}`)
+      .set(fixture.contributorHeaders)
+      .send({ body: 'Unauthorized edit.' })
+      .expect(403)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('FORBIDDEN');
+      });
+  });
+
+  it('soft-deletes comments as tombstones and rejects repeated lifecycle writes', async () => {
+    const fixture = await createFixture('maintainer');
+    const workItem = await createWorkItem(fixture);
+    const comment = await repositories.comments.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      projectId: fixture.projectId,
+      workItemId: workItem.id,
+      authorId: fixture.contributorId,
+      body: 'Sensitive body that should be hidden',
+      createdAt: now(),
+      updatedAt: now()
+    });
+
+    await request(app)
+      .delete(`/api/comments/${comment.id}`)
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          id: comment.id,
+          body: '',
+          isDeleted: true,
+          isEdited: false,
+          deletedAt: expect.any(String),
+          deletedBy: { id: fixture.actorId }
+        });
+      });
+
+    await request(app)
+      .get(`/api/work-items/${workItem.id}/comments`)
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual([
+          expect.objectContaining({
+            id: comment.id,
+            body: '',
+            isDeleted: true,
+            deletedBy: expect.objectContaining({ id: fixture.actorId })
+          })
+        ]);
+      });
+
+    await request(app)
+      .patch(`/api/comments/${comment.id}`)
+      .set(fixture.headers)
+      .send({ body: 'Should not edit deleted comment.' })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('CONFLICT');
+      });
+
+    await request(app)
+      .delete(`/api/comments/${comment.id}`)
+      .set(fixture.headers)
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('CONFLICT');
+      });
+
+    const activity = await repositories.activityEvents.findByWorkItem(workItem.id);
+    const deletedEvent = activity.find((event) => event.eventType === 'comment.deleted');
+    expect(deletedEvent).toMatchObject({
+      previousValue: null,
+      newValue: null,
+      metadata: { commentId: comment.id }
+    });
+    expect(JSON.stringify(deletedEvent)).not.toContain('Sensitive body');
+  });
+
   it('returns comments and activity on work item detail', async () => {
     const fixture = await createFixture('owner');
     const workItem = await createWorkItem(fixture);
@@ -313,5 +476,51 @@ describe('comments and activity API', () => {
 
     await request(app).get(`/api/work-items/${workItem.id}/comments`).set(otherFixture.headers).expect(404);
     await request(app).get(`/api/work-items/${workItem.id}/activity`).set(otherFixture.headers).expect(404);
+  });
+
+  it('rejects comment writes under archived projects', async () => {
+    const fixture = await createFixture('owner');
+    const workItem = await createWorkItem(fixture);
+    const comment = await repositories.comments.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      projectId: fixture.projectId,
+      workItemId: workItem.id,
+      authorId: fixture.actorId,
+      body: 'Archived project comment',
+      createdAt: now(),
+      updatedAt: now()
+    });
+
+    await repositories.projects.update(fixture.projectId, {
+      status: 'archived',
+      updatedAt: now()
+    });
+
+    await request(app)
+      .post(`/api/work-items/${workItem.id}/comments`)
+      .set(fixture.headers)
+      .send({ body: 'Should not be added.' })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('CONFLICT');
+      });
+
+    await request(app)
+      .patch(`/api/comments/${comment.id}`)
+      .set(fixture.headers)
+      .send({ body: 'Should not be edited.' })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('CONFLICT');
+      });
+
+    await request(app)
+      .delete(`/api/comments/${comment.id}`)
+      .set(fixture.headers)
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('CONFLICT');
+      });
   });
 });
