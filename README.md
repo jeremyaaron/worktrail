@@ -19,6 +19,7 @@ docs/
 - Node.js 20.19 or newer
 - npm 10 or newer
 - Docker, for the local Postgres container
+- Playwright browser dependencies for end-to-end smoke tests
 
 ## Local Setup
 
@@ -26,6 +27,12 @@ Install dependencies:
 
 ```sh
 npm install
+```
+
+Install the Playwright Chromium browser used by the e2e smoke test:
+
+```sh
+npx playwright install chromium
 ```
 
 Start local Postgres:
@@ -66,8 +73,19 @@ Local services:
 ```sh
 npm run typecheck
 npm test
+npm run test:e2e
 npm run build
 ```
+
+`npm run test:e2e` starts the local API and Angular dev server through Playwright. By default it also runs:
+
+```sh
+npm run db:reset
+npm run db:migrate
+npm run db:seed
+```
+
+That keeps the smoke test deterministic, but it means the local `public` schema for the configured database is dropped and recreated. Set `WORKTRAIL_E2E_SKIP_DB_RESET=true` only when you intentionally want to run the smoke test against an already prepared local database.
 
 ## Demo Walkthrough
 

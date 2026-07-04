@@ -1081,6 +1081,40 @@ npm run typecheck
 npm run build
 ```
 
+Status:
+
+- Completed on 2026-07-03.
+- Added Playwright as a root development dependency.
+- Added root scripts:
+  - `npm run test:e2e`;
+  - `npm run test:e2e:ui`.
+- Added `playwright.config.ts` to run one Chromium project, start the local API through `npm run dev:api`, and start the Angular dev server through `npm run dev:web`.
+- Added `e2e/global-setup.ts` so e2e runs reset, migrate, and seed the local database by default before browser execution.
+- Added `WORKTRAIL_E2E_SKIP_DB_RESET=true` support for intentional runs against an already prepared local database.
+- Added a focused browser smoke test that:
+  1. opens the project list;
+  2. opens the seeded Worktrail App project;
+  3. creates a new work item;
+  4. moves the item through the valid workflow from backlog to ready to in progress;
+  5. adds a comment;
+  6. verifies comment and activity timeline entries.
+- Updated `npm run db:reset` so it no longer requires ownership of the `public` schema. It now drops owned public objects and the Drizzle migration schema, which supports local databases where an admin created the database/schema and the app user owns the tables.
+- Updated `.gitignore` for Playwright reports and test results.
+- Updated README with Playwright browser installation, `npm run test:e2e`, and the e2e database reset behavior.
+- `npm install --save-dev @playwright/test` passed and updated `package-lock.json`.
+- `npx playwright install chromium` passed.
+- `npm run test:e2e` passed: 1 Chromium smoke test.
+- `npm run test:e2e` verified `npm run db:reset`, `npm run db:migrate`, and `npm run db:seed` against the local Postgres instance.
+- `npm run test:e2e` also verified the local API and web dev servers because Playwright started them through the configured `webServer` entries.
+- After e2e verification, `npm run db:reset && npm run db:migrate && npm run db:seed` passed again to leave the local database in deterministic seed state.
+- `docker compose config` passed. `npm run db:start` was not run during this pass because the user's existing local Postgres instance is already bound to port 5432.
+- `npm run typecheck` passed across API, web, and contracts.
+- `npm test` passed across all workspaces: API 41 tests in 6 files, Angular 18 tests, contracts no-op test.
+- `npm run build` passed across contracts, API, and web.
+- `npm audit --omit=dev --audit-level=low` passed with zero runtime dependency vulnerabilities.
+- Full `npm audit --audit-level=low` still reports the known Angular compiler/build-chain and drizzle-kit development-tooling findings. The npm-suggested fixes require breaking dependency changes, so no forced audit fix was applied.
+- No git tag was created. Defer tagging v0.0.1 until user review of the final MVP diff.
+
 ## Implementation Notes
 
 ### Dependency Discipline

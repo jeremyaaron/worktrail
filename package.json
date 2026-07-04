@@ -18,6 +18,8 @@
     "build:contracts": "npm run build --workspace @worktrail/contracts",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "lint": "npm run lint --workspaces --if-present",
     "db:start": "docker compose up -d postgres",
     "db:stop": "docker compose stop postgres",
@@ -29,6 +31,7 @@
     "db:seed": "npm run db:seed --workspace @worktrail/api"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "concurrently": "^9.2.1"
   },
   "engines": {
