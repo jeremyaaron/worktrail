@@ -26,6 +26,7 @@ function actorHeaders(input: { workspaceId: string; memberId: string; role: stri
 }
 
 async function cleanupWorkspace(workspaceId: string) {
+  await pool.query('delete from workspace_activity_events where workspace_id = $1', [workspaceId]);
   await pool.query('delete from activity_events where workspace_id = $1', [workspaceId]);
   await pool.query('delete from comments where workspace_id = $1', [workspaceId]);
   await pool.query(
@@ -53,6 +54,7 @@ async function createFixture(role: 'owner' | 'maintainer' | 'contributor' = 'own
   const actorId = randomUUID();
   const maintainerId = randomUUID();
   const contributorId = randomUUID();
+  const inactiveMemberId = randomUUID();
   const projectId = randomUUID();
   const frontendLabelId = randomUUID();
   const backendLabelId = randomUUID();
@@ -81,6 +83,19 @@ async function createFixture(role: 'owner' | 'maintainer' | 'contributor' = 'own
       updatedAt: timestamp
     });
   }
+
+  await repositories.members.create({
+    id: inactiveMemberId,
+    workspaceId,
+    name: 'API Inactive Contributor',
+    email: `${inactiveMemberId}@example.com`,
+    role: 'contributor',
+    isActive: false,
+    deactivatedAt: new Date('2026-06-28T12:00:00.000Z'),
+    deactivatedById: actorId,
+    createdAt: timestamp,
+    updatedAt: timestamp
+  });
 
   await repositories.projects.create({
     id: projectId,
@@ -118,6 +133,7 @@ async function createFixture(role: 'owner' | 'maintainer' | 'contributor' = 'own
     actorId,
     maintainerId,
     contributorId,
+    inactiveMemberId,
     projectId,
     frontendLabelId,
     backendLabelId,
@@ -309,6 +325,48 @@ describe('work item API', () => {
       .expect(400)
       .expect(({ body }) => {
         expect(body.error.code).toBe('VALIDATION_ERROR');
+      });
+  });
+
+  it('rejects work item creation with inactive assignees', async () => {
+    const fixture = await createFixture('owner');
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items`)
+      .set(fixture.headers)
+      .send({
+        title: 'Rejected inactive assignee',
+        type: 'task',
+        priority: 'medium',
+        assigneeId: fixture.inactiveMemberId
+      })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.error).toEqual({
+          code: 'VALIDATION_ERROR',
+          message: 'Assignee must be an active workspace member.'
+        });
+      });
+
+    const project = await repositories.projects.findById(fixture.projectId);
+    expect(project?.nextWorkItemNumber).toBe(2);
+  });
+
+  it('allows work item creation without an assignee', async () => {
+    const fixture = await createFixture('owner');
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items`)
+      .set(fixture.headers)
+      .send({
+        title: 'Unassigned work item',
+        type: 'task',
+        priority: 'medium',
+        assigneeId: null
+      })
+      .expect(201)
+      .expect(({ body }) => {
+        expect(body.assignee).toBeNull();
       });
   });
 
@@ -506,6 +564,93 @@ describe('work item API', () => {
         'work_item.label_removed'
       ])
     );
+  });
+
+  it('rejects work item updates to inactive assignees', async () => {
+    const fixture = await createFixture('owner');
+    const workItem = await createWorkItem(fixture);
+
+    await request(app)
+      .patch(`/api/work-items/${workItem.id}`)
+      .set(fixture.headers)
+      .send({ assigneeId: fixture.inactiveMemberId })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.error).toEqual({
+          code: 'VALIDATION_ERROR',
+          message: 'Assignee must be an active workspace member.'
+        });
+      });
+
+    const unchanged = await repositories.workItems.findById(workItem.id);
+    expect(unchanged?.assigneeId).toBe(fixture.contributorId);
+  });
+
+  it('preserves existing inactive assignees and exposes inactive member state', async () => {
+    const fixture = await createFixture('owner');
+    const workItem = await createWorkItem(fixture, {
+      assigneeId: fixture.inactiveMemberId,
+      title: 'Historically assigned item'
+    });
+
+    await request(app)
+      .get(`/api/work-items/${workItem.id}`)
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.assignee).toMatchObject({
+          id: fixture.inactiveMemberId,
+          isActive: false,
+          deactivatedAt: '2026-06-28T12:00:00.000Z'
+        });
+        expect(body.reporter).toMatchObject({
+          id: fixture.actorId,
+          isActive: true
+        });
+      });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items`)
+      .query({ assigneeId: fixture.inactiveMemberId })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toHaveLength(1);
+        expect(body[0]).toMatchObject({
+          id: workItem.id,
+          assignee: {
+            id: fixture.inactiveMemberId,
+            isActive: false
+          }
+        });
+      });
+
+    await request(app)
+      .patch(`/api/work-items/${workItem.id}`)
+      .set(fixture.headers)
+      .send({ title: 'Historically assigned item updated' })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          title: 'Historically assigned item updated',
+          assignee: {
+            id: fixture.inactiveMemberId,
+            isActive: false
+          }
+        });
+      });
+
+    await request(app)
+      .patch(`/api/work-items/${workItem.id}`)
+      .set(fixture.headers)
+      .send({ assigneeId: fixture.inactiveMemberId })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.assignee).toMatchObject({
+          id: fixture.inactiveMemberId,
+          isActive: false
+        });
+      });
   });
 
   it('updates and clears milestone assignment with activity', async () => {

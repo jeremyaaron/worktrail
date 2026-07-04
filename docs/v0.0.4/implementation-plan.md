@@ -528,6 +528,30 @@ npm test --workspace @worktrail/api -- work-items
 npm run typecheck --workspace @worktrail/api
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Added backend assignee validation in `WorkItemService`.
+- Blocked new assignments to inactive members on work item creation.
+- Kept unassigned work item creation allowed.
+- Blocked updates that change assignment to an inactive member.
+- Preserved existing inactive assignments when the update omits `assigneeId` or sends the same inactive assignee ID.
+- Confirmed work item detail and list DTOs expose inactive assignee state through embedded `MemberDto`.
+- Left backend list filtering unchanged because inactive member IDs remain valid for historical filtering.
+- Expanded work item API tests for:
+  - inactive assignee rejection on create;
+  - explicit unassigned creation;
+  - inactive assignee rejection on update;
+  - preserving existing inactive assignees;
+  - historical detail and list DTOs with inactive member state.
+- Verified `npm test --workspace @worktrail/api -- work-items`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `npm run build`.
+- Verified `git diff --check` and `git diff --cached --check`.
+
 ## Phase 7: Frontend API Client, Actor Selector, And Capabilities
 
 Goal: update shared frontend services for workspace governance behavior before adding new screens.
