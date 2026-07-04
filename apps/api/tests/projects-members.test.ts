@@ -191,6 +191,7 @@ describe('projects API', () => {
       .expect(({ body }) => {
         expect(body).toMatchObject({
           workspaceId: fixture.workspaceId,
+          key: 'CTA',
           name: 'Created Through API',
           description: 'Created by endpoint test.',
           status: 'active'
@@ -199,6 +200,42 @@ describe('projects API', () => {
 
     const projects = await repositories.projects.listByWorkspace(fixture.workspaceId);
     expect(projects.map((project) => project.name)).toContain('Created Through API');
+  });
+
+  it('accepts explicit project keys and rejects duplicates', async () => {
+    const fixture = await createWorkspaceFixture('owner');
+
+    await request(app)
+      .post('/api/projects')
+      .set(fixture.headers)
+      .send({ key: 'OPS', name: 'Operations Tracker' })
+      .expect(201)
+      .expect(({ body }) => {
+        expect(body.key).toBe('OPS');
+      });
+
+    await request(app)
+      .post('/api/projects')
+      .set(fixture.headers)
+      .send({ key: 'ops', name: 'Duplicate Operations Tracker' })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('CONFLICT');
+      });
+  });
+
+  it('generates a unique project key when the name-derived key is already used', async () => {
+    const fixture = await createWorkspaceFixture('owner');
+    await createProject({ workspaceId: fixture.workspaceId, key: 'CTA', name: 'Existing Project' });
+
+    await request(app)
+      .post('/api/projects')
+      .set(fixture.headers)
+      .send({ name: 'Created Through API' })
+      .expect(201)
+      .expect(({ body }) => {
+        expect(body.key).toBe('CTA2');
+      });
   });
 
   it('rejects invalid project creation requests', async () => {
@@ -251,6 +288,116 @@ describe('projects API', () => {
       .expect(({ body }) => {
         expect(body.status).toBe('active');
       });
+  });
+
+  it('updates project settings and records metadata activity', async () => {
+    const fixture = await createWorkspaceFixture('owner');
+    const project = await createProject({ workspaceId: fixture.workspaceId });
+
+    await request(app)
+      .patch(`/api/projects/${project.id}`)
+      .set(fixture.headers)
+      .send({
+        key: 'NEW',
+        name: 'Updated API Project',
+        description: 'Updated project description.'
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          key: 'NEW',
+          name: 'Updated API Project',
+          description: 'Updated project description.'
+        });
+      });
+
+    const events = await repositories.activityEvents.findByProject(project.id);
+    expect(events.map((event) => event.eventType)).toEqual(
+      expect.arrayContaining(['project.name_changed', 'project.description_changed'])
+    );
+  });
+
+  it('rejects duplicate project keys on update', async () => {
+    const fixture = await createWorkspaceFixture('owner');
+    const firstProject = await createProject({
+      workspaceId: fixture.workspaceId,
+      key: 'ONE',
+      name: 'First Project'
+    });
+    const secondProject = await createProject({
+      workspaceId: fixture.workspaceId,
+      key: 'TWO',
+      name: 'Second Project'
+    });
+
+    await request(app)
+      .patch(`/api/projects/${secondProject.id}`)
+      .set(fixture.headers)
+      .send({ key: firstProject.key })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('CONFLICT');
+      });
+  });
+
+  it('rejects project key updates after work items exist', async () => {
+    const fixture = await createWorkspaceFixture('owner');
+    const project = await createProject({ workspaceId: fixture.workspaceId, key: 'LOCKED' });
+
+    await repositories.workItems.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      projectId: project.id,
+      itemNumber: 1,
+      displayKey: 'LOCKED-1',
+      title: 'Existing keyed work item',
+      description: '',
+      type: 'task',
+      status: 'ready',
+      priority: 'medium',
+      assigneeId: fixture.actorId,
+      reporterId: fixture.actorId,
+      dueDate: null,
+      estimatePoints: null,
+      createdAt: now(),
+      updatedAt: now()
+    });
+
+    await request(app)
+      .patch(`/api/projects/${project.id}`)
+      .set(fixture.headers)
+      .send({ key: 'NEXT' })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('CONFLICT');
+      });
+  });
+
+  it('archives and reactivates projects through command endpoints with activity', async () => {
+    const fixture = await createWorkspaceFixture('maintainer');
+    const project = await createProject({ workspaceId: fixture.workspaceId });
+
+    await request(app)
+      .post(`/api/projects/${project.id}/archive`)
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.status).toBe('archived');
+      });
+
+    await request(app)
+      .post(`/api/projects/${project.id}/reactivate`)
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.status).toBe('active');
+      });
+
+    const events = await repositories.activityEvents.findByProject(project.id);
+    expect(events.map((event) => event.eventType)).toEqual([
+      'project.reactivated',
+      'project.archived'
+    ]);
   });
 
   it('rejects contributor project archive requests', async () => {

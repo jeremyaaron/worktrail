@@ -202,6 +202,18 @@ npm test --workspace @worktrail/api -- projects
 npm run typecheck --workspace @worktrail/api
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Added project repository helpers for workspace/key lookup, work item existence checks, key/name/description updates, and archive/reactivate state changes through the existing update path.
+- Implemented project key normalization, validation, generated keys from project names, generated-key suffixing, workspace uniqueness checks, and key update blocking after work item creation.
+- Added explicit `POST /api/projects/:projectId/archive` and `POST /api/projects/:projectId/reactivate` endpoints while preserving backward-compatible `PATCH` status handling.
+- Recorded project activity for name changes, description changes, archive, and reactivate events.
+- Added API tests for generated keys, explicit keys, duplicate key conflicts, key update blocking, settings activity, and archive/reactivate command activity.
+- Verified `npm run typecheck --workspace @worktrail/api && npm test --workspace @worktrail/api -- projects`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+
 ## Phase 3: Work Item Key Allocation And Archived Project Write Guards
 
 Goal: assign stable display keys to work items and enforce archived-project write restrictions.

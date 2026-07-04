@@ -13,10 +13,12 @@ import { healthHandler } from '../../endpoints/health.js';
 import { listProjectLabelsHandler } from '../../endpoints/labels.js';
 import { listMembersHandler } from '../../endpoints/members.js';
 import {
+  archiveProjectHandler,
   createProjectHandler,
   getProjectHandler,
   getProjectSummaryHandler,
   listProjectsHandler,
+  reactivateProjectHandler,
   updateProjectHandler
 } from '../../endpoints/projects.js';
 import {
@@ -74,6 +76,14 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
     app.get(
       '/api/projects/:projectId/labels',
       adaptEndpoint(listProjectLabelsHandler(options.repositories))
+    );
+    app.post(
+      '/api/projects/:projectId/archive',
+      adaptEndpoint(archiveProjectHandler(options.repositories))
+    );
+    app.post(
+      '/api/projects/:projectId/reactivate',
+      adaptEndpoint(reactivateProjectHandler(options.repositories))
     );
     app.get('/api/projects/:projectId', adaptEndpoint(getProjectHandler(options.repositories)));
     app.patch('/api/projects/:projectId', adaptEndpoint(updateProjectHandler(options.repositories)));
