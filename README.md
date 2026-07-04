@@ -69,6 +69,37 @@ npm test
 npm run build
 ```
 
+## Demo Walkthrough
+
+After migrating and seeding the database, open <http://localhost:4200>.
+
+Seeded data includes:
+
+- one workspace;
+- three members: owner, maintainer, and contributor;
+- two active projects and one archived project;
+- work items across every status;
+- labels, comments, and activity events.
+
+Use the `Acting as` selector in the top bar to switch the local placeholder actor. This is intentionally local-only behavior and is not production authentication.
+
+Suggested MVP walkthrough:
+
+1. Open Projects.
+2. Open the Worktrail App project.
+3. Review project status counts and recently updated work.
+4. Open the work item list and filter by status or assignee.
+5. Open the board and move an item with the status menu.
+6. Open a work item detail page, update fields, add a comment, and review activity.
+
+## v0.0.1 Limitations
+
+- Authentication is represented by local request headers and the top-bar actor selector.
+- Labels are project-scoped and can be assigned from existing seed labels; full label administration is not implemented.
+- Board movement uses status menus instead of drag and drop.
+- Comment editing/deletion, file attachments, notifications, and production auth are intentionally out of scope.
+- The local Express adapter is the only runtime adapter in v0.0.1, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
+
 ## Database Status
 
 Phase 2 adds the initial Postgres schema, Drizzle migration, and deterministic demo seed data.
