@@ -139,6 +139,34 @@ npm test --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Added `apps/api/src/config/runtime-config.ts` with:
+  - `RuntimeMode`;
+  - `RuntimeConfig`;
+  - `RuntimeConfigError`;
+  - `loadRuntimeConfig`;
+  - `defaultStaticAssetsPath`;
+  - `formatRuntimeConfigError`.
+- Runtime config now parses and validates:
+  - `NODE_ENV`;
+  - `API_PORT`;
+  - `DATABASE_URL`;
+  - `CORS_ORIGIN`;
+  - `WORKTRAIL_SERVE_STATIC`;
+  - `WORKTRAIL_STATIC_ASSETS_PATH`.
+- Preserved development defaults for local API port, database URL, CORS origin, and static serving disabled.
+- Production mode now requires an explicit `DATABASE_URL`.
+- Production mode defaults static serving to enabled for the later preview phase.
+- Invalid ports, invalid modes, invalid database URL protocols, and invalid boolean strings are rejected with safe messages.
+- Updated `apps/api/src/main.ts` to load runtime config, pass the configured database URL into `createPool`, use the configured API port, and exit with formatted config errors.
+- Updated `.env.example` with runtime variables, static preview variables, database reset safety, and E2E controls.
+- Added focused runtime config tests.
+- Verified `npm test --workspace @worktrail/api -- runtime-config`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm test --workspace @worktrail/api`.
+
 ## Phase 2: Liveness And Readiness
 
 Goal: add operational health endpoints with database readiness.
