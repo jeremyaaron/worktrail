@@ -802,6 +802,20 @@ npm test --workspace @worktrail/web -- --include 'src/app/features/work-items/*.
 npm run typecheck --workspace @worktrail/web
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Work item creation now offers only active members as new assignees.
+- Work item detail assignee editing now offers active members plus the current inactive assignee, preserving historical assignments without reopening inactive members for new assignment.
+- Work item list assignee/reporter filters now default to active members while adding the selected inactive member back when resolving URL/query state.
+- Work item list, board, detail metadata, comments, and activity display inactive member references as `Name (inactive)` or with an inactive marker where layout allows.
+- Added frontend coverage for create assignee exclusion, inactive filter label resolution, current inactive assignee preservation, and inactive reference display.
+- Verified `npm test --workspace @worktrail/web -- --include 'src/app/features/work-items/*.spec.ts'`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `npm run build` passes with the existing Angular budget configured as a warning.
+
 ## Phase 11: Permission Copy And UI Consistency Pass
 
 Goal: align role/permission affordances and visible messages across the app.

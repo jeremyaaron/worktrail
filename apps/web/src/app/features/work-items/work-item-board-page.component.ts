@@ -130,8 +130,12 @@ const statuses: WorkItemStatus[] = [
                       @if (item.milestone !== null) {
                         <span class="milestone-pill">{{ item.milestone.name }}</span>
                       }
-                      <span class="assignee-pill" [class.assignee-pill--empty]="item.assignee === null">
-                        {{ item.assignee?.name ?? 'Unassigned' }}
+                      <span
+                        class="assignee-pill"
+                        [class.assignee-pill--empty]="item.assignee === null"
+                        [class.assignee-pill--inactive]="item.assignee?.isActive === false"
+                      >
+                        {{ item.assignee === null ? 'Unassigned' : memberDisplayName(item.assignee) }}
                       </span>
                     </p>
 
@@ -427,6 +431,12 @@ const statuses: WorkItemStatus[] = [
       color: #64748b;
     }
 
+    .assignee-pill--inactive {
+      border-color: #e2e8f0;
+      background: #f8fafc;
+      color: #64748b;
+    }
+
     .priority-pill[data-priority='low'] {
       background: #f8fafc;
       color: #475569;
@@ -615,6 +625,14 @@ export class WorkItemBoardPageComponent implements OnInit {
 
   formatToken(value: string): string {
     return value.replaceAll('_', ' ');
+  }
+
+  memberDisplayName(member: WorkItemListItemDto['assignee']): string {
+    if (member === null) {
+      return 'Unassigned';
+    }
+
+    return member.isActive ? member.name : `${member.name} (inactive)`;
   }
 
   private moveItemOnBoard(

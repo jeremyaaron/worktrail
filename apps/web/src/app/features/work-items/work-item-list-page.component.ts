@@ -134,8 +134,8 @@ const defaultFilterValues: WorkItemFilterFormValue = {
         <span>Assignee</span>
         <select formControlName="assigneeId">
           <option value="">Any assignee</option>
-          @for (member of members(); track member.id) {
-            <option [value]="member.id">{{ member.name }}</option>
+          @for (member of assigneeFilterMembers(); track member.id) {
+            <option [value]="member.id">{{ memberDisplayName(member) }}</option>
           }
         </select>
       </label>
@@ -144,8 +144,8 @@ const defaultFilterValues: WorkItemFilterFormValue = {
         <span>Reporter</span>
         <select formControlName="reporterId">
           <option value="">Any reporter</option>
-          @for (member of members(); track member.id) {
-            <option [value]="member.id">{{ member.name }}</option>
+          @for (member of reporterFilterMembers(); track member.id) {
+            <option [value]="member.id">{{ memberDisplayName(member) }}</option>
           }
         </select>
       </label>
@@ -271,8 +271,12 @@ const defaultFilterValues: WorkItemFilterFormValue = {
                 </small>
               </span>
               <span class="status-pill" [attr.data-status]="item.status">{{ formatToken(item.status) }}</span>
-              <span class="assignee-pill" [class.assignee-pill--empty]="item.assignee === null">
-                {{ item.assignee?.name ?? 'Unassigned' }}
+              <span
+                class="assignee-pill"
+                [class.assignee-pill--empty]="item.assignee === null"
+                [class.assignee-pill--inactive]="item.assignee?.isActive === false"
+              >
+                {{ item.assignee === null ? 'Unassigned' : memberDisplayName(item.assignee) }}
               </span>
               <span class="planning-cell">
                 <span [class.muted-pill]="item.milestone === null" [class.milestone-pill]="item.milestone !== null">
@@ -586,6 +590,12 @@ const defaultFilterValues: WorkItemFilterFormValue = {
       color: #64748b;
     }
 
+    .assignee-pill--inactive {
+      border-color: #e2e8f0;
+      background: #f8fafc;
+      color: #64748b;
+    }
+
     .status-pill[data-status='backlog'] {
       background: #f8fafc;
       color: #475569;
@@ -680,6 +690,13 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   readonly sorts = sorts;
   readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
   readonly members = computed<MemberDto[]>(() => this.currentUser.members());
+  readonly activeMembers = computed<MemberDto[]>(() => this.currentUser.activeMembers());
+  readonly assigneeFilterMembers = computed<MemberDto[]>(() =>
+    this.membersForFilter(this.appliedFilterValues().assigneeId)
+  );
+  readonly reporterFilterMembers = computed<MemberDto[]>(() =>
+    this.membersForFilter(this.appliedFilterValues().reporterId)
+  );
 
   readonly project = signal<ProjectDto | null>(null);
   readonly workItems = signal<WorkItemListItemDto[]>([]);
@@ -810,6 +827,10 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
 
   activeFilterLabels(): string[] {
     return this.getActiveFilterLabels();
+  }
+
+  memberDisplayName(member: MemberDto): string {
+    return member.isActive ? member.name : `${member.name} (inactive)`;
   }
 
   private filtersFromForm(): WorkItemListFilters {
@@ -943,7 +964,25 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   private memberName(memberId: string): string {
-    return this.members().find((member) => member.id === memberId)?.name ?? memberId;
+    const member = this.members().find((item) => item.id === memberId);
+    return member === undefined ? memberId : this.memberDisplayName(member);
+  }
+
+  private membersForFilter(selectedMemberId: string): MemberDto[] {
+    const membersById = new Map(this.activeMembers().map((member) => [member.id, member]));
+    const selectedMember = this.members().find((member) => member.id === selectedMemberId);
+
+    if (selectedMember !== undefined) {
+      membersById.set(selectedMember.id, selectedMember);
+    }
+
+    return [...membersById.values()].sort((left, right) => {
+      if (left.isActive !== right.isActive) {
+        return left.isActive ? -1 : 1;
+      }
+
+      return left.name.localeCompare(right.name);
+    });
   }
 
   private labelName(labelId: string): string {
