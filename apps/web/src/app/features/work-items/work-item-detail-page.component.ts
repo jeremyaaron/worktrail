@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type {
@@ -31,6 +31,7 @@ const statuses: WorkItemStatus[] = [
 ];
 const types: WorkItemType[] = ['task', 'bug', 'story', 'chore'];
 const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
+const terminalStatuses = new Set<WorkItemStatus>(['done', 'canceled']);
 
 @Component({
   selector: 'app-work-item-detail-page',
@@ -64,6 +65,11 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
         <section class="notice" aria-label="Archived project">
           <strong>Archived project</strong>
           <p>Project work is read-only until it is reactivated in settings.</p>
+        </section>
+      } @else if (isTerminalStatusReadOnly()) {
+        <section class="notice" aria-label="Terminal work item">
+          <strong>Terminal work item</strong>
+          <p>Only owners and maintainers can reopen done or canceled work items.</p>
         </section>
       }
 
@@ -212,7 +218,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
                 />
               }
 
-              <button type="submit" [disabled]="isArchivedProject() || isTransitioning()">
+              <button type="submit" [disabled]="isStatusTransitionReadOnly() || isTransitioning()">
                 {{ isTransitioning() ? 'Updating...' : 'Update status' }}
               </button>
             </form>
@@ -815,6 +821,17 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly availableLabels = signal<LabelDto[]>([]);
   readonly availableMilestones = signal<MilestoneDto[]>([]);
   readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
+  readonly isTerminalWorkItem = computed(() => terminalStatuses.has(this.workItem()?.status ?? 'backlog'));
+  readonly canReopenTerminalWorkItem = computed(() => {
+    const actor = this.currentUser.selectedMember();
+    return actor?.role === 'owner' || actor?.role === 'maintainer';
+  });
+  readonly isTerminalStatusReadOnly = computed(
+    () => this.isTerminalWorkItem() && !this.canReopenTerminalWorkItem()
+  );
+  readonly isStatusTransitionReadOnly = computed(
+    () => this.isArchivedProject() || this.isTerminalStatusReadOnly()
+  );
   readonly assignableLabels = computed(() => this.availableLabels().filter((label) => !label.isArchived));
   readonly archivedAttachedLabels = computed(() =>
     (this.workItem()?.labels ?? []).filter((label) => label.isArchived)
@@ -840,6 +857,13 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly editCommentForm = this.formBuilder.nonNullable.group({
     body: ['', [Validators.required]]
   });
+
+  constructor() {
+    effect(() => {
+      this.isStatusTransitionReadOnly();
+      this.syncReadOnlyState();
+    });
+  }
 
   ngOnInit(): void {
     if (this.currentUser.members().length === 0) {
@@ -896,7 +920,10 @@ export class WorkItemDetailPageComponent implements OnInit {
   }
 
   transitionStatus(): void {
-    if (this.isArchivedProject()) {
+    if (this.isStatusTransitionReadOnly()) {
+      if (this.isTerminalStatusReadOnly()) {
+        this.statusError.set('Only owners and maintainers can reopen done or canceled work items.');
+      }
       return;
     }
 
@@ -1240,9 +1267,14 @@ export class WorkItemDetailPageComponent implements OnInit {
       this.editCommentForm.disable(options);
     } else {
       this.detailForm.enable(options);
-      this.statusForm.enable(options);
       this.commentForm.enable(options);
       this.editCommentForm.enable(options);
+
+      if (this.isStatusTransitionReadOnly()) {
+        this.statusForm.disable(options);
+      } else {
+        this.statusForm.enable(options);
+      }
     }
   }
 }

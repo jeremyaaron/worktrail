@@ -1,15 +1,5 @@
 import { Routes } from '@angular/router';
 
-import { ProjectHomePageComponent } from './features/projects/project-home-page.component';
-import { ProjectListPageComponent } from './features/projects/project-list-page.component';
-import { ProjectPlanningPageComponent } from './features/projects/project-planning-page.component';
-import { ProjectSettingsPageComponent } from './features/projects/project-settings-page.component';
-import { WorkspaceSettingsPageComponent } from './features/workspace/workspace-settings-page.component';
-import { WorkItemBoardPageComponent } from './features/work-items/work-item-board-page.component';
-import { WorkItemCreatePageComponent } from './features/work-items/work-item-create-page.component';
-import { WorkItemDetailPageComponent } from './features/work-items/work-item-detail-page.component';
-import { WorkItemListPageComponent } from './features/work-items/work-item-list-page.component';
-
 export const routes: Routes = [
   {
     path: '',
@@ -18,47 +8,74 @@ export const routes: Routes = [
   },
   {
     path: 'projects',
-    component: ProjectListPageComponent,
+    loadComponent: () =>
+      import('./features/projects/project-list-page.component').then(
+        (module) => module.ProjectListPageComponent
+      ),
     title: 'Projects | Worktrail'
   },
   {
     path: 'workspace/settings',
-    component: WorkspaceSettingsPageComponent,
+    loadComponent: () =>
+      import('./features/workspace/workspace-settings-page.component').then(
+        (module) => module.WorkspaceSettingsPageComponent
+      ),
     title: 'Workspace Settings | Worktrail'
   },
   {
     path: 'projects/:projectId/work-items/new',
-    component: WorkItemCreatePageComponent,
+    loadComponent: () =>
+      import('./features/work-items/work-item-create-page.component').then(
+        (module) => module.WorkItemCreatePageComponent
+      ),
     title: 'Create Work Item | Worktrail'
   },
   {
     path: 'projects/:projectId/work-items',
-    component: WorkItemListPageComponent,
+    loadComponent: () =>
+      import('./features/work-items/work-item-list-page.component').then(
+        (module) => module.WorkItemListPageComponent
+      ),
     title: 'Work Items | Worktrail'
   },
   {
     path: 'projects/:projectId/board',
-    component: WorkItemBoardPageComponent,
+    loadComponent: () =>
+      import('./features/work-items/work-item-board-page.component').then(
+        (module) => module.WorkItemBoardPageComponent
+      ),
     title: 'Board | Worktrail'
   },
   {
     path: 'projects/:projectId/planning',
-    component: ProjectPlanningPageComponent,
+    loadComponent: () =>
+      import('./features/projects/project-planning-page.component').then(
+        (module) => module.ProjectPlanningPageComponent
+      ),
     title: 'Planning | Worktrail'
   },
   {
     path: 'projects/:projectId/settings',
-    component: ProjectSettingsPageComponent,
+    loadComponent: () =>
+      import('./features/projects/project-settings-page.component').then(
+        (module) => module.ProjectSettingsPageComponent
+      ),
     title: 'Project Settings | Worktrail'
   },
   {
     path: 'projects/:projectId',
-    component: ProjectHomePageComponent,
+    loadComponent: () =>
+      import('./features/projects/project-home-page.component').then(
+        (module) => module.ProjectHomePageComponent
+      ),
     title: 'Project | Worktrail'
   },
   {
     path: 'work-items/:workItemId',
-    component: WorkItemDetailPageComponent,
+    loadComponent: () =>
+      import('./features/work-items/work-item-detail-page.component').then(
+        (module) => module.WorkItemDetailPageComponent
+      ),
     title: 'Work Item | Worktrail'
   },
   {

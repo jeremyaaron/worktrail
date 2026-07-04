@@ -13,6 +13,7 @@ import type {
   WorkItemStatus
 } from '@worktrail/contracts';
 
+import { CurrentUserService } from '../../core/current-user.service';
 import { WorktrailApiService } from '../../core/worktrail-api.service';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
@@ -26,6 +27,7 @@ const statuses: WorkItemStatus[] = [
   'done',
   'canceled'
 ];
+const terminalStatuses = new Set<WorkItemStatus>(['done', 'canceled']);
 
 @Component({
   selector: 'app-work-item-board-page',
@@ -104,7 +106,7 @@ const statuses: WorkItemStatus[] = [
                     class="work-card"
                     cdkDrag
                     [cdkDragData]="item"
-                    [cdkDragDisabled]="isArchivedProject() || transitioningWorkItemId() === item.id"
+                    [cdkDragDisabled]="!canMoveItem(item) || transitioningWorkItemId() === item.id"
                   >
                     <div class="work-card__heading">
                       <div class="work-card__controls">
@@ -113,7 +115,7 @@ const statuses: WorkItemStatus[] = [
                           type="button"
                           class="drag-handle"
                           cdkDragHandle
-                          [disabled]="isArchivedProject() || transitioningWorkItemId() === item.id"
+                          [disabled]="!canMoveItem(item) || transitioningWorkItemId() === item.id"
                           [attr.aria-label]="'Drag ' + item.displayKey"
                         >
                           Move
@@ -151,7 +153,7 @@ const statuses: WorkItemStatus[] = [
                       <span>Status</span>
                       <select
                         [value]="item.status"
-                        [disabled]="isArchivedProject() || transitioningWorkItemId() === item.id"
+                        [disabled]="!canMoveItem(item) || transitioningWorkItemId() === item.id"
                         (change)="transitionCard(item, $event)"
                       >
                         @for (targetStatus of statuses; track targetStatus) {
@@ -161,6 +163,10 @@ const statuses: WorkItemStatus[] = [
                         }
                       </select>
                     </label>
+
+                    @if (isTerminalMoveReadOnly(item)) {
+                      <p class="permission-note">Only owners and maintainers can reopen done or canceled work items.</p>
+                    }
                   </article>
                 }
               }
@@ -211,6 +217,13 @@ const statuses: WorkItemStatus[] = [
       color: #64748b;
       font-size: 0.875rem;
       line-height: 1.5;
+    }
+
+    .permission-note {
+      color: #64748b;
+      font-size: 0.75rem;
+      font-weight: 700;
+      line-height: 1.4;
     }
 
     nav {
@@ -504,6 +517,7 @@ const statuses: WorkItemStatus[] = [
 })
 export class WorkItemBoardPageComponent implements OnInit {
   private readonly api = inject(WorktrailApiService);
+  private readonly currentUser = inject(CurrentUserService);
   private readonly route = inject(ActivatedRoute);
 
   readonly statuses = statuses;
@@ -515,6 +529,10 @@ export class WorkItemBoardPageComponent implements OnInit {
   readonly transitionError = signal<string | null>(null);
   readonly transitioningWorkItemId = signal<string | null>(null);
   readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
+  readonly canReopenTerminalWorkItems = computed(() => {
+    const actor = this.currentUser.selectedMember();
+    return actor?.role === 'owner' || actor?.role === 'maintainer';
+  });
   readonly dropListIds = computed(() => statuses.map((status) => this.dropListId(status)));
 
   readonly itemsByStatus = computed(() => {
@@ -567,8 +585,11 @@ export class WorkItemBoardPageComponent implements OnInit {
     const select = event.target as HTMLSelectElement;
     const status = select.value as WorkItemStatus;
 
-    if (this.isArchivedProject()) {
+    if (!this.canMoveItem(item)) {
       select.value = item.status;
+      if (this.isTerminalMoveReadOnly(item)) {
+        this.transitionError.set('Only owners and maintainers can reopen done or canceled work items.');
+      }
       return;
     }
 
@@ -591,7 +612,10 @@ export class WorkItemBoardPageComponent implements OnInit {
     const item = event.item.data;
     const status = event.container.data;
 
-    if (this.isArchivedProject()) {
+    if (!this.canMoveItem(item)) {
+      if (this.isTerminalMoveReadOnly(item)) {
+        this.transitionError.set('Only owners and maintainers can reopen done or canceled work items.');
+      }
       return;
     }
 
@@ -633,6 +657,14 @@ export class WorkItemBoardPageComponent implements OnInit {
     }
 
     return member.isActive ? member.name : `${member.name} (inactive)`;
+  }
+
+  canMoveItem(item: WorkItemListItemDto): boolean {
+    return !this.isArchivedProject() && !this.isTerminalMoveReadOnly(item);
+  }
+
+  isTerminalMoveReadOnly(item: WorkItemListItemDto): boolean {
+    return terminalStatuses.has(item.status) && !this.canReopenTerminalWorkItems();
   }
 
   private moveItemOnBoard(

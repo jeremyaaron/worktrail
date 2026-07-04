@@ -10,6 +10,7 @@ import type {
   WorkspaceCapabilitiesDto
 } from '@worktrail/contracts';
 
+import { CurrentUserService } from '../../core/current-user.service';
 import { ProjectHomePageComponent } from './project-home-page.component';
 import { ProjectListPageComponent } from './project-list-page.component';
 import { ProjectSettingsPageComponent } from './project-settings-page.component';
@@ -439,6 +440,10 @@ describe('ProjectSettingsPageComponent', () => {
       ]
     }).compileComponents();
 
+    const currentUser = TestBed.inject(CurrentUserService);
+    currentUser.members.set([owner, contributor]);
+    currentUser.selectMember(owner.id);
+
     fixture = TestBed.createComponent(ProjectSettingsPageComponent);
     http = TestBed.inject(HttpTestingController);
   });
@@ -570,5 +575,33 @@ describe('ProjectSettingsPageComponent', () => {
     expect(reactivate.request.method).toBe('POST');
     reactivate.flush({ ...archivedLabel, isArchived: false, archivedAt: null });
     http.expectOne(`/api/projects/${projectId}/activity`).flush([labelActivity]);
+  });
+
+  it('renders contributor project settings access as read-only', () => {
+    TestBed.inject(CurrentUserService).selectMember(contributor.id);
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/labels?includeArchived=true`).flush([
+      backendLabel
+    ]);
+    http.expectOne(`/api/projects/${projectId}/activity`).flush([]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Only owners and maintainers can update project settings.');
+    expect(compiled.textContent).toContain('Only owners and maintainers can manage labels.');
+    expect(compiled.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBeTrue();
+    expect(compiled.querySelector<HTMLInputElement>('#label-color')?.disabled).toBeTrue();
+
+    fixture.componentInstance.saveSettings();
+    fixture.componentInstance.createLabel();
+    fixture.componentInstance.archiveProject();
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain('Only owners and maintainers can update project settings.');
+    expect(compiled.textContent).toContain('Only owners and maintainers can manage labels.');
+    expect(compiled.textContent).toContain('Only owners and maintainers can archive projects.');
+    http.expectNone((request) => request.method !== 'GET');
   });
 });

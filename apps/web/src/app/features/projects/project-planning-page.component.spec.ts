@@ -383,6 +383,11 @@ describe('ProjectPlanningPageComponent', () => {
     expect(editableFields.every((field) => field.disabled)).toBeTrue();
 
     fixture.componentInstance.createMilestone();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Archived projects are read-only.'
+    );
     http.expectNone((request) => request.method === 'POST');
   });
 
@@ -393,5 +398,10 @@ describe('ProjectPlanningPageComponent', () => {
     expect(compiled.textContent).toContain('Read-only planning');
     expect(compiled.querySelector('button[type="submit"]')).toBeNull();
     expect(compiled.textContent).toContain('v0.0.3');
+
+    fixture.componentInstance.createMilestone();
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain('Only owners and maintainers can manage milestones.');
   });
 });

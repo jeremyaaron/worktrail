@@ -361,6 +361,30 @@ describe('WorkItemDetailPageComponent', () => {
     expect(buttonLabels).not.toContain('Delete');
   });
 
+  it('prevents contributors from reopening terminal work items', () => {
+    TestBed.inject(CurrentUserService).selectMember(contributor.id);
+    const terminalDetail: WorkItemDetailDto = {
+      ...detail,
+      status: 'done'
+    };
+    const { fixture, http } = setup({ workItem: terminalDetail });
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain(
+      'Only owners and maintainers can reopen done or canceled work items.'
+    );
+    expect(compiled.querySelector<HTMLSelectElement>('.status-form select')?.disabled).toBeTrue();
+
+    fixture.componentInstance.statusForm.setValue({ status: 'ready' });
+    fixture.componentInstance.transitionStatus();
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain(
+      'Only owners and maintainers can reopen done or canceled work items.'
+    );
+    http.expectNone(`/api/work-items/${workItemId}/transitions`);
+  });
+
   it('shows a recoverable error when comment edit is rejected', () => {
     const { fixture, http } = setup();
     const comment = detail.comments[0];

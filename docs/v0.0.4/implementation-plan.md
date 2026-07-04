@@ -862,6 +862,21 @@ npm test --workspace @worktrail/api
 npm run typecheck
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Added project settings read-only affordances for contributors and archived projects, including disabled metadata, lifecycle, and label controls with role-specific helper copy.
+- Aligned project settings, label, milestone, archived-project, and terminal-work-item frontend messages with backend permission language.
+- Added local terminal work item reopen guards on detail and board surfaces so contributors see why done/canceled work cannot be reopened before a rejected API call.
+- Closed a backend permission gap by enforcing owner/maintainer-only label mutations in the label service.
+- Added API coverage for contributor label write rejection.
+- Added frontend coverage for contributor project settings restrictions, milestone read-only messages, and contributor terminal reopen restrictions on detail and board surfaces.
+- Verified `npm test --workspace @worktrail/api -- --run tests/labels.test.ts`.
+- Verified focused frontend specs for project and work-item permission surfaces.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `npm run build` passes with the existing Angular budget configured as a warning.
+
 ## Phase 12: E2E Coverage And UX Pass
 
 Goal: validate the v0.0.4 governance workflow through the browser and tighten UI quality.

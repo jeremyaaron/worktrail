@@ -1,8 +1,10 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type { ActivityEventDto, LabelDto, ProjectDto } from '@worktrail/contracts';
 
+import { CurrentUserService } from '../../core/current-user.service';
 import { WorktrailApiService } from '../../core/worktrail-api.service';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
@@ -41,7 +43,12 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
       @if (project.status === 'archived') {
         <section class="notice" aria-label="Archived project">
           <strong>Archived project</strong>
-          <p>This project remains readable. Reactivate it before making workflow changes.</p>
+          <p>Archived projects are read-only.</p>
+        </section>
+      } @else if (!canManageProject()) {
+        <section class="notice" aria-label="Read-only settings">
+          <strong>Read-only settings</strong>
+          <p>Only owners and maintainers can update project settings.</p>
         </section>
       }
 
@@ -60,6 +67,7 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
               formControlName="key"
               autocomplete="off"
               maxlength="8"
+              [readonly]="!canManageProject()"
               [attr.aria-invalid]="showKeyError()"
               aria-describedby="project-key-help project-key-error"
             />
@@ -74,6 +82,7 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
               type="text"
               formControlName="name"
               autocomplete="off"
+              [readonly]="!canManageProject()"
               [attr.aria-invalid]="showNameError()"
               aria-describedby="project-name-error"
             />
@@ -82,7 +91,12 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
             }
 
             <label for="project-description">Description</label>
-            <textarea id="project-description" rows="5" formControlName="description"></textarea>
+            <textarea
+              id="project-description"
+              rows="5"
+              formControlName="description"
+              [readonly]="!canManageProject()"
+            ></textarea>
 
             @if (saveError()) {
               <app-error-panel
@@ -96,7 +110,7 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
               <p class="success-message">Project settings saved.</p>
             }
 
-            <button type="submit" [disabled]="isSaving()">
+            <button type="submit" [disabled]="!canManageProject() || isSaving()">
               {{ isSaving() ? 'Saving...' : 'Save settings' }}
             </button>
           </form>
@@ -116,15 +130,23 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
             />
           }
 
+          @if (!canManageProjectLifecycle()) {
+            <p class="permission-note">Only owners and maintainers can archive and reactivate projects.</p>
+          }
+
           @if (project.status === 'archived') {
-            <button type="button" [disabled]="isCommandRunning()" (click)="reactivateProject()">
+            <button
+              type="button"
+              [disabled]="!canManageProjectLifecycle() || isCommandRunning()"
+              (click)="reactivateProject()"
+            >
               {{ isCommandRunning() ? 'Reactivating...' : 'Reactivate project' }}
             </button>
           } @else {
             <button
               type="button"
               class="danger-button"
-              [disabled]="isCommandRunning()"
+              [disabled]="!canManageProjectLifecycle() || isCommandRunning()"
               (click)="archiveProject()"
             >
               {{ isCommandRunning() ? 'Archiving...' : 'Archive project' }}
@@ -138,6 +160,10 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
             <p>Create and maintain the project taxonomy used by work items.</p>
           </div>
 
+          @if (!canManageLabels()) {
+            <p class="permission-note">Only owners and maintainers can manage labels.</p>
+          }
+
           <form class="label-create-form" [formGroup]="labelForm" (ngSubmit)="createLabel()" novalidate>
             <label for="label-name">Name</label>
             <input
@@ -145,6 +171,7 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
               type="text"
               formControlName="name"
               autocomplete="off"
+              [readonly]="!canManageLabels()"
               [attr.aria-invalid]="showLabelNameError()"
               aria-describedby="label-name-error"
             />
@@ -155,7 +182,7 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
             <label for="label-color">Color</label>
             <input id="label-color" type="color" formControlName="color" />
 
-            <button type="submit" [disabled]="isLabelMutating()">
+            <button type="submit" [disabled]="!canManageLabels() || isLabelMutating()">
               {{ isLabelMutating() ? 'Saving...' : 'Create label' }}
             </button>
           </form>
@@ -186,12 +213,18 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
               @for (label of labels(); track label.id) {
                 <article class="label-row" [class.label-row--archived]="label.isArchived">
                   <span class="label-swatch" [style.background]="label.color ?? '#e2e8f0'"></span>
-                  <input #labelName type="text" [value]="label.name" [disabled]="isLabelMutating()" />
+                  <input
+                    #labelName
+                    type="text"
+                    [value]="label.name"
+                    [readonly]="!canManageLabels()"
+                    [disabled]="isLabelMutating()"
+                  />
                   <input
                     #labelColor
                     type="color"
                     [value]="label.color ?? '#64748b'"
-                    [disabled]="isLabelMutating()"
+                    [disabled]="!canManageLabels() || isLabelMutating()"
                     aria-label="Label color"
                   />
                   <span class="label-state">{{ label.isArchived ? 'Archived' : 'Active' }}</span>
@@ -199,7 +232,7 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
                   <div class="label-actions">
                     <button
                       type="button"
-                      [disabled]="isLabelMutating()"
+                      [disabled]="!canManageLabels() || isLabelMutating()"
                       (click)="updateLabel(label, labelName.value, labelColor.value)"
                     >
                       Save
@@ -208,7 +241,7 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
                     @if (label.isArchived) {
                       <button
                         type="button"
-                        [disabled]="isLabelMutating()"
+                        [disabled]="!canManageLabels() || isLabelMutating()"
                         (click)="reactivateLabel(label)"
                       >
                         Reactivate
@@ -217,7 +250,7 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
                       <button
                         type="button"
                         class="danger-button"
-                        [disabled]="isLabelMutating()"
+                        [disabled]="!canManageLabels() || isLabelMutating()"
                         (click)="archiveLabel(label)"
                       >
                         Archive
@@ -365,7 +398,8 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
 
     .notice p,
     .panel > div p,
-    .field-help {
+    .field-help,
+    .permission-note {
       color: #64748b;
       font-size: 0.875rem;
       line-height: 1.5;
@@ -591,6 +625,7 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
 })
 export class ProjectSettingsPageComponent implements OnInit {
   private readonly api = inject(WorktrailApiService);
+  private readonly currentUser = inject(CurrentUserService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
 
@@ -613,6 +648,14 @@ export class ProjectSettingsPageComponent implements OnInit {
   readonly activity = signal<ActivityEventDto[]>([]);
   readonly activityLoadError = signal<string | null>(null);
   readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
+  readonly canManageProjectLifecycle = computed(() => {
+    const actor = this.currentUser.selectedMember();
+    return actor?.role === 'owner' || actor?.role === 'maintainer';
+  });
+  readonly canManageProject = computed(
+    () => this.project()?.status === 'active' && this.canManageProjectLifecycle()
+  );
+  readonly canManageLabels = this.canManageProject;
 
   readonly settingsForm = this.formBuilder.nonNullable.group({
     key: ['', [Validators.required, Validators.pattern(/^[A-Za-z0-9]{2,8}$/)]],
@@ -625,7 +668,18 @@ export class ProjectSettingsPageComponent implements OnInit {
     color: ['#2563eb']
   });
 
+  constructor() {
+    effect(() => {
+      this.canManageProject();
+      this.syncReadOnlyState();
+    });
+  }
+
   ngOnInit(): void {
+    if (this.currentUser.members().length === 0) {
+      this.currentUser.loadMembers();
+    }
+
     this.loadProject();
   }
 
@@ -678,6 +732,15 @@ export class ProjectSettingsPageComponent implements OnInit {
     this.saveError.set(null);
     this.saveSuccess.set(false);
 
+    if (!this.canManageProject()) {
+      this.saveError.set(
+        this.project()?.status === 'archived'
+          ? 'Archived projects are read-only.'
+          : 'Only owners and maintainers can update project settings.'
+      );
+      return;
+    }
+
     if (this.settingsForm.invalid) {
       this.settingsForm.markAllAsTouched();
       return;
@@ -699,8 +762,8 @@ export class ProjectSettingsPageComponent implements OnInit {
           this.hasSubmittedSave.set(false);
           this.saveSuccess.set(true);
         },
-        error: () => {
-          this.saveError.set('Project settings could not be saved.');
+        error: (error: unknown) => {
+          this.saveError.set(this.toErrorMessage(error, 'Project settings could not be saved.'));
           this.isSaving.set(false);
         }
       });
@@ -708,6 +771,12 @@ export class ProjectSettingsPageComponent implements OnInit {
 
   archiveProject(): void {
     this.commandError.set(null);
+
+    if (!this.canManageProjectLifecycle()) {
+      this.commandError.set('Only owners and maintainers can archive projects.');
+      return;
+    }
+
     this.isCommandRunning.set(true);
     this.api.archiveProject(this.projectId()).subscribe({
       next: (project) => {
@@ -715,8 +784,8 @@ export class ProjectSettingsPageComponent implements OnInit {
         this.loadActivity();
         this.isCommandRunning.set(false);
       },
-      error: () => {
-        this.commandError.set('Project could not be archived.');
+      error: (error: unknown) => {
+        this.commandError.set(this.toErrorMessage(error, 'Project could not be archived.'));
         this.isCommandRunning.set(false);
       }
     });
@@ -724,6 +793,12 @@ export class ProjectSettingsPageComponent implements OnInit {
 
   reactivateProject(): void {
     this.commandError.set(null);
+
+    if (!this.canManageProjectLifecycle()) {
+      this.commandError.set('Only owners and maintainers can reactivate projects.');
+      return;
+    }
+
     this.isCommandRunning.set(true);
     this.api.reactivateProject(this.projectId()).subscribe({
       next: (project) => {
@@ -731,8 +806,8 @@ export class ProjectSettingsPageComponent implements OnInit {
         this.loadActivity();
         this.isCommandRunning.set(false);
       },
-      error: () => {
-        this.commandError.set('Project could not be reactivated.');
+      error: (error: unknown) => {
+        this.commandError.set(this.toErrorMessage(error, 'Project could not be reactivated.'));
         this.isCommandRunning.set(false);
       }
     });
@@ -742,6 +817,15 @@ export class ProjectSettingsPageComponent implements OnInit {
     this.hasSubmittedLabel.set(true);
     this.labelMutationError.set(null);
     this.labelSuccess.set(null);
+
+    if (!this.canManageLabels()) {
+      this.labelMutationError.set(
+        this.project()?.status === 'archived'
+          ? 'Archived projects are read-only.'
+          : 'Only owners and maintainers can manage labels.'
+      );
+      return;
+    }
 
     if (this.labelForm.invalid) {
       this.labelForm.markAllAsTouched();
@@ -764,8 +848,8 @@ export class ProjectSettingsPageComponent implements OnInit {
           this.isLabelMutating.set(false);
           this.labelSuccess.set('Label created.');
         },
-        error: () => {
-          this.labelMutationError.set('Label could not be created.');
+        error: (error: unknown) => {
+          this.labelMutationError.set(this.toErrorMessage(error, 'Label could not be created.'));
           this.isLabelMutating.set(false);
         }
       });
@@ -774,6 +858,16 @@ export class ProjectSettingsPageComponent implements OnInit {
   updateLabel(label: LabelDto, name: string, color: string): void {
     this.labelMutationError.set(null);
     this.labelSuccess.set(null);
+
+    if (!this.canManageLabels()) {
+      this.labelMutationError.set(
+        this.project()?.status === 'archived'
+          ? 'Archived projects are read-only.'
+          : 'Only owners and maintainers can manage labels.'
+      );
+      return;
+    }
+
     const nextName = name.trim();
 
     if (nextName === '') {
@@ -794,8 +888,8 @@ export class ProjectSettingsPageComponent implements OnInit {
           this.isLabelMutating.set(false);
           this.labelSuccess.set('Label saved.');
         },
-        error: () => {
-          this.labelMutationError.set('Label could not be saved.');
+        error: (error: unknown) => {
+          this.labelMutationError.set(this.toErrorMessage(error, 'Label could not be saved.'));
           this.isLabelMutating.set(false);
         }
       });
@@ -804,6 +898,16 @@ export class ProjectSettingsPageComponent implements OnInit {
   archiveLabel(label: LabelDto): void {
     this.labelMutationError.set(null);
     this.labelSuccess.set(null);
+
+    if (!this.canManageLabels()) {
+      this.labelMutationError.set(
+        this.project()?.status === 'archived'
+          ? 'Archived projects are read-only.'
+          : 'Only owners and maintainers can manage labels.'
+      );
+      return;
+    }
+
     this.isLabelMutating.set(true);
     this.api.archiveLabel(label.id).subscribe({
       next: (updated) => {
@@ -812,8 +916,8 @@ export class ProjectSettingsPageComponent implements OnInit {
         this.isLabelMutating.set(false);
         this.labelSuccess.set('Label archived.');
       },
-      error: () => {
-        this.labelMutationError.set('Label could not be archived.');
+      error: (error: unknown) => {
+        this.labelMutationError.set(this.toErrorMessage(error, 'Label could not be archived.'));
         this.isLabelMutating.set(false);
       }
     });
@@ -822,6 +926,16 @@ export class ProjectSettingsPageComponent implements OnInit {
   reactivateLabel(label: LabelDto): void {
     this.labelMutationError.set(null);
     this.labelSuccess.set(null);
+
+    if (!this.canManageLabels()) {
+      this.labelMutationError.set(
+        this.project()?.status === 'archived'
+          ? 'Archived projects are read-only.'
+          : 'Only owners and maintainers can manage labels.'
+      );
+      return;
+    }
+
     this.isLabelMutating.set(true);
     this.api.reactivateLabel(label.id).subscribe({
       next: (updated) => {
@@ -830,8 +944,8 @@ export class ProjectSettingsPageComponent implements OnInit {
         this.isLabelMutating.set(false);
         this.labelSuccess.set('Label reactivated.');
       },
-      error: () => {
-        this.labelMutationError.set('Label could not be reactivated.');
+      error: (error: unknown) => {
+        this.labelMutationError.set(this.toErrorMessage(error, 'Label could not be reactivated.'));
         this.isLabelMutating.set(false);
       }
     });
@@ -877,6 +991,7 @@ export class ProjectSettingsPageComponent implements OnInit {
       name: project.name,
       description: project.description
     });
+    this.syncReadOnlyState();
   }
 
   private upsertLabel(label: LabelDto): void {
@@ -893,5 +1008,29 @@ export class ProjectSettingsPageComponent implements OnInit {
 
       return left.name.localeCompare(right.name);
     });
+  }
+
+  private syncReadOnlyState(): void {
+    const options = { emitEvent: false };
+
+    if (this.canManageProject()) {
+      this.settingsForm.enable(options);
+      this.labelForm.enable(options);
+    } else {
+      this.settingsForm.disable(options);
+      this.labelForm.disable(options);
+    }
+  }
+
+  private toErrorMessage(error: unknown, fallback: string): string {
+    if (error instanceof HttpErrorResponse) {
+      const message = (error.error as { error?: { message?: unknown } } | null)?.error?.message;
+
+      if (typeof message === 'string' && message.trim() !== '') {
+        return message;
+      }
+    }
+
+    return fallback;
   }
 }

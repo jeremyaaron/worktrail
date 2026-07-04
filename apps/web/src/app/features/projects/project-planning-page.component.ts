@@ -133,10 +133,6 @@ interface PlanningRiskSection {
                 </label>
               </div>
 
-              @if (createError()) {
-                <p class="field-error">{{ createError() }}</p>
-              }
-
               @if (successMessage()) {
                 <p class="success-message">{{ successMessage() }}</p>
               }
@@ -145,6 +141,10 @@ interface PlanningRiskSection {
                 {{ isCreatingMilestone() ? 'Creating...' : 'Create milestone' }}
               </button>
             </form>
+          }
+
+          @if (createError()) {
+            <p class="field-error">{{ createError() }}</p>
           }
 
           @if (milestoneMutationError()) {
@@ -842,7 +842,7 @@ export class ProjectPlanningPageComponent implements OnInit {
     this.successMessage.set(null);
 
     if (!this.canManageMilestones()) {
-      this.createError.set('Milestones are read-only for the current project or actor.');
+      this.createError.set(this.milestonePermissionMessage());
       return;
     }
 
@@ -888,7 +888,7 @@ export class ProjectPlanningPageComponent implements OnInit {
     this.successMessage.set(null);
 
     if (!this.canManageMilestones()) {
-      this.milestoneMutationError.set('Milestones are read-only for the current project or actor.');
+      this.milestoneMutationError.set(this.milestonePermissionMessage());
       return;
     }
 
@@ -1008,7 +1008,7 @@ export class ProjectPlanningPageComponent implements OnInit {
     this.successMessage.set(null);
 
     if (!this.canManageMilestones()) {
-      this.milestoneMutationError.set('Milestones are read-only for the current project or actor.');
+      this.milestoneMutationError.set(this.milestonePermissionMessage());
       return;
     }
 
@@ -1068,5 +1068,11 @@ export class ProjectPlanningPageComponent implements OnInit {
     }
 
     return fallback;
+  }
+
+  private milestonePermissionMessage(): string {
+    return this.isArchivedProject()
+      ? 'Archived projects are read-only.'
+      : 'Only owners and maintainers can manage milestones.';
   }
 }
