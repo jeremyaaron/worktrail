@@ -14,6 +14,15 @@ import { ForbiddenError, NotFoundError } from '../errors/app-error.js';
 import type { Repositories } from '../repositories/index.js';
 import { toProjectDto, toRecentWorkItemDto } from './dto.js';
 
+function normalizeProjectKey(input: string): string {
+  const normalized = input
+    .toUpperCase()
+    .replaceAll(/[^A-Z0-9]/g, '')
+    .slice(0, 8);
+
+  return normalized.length >= 2 ? normalized : 'WT';
+}
+
 export interface ProjectServiceContext {
   actor: ActorContext;
   repositories: Repositories;
@@ -42,6 +51,8 @@ export class ProjectService {
     const project = await this.context.repositories.projects.create({
       id: this.idGenerator(),
       workspaceId: this.context.actor.workspaceId,
+      key: normalizeProjectKey(input.key ?? input.name),
+      nextWorkItemNumber: 1,
       name: input.name,
       description: input.description ?? '',
       status: 'active',
@@ -109,4 +120,3 @@ export class ProjectService {
     };
   }
 }
-

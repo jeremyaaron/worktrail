@@ -141,6 +141,20 @@ npm run typecheck
 npm test --workspace @worktrail/api
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Added the v0.0.2 schema fields and indexes for project keys, work item display keys, label archive state, and comment lifecycle state.
+- Generated Drizzle migration `0001_easy_blade.sql` and rewrote the SQL to expand, backfill, and then constrain existing data.
+- Backfilled project keys, work item numbers/display keys, project counters, and active label uniqueness.
+- Updated seed data with deterministic project keys, work item keys, an archived label, and comment lifecycle fields.
+- Updated shared contracts and DTO mapping for project keys, work item keys, archived labels, comment lifecycle fields, new label/comment requests, and expanded activity event types.
+- Added atomic work item number allocation in the project repository because the new uniqueness constraints make counter increments part of the create path.
+- Updated API and Angular test fixtures for the expanded DTO shape.
+- Verified `npm run db:reset && npm run db:migrate && npm run db:seed`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+
 ## Phase 2: Project Keys And Project Settings Backend
 
 Goal: implement project key behavior, project settings updates, archive/reactivate commands, and project activity.

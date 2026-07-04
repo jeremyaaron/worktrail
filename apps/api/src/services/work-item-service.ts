@@ -17,7 +17,7 @@ import {
   type Repositories,
   withRepositoriesTransaction
 } from '../repositories/index.js';
-import type { ActivityEvent, Comment, Label, Member, WorkItem } from '../repositories/types.js';
+import type { ActivityEvent, Comment, Label, Member, Project, WorkItem } from '../repositories/types.js';
 import {
   toActivityEventDto,
   toCommentDto,
@@ -75,6 +75,13 @@ export class WorkItemService {
       const timestamp = this.clock();
       const labelIds = input.labelIds ?? [];
       await this.validateLabels(projectId, labelIds, repositories);
+      const numberedProject = await repositories.projects.allocateWorkItemNumber(projectId, timestamp);
+
+      if (numberedProject === null || numberedProject.workspaceId !== this.context.actor.workspaceId) {
+        throw new NotFoundError('Project not found.');
+      }
+
+      const itemNumber = numberedProject.nextWorkItemNumber - 1;
 
       const workItem = await repositories.workItems.create({
         id: this.idGenerator(),
@@ -82,6 +89,8 @@ export class WorkItemService {
         projectId,
         title: input.title,
         description: input.description ?? '',
+        itemNumber,
+        displayKey: `${numberedProject.key}-${itemNumber}`,
         type: input.type,
         status: input.status ?? 'backlog',
         priority: input.priority,
@@ -221,12 +230,14 @@ export class WorkItemService {
     return withRepositoriesTransaction(this.context.db, callback);
   }
 
-  private async requireProject(projectId: string): Promise<void> {
+  private async requireProject(projectId: string): Promise<Project> {
     const project = await this.context.repositories.projects.findById(projectId);
 
     if (project === null || project.workspaceId !== this.context.actor.workspaceId) {
       throw new NotFoundError('Project not found.');
     }
+
+    return project;
   }
 
   private async requireWorkItem(workItemId: string, repositories: Repositories): Promise<WorkItem> {

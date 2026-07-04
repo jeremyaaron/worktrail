@@ -11,6 +11,15 @@ export const workItemStatuses = [
 ] as const;
 export const workItemPriorities = ['low', 'medium', 'high', 'urgent'] as const;
 export const activityEventTypes = [
+  'project.name_changed',
+  'project.description_changed',
+  'project.archived',
+  'project.reactivated',
+  'label.created',
+  'label.name_changed',
+  'label.color_changed',
+  'label.archived',
+  'label.reactivated',
   'work_item.created',
   'work_item.title_changed',
   'work_item.description_changed',
@@ -19,7 +28,9 @@ export const activityEventTypes = [
   'work_item.priority_changed',
   'work_item.label_added',
   'work_item.label_removed',
-  'comment.added'
+  'comment.added',
+  'comment.edited',
+  'comment.deleted'
 ] as const;
 
 export type MemberRole = (typeof memberRoles)[number];
@@ -36,4 +47,3 @@ export const openWorkItemStatuses = [
   'in_progress',
   'blocked'
 ] as const satisfies readonly WorkItemStatus[];
-

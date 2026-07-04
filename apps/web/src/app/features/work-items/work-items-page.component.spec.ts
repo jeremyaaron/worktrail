@@ -26,13 +26,23 @@ const workItem: WorkItemListItemDto = {
   id: workItemId,
   workspaceId: member.workspaceId,
   projectId,
+  itemNumber: 3,
+  displayKey: 'WT-3',
   title: 'Implement work item API client',
   type: 'task',
   status: 'in_progress',
   priority: 'high',
   assignee: member,
   reporter: member,
-  labels: [{ id: '10000000-0000-4000-8000-000000000302', name: 'backend', color: '#059669' }],
+  labels: [
+    {
+      id: '10000000-0000-4000-8000-000000000302',
+      name: 'backend',
+      color: '#059669',
+      isArchived: false,
+      archivedAt: null
+    }
+  ],
   dueDate: null,
   estimatePoints: 5,
   createdAt: '2026-07-02T12:00:00.000Z',

@@ -109,6 +109,8 @@ async function createProject(input: Partial<NewProject> & { workspaceId: string 
   return repositories.projects.create({
     id: input.id ?? randomUUID(),
     workspaceId: input.workspaceId,
+    key: input.key ?? 'PM',
+    nextWorkItemNumber: input.nextWorkItemNumber ?? 3,
     name: input.name ?? 'API Test Project',
     description: input.description ?? 'Created for endpoint tests.',
     status: input.status ?? 'active',
@@ -274,6 +276,8 @@ describe('projects API', () => {
       id: randomUUID(),
       workspaceId: fixture.workspaceId,
       projectId: project.id,
+      itemNumber: 1,
+      displayKey: 'PM-1',
       title: 'Ready summary item',
       description: '',
       type: 'task',
@@ -290,6 +294,8 @@ describe('projects API', () => {
       id: randomUUID(),
       workspaceId: fixture.workspaceId,
       projectId: project.id,
+      itemNumber: 2,
+      displayKey: 'PM-2',
       title: 'Done summary item',
       description: '',
       type: 'task',
@@ -343,7 +349,15 @@ describe('projects API', () => {
       .set(fixture.headers)
       .expect(200)
       .expect(({ body }) => {
-        expect(body).toEqual([{ id: expect.any(String), name: 'backend', color: '#059669' }]);
+        expect(body).toEqual([
+          {
+            id: expect.any(String),
+            name: 'backend',
+            color: '#059669',
+            isArchived: false,
+            archivedAt: null
+          }
+        ]);
       });
 
     await request(app).get(`/api/projects/${project.id}/labels`).set(otherFixture.headers).expect(404);

@@ -86,6 +86,8 @@ async function createRepositoryGraph(repos: Repositories, id = ids()) {
   const project = await repos.projects.create({
     id: id.projectId,
     workspaceId: id.workspaceId,
+    key: 'RT',
+    nextWorkItemNumber: 2,
     name: 'Repository Project',
     description: 'Repository integration test project.',
     status: 'active',
@@ -107,6 +109,8 @@ async function createRepositoryGraph(repos: Repositories, id = ids()) {
     id: id.workItemId,
     workspaceId: id.workspaceId,
     projectId: id.projectId,
+    itemNumber: 1,
+    displayKey: 'RT-1',
     title: 'Repository work item',
     description: 'Created by repository tests.',
     type: 'task',
@@ -127,6 +131,9 @@ async function createRepositoryGraph(repos: Repositories, id = ids()) {
     workItemId: id.workItemId,
     authorId: id.ownerId,
     body: 'Repository comment',
+    editedAt: null,
+    deletedAt: null,
+    deletedById: null,
     createdAt: timestamp,
     updatedAt: timestamp
   });
@@ -254,4 +261,3 @@ describe('Drizzle repositories', () => {
     });
   });
 });
-

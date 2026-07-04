@@ -20,13 +20,23 @@ const readyItem: WorkItemListItemDto = {
   id: '10000000-0000-4000-8000-000000000402',
   workspaceId: owner.workspaceId,
   projectId,
+  itemNumber: 2,
+  displayKey: 'WT-2',
   title: 'Ready board item',
   type: 'story',
   status: 'ready',
   priority: 'high',
   assignee: owner,
   reporter: owner,
-  labels: [{ id: '10000000-0000-4000-8000-000000000301', name: 'frontend', color: '#2563eb' }],
+  labels: [
+    {
+      id: '10000000-0000-4000-8000-000000000301',
+      name: 'frontend',
+      color: '#2563eb',
+      isArchived: false,
+      archivedAt: null
+    }
+  ],
   dueDate: null,
   estimatePoints: 3,
   createdAt: '2026-07-02T12:00:00.000Z',

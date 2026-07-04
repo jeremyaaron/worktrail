@@ -36,6 +36,8 @@ const detail: WorkItemDetailDto = {
   id: workItemId,
   workspaceId: owner.workspaceId,
   projectId,
+  itemNumber: 3,
+  displayKey: 'WT-3',
   title: 'Implement detail surface',
   description: 'Build comments and activity UI.',
   type: 'task',
@@ -43,7 +45,7 @@ const detail: WorkItemDetailDto = {
   priority: 'high',
   assignee: contributor,
   reporter: owner,
-  labels: [{ id: labelId, name: 'backend', color: '#059669' }],
+  labels: [{ id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }],
   dueDate: '2026-07-20',
   estimatePoints: 5,
   createdAt: '2026-07-02T12:00:00.000Z',
@@ -56,6 +58,11 @@ const detail: WorkItemDetailDto = {
       workItemId,
       author: owner,
       body: 'Initial implementation note.',
+      isEdited: false,
+      isDeleted: false,
+      editedAt: null,
+      deletedAt: null,
+      deletedBy: null,
       createdAt: '2026-07-03T12:00:00.000Z',
       updatedAt: '2026-07-03T12:00:00.000Z'
     }
@@ -89,8 +96,8 @@ function setup() {
   fixture.detectChanges();
   http.expectOne(`/api/work-items/${workItemId}`).flush(detail);
   http.expectOne(`/api/projects/${projectId}/labels`).flush([
-    { id: frontendLabelId, name: 'frontend', color: '#2563eb' },
-    { id: labelId, name: 'backend', color: '#059669' }
+    { id: frontendLabelId, name: 'frontend', color: '#2563eb', isArchived: false, archivedAt: null },
+    { id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }
   ]);
   fixture.detectChanges();
   return { fixture, http };
@@ -204,6 +211,11 @@ describe('WorkItemDetailPageComponent', () => {
       workItemId,
       author: owner,
       body: 'New detail comment.',
+      isEdited: false,
+      isDeleted: false,
+      editedAt: null,
+      deletedAt: null,
+      deletedBy: null,
       createdAt: '2026-07-03T13:00:00.000Z',
       updatedAt: '2026-07-03T13:00:00.000Z'
     });
@@ -220,6 +232,11 @@ describe('WorkItemDetailPageComponent', () => {
           workItemId,
           author: owner,
           body: 'New detail comment.',
+          isEdited: false,
+          isDeleted: false,
+          editedAt: null,
+          deletedAt: null,
+          deletedBy: null,
           createdAt: '2026-07-03T13:00:00.000Z',
           updatedAt: '2026-07-03T13:00:00.000Z'
         }

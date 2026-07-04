@@ -36,6 +36,8 @@ export function createLabelRepository(db: WorktrailDb) {
           projectId: labels.projectId,
           name: labels.name,
           color: labels.color,
+          archivedAt: labels.archivedAt,
+          archivedById: labels.archivedById,
           createdAt: labels.createdAt,
           updatedAt: labels.updatedAt
         })
@@ -58,6 +60,8 @@ export function createLabelRepository(db: WorktrailDb) {
             projectId: labels.projectId,
             name: labels.name,
             color: labels.color,
+            archivedAt: labels.archivedAt,
+            archivedById: labels.archivedById,
             createdAt: labels.createdAt,
             updatedAt: labels.updatedAt
           }

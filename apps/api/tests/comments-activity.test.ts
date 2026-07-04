@@ -80,6 +80,8 @@ async function createFixture(role: 'owner' | 'maintainer' | 'contributor' = 'own
   await repositories.projects.create({
     id: projectId,
     workspaceId,
+    key: 'CA',
+    nextWorkItemNumber: 2,
     name: 'Comments Test Project',
     description: 'Project for comment and activity endpoint tests.',
     status: 'active',
@@ -101,6 +103,8 @@ async function createWorkItem(fixture: Awaited<ReturnType<typeof createFixture>>
     id: randomUUID(),
     workspaceId: fixture.workspaceId,
     projectId: fixture.projectId,
+    itemNumber: 1,
+    displayKey: 'CA-1',
     title: 'Commented work item',
     description: 'Work item with collaboration history.',
     type: 'task',

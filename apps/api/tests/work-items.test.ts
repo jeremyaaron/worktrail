@@ -84,6 +84,8 @@ async function createFixture(role: 'owner' | 'maintainer' | 'contributor' = 'own
   await repositories.projects.create({
     id: projectId,
     workspaceId,
+    key: 'WI',
+    nextWorkItemNumber: 2,
     name: 'Work Item Test Project',
     description: 'Project for work item endpoint tests.',
     status: 'active',
@@ -118,15 +120,20 @@ async function createFixture(role: 'owner' | 'maintainer' | 'contributor' = 'own
     projectId,
     frontendLabelId,
     backendLabelId,
+    nextFixtureWorkItemNumber: 1,
     headers: actorHeaders({ workspaceId, memberId: actorId, role })
   };
 }
 
 async function createWorkItem(fixture: Awaited<ReturnType<typeof createFixture>>, overrides = {}) {
+  const itemNumber = fixture.nextFixtureWorkItemNumber++;
+
   return repositories.workItems.create({
     id: randomUUID(),
     workspaceId: fixture.workspaceId,
     projectId: fixture.projectId,
+    itemNumber,
+    displayKey: `WI-${itemNumber}`,
     title: 'Existing work item',
     description: 'Existing description.',
     type: 'task',
@@ -179,6 +186,8 @@ describe('work item API', () => {
 
     expect(response.body).toMatchObject({
       projectId: fixture.projectId,
+      itemNumber: 2,
+      displayKey: 'WI-2',
       title: 'Create API work item',
       type: 'story',
       status: 'backlog',
@@ -193,6 +202,22 @@ describe('work item API', () => {
     const activity = await repositories.activityEvents.findByWorkItem(response.body.id);
     expect(activity).toHaveLength(1);
     expect(activity[0]?.eventType).toBe('work_item.created');
+
+    const secondResponse = await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items`)
+      .set(fixture.headers)
+      .send({
+        title: 'Create second API work item',
+        type: 'task',
+        priority: 'medium'
+      })
+      .expect(201);
+
+    expect(secondResponse.body).toMatchObject({
+      itemNumber: 3,
+      displayKey: 'WI-3',
+      title: 'Create second API work item'
+    });
   });
 
   it('rejects invalid work item creation requests', async () => {
@@ -348,4 +373,3 @@ describe('work item API', () => {
       });
   });
 });
-

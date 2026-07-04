@@ -13,6 +13,7 @@ const archivedProjectId = '10000000-0000-4000-8000-000000000203';
 const activeProject: ProjectDto = {
   id: projectId,
   workspaceId: '10000000-0000-4000-8000-000000000001',
+  key: 'WT',
   name: 'Worktrail App',
   description: 'MVP project management reference application.',
   status: 'active',
@@ -23,6 +24,7 @@ const activeProject: ProjectDto = {
 const archivedProject: ProjectDto = {
   id: archivedProjectId,
   workspaceId: '10000000-0000-4000-8000-000000000001',
+  key: 'ARCH',
   name: 'Archived Project',
   description: 'Archived project used to verify archived states.',
   status: 'archived',
@@ -43,6 +45,7 @@ const projectSummary: ProjectSummaryDto = {
   recentWorkItems: [
     {
       id: '10000000-0000-4000-8000-000000000403',
+      displayKey: 'WT-3',
       title: 'Implement API client',
       status: 'in_progress',
       updatedAt: '2026-07-03T12:00:00.000Z'

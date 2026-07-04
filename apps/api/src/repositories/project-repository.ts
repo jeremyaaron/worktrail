@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import type { WorktrailDb } from '../db/client.js';
 import { projects } from '../db/schema.js';
@@ -38,6 +38,18 @@ export function createProjectRepository(db: WorktrailDb) {
 
     async update(id: string, input: UpdateProjectInput) {
       const [project] = await db.update(projects).set(input).where(eq(projects.id, id)).returning();
+      return project ?? null;
+    },
+
+    async allocateWorkItemNumber(id: string, updatedAt: Date) {
+      const [project] = await db
+        .update(projects)
+        .set({
+          nextWorkItemNumber: sql`${projects.nextWorkItemNumber} + 1`,
+          updatedAt
+        })
+        .where(eq(projects.id, id))
+        .returning();
       return project ?? null;
     }
   };
