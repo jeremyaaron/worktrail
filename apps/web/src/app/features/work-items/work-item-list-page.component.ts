@@ -53,6 +53,12 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
       </div>
 
       <nav aria-label="Project work navigation">
+        <a class="secondary-header-action" [routerLink]="['/projects', projectId(), 'board']">
+          Board
+        </a>
+        <a class="secondary-header-action" [routerLink]="['/projects', projectId(), 'planning']">
+          Planning
+        </a>
         <a class="secondary-header-action" [routerLink]="['/projects', projectId(), 'settings']">
           Settings
         </a>

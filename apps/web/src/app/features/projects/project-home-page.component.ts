@@ -43,6 +43,7 @@ const statusLabels: Record<WorkItemStatus, string> = {
         <div class="project-actions">
           <a [routerLink]="['/projects', projectId(), 'work-items']">Work items</a>
           <a [routerLink]="['/projects', projectId(), 'board']">Board</a>
+          <a [routerLink]="['/projects', projectId(), 'planning']">Planning</a>
           <a [routerLink]="['/projects', projectId(), 'settings']">Settings</a>
           @if (summary.project.status === 'active') {
             <a class="project-actions__primary" [routerLink]="['/projects', projectId(), 'work-items', 'new']">

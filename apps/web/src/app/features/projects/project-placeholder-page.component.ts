@@ -15,6 +15,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
       <a [routerLink]="['/projects', projectId()]">Home</a>
       <a [routerLink]="['/projects', projectId(), 'work-items']">Work items</a>
       <a [routerLink]="['/projects', projectId(), 'board']">Board</a>
+      <a [routerLink]="['/projects', projectId(), 'planning']">Planning</a>
     </nav>
 
     <section class="readiness-panel">

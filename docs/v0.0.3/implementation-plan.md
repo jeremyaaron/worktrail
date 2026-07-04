@@ -493,6 +493,24 @@ npm run typecheck --workspace @worktrail/web
 npm test --workspace @worktrail/web
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Extended `WorktrailApiService` with:
+  - milestone list/create/update/archive/reactivate methods;
+  - project planning summary retrieval;
+  - board move command;
+  - reporter, milestone, due date state, and expanded sort filter support.
+- Added `/projects/:projectId/planning` with a dedicated planning route shell for later milestone and dashboard UI phases.
+- Added planning navigation links across project list, project overview, work item list, board, settings, and placeholder project navigation.
+- Added frontend route-shell coverage for the planning page and its project navigation links.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm test --workspace @worktrail/web`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `npm run build`.
+- Verified `git diff --check`.
+
 ## Phase 7: Milestone Management UI
 
 Goal: let users manage project milestones from the planning surface.

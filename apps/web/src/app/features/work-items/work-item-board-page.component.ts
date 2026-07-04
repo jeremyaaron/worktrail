@@ -43,6 +43,7 @@ const statuses: WorkItemStatus[] = [
 
       <nav aria-label="Project work navigation">
         <a [routerLink]="['/projects', projectId(), 'work-items']">List</a>
+        <a [routerLink]="['/projects', projectId(), 'planning']">Planning</a>
         <a [routerLink]="['/projects', projectId(), 'settings']">Settings</a>
         @if (!isArchivedProject()) {
           <a [routerLink]="['/projects', projectId(), 'work-items', 'new']">Create work item</a>
