@@ -34,6 +34,72 @@ async function expectNoPageOverflow(page: Page): Promise<void> {
     .toBeLessThanOrEqual(1);
 }
 
+test('completes the v0.0.4 workspace governance workflow', async ({ page }) => {
+  test.setTimeout(90_000);
+
+  const suffix = Date.now().toString(36).slice(-5).toUpperCase();
+  const memberName = `E2E Governance ${suffix}`;
+  const memberEmail = `governance-${suffix.toLowerCase()}@example.com`;
+  const projectKey = `E2E${suffix}`.slice(0, 8);
+  const projectName = `E2E Governance Project ${suffix}`;
+
+  await page.goto('/workspace/settings');
+  await expect(page.getByRole('heading', { name: 'Worktrail Demo' })).toBeVisible();
+  await expect(page.getByText('Avery Owner is acting as owner.')).toBeVisible();
+
+  await page.locator('#member-name').fill(memberName);
+  await page.locator('#member-email').fill(memberEmail);
+  await page.locator('#member-role').selectOption('contributor');
+  await page.getByRole('button', { name: 'Create member' }).click();
+  await expect(page.getByText('Member created.')).toBeVisible();
+  await expect(page.getByRole('row', { name: new RegExp(memberName) })).toBeVisible();
+  await expect(page.locator('#current-member')).toContainText(`${memberName} · contributor`);
+
+  const memberRow = page.getByRole('row', { name: new RegExp(memberName) });
+  await memberRow.locator('select').selectOption('maintainer');
+  await memberRow.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('Member saved.')).toBeVisible();
+  await expect(page.locator('#current-member')).toContainText(`${memberName} · maintainer`);
+
+  await page.locator('#current-member').selectOption({ label: `${memberName} · maintainer` });
+  await page.goto('/projects');
+  await expect(page.getByRole('heading', { name: 'Project workspace' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Create project' })).toBeEnabled();
+  await expect(page.getByText('Owners and maintainers can create projects.')).toHaveCount(0);
+
+  await page.locator('#project-key').fill(projectKey);
+  await page.locator('#project-name').fill(projectName);
+  await page.locator('#project-description').fill('Created by the v0.0.4 governance smoke test.');
+  await page.getByRole('button', { name: 'Create project' }).click();
+  await expect(page.getByText('Project created.')).toBeVisible();
+  await expect(page.getByRole('link', { name: projectName })).toBeVisible();
+  await expect(page.getByText(projectKey)).toBeVisible();
+
+  await page.locator('#current-member').selectOption({ label: 'Avery Owner · owner' });
+  await page.goto('/workspace/settings');
+  await expect(page.getByText('Avery Owner is acting as owner.')).toBeVisible();
+
+  const promotedMemberRow = page.getByRole('row', { name: new RegExp(memberName) });
+  await promotedMemberRow.getByRole('button', { name: 'Deactivate' }).click();
+  await promotedMemberRow.getByRole('button', { name: 'Confirm' }).click();
+  await expect(page.getByText('Member deactivated.')).toBeVisible();
+  await expect(page.locator('#current-member')).not.toContainText(memberName);
+
+  const deactivatedMemberRow = page.getByRole('row', { name: new RegExp(memberName) });
+  await expect(deactivatedMemberRow.getByText('Inactive')).toBeVisible();
+  await deactivatedMemberRow.getByRole('button', { name: 'Reactivate' }).click();
+  await deactivatedMemberRow.getByRole('button', { name: 'Confirm' }).click();
+  await expect(page.getByText('Member reactivated.')).toBeVisible();
+  await expect(page.locator('#current-member')).toContainText(`${memberName} · maintainer`);
+
+  await expect(page.getByText(`${memberName} added to the workspace as contributor.`)).toBeVisible();
+  await expect(
+    page.getByText(`${memberName} role changed from contributor to maintainer.`)
+  ).toBeVisible();
+  await expect(page.getByText(`${memberName} deactivated.`)).toBeVisible();
+  await expect(page.getByText(`${memberName} reactivated.`)).toBeVisible();
+});
+
 test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => {
   test.setTimeout(90_000);
 
@@ -194,6 +260,8 @@ test('keeps v0.0.3 core pages usable at common desktop widths', async ({ page })
   test.setTimeout(60_000);
 
   const checks = [
+    '/projects',
+    '/workspace/settings',
     `/projects/${demoProjectId}/planning`,
     `/projects/${demoProjectId}/work-items`,
     `/projects/${demoProjectId}/board`,

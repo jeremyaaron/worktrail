@@ -1,6 +1,6 @@
 {
   "name": "@worktrail/api",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "private": true,
   "type": "module",
   "main": "dist/main.js",
@@ -16,7 +16,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@worktrail/contracts": "0.0.3",
+    "@worktrail/contracts": "0.0.4",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.2",

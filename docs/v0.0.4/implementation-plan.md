@@ -922,6 +922,26 @@ npm run build
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Extended the Playwright smoke suite with a v0.0.4 workspace governance path:
+  - open workspace settings as the seeded owner;
+  - create a contributor;
+  - confirm the new active member appears in the global actor selector;
+  - promote the member to maintainer;
+  - switch to the maintainer and confirm project creation is available;
+  - create a project with an explicit key;
+  - switch back to owner;
+  - deactivate and reactivate the member through the confirmation flow;
+  - verify workspace activity entries for create, role change, deactivation, and reactivation.
+- Kept the existing v0.0.3 planning/adoption smoke path in the same suite.
+- Expanded responsive overflow checks to cover projects, workspace settings, planning, work item list, board, work item create, and work item detail at 1440px and 1024px desktop widths.
+- Restored the local database to deterministic seed data after e2e mutation.
+- Verified `npm run test:e2e`.
+- Verified `npm run build`.
+- Verified `npm run db:reset && npm run db:migrate && npm run db:seed`.
+
 ## Phase 13: Documentation, Site, Extraction Notes, And Release Finalization
 
 Goal: prepare v0.0.4 for merge and release.
@@ -972,3 +992,26 @@ npm audit --omit=dev --audit-level=low
 git diff --check
 git status --short --branch
 ```
+
+Status:
+
+- Completed 2026-07-04.
+- Updated `README.md` for v0.0.4 capabilities, limitations, local actor caveats, demo walkthrough, repository layout, seeded data, and database notes.
+- Updated the static product site for workspace governance, member administration, permission transparency, workspace activity, project creation polish, lazy route splitting, and current v0.0.4 scope.
+- Added `docs/v0.0.4/jawstack-extraction-notes.md` covering member lifecycle, server-derived actor context, capability-aware UI, historical identity display, workspace activity, permission copy alignment, route-level code splitting, e2e governance smoke coverage, and cloud deployment implications.
+- Updated root and workspace package metadata to `0.0.4`, including the API package dependency on `@worktrail/contracts@0.0.4`.
+- Did not publish npm packages or create a release tag; both remain explicit release operations outside this phase.
+- No production build budget warnings remain. The production Angular initial bundle is 342.04 kB raw and 94.38 kB estimated transfer after lazy-loading route components.
+- Restored the local database to deterministic seed data after e2e mutation.
+
+Verification:
+
+- Verified `npm run db:reset`.
+- Verified `npm run db:migrate`.
+- Verified `npm run db:seed`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `npm run test:e2e`.
+- Verified `npm run build`.
+- Verified `npm audit --omit=dev --audit-level=low` with 0 production vulnerabilities.
+- Verified `git diff --check && git diff --cached --check`.
