@@ -21,6 +21,13 @@ import {
 } from '../../endpoints/labels.js';
 import { listMembersHandler } from '../../endpoints/members.js';
 import {
+  archiveMilestoneHandler,
+  createMilestoneHandler,
+  listProjectMilestonesHandler,
+  reactivateMilestoneHandler,
+  updateMilestoneHandler
+} from '../../endpoints/milestones.js';
+import {
   archiveProjectHandler,
   createProjectHandler,
   getProjectHandler,
@@ -89,6 +96,14 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
       '/api/projects/:projectId/labels',
       adaptEndpoint(createLabelHandler({ repositories: options.repositories, db: options.db }))
     );
+    app.get(
+      '/api/projects/:projectId/milestones',
+      adaptEndpoint(listProjectMilestonesHandler({ repositories: options.repositories, db: options.db }))
+    );
+    app.post(
+      '/api/projects/:projectId/milestones',
+      adaptEndpoint(createMilestoneHandler({ repositories: options.repositories, db: options.db }))
+    );
     app.post(
       '/api/projects/:projectId/archive',
       adaptEndpoint(archiveProjectHandler(options.repositories))
@@ -135,13 +150,25 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
       '/api/labels/:labelId',
       adaptEndpoint(updateLabelHandler({ repositories: options.repositories, db: options.db }))
     );
+    app.patch(
+      '/api/milestones/:milestoneId',
+      adaptEndpoint(updateMilestoneHandler({ repositories: options.repositories, db: options.db }))
+    );
     app.post(
       '/api/labels/:labelId/archive',
       adaptEndpoint(archiveLabelHandler({ repositories: options.repositories, db: options.db }))
     );
     app.post(
+      '/api/milestones/:milestoneId/archive',
+      adaptEndpoint(archiveMilestoneHandler({ repositories: options.repositories, db: options.db }))
+    );
+    app.post(
       '/api/labels/:labelId/reactivate',
       adaptEndpoint(reactivateLabelHandler({ repositories: options.repositories, db: options.db }))
+    );
+    app.post(
+      '/api/milestones/:milestoneId/reactivate',
+      adaptEndpoint(reactivateMilestoneHandler({ repositories: options.repositories, db: options.db }))
     );
   }
 

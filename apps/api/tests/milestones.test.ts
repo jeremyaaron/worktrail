@@ -56,7 +56,7 @@ async function createFixture(role: 'owner' | 'maintainer' | 'contributor' = 'own
 
   await repositories.workspaces.create({
     id: workspaceId,
-    name: 'Label Test Workspace',
+    name: 'Milestone Test Workspace',
     createdAt: timestamp,
     updatedAt: timestamp
   });
@@ -64,7 +64,7 @@ async function createFixture(role: 'owner' | 'maintainer' | 'contributor' = 'own
   await repositories.members.create({
     id: actorId,
     workspaceId,
-    name: 'Label API Actor',
+    name: 'Milestone API Actor',
     email: `${actorId}@example.com`,
     role,
     isActive: true,
@@ -75,10 +75,10 @@ async function createFixture(role: 'owner' | 'maintainer' | 'contributor' = 'own
   await repositories.projects.create({
     id: projectId,
     workspaceId,
-    key: 'LB',
-    nextWorkItemNumber: 2,
-    name: 'Label Test Project',
-    description: 'Project for label endpoint tests.',
+    key: 'MS',
+    nextWorkItemNumber: 1,
+    name: 'Milestone Test Project',
+    description: 'Project for milestone endpoint tests.',
     status: 'active',
     createdAt: timestamp,
     updatedAt: timestamp
@@ -108,26 +108,30 @@ afterAll(async () => {
   await pool.end();
 });
 
-describe('labels API', () => {
-  it('lists active labels by default and archived labels when requested', async () => {
+describe('milestones API', () => {
+  it('lists active milestones by default and supports archived/status filters', async () => {
     const fixture = await createFixture();
-    const activeLabel = await repositories.labels.create({
+    const planned = await repositories.milestones.create({
       id: randomUUID(),
       workspaceId: fixture.workspaceId,
       projectId: fixture.projectId,
-      name: 'backend',
-      color: '#059669',
+      name: 'v0.0.3',
+      description: 'Next planning target.',
+      status: 'planned',
+      targetDate: '2026-07-18',
       archivedAt: null,
       archivedById: null,
       createdAt: now(),
       updatedAt: now()
     });
-    const archivedLabel = await repositories.labels.create({
+    const archived = await repositories.milestones.create({
       id: randomUUID(),
       workspaceId: fixture.workspaceId,
       projectId: fixture.projectId,
-      name: 'deprecated',
-      color: '#64748b',
+      name: 'legacy target',
+      description: '',
+      status: 'canceled',
+      targetDate: null,
       archivedAt: now(),
       archivedById: fixture.actorId,
       createdAt: now(),
@@ -135,63 +139,83 @@ describe('labels API', () => {
     });
 
     await request(app)
-      .get(`/api/projects/${fixture.projectId}/labels`)
+      .get(`/api/projects/${fixture.projectId}/milestones`)
       .set(fixture.headers)
       .expect(200)
       .expect(({ body }) => {
         expect(body).toEqual([
-          {
-            id: activeLabel.id,
-            name: 'backend',
-            color: '#059669',
+          expect.objectContaining({
+            id: planned.id,
+            name: 'v0.0.3',
+            status: 'planned',
+            targetDate: '2026-07-18',
             isArchived: false,
             archivedAt: null
-          }
+          })
         ]);
       });
 
     await request(app)
-      .get(`/api/projects/${fixture.projectId}/labels`)
-      .query({ includeArchived: 'true' })
+      .get(`/api/projects/${fixture.projectId}/milestones`)
+      .query({ includeArchived: 'true', status: 'canceled' })
       .set(fixture.headers)
       .expect(200)
       .expect(({ body }) => {
-        expect(body).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({ id: activeLabel.id, isArchived: false }),
-            expect.objectContaining({ id: archivedLabel.id, isArchived: true })
-          ])
-        );
+        expect(body).toEqual([
+          expect.objectContaining({
+            id: archived.id,
+            name: 'legacy target',
+            status: 'canceled',
+            isArchived: true
+          })
+        ]);
       });
   });
 
-  it('creates, updates, archives, and reactivates labels with activity', async () => {
-    const fixture = await createFixture();
+  it('creates, updates, archives, and reactivates milestones with activity', async () => {
+    const fixture = await createFixture('maintainer');
 
     const createResponse = await request(app)
-      .post(`/api/projects/${fixture.projectId}/labels`)
+      .post(`/api/projects/${fixture.projectId}/milestones`)
       .set(fixture.headers)
-      .send({ name: 'backend', color: '#059669' })
+      .send({
+        name: 'v0.0.3',
+        description: 'Planning release.',
+        status: 'planned',
+        targetDate: '2026-07-18'
+      })
       .expect(201);
 
     expect(createResponse.body).toMatchObject({
-      name: 'backend',
-      color: '#059669',
+      name: 'v0.0.3',
+      description: 'Planning release.',
+      status: 'planned',
+      targetDate: '2026-07-18',
       isArchived: false,
       archivedAt: null
     });
 
     await request(app)
-      .patch(`/api/labels/${createResponse.body.id}`)
+      .patch(`/api/milestones/${createResponse.body.id}`)
       .set(fixture.headers)
-      .send({ name: 'api', color: null })
+      .send({
+        name: 'v0.0.3 Planning',
+        description: 'Planning and ordering release.',
+        status: 'active',
+        targetDate: '2026-07-19'
+      })
       .expect(200)
       .expect(({ body }) => {
-        expect(body).toMatchObject({ name: 'api', color: null });
+        expect(body).toMatchObject({
+          name: 'v0.0.3 Planning',
+          description: 'Planning and ordering release.',
+          status: 'active',
+          targetDate: '2026-07-19'
+        });
       });
 
     await request(app)
-      .post(`/api/labels/${createResponse.body.id}/archive`)
+      .post(`/api/milestones/${createResponse.body.id}/archive`)
       .set(fixture.headers)
       .expect(200)
       .expect(({ body }) => {
@@ -200,42 +224,41 @@ describe('labels API', () => {
       });
 
     await request(app)
-      .get(`/api/projects/${fixture.projectId}/labels`)
+      .post(`/api/milestones/${createResponse.body.id}/reactivate`)
       .set(fixture.headers)
       .expect(200)
       .expect(({ body }) => {
-        expect(body).toEqual([]);
-      });
-
-    await request(app)
-      .post(`/api/labels/${createResponse.body.id}/reactivate`)
-      .set(fixture.headers)
-      .expect(200)
-      .expect(({ body }) => {
-        expect(body).toMatchObject({ name: 'api', isArchived: false, archivedAt: null });
+        expect(body).toMatchObject({
+          name: 'v0.0.3 Planning',
+          isArchived: false,
+          archivedAt: null
+        });
       });
 
     const activity = await repositories.activityEvents.findByProject(fixture.projectId);
     expect(activity.map((event) => event.eventType)).toEqual(
       expect.arrayContaining([
-        'label.created',
-        'label.name_changed',
-        'label.color_changed',
-        'label.archived',
-        'label.reactivated'
+        'milestone.created',
+        'milestone.name_changed',
+        'milestone.description_changed',
+        'milestone.status_changed',
+        'milestone.target_date_changed',
+        'milestone.archived',
+        'milestone.reactivated'
       ])
     );
   });
 
-  it('rejects duplicate active label names and reactivation conflicts', async () => {
+  it('rejects duplicate active milestone names and reactivation conflicts', async () => {
     const fixture = await createFixture();
-
-    const archivedLabel = await repositories.labels.create({
+    const archivedMilestone = await repositories.milestones.create({
       id: randomUUID(),
       workspaceId: fixture.workspaceId,
       projectId: fixture.projectId,
-      name: 'backend',
-      color: '#64748b',
+      name: 'v0.0.3',
+      description: '',
+      status: 'planned',
+      targetDate: null,
       archivedAt: now(),
       archivedById: fixture.actorId,
       createdAt: now(),
@@ -243,22 +266,22 @@ describe('labels API', () => {
     });
 
     await request(app)
-      .post(`/api/projects/${fixture.projectId}/labels`)
+      .post(`/api/projects/${fixture.projectId}/milestones`)
       .set(fixture.headers)
-      .send({ name: 'Backend', color: '#059669' })
+      .send({ name: 'V0.0.3', status: 'active' })
       .expect(201);
 
     await request(app)
-      .post(`/api/projects/${fixture.projectId}/labels`)
+      .post(`/api/projects/${fixture.projectId}/milestones`)
       .set(fixture.headers)
-      .send({ name: 'backend', color: '#2563eb' })
+      .send({ name: 'v0.0.3', status: 'planned' })
       .expect(409)
       .expect(({ body }) => {
         expect(body.error.code).toBe('CONFLICT');
       });
 
     await request(app)
-      .post(`/api/labels/${archivedLabel.id}/reactivate`)
+      .post(`/api/milestones/${archivedMilestone.id}/reactivate`)
       .set(fixture.headers)
       .expect(409)
       .expect(({ body }) => {
@@ -266,14 +289,51 @@ describe('labels API', () => {
       });
   });
 
-  it('rejects label writes under archived projects', async () => {
-    const fixture = await createFixture();
-    const label = await repositories.labels.create({
+  it('allows contributors to read milestones but rejects milestone writes', async () => {
+    const fixture = await createFixture('contributor');
+
+    await repositories.milestones.create({
       id: randomUUID(),
       workspaceId: fixture.workspaceId,
       projectId: fixture.projectId,
-      name: 'backend',
-      color: '#059669',
+      name: 'Readable target',
+      description: '',
+      status: 'active',
+      targetDate: null,
+      archivedAt: null,
+      archivedById: null,
+      createdAt: now(),
+      updatedAt: now()
+    });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/milestones`)
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toHaveLength(1);
+      });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/milestones`)
+      .set(fixture.headers)
+      .send({ name: 'Rejected target' })
+      .expect(403)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('FORBIDDEN');
+      });
+  });
+
+  it('rejects milestone writes under archived projects', async () => {
+    const fixture = await createFixture();
+    const milestone = await repositories.milestones.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      projectId: fixture.projectId,
+      name: 'v0.0.3',
+      description: '',
+      status: 'planned',
+      targetDate: null,
       archivedAt: null,
       archivedById: null,
       createdAt: now(),
@@ -286,82 +346,20 @@ describe('labels API', () => {
     });
 
     await request(app)
-      .post(`/api/projects/${fixture.projectId}/labels`)
+      .post(`/api/projects/${fixture.projectId}/milestones`)
       .set(fixture.headers)
-      .send({ name: 'frontend', color: '#2563eb' })
+      .send({ name: 'Blocked target' })
       .expect(409);
 
     await request(app)
-      .patch(`/api/labels/${label.id}`)
+      .patch(`/api/milestones/${milestone.id}`)
       .set(fixture.headers)
-      .send({ name: 'api' })
+      .send({ name: 'Blocked rename' })
       .expect(409);
 
-    await request(app).post(`/api/labels/${label.id}/archive`).set(fixture.headers).expect(409);
-  });
-
-  it('keeps archived labels attached but rejects archived label assignment', async () => {
-    const fixture = await createFixture();
-    const label = await repositories.labels.create({
-      id: randomUUID(),
-      workspaceId: fixture.workspaceId,
-      projectId: fixture.projectId,
-      name: 'legacy',
-      color: '#64748b',
-      archivedAt: null,
-      archivedById: null,
-      createdAt: now(),
-      updatedAt: now()
-    });
-    const workItem = await repositories.workItems.create({
-      id: randomUUID(),
-      workspaceId: fixture.workspaceId,
-      projectId: fixture.projectId,
-      itemNumber: 1,
-      displayKey: 'LB-1',
-      title: 'Existing labeled work item',
-      description: '',
-      type: 'task',
-      status: 'ready',
-      priority: 'medium',
-      assigneeId: fixture.actorId,
-      reporterId: fixture.actorId,
-      dueDate: null,
-      estimatePoints: null,
-      createdAt: now(),
-      updatedAt: now()
-    });
-
-    await repositories.labels.replaceForWorkItem(workItem.id, [label.id]);
-
-    await request(app).post(`/api/labels/${label.id}/archive`).set(fixture.headers).expect(200);
-
     await request(app)
-      .get(`/api/work-items/${workItem.id}`)
+      .post(`/api/milestones/${milestone.id}/archive`)
       .set(fixture.headers)
-      .expect(200)
-      .expect(({ body }) => {
-        expect(body.labels).toEqual([
-          expect.objectContaining({
-            id: label.id,
-            name: 'legacy',
-            isArchived: true
-          })
-        ]);
-      });
-
-    await request(app)
-      .post(`/api/projects/${fixture.projectId}/work-items`)
-      .set(fixture.headers)
-      .send({
-        title: 'Rejected archived label assignment',
-        type: 'task',
-        priority: 'medium',
-        labelIds: [label.id]
-      })
-      .expect(400)
-      .expect(({ body }) => {
-        expect(body.error.code).toBe('VALIDATION_ERROR');
-      });
+      .expect(409);
   });
 });

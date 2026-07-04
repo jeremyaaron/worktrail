@@ -210,6 +210,36 @@ npm test --workspace @worktrail/api -- milestones
 npm run typecheck --workspace @worktrail/api
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Added `MilestoneRepository` with create, find, list, active-name lookup, update, archive, and reactivate helpers.
+- Added milestone repository wiring to the shared repository factory and transaction helper path.
+- Added milestone management permission helper, currently mapped to owner/maintainer project management rights.
+- Added `MilestoneService` with:
+  - project/workspace validation;
+  - owner/maintainer write enforcement;
+  - contributor read support through list behavior;
+  - archived-project write blocking;
+  - active milestone name uniqueness;
+  - lifecycle activity for create, name/description/status/target-date changes, archive, and reactivate.
+- Added milestone endpoint handlers and validation for:
+  - `GET /api/projects/:projectId/milestones`;
+  - `POST /api/projects/:projectId/milestones`;
+  - `PATCH /api/milestones/:milestoneId`;
+  - `POST /api/milestones/:milestoneId/archive`;
+  - `POST /api/milestones/:milestoneId/reactivate`.
+- Added Express route wiring for milestone project routes and milestone command routes.
+- Added milestone API tests for listing, filters, create/update/archive/reactivate, activity, duplicate-name conflicts, contributor write rejection, and archived-project write rejection.
+- Updated API test cleanup paths to delete `milestones` before deleting projects.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm test --workspace @worktrail/api -- milestones`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `npm run build`.
+- Verified `git diff --check`.
+
 ## Phase 3: Work Item Milestone Assignment And Discovery Backend
 
 Goal: connect milestones to work items and extend list query behavior.

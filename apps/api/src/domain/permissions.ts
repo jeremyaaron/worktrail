@@ -12,6 +12,10 @@ export function canReactivateProject(actor: ActorContext): boolean {
   return canManageProject(actor);
 }
 
+export function canManageMilestones(actor: ActorContext): boolean {
+  return canManageProject(actor);
+}
+
 export function canReopenTerminalWorkItem(actor: ActorContext): boolean {
   return actor.role === 'owner' || actor.role === 'maintainer';
 }
@@ -27,4 +31,3 @@ export function canUpdateAssignedWorkItem(input: {
 
   return input.assigneeId === input.actor.memberId && !input.isTerminal;
 }
-

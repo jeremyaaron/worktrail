@@ -3,6 +3,7 @@ import { createActivityEventRepository } from './activity-event-repository.js';
 import { createCommentRepository } from './comment-repository.js';
 import { createLabelRepository } from './label-repository.js';
 import { createMemberRepository } from './member-repository.js';
+import { createMilestoneRepository } from './milestone-repository.js';
 import { createProjectRepository } from './project-repository.js';
 import { createWorkItemRepository } from './work-item-repository.js';
 import { createWorkspaceRepository } from './workspace-repository.js';
@@ -12,6 +13,7 @@ export function createRepositories(db: WorktrailDb) {
     workspaces: createWorkspaceRepository(db),
     members: createMemberRepository(db),
     projects: createProjectRepository(db),
+    milestones: createMilestoneRepository(db),
     workItems: createWorkItemRepository(db),
     labels: createLabelRepository(db),
     comments: createCommentRepository(db),
@@ -27,4 +29,3 @@ export async function withRepositoriesTransaction<T>(
 ): Promise<T> {
   return db.transaction((tx) => callback(createRepositories(tx as unknown as WorktrailDb)));
 }
-
