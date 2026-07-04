@@ -1,3 +1,9 @@
+import {
+  CdkDrag,
+  type CdkDragDrop,
+  CdkDragHandle,
+  CdkDropList
+} from '@angular/cdk/drag-drop';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type { ProjectDto, WorkItemListItemDto, WorkItemStatus } from '@worktrail/contracts';
@@ -18,7 +24,15 @@ const statuses: WorkItemStatus[] = [
 
 @Component({
   selector: 'app-work-item-board-page',
-  imports: [EmptyStateComponent, ErrorPanelComponent, LoadingIndicatorComponent, RouterLink],
+  imports: [
+    CdkDrag,
+    CdkDragHandle,
+    CdkDropList,
+    EmptyStateComponent,
+    ErrorPanelComponent,
+    LoadingIndicatorComponent,
+    RouterLink
+  ],
   template: `
     <section class="page-header">
       <div>
@@ -64,17 +78,41 @@ const statuses: WorkItemStatus[] = [
               <span>{{ itemsByStatus().get(status)?.length ?? 0 }}</span>
             </header>
 
-            @if ((itemsByStatus().get(status)?.length ?? 0) === 0) {
-              <app-empty-state
-                title="No cards"
-                message="Work items in this status will appear here."
-              />
-            } @else {
-              <div class="card-stack">
+            <div
+              class="card-stack"
+              cdkDropList
+              [id]="dropListId(status)"
+              [cdkDropListData]="status"
+              [cdkDropListConnectedTo]="dropListIds()"
+              [cdkDropListDisabled]="isArchivedProject()"
+              (cdkDropListDropped)="dropCard($event)"
+            >
+              @if ((itemsByStatus().get(status)?.length ?? 0) === 0) {
+                <app-empty-state
+                  title="No cards"
+                  message="Work items in this status will appear here."
+                />
+              } @else {
                 @for (item of itemsByStatus().get(status) ?? []; track item.id) {
-                  <article class="work-card">
+                  <article
+                    class="work-card"
+                    cdkDrag
+                    [cdkDragData]="item"
+                    [cdkDragDisabled]="isArchivedProject() || transitioningWorkItemId() === item.id"
+                  >
                     <div class="work-card__heading">
-                      <span class="work-key">{{ item.displayKey }}</span>
+                      <div class="work-card__controls">
+                        <span class="work-key">{{ item.displayKey }}</span>
+                        <button
+                          type="button"
+                          class="drag-handle"
+                          cdkDragHandle
+                          [disabled]="isArchivedProject() || transitioningWorkItemId() === item.id"
+                          [attr.aria-label]="'Drag ' + item.displayKey"
+                        >
+                          Move
+                        </button>
+                      </div>
                       <a [routerLink]="['/work-items', item.id]">{{ item.title }}</a>
                       <span class="priority-pill" [attr.data-priority]="item.priority">
                         {{ formatToken(item.priority) }}
@@ -112,8 +150,8 @@ const statuses: WorkItemStatus[] = [
                     </label>
                   </article>
                 }
-              </div>
-            }
+              }
+            </div>
           </section>
         }
       </section>
@@ -246,6 +284,7 @@ const statuses: WorkItemStatus[] = [
     .card-stack {
       display: grid;
       gap: 10px;
+      min-height: 142px;
     }
 
     .work-card {
@@ -257,9 +296,38 @@ const statuses: WorkItemStatus[] = [
       background: #ffffff;
     }
 
+    .work-card.cdk-drag-disabled {
+      cursor: default;
+    }
+
+    .cdk-drag-preview {
+      box-sizing: border-box;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      box-shadow: 0 14px 28px rgb(15 23 42 / 18%);
+      background: #ffffff;
+    }
+
+    .cdk-drag-placeholder {
+      border: 1px dashed #93c5fd;
+      background: #eff6ff;
+      opacity: 0.72;
+    }
+
+    .cdk-drop-list-dragging .work-card:not(.cdk-drag-placeholder) {
+      transition: transform 150ms ease;
+    }
+
     .work-card__heading {
       display: grid;
       gap: 6px;
+    }
+
+    .work-card__controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
     }
 
     .work-key {
@@ -280,6 +348,28 @@ const statuses: WorkItemStatus[] = [
       line-height: 1.35;
       overflow-wrap: anywhere;
       text-decoration: none;
+    }
+
+    .drag-handle {
+      min-height: 26px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 3px 8px;
+      background: #ffffff;
+      color: #475569;
+      font: inherit;
+      font-size: 0.6875rem;
+      font-weight: 900;
+      cursor: grab;
+    }
+
+    .drag-handle:active {
+      cursor: grabbing;
+    }
+
+    .drag-handle:disabled {
+      cursor: not-allowed;
+      opacity: 0.64;
     }
 
     .priority-pill,
@@ -395,6 +485,7 @@ export class WorkItemBoardPageComponent implements OnInit {
   readonly transitionError = signal<string | null>(null);
   readonly transitioningWorkItemId = signal<string | null>(null);
   readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
+  readonly dropListIds = computed(() => statuses.map((status) => this.dropListId(status)));
 
   readonly itemsByStatus = computed(() => {
     const grouped = new Map<WorkItemStatus, WorkItemListItemDto[]>();
@@ -455,6 +546,37 @@ export class WorkItemBoardPageComponent implements OnInit {
       return;
     }
 
+    this.transitionItem(item, status, {
+      onError: () => {
+        select.value = item.status;
+      }
+    });
+  }
+
+  dropCard(event: CdkDragDrop<WorkItemStatus, WorkItemStatus, WorkItemListItemDto>): void {
+    const item = event.item.data;
+    const status = event.container.data;
+
+    if (this.isArchivedProject() || event.previousContainer === event.container || item.status === status) {
+      return;
+    }
+
+    this.transitionItem(item, status);
+  }
+
+  dropListId(status: WorkItemStatus): string {
+    return `board-column-${status}`;
+  }
+
+  formatToken(value: string): string {
+    return value.replaceAll('_', ' ');
+  }
+
+  private transitionItem(
+    item: WorkItemListItemDto,
+    status: WorkItemStatus,
+    options: { onError?: () => void } = {}
+  ): void {
     this.transitionError.set(null);
     this.transitioningWorkItemId.set(item.id);
 
@@ -464,14 +586,10 @@ export class WorkItemBoardPageComponent implements OnInit {
         this.loadWorkItems();
       },
       error: () => {
-        select.value = item.status;
+        options.onError?.();
         this.transitionError.set('The requested status transition was rejected.');
         this.transitioningWorkItemId.set(null);
       }
     });
-  }
-
-  formatToken(value: string): string {
-    return value.replaceAll('_', ' ');
   }
 }

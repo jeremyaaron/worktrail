@@ -107,12 +107,14 @@ function seedCurrentUser() {
   currentUser.selectMember(owner.id);
 }
 
-function setup() {
+function setup(input: { workItem?: WorkItemDetailDto; project?: ProjectDto } = {}) {
   const fixture = TestBed.createComponent(WorkItemDetailPageComponent);
   const http = TestBed.inject(HttpTestingController);
+  const workItem = input.workItem ?? detail;
+  const project = input.project ?? activeProject;
   fixture.detectChanges();
-  http.expectOne(`/api/work-items/${workItemId}`).flush(detail);
-  http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+  http.expectOne(`/api/work-items/${workItemId}`).flush(workItem);
+  http.expectOne(`/api/projects/${projectId}`).flush(project);
   http.expectOne(`/api/projects/${projectId}/labels`).flush([
     { id: frontendLabelId, name: 'frontend', color: '#2563eb', isArchived: false, archivedAt: null },
     { id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }
@@ -157,6 +159,185 @@ describe('WorkItemDetailPageComponent', () => {
     expect(compiled.textContent).toContain('backend');
     expect(compiled.textContent).toContain('Initial implementation note.');
     expect(compiled.textContent).toContain('Avery Owner created this work item.');
+  });
+
+  it('edits a comment inline and refreshes activity', () => {
+    const { fixture, http } = setup();
+    const comment = detail.comments[0];
+
+    fixture.componentInstance.startEditComment(comment);
+    fixture.detectChanges();
+    fixture.componentInstance.editCommentForm.setValue({ body: 'Updated implementation note.' });
+    fixture.componentInstance.saveComment(comment);
+
+    const update = http.expectOne(`/api/comments/${comment.id}`);
+    expect(update.request.method).toBe('PATCH');
+    expect(update.request.body).toEqual({ body: 'Updated implementation note.' });
+    update.flush({
+      ...comment,
+      body: 'Updated implementation note.',
+      isEdited: true,
+      editedAt: '2026-07-03T13:00:00.000Z',
+      updatedAt: '2026-07-03T13:00:00.000Z'
+    });
+
+    const refresh = http.expectOne(`/api/work-items/${workItemId}`);
+    refresh.flush({
+      ...detail,
+      comments: [
+        {
+          ...comment,
+          body: 'Updated implementation note.',
+          isEdited: true,
+          editedAt: '2026-07-03T13:00:00.000Z',
+          updatedAt: '2026-07-03T13:00:00.000Z'
+        }
+      ],
+      activity: [
+        {
+          id: '10000000-0000-4000-8000-000000000603',
+          workspaceId: owner.workspaceId,
+          projectId,
+          workItemId,
+          actor: owner,
+          eventType: 'comment.edited',
+          summary: 'Comment edited.',
+          previousValue: null,
+          newValue: null,
+          metadata: { commentId: comment.id },
+          createdAt: '2026-07-03T13:00:00.000Z'
+        },
+        ...detail.activity
+      ]
+    } satisfies WorkItemDetailDto);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Updated implementation note.');
+    expect(compiled.textContent).toContain('Edited');
+    expect(compiled.textContent).toContain('Comment edited.');
+    expect(fixture.componentInstance.editingCommentId()).toBeNull();
+  });
+
+  it('deletes a comment after confirmation and renders the tombstone', () => {
+    const { fixture, http } = setup();
+    const comment = detail.comments[0];
+
+    fixture.componentInstance.confirmDeleteComment(comment);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Delete this comment?');
+
+    fixture.componentInstance.deleteComment(comment);
+
+    const request = http.expectOne(`/api/comments/${comment.id}`);
+    expect(request.request.method).toBe('DELETE');
+    request.flush({
+      ...comment,
+      body: '',
+      isDeleted: true,
+      deletedAt: '2026-07-03T13:15:00.000Z',
+      deletedBy: owner,
+      updatedAt: '2026-07-03T13:15:00.000Z'
+    });
+
+    const refresh = http.expectOne(`/api/work-items/${workItemId}`);
+    refresh.flush({
+      ...detail,
+      comments: [
+        {
+          ...comment,
+          body: '',
+          isDeleted: true,
+          deletedAt: '2026-07-03T13:15:00.000Z',
+          deletedBy: owner,
+          updatedAt: '2026-07-03T13:15:00.000Z'
+        }
+      ],
+      activity: [
+        {
+          id: '10000000-0000-4000-8000-000000000604',
+          workspaceId: owner.workspaceId,
+          projectId,
+          workItemId,
+          actor: owner,
+          eventType: 'comment.deleted',
+          summary: 'Comment deleted.',
+          previousValue: null,
+          newValue: null,
+          metadata: { commentId: comment.id },
+          createdAt: '2026-07-03T13:15:00.000Z'
+        },
+        ...detail.activity
+      ]
+    } satisfies WorkItemDetailDto);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Comment deleted by Avery Owner');
+    expect(compiled.textContent).toContain('Comment deleted.');
+    expect(fixture.componentInstance.confirmingDeleteCommentId()).toBeNull();
+  });
+
+  it('renders deleted comment tombstones from loaded detail', () => {
+    const deletedDetail: WorkItemDetailDto = {
+      ...detail,
+      comments: [
+        {
+          ...detail.comments[0],
+          body: '',
+          isDeleted: true,
+          deletedAt: '2026-07-03T13:15:00.000Z',
+          deletedBy: contributor,
+          updatedAt: '2026-07-03T13:15:00.000Z'
+        }
+      ]
+    };
+    const { fixture } = setup({ workItem: deletedDetail });
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(compiled.textContent).toContain('Comment deleted by Case Contributor');
+    expect(compiled.textContent).not.toContain('Initial implementation note.');
+    expect(fixture.componentInstance.canModifyComment(deletedDetail.comments[0])).toBeFalse();
+  });
+
+  it('hides comment edit and delete actions when the local actor cannot modify the comment', () => {
+    TestBed.inject(CurrentUserService).selectMember(contributor.id);
+    const { fixture } = setup();
+    const compiled = fixture.nativeElement as HTMLElement;
+    const buttonLabels = Array.from(compiled.querySelectorAll('button')).map((button) =>
+      button.textContent?.trim()
+    );
+
+    expect(fixture.componentInstance.canModifyComment(detail.comments[0])).toBeFalse();
+    expect(buttonLabels).not.toContain('Edit');
+    expect(buttonLabels).not.toContain('Delete');
+  });
+
+  it('shows a recoverable error when comment edit is rejected', () => {
+    const { fixture, http } = setup();
+    const comment = detail.comments[0];
+
+    fixture.componentInstance.startEditComment(comment);
+    fixture.componentInstance.editCommentForm.setValue({ body: 'Rejected update.' });
+    fixture.componentInstance.saveComment(comment);
+
+    const update = http.expectOne(`/api/comments/${comment.id}`);
+    update.flush(
+      { error: { code: 'FORBIDDEN', message: 'Rejected.' } },
+      { status: 403, statusText: 'Forbidden' }
+    );
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('The comment could not be updated.');
+
+    fixture.componentInstance.clearCommentMutationError();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain(
+      'The comment could not be updated.'
+    );
   });
 
   it('updates editable fields and project labels through the patch endpoint', () => {

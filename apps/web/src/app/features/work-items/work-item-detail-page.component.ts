@@ -238,13 +238,87 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
               @for (comment of item.comments; track comment.id) {
                 <article class="comment">
                   <header>
-                    <strong>{{ comment.author.name }}</strong>
+                    <div>
+                      <strong>{{ comment.author.name }}</strong>
+                      @if (comment.isEdited && comment.editedAt !== null && !comment.isDeleted) {
+                        <span class="comment-marker">Edited {{ formatDateTime(comment.editedAt) }}</span>
+                      }
+                    </div>
                     <time>{{ formatDateTime(comment.createdAt) }}</time>
                   </header>
-                  <p>{{ comment.body }}</p>
+
+                  @if (comment.isDeleted) {
+                    <p class="comment-tombstone">
+                      {{ deletedCommentText(comment) }}
+                    </p>
+                  } @else if (editingCommentId() === comment.id) {
+                    <form
+                      class="comment-edit-form"
+                      [formGroup]="editCommentForm"
+                      (ngSubmit)="saveComment(comment)"
+                      novalidate
+                    >
+                      <label [for]="'comment-edit-' + comment.id">Edit comment</label>
+                      <textarea
+                        [id]="'comment-edit-' + comment.id"
+                        rows="4"
+                        formControlName="body"
+                      ></textarea>
+                      @if (showEditCommentError()) {
+                        <p class="field-error">Comment body is required.</p>
+                      }
+
+                      <div class="comment-actions">
+                        <button type="submit" [disabled]="savingCommentId() === comment.id">
+                          {{ savingCommentId() === comment.id ? 'Saving...' : 'Save' }}
+                        </button>
+                        <button type="button" class="secondary-action" (click)="cancelEditComment()">
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  } @else {
+                    <p>{{ comment.body }}</p>
+
+                    @if (canModifyComment(comment)) {
+                      <div class="comment-actions">
+                        <button type="button" class="secondary-action" (click)="startEditComment(comment)">
+                          Edit
+                        </button>
+                        <button type="button" class="danger-action" (click)="confirmDeleteComment(comment)">
+                          Delete
+                        </button>
+                      </div>
+                    }
+
+                    @if (confirmingDeleteCommentId() === comment.id) {
+                      <div class="delete-confirmation" role="group" aria-label="Delete comment confirmation">
+                        <span>Delete this comment?</span>
+                        <button
+                          type="button"
+                          class="danger-action"
+                          [disabled]="deletingCommentId() === comment.id"
+                          (click)="deleteComment(comment)"
+                        >
+                          {{ deletingCommentId() === comment.id ? 'Deleting...' : 'Delete comment' }}
+                        </button>
+                        <button type="button" class="secondary-action" (click)="cancelDeleteComment()">
+                          Cancel
+                        </button>
+                      </div>
+                    }
+                  }
                 </article>
               }
             </div>
+          }
+
+          @if (commentMutationError()) {
+            <app-error-panel
+              title="Comment action failed"
+              [message]="commentMutationError() ?? ''"
+              (retry)="clearCommentMutationError()"
+            />
           }
 
           <form class="comment-form" [formGroup]="commentForm" (ngSubmit)="addComment()" novalidate>
@@ -394,7 +468,9 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
     }
 
     .detail-header a,
-    button {
+    button,
+    .secondary-action,
+    .danger-action {
       min-height: 38px;
       border: 1px solid #1f4f99;
       border-radius: 6px;
@@ -408,10 +484,17 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
       cursor: pointer;
     }
 
-    .detail-header a {
+    .detail-header a,
+    .secondary-action {
       border-color: #cbd5e1;
       background: #ffffff;
       color: #1f2937;
+    }
+
+    .danger-action {
+      border-color: #fecaca;
+      background: #fff1f2;
+      color: #991b1b;
     }
 
     button:disabled {
@@ -436,6 +519,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
     .detail-form,
     .status-form,
     .comment-form,
+    .comment-edit-form,
     .metadata {
       display: grid;
       gap: 12px;
@@ -570,7 +654,15 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
       font-size: 0.875rem;
     }
 
+    .comment header div {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
     .comment time,
+    .comment-marker,
     .activity-list span {
       color: #64748b;
       font-size: 0.75rem;
@@ -582,6 +674,30 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
       color: #334155;
       font-size: 0.875rem;
       line-height: 1.5;
+    }
+
+    .comment-tombstone {
+      color: #64748b !important;
+      font-style: italic;
+    }
+
+    .comment-actions,
+    .delete-confirmation {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-top: 10px;
+    }
+
+    .delete-confirmation {
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 10px;
+      background: #fff7f7;
+      color: #991b1b;
+      font-size: 0.8125rem;
+      font-weight: 800;
     }
 
     .activity-list {
@@ -627,12 +743,18 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly isUpdating = signal(false);
   readonly isTransitioning = signal(false);
   readonly isCommenting = signal(false);
+  readonly savingCommentId = signal<string | null>(null);
+  readonly deletingCommentId = signal<string | null>(null);
+  readonly editingCommentId = signal<string | null>(null);
+  readonly confirmingDeleteCommentId = signal<string | null>(null);
   readonly hasSubmittedDetail = signal(false);
   readonly hasSubmittedComment = signal(false);
+  readonly hasSubmittedEditComment = signal(false);
   readonly loadError = signal<string | null>(null);
   readonly updateError = signal<string | null>(null);
   readonly statusError = signal<string | null>(null);
   readonly commentError = signal<string | null>(null);
+  readonly commentMutationError = signal<string | null>(null);
   readonly labelLoadError = signal<string | null>(null);
   readonly availableLabels = signal<LabelDto[]>([]);
   readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
@@ -654,6 +776,10 @@ export class WorkItemDetailPageComponent implements OnInit {
   });
 
   readonly commentForm = this.formBuilder.nonNullable.group({
+    body: ['', [Validators.required]]
+  });
+
+  readonly editCommentForm = this.formBuilder.nonNullable.group({
     body: ['', [Validators.required]]
   });
 
@@ -758,6 +884,92 @@ export class WorkItemDetailPageComponent implements OnInit {
     });
   }
 
+  startEditComment(comment: CommentDto): void {
+    if (!this.canModifyComment(comment)) {
+      return;
+    }
+
+    this.commentMutationError.set(null);
+    this.confirmingDeleteCommentId.set(null);
+    this.editingCommentId.set(comment.id);
+    this.hasSubmittedEditComment.set(false);
+    this.editCommentForm.reset({ body: comment.body });
+  }
+
+  cancelEditComment(): void {
+    this.editingCommentId.set(null);
+    this.hasSubmittedEditComment.set(false);
+    this.editCommentForm.reset({ body: '' });
+  }
+
+  saveComment(comment: CommentDto): void {
+    this.hasSubmittedEditComment.set(true);
+    this.commentMutationError.set(null);
+
+    if (!this.canModifyComment(comment)) {
+      return;
+    }
+
+    if (this.editCommentForm.invalid) {
+      this.editCommentForm.markAllAsTouched();
+      return;
+    }
+
+    this.savingCommentId.set(comment.id);
+    this.api.updateComment(comment.id, { body: this.editCommentForm.getRawValue().body.trim() }).subscribe({
+      next: () => {
+        this.refreshAfterCommentMutation(() => {
+          this.savingCommentId.set(null);
+          this.cancelEditComment();
+        });
+      },
+      error: () => {
+        this.commentMutationError.set('The comment could not be updated.');
+        this.savingCommentId.set(null);
+      }
+    });
+  }
+
+  confirmDeleteComment(comment: CommentDto): void {
+    if (!this.canModifyComment(comment)) {
+      return;
+    }
+
+    this.commentMutationError.set(null);
+    this.editingCommentId.set(null);
+    this.confirmingDeleteCommentId.set(comment.id);
+  }
+
+  cancelDeleteComment(): void {
+    this.confirmingDeleteCommentId.set(null);
+  }
+
+  deleteComment(comment: CommentDto): void {
+    this.commentMutationError.set(null);
+
+    if (!this.canModifyComment(comment)) {
+      return;
+    }
+
+    this.deletingCommentId.set(comment.id);
+    this.api.deleteComment(comment.id).subscribe({
+      next: () => {
+        this.refreshAfterCommentMutation(() => {
+          this.deletingCommentId.set(null);
+          this.cancelDeleteComment();
+        });
+      },
+      error: () => {
+        this.commentMutationError.set('The comment could not be deleted.');
+        this.deletingCommentId.set(null);
+      }
+    });
+  }
+
+  clearCommentMutationError(): void {
+    this.commentMutationError.set(null);
+  }
+
   toggleLabel(labelId: string, event: Event): void {
     if (this.isArchivedProject()) {
       return;
@@ -815,6 +1027,21 @@ export class WorkItemDetailPageComponent implements OnInit {
     return control.invalid && (control.touched || this.hasSubmittedComment());
   }
 
+  showEditCommentError(): boolean {
+    const control = this.editCommentForm.controls.body;
+    return control.invalid && (control.touched || this.hasSubmittedEditComment());
+  }
+
+  canModifyComment(comment: CommentDto): boolean {
+    const actor = this.currentUser.selectedMember();
+
+    if (this.isArchivedProject() || comment.isDeleted || actor === null) {
+      return false;
+    }
+
+    return actor.role === 'owner' || actor.role === 'maintainer' || comment.author.id === actor.id;
+  }
+
   formatToken(value: string): string {
     return value.replaceAll('_', ' ');
   }
@@ -833,6 +1060,12 @@ export class WorkItemDetailPageComponent implements OnInit {
     return this.formatToken(event.eventType.replace('.', ' '));
   }
 
+  deletedCommentText(comment: CommentDto): string {
+    const actor = comment.deletedBy === null ? '' : ` by ${comment.deletedBy.name}`;
+    const timestamp = comment.deletedAt === null ? '' : ` on ${this.formatDateTime(comment.deletedAt)}`;
+    return `Comment deleted${actor}${timestamp}.`;
+  }
+
   private refreshAfterComment(): void {
     this.api.getWorkItem(this.workItemId()).subscribe({
       next: (workItem) => {
@@ -842,6 +1075,19 @@ export class WorkItemDetailPageComponent implements OnInit {
       error: () => {
         this.commentError.set('The comment was added, but the latest activity could not be loaded.');
         this.isCommenting.set(false);
+      }
+    });
+  }
+
+  private refreshAfterCommentMutation(afterRefresh: () => void): void {
+    this.api.getWorkItem(this.workItemId()).subscribe({
+      next: (workItem) => {
+        this.applyWorkItem(workItem);
+        afterRefresh();
+      },
+      error: () => {
+        this.commentMutationError.set('The comment changed, but the latest activity could not be loaded.');
+        afterRefresh();
       }
     });
   }
@@ -891,10 +1137,12 @@ export class WorkItemDetailPageComponent implements OnInit {
       this.detailForm.disable(options);
       this.statusForm.disable(options);
       this.commentForm.disable(options);
+      this.editCommentForm.disable(options);
     } else {
       this.detailForm.enable(options);
       this.statusForm.enable(options);
       this.commentForm.enable(options);
+      this.editCommentForm.enable(options);
     }
   }
 }

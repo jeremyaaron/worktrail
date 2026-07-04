@@ -64,6 +64,22 @@ const movedItem: WorkItemListItemDto = {
   status: 'in_progress'
 };
 
+function dropEvent(input: {
+  item: WorkItemListItemDto;
+  previousStatus: WorkItemListItemDto['status'];
+  status: WorkItemListItemDto['status'];
+}) {
+  const previousContainer = { data: input.previousStatus };
+  const container =
+    input.previousStatus === input.status ? previousContainer : { data: input.status };
+
+  return {
+    item: { data: input.item },
+    previousContainer,
+    container
+  };
+}
+
 function setup() {
   const fixture = TestBed.createComponent(WorkItemBoardPageComponent);
   const http = TestBed.inject(HttpTestingController);
@@ -147,6 +163,52 @@ describe('WorkItemBoardPageComponent', () => {
     expect(fixture.componentInstance.itemsByStatus().get('in_progress')).toEqual([movedItem]);
   });
 
+  it('moves a card through drag and drop and refreshes board state', () => {
+    const { fixture, http } = setup();
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
+      readyItem
+    ]);
+    fixture.detectChanges();
+
+    fixture.componentInstance.dropCard(
+      dropEvent({ item: readyItem, previousStatus: 'ready', status: 'in_progress' }) as never
+    );
+
+    const transition = http.expectOne(`/api/work-items/${readyItem.id}/transitions`);
+    expect(transition.request.method).toBe('POST');
+    expect(transition.request.body).toEqual({ status: 'in_progress' });
+    transition.flush({
+      ...readyItem,
+      status: 'in_progress',
+      description: '',
+      comments: [],
+      activity: []
+    } satisfies WorkItemDetailDto);
+
+    const refresh = http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`);
+    refresh.flush([movedItem]);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.itemsByStatus().get('in_progress')).toEqual([movedItem]);
+  });
+
+  it('ignores same-column drops without calling the transition API', () => {
+    const { fixture, http } = setup();
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
+      readyItem
+    ]);
+    fixture.detectChanges();
+
+    fixture.componentInstance.dropCard(
+      dropEvent({ item: readyItem, previousStatus: 'ready', status: 'ready' }) as never
+    );
+
+    expect(fixture.componentInstance.itemsByStatus().get('ready')).toEqual([readyItem]);
+    http.expectNone(`/api/work-items/${readyItem.id}/transitions`);
+  });
+
   it('shows a clear error when a transition is rejected', () => {
     const { fixture, http } = setup();
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
@@ -169,6 +231,32 @@ describe('WorkItemBoardPageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'The requested status transition was rejected.'
     );
+  });
+
+  it('shows a clear error when a dropped transition is rejected', () => {
+    const { fixture, http } = setup();
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
+      readyItem
+    ]);
+    fixture.detectChanges();
+
+    fixture.componentInstance.dropCard(
+      dropEvent({ item: readyItem, previousStatus: 'ready', status: 'done' }) as never
+    );
+
+    const transition = http.expectOne(`/api/work-items/${readyItem.id}/transitions`);
+    expect(transition.request.body).toEqual({ status: 'done' });
+    transition.flush(
+      { error: { code: 'WORKFLOW_TRANSITION_ERROR', message: 'Rejected.' } },
+      { status: 409, statusText: 'Conflict' }
+    );
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'The requested status transition was rejected.'
+    );
+    expect(fixture.componentInstance.itemsByStatus().get('ready')).toEqual([readyItem]);
   });
 
   it('renders archived projects as read-only and skips transition requests', () => {

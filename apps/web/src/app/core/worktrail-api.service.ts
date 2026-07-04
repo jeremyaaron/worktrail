@@ -12,6 +12,7 @@ import type {
   ProjectDto,
   ProjectSummaryDto,
   TransitionWorkItemRequest,
+  UpdateCommentRequest,
   UpdateLabelRequest,
   UpdateProjectRequest,
   UpdateWorkItemRequest,
@@ -168,6 +169,14 @@ export class WorktrailApiService {
       input,
       this.options()
     );
+  }
+
+  updateComment(commentId: string, input: UpdateCommentRequest): Observable<CommentDto> {
+    return this.http.patch<CommentDto>(this.url(`/comments/${commentId}`), input, this.options());
+  }
+
+  deleteComment(commentId: string): Observable<CommentDto> {
+    return this.http.delete<CommentDto>(this.url(`/comments/${commentId}`), this.options());
   }
 
   listWorkItemActivity(workItemId: string): Observable<ActivityEventDto[]> {

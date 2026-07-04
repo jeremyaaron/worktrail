@@ -580,6 +580,21 @@ npm test --workspace @worktrail/web -- --include src/app/features/work-items/wor
 npm run typecheck --workspace @worktrail/web
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Added Angular API client methods for comment update and soft delete.
+- Added inline comment editing on work item detail pages with validation, save, and cancel behavior.
+- Added delete confirmation and soft-delete handling with deleted-comment tombstones.
+- Rendered edited markers with timestamps for edited comments.
+- Hid comment edit/delete actions when the selected local actor cannot modify the comment or when the project is archived.
+- Preserved API-side permission enforcement and surfaced rejected edit/delete operations through a recoverable error panel.
+- Refreshed work item detail after comment edit/delete so comment state and activity history stay current.
+- Added Angular tests for edit, delete, tombstone rendering, local permission behavior, and mutation failure handling.
+- Verified `npm test --workspace @worktrail/web -- --include 'src/app/features/work-items/work-item-detail-page.component.spec.ts'`.
+- Verified `npm test --workspace @worktrail/web -- --include 'src/app/features/**/*.spec.ts'`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+
 ## Phase 10: Board Drag And Drop
 
 Goal: add direct board movement with Angular CDK while preserving server-side workflow validation and status menu fallback.
@@ -620,6 +635,20 @@ Suggested commands:
 npm test --workspace @worktrail/web -- --include src/app/features/work-items/work-item-board-page.component.spec.ts
 npm run typecheck --workspace @worktrail/web
 ```
+
+Status:
+
+- Completed on 2026-07-04.
+- Added `@angular/cdk` to the Angular workspace for board drag/drop behavior primitives.
+- Converted board status columns to connected CDK drop lists and board cards to CDK draggable items.
+- Added a small card move handle while preserving the existing status menu fallback.
+- Used pessimistic transition handling for drops: no local status mutation before the API accepts the transition, followed by board reload on success.
+- Ignored same-column/no-op drops and blocked drag/drop transitions on archived projects.
+- Surfaced rejected drop transitions through the existing status-change error panel.
+- Added Angular tests for drag/drop success, rejected drop transitions, no-op same-column drops, and existing status-menu fallback.
+- Verified `npm test --workspace @worktrail/web -- --include 'src/app/features/work-items/work-item-board-page.component.spec.ts'`.
+- Verified `npm test --workspace @worktrail/web -- --include 'src/app/features/**/*.spec.ts'`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
 
 ## Phase 11: Activity Surfaces, Documentation, And Extraction Notes
 
