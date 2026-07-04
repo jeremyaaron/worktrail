@@ -30,6 +30,7 @@ export function toProjectDto(project: Project): ProjectDto {
   return {
     id: project.id,
     workspaceId: project.workspaceId,
+    key: project.key,
     name: project.name,
     description: project.description,
     status: project.status,
@@ -40,12 +41,14 @@ export function toProjectDto(project: Project): ProjectDto {
 
 export function toRecentWorkItemDto(workItem: {
   id: string;
+  displayKey: string;
   title: string;
   status: RecentWorkItemDto['status'];
   updatedAt: Date;
 }): RecentWorkItemDto {
   return {
     id: workItem.id,
+    displayKey: workItem.displayKey,
     title: workItem.title,
     status: workItem.status,
     updatedAt: workItem.updatedAt.toISOString()
@@ -56,18 +59,27 @@ export function toLabelDto(label: Label): LabelDto {
   return {
     id: label.id,
     name: label.name,
-    color: label.color
+    color: label.color,
+    isArchived: label.archivedAt !== null,
+    archivedAt: label.archivedAt?.toISOString() ?? null
   };
 }
 
-export function toCommentDto(comment: Comment, author: Member): CommentDto {
+export function toCommentDto(comment: Comment, author: Member, deletedBy: Member | null = null): CommentDto {
+  const isDeleted = comment.deletedAt !== null;
+
   return {
     id: comment.id,
     workspaceId: comment.workspaceId,
     projectId: comment.projectId,
     workItemId: comment.workItemId,
     author: toMemberDto(author),
-    body: comment.body,
+    body: isDeleted ? '' : comment.body,
+    isEdited: comment.editedAt !== null,
+    isDeleted,
+    editedAt: comment.editedAt?.toISOString() ?? null,
+    deletedAt: comment.deletedAt?.toISOString() ?? null,
+    deletedBy: deletedBy === null ? null : toMemberDto(deletedBy),
     createdAt: comment.createdAt.toISOString(),
     updatedAt: comment.updatedAt.toISOString()
   };
@@ -99,6 +111,8 @@ export function toWorkItemListItemDto(input: {
     id: input.workItem.id,
     workspaceId: input.workItem.workspaceId,
     projectId: input.workItem.projectId,
+    itemNumber: input.workItem.itemNumber,
+    displayKey: input.workItem.displayKey,
     title: input.workItem.title,
     type: input.workItem.type,
     status: input.workItem.status,

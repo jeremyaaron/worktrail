@@ -4,6 +4,7 @@ import type {
   ActivityEventDto,
   CommentDto,
   CreateCommentRequest,
+  CreateLabelRequest,
   CreateProjectRequest,
   CreateWorkItemRequest,
   LabelDto,
@@ -11,6 +12,8 @@ import type {
   ProjectDto,
   ProjectSummaryDto,
   TransitionWorkItemRequest,
+  UpdateCommentRequest,
+  UpdateLabelRequest,
   UpdateProjectRequest,
   UpdateWorkItemRequest,
   WorkItemDetailDto,
@@ -60,6 +63,18 @@ export class WorktrailApiService {
     return this.http.patch<ProjectDto>(this.url(`/projects/${projectId}`), input, this.options());
   }
 
+  archiveProject(projectId: string): Observable<ProjectDto> {
+    return this.http.post<ProjectDto>(this.url(`/projects/${projectId}/archive`), {}, this.options());
+  }
+
+  reactivateProject(projectId: string): Observable<ProjectDto> {
+    return this.http.post<ProjectDto>(
+      this.url(`/projects/${projectId}/reactivate`),
+      {},
+      this.options()
+    );
+  }
+
   getProjectSummary(projectId: string): Observable<ProjectSummaryDto> {
     return this.http.get<ProjectSummaryDto>(this.url(`/projects/${projectId}/summary`), this.options());
   }
@@ -71,8 +86,36 @@ export class WorktrailApiService {
     );
   }
 
-  listProjectLabels(projectId: string): Observable<LabelDto[]> {
-    return this.http.get<LabelDto[]>(this.url(`/projects/${projectId}/labels`), this.options());
+  listProjectLabels(projectId: string, input: { includeArchived?: boolean } = {}): Observable<LabelDto[]> {
+    return this.http.get<LabelDto[]>(
+      this.url(`/projects/${projectId}/labels`),
+      this.options({
+        params:
+          input.includeArchived === true
+            ? new HttpParams().set('includeArchived', 'true')
+            : undefined
+      })
+    );
+  }
+
+  createLabel(projectId: string, input: CreateLabelRequest): Observable<LabelDto> {
+    return this.http.post<LabelDto>(
+      this.url(`/projects/${projectId}/labels`),
+      input,
+      this.options()
+    );
+  }
+
+  updateLabel(labelId: string, input: UpdateLabelRequest): Observable<LabelDto> {
+    return this.http.patch<LabelDto>(this.url(`/labels/${labelId}`), input, this.options());
+  }
+
+  archiveLabel(labelId: string): Observable<LabelDto> {
+    return this.http.post<LabelDto>(this.url(`/labels/${labelId}/archive`), {}, this.options());
+  }
+
+  reactivateLabel(labelId: string): Observable<LabelDto> {
+    return this.http.post<LabelDto>(this.url(`/labels/${labelId}/reactivate`), {}, this.options());
   }
 
   listWorkItems(
@@ -126,6 +169,14 @@ export class WorktrailApiService {
       input,
       this.options()
     );
+  }
+
+  updateComment(commentId: string, input: UpdateCommentRequest): Observable<CommentDto> {
+    return this.http.patch<CommentDto>(this.url(`/comments/${commentId}`), input, this.options());
+  }
+
+  deleteComment(commentId: string): Observable<CommentDto> {
+    return this.http.delete<CommentDto>(this.url(`/comments/${commentId}`), this.options());
   }
 
   listWorkItemActivity(workItemId: string): Observable<ActivityEventDto[]> {

@@ -3,9 +3,8 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "baseUrl": ".",
     "paths": {
-      "@worktrail/contracts": ["packages/contracts/src/index.ts"]
+      "@worktrail/contracts": ["./packages/contracts/src/index.ts"]
     },
     "strict": true,
     "noImplicitOverride": true,

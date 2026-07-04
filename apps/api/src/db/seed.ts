@@ -1,5 +1,7 @@
 import 'dotenv/config';
 
+import { sql } from 'drizzle-orm';
+
 import { createDb, createPool } from './client.js';
 import {
   activityEvents,
@@ -28,7 +30,8 @@ const ids = {
     frontend: '10000000-0000-4000-8000-000000000301',
     backend: '10000000-0000-4000-8000-000000000302',
     design: '10000000-0000-4000-8000-000000000303',
-    reliability: '10000000-0000-4000-8000-000000000304'
+    reliability: '10000000-0000-4000-8000-000000000304',
+    deprecated: '10000000-0000-4000-8000-000000000305'
   },
   workItems: {
     backlog: '10000000-0000-4000-8000-000000000401',
@@ -119,6 +122,8 @@ try {
         {
           id: ids.projects.app,
           workspaceId: ids.workspace,
+          key: 'WT',
+          nextWorkItemNumber: 7,
           name: 'Worktrail App',
           description: 'MVP project management reference application.',
           status: 'active',
@@ -128,6 +133,8 @@ try {
         {
           id: ids.projects.platform,
           workspaceId: ids.workspace,
+          key: 'CLOUD',
+          nextWorkItemNumber: 2,
           name: 'Cloud Readiness',
           description: 'Future deployment and production architecture exploration.',
           status: 'active',
@@ -137,6 +144,8 @@ try {
         {
           id: ids.projects.archived,
           workspaceId: ids.workspace,
+          key: 'LEGACY',
+          nextWorkItemNumber: 1,
           name: 'Legacy Tracker',
           description: 'Archived project used to verify archived states.',
           status: 'archived',
@@ -146,7 +155,11 @@ try {
       ])
       .onConflictDoUpdate({
         target: projects.id,
-        set: { updatedAt: now }
+        set: {
+          key: sql`excluded.key`,
+          nextWorkItemNumber: sql`excluded.next_work_item_number`,
+          updatedAt: now
+        }
       });
 
     await tx
@@ -158,6 +171,8 @@ try {
           projectId: ids.projects.app,
           name: 'frontend',
           color: '#2563eb',
+          archivedAt: null,
+          archivedById: null,
           createdAt: earlier,
           updatedAt: now
         },
@@ -167,6 +182,8 @@ try {
           projectId: ids.projects.app,
           name: 'backend',
           color: '#059669',
+          archivedAt: null,
+          archivedById: null,
           createdAt: earlier,
           updatedAt: now
         },
@@ -176,6 +193,8 @@ try {
           projectId: ids.projects.app,
           name: 'design',
           color: '#7c3aed',
+          archivedAt: null,
+          archivedById: null,
           createdAt: earlier,
           updatedAt: now
         },
@@ -185,13 +204,31 @@ try {
           projectId: ids.projects.platform,
           name: 'reliability',
           color: '#dc2626',
+          archivedAt: null,
+          archivedById: null,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.labels.deprecated,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.app,
+          name: 'deprecated',
+          color: '#64748b',
+          archivedAt: now,
+          archivedById: ids.members.owner,
           createdAt: earlier,
           updatedAt: now
         }
       ])
       .onConflictDoUpdate({
         target: labels.id,
-        set: { updatedAt: now }
+        set: {
+          color: sql`excluded.color`,
+          archivedAt: sql`excluded.archived_at`,
+          archivedById: sql`excluded.archived_by_id`,
+          updatedAt: now
+        }
       });
 
     await tx
@@ -201,6 +238,8 @@ try {
           id: ids.workItems.backlog,
           workspaceId: ids.workspace,
           projectId: ids.projects.app,
+          itemNumber: 1,
+          displayKey: 'WT-1',
           title: 'Define project home summary cards',
           description: 'Show counts by status and recently updated work.',
           type: 'story',
@@ -217,6 +256,8 @@ try {
           id: ids.workItems.ready,
           workspaceId: ids.workspace,
           projectId: ids.projects.app,
+          itemNumber: 2,
+          displayKey: 'WT-2',
           title: 'Add filter controls to work item list',
           description: 'Filter by status, assignee, type, label, and priority.',
           type: 'task',
@@ -233,6 +274,8 @@ try {
           id: ids.workItems.inProgress,
           workspaceId: ids.workspace,
           projectId: ids.projects.app,
+          itemNumber: 3,
+          displayKey: 'WT-3',
           title: 'Implement transport-neutral API handler contract',
           description: 'Keep Express concerns out of application services.',
           type: 'task',
@@ -249,6 +292,8 @@ try {
           id: ids.workItems.blocked,
           workspaceId: ids.workspace,
           projectId: ids.projects.app,
+          itemNumber: 4,
+          displayKey: 'WT-4',
           title: 'Choose status transition copy',
           description: 'Blocked until the first board interaction is implemented.',
           type: 'chore',
@@ -265,6 +310,8 @@ try {
           id: ids.workItems.done,
           workspaceId: ids.workspace,
           projectId: ids.projects.app,
+          itemNumber: 5,
+          displayKey: 'WT-5',
           title: 'Create initial MVP planning docs',
           description: 'PRD, technical design, and implementation plan.',
           type: 'chore',
@@ -281,6 +328,8 @@ try {
           id: ids.workItems.canceled,
           workspaceId: ids.workspace,
           projectId: ids.projects.app,
+          itemNumber: 6,
+          displayKey: 'WT-6',
           title: 'Prototype drag-and-drop before status menus',
           description: 'Deferred because status menus satisfy the MVP.',
           type: 'chore',
@@ -297,6 +346,8 @@ try {
           id: ids.workItems.platform,
           workspaceId: ids.workspace,
           projectId: ids.projects.platform,
+          itemNumber: 1,
+          displayKey: 'CLOUD-1',
           title: 'Document future S3 and API Gateway deployment path',
           description: 'Keep the first build local while preserving cloud-ready boundaries.',
           type: 'story',
@@ -312,7 +363,11 @@ try {
       ])
       .onConflictDoUpdate({
         target: workItems.id,
-        set: { updatedAt: now }
+        set: {
+          itemNumber: sql`excluded.item_number`,
+          displayKey: sql`excluded.display_key`,
+          updatedAt: now
+        }
       });
 
     await tx
@@ -336,6 +391,9 @@ try {
           workItemId: ids.workItems.inProgress,
           authorId: ids.members.owner,
           body: 'This is the first slice that should prove the local API shape.',
+          editedAt: null,
+          deletedAt: null,
+          deletedById: null,
           createdAt: earlier,
           updatedAt: earlier
         },
@@ -346,13 +404,21 @@ try {
           workItemId: ids.workItems.inProgress,
           authorId: ids.members.maintainer,
           body: 'Keep the handler contract small enough to adapt to Lambda later.',
+          editedAt: null,
+          deletedAt: null,
+          deletedById: null,
           createdAt: now,
           updatedAt: now
         }
       ])
       .onConflictDoUpdate({
         target: comments.id,
-        set: { updatedAt: now }
+        set: {
+          editedAt: sql`excluded.edited_at`,
+          deletedAt: sql`excluded.deleted_at`,
+          deletedById: sql`excluded.deleted_by_id`,
+          updatedAt: now
+        }
       });
 
     await tx

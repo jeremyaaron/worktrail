@@ -9,10 +9,37 @@ import { randomUUID } from 'node:crypto';
 
 import type { ActorContext } from '../domain/actor.js';
 import { workItemStatuses } from '../domain/constants.js';
-import { canArchiveProject, canReactivateProject } from '../domain/permissions.js';
-import { ForbiddenError, NotFoundError } from '../errors/app-error.js';
+import { canArchiveProject, canManageProject, canReactivateProject } from '../domain/permissions.js';
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../errors/app-error.js';
 import type { Repositories } from '../repositories/index.js';
+import type { Project } from '../repositories/types.js';
 import { toProjectDto, toRecentWorkItemDto } from './dto.js';
+
+function normalizeProjectKeyInput(input: string): string {
+  return input
+    .trim()
+    .toUpperCase()
+    .replaceAll(/[^A-Z0-9]/g, '');
+}
+
+function validateProjectKey(key: string): void {
+  if (!/^[A-Z0-9]{2,8}$/.test(key)) {
+    throw new ValidationError('Project key must be 2-8 uppercase letters or numbers.');
+  }
+}
+
+function getProjectKeyBase(name: string): string {
+  const words = name.match(/[A-Za-z0-9]+/g) ?? [];
+  const initials = words.map((word) => word[0]?.toUpperCase() ?? '').join('');
+  const fallback = normalizeProjectKeyInput(name);
+  const base = initials.length >= 2 ? initials : fallback;
+
+  if (base.length < 2) {
+    throw new ValidationError('Project key could not be generated from the project name.');
+  }
+
+  return base.slice(0, 8);
+}
 
 export interface ProjectServiceContext {
   actor: ActorContext;
@@ -39,9 +66,16 @@ export class ProjectService {
 
   async createProject(input: CreateProjectRequest): Promise<ProjectDto> {
     const timestamp = this.clock();
+    const key =
+      input.key === undefined
+        ? await this.generateUniqueProjectKey(input.name)
+        : await this.normalizeExplicitProjectKey(input.key);
+
     const project = await this.context.repositories.projects.create({
       id: this.idGenerator(),
       workspaceId: this.context.actor.workspaceId,
+      key,
+      nextWorkItemNumber: 1,
       name: input.name,
       description: input.description ?? '',
       status: 'active',
@@ -69,24 +103,110 @@ export class ProjectService {
       throw new NotFoundError('Project not found.');
     }
 
-    if (input.status === 'archived' && current.status !== 'archived' && !canArchiveProject(this.context.actor)) {
-      throw new ForbiddenError('Only owners and maintainers can archive projects.');
+    if (input.status === 'archived') {
+      return this.archiveProject(projectId);
     }
 
-    if (input.status === 'active' && current.status === 'archived' && !canReactivateProject(this.context.actor)) {
-      throw new ForbiddenError('Only owners and maintainers can reactivate projects.');
+    if (input.status === 'active') {
+      return this.reactivateProject(projectId);
     }
+
+    if (!canManageProject(this.context.actor)) {
+      throw new ForbiddenError('Only owners and maintainers can update project settings.');
+    }
+
+    const timestamp = this.clock();
+    const nextKey =
+      input.key === undefined ? undefined : await this.normalizeProjectKeyUpdate(current, input.key);
 
     const updated = await this.context.repositories.projects.update(projectId, {
+      ...(nextKey === undefined ? {} : { key: nextKey }),
       ...(input.name === undefined ? {} : { name: input.name }),
       ...(input.description === undefined ? {} : { description: input.description }),
-      ...(input.status === undefined ? {} : { status: input.status }),
-      updatedAt: this.clock()
+      updatedAt: timestamp
     });
 
     if (updated === null) {
       throw new NotFoundError('Project not found.');
     }
+
+    await this.recordProjectMetadataActivity(current, updated, timestamp);
+
+    return toProjectDto(updated);
+  }
+
+  async archiveProject(projectId: string): Promise<ProjectDto> {
+    const current = await this.requireProject(projectId);
+
+    if (!canArchiveProject(this.context.actor)) {
+      throw new ForbiddenError('Only owners and maintainers can archive projects.');
+    }
+
+    if (current.status === 'archived') {
+      return toProjectDto(current);
+    }
+
+    const timestamp = this.clock();
+    const updated = await this.context.repositories.projects.update(projectId, {
+      status: 'archived',
+      updatedAt: timestamp
+    });
+
+    if (updated === null) {
+      throw new NotFoundError('Project not found.');
+    }
+
+    await this.context.repositories.activityEvents.create({
+      id: this.idGenerator(),
+      workspaceId: current.workspaceId,
+      projectId: current.id,
+      workItemId: null,
+      actorId: this.context.actor.memberId,
+      eventType: 'project.archived',
+      summary: 'Project archived.',
+      previousValue: { status: current.status },
+      newValue: { status: updated.status },
+      metadata: { projectId: current.id },
+      createdAt: timestamp
+    });
+
+    return toProjectDto(updated);
+  }
+
+  async reactivateProject(projectId: string): Promise<ProjectDto> {
+    const current = await this.requireProject(projectId);
+
+    if (!canReactivateProject(this.context.actor)) {
+      throw new ForbiddenError('Only owners and maintainers can reactivate projects.');
+    }
+
+    if (current.status === 'active') {
+      return toProjectDto(current);
+    }
+
+    const timestamp = this.clock();
+    const updated = await this.context.repositories.projects.update(projectId, {
+      status: 'active',
+      updatedAt: timestamp
+    });
+
+    if (updated === null) {
+      throw new NotFoundError('Project not found.');
+    }
+
+    await this.context.repositories.activityEvents.create({
+      id: this.idGenerator(),
+      workspaceId: current.workspaceId,
+      projectId: current.id,
+      workItemId: null,
+      actorId: this.context.actor.memberId,
+      eventType: 'project.reactivated',
+      summary: 'Project reactivated.',
+      previousValue: { status: current.status },
+      newValue: { status: updated.status },
+      metadata: { projectId: current.id },
+      createdAt: timestamp
+    });
 
     return toProjectDto(updated);
   }
@@ -108,5 +228,105 @@ export class ProjectService {
       recentWorkItems: recentWorkItems.map(toRecentWorkItemDto)
     };
   }
-}
 
+  private async requireProject(projectId: string): Promise<Project> {
+    const project = await this.context.repositories.projects.findById(projectId);
+
+    if (project === null || project.workspaceId !== this.context.actor.workspaceId) {
+      throw new NotFoundError('Project not found.');
+    }
+
+    return project;
+  }
+
+  private async normalizeExplicitProjectKey(input: string): Promise<string> {
+    const key = normalizeProjectKeyInput(input);
+    validateProjectKey(key);
+    await this.requireAvailableProjectKey(key);
+    return key;
+  }
+
+  private async normalizeProjectKeyUpdate(current: Project, input: string): Promise<string> {
+    const key = normalizeProjectKeyInput(input);
+    validateProjectKey(key);
+
+    if (key === current.key) {
+      return key;
+    }
+
+    if (await this.context.repositories.projects.hasWorkItems(current.id)) {
+      throw new ConflictError('Project key cannot be changed after work items have been created.');
+    }
+
+    await this.requireAvailableProjectKey(key, current.id);
+    return key;
+  }
+
+  private async generateUniqueProjectKey(name: string): Promise<string> {
+    const base = getProjectKeyBase(name);
+
+    for (let index = 0; index < 100; index += 1) {
+      const suffix = index === 0 ? '' : String(index + 1);
+      const candidate = `${base.slice(0, 8 - suffix.length)}${suffix}`;
+      const existing = await this.context.repositories.projects.findByWorkspaceKey(
+        this.context.actor.workspaceId,
+        candidate
+      );
+
+      if (existing === null) {
+        return candidate;
+      }
+    }
+
+    throw new ConflictError('A unique project key could not be generated.');
+  }
+
+  private async requireAvailableProjectKey(key: string, currentProjectId?: string): Promise<void> {
+    const existing = await this.context.repositories.projects.findByWorkspaceKey(
+      this.context.actor.workspaceId,
+      key
+    );
+
+    if (existing !== null && existing.id !== currentProjectId) {
+      throw new ConflictError('Project key is already in use.');
+    }
+  }
+
+  private async recordProjectMetadataActivity(
+    current: Project,
+    updated: Project,
+    timestamp: Date
+  ): Promise<void> {
+    if (current.name !== updated.name) {
+      await this.context.repositories.activityEvents.create({
+        id: this.idGenerator(),
+        workspaceId: current.workspaceId,
+        projectId: current.id,
+        workItemId: null,
+        actorId: this.context.actor.memberId,
+        eventType: 'project.name_changed',
+        summary: 'Project name changed.',
+        previousValue: { name: current.name },
+        newValue: { name: updated.name },
+        metadata: { projectId: current.id },
+        createdAt: timestamp
+      });
+    }
+
+    if (current.description !== updated.description) {
+      await this.context.repositories.activityEvents.create({
+        id: this.idGenerator(),
+        workspaceId: current.workspaceId,
+        projectId: current.id,
+        workItemId: null,
+        actorId: this.context.actor.memberId,
+        eventType: 'project.description_changed',
+        summary: 'Project description changed.',
+        previousValue: { description: current.description },
+        newValue: { description: updated.description },
+        metadata: { projectId: current.id },
+        createdAt: timestamp
+      });
+    }
+  }
+}

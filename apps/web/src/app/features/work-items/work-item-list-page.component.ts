@@ -4,6 +4,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type {
   LabelDto,
   MemberDto,
+  ProjectDto,
   WorkItemListItemDto,
   WorkItemPriority,
   WorkItemSort,
@@ -51,10 +52,24 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
         <p>Scan, filter, and open project work.</p>
       </div>
 
-      <a class="primary-action" [routerLink]="['/projects', projectId(), 'work-items', 'new']">
-        Create work item
-      </a>
+      <nav aria-label="Project work navigation">
+        <a class="secondary-header-action" [routerLink]="['/projects', projectId(), 'settings']">
+          Settings
+        </a>
+        @if (!isArchivedProject()) {
+          <a class="primary-action" [routerLink]="['/projects', projectId(), 'work-items', 'new']">
+            Create work item
+          </a>
+        }
+      </nav>
     </section>
+
+    @if (isArchivedProject()) {
+      <section class="notice" aria-label="Archived project">
+        <strong>Archived project</strong>
+        <p>Project work is read-only until it is reactivated in settings.</p>
+      </section>
+    }
 
     <form class="filters" [formGroup]="filterForm" (ngSubmit)="applyFilters()">
       <label>
@@ -156,6 +171,7 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
               <span class="work-item-row__title">
                 <strong>{{ item.title }}</strong>
                 <small class="row-meta">
+                  <span class="key-pill">{{ item.displayKey }}</span>
                   <span class="type-pill">{{ formatToken(item.type) }}</span>
                   @if (item.labels.length === 0) {
                     <span class="muted-pill">No labels</span>
@@ -191,6 +207,13 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
       margin-bottom: 20px;
     }
 
+    nav {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
     .eyebrow {
       margin: 0 0 6px;
       color: #64748b;
@@ -220,6 +243,7 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
     }
 
     .primary-action,
+    .secondary-header-action,
     button {
       min-height: 38px;
       border: 1px solid #1f4f99;
@@ -232,6 +256,12 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
       font-weight: 800;
       text-decoration: none;
       cursor: pointer;
+    }
+
+    .secondary-header-action {
+      border-color: #cbd5e1;
+      background: #ffffff;
+      color: #1f2937;
     }
 
     .secondary-action {
@@ -253,6 +283,24 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
       gap: 12px;
       margin-bottom: 18px;
       padding: 16px;
+    }
+
+    .notice {
+      display: grid;
+      gap: 4px;
+      margin-bottom: 18px;
+      border: 1px solid #fed7aa;
+      border-radius: 8px;
+      padding: 14px;
+      background: #fff7ed;
+      color: #9a3412;
+    }
+
+    .notice p {
+      margin: 0;
+      color: #9a3412;
+      font-size: 0.875rem;
+      line-height: 1.5;
     }
 
     label {
@@ -356,6 +404,7 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
     }
 
     .row-meta,
+    .key-pill,
     .label-pill,
     .status-pill,
     .priority-pill,
@@ -373,6 +422,7 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
     }
 
     .label-pill,
+    .key-pill,
     .status-pill,
     .priority-pill,
     .assignee-pill,
@@ -385,6 +435,13 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
       font-size: 0.75rem;
       font-weight: 800;
       text-transform: capitalize;
+    }
+
+    .key-pill {
+      background: #eef2ff;
+      color: #3730a3;
+      border-color: #c7d2fe;
+      text-transform: uppercase;
     }
 
     .type-pill {
@@ -492,10 +549,12 @@ export class WorkItemListPageComponent implements OnInit {
   readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
   readonly members = computed<MemberDto[]>(() => this.currentUser.members());
 
+  readonly project = signal<ProjectDto | null>(null);
   readonly workItems = signal<WorkItemListItemDto[]>([]);
   readonly labels = signal<LabelDto[]>([]);
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
+  readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
 
   readonly filterForm = this.formBuilder.nonNullable.group({
     search: [''],
@@ -511,6 +570,8 @@ export class WorkItemListPageComponent implements OnInit {
     if (this.currentUser.members().length === 0) {
       this.currentUser.loadMembers();
     }
+
+    this.loadProject();
 
     this.route.queryParamMap.subscribe((params) => {
       this.filterForm.patchValue(
@@ -562,6 +623,17 @@ export class WorkItemListPageComponent implements OnInit {
       error: () => {
         this.error.set('Work items could not be loaded from the API.');
         this.isLoading.set(false);
+      }
+    });
+  }
+
+  loadProject(): void {
+    this.api.getProject(this.projectId()).subscribe({
+      next: (project) => {
+        this.project.set(project);
+      },
+      error: () => {
+        this.project.set(null);
       }
     });
   }

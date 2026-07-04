@@ -101,6 +101,7 @@ type ProjectStatusFilter = 'all' | ProjectStatus;
             @for (project of filteredProjects(); track project.id) {
               <article class="project-row">
                 <div>
+                  <span class="project-key">{{ project.key }}</span>
                   <h3>
                     <a [routerLink]="['/projects', project.id]">{{ project.name }}</a>
                   </h3>
@@ -113,6 +114,7 @@ type ProjectStatusFilter = 'all' | ProjectStatus;
                   </span>
                   <a [routerLink]="['/projects', project.id, 'work-items']">Work items</a>
                   <a [routerLink]="['/projects', project.id, 'board']">Board</a>
+                  <a [routerLink]="['/projects', project.id, 'settings']">Settings</a>
                 </div>
               </article>
             }
@@ -319,6 +321,20 @@ type ProjectStatusFilter = 'all' | ProjectStatus;
       font-size: 0.8125rem;
       font-weight: 800;
       text-transform: capitalize;
+    }
+
+    .project-key {
+      display: inline-flex;
+      min-height: 22px;
+      margin-bottom: 6px;
+      border: 1px solid #bfdbfe;
+      border-radius: 999px;
+      padding: 2px 8px;
+      background: #eff6ff;
+      color: #1e3a8a;
+      font-size: 0.75rem;
+      font-weight: 900;
+      line-height: 1.4;
     }
 
     .project-row__status--archived {

@@ -16,12 +16,14 @@ const uuidParamSchema = z.object({
 });
 
 const createProjectSchema = z.object({
+  key: z.string().trim().optional(),
   name: z.string().trim().min(1),
   description: z.string().trim().optional()
 }) satisfies z.ZodType<CreateProjectRequest>;
 
 const updateProjectSchema = z
   .object({
+    key: z.string().trim().optional(),
     name: z.string().trim().min(1).optional(),
     description: z.string().trim().optional(),
     status: z.enum(['active', 'archived']).optional()
@@ -74,6 +76,28 @@ export function updateProjectHandler(repositories: Repositories): EndpointHandle
   };
 }
 
+export function archiveProjectHandler(repositories: Repositories): EndpointHandler<ProjectDto> {
+  return async (request) => {
+    const { projectId } = parseWithSchema(uuidParamSchema, request.params);
+    const service = new ProjectService({ actor: request.actor, repositories });
+    return {
+      status: 200,
+      body: await service.archiveProject(projectId)
+    };
+  };
+}
+
+export function reactivateProjectHandler(repositories: Repositories): EndpointHandler<ProjectDto> {
+  return async (request) => {
+    const { projectId } = parseWithSchema(uuidParamSchema, request.params);
+    const service = new ProjectService({ actor: request.actor, repositories });
+    return {
+      status: 200,
+      body: await service.reactivateProject(projectId)
+    };
+  };
+}
+
 export function getProjectSummaryHandler(
   repositories: Repositories
 ): EndpointHandler<ProjectSummaryDto> {
@@ -86,4 +110,3 @@ export function getProjectSummaryHandler(
     };
   };
 }
-

@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import type { MemberDto, WorkItemDetailDto } from '@worktrail/contracts';
+import type { MemberDto, ProjectDto, WorkItemDetailDto } from '@worktrail/contracts';
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorkItemDetailPageComponent } from './work-item-detail-page.component';
@@ -13,6 +13,7 @@ const ownerId = '10000000-0000-4000-8000-000000000101';
 const contributorId = '10000000-0000-4000-8000-000000000103';
 const labelId = '10000000-0000-4000-8000-000000000302';
 const frontendLabelId = '10000000-0000-4000-8000-000000000301';
+const archivedLabelId = '10000000-0000-4000-8000-000000000399';
 
 const owner: MemberDto = {
   id: ownerId,
@@ -32,10 +33,28 @@ const contributor: MemberDto = {
   isActive: true
 };
 
+const activeProject: ProjectDto = {
+  id: projectId,
+  workspaceId: owner.workspaceId,
+  key: 'WT',
+  name: 'Worktrail App',
+  description: 'MVP project management reference application.',
+  status: 'active',
+  createdAt: '2026-07-02T12:00:00.000Z',
+  updatedAt: '2026-07-03T12:00:00.000Z'
+};
+
+const archivedProject: ProjectDto = {
+  ...activeProject,
+  status: 'archived'
+};
+
 const detail: WorkItemDetailDto = {
   id: workItemId,
   workspaceId: owner.workspaceId,
   projectId,
+  itemNumber: 3,
+  displayKey: 'WT-3',
   title: 'Implement detail surface',
   description: 'Build comments and activity UI.',
   type: 'task',
@@ -43,7 +62,7 @@ const detail: WorkItemDetailDto = {
   priority: 'high',
   assignee: contributor,
   reporter: owner,
-  labels: [{ id: labelId, name: 'backend', color: '#059669' }],
+  labels: [{ id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }],
   dueDate: '2026-07-20',
   estimatePoints: 5,
   createdAt: '2026-07-02T12:00:00.000Z',
@@ -56,6 +75,11 @@ const detail: WorkItemDetailDto = {
       workItemId,
       author: owner,
       body: 'Initial implementation note.',
+      isEdited: false,
+      isDeleted: false,
+      editedAt: null,
+      deletedAt: null,
+      deletedBy: null,
       createdAt: '2026-07-03T12:00:00.000Z',
       updatedAt: '2026-07-03T12:00:00.000Z'
     }
@@ -83,14 +107,17 @@ function seedCurrentUser() {
   currentUser.selectMember(owner.id);
 }
 
-function setup() {
+function setup(input: { workItem?: WorkItemDetailDto; project?: ProjectDto } = {}) {
   const fixture = TestBed.createComponent(WorkItemDetailPageComponent);
   const http = TestBed.inject(HttpTestingController);
+  const workItem = input.workItem ?? detail;
+  const project = input.project ?? activeProject;
   fixture.detectChanges();
-  http.expectOne(`/api/work-items/${workItemId}`).flush(detail);
+  http.expectOne(`/api/work-items/${workItemId}`).flush(workItem);
+  http.expectOne(`/api/projects/${projectId}`).flush(project);
   http.expectOne(`/api/projects/${projectId}/labels`).flush([
-    { id: frontendLabelId, name: 'frontend', color: '#2563eb' },
-    { id: labelId, name: 'backend', color: '#059669' }
+    { id: frontendLabelId, name: 'frontend', color: '#2563eb', isArchived: false, archivedAt: null },
+    { id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }
   ]);
   fixture.detectChanges();
   return { fixture, http };
@@ -126,11 +153,191 @@ describe('WorkItemDetailPageComponent', () => {
     const { fixture } = setup();
     const compiled = fixture.nativeElement as HTMLElement;
 
+    expect(compiled.textContent).toContain('WT-3');
     expect(compiled.textContent).toContain('Implement detail surface');
     expect(compiled.textContent).toContain('frontend');
     expect(compiled.textContent).toContain('backend');
     expect(compiled.textContent).toContain('Initial implementation note.');
     expect(compiled.textContent).toContain('Avery Owner created this work item.');
+  });
+
+  it('edits a comment inline and refreshes activity', () => {
+    const { fixture, http } = setup();
+    const comment = detail.comments[0];
+
+    fixture.componentInstance.startEditComment(comment);
+    fixture.detectChanges();
+    fixture.componentInstance.editCommentForm.setValue({ body: 'Updated implementation note.' });
+    fixture.componentInstance.saveComment(comment);
+
+    const update = http.expectOne(`/api/comments/${comment.id}`);
+    expect(update.request.method).toBe('PATCH');
+    expect(update.request.body).toEqual({ body: 'Updated implementation note.' });
+    update.flush({
+      ...comment,
+      body: 'Updated implementation note.',
+      isEdited: true,
+      editedAt: '2026-07-03T13:00:00.000Z',
+      updatedAt: '2026-07-03T13:00:00.000Z'
+    });
+
+    const refresh = http.expectOne(`/api/work-items/${workItemId}`);
+    refresh.flush({
+      ...detail,
+      comments: [
+        {
+          ...comment,
+          body: 'Updated implementation note.',
+          isEdited: true,
+          editedAt: '2026-07-03T13:00:00.000Z',
+          updatedAt: '2026-07-03T13:00:00.000Z'
+        }
+      ],
+      activity: [
+        {
+          id: '10000000-0000-4000-8000-000000000603',
+          workspaceId: owner.workspaceId,
+          projectId,
+          workItemId,
+          actor: owner,
+          eventType: 'comment.edited',
+          summary: 'Comment edited.',
+          previousValue: null,
+          newValue: null,
+          metadata: { commentId: comment.id },
+          createdAt: '2026-07-03T13:00:00.000Z'
+        },
+        ...detail.activity
+      ]
+    } satisfies WorkItemDetailDto);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Updated implementation note.');
+    expect(compiled.textContent).toContain('Edited');
+    expect(compiled.textContent).toContain('Comment edited.');
+    expect(fixture.componentInstance.editingCommentId()).toBeNull();
+  });
+
+  it('deletes a comment after confirmation and renders the tombstone', () => {
+    const { fixture, http } = setup();
+    const comment = detail.comments[0];
+
+    fixture.componentInstance.confirmDeleteComment(comment);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Delete this comment?');
+
+    fixture.componentInstance.deleteComment(comment);
+
+    const request = http.expectOne(`/api/comments/${comment.id}`);
+    expect(request.request.method).toBe('DELETE');
+    request.flush({
+      ...comment,
+      body: '',
+      isDeleted: true,
+      deletedAt: '2026-07-03T13:15:00.000Z',
+      deletedBy: owner,
+      updatedAt: '2026-07-03T13:15:00.000Z'
+    });
+
+    const refresh = http.expectOne(`/api/work-items/${workItemId}`);
+    refresh.flush({
+      ...detail,
+      comments: [
+        {
+          ...comment,
+          body: '',
+          isDeleted: true,
+          deletedAt: '2026-07-03T13:15:00.000Z',
+          deletedBy: owner,
+          updatedAt: '2026-07-03T13:15:00.000Z'
+        }
+      ],
+      activity: [
+        {
+          id: '10000000-0000-4000-8000-000000000604',
+          workspaceId: owner.workspaceId,
+          projectId,
+          workItemId,
+          actor: owner,
+          eventType: 'comment.deleted',
+          summary: 'Comment deleted.',
+          previousValue: null,
+          newValue: null,
+          metadata: { commentId: comment.id },
+          createdAt: '2026-07-03T13:15:00.000Z'
+        },
+        ...detail.activity
+      ]
+    } satisfies WorkItemDetailDto);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Comment deleted by Avery Owner');
+    expect(compiled.textContent).toContain('Comment deleted.');
+    expect(fixture.componentInstance.confirmingDeleteCommentId()).toBeNull();
+  });
+
+  it('renders deleted comment tombstones from loaded detail', () => {
+    const deletedDetail: WorkItemDetailDto = {
+      ...detail,
+      comments: [
+        {
+          ...detail.comments[0],
+          body: '',
+          isDeleted: true,
+          deletedAt: '2026-07-03T13:15:00.000Z',
+          deletedBy: contributor,
+          updatedAt: '2026-07-03T13:15:00.000Z'
+        }
+      ]
+    };
+    const { fixture } = setup({ workItem: deletedDetail });
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(compiled.textContent).toContain('Comment deleted by Case Contributor');
+    expect(compiled.textContent).not.toContain('Initial implementation note.');
+    expect(fixture.componentInstance.canModifyComment(deletedDetail.comments[0])).toBeFalse();
+  });
+
+  it('hides comment edit and delete actions when the local actor cannot modify the comment', () => {
+    TestBed.inject(CurrentUserService).selectMember(contributor.id);
+    const { fixture } = setup();
+    const compiled = fixture.nativeElement as HTMLElement;
+    const buttonLabels = Array.from(compiled.querySelectorAll('button')).map((button) =>
+      button.textContent?.trim()
+    );
+
+    expect(fixture.componentInstance.canModifyComment(detail.comments[0])).toBeFalse();
+    expect(buttonLabels).not.toContain('Edit');
+    expect(buttonLabels).not.toContain('Delete');
+  });
+
+  it('shows a recoverable error when comment edit is rejected', () => {
+    const { fixture, http } = setup();
+    const comment = detail.comments[0];
+
+    fixture.componentInstance.startEditComment(comment);
+    fixture.componentInstance.editCommentForm.setValue({ body: 'Rejected update.' });
+    fixture.componentInstance.saveComment(comment);
+
+    const update = http.expectOne(`/api/comments/${comment.id}`);
+    update.flush(
+      { error: { code: 'FORBIDDEN', message: 'Rejected.' } },
+      { status: 403, statusText: 'Forbidden' }
+    );
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('The comment could not be updated.');
+
+    fixture.componentInstance.clearCommentMutationError();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain(
+      'The comment could not be updated.'
+    );
   });
 
   it('updates editable fields and project labels through the patch endpoint', () => {
@@ -170,6 +377,72 @@ describe('WorkItemDetailPageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Updated detail surface');
   });
 
+  it('shows archived attached labels without offering them as active assignments', () => {
+    const archivedDetail: WorkItemDetailDto = {
+      ...detail,
+      labels: [
+        ...detail.labels,
+        {
+          id: archivedLabelId,
+          name: 'legacy',
+          color: '#64748b',
+          isArchived: true,
+          archivedAt: '2026-07-03T12:00:00.000Z'
+        }
+      ]
+    };
+    const fixture = TestBed.createComponent(WorkItemDetailPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne(`/api/work-items/${workItemId}`).flush(archivedDetail);
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/labels`).flush([
+      { id: frontendLabelId, name: 'frontend', color: '#2563eb', isArchived: false, archivedAt: null },
+      { id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }
+    ]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('legacy');
+    expect(fixture.componentInstance.assignableLabels().map((label) => label.id)).not.toContain(
+      archivedLabelId
+    );
+
+    fixture.componentInstance.updateWorkItem();
+    const request = http.expectOne(`/api/work-items/${workItemId}`);
+    expect(request.request.body.labelIds).toEqual([labelId, archivedLabelId]);
+    request.flush(archivedDetail);
+  });
+
+  it('disables write controls and skips write calls when the project is archived', () => {
+    const fixture = TestBed.createComponent(WorkItemDetailPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne(`/api/work-items/${workItemId}`).flush(detail);
+    http.expectOne(`/api/projects/${projectId}`).flush(archivedProject);
+    http.expectOne(`/api/projects/${projectId}/labels`).flush([
+      { id: frontendLabelId, name: 'frontend', color: '#2563eb', isArchived: false, archivedAt: null },
+      { id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }
+    ]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Archived project');
+    expect(compiled.querySelector('button[type="submit"]')?.hasAttribute('disabled')).toBeTrue();
+    expect(compiled.querySelector('input[type="checkbox"]')?.hasAttribute('disabled')).toBeTrue();
+
+    fixture.componentInstance.detailForm.patchValue({ title: 'Archived edit attempt' });
+    fixture.componentInstance.updateWorkItem();
+    fixture.componentInstance.statusForm.setValue({ status: 'done' });
+    fixture.componentInstance.transitionStatus();
+    fixture.componentInstance.commentForm.setValue({ body: 'Archived comment attempt.' });
+    fixture.componentInstance.addComment();
+
+    http.expectNone(`/api/work-items/${workItemId}`);
+    http.expectNone(`/api/work-items/${workItemId}/transitions`);
+    http.expectNone(`/api/work-items/${workItemId}/comments`);
+  });
+
   it('shows workflow errors when a status transition is rejected', () => {
     const { fixture, http } = setup();
     fixture.componentInstance.statusForm.setValue({ status: 'done' });
@@ -204,6 +477,11 @@ describe('WorkItemDetailPageComponent', () => {
       workItemId,
       author: owner,
       body: 'New detail comment.',
+      isEdited: false,
+      isDeleted: false,
+      editedAt: null,
+      deletedAt: null,
+      deletedBy: null,
       createdAt: '2026-07-03T13:00:00.000Z',
       updatedAt: '2026-07-03T13:00:00.000Z'
     });
@@ -220,6 +498,11 @@ describe('WorkItemDetailPageComponent', () => {
           workItemId,
           author: owner,
           body: 'New detail comment.',
+          isEdited: false,
+          isDeleted: false,
+          editedAt: null,
+          deletedAt: null,
+          deletedBy: null,
           createdAt: '2026-07-03T13:00:00.000Z',
           updatedAt: '2026-07-03T13:00:00.000Z'
         }

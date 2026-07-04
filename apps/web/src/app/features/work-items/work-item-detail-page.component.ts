@@ -6,6 +6,7 @@ import type {
   CommentDto,
   LabelDto,
   MemberDto,
+  ProjectDto,
   UpdateWorkItemRequest,
   WorkItemDetailDto,
   WorkItemPriority,
@@ -49,11 +50,21 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
         <div>
           <p class="eyebrow">Work item</p>
           <h1>{{ item.title }}</h1>
+          <div class="work-item-meta">
+            <span>{{ item.displayKey }}</span>
+          </div>
           <p>{{ item.description || 'No description provided.' }}</p>
         </div>
 
         <a [routerLink]="['/projects', item.projectId, 'work-items']">Back to list</a>
       </section>
+
+      @if (isArchivedProject()) {
+        <section class="notice" aria-label="Archived project">
+          <strong>Archived project</strong>
+          <p>Project work is read-only until it is reactivated in settings.</p>
+        </section>
+      }
 
       <section class="detail-grid">
         <section class="panel" aria-labelledby="edit-work-item-heading">
@@ -73,7 +84,11 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
             }
 
             <label for="detail-description">Description</label>
-            <textarea id="detail-description" rows="5" formControlName="description"></textarea>
+            <textarea
+              id="detail-description"
+              rows="5"
+              formControlName="description"
+            ></textarea>
 
             <div class="form-grid">
               <label>
@@ -113,22 +128,33 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
                   [message]="labelLoadError() ?? ''"
                   (retry)="loadProjectLabels(item.projectId)"
                 />
-              } @else if (availableLabels().length === 0) {
+              } @else if (assignableLabels().length === 0 && archivedAttachedLabels().length === 0) {
                 <p>No project labels are available.</p>
               } @else {
-                <div class="label-options">
-                  @for (label of availableLabels(); track label.id) {
-                    <label class="label-option">
-                      <input
-                        type="checkbox"
-                        [checked]="isLabelSelected(label.id)"
-                        (change)="toggleLabel(label.id, $event)"
-                      />
-                      <span [style.background]="label.color ?? '#e2e8f0'"></span>
-                      {{ label.name }}
-                    </label>
-                  }
-                </div>
+                @if (assignableLabels().length > 0) {
+                  <div class="label-options">
+                    @for (label of assignableLabels(); track label.id) {
+                      <label class="label-option">
+                        <input
+                          type="checkbox"
+                          [checked]="isLabelSelected(label.id)"
+                          [disabled]="isArchivedProject()"
+                          (change)="toggleLabel(label.id, $event)"
+                        />
+                        <span [style.background]="label.color ?? '#e2e8f0'"></span>
+                        {{ label.name }}
+                      </label>
+                    }
+                  </div>
+                }
+
+                @if (archivedAttachedLabels().length > 0) {
+                  <div class="archived-labels" aria-label="Archived attached labels">
+                    @for (label of archivedAttachedLabels(); track label.id) {
+                      <span [style.border-color]="label.color ?? '#cbd5e1'">{{ label.name }}</span>
+                    }
+                  </div>
+                }
               }
             </section>
 
@@ -140,7 +166,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
               />
             }
 
-            <button type="submit" [disabled]="isUpdating()">
+            <button type="submit" [disabled]="isArchivedProject() || isUpdating()">
               {{ isUpdating() ? 'Saving...' : 'Save changes' }}
             </button>
           </form>
@@ -167,7 +193,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
                 />
               }
 
-              <button type="submit" [disabled]="isTransitioning()">
+              <button type="submit" [disabled]="isArchivedProject() || isTransitioning()">
                 {{ isTransitioning() ? 'Updating...' : 'Update status' }}
               </button>
             </form>
@@ -212,18 +238,96 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
               @for (comment of item.comments; track comment.id) {
                 <article class="comment">
                   <header>
-                    <strong>{{ comment.author.name }}</strong>
+                    <div>
+                      <strong>{{ comment.author.name }}</strong>
+                      @if (comment.isEdited && comment.editedAt !== null && !comment.isDeleted) {
+                        <span class="comment-marker">Edited {{ formatDateTime(comment.editedAt) }}</span>
+                      }
+                    </div>
                     <time>{{ formatDateTime(comment.createdAt) }}</time>
                   </header>
-                  <p>{{ comment.body }}</p>
+
+                  @if (comment.isDeleted) {
+                    <p class="comment-tombstone">
+                      {{ deletedCommentText(comment) }}
+                    </p>
+                  } @else if (editingCommentId() === comment.id) {
+                    <form
+                      class="comment-edit-form"
+                      [formGroup]="editCommentForm"
+                      (ngSubmit)="saveComment(comment)"
+                      novalidate
+                    >
+                      <label [for]="'comment-edit-' + comment.id">Edit comment</label>
+                      <textarea
+                        [id]="'comment-edit-' + comment.id"
+                        rows="4"
+                        formControlName="body"
+                      ></textarea>
+                      @if (showEditCommentError()) {
+                        <p class="field-error">Comment body is required.</p>
+                      }
+
+                      <div class="comment-actions">
+                        <button type="submit" [disabled]="savingCommentId() === comment.id">
+                          {{ savingCommentId() === comment.id ? 'Saving...' : 'Save' }}
+                        </button>
+                        <button type="button" class="secondary-action" (click)="cancelEditComment()">
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  } @else {
+                    <p>{{ comment.body }}</p>
+
+                    @if (canModifyComment(comment)) {
+                      <div class="comment-actions">
+                        <button type="button" class="secondary-action" (click)="startEditComment(comment)">
+                          Edit
+                        </button>
+                        <button type="button" class="danger-action" (click)="confirmDeleteComment(comment)">
+                          Delete
+                        </button>
+                      </div>
+                    }
+
+                    @if (confirmingDeleteCommentId() === comment.id) {
+                      <div class="delete-confirmation" role="group" aria-label="Delete comment confirmation">
+                        <span>Delete this comment?</span>
+                        <button
+                          type="button"
+                          class="danger-action"
+                          [disabled]="deletingCommentId() === comment.id"
+                          (click)="deleteComment(comment)"
+                        >
+                          {{ deletingCommentId() === comment.id ? 'Deleting...' : 'Delete comment' }}
+                        </button>
+                        <button type="button" class="secondary-action" (click)="cancelDeleteComment()">
+                          Cancel
+                        </button>
+                      </div>
+                    }
+                  }
                 </article>
               }
             </div>
           }
 
+          @if (commentMutationError()) {
+            <app-error-panel
+              title="Comment action failed"
+              [message]="commentMutationError() ?? ''"
+              (retry)="clearCommentMutationError()"
+            />
+          }
+
           <form class="comment-form" [formGroup]="commentForm" (ngSubmit)="addComment()" novalidate>
             <label for="comment-body">Add comment</label>
-            <textarea id="comment-body" rows="4" formControlName="body"></textarea>
+            <textarea
+              id="comment-body"
+              rows="4"
+              formControlName="body"
+            ></textarea>
             @if (showCommentError()) {
               <p class="field-error">Comment body is required.</p>
             }
@@ -236,7 +340,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
               />
             }
 
-            <button type="submit" [disabled]="isCommenting()">
+            <button type="submit" [disabled]="isArchivedProject() || isCommenting()">
               {{ isCommenting() ? 'Adding...' : 'Add comment' }}
             </button>
           </form>
@@ -327,8 +431,46 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
       line-height: 1.5;
     }
 
+    .work-item-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .work-item-meta span {
+      border: 1px solid #c7d2fe;
+      border-radius: 999px;
+      padding: 3px 9px;
+      background: #eef2ff;
+      color: #3730a3;
+      font-size: 0.75rem;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .notice {
+      display: grid;
+      gap: 4px;
+      margin-bottom: 18px;
+      border: 1px solid #fed7aa;
+      border-radius: 8px;
+      padding: 14px;
+      background: #fff7ed;
+      color: #9a3412;
+    }
+
+    .notice p {
+      margin: 0;
+      color: #9a3412;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+
     .detail-header a,
-    button {
+    button,
+    .secondary-action,
+    .danger-action {
       min-height: 38px;
       border: 1px solid #1f4f99;
       border-radius: 6px;
@@ -342,10 +484,17 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
       cursor: pointer;
     }
 
-    .detail-header a {
+    .detail-header a,
+    .secondary-action {
       border-color: #cbd5e1;
       background: #ffffff;
       color: #1f2937;
+    }
+
+    .danger-action {
+      border-color: #fecaca;
+      background: #fff1f2;
+      color: #991b1b;
     }
 
     button:disabled {
@@ -370,6 +519,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
     .detail-form,
     .status-form,
     .comment-form,
+    .comment-edit-form,
     .metadata {
       display: grid;
       gap: 12px;
@@ -447,6 +597,23 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
       border-radius: 3px;
     }
 
+    .archived-labels {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .archived-labels span {
+      border: 1px solid #cbd5e1;
+      border-radius: 999px;
+      padding: 3px 8px;
+      background: #f8fafc;
+      color: #64748b;
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-decoration: line-through;
+    }
+
     .metadata div {
       display: grid;
       gap: 3px;
@@ -487,7 +654,15 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
       font-size: 0.875rem;
     }
 
+    .comment header div {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
     .comment time,
+    .comment-marker,
     .activity-list span {
       color: #64748b;
       font-size: 0.75rem;
@@ -499,6 +674,30 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
       color: #334155;
       font-size: 0.875rem;
       line-height: 1.5;
+    }
+
+    .comment-tombstone {
+      color: #64748b !important;
+      font-style: italic;
+    }
+
+    .comment-actions,
+    .delete-confirmation {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-top: 10px;
+    }
+
+    .delete-confirmation {
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 10px;
+      background: #fff7f7;
+      color: #991b1b;
+      font-size: 0.8125rem;
+      font-weight: 800;
     }
 
     .activity-list {
@@ -537,20 +736,32 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly members = computed<MemberDto[]>(() => this.currentUser.members());
   readonly workItemId = computed(() => this.route.snapshot.paramMap.get('workItemId') ?? '');
 
+  readonly project = signal<ProjectDto | null>(null);
   readonly workItem = signal<WorkItemDetailDto | null>(null);
   readonly selectedLabelIds = signal<string[]>([]);
   readonly isLoading = signal(false);
   readonly isUpdating = signal(false);
   readonly isTransitioning = signal(false);
   readonly isCommenting = signal(false);
+  readonly savingCommentId = signal<string | null>(null);
+  readonly deletingCommentId = signal<string | null>(null);
+  readonly editingCommentId = signal<string | null>(null);
+  readonly confirmingDeleteCommentId = signal<string | null>(null);
   readonly hasSubmittedDetail = signal(false);
   readonly hasSubmittedComment = signal(false);
+  readonly hasSubmittedEditComment = signal(false);
   readonly loadError = signal<string | null>(null);
   readonly updateError = signal<string | null>(null);
   readonly statusError = signal<string | null>(null);
   readonly commentError = signal<string | null>(null);
+  readonly commentMutationError = signal<string | null>(null);
   readonly labelLoadError = signal<string | null>(null);
   readonly availableLabels = signal<LabelDto[]>([]);
+  readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
+  readonly assignableLabels = computed(() => this.availableLabels().filter((label) => !label.isArchived));
+  readonly archivedAttachedLabels = computed(() =>
+    (this.workItem()?.labels ?? []).filter((label) => label.isArchived)
+  );
 
   readonly detailForm = this.formBuilder.nonNullable.group({
     title: ['', [Validators.required]],
@@ -565,6 +776,10 @@ export class WorkItemDetailPageComponent implements OnInit {
   });
 
   readonly commentForm = this.formBuilder.nonNullable.group({
+    body: ['', [Validators.required]]
+  });
+
+  readonly editCommentForm = this.formBuilder.nonNullable.group({
     body: ['', [Validators.required]]
   });
 
@@ -583,6 +798,7 @@ export class WorkItemDetailPageComponent implements OnInit {
     this.api.getWorkItem(this.workItemId()).subscribe({
       next: (workItem) => {
         this.applyWorkItem(workItem);
+        this.loadProject(workItem.projectId);
         this.loadProjectLabels(workItem.projectId);
         this.isLoading.set(false);
       },
@@ -602,6 +818,10 @@ export class WorkItemDetailPageComponent implements OnInit {
       return;
     }
 
+    if (this.isArchivedProject()) {
+      return;
+    }
+
     this.isUpdating.set(true);
     this.api.updateWorkItem(this.workItemId(), this.toUpdateRequest()).subscribe({
       next: (workItem) => {
@@ -617,6 +837,10 @@ export class WorkItemDetailPageComponent implements OnInit {
   }
 
   transitionStatus(): void {
+    if (this.isArchivedProject()) {
+      return;
+    }
+
     const status = this.statusForm.getRawValue().status as WorkItemStatus;
     this.statusError.set(null);
     this.isTransitioning.set(true);
@@ -642,6 +866,10 @@ export class WorkItemDetailPageComponent implements OnInit {
       return;
     }
 
+    if (this.isArchivedProject()) {
+      return;
+    }
+
     this.isCommenting.set(true);
     this.api.createComment(this.workItemId(), { body: this.commentForm.getRawValue().body.trim() }).subscribe({
       next: () => {
@@ -656,7 +884,97 @@ export class WorkItemDetailPageComponent implements OnInit {
     });
   }
 
+  startEditComment(comment: CommentDto): void {
+    if (!this.canModifyComment(comment)) {
+      return;
+    }
+
+    this.commentMutationError.set(null);
+    this.confirmingDeleteCommentId.set(null);
+    this.editingCommentId.set(comment.id);
+    this.hasSubmittedEditComment.set(false);
+    this.editCommentForm.reset({ body: comment.body });
+  }
+
+  cancelEditComment(): void {
+    this.editingCommentId.set(null);
+    this.hasSubmittedEditComment.set(false);
+    this.editCommentForm.reset({ body: '' });
+  }
+
+  saveComment(comment: CommentDto): void {
+    this.hasSubmittedEditComment.set(true);
+    this.commentMutationError.set(null);
+
+    if (!this.canModifyComment(comment)) {
+      return;
+    }
+
+    if (this.editCommentForm.invalid) {
+      this.editCommentForm.markAllAsTouched();
+      return;
+    }
+
+    this.savingCommentId.set(comment.id);
+    this.api.updateComment(comment.id, { body: this.editCommentForm.getRawValue().body.trim() }).subscribe({
+      next: () => {
+        this.refreshAfterCommentMutation(() => {
+          this.savingCommentId.set(null);
+          this.cancelEditComment();
+        });
+      },
+      error: () => {
+        this.commentMutationError.set('The comment could not be updated.');
+        this.savingCommentId.set(null);
+      }
+    });
+  }
+
+  confirmDeleteComment(comment: CommentDto): void {
+    if (!this.canModifyComment(comment)) {
+      return;
+    }
+
+    this.commentMutationError.set(null);
+    this.editingCommentId.set(null);
+    this.confirmingDeleteCommentId.set(comment.id);
+  }
+
+  cancelDeleteComment(): void {
+    this.confirmingDeleteCommentId.set(null);
+  }
+
+  deleteComment(comment: CommentDto): void {
+    this.commentMutationError.set(null);
+
+    if (!this.canModifyComment(comment)) {
+      return;
+    }
+
+    this.deletingCommentId.set(comment.id);
+    this.api.deleteComment(comment.id).subscribe({
+      next: () => {
+        this.refreshAfterCommentMutation(() => {
+          this.deletingCommentId.set(null);
+          this.cancelDeleteComment();
+        });
+      },
+      error: () => {
+        this.commentMutationError.set('The comment could not be deleted.');
+        this.deletingCommentId.set(null);
+      }
+    });
+  }
+
+  clearCommentMutationError(): void {
+    this.commentMutationError.set(null);
+  }
+
   toggleLabel(labelId: string, event: Event): void {
+    if (this.isArchivedProject()) {
+      return;
+    }
+
     const checked = (event.target as HTMLInputElement).checked;
     const selected = new Set(this.selectedLabelIds());
 
@@ -678,10 +996,23 @@ export class WorkItemDetailPageComponent implements OnInit {
 
     this.api.listProjectLabels(projectId).subscribe({
       next: (labels) => {
-        this.availableLabels.set(labels);
+        this.availableLabels.set(labels.filter((label) => !label.isArchived));
       },
       error: () => {
         this.labelLoadError.set('Project labels could not be loaded from the API.');
+      }
+    });
+  }
+
+  loadProject(projectId: string): void {
+    this.api.getProject(projectId).subscribe({
+      next: (project) => {
+        this.project.set(project);
+        this.syncReadOnlyState();
+      },
+      error: () => {
+        this.project.set(null);
+        this.syncReadOnlyState();
       }
     });
   }
@@ -694,6 +1025,21 @@ export class WorkItemDetailPageComponent implements OnInit {
   showCommentError(): boolean {
     const control = this.commentForm.controls.body;
     return control.invalid && (control.touched || this.hasSubmittedComment());
+  }
+
+  showEditCommentError(): boolean {
+    const control = this.editCommentForm.controls.body;
+    return control.invalid && (control.touched || this.hasSubmittedEditComment());
+  }
+
+  canModifyComment(comment: CommentDto): boolean {
+    const actor = this.currentUser.selectedMember();
+
+    if (this.isArchivedProject() || comment.isDeleted || actor === null) {
+      return false;
+    }
+
+    return actor.role === 'owner' || actor.role === 'maintainer' || comment.author.id === actor.id;
   }
 
   formatToken(value: string): string {
@@ -714,6 +1060,12 @@ export class WorkItemDetailPageComponent implements OnInit {
     return this.formatToken(event.eventType.replace('.', ' '));
   }
 
+  deletedCommentText(comment: CommentDto): string {
+    const actor = comment.deletedBy === null ? '' : ` by ${comment.deletedBy.name}`;
+    const timestamp = comment.deletedAt === null ? '' : ` on ${this.formatDateTime(comment.deletedAt)}`;
+    return `Comment deleted${actor}${timestamp}.`;
+  }
+
   private refreshAfterComment(): void {
     this.api.getWorkItem(this.workItemId()).subscribe({
       next: (workItem) => {
@@ -727,9 +1079,22 @@ export class WorkItemDetailPageComponent implements OnInit {
     });
   }
 
+  private refreshAfterCommentMutation(afterRefresh: () => void): void {
+    this.api.getWorkItem(this.workItemId()).subscribe({
+      next: (workItem) => {
+        this.applyWorkItem(workItem);
+        afterRefresh();
+      },
+      error: () => {
+        this.commentMutationError.set('The comment changed, but the latest activity could not be loaded.');
+        afterRefresh();
+      }
+    });
+  }
+
   private applyWorkItem(workItem: WorkItemDetailDto): void {
     this.workItem.set(workItem);
-    this.selectedLabelIds.set(workItem.labels.map((label) => label.id));
+    this.selectedLabelIds.set(workItem.labels.filter((label) => !label.isArchived).map((label) => label.id));
     this.mergeAvailableLabels(workItem.labels);
     this.detailForm.reset({
       title: workItem.title,
@@ -739,6 +1104,7 @@ export class WorkItemDetailPageComponent implements OnInit {
       assigneeId: workItem.assignee?.id ?? ''
     });
     this.statusForm.reset({ status: workItem.status });
+    this.syncReadOnlyState();
   }
 
   private toUpdateRequest(): UpdateWorkItemRequest {
@@ -750,7 +1116,7 @@ export class WorkItemDetailPageComponent implements OnInit {
       type: formValue.type as WorkItemType,
       priority: formValue.priority as WorkItemPriority,
       assigneeId: formValue.assigneeId === '' ? null : formValue.assigneeId,
-      labelIds: this.selectedLabelIds()
+      labelIds: [...this.selectedLabelIds(), ...this.archivedAttachedLabels().map((label) => label.id)]
     };
   }
 
@@ -762,5 +1128,21 @@ export class WorkItemDetailPageComponent implements OnInit {
     }
 
     this.availableLabels.set([...labelsById.values()].sort((left, right) => left.name.localeCompare(right.name)));
+  }
+
+  private syncReadOnlyState(): void {
+    const options = { emitEvent: false };
+
+    if (this.isArchivedProject()) {
+      this.detailForm.disable(options);
+      this.statusForm.disable(options);
+      this.commentForm.disable(options);
+      this.editCommentForm.disable(options);
+    } else {
+      this.detailForm.enable(options);
+      this.statusForm.enable(options);
+      this.commentForm.enable(options);
+      this.editCommentForm.enable(options);
+    }
   }
 }

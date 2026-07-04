@@ -12,12 +12,17 @@ import type { WorktrailDb } from '../db/client.js';
 import type { ActorContext } from '../domain/actor.js';
 import type { WorkItemStatus } from '../domain/constants.js';
 import { canTransitionWorkItem } from '../domain/workflow.js';
-import { NotFoundError, ValidationError, WorkflowTransitionError } from '../errors/app-error.js';
+import {
+  ConflictError,
+  NotFoundError,
+  ValidationError,
+  WorkflowTransitionError
+} from '../errors/app-error.js';
 import {
   type Repositories,
   withRepositoriesTransaction
 } from '../repositories/index.js';
-import type { ActivityEvent, Comment, Label, Member, WorkItem } from '../repositories/types.js';
+import type { ActivityEvent, Comment, Label, Member, Project, WorkItem } from '../repositories/types.js';
 import {
   toActivityEventDto,
   toCommentDto,
@@ -69,12 +74,21 @@ export class WorkItemService {
   }
 
   async createWorkItem(projectId: string, input: CreateWorkItemRequest): Promise<WorkItemDetailDto> {
-    await this.requireProject(projectId);
-
     return this.withWriteRepositories(async (repositories) => {
       const timestamp = this.clock();
       const labelIds = input.labelIds ?? [];
+      const project = await this.requireProjectFromRepositories(projectId, repositories);
+      this.assertProjectWritable(project);
       await this.validateLabels(projectId, labelIds, repositories);
+      const numberedProject = await repositories.projects.allocateWorkItemNumber(projectId, timestamp);
+
+      if (numberedProject === null || numberedProject.workspaceId !== this.context.actor.workspaceId) {
+        throw new NotFoundError('Project not found.');
+      }
+
+      this.assertProjectWritable(numberedProject);
+
+      const itemNumber = numberedProject.nextWorkItemNumber - 1;
 
       const workItem = await repositories.workItems.create({
         id: this.idGenerator(),
@@ -82,6 +96,8 @@ export class WorkItemService {
         projectId,
         title: input.title,
         description: input.description ?? '',
+        itemNumber,
+        displayKey: `${numberedProject.key}-${itemNumber}`,
         type: input.type,
         status: input.status ?? 'backlog',
         priority: input.priority,
@@ -123,12 +139,18 @@ export class WorkItemService {
   ): Promise<WorkItemDetailDto> {
     return this.withWriteRepositories(async (repositories) => {
       const current = await this.requireWorkItem(workItemId, repositories);
+      const project = await this.requireProjectFromRepositories(current.projectId, repositories);
+      this.assertProjectWritable(project);
       const currentLabels = await repositories.labels.listByWorkItem(workItemId);
       const timestamp = this.clock();
       const nextLabelIds = input.labelIds;
 
       if (nextLabelIds !== undefined) {
-        await this.validateLabels(current.projectId, nextLabelIds, repositories);
+        await this.validateLabels(current.projectId, nextLabelIds, repositories, {
+          existingArchivedLabelIds: new Set(
+            currentLabels.filter((label) => label.archivedAt !== null).map((label) => label.id)
+          )
+        });
       }
 
       const updated = await repositories.workItems.update(workItemId, {
@@ -170,6 +192,8 @@ export class WorkItemService {
   ): Promise<WorkItemDetailDto> {
     return this.withWriteRepositories(async (repositories) => {
       const current = await this.requireWorkItem(workItemId, repositories);
+      const project = await this.requireProjectFromRepositories(current.projectId, repositories);
+      this.assertProjectWritable(project);
 
       if (
         !canTransitionWorkItem({
@@ -221,11 +245,26 @@ export class WorkItemService {
     return withRepositoriesTransaction(this.context.db, callback);
   }
 
-  private async requireProject(projectId: string): Promise<void> {
-    const project = await this.context.repositories.projects.findById(projectId);
+  private async requireProject(projectId: string): Promise<Project> {
+    return this.requireProjectFromRepositories(projectId, this.context.repositories);
+  }
+
+  private async requireProjectFromRepositories(
+    projectId: string,
+    repositories: Repositories
+  ): Promise<Project> {
+    const project = await repositories.projects.findById(projectId);
 
     if (project === null || project.workspaceId !== this.context.actor.workspaceId) {
       throw new NotFoundError('Project not found.');
+    }
+
+    return project;
+  }
+
+  private assertProjectWritable(project: Project): void {
+    if (project.status === 'archived') {
+      throw new ConflictError('Archived projects are read-only.');
     }
   }
 
@@ -242,7 +281,8 @@ export class WorkItemService {
   private async validateLabels(
     projectId: string,
     labelIds: string[],
-    repositories: Repositories
+    repositories: Repositories,
+    options: { existingArchivedLabelIds?: Set<string> } = {}
   ): Promise<void> {
     const uniqueLabelIds = [...new Set(labelIds)];
     const labels = await repositories.labels.listByIds(uniqueLabelIds);
@@ -252,7 +292,8 @@ export class WorkItemService {
       labels.some(
         (label) =>
           label.workspaceId !== this.context.actor.workspaceId ||
-          (label.projectId !== null && label.projectId !== projectId)
+          (label.projectId !== null && label.projectId !== projectId) ||
+          (label.archivedAt !== null && !options.existingArchivedLabelIds?.has(label.id))
       )
     ) {
       throw new ValidationError('One or more labels are invalid for this project.');
@@ -317,7 +358,11 @@ export class WorkItemService {
     return Promise.all(
       comments.map(async (comment) => {
         const author = await this.requireMember(comment.authorId, repositories, 'Comment author not found.');
-        return toCommentDto(comment, author);
+        const deletedBy =
+          comment.deletedById === null
+            ? null
+            : await this.requireMember(comment.deletedById, repositories, 'Comment deletion actor not found.');
+        return toCommentDto(comment, author, deletedBy);
       })
     );
   }

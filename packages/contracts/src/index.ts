@@ -16,6 +16,15 @@ export type WorkItemStatus =
 export type WorkItemPriority = 'low' | 'medium' | 'high' | 'urgent';
 export type WorkItemSort = 'updated_desc' | 'updated_asc' | 'priority_desc' | 'priority_asc';
 export type ActivityEventType =
+  | 'project.name_changed'
+  | 'project.description_changed'
+  | 'project.archived'
+  | 'project.reactivated'
+  | 'label.created'
+  | 'label.name_changed'
+  | 'label.color_changed'
+  | 'label.archived'
+  | 'label.reactivated'
   | 'work_item.created'
   | 'work_item.title_changed'
   | 'work_item.description_changed'
@@ -24,7 +33,9 @@ export type ActivityEventType =
   | 'work_item.priority_changed'
   | 'work_item.label_added'
   | 'work_item.label_removed'
-  | 'comment.added';
+  | 'comment.added'
+  | 'comment.edited'
+  | 'comment.deleted';
 
 export interface MemberDto {
   id: string;
@@ -38,6 +49,7 @@ export interface MemberDto {
 export interface ProjectDto {
   id: string;
   workspaceId: string;
+  key: string;
   name: string;
   description: string;
   status: ProjectStatus;
@@ -46,11 +58,13 @@ export interface ProjectDto {
 }
 
 export interface CreateProjectRequest {
+  key?: string;
   name: string;
   description?: string;
 }
 
 export interface UpdateProjectRequest {
+  key?: string;
   name?: string;
   description?: string;
   status?: ProjectStatus;
@@ -63,6 +77,7 @@ export interface ProjectStatusCountDto {
 
 export interface RecentWorkItemDto {
   id: string;
+  displayKey: string;
   title: string;
   status: WorkItemStatus;
   updatedAt: string;
@@ -78,12 +93,16 @@ export interface LabelDto {
   id: string;
   name: string;
   color: string | null;
+  isArchived: boolean;
+  archivedAt: string | null;
 }
 
 export interface WorkItemListItemDto {
   id: string;
   workspaceId: string;
   projectId: string;
+  itemNumber: number;
+  displayKey: string;
   title: string;
   type: WorkItemType;
   status: WorkItemStatus;
@@ -110,6 +129,11 @@ export interface CommentDto {
   workItemId: string;
   author: MemberDto;
   body: string;
+  isEdited: boolean;
+  isDeleted: boolean;
+  editedAt: string | null;
+  deletedAt: string | null;
+  deletedBy: MemberDto | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -156,5 +180,19 @@ export interface TransitionWorkItemRequest {
 }
 
 export interface CreateCommentRequest {
+  body: string;
+}
+
+export interface CreateLabelRequest {
+  name: string;
+  color?: string | null;
+}
+
+export interface UpdateLabelRequest {
+  name?: string;
+  color?: string | null;
+}
+
+export interface UpdateCommentRequest {
   body: string;
 }

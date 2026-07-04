@@ -106,6 +106,7 @@ export function createWorkItemRepository(db: WorktrailDb) {
       return db
         .select({
           id: workItems.id,
+          displayKey: workItems.displayKey,
           title: workItems.title,
           status: workItems.status,
           updatedAt: workItems.updatedAt

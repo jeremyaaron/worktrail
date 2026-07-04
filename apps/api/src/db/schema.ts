@@ -70,6 +70,8 @@ export const projects = pgTable(
     workspaceId: uuid('workspace_id')
       .notNull()
       .references(() => workspaces.id),
+    key: text('key').notNull(),
+    nextWorkItemNumber: integer('next_work_item_number').notNull().default(1),
     name: text('name').notNull(),
     description: text('description').notNull().default(''),
     status: text('status').$type<ProjectStatus>().notNull(),
@@ -77,7 +79,10 @@ export const projects = pgTable(
   },
   (table) => [
     check('projects_status_check', enumCheckSql('status', projectStatuses)),
-    index('projects_workspace_id_status_idx').on(table.workspaceId, table.status)
+    check('projects_key_check', sql`${table.key} ~ '^[A-Z0-9]{2,8}$'`),
+    check('projects_next_work_item_number_check', sql`${table.nextWorkItemNumber} > 0`),
+    index('projects_workspace_id_status_idx').on(table.workspaceId, table.status),
+    uniqueIndex('projects_workspace_id_key_unique').on(table.workspaceId, table.key)
   ]
 );
 
@@ -93,6 +98,8 @@ export const workItems = pgTable(
       .references(() => projects.id),
     title: text('title').notNull(),
     description: text('description').notNull().default(''),
+    itemNumber: integer('item_number').notNull(),
+    displayKey: text('display_key').notNull(),
     type: text('type').$type<WorkItemType>().notNull(),
     status: text('status').$type<WorkItemStatus>().notNull(),
     priority: text('priority').$type<WorkItemPriority>().notNull(),
@@ -108,12 +115,15 @@ export const workItems = pgTable(
     check('work_items_type_check', enumCheckSql('type', workItemTypes)),
     check('work_items_status_check', enumCheckSql('status', workItemStatuses)),
     check('work_items_priority_check', enumCheckSql('priority', workItemPriorities)),
+    check('work_items_item_number_check', sql`${table.itemNumber} > 0`),
     index('work_items_project_id_status_idx').on(table.projectId, table.status),
     index('work_items_project_id_assignee_id_idx').on(table.projectId, table.assigneeId),
     index('work_items_project_id_type_idx').on(table.projectId, table.type),
     index('work_items_project_id_priority_idx').on(table.projectId, table.priority),
     index('work_items_project_id_updated_at_idx').on(table.projectId, table.updatedAt.desc()),
-    index('work_items_project_id_title_idx').on(table.projectId, table.title)
+    index('work_items_project_id_title_idx').on(table.projectId, table.title),
+    uniqueIndex('work_items_project_id_item_number_unique').on(table.projectId, table.itemNumber),
+    uniqueIndex('work_items_workspace_id_display_key_unique').on(table.workspaceId, table.displayKey)
   ]
 );
 
@@ -127,11 +137,16 @@ export const labels = pgTable(
     projectId: uuid('project_id').references(() => projects.id),
     name: text('name').notNull(),
     color: text('color'),
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
+    archivedById: uuid('archived_by_id').references(() => members.id),
     ...timestamps
   },
   (table) => [
     index('labels_workspace_id_name_idx').on(table.workspaceId, table.name),
-    uniqueIndex('labels_project_id_name_unique').on(table.projectId, table.name)
+    index('labels_project_id_archived_at_idx').on(table.projectId, table.archivedAt),
+    uniqueIndex('labels_project_id_active_name_unique')
+      .on(table.projectId, sql`lower(${table.name})`)
+      .where(sql`${table.archivedAt} is null`)
   ]
 );
 
@@ -168,6 +183,9 @@ export const comments = pgTable(
       .notNull()
       .references(() => members.id),
     body: text('body').notNull(),
+    editedAt: timestamp('edited_at', { withTimezone: true }),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    deletedById: uuid('deleted_by_id').references(() => members.id),
     ...timestamps
   },
   (table) => [index('comments_work_item_id_created_at_idx').on(table.workItemId, table.createdAt)]

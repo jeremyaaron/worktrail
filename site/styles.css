@@ -66,15 +66,9 @@ a {
 }
 
 .brand-mark {
-  align-items: center;
-  background: var(--blue);
   border-radius: 6px;
-  color: var(--white);
-  display: inline-flex;
-  font-size: 14px;
-  font-weight: 820;
+  display: block;
   height: 30px;
-  justify-content: center;
   width: 30px;
 }
 
