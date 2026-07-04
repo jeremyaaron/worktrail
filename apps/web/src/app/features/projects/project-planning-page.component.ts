@@ -2,7 +2,15 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import type { MilestoneDto, MilestoneStatus, ProjectDto } from '@worktrail/contracts';
+import type {
+  MilestoneDto,
+  MilestoneProgressDto,
+  MilestoneStatus,
+  PlanningRiskItemDto,
+  ProjectDto,
+  ProjectPlanningSummaryDto,
+  WorkItemStatus
+} from '@worktrail/contracts';
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorktrailApiService } from '../../core/worktrail-api.service';
@@ -14,6 +22,23 @@ const milestoneStatuses: MilestoneStatus[] = ['planned', 'active', 'completed', 
 const statusOrder = new Map<MilestoneStatus, number>(
   milestoneStatuses.map((status, index) => [status, index])
 );
+const workItemStatusLabels: Record<WorkItemStatus, string> = {
+  backlog: 'Backlog',
+  ready: 'Ready',
+  in_progress: 'In progress',
+  blocked: 'Blocked',
+  done: 'Done',
+  canceled: 'Canceled'
+};
+
+interface PlanningRiskSection {
+  title: string;
+  description: string;
+  items: PlanningRiskItemDto[];
+  emptyTitle: string;
+  emptyMessage: string;
+  queryParams?: Record<string, string>;
+}
 
 @Component({
   selector: 'app-project-planning-page',
@@ -246,14 +271,143 @@ const statusOrder = new Map<MilestoneStatus, number>(
         <section class="panel summary-panel" aria-labelledby="planning-summary-heading">
           <div class="panel-heading">
             <div>
-              <h2 id="planning-summary-heading">Planning summary</h2>
-              <p>Risk lists and progress signals will be added in Phase 10.</p>
+              <h2 id="planning-summary-heading">Planning dashboard</h2>
+              <p>Review progress, due dates, ownership gaps, and stale active work.</p>
             </div>
+            @if (planningSummary(); as summary) {
+              <span>{{ totalRiskCount(summary) }} risks</span>
+            }
           </div>
-          <app-empty-state
-            title="Dashboard pending"
-            message="Milestone data is ready; the planning summary UI lands in a later phase."
-          />
+
+          @if (isLoadingSummary()) {
+            <app-loading-indicator label="Loading planning dashboard" />
+          } @else if (planningSummaryLoadError()) {
+            <app-error-panel
+              [message]="planningSummaryLoadError() ?? ''"
+              (retry)="loadPlanningSummary()"
+            />
+          } @else if (planningSummary(); as summary) {
+            <section class="dashboard-section" aria-labelledby="milestone-progress-heading">
+              <div class="section-heading">
+                <h3 id="milestone-progress-heading">Milestone progress</h3>
+                <span>{{ summary.milestoneProgress.length }} active</span>
+              </div>
+
+              @if (summary.milestoneProgress.length === 0) {
+                <div class="compact-empty">
+                  <strong>No active milestones</strong>
+                  <span>Planned and active milestones will appear here once created.</span>
+                </div>
+              } @else {
+                <div class="progress-list">
+                  @for (progress of summary.milestoneProgress; track progress.milestone.id) {
+                    <a
+                      class="progress-row"
+                      [routerLink]="['/projects', projectId(), 'work-items']"
+                      [queryParams]="{ milestoneId: progress.milestone.id, sort: 'due_date_asc' }"
+                    >
+                      <span class="progress-row__heading">
+                        <strong>{{ progress.milestone.name }}</strong>
+                        <small>
+                          {{ progress.doneCount }} of {{ progress.totalCount }} done
+                        </small>
+                      </span>
+                      <span class="progress-bar" aria-hidden="true">
+                        <span [style.width.%]="milestonePercent(progress)"></span>
+                      </span>
+                      <span class="progress-row__counts">
+                        <span>{{ progress.blockedCount }} blocked</span>
+                        <span>{{ progress.overdueCount }} overdue</span>
+                      </span>
+                    </a>
+                  }
+                </div>
+              }
+            </section>
+
+            <section class="risk-metrics" aria-label="Planning risk counts">
+              <a
+                [routerLink]="['/projects', projectId(), 'work-items']"
+                [queryParams]="{ status: 'blocked' }"
+              >
+                <span>Blocked</span>
+                <strong>{{ summary.blockedWork.length }}</strong>
+              </a>
+              <a
+                [routerLink]="['/projects', projectId(), 'work-items']"
+                [queryParams]="{ dueDateState: 'overdue', sort: 'due_date_asc' }"
+              >
+                <span>Overdue</span>
+                <strong>{{ summary.overdueWork.length }}</strong>
+              </a>
+              <a
+                [routerLink]="['/projects', projectId(), 'work-items']"
+                [queryParams]="{ dueDateState: 'due_soon', sort: 'due_date_asc' }"
+              >
+                <span>Due soon</span>
+                <strong>{{ summary.dueSoonWork.length }}</strong>
+              </a>
+              <a
+                [routerLink]="['/projects', projectId(), 'work-items']"
+                [queryParams]="{ status: 'in_progress', sort: 'updated_asc' }"
+              >
+                <span>Stale</span>
+                <strong>{{ summary.staleInProgressWork.length }}</strong>
+              </a>
+            </section>
+
+            <div class="risk-section-list">
+              @for (section of riskSections(); track section.title) {
+                <section class="dashboard-section" [attr.aria-labelledby]="riskHeadingId(section)">
+                  <div class="section-heading">
+                    <div>
+                      <h3 [id]="riskHeadingId(section)">{{ section.title }}</h3>
+                      <p>{{ section.description }}</p>
+                    </div>
+                    @if (section.queryParams) {
+                      <a
+                        [routerLink]="['/projects', projectId(), 'work-items']"
+                        [queryParams]="section.queryParams"
+                      >
+                        View list
+                      </a>
+                    }
+                  </div>
+
+                  @if (section.items.length === 0) {
+                    <div class="compact-empty">
+                      <strong>{{ section.emptyTitle }}</strong>
+                      <span>{{ section.emptyMessage }}</span>
+                    </div>
+                  } @else {
+                    <div class="risk-list">
+                      @for (item of section.items; track item.id) {
+                        <a class="risk-row" [routerLink]="['/work-items', item.id]">
+                          <span class="risk-row__title">
+                            <strong>{{ item.displayKey }} · {{ item.title }}</strong>
+                            <small>
+                              {{ statusLabel(item.status) }} · {{ formatToken(item.priority) }}
+                              · {{ item.assignee?.name ?? 'Unassigned' }}
+                            </small>
+                          </span>
+                          <span class="risk-row__planning">
+                            @if (item.milestone === null) {
+                              <span class="muted-pill">No milestone</span>
+                            } @else {
+                              <span class="milestone-pill">{{ item.milestone.name }}</span>
+                            }
+                            <small>
+                              {{ item.dueDate === null ? 'No due date' : 'Due ' + formatDate(item.dueDate) }}
+                            </small>
+                          </span>
+                        </a>
+                      }
+                    </div>
+                  }
+                </section>
+              }
+            </div>
+          }
         </section>
       </section>
     }
@@ -549,13 +703,16 @@ export class ProjectPlanningPageComponent implements OnInit {
   readonly milestoneStatuses = milestoneStatuses;
   readonly project = signal<ProjectDto | null>(null);
   readonly milestones = signal<MilestoneDto[]>([]);
+  readonly planningSummary = signal<ProjectPlanningSummaryDto | null>(null);
   readonly isLoadingProject = signal(false);
   readonly isLoadingMilestones = signal(false);
+  readonly isLoadingSummary = signal(false);
   readonly isCreatingMilestone = signal(false);
   readonly mutatingMilestoneId = signal<string | null>(null);
   readonly hasSubmittedCreate = signal(false);
   readonly projectLoadError = signal<string | null>(null);
   readonly milestoneLoadError = signal<string | null>(null);
+  readonly planningSummaryLoadError = signal<string | null>(null);
   readonly createError = signal<string | null>(null);
   readonly milestoneMutationError = signal<string | null>(null);
   readonly successMessage = signal<string | null>(null);
@@ -567,6 +724,57 @@ export class ProjectPlanningPageComponent implements OnInit {
       this.project()?.status === 'active' &&
       (member?.role === 'owner' || member?.role === 'maintainer')
     );
+  });
+  readonly riskSections = computed<PlanningRiskSection[]>(() => {
+    const summary = this.planningSummary();
+
+    if (summary === null) {
+      return [];
+    }
+
+    const sections: PlanningRiskSection[] = [
+      {
+        title: 'Blocked work',
+        description: 'Items that need intervention before delivery can continue.',
+        items: summary.blockedWork,
+        emptyTitle: 'No blocked work',
+        emptyMessage: 'No work items are currently blocked.',
+        queryParams: { status: 'blocked' }
+      },
+      {
+        title: 'Overdue work',
+        description: 'Open items with due dates before today.',
+        items: summary.overdueWork,
+        emptyTitle: 'No overdue work',
+        emptyMessage: 'Open due dates are not past their target date.',
+        queryParams: { dueDateState: 'overdue', sort: 'due_date_asc' }
+      },
+      {
+        title: 'Due soon',
+        description: 'Open work due within the planning window.',
+        items: summary.dueSoonWork,
+        emptyTitle: 'Nothing due soon',
+        emptyMessage: 'No open work is due within the next week.',
+        queryParams: { dueDateState: 'due_soon', sort: 'due_date_asc' }
+      },
+      {
+        title: 'Unassigned active work',
+        description: 'Ready or in-progress items without an owner.',
+        items: summary.unassignedActiveWork,
+        emptyTitle: 'No unassigned active work',
+        emptyMessage: 'Ready and in-progress work all has an assignee.'
+      },
+      {
+        title: 'Stale in-progress work',
+        description: 'In-progress items that have not changed recently.',
+        items: summary.staleInProgressWork,
+        emptyTitle: 'No stale in-progress work',
+        emptyMessage: 'In-progress work has recent activity.',
+        queryParams: { status: 'in_progress', sort: 'updated_asc' }
+      }
+    ];
+
+    return sections;
   });
 
   readonly milestoneForm = this.formBuilder.nonNullable.group({
@@ -588,10 +796,26 @@ export class ProjectPlanningPageComponent implements OnInit {
         this.project.set(project);
         this.isLoadingProject.set(false);
         this.loadMilestones();
+        this.loadPlanningSummary();
       },
       error: () => {
         this.projectLoadError.set('Project planning could not be loaded from the API.');
         this.isLoadingProject.set(false);
+      }
+    });
+  }
+
+  loadPlanningSummary(): void {
+    this.isLoadingSummary.set(true);
+    this.planningSummaryLoadError.set(null);
+    this.api.getProjectPlanningSummary(this.projectId()).subscribe({
+      next: (summary) => {
+        this.planningSummary.set(summary);
+        this.isLoadingSummary.set(false);
+      },
+      error: () => {
+        this.planningSummaryLoadError.set('Planning dashboard could not be loaded from the API.');
+        this.isLoadingSummary.set(false);
       }
     });
   }
@@ -643,6 +867,7 @@ export class ProjectPlanningPageComponent implements OnInit {
           this.hasSubmittedCreate.set(false);
           this.isCreatingMilestone.set(false);
           this.successMessage.set('Milestone created.');
+          this.loadPlanningSummary();
         },
         error: (error: unknown) => {
           this.createError.set(this.toErrorMessage(error, 'Milestone could not be created.'));
@@ -687,6 +912,7 @@ export class ProjectPlanningPageComponent implements OnInit {
           this.upsertMilestone(updated);
           this.mutatingMilestoneId.set(null);
           this.successMessage.set('Milestone saved.');
+          this.loadPlanningSummary();
         },
         error: (error: unknown) => {
           this.milestoneMutationError.set(
@@ -728,6 +954,32 @@ export class ProjectPlanningPageComponent implements OnInit {
     return value.replaceAll('_', ' ');
   }
 
+  statusLabel(status: WorkItemStatus): string {
+    return workItemStatusLabels[status];
+  }
+
+  milestonePercent(progress: MilestoneProgressDto): number {
+    if (progress.totalCount === 0) {
+      return 0;
+    }
+
+    return Math.round((progress.doneCount / progress.totalCount) * 100);
+  }
+
+  totalRiskCount(summary: ProjectPlanningSummaryDto): number {
+    return (
+      summary.blockedWork.length +
+      summary.overdueWork.length +
+      summary.dueSoonWork.length +
+      summary.unassignedActiveWork.length +
+      summary.staleInProgressWork.length
+    );
+  }
+
+  riskHeadingId(section: PlanningRiskSection): string {
+    return `risk-${section.title.toLowerCase().replaceAll(' ', '-')}`;
+  }
+
   formatDate(value: string): string {
     const [year, month, day] = value.split('-').map(Number);
     return new Intl.DateTimeFormat('en', {
@@ -766,6 +1018,7 @@ export class ProjectPlanningPageComponent implements OnInit {
         this.upsertMilestone(updated);
         this.mutatingMilestoneId.set(null);
         this.successMessage.set(successMessage);
+        this.loadPlanningSummary();
       },
       error: (error: unknown) => {
         this.milestoneMutationError.set(this.toErrorMessage(error, fallbackError));

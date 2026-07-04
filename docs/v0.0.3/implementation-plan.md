@@ -731,6 +731,28 @@ npm test --workspace @worktrail/web -- --include '*planning*'
 npm run typecheck --workspace @worktrail/web
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Replaced the planning summary placeholder with the project planning dashboard.
+- Added summary loading through `GET /api/projects/:projectId/planning-summary`.
+- Added milestone progress rendering with completion bars and links to milestone-filtered work item lists.
+- Added dashboard risk count tiles for blocked, overdue, due-soon, and stale in-progress work.
+- Added risk sections for blocked work, overdue work, due-soon work, unassigned active work, and stale in-progress work.
+- Linked risk rows to work item detail pages and available risk section filters to work item list views.
+- Added compact empty states for projects without active milestones or planning risks.
+- Refreshed the planning dashboard after milestone create, update, archive, and reactivate commands.
+- Preserved archived-project and contributor read-only planning behavior.
+- Kept expanded dashboard styling route-scoped in `styles.scss` to avoid Angular component style budget warnings.
+- Added frontend tests for dashboard summary rendering, progress links, risk links, compact empty states, and milestone command refreshes.
+- Verified `npm test --workspace @worktrail/web -- --include 'src/app/features/projects/*planning*.spec.ts'`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm test --workspace @worktrail/web`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `npm run build`.
+- Verified `git diff --check`.
+
 ## Phase 11: E2E Coverage And UX Pass
 
 Goal: validate the v0.0.3 workflow through the browser and tighten UI quality.

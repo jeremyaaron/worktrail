@@ -2,7 +2,13 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import type { MemberDto, MilestoneDto, ProjectDto } from '@worktrail/contracts';
+import type {
+  MemberDto,
+  MilestoneDto,
+  PlanningRiskItemDto,
+  ProjectDto,
+  ProjectPlanningSummaryDto
+} from '@worktrail/contracts';
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { ProjectPlanningPageComponent } from './project-planning-page.component';
@@ -58,6 +64,48 @@ const activeMilestone: MilestoneDto = {
   updatedAt: '2026-07-04T12:00:00.000Z'
 };
 
+const blockedWorkItem: PlanningRiskItemDto = {
+  id: '10000000-0000-4000-8000-000000000301',
+  displayKey: 'WT-1',
+  title: 'Resolve deployment blocker',
+  status: 'blocked',
+  priority: 'urgent',
+  assignee: owner,
+  dueDate: '2026-07-06',
+  milestone: activeMilestone,
+  updatedAt: '2026-07-04T11:00:00.000Z'
+};
+
+const overdueWorkItem: PlanningRiskItemDto = {
+  id: '10000000-0000-4000-8000-000000000302',
+  displayKey: 'WT-2',
+  title: 'Finish stale planning copy',
+  status: 'in_progress',
+  priority: 'high',
+  assignee: null,
+  dueDate: '2026-07-01',
+  milestone: null,
+  updatedAt: '2026-06-25T12:00:00.000Z'
+};
+
+const defaultPlanningSummary: ProjectPlanningSummaryDto = {
+  project: activeProject,
+  milestoneProgress: [
+    {
+      milestone: activeMilestone,
+      totalCount: 4,
+      doneCount: 2,
+      blockedCount: 1,
+      overdueCount: 1
+    }
+  ],
+  blockedWork: [blockedWorkItem],
+  overdueWork: [overdueWorkItem],
+  dueSoonWork: [],
+  unassignedActiveWork: [overdueWorkItem],
+  staleInProgressWork: [overdueWorkItem]
+};
+
 const archivedMilestone: MilestoneDto = {
   id: '10000000-0000-4000-8000-000000000502',
   workspaceId,
@@ -81,7 +129,11 @@ function seedCurrentUser(member: MemberDto = owner) {
 function setupPlanningPage(
   project: ProjectDto = activeProject,
   milestones: MilestoneDto[] = [activeMilestone, archivedMilestone],
-  member: MemberDto = owner
+  member: MemberDto = owner,
+  planningSummary: ProjectPlanningSummaryDto = {
+    ...defaultPlanningSummary,
+    project
+  }
 ) {
   seedCurrentUser(member);
   const fixture = TestBed.createComponent(ProjectPlanningPageComponent);
@@ -89,6 +141,7 @@ function setupPlanningPage(
   fixture.detectChanges();
   http.expectOne(`/api/projects/${projectId}`).flush(project);
   http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush(milestones);
+  http.expectOne(`/api/projects/${projectId}/planning-summary`).flush(planningSummary);
   fixture.detectChanges();
   return { fixture, http };
 }
@@ -131,12 +184,65 @@ describe('ProjectPlanningPageComponent', () => {
     expect(compiled.textContent).toContain('legacy target');
     expect(compiled.textContent).toContain('archived');
     expect(compiled.textContent).toContain('2 total');
+    expect(compiled.textContent).toContain('Planning dashboard');
+    expect(compiled.textContent).toContain('4 risks');
     expect(links).toEqual([
       { text: 'Overview', href: `/projects/${projectId}` },
       { text: 'Work items', href: `/projects/${projectId}/work-items` },
       { text: 'Board', href: `/projects/${projectId}/board` },
       { text: 'Settings', href: `/projects/${projectId}/settings` }
     ]);
+  });
+
+  it('renders planning progress and risk links from the summary', () => {
+    const { fixture } = setupPlanningPage();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const progressLink = compiled.querySelector<HTMLAnchorElement>('.progress-row');
+    const riskLinks = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('.risk-row')).map(
+      (link) => ({
+        text: link.textContent ?? '',
+        href: link.getAttribute('href')
+      })
+    );
+
+    expect(compiled.textContent).toContain('Milestone progress');
+    expect(compiled.textContent).toContain('2 of 4 done');
+    expect(compiled.textContent).toContain('1 blocked');
+    expect(compiled.textContent).toContain('Resolve deployment blocker');
+    expect(compiled.textContent).toContain('Finish stale planning copy');
+    expect(progressLink?.getAttribute('href')).toBe(
+      `/projects/${projectId}/work-items?milestoneId=${activeMilestone.id}&sort=due_date_asc`
+    );
+    expect(riskLinks).toContain(jasmine.objectContaining({
+      text: jasmine.stringContaining('WT-1'),
+      href: `/work-items/${blockedWorkItem.id}`
+    }));
+    expect(riskLinks).toContain(jasmine.objectContaining({
+      text: jasmine.stringContaining('WT-2'),
+      href: `/work-items/${overdueWorkItem.id}`
+    }));
+  });
+
+  it('renders compact empty dashboard states', () => {
+    const emptySummary: ProjectPlanningSummaryDto = {
+      project: activeProject,
+      milestoneProgress: [],
+      blockedWork: [],
+      overdueWork: [],
+      dueSoonWork: [],
+      unassignedActiveWork: [],
+      staleInProgressWork: []
+    };
+    const { fixture } = setupPlanningPage(activeProject, [], owner, emptySummary);
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('No active milestones');
+    expect(compiled.textContent).toContain('No blocked work');
+    expect(compiled.textContent).toContain('No overdue work');
+    expect(compiled.textContent).toContain('Nothing due soon');
+    expect(compiled.textContent).toContain('No unassigned active work');
+    expect(compiled.textContent).toContain('No stale in-progress work');
   });
 
   it('creates, edits, archives, and reactivates milestones', () => {
@@ -167,6 +273,7 @@ describe('ProjectPlanningPageComponent', () => {
       targetDate: '2026-08-01'
     });
     create.flush(createdMilestone);
+    http.expectOne(`/api/projects/${projectId}/planning-summary`).flush(defaultPlanningSummary);
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Milestone created.');
 
@@ -192,6 +299,7 @@ describe('ProjectPlanningPageComponent', () => {
       status: 'completed',
       targetDate: '2026-07-30'
     });
+    http.expectOne(`/api/projects/${projectId}/planning-summary`).flush(defaultPlanningSummary);
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Milestone saved.');
 
@@ -203,6 +311,7 @@ describe('ProjectPlanningPageComponent', () => {
       isArchived: true,
       archivedAt: '2026-07-04T12:30:00.000Z'
     });
+    http.expectOne(`/api/projects/${projectId}/planning-summary`).flush(defaultPlanningSummary);
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Milestone archived.');
 
@@ -214,6 +323,7 @@ describe('ProjectPlanningPageComponent', () => {
       isArchived: false,
       archivedAt: null
     });
+    http.expectOne(`/api/projects/${projectId}/planning-summary`).flush(defaultPlanningSummary);
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Milestone reactivated.');
   });
