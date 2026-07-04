@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import type { ProjectDto, ProjectSummaryDto } from '@worktrail/contracts';
+import type { ActivityEventDto, ProjectDto, ProjectSummaryDto } from '@worktrail/contracts';
 
 import { ProjectHomePageComponent } from './project-home-page.component';
 import { ProjectListPageComponent } from './project-list-page.component';
@@ -74,6 +74,27 @@ const archivedLabel = {
   color: '#64748b',
   isArchived: true,
   archivedAt: '2026-07-03T12:00:00.000Z'
+};
+
+const labelActivity: ActivityEventDto = {
+  id: '10000000-0000-4000-8000-000000000701',
+  workspaceId: activeProject.workspaceId,
+  projectId,
+  workItemId: null,
+  actor: {
+    id: '10000000-0000-4000-8000-000000000101',
+    workspaceId: activeProject.workspaceId,
+    name: 'Avery Owner',
+    email: 'avery.owner@example.com',
+    role: 'owner',
+    isActive: true
+  },
+  eventType: 'label.created',
+  summary: 'Label created.',
+  previousValue: null,
+  newValue: null,
+  metadata: { labelId: backendLabel.id },
+  createdAt: '2026-07-03T12:00:00.000Z'
 };
 
 function setupProjectList() {
@@ -257,6 +278,7 @@ describe('ProjectSettingsPageComponent', () => {
 
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne(`/api/projects/${projectId}/labels?includeArchived=true`).flush([]);
+    http.expectOne(`/api/projects/${projectId}/activity`).flush([labelActivity]);
     fixture.detectChanges();
 
     fixture.componentInstance.settingsForm.setValue({
@@ -279,11 +301,13 @@ describe('ProjectSettingsPageComponent', () => {
       name: 'Renamed Worktrail App',
       description: 'Updated project settings.'
     });
+    http.expectOne(`/api/projects/${projectId}/activity`).flush([labelActivity]);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Renamed Worktrail App');
     expect(compiled.textContent).toContain('Project settings saved.');
+    expect(compiled.textContent).toContain('Label created.');
   });
 
   it('archives and reactivates projects without a page refresh', () => {
@@ -291,12 +315,14 @@ describe('ProjectSettingsPageComponent', () => {
 
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne(`/api/projects/${projectId}/labels?includeArchived=true`).flush([]);
+    http.expectOne(`/api/projects/${projectId}/activity`).flush([]);
     fixture.detectChanges();
 
     fixture.componentInstance.archiveProject();
     const archive = http.expectOne(`/api/projects/${projectId}/archive`);
     expect(archive.request.method).toBe('POST');
     archive.flush(archivedProject);
+    http.expectOne(`/api/projects/${projectId}/activity`).flush([]);
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Archived project');
@@ -305,6 +331,7 @@ describe('ProjectSettingsPageComponent', () => {
     const reactivate = http.expectOne(`/api/projects/${projectId}/reactivate`);
     expect(reactivate.request.method).toBe('POST');
     reactivate.flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/activity`).flush([]);
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Archived project');
@@ -318,6 +345,7 @@ describe('ProjectSettingsPageComponent', () => {
       backendLabel,
       archivedLabel
     ]);
+    http.expectOne(`/api/projects/${projectId}/activity`).flush([]);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
@@ -340,6 +368,7 @@ describe('ProjectSettingsPageComponent', () => {
       isArchived: false,
       archivedAt: null
     });
+    http.expectOne(`/api/projects/${projectId}/activity`).flush([labelActivity]);
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Label created.');
 
@@ -348,6 +377,7 @@ describe('ProjectSettingsPageComponent', () => {
     expect(update.request.method).toBe('PATCH');
     expect(update.request.body).toEqual({ name: 'api', color: '#0ea5e9' });
     update.flush({ ...backendLabel, name: 'api', color: '#0ea5e9' });
+    http.expectOne(`/api/projects/${projectId}/activity`).flush([labelActivity]);
 
     fixture.componentInstance.archiveLabel({ ...backendLabel, name: 'api', color: '#0ea5e9' });
     const archive = http.expectOne(`/api/labels/${backendLabel.id}/archive`);
@@ -359,10 +389,12 @@ describe('ProjectSettingsPageComponent', () => {
       isArchived: true,
       archivedAt: '2026-07-03T12:30:00.000Z'
     });
+    http.expectOne(`/api/projects/${projectId}/activity`).flush([labelActivity]);
 
     fixture.componentInstance.reactivateLabel(archivedLabel);
     const reactivate = http.expectOne(`/api/labels/${archivedLabel.id}/reactivate`);
     expect(reactivate.request.method).toBe('POST');
     reactivate.flush({ ...archivedLabel, isArchived: false, archivedAt: null });
+    http.expectOne(`/api/projects/${projectId}/activity`).flush([labelActivity]);
   });
 });

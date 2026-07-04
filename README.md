@@ -1,6 +1,6 @@
 # Worktrail
 
-Worktrail is a project management reference app. The v0.0.1 MVP is being built as a local-first Angular + TypeScript API + Postgres application that can later move toward an S3/CloudFront frontend and API Gateway/Lambda backend.
+Worktrail is a project management reference app. The v0.0.2 release is a local-first Angular + TypeScript API + Postgres application that can later move toward an S3/CloudFront frontend and API Gateway/Lambda backend.
 
 ## Repository Layout
 
@@ -11,7 +11,8 @@ apps/
 packages/
   contracts/ Shared DTO and API contract types
 docs/
-  v0.0.1/  PRD, technical design, and implementation plan
+  v0.0.1/  MVP PRD, technical design, implementation plan, and extraction notes
+  v0.0.2/  Adoption sprint PRD, technical design, implementation plan, and extraction notes
 ```
 
 ## Requirements
@@ -101,26 +102,38 @@ Seeded data includes:
 - three members: owner, maintainer, and contributor;
 - two active projects and one archived project;
 - work items across every status;
-- labels, comments, and activity events.
+- project labels, comments, deleted-comment tombstones, and activity events.
 
 Use the `Acting as` selector in the top bar to switch the local placeholder actor. This is intentionally local-only behavior and is not production authentication.
 
-Suggested MVP walkthrough:
+Suggested v0.0.2 walkthrough:
 
 1. Open Projects.
 2. Open the Worktrail App project.
-3. Review project status counts and recently updated work.
-4. Open the work item list and filter by status or assignee.
-5. Open the board and move an item with the status menu.
-6. Open a work item detail page, update fields, add a comment, and review activity.
+3. Review the project key, status counts, recently updated work, and activity.
+4. Open Settings, create a project label, and review label activity.
+5. Create a work item, assign the new label, and note the generated display key such as `WT-6`.
+6. Open the board and drag the card through valid workflow columns. Status menus remain available as a fallback.
+7. Open the work item detail page, update fields, add and edit a comment, delete a comment, and review activity.
+8. Open the archived project to confirm read-only project/work item behavior.
 
-## v0.0.1 Limitations
+## v0.0.2 Capabilities
+
+- Project keys and immutable work item display keys.
+- Project settings for metadata, archive/reactivate, and label administration.
+- Work item list filters, create flow with labels, detail editing, status transitions, and board movement.
+- Angular CDK drag/drop board interaction backed by server-side workflow validation.
+- Comment add/edit/delete with role-aware UI affordances and deleted-comment tombstones.
+- Project, label, work item, and comment lifecycle activity.
+- Archived projects remain readable and block work item, label, comment, and transition writes.
+
+## v0.0.2 Limitations
 
 - Authentication is represented by local request headers and the top-bar actor selector.
-- Labels are project-scoped and can be assigned from existing seed labels; full label administration is not implemented.
-- Board movement uses status menus instead of drag and drop.
-- Comment editing/deletion, file attachments, notifications, and production auth are intentionally out of scope.
-- The local Express adapter is the only runtime adapter in v0.0.1, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
+- Permissions are useful for exercising local policy paths, but they are not production authentication.
+- Custom workflows, persisted board ordering, file attachments, notifications, imports, and production auth are intentionally out of scope.
+- The local Express adapter is the only runtime adapter in v0.0.2, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
+- AWS deployment assets are not included yet; the Angular static build and transport-neutral handlers preserve that path.
 
 ## Database Status
 

@@ -692,6 +692,17 @@ npm test
 npm run build
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Surfaced project-level activity on project settings, including project and label lifecycle events.
+- Confirmed work item detail activity displays comment add/edit/delete and transition events clearly.
+- Updated README setup, walkthrough, capabilities, and limitations for v0.0.2.
+- Updated the GitHub Pages product site copy, links, and favicon to reflect v0.0.2 capabilities.
+- Added `docs/v0.0.2/jawstack-extraction-notes.md` covering scoped sequence allocation, settings screens, taxonomy administration, lifecycle command routes, soft-delete/tombstones, CDK drag/drop command integration, and cloud deployment implications.
+- Verified `npm test --workspace @worktrail/web -- --include 'src/app/features/projects/projects-page.component.spec.ts'`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+
 ## Phase 12: End-To-End Smoke And Release Readiness
 
 Goal: verify v0.0.2 as a complete local app.
@@ -738,6 +749,23 @@ Acceptance criteria:
 - `npm test` passes.
 - `npm run test:e2e` passes.
 - `npm run typecheck` passes.
+
+Status:
+
+- Completed on 2026-07-04.
+- Extended the Playwright smoke path for v0.0.2 to cover label creation, work item creation with label assignment, display key verification, CDK board drag/drop transitions, comment add/edit/delete, tombstone rendering, and activity verification.
+- Updated Playwright web-server startup to call the Angular workspace start script directly so host/port flags are passed correctly.
+- Bumped root and workspace package metadata to `0.0.2` without creating a git tag.
+- Replaced the Angular tab icon with a custom Worktrail SVG favicon.
+- Adjusted Angular production warning budgets modestly after the intentional CDK dependency so release builds remain clean while error budgets stay enforced.
+- Stopped the lingering local `npm run dev` process tree and confirmed app ports were clear.
+- Reset, migrated, and seeded the database after e2e so the local database is back to deterministic demo data.
+- Verified `npm run db:reset && npm run db:migrate && npm run db:seed`.
+- Verified `npm test`.
+- Verified `npm run test:e2e`.
+- Verified `npm run typecheck`.
+- Verified `npm run build`.
+- Verified `npm audit --omit=dev --audit-level=low`.
 - `npm run build` passes.
 - Runtime dependency audit has zero vulnerabilities.
 - README and docs match actual commands and behavior.

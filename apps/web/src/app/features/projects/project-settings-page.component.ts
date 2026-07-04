@@ -1,7 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import type { LabelDto, ProjectDto } from '@worktrail/contracts';
+import type { ActivityEventDto, LabelDto, ProjectDto } from '@worktrail/contracts';
 
 import { WorktrailApiService } from '../../core/worktrail-api.service';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
@@ -228,6 +228,31 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
             </div>
           }
         </section>
+
+        <section class="panel activity-panel" aria-labelledby="activity-heading">
+          <div>
+            <h2 id="activity-heading">Project activity</h2>
+            <p>Project and label lifecycle changes appear here.</p>
+          </div>
+
+          @if (activityLoadError()) {
+            <app-error-panel [message]="activityLoadError() ?? ''" (retry)="loadActivity()" />
+          } @else if (activity().length === 0) {
+            <section class="empty-labels">
+              <h3>No project activity yet</h3>
+              <p>Settings and label changes will appear here.</p>
+            </section>
+          } @else {
+            <ol class="activity-list">
+              @for (event of activity(); track event.id) {
+                <li>
+                  <strong>{{ event.summary }}</strong>
+                  <span>{{ event.actor.name }} · {{ formatEventType(event) }} · {{ formatDateTime(event.createdAt) }}</span>
+                </li>
+              }
+            </ol>
+          }
+        </section>
       </section>
     }
   `,
@@ -352,7 +377,8 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
       align-items: start;
     }
 
-    .label-panel {
+    .label-panel,
+    .activity-panel {
       grid-column: 1 / -1;
     }
 
@@ -458,6 +484,35 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
       gap: 10px;
     }
 
+    .activity-list {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .activity-list li {
+      display: grid;
+      gap: 5px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 12px;
+      background: #ffffff;
+    }
+
+    .activity-list strong {
+      color: #334155;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+
+    .activity-list span {
+      color: #64748b;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
     .label-row {
       display: grid;
       grid-template-columns: 18px minmax(160px, 1fr) 92px auto auto;
@@ -554,6 +609,8 @@ export class ProjectSettingsPageComponent implements OnInit {
   readonly labelMutationError = signal<string | null>(null);
   readonly labelSuccess = signal<string | null>(null);
   readonly saveSuccess = signal(false);
+  readonly activity = signal<ActivityEventDto[]>([]);
+  readonly activityLoadError = signal<string | null>(null);
   readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
 
   readonly settingsForm = this.formBuilder.nonNullable.group({
@@ -578,6 +635,7 @@ export class ProjectSettingsPageComponent implements OnInit {
       next: (project) => {
         this.applyProject(project);
         this.loadLabels();
+        this.loadActivity();
         this.isLoading.set(false);
       },
       error: () => {
@@ -598,6 +656,18 @@ export class ProjectSettingsPageComponent implements OnInit {
       error: () => {
         this.labelLoadError.set('Project labels could not be loaded from the API.');
         this.isLoadingLabels.set(false);
+      }
+    });
+  }
+
+  loadActivity(): void {
+    this.activityLoadError.set(null);
+    this.api.listProjectActivity(this.projectId()).subscribe({
+      next: (activity) => {
+        this.activity.set(activity);
+      },
+      error: () => {
+        this.activityLoadError.set('Project activity could not be loaded from the API.');
       }
     });
   }
@@ -623,6 +693,7 @@ export class ProjectSettingsPageComponent implements OnInit {
       .subscribe({
         next: (project) => {
           this.applyProject(project);
+          this.loadActivity();
           this.isSaving.set(false);
           this.hasSubmittedSave.set(false);
           this.saveSuccess.set(true);
@@ -640,6 +711,7 @@ export class ProjectSettingsPageComponent implements OnInit {
     this.api.archiveProject(this.projectId()).subscribe({
       next: (project) => {
         this.applyProject(project);
+        this.loadActivity();
         this.isCommandRunning.set(false);
       },
       error: () => {
@@ -655,6 +727,7 @@ export class ProjectSettingsPageComponent implements OnInit {
     this.api.reactivateProject(this.projectId()).subscribe({
       next: (project) => {
         this.applyProject(project);
+        this.loadActivity();
         this.isCommandRunning.set(false);
       },
       error: () => {
@@ -684,6 +757,7 @@ export class ProjectSettingsPageComponent implements OnInit {
       .subscribe({
         next: (label) => {
           this.upsertLabel(label);
+          this.loadActivity();
           this.labelForm.reset({ name: '', color: '#2563eb' });
           this.hasSubmittedLabel.set(false);
           this.isLabelMutating.set(false);
@@ -715,6 +789,7 @@ export class ProjectSettingsPageComponent implements OnInit {
       .subscribe({
         next: (updated) => {
           this.upsertLabel(updated);
+          this.loadActivity();
           this.isLabelMutating.set(false);
           this.labelSuccess.set('Label saved.');
         },
@@ -732,6 +807,7 @@ export class ProjectSettingsPageComponent implements OnInit {
     this.api.archiveLabel(label.id).subscribe({
       next: (updated) => {
         this.upsertLabel(updated);
+        this.loadActivity();
         this.isLabelMutating.set(false);
         this.labelSuccess.set('Label archived.');
       },
@@ -749,6 +825,7 @@ export class ProjectSettingsPageComponent implements OnInit {
     this.api.reactivateLabel(label.id).subscribe({
       next: (updated) => {
         this.upsertLabel(updated);
+        this.loadActivity();
         this.isLabelMutating.set(false);
         this.labelSuccess.set('Label reactivated.');
       },
@@ -772,6 +849,24 @@ export class ProjectSettingsPageComponent implements OnInit {
   showLabelNameError(): boolean {
     const control = this.labelForm.controls.name;
     return control.invalid && (control.touched || this.hasSubmittedLabel());
+  }
+
+  formatEventType(event: ActivityEventDto): string {
+    return this.formatToken(event.eventType.replace('.', ' '));
+  }
+
+  formatDateTime(value: string): string {
+    return new Intl.DateTimeFormat('en', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    }).format(new Date(value));
+  }
+
+  private formatToken(value: string): string {
+    return value.replaceAll('_', ' ');
   }
 
   private applyProject(project: ProjectDto): void {
