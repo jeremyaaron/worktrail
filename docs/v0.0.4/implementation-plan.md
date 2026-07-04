@@ -466,6 +466,28 @@ npm test --workspace @worktrail/api -- projects
 npm run typecheck --workspace @worktrail/api
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Reused the existing `canCreateProject(actor)` helper to enforce owner/maintainer-only project creation.
+- Updated `ProjectService.createProject` to reject contributors with a structured `403`.
+- Added transaction-capable project creation so the project row and workspace activity event are written together when a database handle is available.
+- Recorded `project.created` workspace activity with actor, project ID, key, and name metadata.
+- Preserved generated and explicit project key behavior.
+- Expanded project API tests for:
+  - owner project creation and workspace activity recording;
+  - maintainer project creation;
+  - contributor rejection;
+  - invalid project creation and invalid explicit key validation;
+  - duplicate explicit key conflict.
+- Verified `npm test --workspace @worktrail/api -- projects-members`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `npm run build`.
+- Verified `git diff --check` and `git diff --cached --check`.
+
 ## Phase 6: Inactive Member Assignment Policy
 
 Goal: apply active/inactive member rules to work item assignment and display behavior.

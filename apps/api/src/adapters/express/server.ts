@@ -125,7 +125,13 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
       )
     );
     app.get('/api/projects', adaptEndpoint(listProjectsHandler(options.repositories), adapterOptions));
-    app.post('/api/projects', adaptEndpoint(createProjectHandler(options.repositories), adapterOptions));
+    app.post(
+      '/api/projects',
+      adaptEndpoint(
+        createProjectHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
+    );
     app.get(
       '/api/projects/:projectId/work-items',
       adaptEndpoint(

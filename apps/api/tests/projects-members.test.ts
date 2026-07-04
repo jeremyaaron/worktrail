@@ -364,7 +364,7 @@ describe('projects API', () => {
   it('creates a project with validation and actor workspace scoping', async () => {
     const fixture = await createWorkspaceFixture('owner');
 
-    await request(app)
+    const response = await request(app)
       .post('/api/projects')
       .set(fixture.headers)
       .send({ name: 'Created Through API', description: 'Created by endpoint test.' })
@@ -381,6 +381,57 @@ describe('projects API', () => {
 
     const projects = await repositories.projects.listByWorkspace(fixture.workspaceId);
     expect(projects.map((project) => project.name)).toContain('Created Through API');
+
+    const activity = await repositories.workspaceActivityEvents.findByWorkspace(fixture.workspaceId);
+    expect(activity).toEqual([
+      expect.objectContaining({
+        actorId: fixture.actorId,
+        eventType: 'project.created',
+        metadata: { projectId: response.body.id },
+        newValue: {
+          projectId: response.body.id,
+          key: 'CTA',
+          name: 'Created Through API'
+        }
+      })
+    ]);
+  });
+
+  it('allows maintainers to create projects', async () => {
+    const fixture = await createWorkspaceFixture('maintainer');
+
+    await request(app)
+      .post('/api/projects')
+      .set(fixture.headers)
+      .send({ key: 'OPS', name: 'Operations Tracker' })
+      .expect(201)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          workspaceId: fixture.workspaceId,
+          key: 'OPS',
+          name: 'Operations Tracker',
+          status: 'active'
+        });
+      });
+  });
+
+  it('rejects contributor project creation requests', async () => {
+    const fixture = await createWorkspaceFixture('contributor');
+
+    await request(app)
+      .post('/api/projects')
+      .set(fixture.headers)
+      .send({ key: 'OPS', name: 'Operations Tracker' })
+      .expect(403)
+      .expect(({ body }) => {
+        expect(body.error).toEqual({
+          code: 'FORBIDDEN',
+          message: 'Only owners and maintainers can create projects.'
+        });
+      });
+
+    const projects = await repositories.projects.listByWorkspace(fixture.workspaceId);
+    expect(projects).toHaveLength(0);
   });
 
   it('accepts explicit project keys and rejects duplicates', async () => {
@@ -429,6 +480,18 @@ describe('projects API', () => {
       .expect(400)
       .expect(({ body }) => {
         expect(body.error.code).toBe('VALIDATION_ERROR');
+      });
+
+    await request(app)
+      .post('/api/projects')
+      .set(fixture.headers)
+      .send({ key: '!', name: 'Invalid Key Project' })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.error).toEqual({
+          code: 'VALIDATION_ERROR',
+          message: 'Project key must be 2-8 uppercase letters or numbers.'
+        });
       });
   });
 

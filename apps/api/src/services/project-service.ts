@@ -7,11 +7,20 @@ import type {
 } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
+import type { WorktrailDb } from '../db/client.js';
 import type { ActorContext } from '../domain/actor.js';
 import { workItemStatuses } from '../domain/constants.js';
-import { canArchiveProject, canManageProject, canReactivateProject } from '../domain/permissions.js';
+import {
+  canArchiveProject,
+  canCreateProject,
+  canManageProject,
+  canReactivateProject
+} from '../domain/permissions.js';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../errors/app-error.js';
-import type { Repositories } from '../repositories/index.js';
+import {
+  type Repositories,
+  withRepositoriesTransaction
+} from '../repositories/index.js';
 import type { Project } from '../repositories/types.js';
 import { toProjectDto, toRecentWorkItemDto } from './dto.js';
 
@@ -44,6 +53,7 @@ function getProjectKeyBase(name: string): string {
 export interface ProjectServiceContext {
   actor: ActorContext;
   repositories: Repositories;
+  db?: WorktrailDb;
   clock?: () => Date;
   idGenerator?: () => string;
 }
@@ -65,25 +75,43 @@ export class ProjectService {
   }
 
   async createProject(input: CreateProjectRequest): Promise<ProjectDto> {
-    const timestamp = this.clock();
-    const key =
-      input.key === undefined
-        ? await this.generateUniqueProjectKey(input.name)
-        : await this.normalizeExplicitProjectKey(input.key);
+    return this.withWriteRepositories(async (repositories) => {
+      if (!canCreateProject(this.context.actor)) {
+        throw new ForbiddenError('Only owners and maintainers can create projects.');
+      }
 
-    const project = await this.context.repositories.projects.create({
-      id: this.idGenerator(),
-      workspaceId: this.context.actor.workspaceId,
-      key,
-      nextWorkItemNumber: 1,
-      name: input.name,
-      description: input.description ?? '',
-      status: 'active',
-      createdAt: timestamp,
-      updatedAt: timestamp
+      const timestamp = this.clock();
+      const key =
+        input.key === undefined
+          ? await this.generateUniqueProjectKey(input.name, repositories)
+          : await this.normalizeExplicitProjectKey(input.key, repositories);
+
+      const project = await repositories.projects.create({
+        id: this.idGenerator(),
+        workspaceId: this.context.actor.workspaceId,
+        key,
+        nextWorkItemNumber: 1,
+        name: input.name,
+        description: input.description ?? '',
+        status: 'active',
+        createdAt: timestamp,
+        updatedAt: timestamp
+      });
+
+      await repositories.workspaceActivityEvents.create({
+        id: this.idGenerator(),
+        workspaceId: project.workspaceId,
+        actorId: this.context.actor.memberId,
+        eventType: 'project.created',
+        summary: `${project.name} project created.`,
+        previousValue: null,
+        newValue: { projectId: project.id, key: project.key, name: project.name },
+        metadata: { projectId: project.id },
+        createdAt: timestamp
+      });
+
+      return toProjectDto(project);
     });
-
-    return toProjectDto(project);
   }
 
   async getProject(projectId: string): Promise<ProjectDto> {
@@ -239,10 +267,23 @@ export class ProjectService {
     return project;
   }
 
-  private async normalizeExplicitProjectKey(input: string): Promise<string> {
+  private async withWriteRepositories<T>(
+    callback: (repositories: Repositories) => Promise<T>
+  ): Promise<T> {
+    if (this.context.db === undefined) {
+      return callback(this.context.repositories);
+    }
+
+    return withRepositoriesTransaction(this.context.db, callback);
+  }
+
+  private async normalizeExplicitProjectKey(
+    input: string,
+    repositories = this.context.repositories
+  ): Promise<string> {
     const key = normalizeProjectKeyInput(input);
     validateProjectKey(key);
-    await this.requireAvailableProjectKey(key);
+    await this.requireAvailableProjectKey(key, undefined, repositories);
     return key;
   }
 
@@ -262,13 +303,16 @@ export class ProjectService {
     return key;
   }
 
-  private async generateUniqueProjectKey(name: string): Promise<string> {
+  private async generateUniqueProjectKey(
+    name: string,
+    repositories = this.context.repositories
+  ): Promise<string> {
     const base = getProjectKeyBase(name);
 
     for (let index = 0; index < 100; index += 1) {
       const suffix = index === 0 ? '' : String(index + 1);
       const candidate = `${base.slice(0, 8 - suffix.length)}${suffix}`;
-      const existing = await this.context.repositories.projects.findByWorkspaceKey(
+      const existing = await repositories.projects.findByWorkspaceKey(
         this.context.actor.workspaceId,
         candidate
       );
@@ -281,8 +325,12 @@ export class ProjectService {
     throw new ConflictError('A unique project key could not be generated.');
   }
 
-  private async requireAvailableProjectKey(key: string, currentProjectId?: string): Promise<void> {
-    const existing = await this.context.repositories.projects.findByWorkspaceKey(
+  private async requireAvailableProjectKey(
+    key: string,
+    currentProjectId?: string,
+    repositories = this.context.repositories
+  ): Promise<void> {
+    const existing = await repositories.projects.findByWorkspaceKey(
       this.context.actor.workspaceId,
       key
     );
