@@ -7,6 +7,7 @@ import type {
   MemberDto,
   MilestoneDto,
   ProjectNavigationSummaryDto,
+  SavedWorkViewDto,
   WorkspaceWorkItemListItemDto
 } from '@worktrail/contracts';
 import { BehaviorSubject } from 'rxjs';
@@ -126,6 +127,21 @@ const workItem: WorkspaceWorkItemListItemDto = {
   }
 };
 
+const savedView: SavedWorkViewDto = {
+  id: '10000000-0000-4000-8000-000000000701',
+  workspaceId,
+  owner,
+  name: 'Open owner work',
+  visibility: 'personal',
+  query: {
+    assigneeId: owner.id,
+    workState: 'open',
+    sort: 'priority_desc'
+  },
+  createdAt: '2026-07-04T12:00:00.000Z',
+  updatedAt: '2026-07-04T12:00:00.000Z'
+};
+
 class ActivatedRouteStub {
   private readonly queryParamMapSubject = new BehaviorSubject(convertToParamMap({}));
   readonly queryParamMap = this.queryParamMapSubject.asObservable();
@@ -165,6 +181,10 @@ function flushProjectSummaries(http: HttpTestingController): void {
   ]);
 }
 
+function flushSavedViews(http: HttpTestingController, views: SavedWorkViewDto[] = []): void {
+  http.expectOne('/api/saved-work-views').flush(views);
+}
+
 describe('WorkspaceWorkItemListPageComponent', () => {
   beforeEach(async () => {
     localStorage.clear();
@@ -202,6 +222,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     });
 
     flushProjectSummaries(http);
+    flushSavedViews(http);
     http.expectOne(`/api/projects/${projectId}/labels?includeArchived=true`).flush([designLabel]);
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([milestone]);
     const request = http.expectOne((candidate) => {
@@ -248,6 +269,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
   it('applies dropdown filters immediately without showing pending filter pills', () => {
     const { fixture, http } = setup();
     flushProjectSummaries(http);
+    flushSavedViews(http);
     http.expectOne('/api/work-items').flush([]);
     fixture.detectChanges();
 
@@ -282,6 +304,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
   it('debounces search before updating URL query params', fakeAsync(() => {
     const { fixture, http } = setup();
     flushProjectSummaries(http);
+    flushSavedViews(http);
     http.expectOne('/api/work-items').flush([]);
     fixture.detectChanges();
 
@@ -311,6 +334,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
       sort: 'priority_desc'
     });
     flushProjectSummaries(http);
+    flushSavedViews(http);
     http.expectOne((candidate) => candidate.url === '/api/work-items').flush([]);
     fixture.detectChanges();
 
@@ -331,5 +355,163 @@ describe('WorkspaceWorkItemListPageComponent', () => {
         sort: null
       })
     );
+  });
+
+  it('saves, opens, renames, updates, and deletes personal saved views', () => {
+    const { fixture, http } = setup({
+      status: 'blocked',
+      search: 'risk',
+      archivedProjects: 'include'
+    });
+    flushProjectSummaries(http);
+    flushSavedViews(http, [savedView]);
+    http.expectOne((candidate) => candidate.url === '/api/work-items').flush([]);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Open owner work');
+
+    fixture.componentInstance.savedViewForm.controls.name.setValue('Blocked risks');
+    fixture.componentInstance.saveCurrentView();
+
+    const create = http.expectOne('/api/saved-work-views');
+    expect(create.request.method).toBe('POST');
+    expect(create.request.body).toEqual({
+      name: 'Blocked risks',
+      query: {
+        search: 'risk',
+        status: 'blocked',
+        assigneeId: undefined,
+        assigneeState: undefined,
+        archivedProjects: 'include',
+        blocked: undefined,
+        dueDateState: undefined,
+        labelId: undefined,
+        milestoneId: undefined,
+        priority: undefined,
+        projectId: undefined,
+        reporterId: undefined,
+        sort: undefined,
+        type: undefined,
+        workState: undefined
+      }
+    });
+    const createdView: SavedWorkViewDto = {
+      ...savedView,
+      id: '10000000-0000-4000-8000-000000000702',
+      name: 'Blocked risks',
+      query: { search: 'risk', status: 'blocked', archivedProjects: 'include' }
+    };
+    create.flush(createdView);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Blocked risks');
+
+    const router = TestBed.inject(Router);
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    fixture.componentInstance.openSavedView(savedView);
+    expect(navigate).toHaveBeenCalledWith(
+      [],
+      jasmine.objectContaining({
+        queryParams: jasmine.objectContaining({
+          assigneeId: owner.id,
+          workState: 'open',
+          sort: 'priority_desc'
+        })
+      })
+    );
+
+    fixture.componentInstance.setSavedViewDraftName(savedView.id, 'My open owner work');
+    fixture.componentInstance.renameSavedView(savedView);
+    const rename = http.expectOne(`/api/saved-work-views/${savedView.id}`);
+    expect(rename.request.method).toBe('PATCH');
+    expect(rename.request.body).toEqual({ name: 'My open owner work' });
+    const renamedView: SavedWorkViewDto = { ...savedView, name: 'My open owner work' };
+    rename.flush(renamedView);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('My open owner work');
+
+    fixture.componentInstance.updateSavedViewQuery(renamedView);
+    const update = http.expectOne(`/api/saved-work-views/${savedView.id}`);
+    expect(update.request.method).toBe('PATCH');
+    expect(update.request.body.query).toEqual(
+      jasmine.objectContaining({
+        search: 'risk',
+        status: 'blocked',
+        archivedProjects: 'include'
+      })
+    );
+    update.flush({ ...renamedView, query: update.request.body.query });
+
+    fixture.componentInstance.deleteSavedView(renamedView);
+    const remove = http.expectOne(`/api/saved-work-views/${savedView.id}`);
+    expect(remove.request.method).toBe('DELETE');
+    remove.flush(null);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('My open owner work');
+  });
+
+  it('shows saved view validation and duplicate-name errors inline', () => {
+    const { fixture, http } = setup();
+    flushProjectSummaries(http);
+    flushSavedViews(http);
+    http.expectOne('/api/work-items').flush([]);
+    fixture.detectChanges();
+
+    fixture.componentInstance.saveCurrentView();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Saved view name is required.'
+    );
+    http.expectNone('/api/saved-work-views');
+
+    fixture.componentInstance.savedViewForm.controls.name.setValue('Open owner work');
+    fixture.componentInstance.saveCurrentView();
+    const create = http.expectOne('/api/saved-work-views');
+    create.flush(
+      {
+        error: {
+          code: 'CONFLICT',
+          message: 'A saved view with this name already exists.'
+        }
+      },
+      { status: 409, statusText: 'Conflict' }
+    );
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'A saved view with this name already exists.'
+    );
+  });
+
+  it('opens stale saved views without breaking empty results', () => {
+    const staleView: SavedWorkViewDto = {
+      ...savedView,
+      name: 'Stale design work',
+      query: {
+        projectId,
+        labelId: designLabel.id
+      }
+    };
+    const { fixture, http } = setup();
+    flushProjectSummaries(http);
+    flushSavedViews(http, [staleView]);
+    http.expectOne('/api/work-items').flush([workItem]);
+    fixture.detectChanges();
+
+    route.setQuery({ projectId, labelId: designLabel.id });
+    http.expectOne(`/api/projects/${projectId}/labels?includeArchived=true`).flush([designLabel]);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([milestone]);
+    http.expectOne((candidate) => {
+      return (
+        candidate.url === '/api/work-items' &&
+        candidate.params.get('projectId') === projectId &&
+        candidate.params.get('labelId') === designLabel.id
+      );
+    }).flush([]);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('No work items match these filters');
+    expect(text).toContain('Label: design');
   });
 });

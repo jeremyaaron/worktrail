@@ -754,6 +754,27 @@ npm run build --workspace @worktrail/web
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Loaded personal saved views on the workspace work item discovery page.
+- Added inline UI to save the current applied URL query as a named personal saved view.
+- Added saved view open behavior that updates workspace discovery URL query params.
+- Added saved view rename behavior.
+- Added saved view update behavior that replaces the saved view query with the current applied URL query.
+- Added saved view delete behavior.
+- Displays backend validation and duplicate-name errors inline.
+- Handles blank saved view names client-side before sending create/rename requests.
+- Handles stale saved views by opening the query and preserving the normal no-results empty state.
+- Kept workspace-visible saved views, saved views on project-scoped lists, foldering, and pinning out of scope.
+- Moved shared status/priority pill color rules to global styles to keep the discovery component under the component stylesheet budget without raising thresholds.
+- Added component tests for save, open, rename, update, delete, duplicate-name errors, blank-name validation, and stale no-result saved views.
+- Verified `npm test --workspace @worktrail/web -- --include='src/app/features/work-items/workspace-work-item-list-page.component.spec.ts'`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm test --workspace @worktrail/web`.
+- Verified `npm run build --workspace @worktrail/web`; production initial bundle is 344.13 kB raw and 95.50 kB estimated transfer with no budget warnings.
+- Verified `git diff --check`.
+
 ## Phase 10: Quick Work Capture Frontend
 
 Goal: allow users to create work without navigating into a project first.

@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -9,6 +10,7 @@ import type {
   MemberDto,
   MilestoneDto,
   ProjectNavigationSummaryDto,
+  SavedWorkViewDto,
   WorkItemPriority,
   WorkItemQuery,
   WorkItemSort,
@@ -124,6 +126,78 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
       </div>
 
       <a class="primary-action" routerLink="/work-items/new">Create work item</a>
+    </section>
+
+    <section class="saved-views" aria-labelledby="saved-views-heading">
+      <div class="saved-views__heading">
+        <div>
+          <h2 id="saved-views-heading">Saved views</h2>
+          <p>Personal workspace filters.</p>
+        </div>
+        @if (isSavedViewLoading()) {
+          <app-loading-indicator label="Loading saved views" />
+        }
+      </div>
+
+      @if (savedViewLoadError()) {
+        <p class="inline-error">{{ savedViewLoadError() }}</p>
+      }
+
+      <form class="saved-view-form" [formGroup]="savedViewForm" (ngSubmit)="saveCurrentView()">
+        <label>
+          <span>Name</span>
+          <input type="text" formControlName="name" placeholder="Open owner work" />
+        </label>
+        <button type="submit" [disabled]="isSavingView()">
+          {{ isSavingView() ? 'Saving...' : 'Save current view' }}
+        </button>
+      </form>
+
+      @if (savedViewMutationError()) {
+        <p class="inline-error">{{ savedViewMutationError() }}</p>
+      }
+
+      @if (savedViews().length === 0) {
+        <app-empty-state
+          title="No saved views"
+          message="Save the current filters to reuse this workspace view."
+        />
+      } @else {
+        <div class="saved-view-list">
+          @for (view of savedViews(); track view.id) {
+            <article class="saved-view-row">
+              <div>
+                <strong>{{ view.name }}</strong>
+                <small>{{ savedViewQueryLabel(view) }}</small>
+              </div>
+
+              <label>
+                <span>Rename</span>
+                <input
+                  type="text"
+                  [value]="savedViewDraftName(view.id)"
+                  (input)="setSavedViewDraftName(view.id, $any($event.target).value)"
+                />
+              </label>
+
+              <div class="saved-view-actions">
+                <button type="button" class="secondary-action" (click)="openSavedView(view)">
+                  Open
+                </button>
+                <button type="button" class="secondary-action" (click)="renameSavedView(view)">
+                  Rename
+                </button>
+                <button type="button" class="secondary-action" (click)="updateSavedViewQuery(view)">
+                  Update query
+                </button>
+                <button type="button" class="danger-action" (click)="deleteSavedView(view)">
+                  Delete
+                </button>
+              </div>
+            </article>
+          }
+        </div>
+      }
     </section>
 
     <form class="filters" [formGroup]="filterForm" (ngSubmit)="applyFilters()">
@@ -420,11 +494,92 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
       color: #1f2937;
     }
 
+    .danger-action {
+      border-color: #fecaca;
+      background: #fff1f2;
+      color: #991b1b;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.65;
+    }
+
+    .inline-error {
+      margin: 0;
+      color: #991b1b;
+      font-size: 0.875rem;
+      font-weight: 700;
+      line-height: 1.5;
+    }
+
+    .saved-views,
     .filters,
     .list-panel {
       border: 1px solid #e5e7eb;
       border-radius: 8px;
       background: #ffffff;
+    }
+
+    .saved-views {
+      display: grid;
+      gap: 14px;
+      margin-bottom: 18px;
+      padding: 16px;
+    }
+
+    .saved-views__heading {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .saved-views__heading p {
+      margin-top: 4px;
+    }
+
+    .saved-view-form {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto;
+      gap: 12px;
+      align-items: end;
+    }
+
+    .saved-view-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .saved-view-row {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) minmax(180px, 0.8fr) auto;
+      gap: 12px;
+      align-items: end;
+      border-top: 1px solid #eef2f7;
+      padding-top: 12px;
+    }
+
+    .saved-view-row strong {
+      display: block;
+      color: #111827;
+      font-size: 0.875rem;
+      line-height: 1.35;
+    }
+
+    .saved-view-row small {
+      display: block;
+      margin-top: 4px;
+      color: #64748b;
+      font-size: 0.75rem;
+      line-height: 1.4;
+    }
+
+    .saved-view-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
     }
 
     .filters {
@@ -642,67 +797,17 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
       color: #64748b;
     }
 
-    .status-pill[data-status='backlog'] {
-      background: #f8fafc;
-      color: #475569;
-    }
-
-    .status-pill[data-status='ready'] {
-      border-color: #a5f3fc;
-      background: #ecfeff;
-      color: #155e75;
-    }
-
-    .status-pill[data-status='in_progress'] {
-      border-color: #bfdbfe;
-      background: #eff6ff;
-      color: #1d4ed8;
-    }
-
-    .status-pill[data-status='blocked'] {
-      border-color: #fed7aa;
-      background: #fff7ed;
-      color: #c2410c;
-    }
-
-    .status-pill[data-status='done'] {
-      border-color: #a7f3d0;
-      background: #ecfdf5;
-      color: #047857;
-    }
-
-    .status-pill[data-status='canceled'] {
-      border-color: #cbd5e1;
-      background: #f1f5f9;
-      color: #475569;
-    }
-
-    .priority-pill[data-priority='low'] {
-      background: #f8fafc;
-      color: #475569;
-    }
-
-    .priority-pill[data-priority='medium'] {
-      border-color: #fde68a;
-      background: #fefce8;
-      color: #854d0e;
-    }
-
-    .priority-pill[data-priority='high'] {
-      border-color: #fed7aa;
-      background: #fff7ed;
-      color: #c2410c;
-    }
-
-    .priority-pill[data-priority='urgent'] {
-      border-color: #fecaca;
-      background: #fef2f2;
-      color: #b91c1c;
-    }
-
     @media (max-width: 1120px) {
       .filters {
         grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .saved-view-row {
+        grid-template-columns: 1fr;
+      }
+
+      .saved-view-actions {
+        justify-content: flex-start;
       }
     }
 
@@ -713,6 +818,12 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
 
       .filters {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .saved-views__heading,
+      .saved-view-form {
+        display: grid;
+        grid-template-columns: 1fr;
       }
 
       .filters__search {
@@ -763,12 +874,18 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   );
 
   readonly projectSummaries = signal<ProjectNavigationSummaryDto[]>([]);
+  readonly savedViews = signal<SavedWorkViewDto[]>([]);
+  readonly savedViewDraftNames = signal<Record<string, string>>({});
   readonly labels = signal<LabelDto[]>([]);
   readonly milestones = signal<MilestoneDto[]>([]);
   readonly workItems = signal<WorkspaceWorkItemListItemDto[]>([]);
   readonly appliedFilterValues = signal<WorkspaceFilterFormValue>({ ...defaultFilterValues });
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
+  readonly isSavedViewLoading = signal(false);
+  readonly savedViewLoadError = signal<string | null>(null);
+  readonly isSavingView = signal(false);
+  readonly savedViewMutationError = signal<string | null>(null);
 
   readonly filterForm = this.formBuilder.nonNullable.group({
     search: [''],
@@ -787,12 +904,17 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     sort: ['updated_desc']
   });
 
+  readonly savedViewForm = this.formBuilder.nonNullable.group({
+    name: ['']
+  });
+
   ngOnInit(): void {
     if (this.currentUser.members().length === 0) {
       this.currentUser.loadMembers();
     }
 
     this.loadProjectSummaries();
+    this.loadSavedViews();
     this.watchFilterChanges();
 
     this.subscriptions.add(
@@ -850,6 +972,25 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     });
   }
 
+  loadSavedViews(): void {
+    this.isSavedViewLoading.set(true);
+    this.savedViewLoadError.set(null);
+
+    this.api.listSavedWorkViews().subscribe({
+      next: (savedViews) => {
+        this.savedViews.set(this.sortSavedViews(savedViews));
+        this.syncSavedViewDraftNames(this.savedViews());
+        this.isSavedViewLoading.set(false);
+      },
+      error: () => {
+        this.savedViews.set([]);
+        this.savedViewDraftNames.set({});
+        this.savedViewLoadError.set('Saved views could not be loaded from the API.');
+        this.isSavedViewLoading.set(false);
+      }
+    });
+  }
+
   activeFilterLabels(): string[] {
     return this.getActiveFilterLabels();
   }
@@ -868,6 +1009,112 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
 
   workItemStatusLabel = workItemStatusLabel;
   workItemPriorityLabel = workItemPriorityLabel;
+
+  saveCurrentView(): void {
+    const name = this.savedViewForm.controls.name.value.trim();
+
+    if (name === '') {
+      this.savedViewMutationError.set('Saved view name is required.');
+      return;
+    }
+
+    this.isSavingView.set(true);
+    this.savedViewMutationError.set(null);
+
+    this.api.createSavedWorkView({ name, query: this.appliedQuery() }).subscribe({
+      next: (savedView) => {
+        this.savedViews.set(this.sortSavedViews([...this.savedViews(), savedView]));
+        this.syncSavedViewDraftNames(this.savedViews());
+        this.savedViewForm.reset({ name: '' });
+        this.isSavingView.set(false);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.savedViewMutationError.set(
+          this.toErrorMessage(error, 'Saved view could not be created.')
+        );
+        this.isSavingView.set(false);
+      }
+    });
+  }
+
+  openSavedView(savedView: SavedWorkViewDto): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: this.queryParamsFromQuery(savedView.query)
+    });
+  }
+
+  renameSavedView(savedView: SavedWorkViewDto): void {
+    const name = this.savedViewDraftName(savedView.id).trim();
+
+    if (name === '') {
+      this.savedViewMutationError.set('Saved view name is required.');
+      return;
+    }
+
+    this.savedViewMutationError.set(null);
+
+    this.api.updateSavedWorkView(savedView.id, { name }).subscribe({
+      next: (updated) => {
+        this.replaceSavedView(updated);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.savedViewMutationError.set(
+          this.toErrorMessage(error, 'Saved view could not be renamed.')
+        );
+      }
+    });
+  }
+
+  updateSavedViewQuery(savedView: SavedWorkViewDto): void {
+    this.savedViewMutationError.set(null);
+
+    this.api.updateSavedWorkView(savedView.id, { query: this.appliedQuery() }).subscribe({
+      next: (updated) => {
+        this.replaceSavedView(updated);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.savedViewMutationError.set(
+          this.toErrorMessage(error, 'Saved view query could not be updated.')
+        );
+      }
+    });
+  }
+
+  deleteSavedView(savedView: SavedWorkViewDto): void {
+    this.savedViewMutationError.set(null);
+
+    this.api.deleteSavedWorkView(savedView.id).subscribe({
+      next: () => {
+        this.savedViews.set(this.savedViews().filter((view) => view.id !== savedView.id));
+        const { [savedView.id]: _removed, ...remainingDraftNames } = this.savedViewDraftNames();
+        this.savedViewDraftNames.set(remainingDraftNames);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.savedViewMutationError.set(
+          this.toErrorMessage(error, 'Saved view could not be deleted.')
+        );
+      }
+    });
+  }
+
+  savedViewDraftName(savedViewId: string): string {
+    return this.savedViewDraftNames()[savedViewId] ?? '';
+  }
+
+  setSavedViewDraftName(savedViewId: string, name: string): void {
+    this.savedViewDraftNames.set({
+      ...this.savedViewDraftNames(),
+      [savedViewId]: name
+    });
+  }
+
+  savedViewQueryLabel(savedView: SavedWorkViewDto): string {
+    const params = this.queryParamsFromQuery(savedView.query);
+    const count = Object.values(params).filter((value) => value !== null).length;
+
+    return count === 0 ? 'Default workspace view' : `${count} applied filters`;
+  }
 
   formatToken(value: string): string {
     return value.replaceAll('_', ' ');
@@ -890,6 +1137,10 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
 
   private queryFromForm(): WorkItemQuery {
     return this.toQuery(this.filterForm.getRawValue());
+  }
+
+  private appliedQuery(): WorkItemQuery {
+    return this.toQuery(this.appliedFilterValues());
   }
 
   private toQuery(formValue: WorkspaceFilterFormValue): WorkItemQuery {
@@ -922,7 +1173,14 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   private queryParamsFromForm(): Record<string, string | null> {
-    const formValue = this.filterForm.getRawValue();
+    return this.queryParamsFromFormValue(this.filterForm.getRawValue());
+  }
+
+  private queryParamsFromQuery(query: WorkItemQuery): Record<string, string | null> {
+    return this.queryParamsFromFormValue(this.formValueFromQuery(query));
+  }
+
+  private queryParamsFromFormValue(formValue: WorkspaceFilterFormValue): Record<string, string | null> {
     const assigneeId = this.optional(formValue.assigneeId);
     const sort = this.optional(formValue.sort) ?? 'updated_desc';
     const archivedProjects = this.optional(formValue.archivedProjects) ?? 'exclude';
@@ -943,6 +1201,26 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       blocked: this.optional(formValue.blocked) ?? null,
       archivedProjects: archivedProjects === 'exclude' ? null : archivedProjects,
       sort: sort === 'updated_desc' ? null : sort
+    };
+  }
+
+  private formValueFromQuery(query: WorkItemQuery): WorkspaceFilterFormValue {
+    return {
+      search: query.search ?? '',
+      projectId: query.projectId ?? '',
+      status: query.status ?? '',
+      workState: query.status === undefined ? query.workState ?? '' : '',
+      assigneeId:
+        query.assigneeId ?? (query.assigneeState === 'unassigned' ? unassignedAssigneeValue : ''),
+      reporterId: query.reporterId ?? '',
+      type: query.type ?? '',
+      labelId: query.labelId ?? '',
+      milestoneId: query.milestoneId ?? '',
+      priority: query.priority ?? '',
+      dueDateState: query.dueDateState ?? '',
+      blocked: query.blocked === undefined ? '' : String(query.blocked),
+      archivedProjects: query.archivedProjects ?? 'exclude',
+      sort: query.sort ?? 'updated_desc'
     };
   }
 
@@ -1170,6 +1448,31 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
 
   private sortLabels(labels: LabelDto[]): LabelDto[] {
     return [...labels].sort((left, right) => left.name.localeCompare(right.name));
+  }
+
+  private sortSavedViews(savedViews: SavedWorkViewDto[]): SavedWorkViewDto[] {
+    return [...savedViews].sort((left, right) => left.name.localeCompare(right.name));
+  }
+
+  private replaceSavedView(savedView: SavedWorkViewDto): void {
+    this.savedViews.set(
+      this.sortSavedViews(
+        this.savedViews().map((current) => (current.id === savedView.id ? savedView : current))
+      )
+    );
+    this.syncSavedViewDraftNames(this.savedViews());
+  }
+
+  private syncSavedViewDraftNames(savedViews: SavedWorkViewDto[]): void {
+    this.savedViewDraftNames.set(
+      Object.fromEntries(savedViews.map((savedView) => [savedView.id, savedView.name]))
+    );
+  }
+
+  private toErrorMessage(error: HttpErrorResponse, fallback: string): string {
+    const message = (error.error as { error?: { message?: unknown } } | null)?.error?.message;
+
+    return typeof message === 'string' ? message : fallback;
   }
 
   private sortMilestones(milestones: MilestoneDto[]): MilestoneDto[] {
