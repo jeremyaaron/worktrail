@@ -668,6 +668,34 @@ npm test --workspace @worktrail/web -- --include 'src/app/features/workspace/*.s
 npm run typecheck --workspace @worktrail/web
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Added `WorkspaceSettingsPageComponent`.
+- Added route `/workspace/settings`.
+- Loaded workspace metadata, capabilities, members, and workspace activity.
+- Added owner-only workspace name editing with non-owner helper copy.
+- Added role summary using `WorkspaceCapabilitiesDto.roleSummary`.
+- Added owner-only member creation.
+- Added member list with editable name/email/role fields for owners, active/inactive markers, save controls, and deactivate/reactivate confirmation.
+- Refreshed workspace activity after workspace and member mutations.
+- Synced member mutations back into `CurrentUserService.members` so the global actor selector stays current.
+- Added loading, empty, validation, permission, success, and error states.
+- Added responsive page styles for laptop/desktop and narrow widths.
+- Added frontend tests for:
+  - initial render of workspace settings, members, role summary, and activity;
+  - owner workspace name save;
+  - non-owner restrictions;
+  - member creation validation;
+  - member create/update/deactivate/reactivate interactions.
+- Verified `npm test --workspace @worktrail/web -- --include 'src/app/features/workspace/*.spec.ts'`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm test --workspace @worktrail/web`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `npm run build` passes with the existing Angular budget configured as a warning.
+- Verified `git diff --check` and `git diff --cached --check`.
+
 ## Phase 9: Project Creation UI Polish
 
 Goal: make project creation permission-aware and support explicit project keys.

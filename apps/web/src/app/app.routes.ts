@@ -4,6 +4,7 @@ import { ProjectHomePageComponent } from './features/projects/project-home-page.
 import { ProjectListPageComponent } from './features/projects/project-list-page.component';
 import { ProjectPlanningPageComponent } from './features/projects/project-planning-page.component';
 import { ProjectSettingsPageComponent } from './features/projects/project-settings-page.component';
+import { WorkspaceSettingsPageComponent } from './features/workspace/workspace-settings-page.component';
 import { WorkItemBoardPageComponent } from './features/work-items/work-item-board-page.component';
 import { WorkItemCreatePageComponent } from './features/work-items/work-item-create-page.component';
 import { WorkItemDetailPageComponent } from './features/work-items/work-item-detail-page.component';
@@ -19,6 +20,11 @@ export const routes: Routes = [
     path: 'projects',
     component: ProjectListPageComponent,
     title: 'Projects | Worktrail'
+  },
+  {
+    path: 'workspace/settings',
+    component: WorkspaceSettingsPageComponent,
+    title: 'Workspace Settings | Worktrail'
   },
   {
     path: 'projects/:projectId/work-items/new',
