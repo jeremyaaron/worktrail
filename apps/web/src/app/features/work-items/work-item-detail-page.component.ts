@@ -113,22 +113,32 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
                   [message]="labelLoadError() ?? ''"
                   (retry)="loadProjectLabels(item.projectId)"
                 />
-              } @else if (availableLabels().length === 0) {
+              } @else if (assignableLabels().length === 0 && archivedAttachedLabels().length === 0) {
                 <p>No project labels are available.</p>
               } @else {
-                <div class="label-options">
-                  @for (label of availableLabels(); track label.id) {
-                    <label class="label-option">
-                      <input
-                        type="checkbox"
-                        [checked]="isLabelSelected(label.id)"
-                        (change)="toggleLabel(label.id, $event)"
-                      />
-                      <span [style.background]="label.color ?? '#e2e8f0'"></span>
-                      {{ label.name }}
-                    </label>
-                  }
-                </div>
+                @if (assignableLabels().length > 0) {
+                  <div class="label-options">
+                    @for (label of assignableLabels(); track label.id) {
+                      <label class="label-option">
+                        <input
+                          type="checkbox"
+                          [checked]="isLabelSelected(label.id)"
+                          (change)="toggleLabel(label.id, $event)"
+                        />
+                        <span [style.background]="label.color ?? '#e2e8f0'"></span>
+                        {{ label.name }}
+                      </label>
+                    }
+                  </div>
+                }
+
+                @if (archivedAttachedLabels().length > 0) {
+                  <div class="archived-labels" aria-label="Archived attached labels">
+                    @for (label of archivedAttachedLabels(); track label.id) {
+                      <span [style.border-color]="label.color ?? '#cbd5e1'">{{ label.name }}</span>
+                    }
+                  </div>
+                }
               }
             </section>
 
@@ -447,6 +457,23 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
       border-radius: 3px;
     }
 
+    .archived-labels {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .archived-labels span {
+      border: 1px solid #cbd5e1;
+      border-radius: 999px;
+      padding: 3px 8px;
+      background: #f8fafc;
+      color: #64748b;
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-decoration: line-through;
+    }
+
     .metadata div {
       display: grid;
       gap: 3px;
@@ -551,6 +578,10 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly commentError = signal<string | null>(null);
   readonly labelLoadError = signal<string | null>(null);
   readonly availableLabels = signal<LabelDto[]>([]);
+  readonly assignableLabels = computed(() => this.availableLabels().filter((label) => !label.isArchived));
+  readonly archivedAttachedLabels = computed(() =>
+    (this.workItem()?.labels ?? []).filter((label) => label.isArchived)
+  );
 
   readonly detailForm = this.formBuilder.nonNullable.group({
     title: ['', [Validators.required]],
@@ -678,7 +709,7 @@ export class WorkItemDetailPageComponent implements OnInit {
 
     this.api.listProjectLabels(projectId).subscribe({
       next: (labels) => {
-        this.availableLabels.set(labels);
+        this.availableLabels.set(labels.filter((label) => !label.isArchived));
       },
       error: () => {
         this.labelLoadError.set('Project labels could not be loaded from the API.');
@@ -729,7 +760,7 @@ export class WorkItemDetailPageComponent implements OnInit {
 
   private applyWorkItem(workItem: WorkItemDetailDto): void {
     this.workItem.set(workItem);
-    this.selectedLabelIds.set(workItem.labels.map((label) => label.id));
+    this.selectedLabelIds.set(workItem.labels.filter((label) => !label.isArchived).map((label) => label.id));
     this.mergeAvailableLabels(workItem.labels);
     this.detailForm.reset({
       title: workItem.title,
@@ -750,7 +781,7 @@ export class WorkItemDetailPageComponent implements OnInit {
       type: formValue.type as WorkItemType,
       priority: formValue.priority as WorkItemPriority,
       assigneeId: formValue.assigneeId === '' ? null : formValue.assigneeId,
-      labelIds: this.selectedLabelIds()
+      labelIds: [...this.selectedLabelIds(), ...this.archivedAttachedLabels().map((label) => label.id)]
     };
   }
 

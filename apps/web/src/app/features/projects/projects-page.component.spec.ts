@@ -60,6 +60,22 @@ const archivedProjectSummary: ProjectSummaryDto = {
   recentWorkItems: []
 };
 
+const backendLabel = {
+  id: '10000000-0000-4000-8000-000000000302',
+  name: 'backend',
+  color: '#059669',
+  isArchived: false,
+  archivedAt: null
+};
+
+const archivedLabel = {
+  id: '10000000-0000-4000-8000-000000000399',
+  name: 'legacy',
+  color: '#64748b',
+  isArchived: true,
+  archivedAt: '2026-07-03T12:00:00.000Z'
+};
+
 function setupProjectList() {
   const fixture = TestBed.createComponent(ProjectListPageComponent);
   const http = TestBed.inject(HttpTestingController);
@@ -239,6 +255,7 @@ describe('ProjectSettingsPageComponent', () => {
     fixture.detectChanges();
 
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/labels?includeArchived=true`).flush([]);
     fixture.detectChanges();
 
     fixture.componentInstance.settingsForm.setValue({
@@ -272,6 +289,7 @@ describe('ProjectSettingsPageComponent', () => {
     fixture.detectChanges();
 
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/labels?includeArchived=true`).flush([]);
     fixture.detectChanges();
 
     fixture.componentInstance.archiveProject();
@@ -289,5 +307,61 @@ describe('ProjectSettingsPageComponent', () => {
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Archived project');
+  });
+
+  it('manages project labels from settings', () => {
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/labels?includeArchived=true`).flush([
+      backendLabel,
+      archivedLabel
+    ]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const labelNameInputs = Array.from(
+      compiled.querySelectorAll<HTMLInputElement>('.label-row input[type="text"]')
+    ).map((input) => input.value);
+    expect(labelNameInputs).toEqual(jasmine.arrayContaining(['backend', 'legacy']));
+    expect(compiled.textContent).toContain('Archived');
+
+    fixture.componentInstance.labelForm.setValue({ name: 'frontend', color: '#2563eb' });
+    fixture.componentInstance.createLabel();
+
+    const create = http.expectOne(`/api/projects/${projectId}/labels`);
+    expect(create.request.method).toBe('POST');
+    expect(create.request.body).toEqual({ name: 'frontend', color: '#2563eb' });
+    create.flush({
+      id: '10000000-0000-4000-8000-000000000301',
+      name: 'frontend',
+      color: '#2563eb',
+      isArchived: false,
+      archivedAt: null
+    });
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Label created.');
+
+    fixture.componentInstance.updateLabel(backendLabel, 'api', '#0ea5e9');
+    const update = http.expectOne(`/api/labels/${backendLabel.id}`);
+    expect(update.request.method).toBe('PATCH');
+    expect(update.request.body).toEqual({ name: 'api', color: '#0ea5e9' });
+    update.flush({ ...backendLabel, name: 'api', color: '#0ea5e9' });
+
+    fixture.componentInstance.archiveLabel({ ...backendLabel, name: 'api', color: '#0ea5e9' });
+    const archive = http.expectOne(`/api/labels/${backendLabel.id}/archive`);
+    expect(archive.request.method).toBe('POST');
+    archive.flush({
+      ...backendLabel,
+      name: 'api',
+      color: '#0ea5e9',
+      isArchived: true,
+      archivedAt: '2026-07-03T12:30:00.000Z'
+    });
+
+    fixture.componentInstance.reactivateLabel(archivedLabel);
+    const reactivate = http.expectOne(`/api/labels/${archivedLabel.id}/reactivate`);
+    expect(reactivate.request.method).toBe('POST');
+    reactivate.flush({ ...archivedLabel, isArchived: false, archivedAt: null });
   });
 });

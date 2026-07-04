@@ -13,6 +13,7 @@ const ownerId = '10000000-0000-4000-8000-000000000101';
 const contributorId = '10000000-0000-4000-8000-000000000103';
 const labelId = '10000000-0000-4000-8000-000000000302';
 const frontendLabelId = '10000000-0000-4000-8000-000000000301';
+const archivedLabelId = '10000000-0000-4000-8000-000000000399';
 
 const owner: MemberDto = {
   id: ownerId,
@@ -175,6 +176,42 @@ describe('WorkItemDetailPageComponent', () => {
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Updated detail surface');
+  });
+
+  it('shows archived attached labels without offering them as active assignments', () => {
+    const archivedDetail: WorkItemDetailDto = {
+      ...detail,
+      labels: [
+        ...detail.labels,
+        {
+          id: archivedLabelId,
+          name: 'legacy',
+          color: '#64748b',
+          isArchived: true,
+          archivedAt: '2026-07-03T12:00:00.000Z'
+        }
+      ]
+    };
+    const fixture = TestBed.createComponent(WorkItemDetailPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne(`/api/work-items/${workItemId}`).flush(archivedDetail);
+    http.expectOne(`/api/projects/${projectId}/labels`).flush([
+      { id: frontendLabelId, name: 'frontend', color: '#2563eb', isArchived: false, archivedAt: null },
+      { id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }
+    ]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('legacy');
+    expect(fixture.componentInstance.assignableLabels().map((label) => label.id)).not.toContain(
+      archivedLabelId
+    );
+
+    fixture.componentInstance.updateWorkItem();
+    const request = http.expectOne(`/api/work-items/${workItemId}`);
+    expect(request.request.body.labelIds).toEqual([labelId, archivedLabelId]);
+    request.flush(archivedDetail);
   });
 
   it('shows workflow errors when a status transition is rejected', () => {

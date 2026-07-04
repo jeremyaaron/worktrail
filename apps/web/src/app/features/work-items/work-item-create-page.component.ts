@@ -3,6 +3,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type {
   CreateWorkItemRequest,
+  LabelDto,
   MemberDto,
   WorkItemPriority,
   WorkItemType
@@ -85,6 +86,33 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
           <input type="number" min="0" step="1" formControlName="estimatePoints" />
         </label>
       </div>
+
+      <section class="label-picker" aria-label="Labels">
+        <h2>Labels</h2>
+        @if (labelLoadError()) {
+          <app-error-panel
+            title="Labels unavailable"
+            [message]="labelLoadError() ?? ''"
+            (retry)="loadProjectLabels()"
+          />
+        } @else if (availableLabels().length === 0) {
+          <p>No project labels are available.</p>
+        } @else {
+          <div class="label-options">
+            @for (label of availableLabels(); track label.id) {
+              <label class="label-option">
+                <input
+                  type="checkbox"
+                  [checked]="isLabelSelected(label.id)"
+                  (change)="toggleLabel(label.id, $event)"
+                />
+                <span [style.background]="label.color ?? '#e2e8f0'"></span>
+                {{ label.name }}
+              </label>
+            }
+          </div>
+        }
+      </section>
 
       @if (createError()) {
         <app-error-panel
@@ -196,6 +224,54 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
       gap: 12px;
     }
 
+    .label-picker {
+      display: grid;
+      gap: 10px;
+    }
+
+    h2 {
+      margin: 0;
+      color: #111827;
+      font-size: 1rem;
+      line-height: 1.35;
+    }
+
+    .label-picker p {
+      color: #64748b;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+
+    .label-options {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .label-option {
+      grid-template-columns: 18px 14px minmax(0, 1fr);
+      align-items: center;
+      min-height: 40px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: #f8fafc;
+    }
+
+    .label-option input[type='checkbox'] {
+      width: 16px;
+      min-height: 16px;
+      height: 16px;
+      margin: 0;
+      padding: 0;
+    }
+
+    .label-option span {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+    }
+
     .field-error {
       color: #b91c1c;
       font-size: 0.8125rem;
@@ -234,7 +310,8 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
         flex-direction: column;
       }
 
-      .form-grid {
+      .form-grid,
+      .label-options {
         grid-template-columns: 1fr;
       }
     }
@@ -251,9 +328,12 @@ export class WorkItemCreatePageComponent implements OnInit {
   readonly priorities = priorities;
   readonly members = computed<MemberDto[]>(() => this.currentUser.members());
   readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
+  readonly availableLabels = signal<LabelDto[]>([]);
+  readonly selectedLabelIds = signal<string[]>([]);
   readonly isCreating = signal(false);
   readonly hasSubmitted = signal(false);
   readonly createError = signal<string | null>(null);
+  readonly labelLoadError = signal<string | null>(null);
 
   readonly workItemForm = this.formBuilder.nonNullable.group({
     title: ['', [Validators.required]],
@@ -269,6 +349,8 @@ export class WorkItemCreatePageComponent implements OnInit {
     if (this.currentUser.members().length === 0) {
       this.currentUser.loadMembers();
     }
+
+    this.loadProjectLabels();
   }
 
   createWorkItem(): void {
@@ -301,6 +383,35 @@ export class WorkItemCreatePageComponent implements OnInit {
     return value.replaceAll('_', ' ');
   }
 
+  loadProjectLabels(): void {
+    this.labelLoadError.set(null);
+    this.api.listProjectLabels(this.projectId()).subscribe({
+      next: (labels) => {
+        this.availableLabels.set(labels.filter((label) => !label.isArchived));
+      },
+      error: () => {
+        this.labelLoadError.set('Project labels could not be loaded from the API.');
+      }
+    });
+  }
+
+  toggleLabel(labelId: string, event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    const selected = new Set(this.selectedLabelIds());
+
+    if (checked) {
+      selected.add(labelId);
+    } else {
+      selected.delete(labelId);
+    }
+
+    this.selectedLabelIds.set([...selected]);
+  }
+
+  isLabelSelected(labelId: string): boolean {
+    return this.selectedLabelIds().includes(labelId);
+  }
+
   private toRequest(): CreateWorkItemRequest {
     const formValue = this.workItemForm.getRawValue();
     const estimate = this.normalizeEstimate(formValue.estimatePoints);
@@ -311,6 +422,7 @@ export class WorkItemCreatePageComponent implements OnInit {
       type: formValue.type as WorkItemType,
       priority: formValue.priority as WorkItemPriority,
       assigneeId: formValue.assigneeId === '' ? null : formValue.assigneeId,
+      labelIds: this.selectedLabelIds(),
       dueDate: formValue.dueDate === '' ? null : formValue.dueDate,
       estimatePoints: estimate === '' ? null : Number.parseInt(estimate, 10)
     };

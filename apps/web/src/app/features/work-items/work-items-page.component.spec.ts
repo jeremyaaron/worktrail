@@ -49,6 +49,16 @@ const workItem: WorkItemListItemDto = {
   updatedAt: '2026-07-03T12:00:00.000Z'
 };
 
+const backendLabel = workItem.labels[0];
+
+const archivedLabel = {
+  id: '10000000-0000-4000-8000-000000000399',
+  name: 'legacy',
+  color: '#64748b',
+  isArchived: true,
+  archivedAt: '2026-07-03T12:00:00.000Z'
+};
+
 function routeStub(query: Record<string, string> = {}) {
   return {
     snapshot: {
@@ -175,6 +185,7 @@ describe('WorkItemCreatePageComponent', () => {
     const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
+    http.expectOne(`/api/projects/${projectId}/labels`).flush([backendLabel]);
 
     fixture.componentInstance.createWorkItem();
     fixture.detectChanges();
@@ -190,6 +201,11 @@ describe('WorkItemCreatePageComponent', () => {
     const router = TestBed.inject(Router);
     const navigate = spyOn(router, 'navigate').and.resolveTo(true);
     fixture.detectChanges();
+    http.expectOne(`/api/projects/${projectId}/labels`).flush([backendLabel, archivedLabel]);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('backend');
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('legacy');
 
     fixture.componentInstance.workItemForm.setValue({
       title: 'Create filtering UI',
@@ -200,6 +216,9 @@ describe('WorkItemCreatePageComponent', () => {
       dueDate: '2026-07-20',
       estimatePoints: '8'
     });
+    fixture.componentInstance.toggleLabel(backendLabel.id, {
+      target: { checked: true }
+    } as unknown as Event);
     fixture.componentInstance.createWorkItem();
 
     const request = http.expectOne(`/api/projects/${projectId}/work-items`);
@@ -210,6 +229,7 @@ describe('WorkItemCreatePageComponent', () => {
       type: 'story',
       priority: 'urgent',
       assigneeId: contributorId,
+      labelIds: [backendLabel.id],
       dueDate: '2026-07-20',
       estimatePoints: 8
     });
@@ -232,6 +252,7 @@ describe('WorkItemCreatePageComponent', () => {
     const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
+    http.expectOne(`/api/projects/${projectId}/labels`).flush([]);
 
     fixture.componentInstance.workItemForm.patchValue({
       title: 'Create estimate normalization',
@@ -243,6 +264,7 @@ describe('WorkItemCreatePageComponent', () => {
 
     const request = http.expectOne(`/api/projects/${projectId}/work-items`);
     expect(request.request.body.estimatePoints).toBe(8);
+    expect(request.request.body.labelIds).toEqual([]);
     request.flush({
       ...workItem,
       id: '10000000-0000-4000-8000-000000000498',

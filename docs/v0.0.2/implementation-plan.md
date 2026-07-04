@@ -478,6 +478,21 @@ npm test --workspace @worktrail/web -- --include src/app/features/projects/**/*.
 npm run typecheck --workspace @worktrail/web
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Added frontend API methods for label create, update, archive, reactivate, and archived-inclusive label listing.
+- Added label administration to project settings with native color inputs, create, inline edit, archive, and reactivate controls.
+- Loaded active project labels on the work item create page and added label assignment to the create payload.
+- Filtered archived labels out of new assignment controls while preserving and displaying archived labels already attached to existing work items.
+- Adjusted work item update validation to allow already-attached archived labels to remain attached while still rejecting new archived-label assignment.
+- Added Angular tests for label management, create-with-label, archived-label exclusion from create, and archived attached labels on detail.
+- Verified `npm test --workspace @worktrail/web -- --include 'src/app/features/projects/**/*.spec.ts' --include 'src/app/features/work-items/**/*.spec.ts'`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+
 ## Phase 8: Work Item Key Display And Archived Project UX
 
 Goal: make stable work item keys visible across the product and make archived-project behavior coherent.

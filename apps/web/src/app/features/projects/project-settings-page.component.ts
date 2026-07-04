@@ -1,7 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import type { ProjectDto } from '@worktrail/contracts';
+import type { LabelDto, ProjectDto } from '@worktrail/contracts';
 
 import { WorktrailApiService } from '../../core/worktrail-api.service';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
@@ -130,6 +130,104 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
             </button>
           }
         </section>
+
+        <section class="panel label-panel" aria-labelledby="labels-heading">
+          <div>
+            <h2 id="labels-heading">Labels</h2>
+            <p>Create and maintain the project taxonomy used by work items.</p>
+          </div>
+
+          <form class="label-create-form" [formGroup]="labelForm" (ngSubmit)="createLabel()" novalidate>
+            <label for="label-name">Name</label>
+            <input
+              id="label-name"
+              type="text"
+              formControlName="name"
+              autocomplete="off"
+              [attr.aria-invalid]="showLabelNameError()"
+              aria-describedby="label-name-error"
+            />
+            @if (showLabelNameError()) {
+              <p id="label-name-error" class="field-error">Label name is required.</p>
+            }
+
+            <label for="label-color">Color</label>
+            <input id="label-color" type="color" formControlName="color" />
+
+            <button type="submit" [disabled]="isLabelMutating()">
+              {{ isLabelMutating() ? 'Saving...' : 'Create label' }}
+            </button>
+          </form>
+
+          @if (labelMutationError()) {
+            <app-error-panel
+              title="Label change failed"
+              [message]="labelMutationError() ?? ''"
+              (retry)="loadLabels()"
+            />
+          }
+
+          @if (labelSuccess()) {
+            <p class="success-message">{{ labelSuccess() }}</p>
+          }
+
+          @if (isLoadingLabels()) {
+            <app-loading-indicator label="Loading labels" />
+          } @else if (labelLoadError()) {
+            <app-error-panel [message]="labelLoadError() ?? ''" (retry)="loadLabels()" />
+          } @else if (labels().length === 0) {
+            <section class="empty-labels">
+              <h3>No labels yet</h3>
+              <p>Create the first label for this project.</p>
+            </section>
+          } @else {
+            <div class="label-list" aria-label="Project labels">
+              @for (label of labels(); track label.id) {
+                <article class="label-row" [class.label-row--archived]="label.isArchived">
+                  <span class="label-swatch" [style.background]="label.color ?? '#e2e8f0'"></span>
+                  <input #labelName type="text" [value]="label.name" [disabled]="isLabelMutating()" />
+                  <input
+                    #labelColor
+                    type="color"
+                    [value]="label.color ?? '#64748b'"
+                    [disabled]="isLabelMutating()"
+                    aria-label="Label color"
+                  />
+                  <span class="label-state">{{ label.isArchived ? 'Archived' : 'Active' }}</span>
+
+                  <div class="label-actions">
+                    <button
+                      type="button"
+                      [disabled]="isLabelMutating()"
+                      (click)="updateLabel(label, labelName.value, labelColor.value)"
+                    >
+                      Save
+                    </button>
+
+                    @if (label.isArchived) {
+                      <button
+                        type="button"
+                        [disabled]="isLabelMutating()"
+                        (click)="reactivateLabel(label)"
+                      >
+                        Reactivate
+                      </button>
+                    } @else {
+                      <button
+                        type="button"
+                        class="danger-button"
+                        [disabled]="isLabelMutating()"
+                        (click)="archiveLabel(label)"
+                      >
+                        Archive
+                      </button>
+                    }
+                  </div>
+                </article>
+              }
+            </div>
+          }
+        </section>
       </section>
     }
   `,
@@ -254,6 +352,10 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
       align-items: start;
     }
 
+    .label-panel {
+      grid-column: 1 / -1;
+    }
+
     .panel {
       display: grid;
       gap: 16px;
@@ -266,6 +368,11 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
     form {
       display: grid;
       gap: 10px;
+    }
+
+    .label-create-form {
+      grid-template-columns: minmax(180px, 1fr) 120px auto;
+      align-items: end;
     }
 
     label {
@@ -285,8 +392,18 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
       font-size: 0.875rem;
     }
 
-    input {
+    input:not([type='color']) {
       text-transform: uppercase;
+    }
+
+    .label-create-form input:not([type='color']),
+    .label-row input:not([type='color']) {
+      text-transform: none;
+    }
+
+    input[type='color'] {
+      min-height: 38px;
+      padding: 4px;
     }
 
     input:focus,
@@ -312,6 +429,69 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
       border-color: #1f4f99;
       background: #1f4f99;
       color: #ffffff;
+    }
+
+    .label-create-form > button {
+      justify-self: stretch;
+    }
+
+    .empty-labels {
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      padding: 18px;
+      background: #f8fafc;
+    }
+
+    .empty-labels h3 {
+      margin: 0 0 6px;
+      color: #111827;
+      font-size: 1rem;
+    }
+
+    .empty-labels p {
+      color: #64748b;
+      font-size: 0.875rem;
+    }
+
+    .label-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .label-row {
+      display: grid;
+      grid-template-columns: 18px minmax(160px, 1fr) 92px auto auto;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 10px;
+      background: #ffffff;
+    }
+
+    .label-row--archived {
+      background: #f8fafc;
+      opacity: 0.78;
+    }
+
+    .label-swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+    }
+
+    .label-state {
+      color: #64748b;
+      font-size: 0.75rem;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .label-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
     }
 
     .danger-button {
@@ -341,6 +521,15 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
       nav {
         justify-content: flex-start;
       }
+
+      .label-create-form,
+      .label-row {
+        grid-template-columns: 1fr;
+      }
+
+      .label-actions {
+        justify-content: flex-start;
+      }
     }
   `
 })
@@ -357,6 +546,13 @@ export class ProjectSettingsPageComponent implements OnInit {
   readonly loadError = signal<string | null>(null);
   readonly saveError = signal<string | null>(null);
   readonly commandError = signal<string | null>(null);
+  readonly labels = signal<LabelDto[]>([]);
+  readonly isLoadingLabels = signal(false);
+  readonly isLabelMutating = signal(false);
+  readonly hasSubmittedLabel = signal(false);
+  readonly labelLoadError = signal<string | null>(null);
+  readonly labelMutationError = signal<string | null>(null);
+  readonly labelSuccess = signal<string | null>(null);
   readonly saveSuccess = signal(false);
   readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
 
@@ -364,6 +560,11 @@ export class ProjectSettingsPageComponent implements OnInit {
     key: ['', [Validators.required, Validators.pattern(/^[A-Za-z0-9]{2,8}$/)]],
     name: ['', [Validators.required]],
     description: ['']
+  });
+
+  readonly labelForm = this.formBuilder.nonNullable.group({
+    name: ['', [Validators.required]],
+    color: ['#2563eb']
   });
 
   ngOnInit(): void {
@@ -376,11 +577,27 @@ export class ProjectSettingsPageComponent implements OnInit {
     this.api.getProject(this.projectId()).subscribe({
       next: (project) => {
         this.applyProject(project);
+        this.loadLabels();
         this.isLoading.set(false);
       },
       error: () => {
         this.loadError.set('Project settings could not be loaded from the API.');
         this.isLoading.set(false);
+      }
+    });
+  }
+
+  loadLabels(): void {
+    this.isLoadingLabels.set(true);
+    this.labelLoadError.set(null);
+    this.api.listProjectLabels(this.projectId(), { includeArchived: true }).subscribe({
+      next: (labels) => {
+        this.labels.set(this.sortLabels(labels));
+        this.isLoadingLabels.set(false);
+      },
+      error: () => {
+        this.labelLoadError.set('Project labels could not be loaded from the API.');
+        this.isLoadingLabels.set(false);
       }
     });
   }
@@ -447,6 +664,101 @@ export class ProjectSettingsPageComponent implements OnInit {
     });
   }
 
+  createLabel(): void {
+    this.hasSubmittedLabel.set(true);
+    this.labelMutationError.set(null);
+    this.labelSuccess.set(null);
+
+    if (this.labelForm.invalid) {
+      this.labelForm.markAllAsTouched();
+      return;
+    }
+
+    const formValue = this.labelForm.getRawValue();
+    this.isLabelMutating.set(true);
+    this.api
+      .createLabel(this.projectId(), {
+        name: formValue.name.trim(),
+        color: formValue.color
+      })
+      .subscribe({
+        next: (label) => {
+          this.upsertLabel(label);
+          this.labelForm.reset({ name: '', color: '#2563eb' });
+          this.hasSubmittedLabel.set(false);
+          this.isLabelMutating.set(false);
+          this.labelSuccess.set('Label created.');
+        },
+        error: () => {
+          this.labelMutationError.set('Label could not be created.');
+          this.isLabelMutating.set(false);
+        }
+      });
+  }
+
+  updateLabel(label: LabelDto, name: string, color: string): void {
+    this.labelMutationError.set(null);
+    this.labelSuccess.set(null);
+    const nextName = name.trim();
+
+    if (nextName === '') {
+      this.labelMutationError.set('Label name is required.');
+      return;
+    }
+
+    this.isLabelMutating.set(true);
+    this.api
+      .updateLabel(label.id, {
+        name: nextName,
+        color
+      })
+      .subscribe({
+        next: (updated) => {
+          this.upsertLabel(updated);
+          this.isLabelMutating.set(false);
+          this.labelSuccess.set('Label saved.');
+        },
+        error: () => {
+          this.labelMutationError.set('Label could not be saved.');
+          this.isLabelMutating.set(false);
+        }
+      });
+  }
+
+  archiveLabel(label: LabelDto): void {
+    this.labelMutationError.set(null);
+    this.labelSuccess.set(null);
+    this.isLabelMutating.set(true);
+    this.api.archiveLabel(label.id).subscribe({
+      next: (updated) => {
+        this.upsertLabel(updated);
+        this.isLabelMutating.set(false);
+        this.labelSuccess.set('Label archived.');
+      },
+      error: () => {
+        this.labelMutationError.set('Label could not be archived.');
+        this.isLabelMutating.set(false);
+      }
+    });
+  }
+
+  reactivateLabel(label: LabelDto): void {
+    this.labelMutationError.set(null);
+    this.labelSuccess.set(null);
+    this.isLabelMutating.set(true);
+    this.api.reactivateLabel(label.id).subscribe({
+      next: (updated) => {
+        this.upsertLabel(updated);
+        this.isLabelMutating.set(false);
+        this.labelSuccess.set('Label reactivated.');
+      },
+      error: () => {
+        this.labelMutationError.set('Label could not be reactivated.');
+        this.isLabelMutating.set(false);
+      }
+    });
+  }
+
   showKeyError(): boolean {
     const control = this.settingsForm.controls.key;
     return control.invalid && (control.touched || this.hasSubmittedSave());
@@ -457,12 +769,33 @@ export class ProjectSettingsPageComponent implements OnInit {
     return control.invalid && (control.touched || this.hasSubmittedSave());
   }
 
+  showLabelNameError(): boolean {
+    const control = this.labelForm.controls.name;
+    return control.invalid && (control.touched || this.hasSubmittedLabel());
+  }
+
   private applyProject(project: ProjectDto): void {
     this.project.set(project);
     this.settingsForm.setValue({
       key: project.key,
       name: project.name,
       description: project.description
+    });
+  }
+
+  private upsertLabel(label: LabelDto): void {
+    const labelsById = new Map(this.labels().map((item) => [item.id, item]));
+    labelsById.set(label.id, label);
+    this.labels.set(this.sortLabels([...labelsById.values()]));
+  }
+
+  private sortLabels(labels: LabelDto[]): LabelDto[] {
+    return [...labels].sort((left, right) => {
+      if (left.isArchived !== right.isArchived) {
+        return left.isArchived ? 1 : -1;
+      }
+
+      return left.name.localeCompare(right.name);
     });
   }
 }

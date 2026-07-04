@@ -146,7 +146,11 @@ export class WorkItemService {
       const nextLabelIds = input.labelIds;
 
       if (nextLabelIds !== undefined) {
-        await this.validateLabels(current.projectId, nextLabelIds, repositories);
+        await this.validateLabels(current.projectId, nextLabelIds, repositories, {
+          existingArchivedLabelIds: new Set(
+            currentLabels.filter((label) => label.archivedAt !== null).map((label) => label.id)
+          )
+        });
       }
 
       const updated = await repositories.workItems.update(workItemId, {
@@ -277,7 +281,8 @@ export class WorkItemService {
   private async validateLabels(
     projectId: string,
     labelIds: string[],
-    repositories: Repositories
+    repositories: Repositories,
+    options: { existingArchivedLabelIds?: Set<string> } = {}
   ): Promise<void> {
     const uniqueLabelIds = [...new Set(labelIds)];
     const labels = await repositories.labels.listByIds(uniqueLabelIds);
@@ -288,7 +293,7 @@ export class WorkItemService {
         (label) =>
           label.workspaceId !== this.context.actor.workspaceId ||
           (label.projectId !== null && label.projectId !== projectId) ||
-          label.archivedAt !== null
+          (label.archivedAt !== null && !options.existingArchivedLabelIds?.has(label.id))
       )
     ) {
       throw new ValidationError('One or more labels are invalid for this project.');
