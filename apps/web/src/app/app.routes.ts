@@ -81,8 +81,8 @@ export const routes: Routes = [
   {
     path: 'work-items/new',
     loadComponent: () =>
-      import('./features/work-items/work-item-quick-create-page.component').then(
-        (module) => module.WorkItemQuickCreatePageComponent
+      import('./features/work-items/work-item-create-page.component').then(
+        (module) => module.WorkItemCreatePageComponent
       ),
     title: 'Create Work Item | Worktrail'
   },

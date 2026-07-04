@@ -3,9 +3,11 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import type {
+  LabelDto,
   MemberDto,
   MilestoneDto,
   ProjectDto,
+  WorkspaceCapabilitiesDto,
   WorkItemDetailDto,
   WorkItemListItemDto
 } from '@worktrail/contracts';
@@ -113,10 +115,31 @@ const archivedLabel = {
   archivedAt: '2026-07-03T12:00:00.000Z'
 };
 
-function routeStub(query: Record<string, string> = {}) {
+const ownerCapabilities: WorkspaceCapabilitiesDto = {
+  actor: member,
+  canManageWorkspace: true,
+  canManageMembers: true,
+  canCreateProjects: true,
+  canManageProjects: true,
+  canManageMilestones: true,
+  canManageLabels: true,
+  canCreateWorkItems: true,
+  roleSummary: {
+    owner: 'Owners manage workspace settings and members.',
+    maintainer: 'Maintainers manage projects and delivery artifacts.',
+    contributor: 'Contributors manage assigned work.'
+  }
+};
+
+const readOnlyCapabilities: WorkspaceCapabilitiesDto = {
+  ...ownerCapabilities,
+  canCreateWorkItems: false
+};
+
+function routeStub(query: Record<string, string> = {}, inputProjectId: string = projectId) {
   return {
     snapshot: {
-      paramMap: convertToParamMap({ projectId })
+      paramMap: convertToParamMap(inputProjectId === '' ? {} : { projectId: inputProjectId })
     },
     queryParamMap: new BehaviorSubject(convertToParamMap(query)).asObservable()
   };
@@ -126,6 +149,21 @@ function seedCurrentUser() {
   const currentUser = TestBed.inject(CurrentUserService);
   currentUser.members.set([member, inactiveMember]);
   currentUser.selectMember(member.id);
+}
+
+function flushCreateContext(
+  http: HttpTestingController,
+  input: {
+    project?: ProjectDto;
+    labels?: LabelDto[];
+    milestones?: MilestoneDto[];
+    capabilities?: WorkspaceCapabilitiesDto;
+  } = {}
+) {
+  http.expectOne('/api/workspace/capabilities').flush(input.capabilities ?? ownerCapabilities);
+  http.expectOne(`/api/projects/${projectId}`).flush(input.project ?? activeProject);
+  http.expectOne(`/api/projects/${projectId}/milestones`).flush(input.milestones ?? [activeMilestone]);
+  http.expectOne(`/api/projects/${projectId}/labels`).flush(input.labels ?? [backendLabel]);
 }
 
 describe('WorkItemListPageComponent', () => {
@@ -352,9 +390,7 @@ describe('WorkItemCreatePageComponent', () => {
     const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
-    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
-    http.expectOne(`/api/projects/${projectId}/milestones`).flush([activeMilestone]);
-    http.expectOne(`/api/projects/${projectId}/labels`).flush([backendLabel]);
+    flushCreateContext(http);
 
     fixture.componentInstance.createWorkItem();
     fixture.detectChanges();
@@ -364,21 +400,18 @@ describe('WorkItemCreatePageComponent', () => {
     http.expectNone((request) => request.method === 'POST');
   });
 
-  it('creates a work item and navigates to detail', () => {
+  it('creates a work item and renders success actions', () => {
     const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
     const http = TestBed.inject(HttpTestingController);
-    const router = TestBed.inject(Router);
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
     fixture.detectChanges();
-    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
-    http.expectOne(`/api/projects/${projectId}/milestones`).flush([activeMilestone]);
-    http.expectOne(`/api/projects/${projectId}/labels`).flush([backendLabel, archivedLabel]);
+    flushCreateContext(http, { labels: [backendLabel, archivedLabel] });
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('backend');
     expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('legacy');
 
     fixture.componentInstance.workItemForm.setValue({
+      projectId,
       title: 'Create filtering UI',
       description: 'Build the Phase 10 list filters.',
       type: 'story',
@@ -409,25 +442,25 @@ describe('WorkItemCreatePageComponent', () => {
     request.flush({
       ...workItem,
       id: '10000000-0000-4000-8000-000000000499',
+      displayKey: 'WT-499',
       title: 'Create filtering UI',
       description: 'Build the Phase 10 list filters.',
       comments: [],
       activity: []
     } satisfies WorkItemDetailDto);
+    fixture.detectChanges();
 
-    expect(navigate).toHaveBeenCalledWith([
-      '/work-items',
-      '10000000-0000-4000-8000-000000000499'
-    ]);
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('WT-499 created');
+    expect(compiled.querySelector<HTMLAnchorElement>('a[href="/work-items/10000000-0000-4000-8000-000000000499"]')).not.toBeNull();
+    expect(compiled.textContent).toContain('Create another');
   });
 
   it('excludes inactive members from the create assignee control', () => {
     const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
-    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
-    http.expectOne(`/api/projects/${projectId}/milestones`).flush([activeMilestone]);
-    http.expectOne(`/api/projects/${projectId}/labels`).flush([backendLabel]);
+    flushCreateContext(http);
     fixture.detectChanges();
 
     const assigneeOptions = [...fixture.nativeElement.querySelectorAll('select[formcontrolname="assigneeId"] option')]
@@ -440,9 +473,7 @@ describe('WorkItemCreatePageComponent', () => {
     const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
-    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
-    http.expectOne(`/api/projects/${projectId}/milestones`).flush([]);
-    http.expectOne(`/api/projects/${projectId}/labels`).flush([]);
+    flushCreateContext(http, { milestones: [], labels: [] });
 
     fixture.componentInstance.workItemForm.patchValue({
       title: 'Create estimate normalization',
@@ -470,9 +501,7 @@ describe('WorkItemCreatePageComponent', () => {
     const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
-    http.expectOne(`/api/projects/${projectId}`).flush(archivedProject);
-    http.expectOne(`/api/projects/${projectId}/milestones`).flush([activeMilestone]);
-    http.expectOne(`/api/projects/${projectId}/labels`).flush([backendLabel]);
+    flushCreateContext(http, { project: archivedProject });
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
@@ -487,5 +516,170 @@ describe('WorkItemCreatePageComponent', () => {
     fixture.componentInstance.createWorkItem();
 
     http.expectNone(`/api/projects/${projectId}/work-items`);
+  });
+});
+
+describe('WorkItemCreatePageComponent global route', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [WorkItemCreatePageComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: routeStub({}, '')
+        }
+      ]
+    }).compileComponents();
+
+    seedCurrentUser();
+  });
+
+  afterEach(() => {
+    TestBed.inject(HttpTestingController).verify();
+  });
+
+  it('loads active projects only and requires project selection', () => {
+    const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne('/api/workspace/capabilities').flush(ownerCapabilities);
+    http.expectOne('/api/projects').flush([activeProject, archivedProject]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const projectOptions = Array.from(
+      compiled.querySelectorAll<HTMLSelectElement>('select[formcontrolname="projectId"] option')
+    ).map((option) => option.textContent?.trim());
+    expect(projectOptions).toContain('WT · Worktrail App');
+    expect(projectOptions).not.toContain('LEG · Legacy Migration');
+
+    fixture.componentInstance.workItemForm.patchValue({
+      title: 'Unscoped create should validate'
+    });
+    fixture.componentInstance.createWorkItem();
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain('Project is required.');
+    expect(compiled.textContent).toContain('Select an active project before creating work.');
+    http.expectNone((request) => request.method === 'POST');
+  });
+
+  it('loads project-dependent fields after selection and creates work', () => {
+    const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne('/api/workspace/capabilities').flush(ownerCapabilities);
+    http.expectOne('/api/projects').flush([activeProject, archivedProject]);
+
+    fixture.componentInstance.workItemForm.controls.projectId.setValue(projectId);
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/labels`).flush([backendLabel]);
+    http.expectOne(`/api/projects/${projectId}/milestones`).flush([activeMilestone]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('backend');
+    expect(compiled.textContent).toContain('v0.0.3');
+
+    fixture.componentInstance.workItemForm.patchValue({
+      title: 'Capture from workspace',
+      description: 'Create without entering a project first.',
+      type: 'task',
+      priority: 'high',
+      assigneeId: contributorId,
+      milestoneId: activeMilestone.id,
+      dueDate: '2026-07-22',
+      estimatePoints: '3'
+    });
+    fixture.componentInstance.toggleLabel(backendLabel.id, {
+      target: { checked: true }
+    } as unknown as Event);
+    fixture.componentInstance.createWorkItem();
+
+    const create = http.expectOne(`/api/projects/${projectId}/work-items`);
+    expect(create.request.body).toEqual({
+      title: 'Capture from workspace',
+      description: 'Create without entering a project first.',
+      type: 'task',
+      priority: 'high',
+      assigneeId: contributorId,
+      labelIds: [backendLabel.id],
+      milestoneId: activeMilestone.id,
+      dueDate: '2026-07-22',
+      estimatePoints: 3
+    });
+    create.flush({
+      ...workItem,
+      id: '10000000-0000-4000-8000-000000000497',
+      displayKey: 'WT-497',
+      title: 'Capture from workspace',
+      description: 'Create without entering a project first.',
+      comments: [],
+      activity: []
+    } satisfies WorkItemDetailDto);
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain('WT-497 created');
+    expect(compiled.querySelector<HTMLAnchorElement>('a[href="/work-items/10000000-0000-4000-8000-000000000497"]')).not.toBeNull();
+
+    fixture.componentInstance.createAnother();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.workItemForm.controls.projectId.value).toBe(projectId);
+    expect(fixture.componentInstance.workItemForm.controls.title.value).toBe('');
+    expect(fixture.componentInstance.selectedLabelIds()).toEqual([]);
+  });
+
+  it('preserves entered values when create fails', () => {
+    const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne('/api/workspace/capabilities').flush(ownerCapabilities);
+    http.expectOne('/api/projects').flush([activeProject]);
+    fixture.componentInstance.workItemForm.controls.projectId.setValue(projectId);
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/labels`).flush([]);
+    http.expectOne(`/api/projects/${projectId}/milestones`).flush([]);
+
+    fixture.componentInstance.workItemForm.patchValue({
+      title: 'Keep this title',
+      description: 'Keep this description.',
+      type: 'bug',
+      priority: 'urgent'
+    });
+    fixture.componentInstance.createWorkItem();
+    const create = http.expectOne(`/api/projects/${projectId}/work-items`);
+    create.flush(
+      {
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Title must be unique within this project.'
+        }
+      },
+      { status: 400, statusText: 'Bad Request' }
+    );
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Title must be unique within this project.');
+    expect(fixture.componentInstance.workItemForm.controls.title.value).toBe('Keep this title');
+    expect(fixture.componentInstance.workItemForm.controls.description.value).toBe(
+      'Keep this description.'
+    );
+  });
+
+  it('shows create permission copy and disables submission', () => {
+    const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne('/api/workspace/capabilities').flush(readOnlyCapabilities);
+    http.expectOne('/api/projects').flush([activeProject]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Create unavailable');
+    expect(compiled.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBeTrue();
   });
 });

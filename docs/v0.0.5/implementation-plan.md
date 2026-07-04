@@ -820,6 +820,26 @@ npm run build --workspace @worktrail/web
 git diff --check
 ```
 
+Status: Completed.
+
+Notes:
+
+- Replaced the `/work-items/new` placeholder with the real work item create flow.
+- Refactored the work item create page to support project-scoped and workspace-scoped routes.
+- Workspace-scoped create loads active projects and requires an explicit project selection.
+- Project selection drives project details, labels, and milestones before submission.
+- Preserved project-scoped create behavior with the route project preselected.
+- Added create success actions for opening the created work item, creating another, and returning to the relevant context.
+- Added inline disabled states for archived projects and users without create permission.
+- Preserved entered form values on create failures and displays server error details when available.
+- Kept reporter assignment server-side.
+- Added component coverage for workspace-scoped project selection, dependent field loading, success actions, failure preservation, and permission-disabled create behavior.
+- Verified `npm test --workspace @worktrail/web -- --include='src/app/features/work-items/work-items-page.component.spec.ts'`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm test --workspace @worktrail/web`.
+- Verified `npm run build --workspace @worktrail/web`; production initial bundle is 343.77 kB raw and 94.00 kB estimated transfer with no budget warnings.
+- Verified `git diff --check`.
+
 ## Phase 11: Project Navigation Polish Frontend
 
 Goal: make project navigation more useful as project count grows.
