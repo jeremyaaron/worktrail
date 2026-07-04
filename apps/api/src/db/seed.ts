@@ -10,6 +10,7 @@ import {
   members,
   milestones,
   projects,
+  savedWorkViews,
   workItemLabels,
   workItems,
   workspaces,
@@ -48,7 +49,10 @@ const ids = {
     blocked: '10000000-0000-4000-8000-000000000404',
     done: '10000000-0000-4000-8000-000000000405',
     canceled: '10000000-0000-4000-8000-000000000406',
-    platform: '10000000-0000-4000-8000-000000000407'
+    platform: '10000000-0000-4000-8000-000000000407',
+    unassigned: '10000000-0000-4000-8000-000000000408',
+    contributorOverdue: '10000000-0000-4000-8000-000000000409',
+    platformBlocked: '10000000-0000-4000-8000-000000000410'
   },
   comments: {
     first: '10000000-0000-4000-8000-000000000501',
@@ -69,6 +73,20 @@ const ids = {
     inactiveDeactivated: '10000000-0000-4000-8000-000000000703',
     workspaceRenamed: '10000000-0000-4000-8000-000000000704',
     projectCreated: '10000000-0000-4000-8000-000000000705'
+  },
+  savedWorkViews: {
+    ownerMyOpen: '10000000-0000-4000-8000-000000000801',
+    ownerBlocked: '10000000-0000-4000-8000-000000000802',
+    ownerDueSoon: '10000000-0000-4000-8000-000000000803',
+    ownerUnassigned: '10000000-0000-4000-8000-000000000804',
+    maintainerMyOpen: '10000000-0000-4000-8000-000000000805',
+    maintainerBlocked: '10000000-0000-4000-8000-000000000806',
+    maintainerDueSoon: '10000000-0000-4000-8000-000000000807',
+    maintainerUnassigned: '10000000-0000-4000-8000-000000000808',
+    contributorMyOpen: '10000000-0000-4000-8000-000000000809',
+    contributorBlocked: '10000000-0000-4000-8000-000000000810',
+    contributorDueSoon: '10000000-0000-4000-8000-000000000811',
+    contributorUnassigned: '10000000-0000-4000-8000-000000000812'
   }
 } as const;
 
@@ -166,7 +184,7 @@ try {
           id: ids.projects.app,
           workspaceId: ids.workspace,
           key: 'WT',
-          nextWorkItemNumber: 7,
+          nextWorkItemNumber: 9,
           name: 'Worktrail App',
           description: 'MVP project management reference application.',
           status: 'active',
@@ -177,7 +195,7 @@ try {
           id: ids.projects.platform,
           workspaceId: ids.workspace,
           key: 'CLOUD',
-          nextWorkItemNumber: 2,
+          nextWorkItemNumber: 4,
           name: 'Cloud Readiness',
           description: 'Future deployment and production architecture exploration.',
           status: 'active',
@@ -472,6 +490,66 @@ try {
           estimatePoints: 5,
           createdAt: earlier,
           updatedAt: now
+        },
+        {
+          id: ids.workItems.unassigned,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.app,
+          itemNumber: 7,
+          displayKey: 'WT-7',
+          title: 'Triage unassigned onboarding feedback',
+          description: 'Keep an active unassigned item available for workspace discovery demos.',
+          type: 'task',
+          status: 'ready',
+          priority: 'medium',
+          assigneeId: null,
+          reporterId: ids.members.contributor,
+          milestoneId: ids.milestones.planning,
+          boardPosition: 2048,
+          dueDate: '2026-07-11',
+          estimatePoints: 3,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.workItems.contributorOverdue,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.app,
+          itemNumber: 8,
+          displayKey: 'WT-8',
+          title: 'Review contributor dashboard empty states',
+          description: 'Exercise overdue assigned work on the My Work dashboard.',
+          type: 'story',
+          status: 'in_progress',
+          priority: 'high',
+          assigneeId: ids.members.contributor,
+          reporterId: ids.members.maintainer,
+          milestoneId: ids.milestones.planning,
+          boardPosition: 2048,
+          dueDate: '2026-07-01',
+          estimatePoints: 5,
+          createdAt: earlier,
+          updatedAt: stale
+        },
+        {
+          id: ids.workItems.platformBlocked,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.platform,
+          itemNumber: 2,
+          displayKey: 'CLOUD-2',
+          title: 'Decide serverless database connection strategy',
+          description: 'Blocked until the deployment reference architecture is narrowed.',
+          type: 'story',
+          status: 'blocked',
+          priority: 'urgent',
+          assigneeId: ids.members.owner,
+          reporterId: ids.members.contributor,
+          milestoneId: ids.milestones.cloud,
+          boardPosition: 1024,
+          dueDate: '2026-07-09',
+          estimatePoints: 8,
+          createdAt: earlier,
+          updatedAt: stale
         }
       ])
       .onConflictDoUpdate({
@@ -494,7 +572,10 @@ try {
         { workItemId: ids.workItems.ready, labelId: ids.labels.frontend },
         { workItemId: ids.workItems.ready, labelId: ids.labels.backend },
         { workItemId: ids.workItems.inProgress, labelId: ids.labels.backend },
-        { workItemId: ids.workItems.platform, labelId: ids.labels.reliability }
+        { workItemId: ids.workItems.platform, labelId: ids.labels.reliability },
+        { workItemId: ids.workItems.unassigned, labelId: ids.labels.design },
+        { workItemId: ids.workItems.contributorOverdue, labelId: ids.labels.frontend },
+        { workItemId: ids.workItems.platformBlocked, labelId: ids.labels.reliability }
       ])
       .onConflictDoNothing();
 
@@ -707,6 +788,148 @@ try {
         }
       ])
       .onConflictDoNothing();
+
+    await tx
+      .insert(savedWorkViews)
+      .values([
+        {
+          id: ids.savedWorkViews.ownerMyOpen,
+          workspaceId: ids.workspace,
+          ownerMemberId: ids.members.owner,
+          name: 'My open work',
+          visibility: 'personal',
+          query: { assigneeId: ids.members.owner, archivedProjects: 'exclude', sort: 'updated_desc' },
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.savedWorkViews.ownerBlocked,
+          workspaceId: ids.workspace,
+          ownerMemberId: ids.members.owner,
+          name: 'Blocked work',
+          visibility: 'personal',
+          query: { blocked: true, archivedProjects: 'exclude', sort: 'priority_desc' },
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.savedWorkViews.ownerDueSoon,
+          workspaceId: ids.workspace,
+          ownerMemberId: ids.members.owner,
+          name: 'Due soon',
+          visibility: 'personal',
+          query: { dueDateState: 'due_soon', archivedProjects: 'exclude', sort: 'due_date_asc' },
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.savedWorkViews.ownerUnassigned,
+          workspaceId: ids.workspace,
+          ownerMemberId: ids.members.owner,
+          name: 'Unassigned work',
+          visibility: 'personal',
+          query: { assigneeState: 'unassigned', archivedProjects: 'exclude', sort: 'updated_desc' },
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.savedWorkViews.maintainerMyOpen,
+          workspaceId: ids.workspace,
+          ownerMemberId: ids.members.maintainer,
+          name: 'My open work',
+          visibility: 'personal',
+          query: {
+            assigneeId: ids.members.maintainer,
+            archivedProjects: 'exclude',
+            sort: 'updated_desc'
+          },
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.savedWorkViews.maintainerBlocked,
+          workspaceId: ids.workspace,
+          ownerMemberId: ids.members.maintainer,
+          name: 'Blocked work',
+          visibility: 'personal',
+          query: { blocked: true, archivedProjects: 'exclude', sort: 'priority_desc' },
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.savedWorkViews.maintainerDueSoon,
+          workspaceId: ids.workspace,
+          ownerMemberId: ids.members.maintainer,
+          name: 'Due soon',
+          visibility: 'personal',
+          query: { dueDateState: 'due_soon', archivedProjects: 'exclude', sort: 'due_date_asc' },
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.savedWorkViews.maintainerUnassigned,
+          workspaceId: ids.workspace,
+          ownerMemberId: ids.members.maintainer,
+          name: 'Unassigned work',
+          visibility: 'personal',
+          query: { assigneeState: 'unassigned', archivedProjects: 'exclude', sort: 'updated_desc' },
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.savedWorkViews.contributorMyOpen,
+          workspaceId: ids.workspace,
+          ownerMemberId: ids.members.contributor,
+          name: 'My open work',
+          visibility: 'personal',
+          query: {
+            assigneeId: ids.members.contributor,
+            archivedProjects: 'exclude',
+            sort: 'updated_desc'
+          },
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.savedWorkViews.contributorBlocked,
+          workspaceId: ids.workspace,
+          ownerMemberId: ids.members.contributor,
+          name: 'Blocked work',
+          visibility: 'personal',
+          query: { blocked: true, archivedProjects: 'exclude', sort: 'priority_desc' },
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.savedWorkViews.contributorDueSoon,
+          workspaceId: ids.workspace,
+          ownerMemberId: ids.members.contributor,
+          name: 'Due soon',
+          visibility: 'personal',
+          query: { dueDateState: 'due_soon', archivedProjects: 'exclude', sort: 'due_date_asc' },
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.savedWorkViews.contributorUnassigned,
+          workspaceId: ids.workspace,
+          ownerMemberId: ids.members.contributor,
+          name: 'Unassigned work',
+          visibility: 'personal',
+          query: { assigneeState: 'unassigned', archivedProjects: 'exclude', sort: 'updated_desc' },
+          createdAt: earlier,
+          updatedAt: now
+        }
+      ])
+      .onConflictDoUpdate({
+        target: savedWorkViews.id,
+        set: {
+          name: sql`excluded.name`,
+          visibility: sql`excluded.visibility`,
+          query: sql`excluded.query`,
+          updatedAt: now
+        }
+      });
   });
 
   console.log('Database seed data applied.');

@@ -6,8 +6,11 @@ import type {
   MilestoneDto,
   ProjectDto,
   RecentWorkItemDto,
+  SavedWorkViewDto,
+  WorkItemQuery,
   WorkspaceActivityEventDto,
   WorkspaceDto,
+  WorkspaceWorkItemListItemDto,
   WorkItemDetailDto,
   WorkItemListItemDto
 } from '@worktrail/contracts';
@@ -19,6 +22,7 @@ import type {
   Member,
   Milestone,
   Project,
+  SavedWorkView,
   WorkItem,
   Workspace,
   WorkspaceActivityEvent
@@ -185,6 +189,33 @@ export function toWorkItemListItemDto(input: {
     estimatePoints: input.workItem.estimatePoints,
     createdAt: input.workItem.createdAt.toISOString(),
     updatedAt: input.workItem.updatedAt.toISOString()
+  };
+}
+
+export function toWorkspaceWorkItemListItemDto(input: {
+  workItem: WorkItem;
+  assignee: Member | null;
+  reporter: Member;
+  labels: Label[];
+  milestone?: Milestone | null;
+  project: Pick<Project, 'id' | 'key' | 'name' | 'status'>;
+}): WorkspaceWorkItemListItemDto {
+  return {
+    ...toWorkItemListItemDto(input),
+    project: input.project
+  };
+}
+
+export function toSavedWorkViewDto(savedView: SavedWorkView, owner: Member): SavedWorkViewDto {
+  return {
+    id: savedView.id,
+    workspaceId: savedView.workspaceId,
+    owner: toMemberDto(owner),
+    name: savedView.name,
+    visibility: savedView.visibility,
+    query: savedView.query as WorkItemQuery,
+    createdAt: savedView.createdAt.toISOString(),
+    updatedAt: savedView.updatedAt.toISOString()
   };
 }
 

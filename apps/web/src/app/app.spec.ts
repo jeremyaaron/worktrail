@@ -77,8 +77,10 @@ describe('App', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('.brand')?.textContent).toContain('Worktrail');
     expect([...compiled.querySelectorAll('nav a')].map((link) => link.textContent?.trim())).toEqual([
+      'My Work',
       'Projects',
-      'Workspace'
+      'Workspace',
+      'Create work item'
     ]);
     expect(compiled.querySelector('select')?.textContent).toContain('Avery Owner');
   });

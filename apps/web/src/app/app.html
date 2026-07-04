@@ -1,13 +1,21 @@
 <div class="app-shell">
   <header class="topbar">
-    <a class="brand" routerLink="/projects" aria-label="Worktrail projects">
+    <a class="brand" routerLink="/my-work" aria-label="Worktrail my work">
       <span class="brand__mark" aria-hidden="true">W</span>
       <span>Worktrail</span>
     </a>
 
     <nav class="primary-nav" aria-label="Primary navigation">
+      <a routerLink="/my-work" routerLinkActive="primary-nav__link--active">My Work</a>
       <a routerLink="/projects" routerLinkActive="primary-nav__link--active">Projects</a>
       <a routerLink="/workspace/settings" routerLinkActive="primary-nav__link--active">Workspace</a>
+      <a
+        class="primary-nav__action"
+        routerLink="/work-items/new"
+        routerLinkActive="primary-nav__link--active"
+      >
+        Create work item
+      </a>
     </nav>
 
     <section class="actor-selector" aria-label="Current user">

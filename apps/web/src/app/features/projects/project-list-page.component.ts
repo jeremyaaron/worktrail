@@ -2,7 +2,12 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import type { ProjectDto, ProjectStatus, WorkspaceCapabilitiesDto } from '@worktrail/contracts';
+import type {
+  ProjectDto,
+  ProjectNavigationSummaryDto,
+  ProjectStatus,
+  WorkspaceCapabilitiesDto
+} from '@worktrail/contracts';
 
 import { WorktrailApiService } from '../../core/worktrail-api.service';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
@@ -96,19 +101,33 @@ type ProjectStatusFilter = 'all' | ProjectStatus;
         <div class="list-toolbar">
           <div>
             <h2 id="project-list-heading">Projects</h2>
-            <p>{{ filteredProjects().length }} shown of {{ projects().length }}</p>
+            <p>{{ filteredSummaries().length }} shown of {{ projectSummaries().length }}</p>
           </div>
 
-          <div class="filter-control" role="group" aria-label="Project status filter">
-            @for (filter of statusFilters; track filter.value) {
-              <button
-                type="button"
-                [class.filter-control__button--active]="statusFilter() === filter.value"
-                (click)="statusFilter.set(filter.value)"
-              >
-                {{ filter.label }}
-              </button>
-            }
+          <div class="list-toolbar__controls">
+            <label class="search-control" for="project-search">
+              <span>Search</span>
+              <input
+                id="project-search"
+                type="search"
+                autocomplete="off"
+                placeholder="Name or key"
+                [value]="searchTerm()"
+                (input)="searchTerm.set($any($event.target).value)"
+              />
+            </label>
+
+            <div class="filter-control" role="group" aria-label="Project status filter">
+              @for (filter of statusFilters; track filter.value) {
+                <button
+                  type="button"
+                  [class.filter-control__button--active]="statusFilter() === filter.value"
+                  (click)="statusFilter.set(filter.value)"
+                >
+                  {{ filter.label }}
+                </button>
+              }
+            </div>
           </div>
         </div>
 
@@ -116,26 +135,52 @@ type ProjectStatusFilter = 'all' | ProjectStatus;
           <app-loading-indicator label="Loading projects" />
         } @else if (error()) {
           <app-error-panel [message]="error() ?? ''" (retry)="loadProjects()" />
-        } @else if (projects().length === 0) {
+        } @else if (projectSummaries().length === 0) {
           <app-empty-state
             title="No projects yet"
             message="Use the create form to add the first project."
           />
-        } @else if (filteredProjects().length === 0) {
+        } @else if (filteredSummaries().length === 0) {
           <app-empty-state
-            title="No projects match this filter"
-            message="Switch to another project status to continue."
+            title="No projects match these filters"
+            message="Adjust search or status to continue."
           />
         } @else {
           <section class="project-list" aria-label="Projects">
-            @for (project of filteredProjects(); track project.id) {
-              <article class="project-row">
-                <div>
+            @for (summary of filteredSummaries(); track summary.project.id) {
+              @if (showArchivedDivider(summary, $index)) {
+                <h3 class="archive-divider">Archived projects</h3>
+              }
+              <article
+                class="project-row"
+                [class.project-row--archived]="summary.project.status === 'archived'"
+              >
+                <div class="project-row__main">
+                  @let project = summary.project;
                   <span class="project-key">{{ project.key }}</span>
                   <h3>
                     <a [routerLink]="['/projects', project.id]">{{ project.name }}</a>
                   </h3>
                   <p>{{ project.description || 'No description provided.' }}</p>
+
+                  <dl class="summary-strip" [attr.aria-label]="project.name + ' work summary'">
+                    <div>
+                      <dt>Open</dt>
+                      <dd>{{ summary.openWorkItemCount }}</dd>
+                    </div>
+                    <div>
+                      <dt>Blocked</dt>
+                      <dd>{{ summary.blockedWorkItemCount }}</dd>
+                    </div>
+                    <div>
+                      <dt>Overdue</dt>
+                      <dd>{{ summary.overdueWorkItemCount }}</dd>
+                    </div>
+                    <div>
+                      <dt>Updated</dt>
+                      <dd>{{ formatDate(summary.updatedAt) }}</dd>
+                    </div>
+                  </dl>
                 </div>
 
                 <div class="project-row__meta">
@@ -309,7 +354,27 @@ type ProjectStatusFilter = 'all' | ProjectStatus;
       display: flex;
       justify-content: space-between;
       gap: 16px;
-      align-items: center;
+      align-items: flex-start;
+    }
+
+    .list-toolbar__controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .search-control {
+      display: grid;
+      gap: 4px;
+      min-width: 180px;
+    }
+
+    .search-control span {
+      color: #334155;
+      font-size: 0.75rem;
+      font-weight: 800;
     }
 
     .filter-control {
@@ -339,6 +404,15 @@ type ProjectStatusFilter = 'all' | ProjectStatus;
       gap: 10px;
     }
 
+    .archive-divider {
+      margin-top: 6px;
+      border-top: 1px solid #e5e7eb;
+      padding-top: 16px;
+      color: #64748b;
+      font-size: 0.8125rem;
+      text-transform: uppercase;
+    }
+
     .project-row {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
@@ -348,6 +422,10 @@ type ProjectStatusFilter = 'all' | ProjectStatus;
       border-radius: 8px;
       padding: 16px;
       background: #ffffff;
+    }
+
+    .project-row--archived {
+      background: #f8fafc;
     }
 
     h3 a,
@@ -386,6 +464,35 @@ type ProjectStatusFilter = 'all' | ProjectStatus;
       line-height: 1.4;
     }
 
+    .summary-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 14px 0 0;
+    }
+
+    .summary-strip div {
+      min-width: 76px;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 8px 10px;
+      background: #f8fafc;
+    }
+
+    .summary-strip dt {
+      color: #64748b;
+      font-size: 0.6875rem;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .summary-strip dd {
+      margin: 2px 0 0;
+      color: #111827;
+      font-size: 0.875rem;
+      font-weight: 900;
+    }
+
     .project-row__status--archived {
       color: #9a3412;
     }
@@ -396,7 +503,8 @@ type ProjectStatusFilter = 'all' | ProjectStatus;
         grid-template-columns: 1fr;
       }
 
-      .list-toolbar {
+      .list-toolbar,
+      .list-toolbar__controls {
         align-items: stretch;
         flex-direction: column;
       }
@@ -417,9 +525,10 @@ export class ProjectListPageComponent implements OnInit {
     { label: 'Archived', value: 'archived' }
   ];
 
-  readonly projects = signal<ProjectDto[]>([]);
+  readonly projectSummaries = signal<ProjectNavigationSummaryDto[]>([]);
   readonly capabilities = signal<WorkspaceCapabilitiesDto | null>(null);
   readonly statusFilter = signal<ProjectStatusFilter>('all');
+  readonly searchTerm = signal('');
   readonly isLoading = signal(false);
   readonly isCreating = signal(false);
   readonly hasSubmittedCreate = signal(false);
@@ -429,11 +538,20 @@ export class ProjectListPageComponent implements OnInit {
   readonly createSuccess = signal(false);
   readonly canCreateProjects = computed(() => this.capabilities()?.canCreateProjects === true);
 
-  readonly filteredProjects = computed(() => {
+  readonly filteredSummaries = computed(() => {
     const filter = this.statusFilter();
-    return filter === 'all'
-      ? this.projects()
-      : this.projects().filter((project) => project.status === filter);
+    const search = this.searchTerm().trim().toLowerCase();
+
+    return this.projectSummaries().filter((summary) => {
+      const project = summary.project;
+      const matchesStatus = filter === 'all' || project.status === filter;
+      const matchesSearch =
+        search === '' ||
+        project.name.toLowerCase().includes(search) ||
+        project.key.toLowerCase().includes(search);
+
+      return matchesStatus && matchesSearch;
+    });
   });
 
   readonly createProjectForm = this.formBuilder.nonNullable.group({
@@ -451,9 +569,9 @@ export class ProjectListPageComponent implements OnInit {
     this.isLoading.set(true);
     this.error.set(null);
 
-    this.api.listProjects().subscribe({
-      next: (projects) => {
-        this.projects.set(projects);
+    this.api.listProjectNavigationSummaries().subscribe({
+      next: (summaries) => {
+        this.projectSummaries.set(summaries);
         this.isLoading.set(false);
       },
       error: () => {
@@ -503,8 +621,12 @@ export class ProjectListPageComponent implements OnInit {
       })
       .subscribe({
         next: (project) => {
-          this.projects.set([project, ...this.projects()]);
+          this.projectSummaries.set([
+            this.toNavigationSummary(project),
+            ...this.projectSummaries()
+          ]);
           this.statusFilter.set('active');
+          this.searchTerm.set('');
           this.createProjectForm.reset({ key: '', name: '', description: '' });
           this.hasSubmittedCreate.set(false);
           this.isCreating.set(false);
@@ -525,6 +647,33 @@ export class ProjectListPageComponent implements OnInit {
   showKeyError(): boolean {
     const control = this.createProjectForm.controls.key;
     return control.invalid && (control.touched || this.hasSubmittedCreate());
+  }
+
+  showArchivedDivider(summary: ProjectNavigationSummaryDto, index: number): boolean {
+    if (summary.project.status !== 'archived') {
+      return false;
+    }
+
+    const previous = this.filteredSummaries()[index - 1];
+    return previous === undefined || previous.project.status !== 'archived';
+  }
+
+  formatDate(value: string): string {
+    return new Intl.DateTimeFormat('en', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    }).format(new Date(value));
+  }
+
+  private toNavigationSummary(project: ProjectDto): ProjectNavigationSummaryDto {
+    return {
+      project,
+      openWorkItemCount: 0,
+      blockedWorkItemCount: 0,
+      overdueWorkItemCount: 0,
+      updatedAt: project.updatedAt
+    };
   }
 
   private toErrorMessage(error: unknown, fallback: string): string {

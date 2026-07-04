@@ -33,19 +33,28 @@ import {
   reactivateMilestoneHandler,
   updateMilestoneHandler
 } from '../../endpoints/milestones.js';
+import { getMyWorkDashboardHandler } from '../../endpoints/my-work.js';
 import { getProjectPlanningSummaryHandler } from '../../endpoints/planning.js';
 import {
   archiveProjectHandler,
   createProjectHandler,
   getProjectHandler,
   getProjectSummaryHandler,
+  listProjectNavigationSummariesHandler,
   listProjectsHandler,
   reactivateProjectHandler,
   updateProjectHandler
 } from '../../endpoints/projects.js';
 import {
+  createSavedWorkViewHandler,
+  deleteSavedWorkViewHandler,
+  listSavedWorkViewsHandler,
+  updateSavedWorkViewHandler
+} from '../../endpoints/saved-work-views.js';
+import {
   createWorkItemHandler,
   getWorkItemHandler,
+  listWorkspaceWorkItemsHandler,
   listWorkItemsHandler,
   moveWorkItemOnBoardHandler,
   transitionWorkItemHandler,
@@ -125,6 +134,37 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
       )
     );
     app.get('/api/projects', adaptEndpoint(listProjectsHandler(options.repositories), adapterOptions));
+    app.get(
+      '/api/projects/navigation-summary',
+      adaptEndpoint(listProjectNavigationSummariesHandler(options.repositories), adapterOptions)
+    );
+    app.get(
+      '/api/my-work',
+      adaptEndpoint(getMyWorkDashboardHandler({ repositories: options.repositories }), adapterOptions)
+    );
+    app.get(
+      '/api/saved-work-views',
+      adaptEndpoint(listSavedWorkViewsHandler({ repositories: options.repositories }), adapterOptions)
+    );
+    app.post(
+      '/api/saved-work-views',
+      adaptEndpoint(createSavedWorkViewHandler({ repositories: options.repositories }), adapterOptions)
+    );
+    app.patch(
+      '/api/saved-work-views/:savedViewId',
+      adaptEndpoint(updateSavedWorkViewHandler({ repositories: options.repositories }), adapterOptions)
+    );
+    app.delete(
+      '/api/saved-work-views/:savedViewId',
+      adaptEndpoint(deleteSavedWorkViewHandler({ repositories: options.repositories }), adapterOptions)
+    );
+    app.get(
+      '/api/work-items',
+      adaptEndpoint(
+        listWorkspaceWorkItemsHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
+    );
     app.post(
       '/api/projects',
       adaptEndpoint(

@@ -7,6 +7,7 @@ import type {
   members,
   milestones,
   projects,
+  savedWorkViews,
   workItemLabels,
   workItems,
   workspaces,
@@ -21,6 +22,8 @@ export type Project = InferSelectModel<typeof projects>;
 export type NewProject = InferInsertModel<typeof projects>;
 export type Milestone = InferSelectModel<typeof milestones>;
 export type NewMilestone = InferInsertModel<typeof milestones>;
+export type SavedWorkView = InferSelectModel<typeof savedWorkViews>;
+export type NewSavedWorkView = InferInsertModel<typeof savedWorkViews>;
 export type WorkItem = InferSelectModel<typeof workItems>;
 export type NewWorkItem = InferInsertModel<typeof workItems>;
 export type Label = InferSelectModel<typeof labels>;

@@ -4,7 +4,15 @@ export const routes: Routes = [
   {
     path: '',
     pathMatch: 'full',
-    redirectTo: 'projects'
+    redirectTo: 'my-work'
+  },
+  {
+    path: 'my-work',
+    loadComponent: () =>
+      import('./features/my-work/my-work-page.component').then(
+        (module) => module.MyWorkPageComponent
+      ),
+    title: 'My Work | Worktrail'
   },
   {
     path: 'projects',
@@ -71,6 +79,22 @@ export const routes: Routes = [
     title: 'Project | Worktrail'
   },
   {
+    path: 'work-items/new',
+    loadComponent: () =>
+      import('./features/work-items/work-item-create-page.component').then(
+        (module) => module.WorkItemCreatePageComponent
+      ),
+    title: 'Create Work Item | Worktrail'
+  },
+  {
+    path: 'work-items',
+    loadComponent: () =>
+      import('./features/work-items/workspace-work-item-list-page.component').then(
+        (module) => module.WorkspaceWorkItemListPageComponent
+      ),
+    title: 'Work Items | Worktrail'
+  },
+  {
     path: 'work-items/:workItemId',
     loadComponent: () =>
       import('./features/work-items/work-item-detail-page.component').then(
@@ -80,6 +104,6 @@ export const routes: Routes = [
   },
   {
     path: '**',
-    redirectTo: 'projects'
+    redirectTo: 'my-work'
   }
 ];

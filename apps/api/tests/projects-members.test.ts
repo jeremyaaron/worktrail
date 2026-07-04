@@ -7,6 +7,7 @@ import { createExpressApp } from '../src/adapters/express/server.js';
 import { createDb, createPool } from '../src/db/client.js';
 import { createRepositories, type Repositories } from '../src/repositories/index.js';
 import type { NewProject } from '../src/repositories/types.js';
+import { ProjectService } from '../src/services/project-service.js';
 
 const workspaceIds = new Set<string>();
 let pool: ReturnType<typeof createPool>;
@@ -27,6 +28,7 @@ function actorHeaders(input: { workspaceId: string; memberId: string; role: stri
 }
 
 async function cleanupWorkspace(workspaceId: string) {
+  await pool.query('delete from saved_work_views where workspace_id = $1', [workspaceId]);
   await pool.query('delete from workspace_activity_events where workspace_id = $1', [workspaceId]);
   await pool.query('delete from activity_events where workspace_id = $1', [workspaceId]);
   await pool.query('delete from comments where workspace_id = $1', [workspaceId]);
@@ -121,6 +123,43 @@ async function createProject(input: Partial<NewProject> & { workspaceId: string 
   });
 }
 
+let nextWorkItemNumber = 1;
+
+async function createWorkItem(input: {
+  workspaceId: string;
+  projectId: string;
+  reporterId: string;
+  assigneeId?: string | null;
+  title?: string;
+  status?: 'backlog' | 'ready' | 'in_progress' | 'blocked' | 'done' | 'canceled';
+  dueDate?: string | null;
+  updatedAt?: Date;
+}) {
+  const itemNumber = nextWorkItemNumber;
+  nextWorkItemNumber += 1;
+
+  return repositories.workItems.create({
+    id: randomUUID(),
+    workspaceId: input.workspaceId,
+    projectId: input.projectId,
+    itemNumber,
+    displayKey: `NAV-${itemNumber}`,
+    title: input.title ?? `Navigation item ${itemNumber}`,
+    description: '',
+    type: 'task',
+    status: input.status ?? 'ready',
+    priority: 'medium',
+    assigneeId: input.assigneeId === undefined ? input.reporterId : input.assigneeId,
+    reporterId: input.reporterId,
+    milestoneId: null,
+    boardPosition: itemNumber * 1024,
+    dueDate: input.dueDate ?? null,
+    estimatePoints: null,
+    createdAt: now(),
+    updatedAt: input.updatedAt ?? now()
+  });
+}
+
 beforeAll(() => {
   pool = createPool();
   db = createDb(pool);
@@ -129,6 +168,7 @@ beforeAll(() => {
 });
 
 afterEach(async () => {
+  nextWorkItemNumber = 1;
   await cleanupAllWorkspaces();
 });
 
@@ -358,6 +398,132 @@ describe('projects API', () => {
           status: 'active'
         });
         expect(body[0].createdAt).toBe('2026-07-03T12:00:00.000Z');
+      });
+  });
+
+  it('returns project navigation summaries sorted by active status and recent work', async () => {
+    const fixture = await createWorkspaceFixture('owner');
+    const staleActiveProject = await createProject({
+      workspaceId: fixture.workspaceId,
+      key: 'STALE',
+      name: 'Stale Active Project',
+      updatedAt: new Date('2026-07-01T12:00:00.000Z')
+    });
+    const recentActiveProject = await createProject({
+      workspaceId: fixture.workspaceId,
+      key: 'RECENT',
+      name: 'Recent Active Project',
+      updatedAt: new Date('2026-07-01T12:00:00.000Z')
+    });
+    const emptyProject = await createProject({
+      workspaceId: fixture.workspaceId,
+      key: 'EMPTY',
+      name: 'Empty Project',
+      updatedAt: new Date('2026-07-02T12:00:00.000Z')
+    });
+    const archivedProject = await createProject({
+      workspaceId: fixture.workspaceId,
+      key: 'OLD',
+      name: 'Archived Project',
+      status: 'archived',
+      updatedAt: new Date('2026-07-10T12:00:00.000Z')
+    });
+
+    await createWorkItem({
+      workspaceId: fixture.workspaceId,
+      projectId: staleActiveProject.id,
+      reporterId: fixture.actorId,
+      status: 'blocked',
+      dueDate: '2026-07-01',
+      updatedAt: new Date('2026-07-03T12:00:00.000Z')
+    });
+    await createWorkItem({
+      workspaceId: fixture.workspaceId,
+      projectId: staleActiveProject.id,
+      reporterId: fixture.actorId,
+      status: 'done',
+      dueDate: '2026-07-01',
+      updatedAt: new Date('2026-07-04T12:00:00.000Z')
+    });
+    await createWorkItem({
+      workspaceId: fixture.workspaceId,
+      projectId: recentActiveProject.id,
+      reporterId: fixture.actorId,
+      status: 'ready',
+      dueDate: '2026-07-12',
+      updatedAt: new Date('2026-07-05T12:00:00.000Z')
+    });
+    await createWorkItem({
+      workspaceId: fixture.workspaceId,
+      projectId: archivedProject.id,
+      reporterId: fixture.actorId,
+      status: 'blocked',
+      dueDate: '2026-07-01',
+      updatedAt: new Date('2026-07-11T12:00:00.000Z')
+    });
+
+    const summaries = await new ProjectService({
+      actor: {
+        workspaceId: fixture.workspaceId,
+        memberId: fixture.actorId,
+        role: 'owner'
+      },
+      repositories,
+      clock: () => new Date('2026-07-04T12:00:00.000Z')
+    }).listProjectNavigationSummaries();
+
+    expect(summaries.map((summary) => summary.project.key)).toEqual([
+      'RECENT',
+      'STALE',
+      'EMPTY',
+      'OLD'
+    ]);
+    expect(summaries.find((summary) => summary.project.id === staleActiveProject.id)).toMatchObject({
+      project: { id: staleActiveProject.id, status: 'active' },
+      openWorkItemCount: 1,
+      blockedWorkItemCount: 1,
+      overdueWorkItemCount: 1,
+      updatedAt: '2026-07-04T12:00:00.000Z'
+    });
+    expect(summaries.find((summary) => summary.project.id === emptyProject.id)).toMatchObject({
+      openWorkItemCount: 0,
+      blockedWorkItemCount: 0,
+      overdueWorkItemCount: 0,
+      updatedAt: '2026-07-02T12:00:00.000Z'
+    });
+    expect(summaries.find((summary) => summary.project.id === archivedProject.id)).toMatchObject({
+      project: { status: 'archived' },
+      openWorkItemCount: 1,
+      blockedWorkItemCount: 1,
+      overdueWorkItemCount: 1,
+      updatedAt: '2026-07-11T12:00:00.000Z'
+    });
+  });
+
+  it('serves project navigation summaries through the API', async () => {
+    const fixture = await createWorkspaceFixture('owner');
+    const project = await createProject({ workspaceId: fixture.workspaceId, key: 'NAV' });
+    await createWorkItem({
+      workspaceId: fixture.workspaceId,
+      projectId: project.id,
+      reporterId: fixture.actorId,
+      status: 'blocked',
+      updatedAt: new Date('2026-07-04T12:00:00.000Z')
+    });
+
+    await request(app)
+      .get('/api/projects/navigation-summary')
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual([
+          expect.objectContaining({
+            project: expect.objectContaining({ id: project.id, key: 'NAV' }),
+            openWorkItemCount: 1,
+            blockedWorkItemCount: 1,
+            updatedAt: '2026-07-04T12:00:00.000Z'
+          })
+        ]);
       });
   });
 

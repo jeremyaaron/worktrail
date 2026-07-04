@@ -4,6 +4,7 @@ import type {
   MoveWorkItemOnBoardRequest,
   TransitionWorkItemRequest,
   UpdateWorkItemRequest,
+  WorkspaceWorkItemListItemDto,
   WorkItemDetailDto,
   WorkItemListItemDto,
   WorkItemSort
@@ -19,6 +20,7 @@ import {
   WorkItemService
 } from '../services/work-item-service.js';
 import { parseWithSchema } from '../validation/parse.js';
+import { parseWorkItemQuery } from '../validation/work-item-query.js';
 
 const projectIdParamSchema = z.object({
   projectId: z.string().uuid()
@@ -129,6 +131,23 @@ export function listWorkItemsHandler(input: {
     return {
       status: 200,
       body: await service.listWorkItems(projectId, parseFilters(request.query))
+    };
+  };
+}
+
+export function listWorkspaceWorkItemsHandler(input: {
+  repositories: Repositories;
+  db?: WorktrailDb;
+}): EndpointHandler<WorkspaceWorkItemListItemDto[]> {
+  return async (request) => {
+    const service = new WorkItemService({
+      actor: request.actor,
+      repositories: input.repositories,
+      db: input.db
+    });
+    return {
+      status: 200,
+      body: await service.listWorkspaceWorkItems(parseWorkItemQuery(request.query))
     };
   };
 }

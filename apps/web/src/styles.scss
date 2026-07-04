@@ -19,6 +19,64 @@ textarea {
   font: inherit;
 }
 
+.status-pill[data-status='backlog'] {
+  background: #f8fafc;
+  color: #475569;
+}
+
+.status-pill[data-status='ready'] {
+  border-color: #a5f3fc;
+  background: #ecfeff;
+  color: #155e75;
+}
+
+.status-pill[data-status='in_progress'] {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.status-pill[data-status='blocked'] {
+  border-color: #fed7aa;
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.status-pill[data-status='done'] {
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.status-pill[data-status='canceled'] {
+  border-color: #cbd5e1;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.priority-pill[data-priority='low'] {
+  background: #f8fafc;
+  color: #475569;
+}
+
+.priority-pill[data-priority='medium'] {
+  border-color: #fde68a;
+  background: #fefce8;
+  color: #854d0e;
+}
+
+.priority-pill[data-priority='high'] {
+  border-color: #fed7aa;
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.priority-pill[data-priority='urgent'] {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
 app-project-planning-page {
   .dashboard-section,
   .risk-section-list,

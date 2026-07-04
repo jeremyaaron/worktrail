@@ -1,36 +1,62 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import type {
   CreateWorkItemRequest,
   LabelDto,
   MemberDto,
   MilestoneDto,
   ProjectDto,
+  WorkItemDetailDto,
   WorkItemPriority,
-  WorkItemType
+  WorkItemType,
+  WorkspaceCapabilitiesDto
 } from '@worktrail/contracts';
+import { Subscription, distinctUntilChanged } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorktrailApiService } from '../../core/worktrail-api.service';
+import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
+import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
 
 const types: WorkItemType[] = ['task', 'bug', 'story', 'chore'];
 const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
 
 @Component({
   selector: 'app-work-item-create-page',
-  imports: [ErrorPanelComponent, ReactiveFormsModule, RouterLink],
+  imports: [
+    EmptyStateComponent,
+    ErrorPanelComponent,
+    LoadingIndicatorComponent,
+    ReactiveFormsModule,
+    RouterLink
+  ],
   template: `
     <section class="page-header">
       <div>
         <p class="eyebrow">Create work item</p>
-        <h1>New project work item</h1>
-        <p>Capture a scoped task, bug, story, or chore for this project.</p>
+        <h1>{{ isProjectScoped() ? 'New project work item' : 'New work item' }}</h1>
+        <p>
+          {{
+            isProjectScoped()
+              ? 'Capture a scoped task, bug, story, or chore for this project.'
+              : 'Choose a project, then capture a task, bug, story, or chore.'
+          }}
+        </p>
       </div>
 
-      <a [routerLink]="['/projects', projectId(), 'work-items']">Back to list</a>
+      <a [routerLink]="returnCommands()">{{ returnLabel() }}</a>
     </section>
+
+    @if (projectLoadError()) {
+      <app-error-panel
+        title="Project unavailable"
+        [message]="projectLoadError() ?? ''"
+        (retry)="retryProjectLoad()"
+      />
+    }
 
     @if (isArchivedProject()) {
       <section class="notice" aria-label="Archived project">
@@ -39,13 +65,63 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
       </section>
     }
 
+    @if (!canCreateWorkItems()) {
+      <section class="notice" aria-label="Create permission unavailable">
+        <strong>Create unavailable</strong>
+        <p>The current actor does not have permission to create work items.</p>
+      </section>
+    }
+
+    @if (createdWorkItem(); as created) {
+      <section class="success-panel" aria-label="Work item created">
+        <div>
+          <strong>{{ created.displayKey }} created</strong>
+          <p>{{ created.title }}</p>
+        </div>
+
+        <div class="success-actions">
+          <a [routerLink]="['/work-items', created.id]">Open work item</a>
+          <button type="button" class="secondary-action" (click)="createAnother()">Create another</button>
+          <a [routerLink]="returnCommands()">{{ returnLabel() }}</a>
+        </div>
+      </section>
+    }
+
     <form
       class="work-item-form"
-      [class.work-item-form--readonly]="isArchivedProject()"
+      [class.work-item-form--readonly]="isArchivedProject() || !canCreateWorkItems()"
       [formGroup]="workItemForm"
       (ngSubmit)="createWorkItem()"
       novalidate
     >
+      @if (!isProjectScoped()) {
+        <label for="work-item-project">Project</label>
+        @if (isProjectListLoading()) {
+          <app-loading-indicator label="Loading projects" />
+        } @else if (projectListError()) {
+          <app-error-panel
+            title="Projects unavailable"
+            [message]="projectListError() ?? ''"
+            (retry)="loadProjects()"
+          />
+        } @else if (activeProjects().length === 0) {
+          <app-empty-state
+            title="No active projects"
+            message="Reactivate or create a project before capturing workspace work."
+          />
+        } @else {
+          <select id="work-item-project" formControlName="projectId">
+            <option value="">Select a project</option>
+            @for (project of activeProjects(); track project.id) {
+              <option [value]="project.id">{{ project.key }} · {{ project.name }}</option>
+            }
+          </select>
+        }
+        @if (showProjectError()) {
+          <p class="field-error">Project is required.</p>
+        }
+      }
+
       <label for="work-item-title">Title</label>
       <input
         id="work-item-title"
@@ -137,6 +213,8 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
             [message]="labelLoadError() ?? ''"
             (retry)="loadProjectLabels()"
           />
+        } @else if (selectedProjectId() === '') {
+          <p>Select a project to choose labels.</p>
         } @else if (availableLabels().length === 0) {
           <p>No project labels are available.</p>
         } @else {
@@ -146,7 +224,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
                 <input
                   type="checkbox"
                   [checked]="isLabelSelected(label.id)"
-                  [disabled]="isArchivedProject()"
+                  [disabled]="isArchivedProject() || !canCreateWorkItems()"
                   (change)="toggleLabel(label.id, $event)"
                 />
                 <span [style.background]="label.color ?? '#e2e8f0'"></span>
@@ -166,10 +244,10 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
       }
 
       <div class="form-actions">
-        <button type="submit" [disabled]="isArchivedProject() || isCreating()">
+        <button type="submit" [disabled]="isCreateDisabled()">
           {{ isCreating() ? 'Creating...' : 'Create work item' }}
         </button>
-        <a [routerLink]="['/projects', projectId(), 'work-items']">Cancel</a>
+        <a [routerLink]="returnCommands()">Cancel</a>
       </div>
     </form>
   `,
@@ -183,7 +261,8 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
     }
 
     .page-header > a,
-    .form-actions a {
+    .form-actions a,
+    .success-actions a {
       min-height: 38px;
       border: 1px solid #cbd5e1;
       border-radius: 6px;
@@ -235,23 +314,51 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
       background: #f8fafc;
     }
 
-    .notice {
+    .notice,
+    .success-panel {
       display: grid;
       gap: 4px;
       max-width: 820px;
       margin-bottom: 18px;
-      border: 1px solid #fed7aa;
       border-radius: 8px;
       padding: 14px;
+    }
+
+    .notice {
+      border: 1px solid #fed7aa;
       background: #fff7ed;
       color: #9a3412;
     }
 
-    .notice p {
+    .success-panel {
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+      border: 1px solid #bbf7d0;
+      background: #f0fdf4;
+      color: #166534;
+    }
+
+    .notice p,
+    .success-panel p {
       margin: 0;
-      color: #9a3412;
       font-size: 0.875rem;
       line-height: 1.5;
+    }
+
+    .notice p {
+      color: #9a3412;
+    }
+
+    .success-panel p {
+      color: #166534;
+    }
+
+    .success-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
     }
 
     label {
@@ -339,6 +446,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
     }
 
     .field-error {
+      margin: 0;
       color: #b91c1c;
       font-size: 0.8125rem;
       line-height: 1.4;
@@ -364,6 +472,12 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
       cursor: pointer;
     }
 
+    .secondary-action {
+      border-color: #cbd5e1;
+      background: #ffffff;
+      color: #1f2937;
+    }
+
     button:disabled {
       cursor: not-allowed;
       opacity: 0.64;
@@ -371,9 +485,15 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
 
     @media (max-width: 760px) {
       .page-header,
-      .form-actions {
+      .form-actions,
+      .success-panel {
         align-items: stretch;
+        grid-template-columns: 1fr;
         flex-direction: column;
+      }
+
+      .success-actions {
+        justify-content: flex-start;
       }
 
       .form-grid,
@@ -383,29 +503,46 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
     }
   `
 })
-export class WorkItemCreatePageComponent implements OnInit {
+export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
   private readonly api = inject(WorktrailApiService);
   private readonly currentUser = inject(CurrentUserService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
-  private readonly router = inject(Router);
+  private readonly subscriptions = new Subscription();
+  private readonly routeProjectId = this.route.snapshot.paramMap.get('projectId') ?? '';
 
   readonly types = types;
   readonly priorities = priorities;
   readonly members = computed<MemberDto[]>(() => this.currentUser.activeMembers());
-  readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
+  readonly isProjectScoped = computed(() => this.routeProjectId !== '');
+  readonly selectedProjectId = signal(this.routeProjectId);
   readonly project = signal<ProjectDto | null>(null);
+  readonly activeProjects = signal<ProjectDto[]>([]);
+  readonly capabilities = signal<WorkspaceCapabilitiesDto | null>(null);
   readonly availableLabels = signal<LabelDto[]>([]);
   readonly availableMilestones = signal<MilestoneDto[]>([]);
   readonly selectedLabelIds = signal<string[]>([]);
+  readonly createdWorkItem = signal<WorkItemDetailDto | null>(null);
   readonly isCreating = signal(false);
   readonly hasSubmitted = signal(false);
+  readonly isProjectListLoading = signal(false);
   readonly createError = signal<string | null>(null);
+  readonly projectListError = signal<string | null>(null);
+  readonly projectLoadError = signal<string | null>(null);
   readonly labelLoadError = signal<string | null>(null);
   readonly milestoneLoadError = signal<string | null>(null);
   readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
+  readonly canCreateWorkItems = computed(() => this.capabilities()?.canCreateWorkItems !== false);
+  readonly isCreateDisabled = computed(
+    () =>
+      this.selectedProjectId() === '' ||
+      this.isArchivedProject() ||
+      !this.canCreateWorkItems() ||
+      this.isCreating()
+  );
 
   readonly workItemForm = this.formBuilder.nonNullable.group({
+    projectId: [this.routeProjectId, [Validators.required]],
     title: ['', [Validators.required]],
     description: [''],
     type: ['task'],
@@ -421,16 +558,33 @@ export class WorkItemCreatePageComponent implements OnInit {
       this.currentUser.loadMembers();
     }
 
-    this.loadProject();
-    this.loadProjectLabels();
-    this.loadProjectMilestones();
+    this.loadCapabilities();
+    this.watchProjectSelection();
+
+    if (this.isProjectScoped()) {
+      this.workItemForm.controls.projectId.setValue(this.routeProjectId, { emitEvent: false });
+      this.loadProjectContext(this.routeProjectId);
+    } else {
+      this.loadProjects();
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
   }
 
   createWorkItem(): void {
     this.hasSubmitted.set(true);
     this.createError.set(null);
+    this.createdWorkItem.set(null);
 
-    if (this.isArchivedProject()) {
+    if (this.selectedProjectId() === '') {
+      this.workItemForm.controls.projectId.markAsTouched();
+      this.createError.set('Select an active project before creating work.');
+      return;
+    }
+
+    if (this.isArchivedProject() || !this.canCreateWorkItems()) {
       return;
     }
 
@@ -440,15 +594,40 @@ export class WorkItemCreatePageComponent implements OnInit {
     }
 
     this.isCreating.set(true);
-    this.api.createWorkItem(this.projectId(), this.toRequest()).subscribe({
+    this.api.createWorkItem(this.selectedProjectId(), this.toRequest()).subscribe({
       next: (workItem) => {
-        void this.router.navigate(['/work-items', workItem.id]);
+        this.createdWorkItem.set(workItem);
+        this.isCreating.set(false);
       },
-      error: () => {
-        this.createError.set('The work item could not be created.');
+      error: (error: HttpErrorResponse) => {
+        this.createError.set(this.toErrorMessage(error, 'The work item could not be created.'));
         this.isCreating.set(false);
       }
     });
+  }
+
+  createAnother(): void {
+    const projectId = this.selectedProjectId();
+    this.workItemForm.reset({
+      projectId,
+      title: '',
+      description: '',
+      type: 'task',
+      priority: 'medium',
+      assigneeId: '',
+      milestoneId: '',
+      dueDate: '',
+      estimatePoints: ''
+    });
+    this.selectedLabelIds.set([]);
+    this.hasSubmitted.set(false);
+    this.createError.set(null);
+    this.createdWorkItem.set(null);
+  }
+
+  showProjectError(): boolean {
+    const control = this.workItemForm.controls.projectId;
+    return control.invalid && (control.touched || this.hasSubmitted());
   }
 
   showTitleError(): boolean {
@@ -460,9 +639,44 @@ export class WorkItemCreatePageComponent implements OnInit {
     return value.replaceAll('_', ' ');
   }
 
+  returnCommands(): string[] {
+    return this.isProjectScoped()
+      ? ['/projects', this.routeProjectId, 'work-items']
+      : ['/my-work'];
+  }
+
+  returnLabel(): string {
+    return this.isProjectScoped() ? 'Back to list' : 'Back to My Work';
+  }
+
+  loadProjects(): void {
+    this.isProjectListLoading.set(true);
+    this.projectListError.set(null);
+
+    this.api.listProjects().subscribe({
+      next: (projects) => {
+        this.activeProjects.set(projects.filter((project) => project.status === 'active'));
+        this.isProjectListLoading.set(false);
+      },
+      error: () => {
+        this.activeProjects.set([]);
+        this.projectListError.set('Projects could not be loaded from the API.');
+        this.isProjectListLoading.set(false);
+      }
+    });
+  }
+
   loadProjectLabels(): void {
+    const projectId = this.selectedProjectId();
+
     this.labelLoadError.set(null);
-    this.api.listProjectLabels(this.projectId()).subscribe({
+
+    if (projectId === '') {
+      this.availableLabels.set([]);
+      return;
+    }
+
+    this.api.listProjectLabels(projectId).subscribe({
       next: (labels) => {
         this.availableLabels.set(labels.filter((label) => !label.isArchived));
       },
@@ -473,8 +687,16 @@ export class WorkItemCreatePageComponent implements OnInit {
   }
 
   loadProjectMilestones(): void {
+    const projectId = this.selectedProjectId();
+
     this.milestoneLoadError.set(null);
-    this.api.listProjectMilestones(this.projectId()).subscribe({
+
+    if (projectId === '') {
+      this.availableMilestones.set([]);
+      return;
+    }
+
+    this.api.listProjectMilestones(projectId).subscribe({
       next: (milestones) => {
         this.availableMilestones.set(milestones.filter((milestone) => !milestone.isArchived));
       },
@@ -484,21 +706,16 @@ export class WorkItemCreatePageComponent implements OnInit {
     });
   }
 
-  loadProject(): void {
-    this.api.getProject(this.projectId()).subscribe({
-      next: (project) => {
-        this.project.set(project);
-        this.syncReadOnlyState();
-      },
-      error: () => {
-        this.project.set(null);
-        this.syncReadOnlyState();
-      }
-    });
+  retryProjectLoad(): void {
+    const projectId = this.selectedProjectId();
+
+    if (projectId !== '') {
+      this.loadProjectContext(projectId);
+    }
   }
 
   toggleLabel(labelId: string, event: Event): void {
-    if (this.isArchivedProject()) {
+    if (this.isArchivedProject() || !this.canCreateWorkItems()) {
       return;
     }
 
@@ -518,8 +735,67 @@ export class WorkItemCreatePageComponent implements OnInit {
     return this.selectedLabelIds().includes(labelId);
   }
 
+  private watchProjectSelection(): void {
+    this.subscriptions.add(
+      this.workItemForm.controls.projectId.valueChanges
+        .pipe(distinctUntilChanged())
+        .subscribe((projectId) => {
+          if (this.isProjectScoped()) {
+            return;
+          }
+
+          this.selectedProjectId.set(projectId);
+          this.selectedLabelIds.set([]);
+          this.workItemForm.controls.milestoneId.setValue('', { emitEvent: false });
+          this.createdWorkItem.set(null);
+
+          if (projectId === '') {
+            this.project.set(null);
+            this.availableLabels.set([]);
+            this.availableMilestones.set([]);
+            this.syncReadOnlyState();
+            return;
+          }
+
+          this.loadProjectContext(projectId);
+        })
+    );
+  }
+
+  private loadProjectContext(projectId: string): void {
+    this.projectLoadError.set(null);
+
+    this.api.getProject(projectId).subscribe({
+      next: (project) => {
+        this.project.set(project);
+        this.syncReadOnlyState();
+      },
+      error: () => {
+        this.project.set(null);
+        this.projectLoadError.set('Project could not be loaded from the API.');
+        this.syncReadOnlyState();
+      }
+    });
+
+    this.loadProjectLabels();
+    this.loadProjectMilestones();
+  }
+
+  private loadCapabilities(): void {
+    this.api.getWorkspaceCapabilities().subscribe({
+      next: (capabilities) => {
+        this.capabilities.set(capabilities);
+        this.syncReadOnlyState();
+      },
+      error: () => {
+        this.capabilities.set(null);
+        this.syncReadOnlyState();
+      }
+    });
+  }
+
   private syncReadOnlyState(): void {
-    if (this.isArchivedProject()) {
+    if (this.isArchivedProject() || !this.canCreateWorkItems()) {
       this.workItemForm.disable({ emitEvent: false });
     } else {
       this.workItemForm.enable({ emitEvent: false });
@@ -545,5 +821,11 @@ export class WorkItemCreatePageComponent implements OnInit {
 
   private normalizeEstimate(value: string | number): string {
     return typeof value === 'number' ? value.toString() : value.trim();
+  }
+
+  private toErrorMessage(error: HttpErrorResponse, fallback: string): string {
+    const message = (error.error as { error?: { message?: unknown } } | null)?.error?.message;
+
+    return typeof message === 'string' ? message : fallback;
   }
 }
