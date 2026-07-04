@@ -737,6 +737,31 @@ npm test --workspace @worktrail/web -- --include 'src/app/features/projects/proj
 npm run typecheck --workspace @worktrail/web
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Updated `ProjectListPageComponent` to load workspace capabilities.
+- Added optional explicit project key input with helper copy and client validation.
+- Preserved generated-key creation when the key field is blank.
+- Submitted explicit keys uppercased when provided.
+- Disabled project creation for contributors with permission copy.
+- Added inline success state after project creation.
+- Surfaced backend project creation errors inline, including duplicate-key and invalid-key messages.
+- Expanded project page tests for:
+  - capability loading;
+  - generated key path;
+  - explicit key submission;
+  - explicit key validation;
+  - contributor disabled state;
+  - backend error display.
+- Verified `npm test --workspace @worktrail/web -- --include 'src/app/features/projects/projects-page.component.spec.ts'`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm test --workspace @worktrail/web`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `npm run build` passes with the existing Angular budget configured as a warning.
+- Verified `git diff --check` and `git diff --cached --check`.
+
 ## Phase 10: Inactive Member Frontend Integration
 
 Goal: make active/inactive member behavior consistent across existing work item surfaces.
