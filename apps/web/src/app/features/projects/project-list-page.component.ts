@@ -1,7 +1,8 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import type { ProjectDto, ProjectStatus } from '@worktrail/contracts';
+import type { ProjectDto, ProjectStatus, WorkspaceCapabilitiesDto } from '@worktrail/contracts';
 
 import { WorktrailApiService } from '../../core/worktrail-api.service';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
@@ -31,6 +32,9 @@ type ProjectStatusFilter = 'all' | ProjectStatus;
     <section class="project-layout">
       <section class="create-panel" aria-labelledby="create-project-heading">
         <h2 id="create-project-heading">Create project</h2>
+        @if (!canCreateProjects()) {
+          <p class="permission-note">Owners and maintainers can create projects. Contributors can view existing projects.</p>
+        }
         <form [formGroup]="createProjectForm" (ngSubmit)="createProject()" novalidate>
           <label for="project-name">Name</label>
           <input
@@ -38,6 +42,7 @@ type ProjectStatusFilter = 'all' | ProjectStatus;
             type="text"
             formControlName="name"
             autocomplete="off"
+            [readonly]="!canCreateProjects()"
             [attr.aria-invalid]="showNameError()"
             aria-describedby="project-name-error"
           />
@@ -45,8 +50,29 @@ type ProjectStatusFilter = 'all' | ProjectStatus;
             <p id="project-name-error" class="field-error">Project name is required.</p>
           }
 
+          <label for="project-key">Key</label>
+          <input
+            id="project-key"
+            type="text"
+            formControlName="key"
+            autocomplete="off"
+            maxlength="8"
+            [readonly]="!canCreateProjects()"
+            [attr.aria-invalid]="showKeyError()"
+            aria-describedby="project-key-help project-key-error"
+          />
+          <p id="project-key-help" class="field-help">Optional. Use 2-8 letters or numbers, or leave blank to generate one.</p>
+          @if (showKeyError()) {
+            <p id="project-key-error" class="field-error">Project key must be 2-8 letters or numbers.</p>
+          }
+
           <label for="project-description">Description</label>
-          <textarea id="project-description" rows="4" formControlName="description"></textarea>
+          <textarea
+            id="project-description"
+            rows="4"
+            formControlName="description"
+            [readonly]="!canCreateProjects()"
+          ></textarea>
 
           @if (createError()) {
             <app-error-panel
@@ -56,7 +82,11 @@ type ProjectStatusFilter = 'all' | ProjectStatus;
             />
           }
 
-          <button type="submit" [disabled]="isCreating()">
+          @if (createSuccess()) {
+            <p class="success-message">Project created.</p>
+          }
+
+          <button type="submit" [disabled]="!canCreateProjects() || isCreating()">
             {{ isCreating() ? 'Creating...' : 'Create project' }}
           </button>
         </form>
@@ -167,6 +197,8 @@ type ProjectStatusFilter = 'all' | ProjectStatus;
     }
 
     .page-copy,
+    .field-help,
+    .permission-note,
     .list-toolbar p,
     .project-row p {
       color: #64748b;
@@ -222,9 +254,25 @@ type ProjectStatusFilter = 'all' | ProjectStatus;
       outline-offset: 0;
     }
 
+    input[readonly],
+    textarea[readonly] {
+      background: #f8fafc;
+      color: #64748b;
+    }
+
+    #project-key {
+      text-transform: uppercase;
+    }
+
     .field-error {
       color: #b91c1c;
       font-size: 0.8125rem;
+    }
+
+    .success-message {
+      color: #166534;
+      font-size: 0.875rem;
+      font-weight: 800;
     }
 
     button {
@@ -370,12 +418,16 @@ export class ProjectListPageComponent implements OnInit {
   ];
 
   readonly projects = signal<ProjectDto[]>([]);
+  readonly capabilities = signal<WorkspaceCapabilitiesDto | null>(null);
   readonly statusFilter = signal<ProjectStatusFilter>('all');
   readonly isLoading = signal(false);
   readonly isCreating = signal(false);
   readonly hasSubmittedCreate = signal(false);
   readonly error = signal<string | null>(null);
   readonly createError = signal<string | null>(null);
+  readonly capabilitiesError = signal<string | null>(null);
+  readonly createSuccess = signal(false);
+  readonly canCreateProjects = computed(() => this.capabilities()?.canCreateProjects === true);
 
   readonly filteredProjects = computed(() => {
     const filter = this.statusFilter();
@@ -385,12 +437,14 @@ export class ProjectListPageComponent implements OnInit {
   });
 
   readonly createProjectForm = this.formBuilder.nonNullable.group({
+    key: ['', [Validators.pattern(/^[A-Za-z0-9]{2,8}$/)]],
     name: ['', [Validators.required]],
     description: ['']
   });
 
   ngOnInit(): void {
     this.loadProjects();
+    this.loadCapabilities();
   }
 
   loadProjects(): void {
@@ -409,9 +463,28 @@ export class ProjectListPageComponent implements OnInit {
     });
   }
 
+  loadCapabilities(): void {
+    this.capabilitiesError.set(null);
+
+    this.api.getWorkspaceCapabilities().subscribe({
+      next: (capabilities) => {
+        this.capabilities.set(capabilities);
+      },
+      error: () => {
+        this.capabilitiesError.set('Workspace permissions could not be loaded from the API.');
+      }
+    });
+  }
+
   createProject(): void {
     this.hasSubmittedCreate.set(true);
     this.createError.set(null);
+    this.createSuccess.set(false);
+
+    if (!this.canCreateProjects()) {
+      this.createError.set('Only owners and maintainers can create projects.');
+      return;
+    }
 
     if (this.createProjectForm.invalid) {
       this.createProjectForm.markAllAsTouched();
@@ -419,10 +492,12 @@ export class ProjectListPageComponent implements OnInit {
     }
 
     const formValue = this.createProjectForm.getRawValue();
+    const key = formValue.key.trim().toUpperCase();
     this.isCreating.set(true);
 
     this.api
       .createProject({
+        ...(key === '' ? {} : { key }),
         name: formValue.name.trim(),
         description: formValue.description.trim()
       })
@@ -430,12 +505,13 @@ export class ProjectListPageComponent implements OnInit {
         next: (project) => {
           this.projects.set([project, ...this.projects()]);
           this.statusFilter.set('active');
-          this.createProjectForm.reset();
+          this.createProjectForm.reset({ key: '', name: '', description: '' });
           this.hasSubmittedCreate.set(false);
           this.isCreating.set(false);
+          this.createSuccess.set(true);
         },
-        error: () => {
-          this.createError.set('The project could not be created.');
+        error: (error: unknown) => {
+          this.createError.set(this.toErrorMessage(error, 'The project could not be created.'));
           this.isCreating.set(false);
         }
       });
@@ -444,5 +520,22 @@ export class ProjectListPageComponent implements OnInit {
   showNameError(): boolean {
     const control = this.createProjectForm.controls.name;
     return control.invalid && (control.touched || this.hasSubmittedCreate());
+  }
+
+  showKeyError(): boolean {
+    const control = this.createProjectForm.controls.key;
+    return control.invalid && (control.touched || this.hasSubmittedCreate());
+  }
+
+  private toErrorMessage(error: unknown, fallback: string): string {
+    if (error instanceof HttpErrorResponse) {
+      const message = (error.error as { error?: { message?: unknown } } | null)?.error?.message;
+
+      if (typeof message === 'string' && message.trim() !== '') {
+        return message;
+      }
+    }
+
+    return fallback;
   }
 }

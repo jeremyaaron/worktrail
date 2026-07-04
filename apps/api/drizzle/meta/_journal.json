@@ -22,6 +22,13 @@
       "when": 1783180739472,
       "tag": "0002_wide_nicolaos",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1783193362168,
+      "tag": "0003_overrated_hercules",
+      "breakpoints": true
     }
   ]
 }

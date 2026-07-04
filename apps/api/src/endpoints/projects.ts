@@ -6,10 +6,16 @@ import type {
 } from '@worktrail/contracts';
 import { z } from 'zod';
 
+import type { WorktrailDb } from '../db/client.js';
 import { parseWithSchema } from '../validation/parse.js';
 import type { EndpointHandler } from '../http/app-request.js';
 import type { Repositories } from '../repositories/index.js';
 import { ProjectService } from '../services/project-service.js';
+
+export interface ProjectHandlerOptions {
+  repositories: Repositories;
+  db?: WorktrailDb;
+}
 
 const uuidParamSchema = z.object({
   projectId: z.string().uuid()
@@ -42,10 +48,14 @@ export function listProjectsHandler(repositories: Repositories): EndpointHandler
   };
 }
 
-export function createProjectHandler(repositories: Repositories): EndpointHandler<ProjectDto> {
+export function createProjectHandler(options: ProjectHandlerOptions): EndpointHandler<ProjectDto> {
   return async (request) => {
     const input = parseWithSchema(createProjectSchema, request.body);
-    const service = new ProjectService({ actor: request.actor, repositories });
+    const service = new ProjectService({
+      actor: request.actor,
+      repositories: options.repositories,
+      db: options.db
+    });
     return {
       status: 201,
       body: await service.createProject(input)

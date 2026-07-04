@@ -22,7 +22,10 @@ const owner: MemberDto = {
   name: 'Avery Owner',
   email: 'avery.owner@example.com',
   role: 'owner',
-  isActive: true
+  isActive: true,
+  deactivatedAt: null,
+  createdAt: '2026-07-02T12:00:00.000Z',
+  updatedAt: '2026-07-03T12:00:00.000Z'
 };
 
 const contributor: MemberDto = {
@@ -31,7 +34,10 @@ const contributor: MemberDto = {
   name: 'Case Contributor',
   email: 'case.contributor@example.com',
   role: 'contributor',
-  isActive: true
+  isActive: true,
+  deactivatedAt: null,
+  createdAt: '2026-07-02T12:00:00.000Z',
+  updatedAt: '2026-07-03T12:00:00.000Z'
 };
 
 const activeProject: ProjectDto = {
@@ -377,6 +383,11 @@ describe('ProjectPlanningPageComponent', () => {
     expect(editableFields.every((field) => field.disabled)).toBeTrue();
 
     fixture.componentInstance.createMilestone();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Archived projects are read-only.'
+    );
     http.expectNone((request) => request.method === 'POST');
   });
 
@@ -387,5 +398,10 @@ describe('ProjectPlanningPageComponent', () => {
     expect(compiled.textContent).toContain('Read-only planning');
     expect(compiled.querySelector('button[type="submit"]')).toBeNull();
     expect(compiled.textContent).toContain('v0.0.3');
+
+    fixture.componentInstance.createMilestone();
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain('Only owners and maintainers can manage milestones.');
   });
 });

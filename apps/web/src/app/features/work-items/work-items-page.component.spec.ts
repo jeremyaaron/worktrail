@@ -18,6 +18,7 @@ import { WorkItemListPageComponent } from './work-item-list-page.component';
 const projectId = '10000000-0000-4000-8000-000000000201';
 const workItemId = '10000000-0000-4000-8000-000000000403';
 const contributorId = '10000000-0000-4000-8000-000000000103';
+const inactiveMemberId = '10000000-0000-4000-8000-000000000104';
 
 const member: MemberDto = {
   id: contributorId,
@@ -25,7 +26,22 @@ const member: MemberDto = {
   name: 'Case Contributor',
   email: 'case.contributor@example.com',
   role: 'contributor',
-  isActive: true
+  isActive: true,
+  deactivatedAt: null,
+  createdAt: '2026-07-02T12:00:00.000Z',
+  updatedAt: '2026-07-03T12:00:00.000Z'
+};
+
+const inactiveMember: MemberDto = {
+  id: inactiveMemberId,
+  workspaceId: member.workspaceId,
+  name: 'Riley Former',
+  email: 'riley.former@example.com',
+  role: 'contributor',
+  isActive: false,
+  deactivatedAt: '2026-06-28T12:00:00.000Z',
+  createdAt: '2026-07-02T12:00:00.000Z',
+  updatedAt: '2026-07-03T12:00:00.000Z'
 };
 
 const activeProject: ProjectDto = {
@@ -108,7 +124,7 @@ function routeStub(query: Record<string, string> = {}) {
 
 function seedCurrentUser() {
   const currentUser = TestBed.inject(CurrentUserService);
-  currentUser.members.set([member]);
+  currentUser.members.set([member, inactiveMember]);
   currentUser.selectMember(member.id);
 }
 
@@ -171,6 +187,35 @@ describe('WorkItemListPageComponent', () => {
     expect(compiled.textContent).toContain('backend');
     expect(compiled.textContent).toContain('v0.0.3');
     expect(compiled.textContent).toContain('Due date: Due soon');
+  });
+
+  it('resolves inactive member names from filter state without making them default choices', () => {
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
+      {
+        ...workItem,
+        assignee: inactiveMember
+      }
+    ]);
+    fixture.componentInstance.appliedFilterValues.set({
+      ...fixture.componentInstance.appliedFilterValues(),
+      assigneeId: inactiveMember.id
+    });
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Assignee: Riley Former (inactive)');
+    expect(compiled.textContent).toContain('Riley Former (inactive)');
+    expect(fixture.componentInstance.assigneeFilterMembers().map((item) => item.id)).toContain(
+      inactiveMember.id
+    );
+    expect(fixture.componentInstance.reporterFilterMembers().map((item) => item.id)).not.toContain(
+      inactiveMember.id
+    );
   });
 
   it('keeps applied filters in route query parameters', () => {
@@ -374,6 +419,21 @@ describe('WorkItemCreatePageComponent', () => {
       '/work-items',
       '10000000-0000-4000-8000-000000000499'
     ]);
+  });
+
+  it('excludes inactive members from the create assignee control', () => {
+    const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones`).flush([activeMilestone]);
+    http.expectOne(`/api/projects/${projectId}/labels`).flush([backendLabel]);
+    fixture.detectChanges();
+
+    const assigneeOptions = [...fixture.nativeElement.querySelectorAll('select[formcontrolname="assigneeId"] option')]
+      .map((option: HTMLOptionElement) => option.textContent?.trim());
+    expect(assigneeOptions).toContain('Case Contributor');
+    expect(assigneeOptions).not.toContain('Riley Former');
   });
 
   it('normalizes numeric estimate values before posting', () => {

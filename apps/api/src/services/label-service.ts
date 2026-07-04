@@ -3,7 +3,8 @@ import { randomUUID } from 'node:crypto';
 
 import type { WorktrailDb } from '../db/client.js';
 import type { ActorContext } from '../domain/actor.js';
-import { ConflictError, NotFoundError } from '../errors/app-error.js';
+import { canManageProject } from '../domain/permissions.js';
+import { ConflictError, ForbiddenError, NotFoundError } from '../errors/app-error.js';
 import {
   type Repositories,
   withRepositoriesTransaction
@@ -43,6 +44,7 @@ export class LabelService {
   async createLabel(projectId: string, input: CreateLabelRequest): Promise<LabelDto> {
     return this.withWriteRepositories(async (repositories) => {
       const project = await this.requireProject(projectId, repositories);
+      this.assertCanManageLabels();
       this.assertProjectWritable(project);
       await this.requireAvailableActiveName(projectId, input.name, undefined, repositories);
 
@@ -81,6 +83,7 @@ export class LabelService {
     return this.withWriteRepositories(async (repositories) => {
       const current = await this.requireProjectLabel(labelId, repositories);
       const project = await this.requireProject(current.projectId, repositories);
+      this.assertCanManageLabels();
       this.assertProjectWritable(project);
 
       if (input.name !== undefined && current.archivedAt === null && input.name !== current.name) {
@@ -107,6 +110,7 @@ export class LabelService {
     return this.withWriteRepositories(async (repositories) => {
       const current = await this.requireProjectLabel(labelId, repositories);
       const project = await this.requireProject(current.projectId, repositories);
+      this.assertCanManageLabels();
       this.assertProjectWritable(project);
 
       if (current.archivedAt !== null) {
@@ -142,6 +146,7 @@ export class LabelService {
     return this.withWriteRepositories(async (repositories) => {
       const current = await this.requireProjectLabel(labelId, repositories);
       const project = await this.requireProject(current.projectId, repositories);
+      this.assertCanManageLabels();
       this.assertProjectWritable(project);
 
       if (current.archivedAt === null) {
@@ -215,6 +220,12 @@ export class LabelService {
   private assertProjectWritable(project: Project): void {
     if (project.status === 'archived') {
       throw new ConflictError('Archived projects are read-only.');
+    }
+  }
+
+  private assertCanManageLabels(): void {
+    if (!canManageProject(this.context.actor)) {
+      throw new ForbiddenError('Only owners and maintainers can manage labels.');
     }
   }
 

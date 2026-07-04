@@ -227,6 +227,42 @@ describe('labels API', () => {
     );
   });
 
+  it('rejects label writes for contributors', async () => {
+    const fixture = await createFixture('contributor');
+    const label = await repositories.labels.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      projectId: fixture.projectId,
+      name: 'backend',
+      color: '#059669',
+      archivedAt: null,
+      archivedById: null,
+      createdAt: now(),
+      updatedAt: now()
+    });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/labels`)
+      .set(fixture.headers)
+      .send({ name: 'frontend', color: '#2563eb' })
+      .expect(403)
+      .expect(({ body }) => {
+        expect(body.error).toEqual({
+          code: 'FORBIDDEN',
+          message: 'Only owners and maintainers can manage labels.'
+        });
+      });
+
+    await request(app)
+      .patch(`/api/labels/${label.id}`)
+      .set(fixture.headers)
+      .send({ name: 'api' })
+      .expect(403);
+
+    await request(app).post(`/api/labels/${label.id}/archive`).set(fixture.headers).expect(403);
+    await request(app).post(`/api/labels/${label.id}/reactivate`).set(fixture.headers).expect(403);
+  });
+
   it('rejects duplicate active label names and reactivation conflicts', async () => {
     const fixture = await createFixture();
 

@@ -19,7 +19,13 @@ import {
   reactivateLabelHandler,
   updateLabelHandler
 } from '../../endpoints/labels.js';
-import { listMembersHandler } from '../../endpoints/members.js';
+import {
+  createMemberHandler,
+  deactivateMemberHandler,
+  listMembersHandler,
+  reactivateMemberHandler,
+  updateMemberHandler
+} from '../../endpoints/members.js';
 import {
   archiveMilestoneHandler,
   createMilestoneHandler,
@@ -45,6 +51,12 @@ import {
   transitionWorkItemHandler,
   updateWorkItemHandler
 } from '../../endpoints/work-items.js';
+import {
+  getWorkspaceCapabilitiesHandler,
+  getWorkspaceHandler,
+  listWorkspaceActivityHandler,
+  updateWorkspaceHandler
+} from '../../endpoints/workspace.js';
 import type { WorktrailDb } from '../../db/client.js';
 import type { EndpointHandler } from '../../http/app-request.js';
 import type { Repositories } from '../../repositories/index.js';
@@ -71,119 +83,234 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
   app.get('/api/health', adaptEndpoint(healthHandler));
 
   if (options.repositories !== undefined) {
-    app.get('/api/members', adaptEndpoint(listMembersHandler(options.repositories)));
-    app.get('/api/projects', adaptEndpoint(listProjectsHandler(options.repositories)));
-    app.post('/api/projects', adaptEndpoint(createProjectHandler(options.repositories)));
+    const adapterOptions = { repositories: options.repositories };
+
+    app.get('/api/workspace', adaptEndpoint(getWorkspaceHandler(options.repositories), adapterOptions));
+    app.patch('/api/workspace', adaptEndpoint(updateWorkspaceHandler(options.repositories), adapterOptions));
+    app.get(
+      '/api/workspace/capabilities',
+      adaptEndpoint(getWorkspaceCapabilitiesHandler(options.repositories), adapterOptions)
+    );
+    app.get(
+      '/api/workspace/activity',
+      adaptEndpoint(listWorkspaceActivityHandler(options.repositories), adapterOptions)
+    );
+    app.get('/api/members', adaptEndpoint(listMembersHandler(options.repositories), adapterOptions));
+    app.post(
+      '/api/members',
+      adaptEndpoint(
+        createMemberHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
+    );
+    app.patch(
+      '/api/members/:memberId',
+      adaptEndpoint(
+        updateMemberHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
+    );
+    app.post(
+      '/api/members/:memberId/deactivate',
+      adaptEndpoint(
+        deactivateMemberHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
+    );
+    app.post(
+      '/api/members/:memberId/reactivate',
+      adaptEndpoint(
+        reactivateMemberHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
+    );
+    app.get('/api/projects', adaptEndpoint(listProjectsHandler(options.repositories), adapterOptions));
+    app.post(
+      '/api/projects',
+      adaptEndpoint(
+        createProjectHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
+    );
     app.get(
       '/api/projects/:projectId/work-items',
-      adaptEndpoint(listWorkItemsHandler({ repositories: options.repositories, db: options.db }))
+      adaptEndpoint(
+        listWorkItemsHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
     );
     app.post(
       '/api/projects/:projectId/work-items',
-      adaptEndpoint(createWorkItemHandler({ repositories: options.repositories, db: options.db }))
+      adaptEndpoint(
+        createWorkItemHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
     );
     app.get(
       '/api/projects/:projectId/summary',
-      adaptEndpoint(getProjectSummaryHandler(options.repositories))
+      adaptEndpoint(getProjectSummaryHandler(options.repositories), adapterOptions)
     );
     app.get(
       '/api/projects/:projectId/planning-summary',
-      adaptEndpoint(getProjectPlanningSummaryHandler({ repositories: options.repositories }))
+      adaptEndpoint(
+        getProjectPlanningSummaryHandler({ repositories: options.repositories }),
+        adapterOptions
+      )
     );
     app.get(
       '/api/projects/:projectId/activity',
-      adaptEndpoint(listProjectActivityHandler(options.repositories))
+      adaptEndpoint(listProjectActivityHandler(options.repositories), adapterOptions)
     );
     app.get(
       '/api/projects/:projectId/labels',
-      adaptEndpoint(listProjectLabelsHandler({ repositories: options.repositories, db: options.db }))
+      adaptEndpoint(
+        listProjectLabelsHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
     );
     app.post(
       '/api/projects/:projectId/labels',
-      adaptEndpoint(createLabelHandler({ repositories: options.repositories, db: options.db }))
+      adaptEndpoint(
+        createLabelHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
     );
     app.get(
       '/api/projects/:projectId/milestones',
-      adaptEndpoint(listProjectMilestonesHandler({ repositories: options.repositories, db: options.db }))
+      adaptEndpoint(
+        listProjectMilestonesHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
     );
     app.post(
       '/api/projects/:projectId/milestones',
-      adaptEndpoint(createMilestoneHandler({ repositories: options.repositories, db: options.db }))
+      adaptEndpoint(
+        createMilestoneHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
     );
     app.post(
       '/api/projects/:projectId/archive',
-      adaptEndpoint(archiveProjectHandler(options.repositories))
+      adaptEndpoint(archiveProjectHandler(options.repositories), adapterOptions)
     );
     app.post(
       '/api/projects/:projectId/reactivate',
-      adaptEndpoint(reactivateProjectHandler(options.repositories))
+      adaptEndpoint(reactivateProjectHandler(options.repositories), adapterOptions)
     );
-    app.get('/api/projects/:projectId', adaptEndpoint(getProjectHandler(options.repositories)));
-    app.patch('/api/projects/:projectId', adaptEndpoint(updateProjectHandler(options.repositories)));
+    app.get(
+      '/api/projects/:projectId',
+      adaptEndpoint(getProjectHandler(options.repositories), adapterOptions)
+    );
+    app.patch(
+      '/api/projects/:projectId',
+      adaptEndpoint(updateProjectHandler(options.repositories), adapterOptions)
+    );
     app.get(
       '/api/work-items/:workItemId/comments',
-      adaptEndpoint(listCommentsHandler({ repositories: options.repositories, db: options.db }))
+      adaptEndpoint(
+        listCommentsHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
     );
     app.post(
       '/api/work-items/:workItemId/comments',
-      adaptEndpoint(createCommentHandler({ repositories: options.repositories, db: options.db }))
+      adaptEndpoint(
+        createCommentHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
     );
     app.patch(
       '/api/comments/:commentId',
-      adaptEndpoint(updateCommentHandler({ repositories: options.repositories, db: options.db }))
+      adaptEndpoint(
+        updateCommentHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
     );
     app.delete(
       '/api/comments/:commentId',
-      adaptEndpoint(deleteCommentHandler({ repositories: options.repositories, db: options.db }))
+      adaptEndpoint(
+        deleteCommentHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
     );
     app.get(
       '/api/work-items/:workItemId/activity',
-      adaptEndpoint(listWorkItemActivityHandler(options.repositories))
+      adaptEndpoint(listWorkItemActivityHandler(options.repositories), adapterOptions)
     );
     app.get(
       '/api/work-items/:workItemId',
-      adaptEndpoint(getWorkItemHandler({ repositories: options.repositories, db: options.db }))
+      adaptEndpoint(
+        getWorkItemHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
     );
     app.patch(
       '/api/work-items/:workItemId',
-      adaptEndpoint(updateWorkItemHandler({ repositories: options.repositories, db: options.db }))
+      adaptEndpoint(
+        updateWorkItemHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
     );
     app.post(
       '/api/work-items/:workItemId/transitions',
-      adaptEndpoint(transitionWorkItemHandler({ repositories: options.repositories, db: options.db }))
+      adaptEndpoint(
+        transitionWorkItemHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
     );
     app.post(
       '/api/work-items/:workItemId/board-move',
-      adaptEndpoint(moveWorkItemOnBoardHandler({ repositories: options.repositories, db: options.db }))
+      adaptEndpoint(
+        moveWorkItemOnBoardHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
     );
     app.patch(
       '/api/labels/:labelId',
-      adaptEndpoint(updateLabelHandler({ repositories: options.repositories, db: options.db }))
+      adaptEndpoint(
+        updateLabelHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
     );
     app.patch(
       '/api/milestones/:milestoneId',
-      adaptEndpoint(updateMilestoneHandler({ repositories: options.repositories, db: options.db }))
+      adaptEndpoint(
+        updateMilestoneHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
     );
     app.post(
       '/api/labels/:labelId/archive',
-      adaptEndpoint(archiveLabelHandler({ repositories: options.repositories, db: options.db }))
+      adaptEndpoint(
+        archiveLabelHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
     );
     app.post(
       '/api/milestones/:milestoneId/archive',
-      adaptEndpoint(archiveMilestoneHandler({ repositories: options.repositories, db: options.db }))
+      adaptEndpoint(
+        archiveMilestoneHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
     );
     app.post(
       '/api/labels/:labelId/reactivate',
-      adaptEndpoint(reactivateLabelHandler({ repositories: options.repositories, db: options.db }))
+      adaptEndpoint(
+        reactivateLabelHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
     );
     app.post(
       '/api/milestones/:milestoneId/reactivate',
-      adaptEndpoint(reactivateMilestoneHandler({ repositories: options.repositories, db: options.db }))
+      adaptEndpoint(
+        reactivateMilestoneHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
     );
   }
 
   for (const [path, handler] of Object.entries(options.testRoutes ?? {})) {
-    app.all(path, adaptEndpoint(handler));
+    app.all(path, adaptEndpoint(handler, { repositories: options.repositories }));
   }
 
   return app;

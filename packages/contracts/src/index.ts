@@ -53,6 +53,15 @@ export type ActivityEventType =
   | 'comment.added'
   | 'comment.edited'
   | 'comment.deleted';
+export type WorkspaceActivityEventType =
+  | 'member.created'
+  | 'member.name_changed'
+  | 'member.email_changed'
+  | 'member.role_changed'
+  | 'member.deactivated'
+  | 'member.reactivated'
+  | 'workspace.name_changed'
+  | 'project.created';
 
 export interface MemberDto {
   id: string;
@@ -61,6 +70,60 @@ export interface MemberDto {
   email: string;
   role: MemberRole;
   isActive: boolean;
+  deactivatedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateMemberRequest {
+  name: string;
+  email: string;
+  role: MemberRole;
+}
+
+export interface UpdateMemberRequest {
+  name?: string;
+  email?: string;
+  role?: MemberRole;
+}
+
+export interface WorkspaceDto {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateWorkspaceRequest {
+  name: string;
+}
+
+export interface WorkspaceCapabilitiesDto {
+  actor: MemberDto;
+  canManageWorkspace: boolean;
+  canManageMembers: boolean;
+  canCreateProjects: boolean;
+  canManageProjects: boolean;
+  canManageMilestones: boolean;
+  canManageLabels: boolean;
+  canCreateWorkItems: boolean;
+  roleSummary: {
+    owner: string;
+    maintainer: string;
+    contributor: string;
+  };
+}
+
+export interface WorkspaceActivityEventDto {
+  id: string;
+  workspaceId: string;
+  actor: MemberDto;
+  eventType: WorkspaceActivityEventType;
+  summary: string;
+  previousValue: Record<string, unknown> | null;
+  newValue: Record<string, unknown> | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
 }
 
 export interface ProjectDto {

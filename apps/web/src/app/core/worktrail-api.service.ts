@@ -5,6 +5,7 @@ import type {
   CommentDto,
   CreateCommentRequest,
   CreateLabelRequest,
+  CreateMemberRequest,
   CreateMilestoneRequest,
   CreateProjectRequest,
   CreateWorkItemRequest,
@@ -20,15 +21,20 @@ import type {
   TransitionWorkItemRequest,
   UpdateCommentRequest,
   UpdateLabelRequest,
+  UpdateMemberRequest,
   UpdateMilestoneRequest,
   UpdateProjectRequest,
+  UpdateWorkspaceRequest,
   UpdateWorkItemRequest,
   WorkItemDetailDto,
   WorkItemListItemDto,
   WorkItemPriority,
   WorkItemSort,
   WorkItemStatus,
-  WorkItemType
+  WorkItemType,
+  WorkspaceActivityEventDto,
+  WorkspaceCapabilitiesDto,
+  WorkspaceDto
 } from '@worktrail/contracts';
 import type { Observable } from 'rxjs';
 
@@ -53,8 +59,54 @@ export class WorktrailApiService {
   private readonly http = inject(HttpClient);
   private readonly currentUser = inject(CurrentUserService);
 
+  getWorkspace(): Observable<WorkspaceDto> {
+    return this.http.get<WorkspaceDto>(this.url('/workspace'), this.options());
+  }
+
+  updateWorkspace(input: UpdateWorkspaceRequest): Observable<WorkspaceDto> {
+    return this.http.patch<WorkspaceDto>(this.url('/workspace'), input, this.options());
+  }
+
+  getWorkspaceCapabilities(): Observable<WorkspaceCapabilitiesDto> {
+    return this.http.get<WorkspaceCapabilitiesDto>(
+      this.url('/workspace/capabilities'),
+      this.options()
+    );
+  }
+
+  listWorkspaceActivity(): Observable<WorkspaceActivityEventDto[]> {
+    return this.http.get<WorkspaceActivityEventDto[]>(
+      this.url('/workspace/activity'),
+      this.options()
+    );
+  }
+
   listMembers(): Observable<MemberDto[]> {
-    return this.http.get<MemberDto[]>(this.url('/members'));
+    return this.http.get<MemberDto[]>(this.url('/members'), this.options());
+  }
+
+  createMember(input: CreateMemberRequest): Observable<MemberDto> {
+    return this.http.post<MemberDto>(this.url('/members'), input, this.options());
+  }
+
+  updateMember(memberId: string, input: UpdateMemberRequest): Observable<MemberDto> {
+    return this.http.patch<MemberDto>(this.url(`/members/${memberId}`), input, this.options());
+  }
+
+  deactivateMember(memberId: string): Observable<MemberDto> {
+    return this.http.post<MemberDto>(
+      this.url(`/members/${memberId}/deactivate`),
+      {},
+      this.options()
+    );
+  }
+
+  reactivateMember(memberId: string): Observable<MemberDto> {
+    return this.http.post<MemberDto>(
+      this.url(`/members/${memberId}/reactivate`),
+      {},
+      this.options()
+    );
   }
 
   listProjects(): Observable<ProjectDto[]> {

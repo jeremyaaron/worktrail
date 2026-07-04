@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type {
@@ -31,6 +31,7 @@ const statuses: WorkItemStatus[] = [
 ];
 const types: WorkItemType[] = ['task', 'bug', 'story', 'chore'];
 const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
+const terminalStatuses = new Set<WorkItemStatus>(['done', 'canceled']);
 
 @Component({
   selector: 'app-work-item-detail-page',
@@ -64,6 +65,11 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
         <section class="notice" aria-label="Archived project">
           <strong>Archived project</strong>
           <p>Project work is read-only until it is reactivated in settings.</p>
+        </section>
+      } @else if (isTerminalStatusReadOnly()) {
+        <section class="notice" aria-label="Terminal work item">
+          <strong>Terminal work item</strong>
+          <p>Only owners and maintainers can reopen done or canceled work items.</p>
         </section>
       }
 
@@ -114,8 +120,8 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
                 <span>Assignee</span>
                 <select formControlName="assigneeId">
                   <option value="">Unassigned</option>
-                  @for (member of members(); track member.id) {
-                    <option [value]="member.id">{{ member.name }}</option>
+                  @for (member of assigneeOptions(); track member.id) {
+                    <option [value]="member.id">{{ memberDisplayName(member) }}</option>
                   }
                 </select>
               </label>
@@ -212,7 +218,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
                 />
               }
 
-              <button type="submit" [disabled]="isArchivedProject() || isTransitioning()">
+              <button type="submit" [disabled]="isStatusTransitionReadOnly() || isTransitioning()">
                 {{ isTransitioning() ? 'Updating...' : 'Update status' }}
               </button>
             </form>
@@ -223,7 +229,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
             <dl class="metadata">
               <div>
                 <dt>Reporter</dt>
-                <dd>{{ item.reporter.name }}</dd>
+                <dd>{{ memberDisplayName(item.reporter) }}</dd>
               </div>
               <div>
                 <dt>Created</dt>
@@ -263,6 +269,9 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
                   <header>
                     <div>
                       <strong>{{ comment.author.name }}</strong>
+                      @if (!comment.author.isActive) {
+                        <span class="inactive-marker">Inactive</span>
+                      }
                       @if (comment.isEdited && comment.editedAt !== null && !comment.isDeleted) {
                         <span class="comment-marker">Edited {{ formatDateTime(comment.editedAt) }}</span>
                       }
@@ -379,7 +388,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
               @for (event of item.activity; track event.id) {
                 <li>
                   <strong>{{ event.summary }}</strong>
-                  <span>{{ event.actor.name }} · {{ formatEventType(event) }} · {{ formatDateTime(event.createdAt) }}</span>
+                  <span>{{ memberDisplayName(event.actor) }} · {{ formatEventType(event) }} · {{ formatDateTime(event.createdAt) }}</span>
                 </li>
               }
             </ol>
@@ -692,6 +701,19 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
       font-weight: 700;
     }
 
+    .inactive-marker {
+      display: inline-flex;
+      min-height: 20px;
+      border: 1px solid #e2e8f0;
+      border-radius: 999px;
+      padding: 2px 7px;
+      background: #f8fafc;
+      color: #64748b;
+      font-size: 0.6875rem;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
     .comment p,
     .activity-list strong {
       color: #334155;
@@ -757,6 +779,22 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly types = types;
   readonly priorities = priorities;
   readonly members = computed<MemberDto[]>(() => this.currentUser.members());
+  readonly assigneeOptions = computed<MemberDto[]>(() => {
+    const membersById = new Map(this.currentUser.activeMembers().map((member) => [member.id, member]));
+    const currentAssignee = this.workItem()?.assignee;
+
+    if (currentAssignee !== null && currentAssignee !== undefined) {
+      membersById.set(currentAssignee.id, currentAssignee);
+    }
+
+    return [...membersById.values()].sort((left, right) => {
+      if (left.isActive !== right.isActive) {
+        return left.isActive ? -1 : 1;
+      }
+
+      return left.name.localeCompare(right.name);
+    });
+  });
   readonly workItemId = computed(() => this.route.snapshot.paramMap.get('workItemId') ?? '');
 
   readonly project = signal<ProjectDto | null>(null);
@@ -783,6 +821,17 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly availableLabels = signal<LabelDto[]>([]);
   readonly availableMilestones = signal<MilestoneDto[]>([]);
   readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
+  readonly isTerminalWorkItem = computed(() => terminalStatuses.has(this.workItem()?.status ?? 'backlog'));
+  readonly canReopenTerminalWorkItem = computed(() => {
+    const actor = this.currentUser.selectedMember();
+    return actor?.role === 'owner' || actor?.role === 'maintainer';
+  });
+  readonly isTerminalStatusReadOnly = computed(
+    () => this.isTerminalWorkItem() && !this.canReopenTerminalWorkItem()
+  );
+  readonly isStatusTransitionReadOnly = computed(
+    () => this.isArchivedProject() || this.isTerminalStatusReadOnly()
+  );
   readonly assignableLabels = computed(() => this.availableLabels().filter((label) => !label.isArchived));
   readonly archivedAttachedLabels = computed(() =>
     (this.workItem()?.labels ?? []).filter((label) => label.isArchived)
@@ -808,6 +857,13 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly editCommentForm = this.formBuilder.nonNullable.group({
     body: ['', [Validators.required]]
   });
+
+  constructor() {
+    effect(() => {
+      this.isStatusTransitionReadOnly();
+      this.syncReadOnlyState();
+    });
+  }
 
   ngOnInit(): void {
     if (this.currentUser.members().length === 0) {
@@ -864,7 +920,10 @@ export class WorkItemDetailPageComponent implements OnInit {
   }
 
   transitionStatus(): void {
-    if (this.isArchivedProject()) {
+    if (this.isStatusTransitionReadOnly()) {
+      if (this.isTerminalStatusReadOnly()) {
+        this.statusError.set('Only owners and maintainers can reopen done or canceled work items.');
+      }
       return;
     }
 
@@ -1100,8 +1159,12 @@ export class WorkItemDetailPageComponent implements OnInit {
     return this.formatToken(event.eventType.replace('.', ' '));
   }
 
+  memberDisplayName(member: MemberDto): string {
+    return member.isActive ? member.name : `${member.name} (inactive)`;
+  }
+
   deletedCommentText(comment: CommentDto): string {
-    const actor = comment.deletedBy === null ? '' : ` by ${comment.deletedBy.name}`;
+    const actor = comment.deletedBy === null ? '' : ` by ${this.memberDisplayName(comment.deletedBy)}`;
     const timestamp = comment.deletedAt === null ? '' : ` on ${this.formatDateTime(comment.deletedAt)}`;
     return `Comment deleted${actor}${timestamp}.`;
   }
@@ -1204,9 +1267,14 @@ export class WorkItemDetailPageComponent implements OnInit {
       this.editCommentForm.disable(options);
     } else {
       this.detailForm.enable(options);
-      this.statusForm.enable(options);
       this.commentForm.enable(options);
       this.editCommentForm.enable(options);
+
+      if (this.isStatusTransitionReadOnly()) {
+        this.statusForm.disable(options);
+      } else {
+        this.statusForm.enable(options);
+      }
     }
   }
 }

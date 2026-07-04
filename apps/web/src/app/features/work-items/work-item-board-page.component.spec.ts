@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import type { MemberDto, ProjectDto, WorkItemDetailDto, WorkItemListItemDto } from '@worktrail/contracts';
 
+import { CurrentUserService } from '../../core/current-user.service';
 import { WorkItemBoardPageComponent } from './work-item-board-page.component';
 
 const projectId = '10000000-0000-4000-8000-000000000201';
@@ -13,7 +14,18 @@ const owner: MemberDto = {
   name: 'Avery Owner',
   email: 'avery.owner@example.com',
   role: 'owner',
-  isActive: true
+  isActive: true,
+  deactivatedAt: null,
+  createdAt: '2026-07-02T12:00:00.000Z',
+  updatedAt: '2026-07-03T12:00:00.000Z'
+};
+
+const contributor: MemberDto = {
+  ...owner,
+  id: '10000000-0000-4000-8000-000000000103',
+  name: 'Case Contributor',
+  email: 'case.contributor@example.com',
+  role: 'contributor'
 };
 
 const activeProject: ProjectDto = {
@@ -66,6 +78,15 @@ const movedItem: WorkItemListItemDto = {
   status: 'in_progress'
 };
 
+const doneItem: WorkItemListItemDto = {
+  ...readyItem,
+  id: '10000000-0000-4000-8000-000000000405',
+  itemNumber: 5,
+  displayKey: 'WT-5',
+  title: 'Done board item',
+  status: 'done'
+};
+
 function dropEvent(input: {
   item: WorkItemListItemDto;
   previousStatus: WorkItemListItemDto['status'];
@@ -111,6 +132,10 @@ describe('WorkItemBoardPageComponent', () => {
         }
       ]
     }).compileComponents();
+
+    const currentUser = TestBed.inject(CurrentUserService);
+    currentUser.members.set([owner, contributor]);
+    currentUser.selectMember(owner.id);
   });
 
   afterEach(() => {
@@ -398,5 +423,38 @@ describe('WorkItemBoardPageComponent', () => {
     } as unknown as Event);
 
     http.expectNone(`/api/work-items/${readyItem.id}/board-move`);
+  });
+
+  it('prevents contributors from reopening terminal work from the board', () => {
+    TestBed.inject(CurrentUserService).selectMember(contributor.id);
+    const { fixture, http } = setup();
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
+      doneItem
+    ]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain(
+      'Only owners and maintainers can reopen done or canceled work items.'
+    );
+    expect(compiled.querySelector('select')?.hasAttribute('disabled')).toBeTrue();
+
+    fixture.componentInstance.transitionCard(doneItem, {
+      target: { value: 'ready' }
+    } as unknown as Event);
+    fixture.componentInstance.dropCard(
+      dropEvent({
+        item: doneItem,
+        previousStatus: 'done',
+        status: 'ready'
+      }) as never
+    );
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain(
+      'Only owners and maintainers can reopen done or canceled work items.'
+    );
+    http.expectNone(`/api/work-items/${doneItem.id}/board-move`);
   });
 });

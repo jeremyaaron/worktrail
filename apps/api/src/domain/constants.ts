@@ -41,6 +41,16 @@ export const activityEventTypes = [
   'comment.edited',
   'comment.deleted'
 ] as const;
+export const workspaceActivityEventTypes = [
+  'member.created',
+  'member.name_changed',
+  'member.email_changed',
+  'member.role_changed',
+  'member.deactivated',
+  'member.reactivated',
+  'workspace.name_changed',
+  'project.created'
+] as const;
 
 export type MemberRole = (typeof memberRoles)[number];
 export type ProjectStatus = (typeof projectStatuses)[number];
@@ -49,6 +59,7 @@ export type WorkItemStatus = (typeof workItemStatuses)[number];
 export type WorkItemPriority = (typeof workItemPriorities)[number];
 export type MilestoneStatus = (typeof milestoneStatuses)[number];
 export type ActivityEventType = (typeof activityEventTypes)[number];
+export type WorkspaceActivityEventType = (typeof workspaceActivityEventTypes)[number];
 
 export const terminalWorkItemStatuses = ['done', 'canceled'] as const satisfies readonly WorkItemStatus[];
 export const openWorkItemStatuses = [

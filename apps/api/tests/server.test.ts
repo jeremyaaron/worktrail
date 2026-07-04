@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { createExpressApp } from '../src/adapters/express/server.js';
 import { ValidationError } from '../src/errors/app-error.js';
+import type { Repositories } from '../src/repositories/index.js';
 import { parseWithSchema } from '../src/validation/parse.js';
 
 describe('Express API foundation', () => {
@@ -43,7 +44,7 @@ describe('Express API foundation', () => {
       });
   });
 
-  it('uses development actor headers when provided', async () => {
+  it('uses development actor headers when repositories are not available', async () => {
     const app = createExpressApp({
       testRoutes: {
         '/api/test/actor': (appRequest) => ({
@@ -64,6 +65,90 @@ describe('Express API foundation', () => {
           memberId: '20000000-0000-4000-8000-000000000001',
           workspaceId: '20000000-0000-4000-8000-000000000002',
           role: 'maintainer'
+        });
+      });
+  });
+
+  it('derives the actor role from the member record when repositories are available', async () => {
+    const repositories = {
+      members: {
+        findById: vi.fn(async () => ({
+          id: '20000000-0000-4000-8000-000000000001',
+          workspaceId: '20000000-0000-4000-8000-000000000002',
+          name: 'Morgan Maintainer',
+          email: 'morgan.maintainer@example.com',
+          role: 'maintainer',
+          isActive: true,
+          deactivatedAt: null,
+          deactivatedById: null,
+          createdAt: new Date('2026-07-02T12:00:00.000Z'),
+          updatedAt: new Date('2026-07-03T12:00:00.000Z')
+        }))
+      }
+    } as unknown as Repositories;
+    const app = createExpressApp({
+      repositories,
+      testRoutes: {
+        '/api/test/actor': (appRequest) => ({
+          status: 200,
+          body: appRequest.actor
+        })
+      }
+    });
+
+    await request(app)
+      .get('/api/test/actor')
+      .set('x-worktrail-member-id', '20000000-0000-4000-8000-000000000001')
+      .set('x-worktrail-workspace-id', '20000000-0000-4000-8000-000000000002')
+      .set('x-worktrail-role', 'owner')
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual({
+          memberId: '20000000-0000-4000-8000-000000000001',
+          workspaceId: '20000000-0000-4000-8000-000000000002',
+          role: 'maintainer'
+        });
+      });
+  });
+
+  it('rejects inactive actors when repositories are available', async () => {
+    const repositories = {
+      members: {
+        findById: vi.fn(async () => ({
+          id: '20000000-0000-4000-8000-000000000001',
+          workspaceId: '20000000-0000-4000-8000-000000000002',
+          name: 'Riley Former',
+          email: 'riley.former@example.com',
+          role: 'contributor',
+          isActive: false,
+          deactivatedAt: new Date('2026-06-20T12:00:00.000Z'),
+          deactivatedById: '20000000-0000-4000-8000-000000000003',
+          createdAt: new Date('2026-07-02T12:00:00.000Z'),
+          updatedAt: new Date('2026-07-03T12:00:00.000Z')
+        }))
+      }
+    } as unknown as Repositories;
+    const app = createExpressApp({
+      repositories,
+      testRoutes: {
+        '/api/test/actor': (appRequest) => ({
+          status: 200,
+          body: appRequest.actor
+        })
+      }
+    });
+
+    await request(app)
+      .get('/api/test/actor')
+      .set('x-worktrail-member-id', '20000000-0000-4000-8000-000000000001')
+      .set('x-worktrail-workspace-id', '20000000-0000-4000-8000-000000000002')
+      .expect(403)
+      .expect(({ body }) => {
+        expect(body).toEqual({
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Inactive members cannot act in this workspace.'
+          }
         });
       });
   });
@@ -131,4 +216,3 @@ describe('parseWithSchema', () => {
     expect(() => parseWithSchema(schema, { name: '' })).toThrow(ValidationError);
   });
 });
-

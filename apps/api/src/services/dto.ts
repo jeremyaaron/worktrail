@@ -6,6 +6,8 @@ import type {
   MilestoneDto,
   ProjectDto,
   RecentWorkItemDto,
+  WorkspaceActivityEventDto,
+  WorkspaceDto,
   WorkItemDetailDto,
   WorkItemListItemDto
 } from '@worktrail/contracts';
@@ -17,7 +19,9 @@ import type {
   Member,
   Milestone,
   Project,
-  WorkItem
+  WorkItem,
+  Workspace,
+  WorkspaceActivityEvent
 } from '../repositories/types.js';
 
 function toNullableRecord(value: Record<string, unknown> | null): Record<string, unknown> | null {
@@ -31,7 +35,19 @@ export function toMemberDto(member: Member): MemberDto {
     name: member.name,
     email: member.email,
     role: member.role,
-    isActive: member.isActive
+    isActive: member.isActive,
+    deactivatedAt: member.deactivatedAt?.toISOString() ?? null,
+    createdAt: member.createdAt.toISOString(),
+    updatedAt: member.updatedAt.toISOString()
+  };
+}
+
+export function toWorkspaceDto(workspace: Workspace): WorkspaceDto {
+  return {
+    id: workspace.id,
+    name: workspace.name,
+    createdAt: workspace.createdAt.toISOString(),
+    updatedAt: workspace.updatedAt.toISOString()
   };
 }
 
@@ -116,6 +132,23 @@ export function toActivityEventDto(event: ActivityEvent, actor: Member): Activit
     workspaceId: event.workspaceId,
     projectId: event.projectId,
     workItemId: event.workItemId,
+    actor: toMemberDto(actor),
+    eventType: event.eventType,
+    summary: event.summary,
+    previousValue: toNullableRecord(event.previousValue),
+    newValue: toNullableRecord(event.newValue),
+    metadata: event.metadata,
+    createdAt: event.createdAt.toISOString()
+  };
+}
+
+export function toWorkspaceActivityEventDto(
+  event: WorkspaceActivityEvent,
+  actor: Member
+): WorkspaceActivityEventDto {
+  return {
+    id: event.id,
+    workspaceId: event.workspaceId,
     actor: toMemberDto(actor),
     eventType: event.eventType,
     summary: event.summary,

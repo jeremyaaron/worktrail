@@ -98,6 +98,7 @@ export class WorkItemService {
       this.assertProjectWritable(project);
       await this.validateLabels(projectId, labelIds, repositories);
       await this.validateMilestone(projectId, input.milestoneId ?? null, repositories);
+      await this.validateAssignee(input.assigneeId ?? null, repositories);
       const status = input.status ?? 'backlog';
       const boardPosition = await this.getTopInsertionPosition(projectId, status, repositories);
       const numberedProject = await repositories.projects.allocateWorkItemNumber(projectId, timestamp);
@@ -178,6 +179,12 @@ export class WorkItemService {
       if (input.milestoneId !== undefined) {
         await this.validateMilestone(current.projectId, input.milestoneId, repositories, {
           currentMilestoneId: current.milestoneId
+        });
+      }
+
+      if (input.assigneeId !== undefined) {
+        await this.validateAssignee(input.assigneeId, repositories, {
+          currentAssigneeId: current.assigneeId
         });
       }
 
@@ -525,6 +532,26 @@ export class WorkItemService {
       (milestone.archivedAt !== null && milestone.id !== options.currentMilestoneId)
     ) {
       throw new ValidationError('Milestone is invalid for this project.');
+    }
+  }
+
+  private async validateAssignee(
+    assigneeId: string | null,
+    repositories: Repositories,
+    options: { currentAssigneeId?: string | null } = {}
+  ): Promise<void> {
+    if (assigneeId === null || assigneeId === options.currentAssigneeId) {
+      return;
+    }
+
+    const assignee = await repositories.members.findById(assigneeId);
+
+    if (
+      assignee === null ||
+      assignee.workspaceId !== this.context.actor.workspaceId ||
+      !assignee.isActive
+    ) {
+      throw new ValidationError('Assignee must be an active workspace member.');
     }
   }
 

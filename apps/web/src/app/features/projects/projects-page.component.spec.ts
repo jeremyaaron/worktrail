@@ -2,18 +2,50 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import type { ActivityEventDto, ProjectDto, ProjectSummaryDto } from '@worktrail/contracts';
+import type {
+  ActivityEventDto,
+  MemberDto,
+  ProjectDto,
+  ProjectSummaryDto,
+  WorkspaceCapabilitiesDto
+} from '@worktrail/contracts';
 
+import { CurrentUserService } from '../../core/current-user.service';
 import { ProjectHomePageComponent } from './project-home-page.component';
 import { ProjectListPageComponent } from './project-list-page.component';
 import { ProjectSettingsPageComponent } from './project-settings-page.component';
 
 const projectId = '10000000-0000-4000-8000-000000000201';
 const archivedProjectId = '10000000-0000-4000-8000-000000000203';
+const workspaceId = '10000000-0000-4000-8000-000000000001';
+
+const owner: MemberDto = {
+  id: '10000000-0000-4000-8000-000000000101',
+  workspaceId,
+  name: 'Avery Owner',
+  email: 'avery.owner@example.com',
+  role: 'owner',
+  isActive: true,
+  deactivatedAt: null,
+  createdAt: '2026-07-02T12:00:00.000Z',
+  updatedAt: '2026-07-03T12:00:00.000Z'
+};
+
+const contributor: MemberDto = {
+  id: '10000000-0000-4000-8000-000000000103',
+  workspaceId,
+  name: 'Casey Contributor',
+  email: 'casey.contributor@example.com',
+  role: 'contributor',
+  isActive: true,
+  deactivatedAt: null,
+  createdAt: '2026-07-02T12:00:00.000Z',
+  updatedAt: '2026-07-03T12:00:00.000Z'
+};
 
 const activeProject: ProjectDto = {
   id: projectId,
-  workspaceId: '10000000-0000-4000-8000-000000000001',
+  workspaceId,
   key: 'WT',
   name: 'Worktrail App',
   description: 'MVP project management reference application.',
@@ -24,7 +56,7 @@ const activeProject: ProjectDto = {
 
 const archivedProject: ProjectDto = {
   id: archivedProjectId,
-  workspaceId: '10000000-0000-4000-8000-000000000001',
+  workspaceId,
   key: 'ARCH',
   name: 'Archived Project',
   description: 'Archived project used to verify archived states.',
@@ -87,7 +119,10 @@ const labelActivity: ActivityEventDto = {
     name: 'Avery Owner',
     email: 'avery.owner@example.com',
     role: 'owner',
-    isActive: true
+    isActive: true,
+    deactivatedAt: null,
+    createdAt: '2026-07-02T12:00:00.000Z',
+    updatedAt: '2026-07-03T12:00:00.000Z'
   },
   eventType: 'label.created',
   summary: 'Label created.',
@@ -97,11 +132,47 @@ const labelActivity: ActivityEventDto = {
   createdAt: '2026-07-03T12:00:00.000Z'
 };
 
+const ownerCapabilities: WorkspaceCapabilitiesDto = {
+  actor: owner,
+  canManageWorkspace: true,
+  canManageMembers: true,
+  canCreateProjects: true,
+  canManageProjects: true,
+  canManageMilestones: true,
+  canManageLabels: true,
+  canCreateWorkItems: true,
+  roleSummary: {
+    owner: 'Owners manage workspace settings and members.',
+    maintainer: 'Maintainers manage projects and delivery artifacts.',
+    contributor: 'Contributors manage assigned work.'
+  }
+};
+
+const contributorCapabilities: WorkspaceCapabilitiesDto = {
+  ...ownerCapabilities,
+  actor: contributor,
+  canManageWorkspace: false,
+  canManageMembers: false,
+  canCreateProjects: false,
+  canManageProjects: false,
+  canManageMilestones: false,
+  canManageLabels: false
+};
+
 function setupProjectList() {
   const fixture = TestBed.createComponent(ProjectListPageComponent);
   const http = TestBed.inject(HttpTestingController);
   fixture.detectChanges();
   return { fixture, http };
+}
+
+function flushProjectListLoad(
+  http: HttpTestingController,
+  projects: ProjectDto[],
+  capabilities: WorkspaceCapabilitiesDto = ownerCapabilities
+) {
+  http.expectOne('/api/projects').flush(projects);
+  http.expectOne('/api/workspace/capabilities').flush(capabilities);
 }
 
 describe('ProjectListPageComponent', () => {
@@ -119,7 +190,7 @@ describe('ProjectListPageComponent', () => {
   it('renders projects loaded from the API and filters archived projects', () => {
     const { fixture, http } = setupProjectList();
 
-    http.expectOne('/api/projects').flush([activeProject, archivedProject]);
+    flushProjectListLoad(http, [activeProject, archivedProject]);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
@@ -141,7 +212,7 @@ describe('ProjectListPageComponent', () => {
   it('shows project creation validation before posting', () => {
     const { fixture, http } = setupProjectList();
 
-    http.expectOne('/api/projects').flush([]);
+    flushProjectListLoad(http, []);
     fixture.detectChanges();
 
     fixture.componentInstance.createProject();
@@ -155,10 +226,11 @@ describe('ProjectListPageComponent', () => {
   it('creates a project and adds it to the active list', () => {
     const { fixture, http } = setupProjectList();
 
-    http.expectOne('/api/projects').flush([]);
+    flushProjectListLoad(http, []);
     fixture.detectChanges();
 
     fixture.componentInstance.createProjectForm.setValue({
+      key: '',
       name: 'New Product Launch',
       description: 'Coordinate the next launch.'
     });
@@ -180,6 +252,109 @@ describe('ProjectListPageComponent', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('New Product Launch');
+    expect(compiled.textContent).toContain('Project created.');
+  });
+
+  it('submits explicit project keys uppercased', () => {
+    const { fixture, http } = setupProjectList();
+
+    flushProjectListLoad(http, []);
+    fixture.detectChanges();
+
+    fixture.componentInstance.createProjectForm.setValue({
+      key: 'ops',
+      name: 'Operations Tracker',
+      description: ''
+    });
+    fixture.componentInstance.createProject();
+
+    const post = http.expectOne('/api/projects');
+    expect(post.request.method).toBe('POST');
+    expect(post.request.body).toEqual({
+      key: 'OPS',
+      name: 'Operations Tracker',
+      description: ''
+    });
+    post.flush({
+      ...activeProject,
+      id: '10000000-0000-4000-8000-000000000210',
+      key: 'OPS',
+      name: 'Operations Tracker',
+      description: ''
+    });
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('OPS');
+  });
+
+  it('shows explicit key validation before posting', () => {
+    const { fixture, http } = setupProjectList();
+
+    flushProjectListLoad(http, []);
+    fixture.detectChanges();
+
+    fixture.componentInstance.createProjectForm.setValue({
+      key: '!',
+      name: 'Invalid Key Project',
+      description: ''
+    });
+    fixture.componentInstance.createProject();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Project key must be 2-8 letters or numbers.'
+    );
+    http.expectNone((request) => request.method === 'POST' && request.url === '/api/projects');
+  });
+
+  it('disables project creation for contributors', () => {
+    const { fixture, http } = setupProjectList();
+
+    flushProjectListLoad(http, [activeProject], contributorCapabilities);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const createButton = [...compiled.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Create project'
+    );
+    expect(compiled.textContent).toContain('Owners and maintainers can create projects.');
+    expect(createButton?.disabled).toBeTrue();
+
+    fixture.componentInstance.createProjectForm.setValue({
+      key: '',
+      name: 'Blocked Project',
+      description: ''
+    });
+    fixture.componentInstance.createProject();
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain('Only owners and maintainers can create projects.');
+    http.expectNone((request) => request.method === 'POST' && request.url === '/api/projects');
+  });
+
+  it('shows backend project creation errors inline', () => {
+    const { fixture, http } = setupProjectList();
+
+    flushProjectListLoad(http, []);
+    fixture.detectChanges();
+
+    fixture.componentInstance.createProjectForm.setValue({
+      key: 'OPS',
+      name: 'Duplicate Project',
+      description: ''
+    });
+    fixture.componentInstance.createProject();
+
+    const post = http.expectOne('/api/projects');
+    post.flush(
+      { error: { code: 'CONFLICT', message: 'Project key is already in use.' } },
+      { status: 409, statusText: 'Conflict' }
+    );
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Project key is already in use.'
+    );
   });
 });
 
@@ -264,6 +439,10 @@ describe('ProjectSettingsPageComponent', () => {
         }
       ]
     }).compileComponents();
+
+    const currentUser = TestBed.inject(CurrentUserService);
+    currentUser.members.set([owner, contributor]);
+    currentUser.selectMember(owner.id);
 
     fixture = TestBed.createComponent(ProjectSettingsPageComponent);
     http = TestBed.inject(HttpTestingController);
@@ -396,5 +575,33 @@ describe('ProjectSettingsPageComponent', () => {
     expect(reactivate.request.method).toBe('POST');
     reactivate.flush({ ...archivedLabel, isArchived: false, archivedAt: null });
     http.expectOne(`/api/projects/${projectId}/activity`).flush([labelActivity]);
+  });
+
+  it('renders contributor project settings access as read-only', () => {
+    TestBed.inject(CurrentUserService).selectMember(contributor.id);
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/labels?includeArchived=true`).flush([
+      backendLabel
+    ]);
+    http.expectOne(`/api/projects/${projectId}/activity`).flush([]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Only owners and maintainers can update project settings.');
+    expect(compiled.textContent).toContain('Only owners and maintainers can manage labels.');
+    expect(compiled.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBeTrue();
+    expect(compiled.querySelector<HTMLInputElement>('#label-color')?.disabled).toBeTrue();
+
+    fixture.componentInstance.saveSettings();
+    fixture.componentInstance.createLabel();
+    fixture.componentInstance.archiveProject();
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain('Only owners and maintainers can update project settings.');
+    expect(compiled.textContent).toContain('Only owners and maintainers can manage labels.');
+    expect(compiled.textContent).toContain('Only owners and maintainers can archive projects.');
+    http.expectNone((request) => request.method !== 'GET');
   });
 });

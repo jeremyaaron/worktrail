@@ -27,6 +27,7 @@ function actorHeaders(input: { workspaceId: string; memberId: string; role: stri
 }
 
 async function cleanupWorkspace(workspaceId: string) {
+  await pool.query('delete from workspace_activity_events where workspace_id = $1', [workspaceId]);
   await pool.query('delete from activity_events where workspace_id = $1', [workspaceId]);
   await pool.query('delete from comments where workspace_id = $1', [workspaceId]);
   await pool.query(
@@ -124,7 +125,7 @@ beforeAll(() => {
   pool = createPool();
   db = createDb(pool);
   repositories = createRepositories(db);
-  app = createExpressApp({ repositories });
+  app = createExpressApp({ repositories, db });
 });
 
 afterEach(async () => {
@@ -158,6 +159,185 @@ describe('members API', () => {
         );
       });
   });
+
+  it('creates members for owners and records workspace activity', async () => {
+    const fixture = await createWorkspaceFixture('owner');
+
+    await request(app)
+      .post('/api/members')
+      .set(fixture.headers)
+      .send({
+        name: 'New Contributor',
+        email: 'New.Contributor@Example.com',
+        role: 'contributor'
+      })
+      .expect(201)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          workspaceId: fixture.workspaceId,
+          name: 'New Contributor',
+          email: 'new.contributor@example.com',
+          role: 'contributor',
+          isActive: true,
+          deactivatedAt: null
+        });
+        expect(body.createdAt).toEqual(expect.any(String));
+        expect(body.updatedAt).toEqual(expect.any(String));
+      });
+
+    const members = await repositories.members.listByWorkspace(fixture.workspaceId);
+    const created = members.find((member) => member.email === 'new.contributor@example.com');
+    expect(created).toBeDefined();
+
+    const activity = await repositories.workspaceActivityEvents.findByWorkspace(fixture.workspaceId);
+    expect(activity).toEqual([
+      expect.objectContaining({
+        actorId: fixture.actorId,
+        eventType: 'member.created',
+        metadata: { memberId: created?.id }
+      })
+    ]);
+  });
+
+  it('rejects member creation for maintainers and contributors', async () => {
+    const maintainerFixture = await createWorkspaceFixture('maintainer');
+    const contributorFixture = await createWorkspaceFixture('contributor');
+
+    await request(app)
+      .post('/api/members')
+      .set(maintainerFixture.headers)
+      .send({
+        name: 'Blocked Member',
+        email: 'blocked.maintainer@example.com',
+        role: 'contributor'
+      })
+      .expect(403)
+      .expect(({ body }) => {
+        expect(body.error).toEqual({
+          code: 'FORBIDDEN',
+          message: 'Only owners can manage workspace members.'
+        });
+      });
+
+    await request(app)
+      .post('/api/members')
+      .set(contributorFixture.headers)
+      .send({
+        name: 'Blocked Member',
+        email: 'blocked.contributor@example.com',
+        role: 'contributor'
+      })
+      .expect(403);
+  });
+
+  it('rejects duplicate member emails case-insensitively', async () => {
+    const fixture = await createWorkspaceFixture('owner');
+
+    await request(app)
+      .post('/api/members')
+      .set(fixture.headers)
+      .send({
+        name: 'Duplicate Actor',
+        email: `${fixture.actorId.toUpperCase()}@example.com`,
+        role: 'contributor'
+      })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error).toEqual({
+          code: 'CONFLICT',
+          message: 'Member email is already in use.'
+        });
+      });
+  });
+
+  it('updates member profile and role with workspace activity', async () => {
+    const fixture = await createWorkspaceFixture('owner');
+
+    await request(app)
+      .patch(`/api/members/${fixture.contributorId}`)
+      .set(fixture.headers)
+      .send({
+        name: 'Updated Contributor',
+        email: 'Updated.Contributor@Example.com',
+        role: 'maintainer'
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          id: fixture.contributorId,
+          name: 'Updated Contributor',
+          email: 'updated.contributor@example.com',
+          role: 'maintainer'
+        });
+      });
+
+    const activity = await repositories.workspaceActivityEvents.findByWorkspace(fixture.workspaceId);
+    expect(activity.map((event) => event.eventType)).toEqual(
+      expect.arrayContaining([
+        'member.name_changed',
+        'member.email_changed',
+        'member.role_changed'
+      ])
+    );
+  });
+
+  it('deactivates and reactivates members with workspace activity', async () => {
+    const fixture = await createWorkspaceFixture('owner');
+
+    await request(app)
+      .post(`/api/members/${fixture.contributorId}/deactivate`)
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          id: fixture.contributorId,
+          isActive: false
+        });
+        expect(body.deactivatedAt).toEqual(expect.any(String));
+      });
+
+    await request(app)
+      .post(`/api/members/${fixture.contributorId}/reactivate`)
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          id: fixture.contributorId,
+          isActive: true,
+          deactivatedAt: null
+        });
+      });
+
+    const activity = await repositories.workspaceActivityEvents.findByWorkspace(fixture.workspaceId);
+    expect(activity.map((event) => event.eventType)).toEqual([
+      'member.reactivated',
+      'member.deactivated'
+    ]);
+  });
+
+  it('protects the last active owner from demotion and deactivation', async () => {
+    const fixture = await createWorkspaceFixture('owner');
+
+    await request(app)
+      .patch(`/api/members/${fixture.actorId}`)
+      .set(fixture.headers)
+      .send({ role: 'maintainer' })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error).toEqual({
+          code: 'CONFLICT',
+          message: 'At least one active owner is required.'
+        });
+      });
+
+    await request(app)
+      .post(`/api/members/${fixture.actorId}/deactivate`)
+      .set(fixture.headers)
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('CONFLICT');
+      });
+  });
 });
 
 describe('projects API', () => {
@@ -184,7 +364,7 @@ describe('projects API', () => {
   it('creates a project with validation and actor workspace scoping', async () => {
     const fixture = await createWorkspaceFixture('owner');
 
-    await request(app)
+    const response = await request(app)
       .post('/api/projects')
       .set(fixture.headers)
       .send({ name: 'Created Through API', description: 'Created by endpoint test.' })
@@ -201,6 +381,57 @@ describe('projects API', () => {
 
     const projects = await repositories.projects.listByWorkspace(fixture.workspaceId);
     expect(projects.map((project) => project.name)).toContain('Created Through API');
+
+    const activity = await repositories.workspaceActivityEvents.findByWorkspace(fixture.workspaceId);
+    expect(activity).toEqual([
+      expect.objectContaining({
+        actorId: fixture.actorId,
+        eventType: 'project.created',
+        metadata: { projectId: response.body.id },
+        newValue: {
+          projectId: response.body.id,
+          key: 'CTA',
+          name: 'Created Through API'
+        }
+      })
+    ]);
+  });
+
+  it('allows maintainers to create projects', async () => {
+    const fixture = await createWorkspaceFixture('maintainer');
+
+    await request(app)
+      .post('/api/projects')
+      .set(fixture.headers)
+      .send({ key: 'OPS', name: 'Operations Tracker' })
+      .expect(201)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          workspaceId: fixture.workspaceId,
+          key: 'OPS',
+          name: 'Operations Tracker',
+          status: 'active'
+        });
+      });
+  });
+
+  it('rejects contributor project creation requests', async () => {
+    const fixture = await createWorkspaceFixture('contributor');
+
+    await request(app)
+      .post('/api/projects')
+      .set(fixture.headers)
+      .send({ key: 'OPS', name: 'Operations Tracker' })
+      .expect(403)
+      .expect(({ body }) => {
+        expect(body.error).toEqual({
+          code: 'FORBIDDEN',
+          message: 'Only owners and maintainers can create projects.'
+        });
+      });
+
+    const projects = await repositories.projects.listByWorkspace(fixture.workspaceId);
+    expect(projects).toHaveLength(0);
   });
 
   it('accepts explicit project keys and rejects duplicates', async () => {
@@ -249,6 +480,18 @@ describe('projects API', () => {
       .expect(400)
       .expect(({ body }) => {
         expect(body.error.code).toBe('VALIDATION_ERROR');
+      });
+
+    await request(app)
+      .post('/api/projects')
+      .set(fixture.headers)
+      .send({ key: '!', name: 'Invalid Key Project' })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.error).toEqual({
+          code: 'VALIDATION_ERROR',
+          message: 'Project key must be 2-8 uppercase letters or numbers.'
+        });
       });
   });
 

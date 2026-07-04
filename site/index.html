@@ -6,12 +6,12 @@
     <title>Worktrail | Project management reference app</title>
     <meta
       name="description"
-      content="Worktrail is a project management reference app with milestones, planning dashboards, durable board ordering, rich filtering, comments, activity, and cloud-ready application boundaries."
+      content="Worktrail is a project management reference app with workspace governance, member administration, permission transparency, milestones, durable board ordering, comments, activity, and cloud-ready application boundaries."
     >
     <meta property="og:title" content="Worktrail">
     <meta
       property="og:description"
-      content="An Angular, Postgres, and TypeScript API reference app shaped around real project tracking workflows and a path toward cloud deployment."
+      content="An Angular, Postgres, and TypeScript API reference app shaped around team governance, real project tracking workflows, and a path toward cloud deployment."
     >
     <meta property="og:type" content="website">
     <meta name="theme-color" content="#f6f8fb">
@@ -46,9 +46,9 @@
           <h1 id="hero-title">Worktrail</h1>
           <p class="hero-copy">
             A small but real project workflow built to expose reusable application patterns:
-            Angular screens, Postgres persistence, stable work item keys, milestones,
-            planning dashboards, durable board ordering, audited comments, and a practical path
-            from local development to cloud deployment.
+            Angular screens, Postgres persistence, workspace member governance, permission-aware
+            UI, stable work item keys, milestones, planning dashboards, durable board ordering,
+            audited comments, and a practical path from local development to cloud deployment.
           </p>
           <div class="hero-actions" aria-label="Primary actions">
             <a class="button button-primary" href="https://github.com/jeremyaaron/worktrail">
@@ -79,17 +79,29 @@
           <p class="eyebrow">The app</p>
           <h2 id="app-title">A reference workflow with enough product surface to matter.</h2>
           <p>
-            Worktrail is intentionally small, but it is not a toy shell. The v0.0.3 app covers
+            Worktrail is intentionally small, but it is not a toy shell. Earlier releases cover
             project settings, milestones, label catalogs, keyed work items, auto-applied discovery
             filters, a persisted drag/drop board, planning summaries, comment lifecycle controls,
-            local actor selection, and activity events so implementation choices have real consequences.
+            local actor selection, and activity events. v0.0.4 adds the team layer: workspace
+            settings, member lifecycle, role-aware affordances, inactive-member handling, and
+            workspace activity so implementation choices have real consequences.
           </p>
         </div>
         <div class="feature-grid">
           <article class="feature">
+            <span class="feature-kicker">Workspace</span>
+            <h3>Team governance without production auth theater.</h3>
+            <p>Create, edit, deactivate, and reactivate members while preserving a local actor model.</p>
+          </article>
+          <article class="feature">
+            <span class="feature-kicker">Permissions</span>
+            <h3>Role-aware controls with server enforcement.</h3>
+            <p>Owners, maintainers, and contributors see clear affordances backed by API policy checks.</p>
+          </article>
+          <article class="feature">
             <span class="feature-kicker">Projects</span>
             <h3>Configurable projects with readable lifecycle state.</h3>
-            <p>Edit metadata, manage archive/reactivate flows, and keep archived projects read-only.</p>
+            <p>Create projects with explicit keys, edit metadata, manage archive/reactivate flows, and keep archived projects read-only.</p>
           </article>
           <article class="feature">
             <span class="feature-kicker">Milestones</span>
@@ -114,20 +126,21 @@
           <article class="feature">
             <span class="feature-kicker">Collaboration</span>
             <h3>Comments, tombstones, and activity history.</h3>
-            <p>Add, edit, and delete comments with visible tombstones and lifecycle activity.</p>
+            <p>Add, edit, and delete comments with visible tombstones, lifecycle activity, and inactive-member history.</p>
           </article>
         </div>
       </section>
 
       <section class="section" id="capabilities" aria-labelledby="capabilities-title">
         <div class="section-heading">
-          <p class="eyebrow">v0.0.3 capabilities</p>
+          <p class="eyebrow">v0.0.4 capabilities</p>
           <h2 id="capabilities-title">Enough product depth to exercise real patterns.</h2>
           <p>
-            The current sprint adds lightweight planning without turning the product into portfolio
-            software: project-scoped milestones, assignment and lifecycle controls, a planning
-            dashboard, richer work item discovery, persisted board ordering, and broader activity
-            coverage for planning and movement events.
+            The current sprint makes Worktrail governable by a small team: workspace settings,
+            member administration, server-derived actor roles, active/inactive member behavior,
+            permission transparency, workspace activity, project creation polish, and browser-level
+            smoke coverage for the governance path. Planning, discovery, board ordering, comments,
+            and project activity remain part of the same reference surface.
           </p>
         </div>
       </section>
@@ -145,8 +158,9 @@
           </div>
           <div class="stack-panel" aria-label="Architecture layers">
             <div><strong>Angular SPA</strong><span>static build suitable for S3 and CloudFront</span></div>
+            <div><strong>Lazy routes</strong><span>route chunks keep initial production bundles below warning budgets</span></div>
             <div><strong>Endpoint handlers</strong><span>transport-neutral request and response shape</span></div>
-            <div><strong>Express adapter</strong><span>local runtime only for v0.0.3</span></div>
+            <div><strong>Express adapter</strong><span>local runtime only for v0.0.4</span></div>
             <div><strong>Postgres + Drizzle</strong><span>committed SQL migrations and deterministic seed data</span></div>
             <div><strong>Playwright smoke</strong><span>browser-level workflow coverage for release readiness</span></div>
           </div>
@@ -158,10 +172,11 @@
           <p class="eyebrow">Current scope</p>
           <h2 id="mvp-title">Local-first, cloud-shaped, still honest about limits.</h2>
           <p>
-            Worktrail v0.0.3 is still a local reference app. Production authentication, custom
-            workflows, notifications, attachments, imports, and hosted infrastructure are intentionally
-            out of scope. The value today is a working product surface that can accumulate evidence
-            before patterns are extracted into broader framework ideas.
+            Worktrail v0.0.4 is still a local reference app. Production authentication, invitations,
+            custom roles, custom workflows, notifications, attachments, imports, and hosted
+            infrastructure are intentionally out of scope. The value today is a working product
+            surface that can accumulate evidence before patterns are extracted into broader
+            framework ideas.
           </p>
         </div>
       </section>
@@ -182,7 +197,7 @@ npm run dev</code></pre>
     <footer class="footer">
       <span>Worktrail</span>
       <a href="https://github.com/jeremyaaron/worktrail">GitHub</a>
-      <a href="https://github.com/jeremyaaron/worktrail/tree/main/docs/v0.0.3">Planning docs</a>
+      <a href="https://github.com/jeremyaaron/worktrail/tree/main/docs/v0.0.4">v0.0.4 docs</a>
     </footer>
   </body>
 </html>

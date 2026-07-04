@@ -11,6 +11,7 @@ const projectId = '10000000-0000-4000-8000-000000000201';
 const workItemId = '10000000-0000-4000-8000-000000000403';
 const ownerId = '10000000-0000-4000-8000-000000000101';
 const contributorId = '10000000-0000-4000-8000-000000000103';
+const inactiveMemberId = '10000000-0000-4000-8000-000000000104';
 const labelId = '10000000-0000-4000-8000-000000000302';
 const frontendLabelId = '10000000-0000-4000-8000-000000000301';
 const archivedLabelId = '10000000-0000-4000-8000-000000000399';
@@ -23,7 +24,10 @@ const owner: MemberDto = {
   name: 'Avery Owner',
   email: 'avery.owner@example.com',
   role: 'owner',
-  isActive: true
+  isActive: true,
+  deactivatedAt: null,
+  createdAt: '2026-07-02T12:00:00.000Z',
+  updatedAt: '2026-07-03T12:00:00.000Z'
 };
 
 const contributor: MemberDto = {
@@ -32,7 +36,22 @@ const contributor: MemberDto = {
   name: 'Case Contributor',
   email: 'case.contributor@example.com',
   role: 'contributor',
-  isActive: true
+  isActive: true,
+  deactivatedAt: null,
+  createdAt: '2026-07-02T12:00:00.000Z',
+  updatedAt: '2026-07-03T12:00:00.000Z'
+};
+
+const inactiveMember: MemberDto = {
+  id: inactiveMemberId,
+  workspaceId: owner.workspaceId,
+  name: 'Riley Former',
+  email: 'riley.former@example.com',
+  role: 'contributor',
+  isActive: false,
+  deactivatedAt: '2026-06-28T12:00:00.000Z',
+  createdAt: '2026-07-02T12:00:00.000Z',
+  updatedAt: '2026-07-03T12:00:00.000Z'
 };
 
 const activeProject: ProjectDto = {
@@ -129,7 +148,7 @@ const detail: WorkItemDetailDto = {
 
 function seedCurrentUser() {
   const currentUser = TestBed.inject(CurrentUserService);
-  currentUser.members.set([owner, contributor]);
+  currentUser.members.set([owner, contributor, inactiveMember]);
   currentUser.selectMember(owner.id);
 }
 
@@ -342,6 +361,30 @@ describe('WorkItemDetailPageComponent', () => {
     expect(buttonLabels).not.toContain('Delete');
   });
 
+  it('prevents contributors from reopening terminal work items', () => {
+    TestBed.inject(CurrentUserService).selectMember(contributor.id);
+    const terminalDetail: WorkItemDetailDto = {
+      ...detail,
+      status: 'done'
+    };
+    const { fixture, http } = setup({ workItem: terminalDetail });
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain(
+      'Only owners and maintainers can reopen done or canceled work items.'
+    );
+    expect(compiled.querySelector<HTMLSelectElement>('.status-form select')?.disabled).toBeTrue();
+
+    fixture.componentInstance.statusForm.setValue({ status: 'ready' });
+    fixture.componentInstance.transitionStatus();
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain(
+      'Only owners and maintainers can reopen done or canceled work items.'
+    );
+    http.expectNone(`/api/work-items/${workItemId}/transitions`);
+  });
+
   it('shows a recoverable error when comment edit is rejected', () => {
     const { fixture, http } = setup();
     const comment = detail.comments[0];
@@ -405,6 +448,44 @@ describe('WorkItemDetailPageComponent', () => {
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Updated detail surface');
+  });
+
+  it('keeps the current inactive assignee selectable and marks inactive references', () => {
+    const inactiveDetail: WorkItemDetailDto = {
+      ...detail,
+      assignee: inactiveMember,
+      reporter: inactiveMember,
+      comments: [
+        {
+          ...detail.comments[0],
+          author: inactiveMember,
+          deletedBy: inactiveMember
+        }
+      ],
+      activity: [
+        {
+          ...detail.activity[0],
+          actor: inactiveMember
+        }
+      ]
+    };
+    const { fixture, http } = setup({ workItem: inactiveDetail });
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const assigneeOptions = [
+      ...compiled.querySelectorAll<HTMLSelectElement>('select[formcontrolname="assigneeId"] option')
+    ].map((option) => option.textContent?.trim());
+    expect(assigneeOptions).toContain('Avery Owner');
+    expect(assigneeOptions).toContain('Case Contributor');
+    expect(assigneeOptions).toContain('Riley Former (inactive)');
+    expect(compiled.textContent).toContain('Reporter');
+    expect(compiled.textContent).toContain('Riley Former (inactive)');
+    expect(compiled.textContent).toContain('Inactive');
+
+    fixture.componentInstance.updateWorkItem();
+    const request = http.expectOne(`/api/work-items/${workItemId}`);
+    expect(request.request.body.assigneeId).toBe(inactiveMember.id);
+    request.flush(inactiveDetail);
   });
 
   it('shows archived attached labels without offering them as active assignments', () => {

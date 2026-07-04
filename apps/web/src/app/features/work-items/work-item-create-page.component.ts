@@ -392,7 +392,7 @@ export class WorkItemCreatePageComponent implements OnInit {
 
   readonly types = types;
   readonly priorities = priorities;
-  readonly members = computed<MemberDto[]>(() => this.currentUser.members());
+  readonly members = computed<MemberDto[]>(() => this.currentUser.activeMembers());
   readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
   readonly project = signal<ProjectDto | null>(null);
   readonly availableLabels = signal<LabelDto[]>([]);
