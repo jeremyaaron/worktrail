@@ -287,7 +287,8 @@ export class WorkItemService {
       labels.some(
         (label) =>
           label.workspaceId !== this.context.actor.workspaceId ||
-          (label.projectId !== null && label.projectId !== projectId)
+          (label.projectId !== null && label.projectId !== projectId) ||
+          label.archivedAt !== null
       )
     ) {
       throw new ValidationError('One or more labels are invalid for this project.');

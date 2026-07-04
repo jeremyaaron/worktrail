@@ -310,6 +310,22 @@ npm test --workspace @worktrail/api -- labels
 npm run typecheck --workspace @worktrail/api
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Added `LabelService` for project-scoped label listing, creation, update, archive, and reactivation.
+- Added label repository support for active/default listing, archived-inclusive listing, active name conflict checks, updates, archive, and reactivation.
+- Added `includeArchived=true` support to `GET /api/projects/:projectId/labels`.
+- Added `POST /api/projects/:projectId/labels`, `PATCH /api/labels/:labelId`, `POST /api/labels/:labelId/archive`, and `POST /api/labels/:labelId/reactivate`.
+- Enforced active-project write guards for label lifecycle commands.
+- Enforced active-label assignment in work item create/update validation while preserving archived labels already attached to existing work items.
+- Recorded label lifecycle activity events for create, name change, color change, archive, and reactivate.
+- Added backend tests for label lifecycle, active-name conflicts, reactivation conflicts, archived-project write rejection, archived-label visibility, and archived-label assignment rejection.
+- Verified `npm test --workspace @worktrail/api -- labels`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+
 ## Phase 5: Comment Lifecycle Backend
 
 Goal: support comment edit/delete with permission checks, tombstones, archived-project guards, and activity.

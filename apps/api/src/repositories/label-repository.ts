@@ -1,8 +1,16 @@
-import { inArray, eq } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 
 import type { WorktrailDb } from '../db/client.js';
 import { labels, workItemLabels } from '../db/schema.js';
 import type { NewLabel } from './types.js';
+
+export interface UpdateLabelInput {
+  name?: string;
+  color?: string | null;
+  archivedAt?: Date | null;
+  archivedById?: string | null;
+  updatedAt: Date;
+}
 
 export function createLabelRepository(db: WorktrailDb) {
   return {
@@ -16,8 +24,29 @@ export function createLabelRepository(db: WorktrailDb) {
       return label ?? null;
     },
 
-    async listByProject(projectId: string) {
-      return db.select().from(labels).where(eq(labels.projectId, projectId));
+    async findActiveByProjectName(projectId: string, name: string) {
+      const [label] = await db
+        .select()
+        .from(labels)
+        .where(
+          and(
+            eq(labels.projectId, projectId),
+            isNull(labels.archivedAt),
+            sql`lower(${labels.name}) = ${name.toLowerCase()}`
+          )
+        )
+        .limit(1);
+      return label ?? null;
+    },
+
+    async listByProject(projectId: string, input: { includeArchived?: boolean } = {}) {
+      const conditions = [eq(labels.projectId, projectId)];
+
+      if (input.includeArchived !== true) {
+        conditions.push(isNull(labels.archivedAt));
+      }
+
+      return db.select().from(labels).where(and(...conditions));
     },
 
     async listByIds(ids: string[]) {
@@ -84,6 +113,29 @@ export function createLabelRepository(db: WorktrailDb) {
           labelId
         }))
       );
+    },
+
+    async update(id: string, input: UpdateLabelInput) {
+      const [label] = await db.update(labels).set(input).where(eq(labels.id, id)).returning();
+      return label ?? null;
+    },
+
+    async archive(id: string, archivedAt: Date, archivedById: string) {
+      const [label] = await db
+        .update(labels)
+        .set({ archivedAt, archivedById, updatedAt: archivedAt })
+        .where(eq(labels.id, id))
+        .returning();
+      return label ?? null;
+    },
+
+    async reactivate(id: string, updatedAt: Date) {
+      const [label] = await db
+        .update(labels)
+        .set({ archivedAt: null, archivedById: null, updatedAt })
+        .where(eq(labels.id, id))
+        .returning();
+      return label ?? null;
     }
   };
 }

@@ -10,7 +10,13 @@ import {
   listCommentsHandler
 } from '../../endpoints/comments.js';
 import { healthHandler } from '../../endpoints/health.js';
-import { listProjectLabelsHandler } from '../../endpoints/labels.js';
+import {
+  archiveLabelHandler,
+  createLabelHandler,
+  listProjectLabelsHandler,
+  reactivateLabelHandler,
+  updateLabelHandler
+} from '../../endpoints/labels.js';
 import { listMembersHandler } from '../../endpoints/members.js';
 import {
   archiveProjectHandler,
@@ -75,7 +81,11 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
     );
     app.get(
       '/api/projects/:projectId/labels',
-      adaptEndpoint(listProjectLabelsHandler(options.repositories))
+      adaptEndpoint(listProjectLabelsHandler({ repositories: options.repositories, db: options.db }))
+    );
+    app.post(
+      '/api/projects/:projectId/labels',
+      adaptEndpoint(createLabelHandler({ repositories: options.repositories, db: options.db }))
     );
     app.post(
       '/api/projects/:projectId/archive',
@@ -110,6 +120,18 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
     app.post(
       '/api/work-items/:workItemId/transitions',
       adaptEndpoint(transitionWorkItemHandler({ repositories: options.repositories, db: options.db }))
+    );
+    app.patch(
+      '/api/labels/:labelId',
+      adaptEndpoint(updateLabelHandler({ repositories: options.repositories, db: options.db }))
+    );
+    app.post(
+      '/api/labels/:labelId/archive',
+      adaptEndpoint(archiveLabelHandler({ repositories: options.repositories, db: options.db }))
+    );
+    app.post(
+      '/api/labels/:labelId/reactivate',
+      adaptEndpoint(reactivateLabelHandler({ repositories: options.repositories, db: options.db }))
     );
   }
 
