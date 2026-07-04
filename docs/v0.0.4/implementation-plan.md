@@ -218,6 +218,27 @@ npm test --workspace @worktrail/api
 npm run typecheck --workspace @worktrail/api
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Updated local actor resolution so repository-backed API routes load the selected member from the database.
+- Derived `ActorContext.role` from the member row instead of trusting `x-worktrail-role`.
+- Kept repository-less health/test routes on the lightweight local fallback path.
+- Preserved local bootstrap behavior by using the seed actor when no actor headers are provided.
+- Added inactive actor rejection with `ForbiddenError('Inactive members cannot act in this workspace.')`.
+- Added workspace/member mismatch rejection with `ForbiddenError('Local actor could not be resolved for this workspace.')`.
+- Removed `x-worktrail-role` from frontend actor headers.
+- Added API foundation tests proving:
+  - repository-backed routes ignore spoofed role headers;
+  - inactive actors receive a structured `403` response.
+- Verified `npm test --workspace @worktrail/api -- server`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `npm run build`.
+- Verified `git diff --check` and `git diff --cached --check`.
+
 ## Phase 3: Workspace Backend
 
 Goal: add workspace settings, capabilities, and workspace activity query support.

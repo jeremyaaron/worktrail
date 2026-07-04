@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 
 import { toApiErrorResponse } from '../../errors/app-error.js';
 import type { AppRequest, EndpointHandler } from '../../http/app-request.js';
+import type { Repositories } from '../../repositories/index.js';
 import { resolveLocalActor } from './actor.js';
 
 function normalizeHeaders(request: Request): Record<string, string | undefined> {
@@ -36,7 +37,14 @@ function normalizeParams(request: Request): Record<string, string> {
   return params;
 }
 
-export function toAppRequest(request: Request): AppRequest {
+export interface AdaptEndpointOptions {
+  repositories?: Pick<Repositories, 'members'>;
+}
+
+export async function toAppRequest(
+  request: Request,
+  options: AdaptEndpointOptions = {}
+): Promise<AppRequest> {
   return {
     method: request.method,
     path: request.path,
@@ -44,14 +52,14 @@ export function toAppRequest(request: Request): AppRequest {
     query: normalizeQuery(request),
     headers: normalizeHeaders(request),
     body: request.body,
-    actor: resolveLocalActor(request)
+    actor: await resolveLocalActor(request, options.repositories)
   };
 }
 
-export function adaptEndpoint(handler: EndpointHandler) {
+export function adaptEndpoint(handler: EndpointHandler, options: AdaptEndpointOptions = {}) {
   return async (request: Request, response: Response): Promise<void> => {
     try {
-      const appResponse = await handler(toAppRequest(request));
+      const appResponse = await handler(await toAppRequest(request, options));
 
       for (const [key, value] of Object.entries(appResponse.headers ?? {})) {
         response.setHeader(key, value);

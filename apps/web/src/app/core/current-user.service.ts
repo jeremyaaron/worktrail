@@ -63,8 +63,7 @@ export class CurrentUserService {
 
     return {
       'x-worktrail-workspace-id': member.workspaceId,
-      'x-worktrail-member-id': member.id,
-      'x-worktrail-role': member.role
+      'x-worktrail-member-id': member.id
     };
   }
 }
