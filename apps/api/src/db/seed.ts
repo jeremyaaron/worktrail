@@ -8,6 +8,7 @@ import {
   comments,
   labels,
   members,
+  milestones,
   projects,
   workItemLabels,
   workItems,
@@ -33,6 +34,11 @@ const ids = {
     reliability: '10000000-0000-4000-8000-000000000304',
     deprecated: '10000000-0000-4000-8000-000000000305'
   },
+  milestones: {
+    planning: '10000000-0000-4000-8000-000000000351',
+    cloud: '10000000-0000-4000-8000-000000000352',
+    completed: '10000000-0000-4000-8000-000000000353'
+  },
   workItems: {
     backlog: '10000000-0000-4000-8000-000000000401',
     ready: '10000000-0000-4000-8000-000000000402',
@@ -52,12 +58,14 @@ const ids = {
     assignee: '10000000-0000-4000-8000-000000000603',
     priority: '10000000-0000-4000-8000-000000000604',
     label: '10000000-0000-4000-8000-000000000605',
-    comment: '10000000-0000-4000-8000-000000000606'
+    comment: '10000000-0000-4000-8000-000000000606',
+    milestone: '10000000-0000-4000-8000-000000000607'
   }
 } as const;
 
 const now = new Date('2026-07-03T12:00:00.000Z');
 const earlier = new Date('2026-07-02T12:00:00.000Z');
+const stale = new Date('2026-06-20T12:00:00.000Z');
 
 const pool = createPool();
 const db = createDb(pool);
@@ -232,6 +240,62 @@ try {
       });
 
     await tx
+      .insert(milestones)
+      .values([
+        {
+          id: ids.milestones.planning,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.app,
+          name: 'v0.0.3 Planning',
+          description: 'Planning target for milestones, board ordering, discovery, and dashboard work.',
+          status: 'active',
+          targetDate: '2026-07-18',
+          archivedAt: null,
+          archivedById: null,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.milestones.cloud,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.platform,
+          name: 'Cloud Readiness',
+          description: 'Future deployment path and production architecture planning.',
+          status: 'planned',
+          targetDate: '2026-08-15',
+          archivedAt: null,
+          archivedById: null,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.milestones.completed,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.app,
+          name: 'v0.0.1 MVP',
+          description: 'Completed baseline local project management workflow.',
+          status: 'completed',
+          targetDate: '2026-07-03',
+          archivedAt: null,
+          archivedById: null,
+          createdAt: earlier,
+          updatedAt: now
+        }
+      ])
+      .onConflictDoUpdate({
+        target: milestones.id,
+        set: {
+          name: sql`excluded.name`,
+          description: sql`excluded.description`,
+          status: sql`excluded.status`,
+          targetDate: sql`excluded.target_date`,
+          archivedAt: sql`excluded.archived_at`,
+          archivedById: sql`excluded.archived_by_id`,
+          updatedAt: now
+        }
+      });
+
+    await tx
       .insert(workItems)
       .values([
         {
@@ -247,7 +311,9 @@ try {
           priority: 'medium',
           assigneeId: ids.members.contributor,
           reporterId: ids.members.owner,
-          dueDate: null,
+          milestoneId: ids.milestones.planning,
+          boardPosition: 1024,
+          dueDate: '2026-07-07',
           estimatePoints: 3,
           createdAt: earlier,
           updatedAt: now
@@ -265,6 +331,8 @@ try {
           priority: 'high',
           assigneeId: ids.members.maintainer,
           reporterId: ids.members.owner,
+          milestoneId: ids.milestones.planning,
+          boardPosition: 1024,
           dueDate: '2026-07-10',
           estimatePoints: 5,
           createdAt: earlier,
@@ -283,10 +351,12 @@ try {
           priority: 'urgent',
           assigneeId: ids.members.maintainer,
           reporterId: ids.members.owner,
+          milestoneId: ids.milestones.planning,
+          boardPosition: 1024,
           dueDate: '2026-07-08',
           estimatePoints: 8,
           createdAt: earlier,
-          updatedAt: now
+          updatedAt: stale
         },
         {
           id: ids.workItems.blocked,
@@ -301,7 +371,9 @@ try {
           priority: 'low',
           assigneeId: ids.members.contributor,
           reporterId: ids.members.maintainer,
-          dueDate: null,
+          milestoneId: ids.milestones.planning,
+          boardPosition: 1024,
+          dueDate: '2026-06-30',
           estimatePoints: 2,
           createdAt: earlier,
           updatedAt: now
@@ -319,6 +391,8 @@ try {
           priority: 'medium',
           assigneeId: ids.members.owner,
           reporterId: ids.members.owner,
+          milestoneId: ids.milestones.completed,
+          boardPosition: 1024,
           dueDate: null,
           estimatePoints: 2,
           createdAt: earlier,
@@ -337,6 +411,8 @@ try {
           priority: 'low',
           assigneeId: null,
           reporterId: ids.members.maintainer,
+          milestoneId: null,
+          boardPosition: 1024,
           dueDate: null,
           estimatePoints: null,
           createdAt: earlier,
@@ -355,6 +431,8 @@ try {
           priority: 'high',
           assigneeId: ids.members.owner,
           reporterId: ids.members.maintainer,
+          milestoneId: ids.milestones.cloud,
+          boardPosition: 1024,
           dueDate: '2026-07-17',
           estimatePoints: 5,
           createdAt: earlier,
@@ -366,7 +444,11 @@ try {
         set: {
           itemNumber: sql`excluded.item_number`,
           displayKey: sql`excluded.display_key`,
-          updatedAt: now
+          milestoneId: sql`excluded.milestone_id`,
+          boardPosition: sql`excluded.board_position`,
+          dueDate: sql`excluded.due_date`,
+          estimatePoints: sql`excluded.estimate_points`,
+          updatedAt: sql`excluded.updated_at`
         }
       });
 
@@ -500,6 +582,19 @@ try {
           previousValue: null,
           newValue: null,
           metadata: { commentId: ids.comments.second },
+          createdAt: now
+        },
+        {
+          id: ids.activity.milestone,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.app,
+          workItemId: ids.workItems.inProgress,
+          actorId: ids.members.maintainer,
+          eventType: 'work_item.milestone_changed',
+          summary: 'Morgan Maintainer assigned this work item to v0.0.3 Planning.',
+          previousValue: { milestoneId: null },
+          newValue: { milestoneId: ids.milestones.planning, milestoneName: 'v0.0.3 Planning' },
+          metadata: {},
           createdAt: now
         }
       ])

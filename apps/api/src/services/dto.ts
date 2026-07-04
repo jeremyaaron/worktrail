@@ -3,13 +3,22 @@ import type {
   CommentDto,
   LabelDto,
   MemberDto,
+  MilestoneDto,
   ProjectDto,
   RecentWorkItemDto,
   WorkItemDetailDto,
   WorkItemListItemDto
 } from '@worktrail/contracts';
 
-import type { ActivityEvent, Comment, Label, Member, Project, WorkItem } from '../repositories/types.js';
+import type {
+  ActivityEvent,
+  Comment,
+  Label,
+  Member,
+  Milestone,
+  Project,
+  WorkItem
+} from '../repositories/types.js';
 
 function toNullableRecord(value: Record<string, unknown> | null): Record<string, unknown> | null {
   return value;
@@ -65,6 +74,22 @@ export function toLabelDto(label: Label): LabelDto {
   };
 }
 
+export function toMilestoneDto(milestone: Milestone): MilestoneDto {
+  return {
+    id: milestone.id,
+    workspaceId: milestone.workspaceId,
+    projectId: milestone.projectId,
+    name: milestone.name,
+    description: milestone.description,
+    status: milestone.status,
+    targetDate: milestone.targetDate,
+    isArchived: milestone.archivedAt !== null,
+    archivedAt: milestone.archivedAt?.toISOString() ?? null,
+    createdAt: milestone.createdAt.toISOString(),
+    updatedAt: milestone.updatedAt.toISOString()
+  };
+}
+
 export function toCommentDto(comment: Comment, author: Member, deletedBy: Member | null = null): CommentDto {
   const isDeleted = comment.deletedAt !== null;
 
@@ -106,6 +131,7 @@ export function toWorkItemListItemDto(input: {
   assignee: Member | null;
   reporter: Member;
   labels: Label[];
+  milestone?: Milestone | null;
 }): WorkItemListItemDto {
   return {
     id: input.workItem.id,
@@ -120,6 +146,8 @@ export function toWorkItemListItemDto(input: {
     assignee: input.assignee === null ? null : toMemberDto(input.assignee),
     reporter: toMemberDto(input.reporter),
     labels: input.labels.map(toLabelDto),
+    milestone: input.milestone == null ? null : toMilestoneDto(input.milestone),
+    boardPosition: input.workItem.boardPosition,
     dueDate: input.workItem.dueDate,
     estimatePoints: input.workItem.estimatePoints,
     createdAt: input.workItem.createdAt.toISOString(),
@@ -132,6 +160,7 @@ export function toWorkItemDetailDto(input: {
   assignee: Member | null;
   reporter: Member;
   labels: Label[];
+  milestone?: Milestone | null;
   comments: CommentDto[];
   activity: ActivityEventDto[];
 }): WorkItemDetailDto {

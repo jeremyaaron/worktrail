@@ -11,7 +11,14 @@ export interface WorkItemFilters {
   priority?: WorkItem['priority'];
   labelId?: string;
   search?: string;
-  sort?: 'updated_desc' | 'updated_asc' | 'priority_desc' | 'priority_asc';
+  sort?:
+    | 'updated_desc'
+    | 'updated_asc'
+    | 'priority_desc'
+    | 'priority_asc'
+    | 'due_date_asc'
+    | 'created_desc'
+    | 'board_order';
 }
 
 export interface UpdateWorkItemInput {

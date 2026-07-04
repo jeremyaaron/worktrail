@@ -140,6 +140,26 @@ npm run typecheck
 npm test --workspace @worktrail/api
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Added v0.0.3 shared contract types for milestones, due date state filters, expanded work item sorts, board move requests, planning summary DTOs, milestone assignment, and board position.
+- Added backend milestone statuses and new activity event types for milestone lifecycle and work item milestone changes.
+- Added Drizzle schema for `milestones` with project-scoped lifecycle fields, status checks, indexes, and active-name uniqueness.
+- Added `milestone_id` and `board_position` to `work_items` with query indexes for milestone, status/order, due date, and reporter.
+- Generated migration `0002_wide_nicolaos.sql` and hand-edited it to backfill board positions deterministically by `(project_id, status)` using `updated_at desc, item_number asc`.
+- Updated repository inferred types for milestones.
+- Updated DTO mapping to expose milestone DTOs and board positions, with existing work item service paths returning `milestone: null` until repository joins are implemented in Phase 3.
+- Updated seed data with deterministic milestones, milestone assignments, board positions, due dates, stale work, and a seeded `work_item.milestone_changed` activity event.
+- Updated frontend test fixtures for the expanded work item DTO shape.
+- Verified `npm run db:reset && npm run db:migrate && npm run db:seed`.
+- Verified seeded milestone rows, work item board positions, and the new activity event type with a direct Postgres query through the project `pg` dependency because `psql` is not installed locally.
+- Verified `npm run typecheck`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `npm test`.
+- Verified `npm run build`.
+- Verified `git diff --check`.
+
 ## Phase 2: Milestone Backend
 
 Goal: implement milestone lifecycle behavior and API endpoints.

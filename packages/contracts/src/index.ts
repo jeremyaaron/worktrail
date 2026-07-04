@@ -14,12 +14,28 @@ export type WorkItemStatus =
   | 'done'
   | 'canceled';
 export type WorkItemPriority = 'low' | 'medium' | 'high' | 'urgent';
-export type WorkItemSort = 'updated_desc' | 'updated_asc' | 'priority_desc' | 'priority_asc';
+export type MilestoneStatus = 'planned' | 'active' | 'completed' | 'canceled';
+export type DueDateState = 'overdue' | 'due_soon' | 'none';
+export type WorkItemSort =
+  | 'updated_desc'
+  | 'updated_asc'
+  | 'priority_desc'
+  | 'priority_asc'
+  | 'due_date_asc'
+  | 'created_desc'
+  | 'board_order';
 export type ActivityEventType =
   | 'project.name_changed'
   | 'project.description_changed'
   | 'project.archived'
   | 'project.reactivated'
+  | 'milestone.created'
+  | 'milestone.name_changed'
+  | 'milestone.description_changed'
+  | 'milestone.status_changed'
+  | 'milestone.target_date_changed'
+  | 'milestone.archived'
+  | 'milestone.reactivated'
   | 'label.created'
   | 'label.name_changed'
   | 'label.color_changed'
@@ -31,6 +47,7 @@ export type ActivityEventType =
   | 'work_item.status_changed'
   | 'work_item.assignee_changed'
   | 'work_item.priority_changed'
+  | 'work_item.milestone_changed'
   | 'work_item.label_added'
   | 'work_item.label_removed'
   | 'comment.added'
@@ -97,6 +114,20 @@ export interface LabelDto {
   archivedAt: string | null;
 }
 
+export interface MilestoneDto {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  name: string;
+  description: string;
+  status: MilestoneStatus;
+  targetDate: string | null;
+  isArchived: boolean;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface WorkItemListItemDto {
   id: string;
   workspaceId: string;
@@ -110,6 +141,8 @@ export interface WorkItemListItemDto {
   assignee: MemberDto | null;
   reporter: MemberDto;
   labels: LabelDto[];
+  milestone: MilestoneDto | null;
+  boardPosition: number;
   dueDate: string | null;
   estimatePoints: number | null;
   createdAt: string;
@@ -160,6 +193,7 @@ export interface CreateWorkItemRequest {
   priority: WorkItemPriority;
   assigneeId?: string | null;
   labelIds?: string[];
+  milestoneId?: string | null;
   dueDate?: string | null;
   estimatePoints?: number | null;
 }
@@ -171,12 +205,63 @@ export interface UpdateWorkItemRequest {
   priority?: WorkItemPriority;
   assigneeId?: string | null;
   labelIds?: string[];
+  milestoneId?: string | null;
   dueDate?: string | null;
   estimatePoints?: number | null;
 }
 
 export interface TransitionWorkItemRequest {
   status: WorkItemStatus;
+}
+
+export interface MoveWorkItemOnBoardRequest {
+  status: WorkItemStatus;
+  beforeWorkItemId?: string | null;
+  afterWorkItemId?: string | null;
+}
+
+export interface CreateMilestoneRequest {
+  name: string;
+  description?: string;
+  status?: MilestoneStatus;
+  targetDate?: string | null;
+}
+
+export interface UpdateMilestoneRequest {
+  name?: string;
+  description?: string;
+  status?: MilestoneStatus;
+  targetDate?: string | null;
+}
+
+export interface MilestoneProgressDto {
+  milestone: MilestoneDto;
+  totalCount: number;
+  doneCount: number;
+  blockedCount: number;
+  overdueCount: number;
+}
+
+export interface PlanningRiskItemDto {
+  id: string;
+  displayKey: string;
+  title: string;
+  status: WorkItemStatus;
+  priority: WorkItemPriority;
+  assignee: MemberDto | null;
+  dueDate: string | null;
+  milestone: MilestoneDto | null;
+  updatedAt: string;
+}
+
+export interface ProjectPlanningSummaryDto {
+  project: ProjectDto;
+  milestoneProgress: MilestoneProgressDto[];
+  blockedWork: PlanningRiskItemDto[];
+  overdueWork: PlanningRiskItemDto[];
+  dueSoonWork: PlanningRiskItemDto[];
+  unassignedActiveWork: PlanningRiskItemDto[];
+  staleInProgressWork: PlanningRiskItemDto[];
 }
 
 export interface CreateCommentRequest {

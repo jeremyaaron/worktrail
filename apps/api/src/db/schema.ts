@@ -16,12 +16,14 @@ import {
 import {
   type ActivityEventType,
   type MemberRole,
+  type MilestoneStatus,
   type ProjectStatus,
   type WorkItemPriority,
   type WorkItemStatus,
   type WorkItemType,
   activityEventTypes,
   memberRoles,
+  milestoneStatuses,
   projectStatuses,
   workItemPriorities,
   workItemStatuses,
@@ -86,6 +88,35 @@ export const projects = pgTable(
   ]
 );
 
+export const milestones = pgTable(
+  'milestones',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id),
+    name: text('name').notNull(),
+    description: text('description').notNull().default(''),
+    status: text('status').$type<MilestoneStatus>().notNull(),
+    targetDate: date('target_date', { mode: 'string' }),
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
+    archivedById: uuid('archived_by_id').references(() => members.id),
+    ...timestamps
+  },
+  (table) => [
+    check('milestones_status_check', enumCheckSql('status', milestoneStatuses)),
+    index('milestones_project_id_status_idx').on(table.projectId, table.status),
+    index('milestones_project_id_target_date_idx').on(table.projectId, table.targetDate),
+    index('milestones_project_id_archived_at_idx').on(table.projectId, table.archivedAt),
+    uniqueIndex('milestones_project_id_active_name_unique')
+      .on(table.projectId, sql`lower(${table.name})`)
+      .where(sql`${table.archivedAt} is null`)
+  ]
+);
+
 export const workItems = pgTable(
   'work_items',
   {
@@ -107,6 +138,8 @@ export const workItems = pgTable(
     reporterId: uuid('reporter_id')
       .notNull()
       .references(() => members.id),
+    milestoneId: uuid('milestone_id').references(() => milestones.id),
+    boardPosition: integer('board_position').notNull().default(0),
     dueDate: date('due_date', { mode: 'string' }),
     estimatePoints: integer('estimate_points'),
     ...timestamps
@@ -120,6 +153,14 @@ export const workItems = pgTable(
     index('work_items_project_id_assignee_id_idx').on(table.projectId, table.assigneeId),
     index('work_items_project_id_type_idx').on(table.projectId, table.type),
     index('work_items_project_id_priority_idx').on(table.projectId, table.priority),
+    index('work_items_project_id_milestone_id_idx').on(table.projectId, table.milestoneId),
+    index('work_items_project_id_status_board_position_idx').on(
+      table.projectId,
+      table.status,
+      table.boardPosition
+    ),
+    index('work_items_project_id_due_date_idx').on(table.projectId, table.dueDate),
+    index('work_items_project_id_reporter_id_idx').on(table.projectId, table.reporterId),
     index('work_items_project_id_updated_at_idx').on(table.projectId, table.updatedAt.desc()),
     index('work_items_project_id_title_idx').on(table.projectId, table.title),
     uniqueIndex('work_items_project_id_item_number_unique').on(table.projectId, table.itemNumber),

@@ -63,6 +63,8 @@ const detail: WorkItemDetailDto = {
   assignee: contributor,
   reporter: owner,
   labels: [{ id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }],
+  milestone: null,
+  boardPosition: 1024,
   dueDate: '2026-07-20',
   estimatePoints: 5,
   createdAt: '2026-07-02T12:00:00.000Z',
