@@ -680,6 +680,41 @@ npm run build --workspace @worktrail/web
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Replaced the workspace work item placeholder with a URL-backed cross-project discovery page.
+- Loads workspace work from `GET /work-items` using normalized `WorkItemQuery` state from the URL.
+- Loads project filter options from `GET /projects/navigation-summary`.
+- Loads project-scoped label and milestone filter options after a project is selected.
+- Added filters for:
+  - project;
+  - status;
+  - work state;
+  - type;
+  - priority;
+  - assignee, including unassigned;
+  - reporter;
+  - label;
+  - milestone;
+  - due date state;
+  - blocked state;
+  - archived project inclusion;
+  - sort.
+- Preserves dashboard link queries such as `workState=open` and `blocked=true`.
+- Applies dropdown filters immediately through URL updates.
+- Debounces search before updating URL query params.
+- Shows active filter pills only from applied URL state, not from unsaved form edits.
+- Added reset behavior that clears all filter query params in one navigation update.
+- Renders cross-project rows with project identity, display key, type/status/priority metadata, labels, milestone, due date, assignee, and updated date.
+- Added loading, error/retry, and empty states.
+- Added component tests for URL-backed loading, active filter pills, immediate dropdown application, debounced search, reset behavior, and result links.
+- Verified `npm test --workspace @worktrail/web -- --include='src/app/features/work-items/workspace-work-item-list-page.component.spec.ts'`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm test --workspace @worktrail/web`.
+- Verified `npm run build --workspace @worktrail/web`; production initial bundle remains 343.06 kB raw and 95.23 kB estimated transfer.
+- Verified `git diff --check`.
+
 ## Phase 9: Saved Views Frontend
 
 Goal: make cross-project discovery queries reusable.
