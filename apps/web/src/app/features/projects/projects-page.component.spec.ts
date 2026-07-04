@@ -6,7 +6,6 @@ import type { ActivityEventDto, ProjectDto, ProjectSummaryDto } from '@worktrail
 
 import { ProjectHomePageComponent } from './project-home-page.component';
 import { ProjectListPageComponent } from './project-list-page.component';
-import { ProjectPlanningPageComponent } from './project-planning-page.component';
 import { ProjectSettingsPageComponent } from './project-settings-page.component';
 
 const projectId = '10000000-0000-4000-8000-000000000201';
@@ -397,43 +396,5 @@ describe('ProjectSettingsPageComponent', () => {
     expect(reactivate.request.method).toBe('POST');
     reactivate.flush({ ...archivedLabel, isArchived: false, archivedAt: null });
     http.expectOne(`/api/projects/${projectId}/activity`).flush([labelActivity]);
-  });
-});
-
-describe('ProjectPlanningPageComponent', () => {
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [ProjectPlanningPageComponent],
-      providers: [
-        provideRouter([]),
-        {
-          provide: ActivatedRoute,
-          useValue: {
-            snapshot: {
-              paramMap: convertToParamMap({ projectId })
-            }
-          }
-        }
-      ]
-    }).compileComponents();
-  });
-
-  it('renders the planning route shell with project navigation links', () => {
-    const fixture = TestBed.createComponent(ProjectPlanningPageComponent);
-    fixture.detectChanges();
-
-    const compiled = fixture.nativeElement as HTMLElement;
-    const links = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('nav a')).map((link) => ({
-      text: link.textContent?.trim(),
-      href: link.getAttribute('href')
-    }));
-
-    expect(compiled.textContent).toContain('Project planning');
-    expect(links).toEqual([
-      { text: 'Overview', href: `/projects/${projectId}` },
-      { text: 'Work items', href: `/projects/${projectId}/work-items` },
-      { text: 'Board', href: `/projects/${projectId}/board` },
-      { text: 'Settings', href: `/projects/${projectId}/settings` }
-    ]);
   });
 });

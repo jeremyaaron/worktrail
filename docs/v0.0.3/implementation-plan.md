@@ -545,6 +545,30 @@ npm test --workspace @worktrail/web -- --include '*planning*'
 npm run typecheck --workspace @worktrail/web
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Replaced the planning route placeholder with milestone management UI.
+- Added project and milestone loading for `/projects/:projectId/planning`.
+- Added milestone create support with inline required-name validation and API conflict message display.
+- Added editable milestone rows for name, description, status, and target date.
+- Added archive and reactivate commands for milestones.
+- Added read-only planning states for archived projects and contributor-only actors.
+- Kept the planning summary panel as a compact Phase 10 placeholder.
+- Added focused frontend tests for:
+  - milestone rendering and project navigation;
+  - create/edit/archive/reactivate flows;
+  - validation and duplicate-name API errors;
+  - archived-project read-only behavior;
+  - contributor read-only behavior.
+- Verified `npm test --workspace @worktrail/web -- --include 'src/app/features/projects/*planning*.spec.ts'`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm test --workspace @worktrail/web`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `npm run build`.
+- Verified `git diff --check`.
+
 ## Phase 8: Work Item Planning UI And List Discovery
 
 Goal: expose milestone assignment and richer discovery in work item views.

@@ -1,0 +1,281 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import type { MemberDto, MilestoneDto, ProjectDto } from '@worktrail/contracts';
+
+import { CurrentUserService } from '../../core/current-user.service';
+import { ProjectPlanningPageComponent } from './project-planning-page.component';
+
+const projectId = '10000000-0000-4000-8000-000000000201';
+const workspaceId = '10000000-0000-4000-8000-000000000001';
+
+const owner: MemberDto = {
+  id: '10000000-0000-4000-8000-000000000101',
+  workspaceId,
+  name: 'Avery Owner',
+  email: 'avery.owner@example.com',
+  role: 'owner',
+  isActive: true
+};
+
+const contributor: MemberDto = {
+  id: '10000000-0000-4000-8000-000000000103',
+  workspaceId,
+  name: 'Case Contributor',
+  email: 'case.contributor@example.com',
+  role: 'contributor',
+  isActive: true
+};
+
+const activeProject: ProjectDto = {
+  id: projectId,
+  workspaceId,
+  key: 'WT',
+  name: 'Worktrail App',
+  description: 'MVP project management reference application.',
+  status: 'active',
+  createdAt: '2026-07-02T12:00:00.000Z',
+  updatedAt: '2026-07-03T12:00:00.000Z'
+};
+
+const archivedProject: ProjectDto = {
+  ...activeProject,
+  status: 'archived'
+};
+
+const activeMilestone: MilestoneDto = {
+  id: '10000000-0000-4000-8000-000000000501',
+  workspaceId,
+  projectId,
+  name: 'v0.0.3',
+  description: 'Planning and ordering release.',
+  status: 'active',
+  targetDate: '2026-07-18',
+  isArchived: false,
+  archivedAt: null,
+  createdAt: '2026-07-03T12:00:00.000Z',
+  updatedAt: '2026-07-04T12:00:00.000Z'
+};
+
+const archivedMilestone: MilestoneDto = {
+  id: '10000000-0000-4000-8000-000000000502',
+  workspaceId,
+  projectId,
+  name: 'legacy target',
+  description: '',
+  status: 'canceled',
+  targetDate: null,
+  isArchived: true,
+  archivedAt: '2026-07-01T12:00:00.000Z',
+  createdAt: '2026-06-25T12:00:00.000Z',
+  updatedAt: '2026-07-01T12:00:00.000Z'
+};
+
+function seedCurrentUser(member: MemberDto = owner) {
+  const currentUser = TestBed.inject(CurrentUserService);
+  currentUser.members.set([owner, contributor]);
+  currentUser.selectMember(member.id);
+}
+
+function setupPlanningPage(
+  project: ProjectDto = activeProject,
+  milestones: MilestoneDto[] = [activeMilestone, archivedMilestone],
+  member: MemberDto = owner
+) {
+  seedCurrentUser(member);
+  const fixture = TestBed.createComponent(ProjectPlanningPageComponent);
+  const http = TestBed.inject(HttpTestingController);
+  fixture.detectChanges();
+  http.expectOne(`/api/projects/${projectId}`).flush(project);
+  http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush(milestones);
+  fixture.detectChanges();
+  return { fixture, http };
+}
+
+describe('ProjectPlanningPageComponent', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [ProjectPlanningPageComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              paramMap: convertToParamMap({ projectId })
+            }
+          }
+        }
+      ]
+    }).compileComponents();
+  });
+
+  afterEach(() => {
+    TestBed.inject(HttpTestingController).verify();
+  });
+
+  it('renders milestone management with project navigation links', () => {
+    const { fixture } = setupPlanningPage();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const links = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('nav a')).map((link) => ({
+      text: link.textContent?.trim(),
+      href: link.getAttribute('href')
+    }));
+
+    expect(compiled.textContent).toContain('Worktrail App');
+    expect(compiled.textContent).toContain('v0.0.3');
+    expect(compiled.textContent).toContain('legacy target');
+    expect(compiled.textContent).toContain('archived');
+    expect(compiled.textContent).toContain('2 total');
+    expect(links).toEqual([
+      { text: 'Overview', href: `/projects/${projectId}` },
+      { text: 'Work items', href: `/projects/${projectId}/work-items` },
+      { text: 'Board', href: `/projects/${projectId}/board` },
+      { text: 'Settings', href: `/projects/${projectId}/settings` }
+    ]);
+  });
+
+  it('creates, edits, archives, and reactivates milestones', () => {
+    const { fixture, http } = setupPlanningPage();
+    const createdMilestone: MilestoneDto = {
+      ...activeMilestone,
+      id: '10000000-0000-4000-8000-000000000503',
+      name: 'v0.0.4',
+      description: 'Next sprint.',
+      status: 'planned',
+      targetDate: '2026-08-01'
+    };
+
+    fixture.componentInstance.milestoneForm.setValue({
+      name: 'v0.0.4',
+      description: 'Next sprint.',
+      status: 'planned',
+      targetDate: '2026-08-01'
+    });
+    fixture.componentInstance.createMilestone();
+
+    const create = http.expectOne(`/api/projects/${projectId}/milestones`);
+    expect(create.request.method).toBe('POST');
+    expect(create.request.body).toEqual({
+      name: 'v0.0.4',
+      description: 'Next sprint.',
+      status: 'planned',
+      targetDate: '2026-08-01'
+    });
+    create.flush(createdMilestone);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Milestone created.');
+
+    fixture.componentInstance.updateMilestone(
+      activeMilestone,
+      'v0.0.3 launch',
+      'Ready for launch.',
+      'completed',
+      '2026-07-30'
+    );
+    const update = http.expectOne(`/api/milestones/${activeMilestone.id}`);
+    expect(update.request.method).toBe('PATCH');
+    expect(update.request.body).toEqual({
+      name: 'v0.0.3 launch',
+      description: 'Ready for launch.',
+      status: 'completed',
+      targetDate: '2026-07-30'
+    });
+    update.flush({
+      ...activeMilestone,
+      name: 'v0.0.3 launch',
+      description: 'Ready for launch.',
+      status: 'completed',
+      targetDate: '2026-07-30'
+    });
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Milestone saved.');
+
+    fixture.componentInstance.archiveMilestone(activeMilestone);
+    const archive = http.expectOne(`/api/milestones/${activeMilestone.id}/archive`);
+    expect(archive.request.method).toBe('POST');
+    archive.flush({
+      ...activeMilestone,
+      isArchived: true,
+      archivedAt: '2026-07-04T12:30:00.000Z'
+    });
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Milestone archived.');
+
+    fixture.componentInstance.reactivateMilestone(archivedMilestone);
+    const reactivate = http.expectOne(`/api/milestones/${archivedMilestone.id}/reactivate`);
+    expect(reactivate.request.method).toBe('POST');
+    reactivate.flush({
+      ...archivedMilestone,
+      isArchived: false,
+      archivedAt: null
+    });
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Milestone reactivated.');
+  });
+
+  it('shows validation and duplicate-name API errors inline', () => {
+    const { fixture, http } = setupPlanningPage(activeProject, []);
+
+    fixture.componentInstance.createMilestone();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Milestone name is required.');
+    http.expectNone((request) => request.method === 'POST');
+
+    fixture.componentInstance.milestoneForm.setValue({
+      name: 'v0.0.3',
+      description: '',
+      status: 'planned',
+      targetDate: ''
+    });
+    fixture.componentInstance.createMilestone();
+
+    const create = http.expectOne(`/api/projects/${projectId}/milestones`);
+    create.flush(
+      {
+        error: {
+          code: 'CONFLICT',
+          message: 'A milestone with this name already exists for the project.'
+        }
+      },
+      { status: 409, statusText: 'Conflict' }
+    );
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'A milestone with this name already exists for the project.'
+    );
+  });
+
+  it('renders archived projects read-only', () => {
+    const { fixture, http } = setupPlanningPage(archivedProject);
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Archived project');
+    expect(compiled.querySelector('button[type="submit"]')).toBeNull();
+
+    const editableFields = Array.from(
+      compiled.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+        '.milestone-row input, .milestone-row select, .milestone-row textarea'
+      )
+    );
+    expect(editableFields.length).toBeGreaterThan(0);
+    expect(editableFields.every((field) => field.disabled)).toBeTrue();
+
+    fixture.componentInstance.createMilestone();
+    http.expectNone((request) => request.method === 'POST');
+  });
+
+  it('renders contributor access read-only', () => {
+    const { fixture } = setupPlanningPage(activeProject, [activeMilestone], contributor);
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Read-only planning');
+    expect(compiled.querySelector('button[type="submit"]')).toBeNull();
+    expect(compiled.textContent).toContain('v0.0.3');
+  });
+});
