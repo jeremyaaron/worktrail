@@ -203,6 +203,7 @@ describe('ProjectHomePageComponent', () => {
     expect(compiled.textContent).toContain('WT');
     expect(compiled.textContent).toContain('Backlog');
     expect(compiled.textContent).toContain('In progress');
+    expect(compiled.textContent).toContain('WT-3');
     expect(compiled.textContent).toContain('Implement API client');
     expect(compiled.textContent).toContain('Create work item');
     expect(compiled.textContent).toContain('Settings');

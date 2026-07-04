@@ -5,6 +5,7 @@ import type {
   CreateWorkItemRequest,
   LabelDto,
   MemberDto,
+  ProjectDto,
   WorkItemPriority,
   WorkItemType
 } from '@worktrail/contracts';
@@ -30,7 +31,20 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
       <a [routerLink]="['/projects', projectId(), 'work-items']">Back to list</a>
     </section>
 
-    <form class="work-item-form" [formGroup]="workItemForm" (ngSubmit)="createWorkItem()" novalidate>
+    @if (isArchivedProject()) {
+      <section class="notice" aria-label="Archived project">
+        <strong>Archived project</strong>
+        <p>Project work is read-only until it is reactivated in settings.</p>
+      </section>
+    }
+
+    <form
+      class="work-item-form"
+      [class.work-item-form--readonly]="isArchivedProject()"
+      [formGroup]="workItemForm"
+      (ngSubmit)="createWorkItem()"
+      novalidate
+    >
       <label for="work-item-title">Title</label>
       <input
         id="work-item-title"
@@ -45,7 +59,11 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
       }
 
       <label for="work-item-description">Description</label>
-      <textarea id="work-item-description" rows="5" formControlName="description"></textarea>
+      <textarea
+        id="work-item-description"
+        rows="5"
+        formControlName="description"
+      ></textarea>
 
       <div class="form-grid">
         <label>
@@ -83,7 +101,12 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
 
         <label>
           <span>Estimate</span>
-          <input type="number" min="0" step="1" formControlName="estimatePoints" />
+          <input
+            type="number"
+            min="0"
+            step="1"
+            formControlName="estimatePoints"
+          />
         </label>
       </div>
 
@@ -104,6 +127,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
                 <input
                   type="checkbox"
                   [checked]="isLabelSelected(label.id)"
+                  [disabled]="isArchivedProject()"
                   (change)="toggleLabel(label.id, $event)"
                 />
                 <span [style.background]="label.color ?? '#e2e8f0'"></span>
@@ -123,7 +147,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
       }
 
       <div class="form-actions">
-        <button type="submit" [disabled]="isCreating()">
+        <button type="submit" [disabled]="isArchivedProject() || isCreating()">
           {{ isCreating() ? 'Creating...' : 'Create work item' }}
         </button>
         <a [routerLink]="['/projects', projectId(), 'work-items']">Cancel</a>
@@ -186,6 +210,29 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
       border-radius: 8px;
       padding: 18px;
       background: #ffffff;
+    }
+
+    .work-item-form--readonly {
+      background: #f8fafc;
+    }
+
+    .notice {
+      display: grid;
+      gap: 4px;
+      max-width: 820px;
+      margin-bottom: 18px;
+      border: 1px solid #fed7aa;
+      border-radius: 8px;
+      padding: 14px;
+      background: #fff7ed;
+      color: #9a3412;
+    }
+
+    .notice p {
+      margin: 0;
+      color: #9a3412;
+      font-size: 0.875rem;
+      line-height: 1.5;
     }
 
     label {
@@ -328,12 +375,14 @@ export class WorkItemCreatePageComponent implements OnInit {
   readonly priorities = priorities;
   readonly members = computed<MemberDto[]>(() => this.currentUser.members());
   readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
+  readonly project = signal<ProjectDto | null>(null);
   readonly availableLabels = signal<LabelDto[]>([]);
   readonly selectedLabelIds = signal<string[]>([]);
   readonly isCreating = signal(false);
   readonly hasSubmitted = signal(false);
   readonly createError = signal<string | null>(null);
   readonly labelLoadError = signal<string | null>(null);
+  readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
 
   readonly workItemForm = this.formBuilder.nonNullable.group({
     title: ['', [Validators.required]],
@@ -350,12 +399,17 @@ export class WorkItemCreatePageComponent implements OnInit {
       this.currentUser.loadMembers();
     }
 
+    this.loadProject();
     this.loadProjectLabels();
   }
 
   createWorkItem(): void {
     this.hasSubmitted.set(true);
     this.createError.set(null);
+
+    if (this.isArchivedProject()) {
+      return;
+    }
 
     if (this.workItemForm.invalid) {
       this.workItemForm.markAllAsTouched();
@@ -395,7 +449,24 @@ export class WorkItemCreatePageComponent implements OnInit {
     });
   }
 
+  loadProject(): void {
+    this.api.getProject(this.projectId()).subscribe({
+      next: (project) => {
+        this.project.set(project);
+        this.syncReadOnlyState();
+      },
+      error: () => {
+        this.project.set(null);
+        this.syncReadOnlyState();
+      }
+    });
+  }
+
   toggleLabel(labelId: string, event: Event): void {
+    if (this.isArchivedProject()) {
+      return;
+    }
+
     const checked = (event.target as HTMLInputElement).checked;
     const selected = new Set(this.selectedLabelIds());
 
@@ -410,6 +481,14 @@ export class WorkItemCreatePageComponent implements OnInit {
 
   isLabelSelected(labelId: string): boolean {
     return this.selectedLabelIds().includes(labelId);
+  }
+
+  private syncReadOnlyState(): void {
+    if (this.isArchivedProject()) {
+      this.workItemForm.disable({ emitEvent: false });
+    } else {
+      this.workItemForm.enable({ emitEvent: false });
+    }
   }
 
   private toRequest(): CreateWorkItemRequest {

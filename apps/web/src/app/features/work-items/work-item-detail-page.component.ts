@@ -6,6 +6,7 @@ import type {
   CommentDto,
   LabelDto,
   MemberDto,
+  ProjectDto,
   UpdateWorkItemRequest,
   WorkItemDetailDto,
   WorkItemPriority,
@@ -49,11 +50,21 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
         <div>
           <p class="eyebrow">Work item</p>
           <h1>{{ item.title }}</h1>
+          <div class="work-item-meta">
+            <span>{{ item.displayKey }}</span>
+          </div>
           <p>{{ item.description || 'No description provided.' }}</p>
         </div>
 
         <a [routerLink]="['/projects', item.projectId, 'work-items']">Back to list</a>
       </section>
+
+      @if (isArchivedProject()) {
+        <section class="notice" aria-label="Archived project">
+          <strong>Archived project</strong>
+          <p>Project work is read-only until it is reactivated in settings.</p>
+        </section>
+      }
 
       <section class="detail-grid">
         <section class="panel" aria-labelledby="edit-work-item-heading">
@@ -73,7 +84,11 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
             }
 
             <label for="detail-description">Description</label>
-            <textarea id="detail-description" rows="5" formControlName="description"></textarea>
+            <textarea
+              id="detail-description"
+              rows="5"
+              formControlName="description"
+            ></textarea>
 
             <div class="form-grid">
               <label>
@@ -123,6 +138,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
                         <input
                           type="checkbox"
                           [checked]="isLabelSelected(label.id)"
+                          [disabled]="isArchivedProject()"
                           (change)="toggleLabel(label.id, $event)"
                         />
                         <span [style.background]="label.color ?? '#e2e8f0'"></span>
@@ -150,7 +166,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
               />
             }
 
-            <button type="submit" [disabled]="isUpdating()">
+            <button type="submit" [disabled]="isArchivedProject() || isUpdating()">
               {{ isUpdating() ? 'Saving...' : 'Save changes' }}
             </button>
           </form>
@@ -177,7 +193,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
                 />
               }
 
-              <button type="submit" [disabled]="isTransitioning()">
+              <button type="submit" [disabled]="isArchivedProject() || isTransitioning()">
                 {{ isTransitioning() ? 'Updating...' : 'Update status' }}
               </button>
             </form>
@@ -233,7 +249,11 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
 
           <form class="comment-form" [formGroup]="commentForm" (ngSubmit)="addComment()" novalidate>
             <label for="comment-body">Add comment</label>
-            <textarea id="comment-body" rows="4" formControlName="body"></textarea>
+            <textarea
+              id="comment-body"
+              rows="4"
+              formControlName="body"
+            ></textarea>
             @if (showCommentError()) {
               <p class="field-error">Comment body is required.</p>
             }
@@ -246,7 +266,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
               />
             }
 
-            <button type="submit" [disabled]="isCommenting()">
+            <button type="submit" [disabled]="isArchivedProject() || isCommenting()">
               {{ isCommenting() ? 'Adding...' : 'Add comment' }}
             </button>
           </form>
@@ -333,6 +353,42 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
     .label-editor p {
       margin-top: 8px;
       color: #64748b;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+
+    .work-item-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .work-item-meta span {
+      border: 1px solid #c7d2fe;
+      border-radius: 999px;
+      padding: 3px 9px;
+      background: #eef2ff;
+      color: #3730a3;
+      font-size: 0.75rem;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .notice {
+      display: grid;
+      gap: 4px;
+      margin-bottom: 18px;
+      border: 1px solid #fed7aa;
+      border-radius: 8px;
+      padding: 14px;
+      background: #fff7ed;
+      color: #9a3412;
+    }
+
+    .notice p {
+      margin: 0;
+      color: #9a3412;
       font-size: 0.875rem;
       line-height: 1.5;
     }
@@ -564,6 +620,7 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly members = computed<MemberDto[]>(() => this.currentUser.members());
   readonly workItemId = computed(() => this.route.snapshot.paramMap.get('workItemId') ?? '');
 
+  readonly project = signal<ProjectDto | null>(null);
   readonly workItem = signal<WorkItemDetailDto | null>(null);
   readonly selectedLabelIds = signal<string[]>([]);
   readonly isLoading = signal(false);
@@ -578,6 +635,7 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly commentError = signal<string | null>(null);
   readonly labelLoadError = signal<string | null>(null);
   readonly availableLabels = signal<LabelDto[]>([]);
+  readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
   readonly assignableLabels = computed(() => this.availableLabels().filter((label) => !label.isArchived));
   readonly archivedAttachedLabels = computed(() =>
     (this.workItem()?.labels ?? []).filter((label) => label.isArchived)
@@ -614,6 +672,7 @@ export class WorkItemDetailPageComponent implements OnInit {
     this.api.getWorkItem(this.workItemId()).subscribe({
       next: (workItem) => {
         this.applyWorkItem(workItem);
+        this.loadProject(workItem.projectId);
         this.loadProjectLabels(workItem.projectId);
         this.isLoading.set(false);
       },
@@ -633,6 +692,10 @@ export class WorkItemDetailPageComponent implements OnInit {
       return;
     }
 
+    if (this.isArchivedProject()) {
+      return;
+    }
+
     this.isUpdating.set(true);
     this.api.updateWorkItem(this.workItemId(), this.toUpdateRequest()).subscribe({
       next: (workItem) => {
@@ -648,6 +711,10 @@ export class WorkItemDetailPageComponent implements OnInit {
   }
 
   transitionStatus(): void {
+    if (this.isArchivedProject()) {
+      return;
+    }
+
     const status = this.statusForm.getRawValue().status as WorkItemStatus;
     this.statusError.set(null);
     this.isTransitioning.set(true);
@@ -673,6 +740,10 @@ export class WorkItemDetailPageComponent implements OnInit {
       return;
     }
 
+    if (this.isArchivedProject()) {
+      return;
+    }
+
     this.isCommenting.set(true);
     this.api.createComment(this.workItemId(), { body: this.commentForm.getRawValue().body.trim() }).subscribe({
       next: () => {
@@ -688,6 +759,10 @@ export class WorkItemDetailPageComponent implements OnInit {
   }
 
   toggleLabel(labelId: string, event: Event): void {
+    if (this.isArchivedProject()) {
+      return;
+    }
+
     const checked = (event.target as HTMLInputElement).checked;
     const selected = new Set(this.selectedLabelIds());
 
@@ -713,6 +788,19 @@ export class WorkItemDetailPageComponent implements OnInit {
       },
       error: () => {
         this.labelLoadError.set('Project labels could not be loaded from the API.');
+      }
+    });
+  }
+
+  loadProject(projectId: string): void {
+    this.api.getProject(projectId).subscribe({
+      next: (project) => {
+        this.project.set(project);
+        this.syncReadOnlyState();
+      },
+      error: () => {
+        this.project.set(null);
+        this.syncReadOnlyState();
       }
     });
   }
@@ -770,6 +858,7 @@ export class WorkItemDetailPageComponent implements OnInit {
       assigneeId: workItem.assignee?.id ?? ''
     });
     this.statusForm.reset({ status: workItem.status });
+    this.syncReadOnlyState();
   }
 
   private toUpdateRequest(): UpdateWorkItemRequest {
@@ -793,5 +882,19 @@ export class WorkItemDetailPageComponent implements OnInit {
     }
 
     this.availableLabels.set([...labelsById.values()].sort((left, right) => left.name.localeCompare(right.name)));
+  }
+
+  private syncReadOnlyState(): void {
+    const options = { emitEvent: false };
+
+    if (this.isArchivedProject()) {
+      this.detailForm.disable(options);
+      this.statusForm.disable(options);
+      this.commentForm.disable(options);
+    } else {
+      this.detailForm.enable(options);
+      this.statusForm.enable(options);
+      this.commentForm.enable(options);
+    }
   }
 }

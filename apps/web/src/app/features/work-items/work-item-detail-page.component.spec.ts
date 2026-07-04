@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import type { MemberDto, WorkItemDetailDto } from '@worktrail/contracts';
+import type { MemberDto, ProjectDto, WorkItemDetailDto } from '@worktrail/contracts';
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorkItemDetailPageComponent } from './work-item-detail-page.component';
@@ -31,6 +31,22 @@ const contributor: MemberDto = {
   email: 'case.contributor@example.com',
   role: 'contributor',
   isActive: true
+};
+
+const activeProject: ProjectDto = {
+  id: projectId,
+  workspaceId: owner.workspaceId,
+  key: 'WT',
+  name: 'Worktrail App',
+  description: 'MVP project management reference application.',
+  status: 'active',
+  createdAt: '2026-07-02T12:00:00.000Z',
+  updatedAt: '2026-07-03T12:00:00.000Z'
+};
+
+const archivedProject: ProjectDto = {
+  ...activeProject,
+  status: 'archived'
 };
 
 const detail: WorkItemDetailDto = {
@@ -96,6 +112,7 @@ function setup() {
   const http = TestBed.inject(HttpTestingController);
   fixture.detectChanges();
   http.expectOne(`/api/work-items/${workItemId}`).flush(detail);
+  http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
   http.expectOne(`/api/projects/${projectId}/labels`).flush([
     { id: frontendLabelId, name: 'frontend', color: '#2563eb', isArchived: false, archivedAt: null },
     { id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }
@@ -134,6 +151,7 @@ describe('WorkItemDetailPageComponent', () => {
     const { fixture } = setup();
     const compiled = fixture.nativeElement as HTMLElement;
 
+    expect(compiled.textContent).toContain('WT-3');
     expect(compiled.textContent).toContain('Implement detail surface');
     expect(compiled.textContent).toContain('frontend');
     expect(compiled.textContent).toContain('backend');
@@ -196,6 +214,7 @@ describe('WorkItemDetailPageComponent', () => {
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
     http.expectOne(`/api/work-items/${workItemId}`).flush(archivedDetail);
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne(`/api/projects/${projectId}/labels`).flush([
       { id: frontendLabelId, name: 'frontend', color: '#2563eb', isArchived: false, archivedAt: null },
       { id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }
@@ -212,6 +231,35 @@ describe('WorkItemDetailPageComponent', () => {
     const request = http.expectOne(`/api/work-items/${workItemId}`);
     expect(request.request.body.labelIds).toEqual([labelId, archivedLabelId]);
     request.flush(archivedDetail);
+  });
+
+  it('disables write controls and skips write calls when the project is archived', () => {
+    const fixture = TestBed.createComponent(WorkItemDetailPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne(`/api/work-items/${workItemId}`).flush(detail);
+    http.expectOne(`/api/projects/${projectId}`).flush(archivedProject);
+    http.expectOne(`/api/projects/${projectId}/labels`).flush([
+      { id: frontendLabelId, name: 'frontend', color: '#2563eb', isArchived: false, archivedAt: null },
+      { id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }
+    ]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Archived project');
+    expect(compiled.querySelector('button[type="submit"]')?.hasAttribute('disabled')).toBeTrue();
+    expect(compiled.querySelector('input[type="checkbox"]')?.hasAttribute('disabled')).toBeTrue();
+
+    fixture.componentInstance.detailForm.patchValue({ title: 'Archived edit attempt' });
+    fixture.componentInstance.updateWorkItem();
+    fixture.componentInstance.statusForm.setValue({ status: 'done' });
+    fixture.componentInstance.transitionStatus();
+    fixture.componentInstance.commentForm.setValue({ body: 'Archived comment attempt.' });
+    fixture.componentInstance.addComment();
+
+    http.expectNone(`/api/work-items/${workItemId}`);
+    http.expectNone(`/api/work-items/${workItemId}/transitions`);
+    http.expectNone(`/api/work-items/${workItemId}/comments`);
   });
 
   it('shows workflow errors when a status transition is rejected', () => {

@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import type { MemberDto, WorkItemDetailDto, WorkItemListItemDto } from '@worktrail/contracts';
+import type { MemberDto, ProjectDto, WorkItemDetailDto, WorkItemListItemDto } from '@worktrail/contracts';
 
 import { WorkItemBoardPageComponent } from './work-item-board-page.component';
 
@@ -14,6 +14,22 @@ const owner: MemberDto = {
   email: 'avery.owner@example.com',
   role: 'owner',
   isActive: true
+};
+
+const activeProject: ProjectDto = {
+  id: projectId,
+  workspaceId: owner.workspaceId,
+  key: 'WT',
+  name: 'Worktrail App',
+  description: 'MVP project management reference application.',
+  status: 'active',
+  createdAt: '2026-07-02T12:00:00.000Z',
+  updatedAt: '2026-07-03T12:00:00.000Z'
+};
+
+const archivedProject: ProjectDto = {
+  ...activeProject,
+  status: 'archived'
 };
 
 const readyItem: WorkItemListItemDto = {
@@ -81,6 +97,7 @@ describe('WorkItemBoardPageComponent', () => {
 
   it('renders all board columns and groups cards by status', () => {
     const { fixture, http } = setup();
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     const request = http.expectOne((candidate) => {
       return (
         candidate.url === `/api/projects/${projectId}/work-items` &&
@@ -94,6 +111,7 @@ describe('WorkItemBoardPageComponent', () => {
     expect(compiled.textContent).toContain('backlog');
     expect(compiled.textContent).toContain('ready');
     expect(compiled.textContent).toContain('in progress');
+    expect(compiled.textContent).toContain('WT-2');
     expect(compiled.textContent).toContain('Ready board item');
     expect(compiled.textContent).toContain('No cards');
     expect(compiled.querySelector('select')?.value).toBe('ready');
@@ -101,6 +119,7 @@ describe('WorkItemBoardPageComponent', () => {
 
   it('moves a card through the status menu and refreshes board state', () => {
     const { fixture, http } = setup();
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
       readyItem
     ]);
@@ -130,6 +149,7 @@ describe('WorkItemBoardPageComponent', () => {
 
   it('shows a clear error when a transition is rejected', () => {
     const { fixture, http } = setup();
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
       readyItem
     ]);
@@ -149,5 +169,25 @@ describe('WorkItemBoardPageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'The requested status transition was rejected.'
     );
+  });
+
+  it('renders archived projects as read-only and skips transition requests', () => {
+    const { fixture, http } = setup();
+    http.expectOne(`/api/projects/${projectId}`).flush(archivedProject);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
+      readyItem
+    ]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Archived project');
+    expect(compiled.textContent).not.toContain('Create work item');
+    expect(compiled.querySelector('select')?.hasAttribute('disabled')).toBeTrue();
+
+    fixture.componentInstance.transitionCard(readyItem, {
+      target: { value: 'in_progress' }
+    } as unknown as Event);
+
+    http.expectNone(`/api/work-items/${readyItem.id}/transitions`);
   });
 });

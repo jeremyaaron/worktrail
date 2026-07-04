@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
-import type { MemberDto, WorkItemDetailDto, WorkItemListItemDto } from '@worktrail/contracts';
+import type { MemberDto, ProjectDto, WorkItemDetailDto, WorkItemListItemDto } from '@worktrail/contracts';
 import { BehaviorSubject } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
@@ -20,6 +20,22 @@ const member: MemberDto = {
   email: 'case.contributor@example.com',
   role: 'contributor',
   isActive: true
+};
+
+const activeProject: ProjectDto = {
+  id: projectId,
+  workspaceId: member.workspaceId,
+  key: 'WT',
+  name: 'Worktrail App',
+  description: 'MVP project management reference application.',
+  status: 'active',
+  createdAt: '2026-07-02T12:00:00.000Z',
+  updatedAt: '2026-07-03T12:00:00.000Z'
+};
+
+const archivedProject: ProjectDto = {
+  ...activeProject,
+  status: 'archived'
 };
 
 const workItem: WorkItemListItemDto = {
@@ -105,6 +121,7 @@ describe('WorkItemListPageComponent', () => {
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
 
     const request = http.expectOne((candidate) => {
       return (
@@ -119,6 +136,7 @@ describe('WorkItemListPageComponent', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('WT-3');
     expect(compiled.textContent).toContain('Implement work item API client');
     expect(compiled.textContent).toContain('Case Contributor');
     expect(compiled.textContent).toContain('backend');
@@ -131,6 +149,7 @@ describe('WorkItemListPageComponent', () => {
     const navigate = spyOn(router, 'navigate').and.resolveTo(true);
     fixture.detectChanges();
 
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([]);
 
     fixture.componentInstance.filterForm.patchValue({
@@ -185,6 +204,7 @@ describe('WorkItemCreatePageComponent', () => {
     const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne(`/api/projects/${projectId}/labels`).flush([backendLabel]);
 
     fixture.componentInstance.createWorkItem();
@@ -201,6 +221,7 @@ describe('WorkItemCreatePageComponent', () => {
     const router = TestBed.inject(Router);
     const navigate = spyOn(router, 'navigate').and.resolveTo(true);
     fixture.detectChanges();
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne(`/api/projects/${projectId}/labels`).flush([backendLabel, archivedLabel]);
     fixture.detectChanges();
 
@@ -252,6 +273,7 @@ describe('WorkItemCreatePageComponent', () => {
     const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne(`/api/projects/${projectId}/labels`).flush([]);
 
     fixture.componentInstance.workItemForm.patchValue({
@@ -273,5 +295,27 @@ describe('WorkItemCreatePageComponent', () => {
       comments: [],
       activity: []
     } satisfies WorkItemDetailDto);
+  });
+
+  it('shows archived project notice and prevents create requests', () => {
+    const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne(`/api/projects/${projectId}`).flush(archivedProject);
+    http.expectOne(`/api/projects/${projectId}/labels`).flush([backendLabel]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Archived project');
+    expect(compiled.querySelector('button[type="submit"]')?.hasAttribute('disabled')).toBeTrue();
+
+    fixture.componentInstance.workItemForm.patchValue({
+      title: 'Blocked archived create',
+      type: 'task',
+      priority: 'medium'
+    });
+    fixture.componentInstance.createWorkItem();
+
+    http.expectNone(`/api/projects/${projectId}/work-items`);
   });
 });

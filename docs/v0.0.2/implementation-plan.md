@@ -533,6 +533,17 @@ npm test --workspace @worktrail/web -- --include src/app/features/**/*.spec.ts
 npm run typecheck --workspace @worktrail/web
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Displayed immutable work item keys on project recent work, work item list rows, board cards, and the work item detail header.
+- Loaded project state on work item list, board, create, and detail routes so archived projects render a compact read-only notice.
+- Hid create-work-item links for archived projects on list and board surfaces.
+- Disabled or guarded archived-project writes for work item creation, detail save, status transitions, label assignment, and comment creation.
+- Added Angular tests for key display across project/work-item surfaces and archived-project read-only behavior on create, board, and detail pages.
+- Verified `npm test --workspace @worktrail/web -- --include 'src/app/features/**/*.spec.ts'`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+
 ## Phase 9: Comment Edit/Delete UI
 
 Goal: expose comment correction and deletion workflows on work item detail pages.

@@ -1,6 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import type { WorkItemListItemDto, WorkItemStatus } from '@worktrail/contracts';
+import type { ProjectDto, WorkItemListItemDto, WorkItemStatus } from '@worktrail/contracts';
 
 import { WorktrailApiService } from '../../core/worktrail-api.service';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
@@ -30,9 +30,18 @@ const statuses: WorkItemStatus[] = [
       <nav aria-label="Project work navigation">
         <a [routerLink]="['/projects', projectId(), 'work-items']">List</a>
         <a [routerLink]="['/projects', projectId(), 'settings']">Settings</a>
-        <a [routerLink]="['/projects', projectId(), 'work-items', 'new']">Create work item</a>
+        @if (!isArchivedProject()) {
+          <a [routerLink]="['/projects', projectId(), 'work-items', 'new']">Create work item</a>
+        }
       </nav>
     </section>
+
+    @if (isArchivedProject()) {
+      <section class="notice" aria-label="Archived project">
+        <strong>Archived project</strong>
+        <p>Project work is read-only until it is reactivated in settings.</p>
+      </section>
+    }
 
     @if (transitionError()) {
       <app-error-panel
@@ -65,6 +74,7 @@ const statuses: WorkItemStatus[] = [
                 @for (item of itemsByStatus().get(status) ?? []; track item.id) {
                   <article class="work-card">
                     <div class="work-card__heading">
+                      <span class="work-key">{{ item.displayKey }}</span>
                       <a [routerLink]="['/work-items', item.id]">{{ item.title }}</a>
                       <span class="priority-pill" [attr.data-priority]="item.priority">
                         {{ formatToken(item.priority) }}
@@ -90,7 +100,7 @@ const statuses: WorkItemStatus[] = [
                       <span>Status</span>
                       <select
                         [value]="item.status"
-                        [disabled]="transitioningWorkItemId() === item.id"
+                        [disabled]="isArchivedProject() || transitioningWorkItemId() === item.id"
                         (change)="transitionCard(item, $event)"
                       >
                         @for (targetStatus of statuses; track targetStatus) {
@@ -178,6 +188,24 @@ const statuses: WorkItemStatus[] = [
       padding-bottom: 8px;
     }
 
+    .notice {
+      display: grid;
+      gap: 4px;
+      margin-bottom: 18px;
+      border: 1px solid #fed7aa;
+      border-radius: 8px;
+      padding: 14px;
+      background: #fff7ed;
+      color: #9a3412;
+    }
+
+    .notice p {
+      margin: 0;
+      color: #9a3412;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+
     .board-column {
       display: grid;
       align-content: start;
@@ -232,6 +260,17 @@ const statuses: WorkItemStatus[] = [
     .work-card__heading {
       display: grid;
       gap: 6px;
+    }
+
+    .work-key {
+      width: fit-content;
+      border: 1px solid #c7d2fe;
+      border-radius: 999px;
+      padding: 2px 7px;
+      background: #eef2ff;
+      color: #3730a3;
+      font-size: 0.6875rem;
+      font-weight: 900;
     }
 
     .work-card a {
@@ -349,11 +388,13 @@ export class WorkItemBoardPageComponent implements OnInit {
 
   readonly statuses = statuses;
   readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
+  readonly project = signal<ProjectDto | null>(null);
   readonly workItems = signal<WorkItemListItemDto[]>([]);
   readonly isLoading = signal(false);
   readonly loadError = signal<string | null>(null);
   readonly transitionError = signal<string | null>(null);
   readonly transitioningWorkItemId = signal<string | null>(null);
+  readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
 
   readonly itemsByStatus = computed(() => {
     const grouped = new Map<WorkItemStatus, WorkItemListItemDto[]>();
@@ -370,7 +411,19 @@ export class WorkItemBoardPageComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    this.loadProject();
     this.loadWorkItems();
+  }
+
+  loadProject(): void {
+    this.api.getProject(this.projectId()).subscribe({
+      next: (project) => {
+        this.project.set(project);
+      },
+      error: () => {
+        this.project.set(null);
+      }
+    });
   }
 
   loadWorkItems(): void {
@@ -392,6 +445,11 @@ export class WorkItemBoardPageComponent implements OnInit {
   transitionCard(item: WorkItemListItemDto, event: Event): void {
     const select = event.target as HTMLSelectElement;
     const status = select.value as WorkItemStatus;
+
+    if (this.isArchivedProject()) {
+      select.value = item.status;
+      return;
+    }
 
     if (status === item.status) {
       return;

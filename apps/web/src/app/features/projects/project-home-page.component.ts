@@ -84,7 +84,10 @@ const statusLabels: Record<WorkItemStatus, string> = {
             <div class="recent-list">
               @for (item of summary.recentWorkItems; track item.id) {
                 <a class="recent-row" [routerLink]="['/work-items', item.id]">
-                  <span>{{ item.title }}</span>
+                  <span>
+                    <strong>{{ item.displayKey }}</strong>
+                    {{ item.title }}
+                  </span>
                   <small>{{ statusLabel(item.status) }} · {{ formatDate(item.updatedAt) }}</small>
                 </a>
               }
@@ -346,9 +349,23 @@ const statusLabels: Record<WorkItemStatus, string> = {
     }
 
     .recent-row span {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
       font-size: 0.875rem;
       font-weight: 800;
       line-height: 1.35;
+    }
+
+    .recent-row strong {
+      border: 1px solid #c7d2fe;
+      border-radius: 999px;
+      padding: 2px 7px;
+      background: #eef2ff;
+      color: #3730a3;
+      font-size: 0.6875rem;
+      font-weight: 900;
     }
 
     .recent-row small,
