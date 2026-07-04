@@ -13,7 +13,7 @@ try {
   const config = loadRuntimeConfig();
   const pool = createPool(config.databaseUrl);
   const db = createDb(pool);
-  const app = createExpressApp({ repositories: createRepositories(db), db });
+  const app = createExpressApp({ repositories: createRepositories(db), db, healthCheckPool: pool });
 
   app.listen(config.apiPort, () => {
     console.log(`Worktrail API listening on http://localhost:${config.apiPort}`);

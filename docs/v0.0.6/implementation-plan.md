@@ -204,11 +204,28 @@ Acceptance criteria:
 Suggested commands:
 
 ```sh
-npm test --workspace @worktrail/api -- health
+npm test --workspace @worktrail/api -- server
 npm run typecheck --workspace @worktrail/api
 npm test --workspace @worktrail/api
 git diff --check
 ```
+
+Status: Completed on 2026-07-04.
+
+Notes:
+
+- Extended shared health contracts with `checkedAt`, readiness success, and safe readiness failure DTOs.
+- Added `HealthCheckService` with a lightweight `select 1` database check.
+- Added liveness and readiness handlers while preserving `/api/health` as a liveness compatibility alias.
+- Registered `/api/health/live` and `/api/health/ready` in the Express adapter.
+- Wired API startup to pass the `pg.Pool` into readiness checks.
+- Updated Playwright API server readiness detection to wait on `/api/health/ready`.
+- Added API tests for liveness, readiness success, and safe readiness failure.
+- Verified `npm test --workspace @worktrail/api -- server`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `npm run typecheck --workspace @worktrail/contracts`.
+- Verified `npm run typecheck --if-present`.
 
 ## Phase 3: Static Asset Serving In Express
 

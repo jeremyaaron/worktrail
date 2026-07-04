@@ -15,10 +15,66 @@ describe('Express API foundation', () => {
       .get('/api/health')
       .expect(200)
       .expect(({ body }) => {
+        expect(body.status).toBe('ok');
+        expect(body.service).toBe('worktrail-api');
+        expect(body.checkedAt).toEqual(expect.any(String));
+      });
+  });
+
+  it('returns liveness through the health live endpoint', async () => {
+    const app = createExpressApp();
+
+    await request(app)
+      .get('/api/health/live')
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.status).toBe('ok');
+        expect(body.service).toBe('worktrail-api');
+        expect(body.checkedAt).toEqual(expect.any(String));
+      });
+  });
+
+  it('returns readiness when the database check succeeds', async () => {
+    const app = createExpressApp({
+      healthCheckPool: {
+        query: vi.fn(async () => ({ rows: [] }))
+      }
+    });
+
+    await request(app)
+      .get('/api/health/ready')
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.status).toBe('ready');
+        expect(body.service).toBe('worktrail-api');
+        expect(body.checks).toEqual({ database: 'ok' });
+        expect(body.checkedAt).toEqual(expect.any(String));
+      });
+  });
+
+  it('returns safe readiness failure when the database check fails', async () => {
+    const app = createExpressApp({
+      healthCheckPool: {
+        query: vi.fn(async () => {
+          throw new Error('secret connection failure');
+        })
+      }
+    });
+
+    await request(app)
+      .get('/api/health/ready')
+      .expect(503)
+      .expect(({ body }) => {
         expect(body).toEqual({
-          status: 'ok',
-          service: 'worktrail-api'
+          error: {
+            code: 'READINESS_FAILED',
+            message: 'Worktrail API is not ready.',
+            checks: {
+              database: 'failed'
+            }
+          }
         });
+        expect(JSON.stringify(body)).not.toContain('secret connection failure');
       });
   });
 

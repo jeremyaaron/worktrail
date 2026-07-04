@@ -11,7 +11,7 @@ import {
   listCommentsHandler,
   updateCommentHandler
 } from '../../endpoints/comments.js';
-import { healthHandler } from '../../endpoints/health.js';
+import { healthHandler, livenessHandler, readinessHandler } from '../../endpoints/health.js';
 import {
   archiveLabelHandler,
   createLabelHandler,
@@ -69,12 +69,14 @@ import {
 import type { WorktrailDb } from '../../db/client.js';
 import type { EndpointHandler } from '../../http/app-request.js';
 import type { Repositories } from '../../repositories/index.js';
+import { HealthCheckService, type HealthCheckPool } from '../../services/health-check-service.js';
 import { adaptEndpoint } from './handler-adapter.js';
 import { requestLogger } from './request-logging.js';
 
 export interface CreateExpressAppOptions {
   repositories?: Repositories;
   db?: WorktrailDb;
+  healthCheckPool?: HealthCheckPool;
   testRoutes?: Record<string, EndpointHandler>;
 }
 
@@ -90,6 +92,14 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
   app.use(requestLogger);
 
   app.get('/api/health', adaptEndpoint(healthHandler));
+  app.get('/api/health/live', adaptEndpoint(livenessHandler));
+
+  if (options.healthCheckPool !== undefined) {
+    app.get(
+      '/api/health/ready',
+      adaptEndpoint(readinessHandler({ healthChecks: new HealthCheckService(options.healthCheckPool) }))
+    );
+  }
 
   if (options.repositories !== undefined) {
     const adapterOptions = { repositories: options.repositories };
