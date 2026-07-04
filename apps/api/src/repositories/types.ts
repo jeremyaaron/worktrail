@@ -9,7 +9,8 @@ import type {
   projects,
   workItemLabels,
   workItems,
-  workspaces
+  workspaces,
+  workspaceActivityEvents
 } from '../db/schema.js';
 
 export type Workspace = InferSelectModel<typeof workspaces>;
@@ -29,3 +30,5 @@ export type Comment = InferSelectModel<typeof comments>;
 export type NewComment = InferInsertModel<typeof comments>;
 export type ActivityEvent = InferSelectModel<typeof activityEvents>;
 export type NewActivityEvent = InferInsertModel<typeof activityEvents>;
+export type WorkspaceActivityEvent = InferSelectModel<typeof workspaceActivityEvents>;
+export type NewWorkspaceActivityEvent = InferInsertModel<typeof workspaceActivityEvents>;

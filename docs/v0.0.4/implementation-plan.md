@@ -143,6 +143,42 @@ npm test --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-04.
+- Extended shared contracts with:
+  - `MemberDto.deactivatedAt`, `MemberDto.createdAt`, and `MemberDto.updatedAt`;
+  - `CreateMemberRequest`;
+  - `UpdateMemberRequest`;
+  - `WorkspaceDto`;
+  - `UpdateWorkspaceRequest`;
+  - `WorkspaceCapabilitiesDto`;
+  - `WorkspaceActivityEventType`;
+  - `WorkspaceActivityEventDto`.
+- Added backend workspace activity event constants.
+- Extended the Drizzle schema with:
+  - `members.deactivated_at`;
+  - `members.deactivated_by_id`;
+  - `workspace_activity_events`;
+  - workspace activity event type check constraint;
+  - workspace activity workspace/timestamp and actor indexes.
+- Generated migration `0003_overrated_hercules.sql` and hand-edited it to backfill `deactivated_at` for existing inactive members.
+- Updated repository inferred types for workspace activity events.
+- Updated DTO mapping for extended member DTOs, workspace DTOs, and workspace activity DTOs.
+- Updated deterministic seed data with:
+  - inactive historical member `Riley Former`;
+  - deactivation metadata;
+  - inactive member references on a seeded blocked work item and comment;
+  - five representative workspace activity rows.
+- Updated Angular test fixtures for the expanded `MemberDto` shape.
+- Verified `npm run db:reset && npm run db:migrate && npm run db:seed`.
+- Verified seeded inactive member and workspace activity counts with a direct database query.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `npm test`.
+- Verified `npm run typecheck`.
+- Verified `npm run build`.
+- Verified `git diff --check`.
+
 ## Phase 2: Server-Derived Actor Resolution
 
 Goal: make the local actor model less misleading by deriving role from the database and rejecting inactive actors.

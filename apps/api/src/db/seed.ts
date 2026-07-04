@@ -12,7 +12,8 @@ import {
   projects,
   workItemLabels,
   workItems,
-  workspaces
+  workspaces,
+  workspaceActivityEvents
 } from './schema.js';
 
 const ids = {
@@ -20,7 +21,8 @@ const ids = {
   members: {
     owner: '10000000-0000-4000-8000-000000000101',
     maintainer: '10000000-0000-4000-8000-000000000102',
-    contributor: '10000000-0000-4000-8000-000000000103'
+    contributor: '10000000-0000-4000-8000-000000000103',
+    inactive: '10000000-0000-4000-8000-000000000104'
   },
   projects: {
     app: '10000000-0000-4000-8000-000000000201',
@@ -60,6 +62,13 @@ const ids = {
     label: '10000000-0000-4000-8000-000000000605',
     comment: '10000000-0000-4000-8000-000000000606',
     milestone: '10000000-0000-4000-8000-000000000607'
+  },
+  workspaceActivity: {
+    ownerCreated: '10000000-0000-4000-8000-000000000701',
+    maintainerCreated: '10000000-0000-4000-8000-000000000702',
+    inactiveDeactivated: '10000000-0000-4000-8000-000000000703',
+    workspaceRenamed: '10000000-0000-4000-8000-000000000704',
+    projectCreated: '10000000-0000-4000-8000-000000000705'
   }
 } as const;
 
@@ -95,6 +104,8 @@ try {
           email: 'avery.owner@example.com',
           role: 'owner',
           isActive: true,
+          deactivatedAt: null,
+          deactivatedById: null,
           createdAt: earlier,
           updatedAt: now
         },
@@ -105,6 +116,8 @@ try {
           email: 'morgan.maintainer@example.com',
           role: 'maintainer',
           isActive: true,
+          deactivatedAt: null,
+          deactivatedById: null,
           createdAt: earlier,
           updatedAt: now
         },
@@ -115,13 +128,35 @@ try {
           email: 'casey.contributor@example.com',
           role: 'contributor',
           isActive: true,
+          deactivatedAt: null,
+          deactivatedById: null,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.members.inactive,
+          workspaceId: ids.workspace,
+          name: 'Riley Former',
+          email: 'riley.former@example.com',
+          role: 'contributor',
+          isActive: false,
+          deactivatedAt: stale,
+          deactivatedById: ids.members.owner,
           createdAt: earlier,
           updatedAt: now
         }
       ])
       .onConflictDoUpdate({
         target: members.id,
-        set: { updatedAt: now }
+        set: {
+          name: sql`excluded.name`,
+          email: sql`excluded.email`,
+          role: sql`excluded.role`,
+          isActive: sql`excluded.is_active`,
+          deactivatedAt: sql`excluded.deactivated_at`,
+          deactivatedById: sql`excluded.deactivated_by_id`,
+          updatedAt: now
+        }
       });
 
     await tx
@@ -369,7 +404,7 @@ try {
           type: 'chore',
           status: 'blocked',
           priority: 'low',
-          assigneeId: ids.members.contributor,
+          assigneeId: ids.members.inactive,
           reporterId: ids.members.maintainer,
           milestoneId: ids.milestones.planning,
           boardPosition: 1024,
@@ -471,7 +506,7 @@ try {
           workspaceId: ids.workspace,
           projectId: ids.projects.app,
           workItemId: ids.workItems.inProgress,
-          authorId: ids.members.owner,
+          authorId: ids.members.inactive,
           body: 'This is the first slice that should prove the local API shape.',
           editedAt: null,
           deletedAt: null,
@@ -596,6 +631,79 @@ try {
           newValue: { milestoneId: ids.milestones.planning, milestoneName: 'v0.0.3 Planning' },
           metadata: {},
           createdAt: now
+        }
+      ])
+      .onConflictDoNothing();
+
+    await tx
+      .insert(workspaceActivityEvents)
+      .values([
+        {
+          id: ids.workspaceActivity.ownerCreated,
+          workspaceId: ids.workspace,
+          actorId: ids.members.owner,
+          eventType: 'member.created',
+          summary: 'Avery Owner added Morgan Maintainer to the workspace.',
+          previousValue: null,
+          newValue: {
+            memberId: ids.members.maintainer,
+            role: 'maintainer'
+          },
+          metadata: { memberId: ids.members.maintainer },
+          createdAt: earlier
+        },
+        {
+          id: ids.workspaceActivity.maintainerCreated,
+          workspaceId: ids.workspace,
+          actorId: ids.members.owner,
+          eventType: 'member.created',
+          summary: 'Avery Owner added Casey Contributor to the workspace.',
+          previousValue: null,
+          newValue: {
+            memberId: ids.members.contributor,
+            role: 'contributor'
+          },
+          metadata: { memberId: ids.members.contributor },
+          createdAt: earlier
+        },
+        {
+          id: ids.workspaceActivity.inactiveDeactivated,
+          workspaceId: ids.workspace,
+          actorId: ids.members.owner,
+          eventType: 'member.deactivated',
+          summary: 'Avery Owner deactivated Riley Former.',
+          previousValue: { isActive: true },
+          newValue: { isActive: false },
+          metadata: { memberId: ids.members.inactive },
+          createdAt: stale
+        },
+        {
+          id: ids.workspaceActivity.workspaceRenamed,
+          workspaceId: ids.workspace,
+          actorId: ids.members.owner,
+          eventType: 'workspace.name_changed',
+          summary: 'Avery Owner renamed the workspace to Worktrail Demo.',
+          previousValue: { name: 'PM Reference Demo' },
+          newValue: { name: 'Worktrail Demo' },
+          metadata: {},
+          createdAt: earlier
+        },
+        {
+          id: ids.workspaceActivity.projectCreated,
+          workspaceId: ids.workspace,
+          actorId: ids.members.owner,
+          eventType: 'project.created',
+          summary: 'Avery Owner created the Worktrail App project.',
+          previousValue: null,
+          newValue: {
+            projectId: ids.projects.app,
+            projectKey: 'WT'
+          },
+          metadata: {
+            projectId: ids.projects.app,
+            projectKey: 'WT'
+          },
+          createdAt: earlier
         }
       ])
       .onConflictDoNothing();

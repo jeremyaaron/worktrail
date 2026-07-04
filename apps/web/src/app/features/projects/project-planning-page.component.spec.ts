@@ -22,7 +22,10 @@ const owner: MemberDto = {
   name: 'Avery Owner',
   email: 'avery.owner@example.com',
   role: 'owner',
-  isActive: true
+  isActive: true,
+  deactivatedAt: null,
+  createdAt: '2026-07-02T12:00:00.000Z',
+  updatedAt: '2026-07-03T12:00:00.000Z'
 };
 
 const contributor: MemberDto = {
@@ -31,7 +34,10 @@ const contributor: MemberDto = {
   name: 'Case Contributor',
   email: 'case.contributor@example.com',
   role: 'contributor',
-  isActive: true
+  isActive: true,
+  deactivatedAt: null,
+  createdAt: '2026-07-02T12:00:00.000Z',
+  updatedAt: '2026-07-03T12:00:00.000Z'
 };
 
 const activeProject: ProjectDto = {

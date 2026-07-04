@@ -11,7 +11,8 @@ import {
   text,
   timestamp,
   uniqueIndex,
-  uuid
+  uuid,
+  type AnyPgColumn
 } from 'drizzle-orm/pg-core';
 import {
   type ActivityEventType,
@@ -21,13 +22,15 @@ import {
   type WorkItemPriority,
   type WorkItemStatus,
   type WorkItemType,
+  type WorkspaceActivityEventType,
   activityEventTypes,
   memberRoles,
   milestoneStatuses,
   projectStatuses,
   workItemPriorities,
   workItemStatuses,
-  workItemTypes
+  workItemTypes,
+  workspaceActivityEventTypes
 } from '../domain/constants.js';
 
 const timestamps = {
@@ -56,6 +59,8 @@ export const members = pgTable(
     email: text('email').notNull(),
     role: text('role').$type<MemberRole>().notNull(),
     isActive: boolean('is_active').notNull().default(true),
+    deactivatedAt: timestamp('deactivated_at', { withTimezone: true }),
+    deactivatedById: uuid('deactivated_by_id').references((): AnyPgColumn => members.id),
     ...timestamps
   },
   (table) => [
@@ -257,5 +262,35 @@ export const activityEvents = pgTable(
     check('activity_events_event_type_check', enumCheckSql('event_type', activityEventTypes)),
     index('activity_events_work_item_id_created_at_idx').on(table.workItemId, table.createdAt.desc()),
     index('activity_events_project_id_created_at_idx').on(table.projectId, table.createdAt.desc())
+  ]
+);
+
+export const workspaceActivityEvents = pgTable(
+  'workspace_activity_events',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    actorId: uuid('actor_id')
+      .notNull()
+      .references(() => members.id),
+    eventType: text('event_type').$type<WorkspaceActivityEventType>().notNull(),
+    summary: text('summary').notNull(),
+    previousValue: jsonb('previous_value').$type<Record<string, unknown> | null>(),
+    newValue: jsonb('new_value').$type<Record<string, unknown> | null>(),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull()
+  },
+  (table) => [
+    check(
+      'workspace_activity_events_event_type_check',
+      enumCheckSql('event_type', workspaceActivityEventTypes)
+    ),
+    index('workspace_activity_events_workspace_id_created_at_idx').on(
+      table.workspaceId,
+      table.createdAt.desc()
+    ),
+    index('workspace_activity_events_actor_id_idx').on(table.actorId)
   ]
 );
