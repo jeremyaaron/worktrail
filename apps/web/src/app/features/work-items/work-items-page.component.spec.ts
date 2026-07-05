@@ -152,6 +152,11 @@ function seedCurrentUser() {
   currentUser.selectMember(member.id);
 }
 
+function spyOnCsvDownload(): void {
+  spyOn(URL, 'createObjectURL').and.returnValue('blob:worktrail-export');
+  spyOn(URL, 'revokeObjectURL');
+}
+
 function flushCreateContext(
   http: HttpTestingController,
   input: {
@@ -226,7 +231,76 @@ describe('WorkItemListPageComponent', () => {
     expect(compiled.textContent).toContain('backend');
     expect(compiled.textContent).toContain('v0.0.3');
     expect(compiled.textContent).toContain('Due date: Due soon');
+    expect(compiled.textContent).toContain('Export CSV');
     expect(compiled.querySelector<HTMLAnchorElement>(`a[href="/projects/${projectId}/work-items/import"]`)).not.toBeNull();
+  });
+
+  it('exports CSV with applied filters instead of pending draft form values', () => {
+    spyOnCsvDownload();
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
+    fixture.componentInstance.filterForm.patchValue(
+      {
+        search: 'draft search',
+        priority: 'urgent'
+      },
+      { emitEvent: false }
+    );
+    fixture.detectChanges();
+
+    fixture.componentInstance.exportCsv();
+    const exportRequest = http.expectOne((candidate) => {
+      return (
+        candidate.url === `/api/projects/${projectId}/work-items/export` &&
+        candidate.params.get('search') === 'api' &&
+        candidate.params.get('status') === 'in_progress' &&
+        candidate.params.get('assigneeId') === contributorId &&
+        candidate.params.get('priority') === null &&
+        candidate.params.get('sort') === 'due_date_asc'
+      );
+    });
+    expect(exportRequest.request.method).toBe('GET');
+    exportRequest.flush(
+      new Blob(['displayKey,title\nWT-3,Implement work item API client\n'], {
+        type: 'text/csv'
+      }),
+      {
+        headers: {
+          'Content-Disposition': 'attachment; filename="project-work-items.csv"'
+        }
+      }
+    );
+
+    expect(URL.createObjectURL).toHaveBeenCalled();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:worktrail-export');
+    expect(fixture.componentInstance.isExporting()).toBeFalse();
+  });
+
+  it('shows project export failures inline', () => {
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
+
+    fixture.componentInstance.exportCsv();
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items/export`).flush(
+      new Blob(['Export is temporarily unavailable.'], { type: 'text/plain' }),
+      { status: 500, statusText: 'Server Error' }
+    );
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'CSV export could not be downloaded.'
+    );
+    expect(fixture.componentInstance.isExporting()).toBeFalse();
   });
 
   it('resolves inactive member names from filter state without making them default choices', () => {

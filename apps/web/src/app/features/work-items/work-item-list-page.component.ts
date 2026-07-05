@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -20,6 +21,7 @@ import { WorkItemListFilters, WorktrailApiService } from '../../core/worktrail-a
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
+import { downloadBlob, fileNameFromContentDisposition } from '../../shared/download-file';
 
 const statuses: WorkItemStatus[] = [
   'backlog',
@@ -99,6 +101,9 @@ const defaultFilterValues: WorkItemFilterFormValue = {
         <a class="secondary-header-action" [routerLink]="['/projects', projectId(), 'settings']">
           Settings
         </a>
+        <button type="button" class="secondary-header-action" [disabled]="isExporting()" (click)="exportCsv()">
+          {{ isExporting() ? 'Exporting...' : 'Export CSV' }}
+        </button>
         @if (!isArchivedProject()) {
           <a class="secondary-header-action" [routerLink]="['/projects', projectId(), 'work-items', 'import']">
             Import CSV
@@ -109,6 +114,10 @@ const defaultFilterValues: WorkItemFilterFormValue = {
         }
       </nav>
     </section>
+
+    @if (exportError()) {
+      <p class="inline-error">{{ exportError() }}</p>
+    }
 
     @if (isArchivedProject()) {
       <section class="notice" aria-label="Archived project">
@@ -367,6 +376,19 @@ const defaultFilterValues: WorkItemFilterFormValue = {
       border-color: #cbd5e1;
       background: #ffffff;
       color: #1f2937;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.65;
+    }
+
+    .inline-error {
+      margin: 0 0 18px;
+      color: #991b1b;
+      font-size: 0.875rem;
+      font-weight: 700;
+      line-height: 1.5;
     }
 
     .filters,
@@ -708,6 +730,8 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   readonly appliedFilterValues = signal<WorkItemFilterFormValue>({ ...defaultFilterValues });
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
+  readonly isExporting = signal(false);
+  readonly exportError = signal<string | null>(null);
   readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
 
   readonly filterForm = this.formBuilder.nonNullable.group({
@@ -783,6 +807,34 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
       error: () => {
         this.error.set('Work items could not be loaded from the API.');
         this.isLoading.set(false);
+      }
+    });
+  }
+
+  exportCsv(): void {
+    if (this.isExporting()) {
+      return;
+    }
+
+    this.isExporting.set(true);
+    this.exportError.set(null);
+
+    this.api.exportProjectWorkItems(this.projectId(), this.toFilters(this.appliedFilterValues())).subscribe({
+      next: (response) => {
+        const fileName = fileNameFromContentDisposition(
+          response.headers.get('content-disposition'),
+          'worktrail-project-work-items.csv'
+        );
+
+        downloadBlob({
+          blob: response.body ?? new Blob([''], { type: 'text/csv' }),
+          fileName
+        });
+        this.isExporting.set(false);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.exportError.set(this.toExportErrorMessage(error));
+        this.isExporting.set(false);
       }
     });
   }
@@ -1002,5 +1054,13 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
 
   private sortLabel(value: string): string {
     return sorts.find((sort) => sort.value === value)?.label ?? value;
+  }
+
+  private toExportErrorMessage(error: HttpErrorResponse): string {
+    const message = error.error?.error?.message;
+
+    return typeof message === 'string' && message.trim() !== ''
+      ? message
+      : 'CSV export could not be downloaded.';
   }
 }

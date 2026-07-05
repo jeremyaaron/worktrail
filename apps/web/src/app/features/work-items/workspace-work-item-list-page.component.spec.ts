@@ -162,6 +162,11 @@ function seedCurrentUser(): void {
   currentUser.selectMember(owner.id);
 }
 
+function spyOnCsvDownload(): void {
+  spyOn(URL, 'createObjectURL').and.returnValue('blob:worktrail-workspace-export');
+  spyOn(URL, 'revokeObjectURL');
+}
+
 function setup(query: Record<string, string> = {}): {
   fixture: ComponentFixture<WorkspaceWorkItemListPageComponent>;
   http: HttpTestingController;
@@ -249,6 +254,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     const row = compiled.querySelector<HTMLAnchorElement>('.work-item-row');
 
     expect(compiled.textContent).toContain('Design workspace discovery');
+    expect(compiled.textContent).toContain('Export CSV');
     expect(compiled.textContent).toContain('WT-12');
     expect(compiled.textContent).toContain('Worktrail App');
     expect(compiled.textContent).toContain('Story · In progress · High');
@@ -264,6 +270,73 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect(activeFilters).toContain('Due date: Due soon');
     expect(activeFilters).toContain('Projects: Active and archived');
     expect(activeFilters).toContain('Sort: Due date');
+  });
+
+  it('exports workspace CSV with applied filters instead of pending draft form values', () => {
+    spyOnCsvDownload();
+    const { fixture, http } = setup({
+      status: 'in_progress',
+      archivedProjects: 'include',
+      search: 'workspace',
+      sort: 'due_date_asc'
+    });
+    flushProjectSummaries(http);
+    flushSavedViews(http);
+    http.expectOne((candidate) => candidate.url === '/api/work-items').flush([workItem]);
+    fixture.componentInstance.filterForm.patchValue(
+      {
+        search: 'draft search',
+        priority: 'urgent'
+      },
+      { emitEvent: false }
+    );
+    fixture.detectChanges();
+
+    fixture.componentInstance.exportCsv();
+    const exportRequest = http.expectOne((candidate) => {
+      return (
+        candidate.url === '/api/work-items/export' &&
+        candidate.params.get('search') === 'workspace' &&
+        candidate.params.get('status') === 'in_progress' &&
+        candidate.params.get('priority') === null &&
+        candidate.params.get('archivedProjects') === 'include' &&
+        candidate.params.get('sort') === 'due_date_asc'
+      );
+    });
+    expect(exportRequest.request.method).toBe('GET');
+    exportRequest.flush(
+      new Blob(['displayKey,title\nWT-12,Design workspace discovery\n'], {
+        type: 'text/csv'
+      }),
+      {
+      headers: {
+        'Content-Disposition': 'attachment; filename="workspace-work-items.csv"'
+      }
+      }
+    );
+
+    expect(URL.createObjectURL).toHaveBeenCalled();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:worktrail-workspace-export');
+    expect(fixture.componentInstance.isExporting()).toBeFalse();
+  });
+
+  it('shows workspace export failures inline', () => {
+    const { fixture, http } = setup();
+    flushProjectSummaries(http);
+    flushSavedViews(http);
+    http.expectOne('/api/work-items').flush([workItem]);
+
+    fixture.componentInstance.exportCsv();
+    http.expectOne('/api/work-items/export').flush(
+      new Blob(['Workspace export failed.'], { type: 'text/plain' }),
+      { status: 500, statusText: 'Server Error' }
+    );
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'CSV export could not be downloaded.'
+    );
+    expect(fixture.componentInstance.isExporting()).toBeFalse();
   });
 
   it('applies dropdown filters immediately without showing pending filter pills', () => {
@@ -342,7 +415,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     const navigate = spyOn(router, 'navigate').and.resolveTo(true);
 
     (fixture.nativeElement as HTMLElement)
-      .querySelector<HTMLButtonElement>('.secondary-action')
+      .querySelector<HTMLButtonElement>('.filter-actions .secondary-action')
       ?.click();
     fixture.detectChanges();
 

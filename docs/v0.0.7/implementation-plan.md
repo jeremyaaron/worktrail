@@ -759,7 +759,24 @@ npm run build
 git diff --check
 ```
 
-Status: Not started.
+Status:
+
+- Completed on 2026-07-05.
+- Added project-level `Export CSV` action to the project work item list header.
+- Added workspace-level `Export CSV` action to the workspace work item discovery header.
+- Export actions use applied filter state instead of raw draft form state, so pending search or filter edits are not included before the UI applies them.
+- Project export serializes the current applied project query to `GET /api/projects/:projectId/work-items/export`.
+- Workspace export serializes the current applied discovery query to `GET /api/work-items/export`.
+- Export responses use the existing shared download helper and honor `Content-Disposition` filenames when present.
+- Added loading state and inline failure messaging for both export actions.
+- Kept project export available for archived projects by placing it outside the active-project import/create action group.
+- Added unit coverage for export button visibility, applied filter serialization, pending draft isolation, and export failure messaging.
+- Fixed an existing broad reset-button selector in workspace list tests after adding a second secondary action to the page header.
+- Verified `npm test --workspace @worktrail/web -- --include src/app/features/work-items/work-items-page.component.spec.ts --include src/app/features/work-items/workspace-work-item-list-page.component.spec.ts`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm test --workspace @worktrail/web`.
+- Verified `npm run build --workspace @worktrail/web`.
+- Verified `npm run build`.
 
 ## Phase 9: E2E Coverage
 
