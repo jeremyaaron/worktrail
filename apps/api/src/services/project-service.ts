@@ -23,7 +23,7 @@ import {
   withRepositoriesTransaction
 } from '../repositories/index.js';
 import type { Project, WorkItem } from '../repositories/types.js';
-import { createDefaultProjectDeliveryHealth } from './delivery-health-placeholders.js';
+import { DeliveryHealthService } from './delivery-health-service.js';
 import { toProjectDto, toRecentWorkItemDto } from './dto.js';
 
 function normalizeProjectKeyInput(input: string): string {
@@ -285,13 +285,41 @@ export class ProjectService {
   }
 
   async getProjectSummary(projectId: string): Promise<ProjectSummaryDto> {
-    const project = await this.getProject(projectId);
-    const counts = await this.context.repositories.workItems.countByStatus(projectId);
-    const recentWorkItems = await this.context.repositories.workItems.listRecentByProject(projectId);
+    const project = await this.requireProject(projectId);
+    const now = this.clock();
+    const [
+      counts,
+      recentWorkItems,
+      workItems,
+      dependencyBlockedWorkItems,
+      blockingOpenWorkItems,
+      milestones
+    ] = await Promise.all([
+      this.context.repositories.workItems.countByStatus(projectId),
+      this.context.repositories.workItems.listRecentByProject(projectId),
+      this.context.repositories.workItems.listByProject(projectId, { sort: 'board_order' }),
+      this.context.repositories.workItems.listByProject(projectId, {
+        dependency: 'dependency_blocked',
+        sort: 'priority_desc'
+      }),
+      this.context.repositories.workItems.listByProject(projectId, {
+        dependency: 'blocking_open_work',
+        sort: 'priority_desc'
+      }),
+      this.context.repositories.milestones.listByProject(projectId, { includeArchived: true })
+    ]);
     const countByStatus = new Map(counts.map((item) => [item.status, item.count]));
+    const deliveryHealth = new DeliveryHealthService().derive({
+      project,
+      workItems,
+      dependencyBlockedWorkItems,
+      blockingOpenWorkItems,
+      milestones,
+      now
+    }).deliveryHealth;
 
     return {
-      project,
+      project: toProjectDto(project),
       countsByStatus: workItemStatuses.map(
         (status): ProjectStatusCountDto => ({
           status,
@@ -299,7 +327,7 @@ export class ProjectService {
         })
       ),
       recentWorkItems: recentWorkItems.map(toRecentWorkItemDto),
-      deliveryHealth: createDefaultProjectDeliveryHealth()
+      deliveryHealth
     };
   }
 

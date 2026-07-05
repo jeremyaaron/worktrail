@@ -370,7 +370,21 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-05.
+- Updated `ProjectService.getProjectSummary` to derive compact delivery health with `DeliveryHealthService`.
+- Added project summary reads for:
+  - project work items;
+  - dependency-blocked project work items;
+  - blocking-open-work project work items;
+  - project milestones including archived milestones.
+- Preserved existing status counts and recent work item behavior.
+- Kept project summary response compact by returning only `deliveryHealth` from the derived health result.
+- Added project summary endpoint coverage for healthy summary health.
+- Added project summary endpoint coverage for blocked project risk, dependency-blocked work, blocking-open-work, unmilestoned risk, counts, and recent work items.
+- Verified `npm test --workspace @worktrail/api -- projects-members`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `git diff --check`.
 
 ## Phase 5: Seed Data For Delivery Health
 
