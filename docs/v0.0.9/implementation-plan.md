@@ -556,7 +556,24 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-05.
+- Updated `ProjectHomePageComponent` to render a compact delivery-health panel on project overview.
+- Added overview health display for:
+  - delivery-health label;
+  - active milestone count;
+  - at-risk milestone count;
+  - blocked milestone count;
+  - open work count;
+  - top health reasons;
+  - reason links when supported by `WorkItemQuery`;
+  - planning link.
+- Preserved existing status count tiles, recent work, project metadata, archived-project notice, and create action behavior.
+- Added responsive panel styling for health metrics, health pills, reason rows, and empty health states.
+- Updated project overview tests for active blocked-health output, reason links, planning link, and archived inactive health.
+- Verified `npm test --workspace @worktrail/web -- --include="**/projects-page.component.spec.ts" --watch=false`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm test --workspace @worktrail/web -- --watch=false`.
+- Verified `git diff --check`.
 
 ## Phase 8: Planning Dashboard Health And Review UI
 
