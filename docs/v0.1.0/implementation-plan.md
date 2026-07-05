@@ -554,6 +554,22 @@ npm test --workspace @worktrail/web -- --watch=false
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-05.
+- Added shared work discovery components:
+  - `WorkItemFilterPanelComponent` for core/advanced filter grouping;
+  - `ActiveFilterChipsComponent` with removable applied filter chips;
+  - `WorkItemResultListComponent` for project and workspace work item result tables;
+  - `SavedViewsToolbarComponent` with compact default saved-view presentation and inline manage panel.
+- Refactored project work item discovery to use the shared filter panel, active chips, and result list while preserving existing export, query-param, archived-project, and filter behavior.
+- Refactored workspace work item discovery to use the shared filter panel, active chips, result list, and compact saved-view toolbar while preserving saved-view create/open/rename/update/delete behavior.
+- Added chip removal handlers that clear the applied filter through the existing URL query flow.
+- Added focused component tests for active filter chips and saved-view toolbar behavior; existing project/workspace list tests continue covering API and route-query behavior.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/web`
+  - `npm test --workspace @worktrail/web -- --watch=false`
+
 ## Phase 7: Planning Review And Milestone Management
 
 Goal: make Planning review-first while preserving complete milestone management.
