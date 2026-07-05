@@ -432,6 +432,18 @@ npm test --workspace @worktrail/web -- --watch=false
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-05.
+- Added `ApiClient` for shared Angular HTTP behavior, including base URL construction, actor headers, typed JSON requests, query-param normalization, and blob download responses.
+- Added domain API clients for workspace/member, project/label/milestone, planning, saved-view, and work-item APIs.
+- Converted `WorktrailApiService` into a compatibility facade over the domain clients so existing route components continue using their current API surface while future phases can migrate incrementally.
+- Added shared frontend helpers for API error extraction, member display names, token formatting, work-item filter options, filter state, lookup-backed filter labels, and project/workspace query serialization.
+- Added focused specs for error extraction, display formatting, work-item query serialization, and work-item filter labels.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/web`
+  - `npm test --workspace @worktrail/web -- --watch=false`
+
 ## Phase 5: Project Shell And Primary Navigation
 
 Goal: make project pages feel like one coherent project workspace and promote cross-project work discovery.

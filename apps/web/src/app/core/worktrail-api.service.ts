@@ -1,4 +1,4 @@
-import { HttpClient, HttpParams, type HttpResponse } from '@angular/common/http';
+import type { HttpResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import type {
   ActivityEventDto,
@@ -11,8 +11,6 @@ import type {
   CreateSavedWorkViewRequest,
   CreateWorkItemRequest,
   CreateWorkItemRelationshipRequest,
-  DependencyFilter,
-  DueDateState,
   LabelDto,
   MemberDto,
   MilestoneDto,
@@ -38,12 +36,8 @@ import type {
   WorkItemQuery,
   WorkItemDetailDto,
   WorkItemListItemDto,
-  WorkItemPriority,
   WorkItemRelationshipDto,
   WorkItemRelationshipSummaryDto,
-  WorkItemSort,
-  WorkItemStatus,
-  WorkItemType,
   WorkspaceActivityEventDto,
   WorkspaceCapabilitiesDto,
   WorkspaceDto,
@@ -51,402 +45,256 @@ import type {
 } from '@worktrail/contracts';
 import type { Observable } from 'rxjs';
 
-import { environment } from '../../environments/environment';
-import {
-  queryToHttpParams,
-  workItemQueryToHttpParams
-} from '../shared/work-items/work-item-query-params';
-import { CurrentUserService } from './current-user.service';
+import { PlanningApi } from './api/planning-api';
+import { ProjectsApi } from './api/projects-api';
+import { SavedViewsApi } from './api/saved-views-api';
+import { WorkItemsApi } from './api/work-items-api';
+import type { WorkItemListFilters } from './api/work-items-api';
+import { WorkspaceApi } from './api/workspace-api';
 
-export interface WorkItemListFilters {
-  status?: WorkItemStatus;
-  assigneeId?: string;
-  reporterId?: string;
-  type?: WorkItemType;
-  labelId?: string;
-  milestoneId?: string;
-  priority?: WorkItemPriority;
-  dueDateState?: DueDateState;
-  dependency?: DependencyFilter;
-  search?: string;
-  sort?: WorkItemSort;
-}
+export type { WorkItemListFilters } from './api/work-items-api';
 
 @Injectable({ providedIn: 'root' })
 export class WorktrailApiService {
-  private readonly http = inject(HttpClient);
-  private readonly currentUser = inject(CurrentUserService);
+  private readonly planning = inject(PlanningApi);
+  private readonly projects = inject(ProjectsApi);
+  private readonly savedViews = inject(SavedViewsApi);
+  private readonly workItems = inject(WorkItemsApi);
+  private readonly workspace = inject(WorkspaceApi);
 
   getWorkspace(): Observable<WorkspaceDto> {
-    return this.http.get<WorkspaceDto>(this.url('/workspace'), this.options());
+    return this.workspace.getWorkspace();
   }
 
   updateWorkspace(input: UpdateWorkspaceRequest): Observable<WorkspaceDto> {
-    return this.http.patch<WorkspaceDto>(this.url('/workspace'), input, this.options());
+    return this.workspace.updateWorkspace(input);
   }
 
   getWorkspaceCapabilities(): Observable<WorkspaceCapabilitiesDto> {
-    return this.http.get<WorkspaceCapabilitiesDto>(
-      this.url('/workspace/capabilities'),
-      this.options()
-    );
+    return this.workspace.getWorkspaceCapabilities();
   }
 
   listWorkspaceActivity(): Observable<WorkspaceActivityEventDto[]> {
-    return this.http.get<WorkspaceActivityEventDto[]>(
-      this.url('/workspace/activity'),
-      this.options()
-    );
+    return this.workspace.listWorkspaceActivity();
   }
 
   listMembers(): Observable<MemberDto[]> {
-    return this.http.get<MemberDto[]>(this.url('/members'), this.options());
+    return this.workspace.listMembers();
   }
 
   createMember(input: CreateMemberRequest): Observable<MemberDto> {
-    return this.http.post<MemberDto>(this.url('/members'), input, this.options());
+    return this.workspace.createMember(input);
   }
 
   updateMember(memberId: string, input: UpdateMemberRequest): Observable<MemberDto> {
-    return this.http.patch<MemberDto>(this.url(`/members/${memberId}`), input, this.options());
+    return this.workspace.updateMember(memberId, input);
   }
 
   deactivateMember(memberId: string): Observable<MemberDto> {
-    return this.http.post<MemberDto>(
-      this.url(`/members/${memberId}/deactivate`),
-      {},
-      this.options()
-    );
+    return this.workspace.deactivateMember(memberId);
   }
 
   reactivateMember(memberId: string): Observable<MemberDto> {
-    return this.http.post<MemberDto>(
-      this.url(`/members/${memberId}/reactivate`),
-      {},
-      this.options()
-    );
+    return this.workspace.reactivateMember(memberId);
   }
 
   listProjects(): Observable<ProjectDto[]> {
-    return this.http.get<ProjectDto[]>(this.url('/projects'), this.options());
+    return this.projects.listProjects();
   }
 
   listProjectNavigationSummaries(): Observable<ProjectNavigationSummaryDto[]> {
-    return this.http.get<ProjectNavigationSummaryDto[]>(
-      this.url('/projects/navigation-summary'),
-      this.options()
-    );
+    return this.projects.listProjectNavigationSummaries();
   }
 
   createProject(input: CreateProjectRequest): Observable<ProjectDto> {
-    return this.http.post<ProjectDto>(this.url('/projects'), input, this.options());
+    return this.projects.createProject(input);
   }
 
   getProject(projectId: string): Observable<ProjectDto> {
-    return this.http.get<ProjectDto>(this.url(`/projects/${projectId}`), this.options());
+    return this.projects.getProject(projectId);
   }
 
   updateProject(projectId: string, input: UpdateProjectRequest): Observable<ProjectDto> {
-    return this.http.patch<ProjectDto>(this.url(`/projects/${projectId}`), input, this.options());
+    return this.projects.updateProject(projectId, input);
   }
 
   archiveProject(projectId: string): Observable<ProjectDto> {
-    return this.http.post<ProjectDto>(this.url(`/projects/${projectId}/archive`), {}, this.options());
+    return this.projects.archiveProject(projectId);
   }
 
   reactivateProject(projectId: string): Observable<ProjectDto> {
-    return this.http.post<ProjectDto>(
-      this.url(`/projects/${projectId}/reactivate`),
-      {},
-      this.options()
-    );
+    return this.projects.reactivateProject(projectId);
   }
 
   getProjectSummary(projectId: string): Observable<ProjectSummaryDto> {
-    return this.http.get<ProjectSummaryDto>(this.url(`/projects/${projectId}/summary`), this.options());
+    return this.projects.getProjectSummary(projectId);
   }
 
   getProjectPlanningSummary(projectId: string): Observable<ProjectPlanningSummaryDto> {
-    return this.http.get<ProjectPlanningSummaryDto>(
-      this.url(`/projects/${projectId}/planning-summary`),
-      this.options()
-    );
+    return this.planning.getProjectPlanningSummary(projectId);
   }
 
   listProjectActivity(projectId: string): Observable<ActivityEventDto[]> {
-    return this.http.get<ActivityEventDto[]>(
-      this.url(`/projects/${projectId}/activity`),
-      this.options()
-    );
+    return this.projects.listProjectActivity(projectId);
   }
 
   listProjectLabels(projectId: string, input: { includeArchived?: boolean } = {}): Observable<LabelDto[]> {
-    return this.http.get<LabelDto[]>(
-      this.url(`/projects/${projectId}/labels`),
-      this.options({
-        params:
-          input.includeArchived === true
-            ? new HttpParams().set('includeArchived', 'true')
-            : undefined
-      })
-    );
+    return this.projects.listProjectLabels(projectId, input);
   }
 
   createLabel(projectId: string, input: CreateLabelRequest): Observable<LabelDto> {
-    return this.http.post<LabelDto>(
-      this.url(`/projects/${projectId}/labels`),
-      input,
-      this.options()
-    );
+    return this.projects.createLabel(projectId, input);
   }
 
   updateLabel(labelId: string, input: UpdateLabelRequest): Observable<LabelDto> {
-    return this.http.patch<LabelDto>(this.url(`/labels/${labelId}`), input, this.options());
+    return this.projects.updateLabel(labelId, input);
   }
 
   archiveLabel(labelId: string): Observable<LabelDto> {
-    return this.http.post<LabelDto>(this.url(`/labels/${labelId}/archive`), {}, this.options());
+    return this.projects.archiveLabel(labelId);
   }
 
   reactivateLabel(labelId: string): Observable<LabelDto> {
-    return this.http.post<LabelDto>(this.url(`/labels/${labelId}/reactivate`), {}, this.options());
+    return this.projects.reactivateLabel(labelId);
   }
 
   listProjectMilestones(
     projectId: string,
     input: { includeArchived?: boolean; status?: MilestoneStatus } = {}
   ): Observable<MilestoneDto[]> {
-    let params = new HttpParams();
-
-    if (input.includeArchived === true) {
-      params = params.set('includeArchived', 'true');
-    }
-
-    if (input.status !== undefined) {
-      params = params.set('status', input.status);
-    }
-
-    return this.http.get<MilestoneDto[]>(
-      this.url(`/projects/${projectId}/milestones`),
-      this.options({ params })
-    );
+    return this.projects.listProjectMilestones(projectId, input);
   }
 
   createMilestone(projectId: string, input: CreateMilestoneRequest): Observable<MilestoneDto> {
-    return this.http.post<MilestoneDto>(
-      this.url(`/projects/${projectId}/milestones`),
-      input,
-      this.options()
-    );
+    return this.projects.createMilestone(projectId, input);
   }
 
   updateMilestone(milestoneId: string, input: UpdateMilestoneRequest): Observable<MilestoneDto> {
-    return this.http.patch<MilestoneDto>(this.url(`/milestones/${milestoneId}`), input, this.options());
+    return this.projects.updateMilestone(milestoneId, input);
   }
 
   archiveMilestone(milestoneId: string): Observable<MilestoneDto> {
-    return this.http.post<MilestoneDto>(
-      this.url(`/milestones/${milestoneId}/archive`),
-      {},
-      this.options()
-    );
+    return this.projects.archiveMilestone(milestoneId);
   }
 
   reactivateMilestone(milestoneId: string): Observable<MilestoneDto> {
-    return this.http.post<MilestoneDto>(
-      this.url(`/milestones/${milestoneId}/reactivate`),
-      {},
-      this.options()
-    );
+    return this.projects.reactivateMilestone(milestoneId);
   }
 
   listWorkItems(
     projectId: string,
     filters: WorkItemListFilters = {}
   ): Observable<WorkItemListItemDto[]> {
-    return this.http.get<WorkItemListItemDto[]>(
-      this.url(`/projects/${projectId}/work-items`),
-      this.options({ params: queryToHttpParams(filters) })
-    );
+    return this.workItems.listWorkItems(projectId, filters);
   }
 
   getMyWork(): Observable<MyWorkDashboardDto> {
-    return this.http.get<MyWorkDashboardDto>(this.url('/my-work'), this.options());
+    return this.workItems.getMyWork();
   }
 
   listWorkspaceWorkItems(filters: WorkItemQuery = {}): Observable<WorkspaceWorkItemListItemDto[]> {
-    return this.http.get<WorkspaceWorkItemListItemDto[]>(
-      this.url('/work-items'),
-      this.options({ params: workItemQueryToHttpParams(filters) })
-    );
+    return this.workItems.listWorkspaceWorkItems(filters);
   }
 
   exportWorkspaceWorkItems(filters: WorkItemQuery = {}): Observable<HttpResponse<Blob>> {
-    return this.http.get(this.url('/work-items/export'), {
-      ...this.options({ params: workItemQueryToHttpParams(filters) }),
-      observe: 'response',
-      responseType: 'blob'
-    });
+    return this.workItems.exportWorkspaceWorkItems(filters);
   }
 
   listSavedWorkViews(): Observable<SavedWorkViewDto[]> {
-    return this.http.get<SavedWorkViewDto[]>(this.url('/saved-work-views'), this.options());
+    return this.savedViews.listSavedWorkViews();
   }
 
   createSavedWorkView(input: CreateSavedWorkViewRequest): Observable<SavedWorkViewDto> {
-    return this.http.post<SavedWorkViewDto>(this.url('/saved-work-views'), input, this.options());
+    return this.savedViews.createSavedWorkView(input);
   }
 
   updateSavedWorkView(
     savedViewId: string,
     input: UpdateSavedWorkViewRequest
   ): Observable<SavedWorkViewDto> {
-    return this.http.patch<SavedWorkViewDto>(
-      this.url(`/saved-work-views/${savedViewId}`),
-      input,
-      this.options()
-    );
+    return this.savedViews.updateSavedWorkView(savedViewId, input);
   }
 
   deleteSavedWorkView(savedViewId: string): Observable<void> {
-    return this.http.delete<void>(this.url(`/saved-work-views/${savedViewId}`), this.options());
+    return this.savedViews.deleteSavedWorkView(savedViewId);
   }
 
   createWorkItem(projectId: string, input: CreateWorkItemRequest): Observable<WorkItemDetailDto> {
-    return this.http.post<WorkItemDetailDto>(
-      this.url(`/projects/${projectId}/work-items`),
-      input,
-      this.options()
-    );
+    return this.workItems.createWorkItem(projectId, input);
   }
 
   previewWorkItemCsvImport(
     projectId: string,
     csv: string
   ): Observable<WorkItemCsvImportPreviewDto> {
-    return this.http.post<WorkItemCsvImportPreviewDto>(
-      this.url(`/projects/${projectId}/work-items/imports/preview`),
-      { csv },
-      this.options()
-    );
+    return this.workItems.previewWorkItemCsvImport(projectId, csv);
   }
 
   applyWorkItemCsvImport(projectId: string, csv: string): Observable<WorkItemCsvImportApplyDto> {
-    return this.http.post<WorkItemCsvImportApplyDto>(
-      this.url(`/projects/${projectId}/work-items/imports`),
-      { csv },
-      this.options()
-    );
+    return this.workItems.applyWorkItemCsvImport(projectId, csv);
   }
 
   exportProjectWorkItems(
     projectId: string,
     filters: WorkItemListFilters = {}
   ): Observable<HttpResponse<Blob>> {
-    return this.http.get(this.url(`/projects/${projectId}/work-items/export`), {
-      ...this.options({ params: queryToHttpParams(filters) }),
-      observe: 'response',
-      responseType: 'blob'
-    });
+    return this.workItems.exportProjectWorkItems(projectId, filters);
   }
 
   getWorkItem(workItemId: string): Observable<WorkItemDetailDto> {
-    return this.http.get<WorkItemDetailDto>(this.url(`/work-items/${workItemId}`), this.options());
+    return this.workItems.getWorkItem(workItemId);
   }
 
   updateWorkItem(workItemId: string, input: UpdateWorkItemRequest): Observable<WorkItemDetailDto> {
-    return this.http.patch<WorkItemDetailDto>(
-      this.url(`/work-items/${workItemId}`),
-      input,
-      this.options()
-    );
+    return this.workItems.updateWorkItem(workItemId, input);
   }
 
   transitionWorkItem(
     workItemId: string,
     input: TransitionWorkItemRequest
   ): Observable<WorkItemDetailDto> {
-    return this.http.post<WorkItemDetailDto>(
-      this.url(`/work-items/${workItemId}/transitions`),
-      input,
-      this.options()
-    );
+    return this.workItems.transitionWorkItem(workItemId, input);
   }
 
   moveWorkItemOnBoard(
     workItemId: string,
     input: MoveWorkItemOnBoardRequest
   ): Observable<WorkItemDetailDto> {
-    return this.http.post<WorkItemDetailDto>(
-      this.url(`/work-items/${workItemId}/board-move`),
-      input,
-      this.options()
-    );
+    return this.workItems.moveWorkItemOnBoard(workItemId, input);
   }
 
   listWorkItemRelationships(workItemId: string): Observable<WorkItemRelationshipSummaryDto> {
-    return this.http.get<WorkItemRelationshipSummaryDto>(
-      this.url(`/work-items/${workItemId}/relationships`),
-      this.options()
-    );
+    return this.workItems.listWorkItemRelationships(workItemId);
   }
 
   createWorkItemRelationship(
     workItemId: string,
     input: CreateWorkItemRelationshipRequest
   ): Observable<WorkItemRelationshipDto> {
-    return this.http.post<WorkItemRelationshipDto>(
-      this.url(`/work-items/${workItemId}/relationships`),
-      input,
-      this.options()
-    );
+    return this.workItems.createWorkItemRelationship(workItemId, input);
   }
 
   deleteWorkItemRelationship(workItemId: string, relationshipId: string): Observable<void> {
-    return this.http.delete<void>(
-      this.url(`/work-items/${workItemId}/relationships/${relationshipId}`),
-      this.options()
-    );
+    return this.workItems.deleteWorkItemRelationship(workItemId, relationshipId);
   }
 
   listComments(workItemId: string): Observable<CommentDto[]> {
-    return this.http.get<CommentDto[]>(this.url(`/work-items/${workItemId}/comments`), this.options());
+    return this.workItems.listComments(workItemId);
   }
 
   createComment(workItemId: string, input: CreateCommentRequest): Observable<CommentDto> {
-    return this.http.post<CommentDto>(
-      this.url(`/work-items/${workItemId}/comments`),
-      input,
-      this.options()
-    );
+    return this.workItems.createComment(workItemId, input);
   }
 
   updateComment(commentId: string, input: UpdateCommentRequest): Observable<CommentDto> {
-    return this.http.patch<CommentDto>(this.url(`/comments/${commentId}`), input, this.options());
+    return this.workItems.updateComment(commentId, input);
   }
 
   deleteComment(commentId: string): Observable<CommentDto> {
-    return this.http.delete<CommentDto>(this.url(`/comments/${commentId}`), this.options());
+    return this.workItems.deleteComment(commentId);
   }
 
   listWorkItemActivity(workItemId: string): Observable<ActivityEventDto[]> {
-    return this.http.get<ActivityEventDto[]>(
-      this.url(`/work-items/${workItemId}/activity`),
-      this.options()
-    );
-  }
-
-  private url(path: string): string {
-    return `${environment.apiBaseUrl}${path}`;
-  }
-
-  private options(input: { params?: HttpParams } = {}): {
-    headers: Record<string, string>;
-    params?: HttpParams;
-  } {
-    return {
-      headers: this.currentUser.actorHeaders(),
-      ...(input.params === undefined ? {} : { params: input.params })
-    };
+    return this.workItems.listWorkItemActivity(workItemId);
   }
 }

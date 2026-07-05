@@ -1,0 +1,144 @@
+import type {
+  LabelDto,
+  MemberDto,
+  MilestoneDto,
+  ProjectNavigationSummaryDto,
+  WorkItemPriority,
+  WorkItemStatus
+} from '@worktrail/contracts';
+
+import { memberDisplayName } from '../../../shared/display/member-display';
+import { formatToken } from '../../../shared/display/token-format';
+import {
+  filterPillLabel,
+  projectTitle,
+  workItemPriorityLabel,
+  workItemStatusLabel
+} from '../../../shared/work-items/work-item-display';
+import {
+  archivedProjectModeOptions,
+  blockedFilterOptions,
+  dependencyFilterOptions,
+  dueDateStateOptions,
+  workItemSortOptions,
+  workItemStateOptions
+} from './work-item-filter-options';
+import type {
+  ProjectWorkItemFilterFormValue,
+  WorkspaceWorkItemFilterFormValue
+} from './work-item-filter-state';
+
+export interface ProjectFilterLabelLookups {
+  members: MemberDto[];
+  labels: LabelDto[];
+  milestones: MilestoneDto[];
+}
+
+export interface WorkspaceFilterLabelLookups extends ProjectFilterLabelLookups {
+  projectSummaries: ProjectNavigationSummaryDto[];
+}
+
+export function projectWorkItemFilterLabels(
+  formValue: ProjectWorkItemFilterFormValue,
+  lookups: ProjectFilterLabelLookups
+): string[] {
+  const labels: string[] = [];
+
+  pushFilterLabel(labels, 'Search', formValue.search.trim());
+  pushFilterLabel(
+    labels,
+    'Status',
+    formValue.status === '' ? '' : workItemStatusLabel(formValue.status as WorkItemStatus)
+  );
+  pushFilterLabel(labels, 'Assignee', memberName(formValue.assigneeId, lookups.members));
+  pushFilterLabel(labels, 'Reporter', memberName(formValue.reporterId, lookups.members));
+  pushFilterLabel(labels, 'Type', formatToken(formValue.type));
+  pushFilterLabel(labels, 'Label', labelName(formValue.labelId, lookups.labels));
+  pushFilterLabel(labels, 'Milestone', milestoneName(formValue.milestoneId, lookups.milestones));
+  pushFilterLabel(
+    labels,
+    'Priority',
+    formValue.priority === '' ? '' : workItemPriorityLabel(formValue.priority as WorkItemPriority)
+  );
+  pushFilterLabel(labels, 'Due date', optionLabel(dueDateStateOptions, formValue.dueDateState));
+  pushFilterLabel(labels, 'Dependency', optionLabel(dependencyFilterOptions, formValue.dependency));
+  pushFilterLabel(
+    labels,
+    'Sort',
+    formValue.sort === 'updated_desc' ? '' : optionLabel(workItemSortOptions, formValue.sort)
+  );
+
+  return labels;
+}
+
+export function workspaceWorkItemFilterLabels(
+  formValue: WorkspaceWorkItemFilterFormValue,
+  lookups: WorkspaceFilterLabelLookups
+): string[] {
+  const labels = projectWorkItemFilterLabels(formValue, lookups);
+
+  insertFilterLabel(
+    labels,
+    1,
+    'Project',
+    projectName(formValue.projectId, lookups.projectSummaries)
+  );
+  insertFilterLabel(labels, 3, 'State', optionLabel(workItemStateOptions, formValue.workState));
+  pushFilterLabel(labels, 'Blocked', optionLabel(blockedFilterOptions, formValue.blocked));
+  pushFilterLabel(
+    labels,
+    'Projects',
+    formValue.archivedProjects === 'exclude'
+      ? ''
+      : optionLabel(archivedProjectModeOptions, formValue.archivedProjects)
+  );
+
+  return labels;
+}
+
+function pushFilterLabel(labels: string[], label: string, value: string): void {
+  if (value.trim() !== '') {
+    labels.push(filterPillLabel(label, value));
+  }
+}
+
+function insertFilterLabel(labels: string[], index: number, label: string, value: string): void {
+  if (value.trim() !== '') {
+    labels.splice(index, 0, filterPillLabel(label, value));
+  }
+}
+
+function optionLabel<TValue extends string>(
+  options: Array<{ label: string; value: TValue }>,
+  value: string
+): string {
+  return options.find((option) => option.value === value)?.label ?? value;
+}
+
+function memberName(memberId: string, members: MemberDto[]): string {
+  if (memberId === '') {
+    return '';
+  }
+
+  const member = members.find((item) => item.id === memberId);
+  return member === undefined ? memberId : memberDisplayName(member);
+}
+
+function labelName(labelId: string, labels: LabelDto[]): string {
+  return labelId === '' ? '' : labels.find((label) => label.id === labelId)?.name ?? labelId;
+}
+
+function milestoneName(milestoneId: string, milestones: MilestoneDto[]): string {
+  return milestoneId === ''
+    ? ''
+    : milestones.find((milestone) => milestone.id === milestoneId)?.name ?? milestoneId;
+}
+
+function projectName(projectId: string, summaries: ProjectNavigationSummaryDto[]): string {
+  if (projectId === '') {
+    return '';
+  }
+
+  const summary = summaries.find((item) => item.project.id === projectId);
+  return summary === undefined ? projectId : projectTitle(summary.project);
+}
