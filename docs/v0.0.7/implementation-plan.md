@@ -242,7 +242,49 @@ npm test --workspace @worktrail/api
 git diff --check
 ```
 
-Status: Not started.
+Status:
+
+- Completed on 2026-07-05.
+- Added `apps/api/src/services/work-item-csv-import-service.ts`.
+- Implemented dry-run import validation with:
+  - 1 MiB CSV payload limit;
+  - 250 data-row limit;
+  - 20-label-per-row limit;
+  - 10,000-character cell limit;
+  - required and allowed header validation;
+  - safe parser failure handling;
+  - string trimming;
+  - default empty description;
+  - default `status` of `backlog`;
+  - default omitted `reporter_email` to the acting member;
+  - empty optional field normalization;
+  - work item type, status, and priority validation;
+  - valid `YYYY-MM-DD` due date validation;
+  - non-negative integer estimate validation;
+  - active workspace member resolution by email;
+  - active project label resolution by name;
+  - active project milestone resolution by name;
+  - case-insensitive lookup matching;
+  - duplicate label names in a row collapsed by normalized name;
+  - defensive ambiguity handling for duplicate lookup matches;
+  - archived project rejection.
+- Kept validation side-effect-free; preview validation does not create work items.
+- Added `apps/api/tests/work-item-csv-import.test.ts` covering:
+  - valid previews with defaults;
+  - case-insensitive member, label, and milestone lookup;
+  - duplicate label collapse;
+  - invalid enum values;
+  - inactive or missing member references;
+  - archived or missing labels and milestones;
+  - invalid dates and estimates;
+  - header errors;
+  - parser errors;
+  - hard limits;
+  - archived project conflicts;
+  - no writes during preview.
+- Verified `npm test --workspace @worktrail/api -- work-item-csv-import`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm test --workspace @worktrail/api`.
 
 ## Phase 3: Import Preview API
 
