@@ -48,6 +48,8 @@ describe('OpenAPI reference', () => {
       '/api/work-items/{workItemId}/comments',
       '/api/comments/{commentId}',
       '/api/work-items/{workItemId}/activity',
+      '/api/work-items/{workItemId}/relationships',
+      '/api/work-items/{workItemId}/relationships/{relationshipId}',
       '/api/my-work',
       '/api/saved-work-views',
       '/api/saved-work-views/{savedViewId}'
@@ -65,6 +67,15 @@ describe('OpenAPI reference', () => {
     expect(openApi).toContain('WorkItemCsvImportApplyRequest:');
     expect(openApi).toContain('WorkItemCsvImportPreview:');
     expect(openApi).toContain('WorkItemCsvImportApply:');
+    expect(openApi).toContain('WorkItemRelationshipType:');
+    expect(openApi).toContain('DependencyFilter:');
+    expect(openApi).toContain('WorkItemRelationshipSummary:');
+    expect(openApi).toContain('CreateWorkItemRelationshipRequest:');
+    expect(openApi).toContain('WorkItemRelationship:');
+    expect(openApi).toContain('dependency_blocked');
+    expect(openApi).toContain('blocking_open_work');
+    expect(openApi).toContain('work_item.relationship_added');
+    expect(openApi).toContain('work_item.relationship_removed');
     expect(openApi).toContain('text/csv:');
     expect(openApi).toContain('VALIDATION_ERROR');
     expect(openApi).toContain('INTERNAL_ERROR');

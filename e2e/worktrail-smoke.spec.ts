@@ -4,9 +4,49 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { expect, test } from '@playwright/test';
-import type { Download, Locator, Page } from '@playwright/test';
+import type { APIRequestContext, Download, Locator, Page } from '@playwright/test';
 
 const demoProjectId = '10000000-0000-4000-8000-000000000201';
+
+interface CreatedWorkItem {
+  id: string;
+  displayKey: string;
+  title: string;
+}
+
+interface CreateWorkItemInput {
+  title: string;
+  description: string;
+  status: 'ready' | 'in_progress';
+  priority: 'medium' | 'high';
+}
+
+function apiBaseURL(): string {
+  const apiPort = Number.parseInt(process.env.API_PORT ?? '3000', 10);
+  const host = process.env.WORKTRAIL_E2E_HOST ?? '127.0.0.1';
+  return `http://${host}:${apiPort}`;
+}
+
+async function createProjectWorkItem(
+  request: APIRequestContext,
+  input: CreateWorkItemInput
+): Promise<CreatedWorkItem> {
+  const response = await request.post(`${apiBaseURL()}/api/projects/${demoProjectId}/work-items`, {
+    data: {
+      title: input.title,
+      description: input.description,
+      type: 'task',
+      status: input.status,
+      priority: input.priority
+    }
+  });
+
+  if (!response.ok()) {
+    throw new Error(`Failed to create e2e work item: ${response.status()} ${await response.text()}`);
+  }
+
+  return (await response.json()) as CreatedWorkItem;
+}
 
 async function dragCardToColumn(page: Page, card: Locator, column: Locator): Promise<void> {
   const handleBox = await card.getByRole('button', { name: /Drag WT-/ }).boundingBox();
@@ -163,7 +203,7 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
   await expect(page.getByRole('heading', { name: 'Worktrail App' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Planning dashboard' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Milestone progress' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Blocked work' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Blocked work', exact: true })).toBeVisible();
   await expect(
     page.getByRole('link', { name: /WT-4 .*Choose status transition copy/ }).first()
   ).toBeVisible();
@@ -375,6 +415,84 @@ test('completes the v0.0.5 daily workspace workflow', async ({ page }) => {
   await expect(page).toHaveURL(/search=/);
   await expect(page.getByText(`Search: ${title}`)).toBeVisible();
   await expect(page.getByRole('row', { name: new RegExp(title) })).toBeVisible();
+});
+
+test('validates the v0.0.8 dependency workflow', async ({ page, request }) => {
+  test.setTimeout(90_000);
+
+  const runId = Date.now();
+  const blockerTitle = `E2E dependency blocker ${runId}`;
+  const blockedTitle = `E2E dependency target ${runId}`;
+  const savedViewName = `E2E dependency blocked ${runId}`;
+
+  const blocker = await createProjectWorkItem(request, {
+    title: blockerTitle,
+    description: 'Created by the v0.0.8 dependency workflow smoke test.',
+    status: 'in_progress',
+    priority: 'high'
+  });
+  const blocked = await createProjectWorkItem(request, {
+    title: blockedTitle,
+    description: 'Created by the v0.0.8 dependency workflow smoke test.',
+    status: 'ready',
+    priority: 'medium'
+  });
+
+  await page.goto(`/work-items/${blocked.id}`);
+  await expect(page.getByRole('heading', { name: blockedTitle })).toBeVisible();
+
+  const relationshipPanel = page.locator('.relationship-panel');
+  await relationshipPanel.getByLabel('Relationship').selectOption('blocked_by');
+  await relationshipPanel.getByLabel('Find work item').fill(blockerTitle);
+  await relationshipPanel.getByRole('button', { name: 'Search' }).click();
+
+  const blockerCandidate = page
+    .getByLabel('Relationship candidates')
+    .getByRole('button', { name: new RegExp(blockerTitle) });
+  await expect(blockerCandidate).toBeVisible();
+  await blockerCandidate.click();
+  await relationshipPanel.getByRole('button', { name: 'Add blocker' }).click();
+
+  await expect(relationshipPanel.getByRole('region', { name: 'Blocked by' })).toContainText(
+    blockerTitle
+  );
+
+  await page.goto(`/work-items?dependency=dependency_blocked&search=${encodeURIComponent(blockedTitle)}`);
+  await expect(page.getByRole('heading', { name: 'Work items', exact: true })).toBeVisible();
+  await expect(page.getByText('Dependency: Blocked by open work')).toBeVisible();
+  await expect(page.getByText(`Search: ${blockedTitle}`)).toBeVisible();
+
+  const dependencyRow = page.getByRole('row', { name: new RegExp(blockedTitle) });
+  await expect(dependencyRow).toBeVisible();
+  await expect(dependencyRow).toContainText('Blocked by 1');
+
+  await page.locator('form.saved-view-form').getByLabel('Name').fill(savedViewName);
+  await page.getByRole('button', { name: 'Save current view' }).click();
+
+  const savedViewRow = page.locator('article.saved-view-row').filter({ hasText: savedViewName });
+  await expect(savedViewRow).toBeVisible();
+  await expect(savedViewRow).toContainText('2 applied filters');
+
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Work items', exact: true })).toBeVisible();
+  const reloadedSavedViewRow = page.locator('article.saved-view-row').filter({ hasText: savedViewName });
+  await expect(reloadedSavedViewRow).toBeVisible();
+  await reloadedSavedViewRow.getByRole('button', { name: 'Open' }).click();
+  await expect(page.getByText('Dependency: Blocked by open work')).toBeVisible();
+  await expect(page.getByRole('row', { name: new RegExp(blockedTitle) })).toBeVisible();
+
+  await page.goto(`/work-items/${blocker.id}`);
+  await expect(page.getByRole('heading', { name: blockerTitle })).toBeVisible();
+  await page.getByLabel('Current status').selectOption('done');
+  await page.getByRole('button', { name: 'Update status' }).click();
+  await expect(page.getByLabel('Current status')).toHaveValue('done');
+  await expect(page.getByText('Status changed from in_progress to done.')).toBeVisible();
+
+  await page.goto(`/work-items?dependency=dependency_blocked&search=${encodeURIComponent(blockedTitle)}`);
+  await expect(page.getByText('Dependency: Blocked by open work')).toBeVisible();
+  await expect(page.getByText(`Search: ${blockedTitle}`)).toBeVisible();
+  await expect(page.getByRole('row', { name: new RegExp(blockedTitle) })).toHaveCount(0);
+  await expect(page.getByText('No work items match these filters')).toBeVisible();
 });
 
 test('imports project work items from CSV and exports filtered results', async ({ page }) => {

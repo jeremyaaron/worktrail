@@ -801,7 +801,32 @@ npm test
 git diff --check
 ```
 
-Status: Not started.
+Status:
+
+- Completed on 2026-07-05.
+- Updated `docs/api/openapi.yaml` with:
+  - relationship endpoints for list, create, and delete;
+  - relationship schemas;
+  - dependency filter schema and query parameter;
+  - dependency fields on work item list/detail DTOs;
+  - relationship summary on work item detail DTOs;
+  - My Work dependency-blocked dashboard section;
+  - planning dependency risk arrays;
+  - relationship activity event examples.
+- Extended OpenAPI coverage to assert relationship paths, schemas, dependency filters, and relationship activity event names.
+- Added a v0.0.8 Playwright smoke path that:
+  - creates a blocker and downstream work item;
+  - creates a blocker relationship through the detail UI;
+  - verifies dependency-blocked workspace discovery;
+  - saves and reopens a dependency-blocked saved view;
+  - moves the blocker to `done`;
+  - verifies the downstream item leaves the dependency-blocked filtered view.
+- Tightened one existing planning e2e heading assertion to avoid ambiguity with the new dependency-blocked heading.
+- Verified `npm test --workspace @worktrail/api -- openapi`.
+- Verified `npm run test:e2e`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `git diff --check`.
 
 ## Phase 10: Product Documentation, Site, Extraction Notes, And Version Finalization
 
