@@ -40,9 +40,11 @@
   display: flex;
   gap: 6px;
   align-items: center;
+  min-width: 0;
 }
 
 .primary-nav a {
+  flex: 0 0 auto;
   min-height: 36px;
   border-radius: 6px;
   padding: 9px 12px;
@@ -113,9 +115,12 @@
 
   .primary-nav {
     overflow-x: auto;
+    scrollbar-width: thin;
   }
 
   .actor-selector {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
     justify-content: flex-start;
     min-width: 0;
   }

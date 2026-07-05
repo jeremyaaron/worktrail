@@ -123,6 +123,78 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
             </a>
           }
         </div>
+
+        <div class="work-item-cards" [attr.aria-label]="ariaLabel + ' cards'">
+          @for (item of items; track item.id) {
+            <a
+              class="work-item-card"
+              [routerLink]="['/work-items', item.id]"
+              [queryParams]="detailQueryParams()"
+            >
+              <span class="work-item-card__heading">
+                <strong>{{ item.title }}</strong>
+                <span class="work-item-card__meta">
+                  <span class="key-pill">{{ item.displayKey }}</span>
+                  <span class="type-pill">{{ formatToken(item.type) }}</span>
+                  @if (workspaceItem(item); as workspaceItem) {
+                    <span
+                      class="project-pill"
+                      [class.project-pill--archived]="workspaceItem.project.status === 'archived'"
+                    >
+                      {{ projectBadge(workspaceItem.project) }}
+                    </span>
+                  }
+                </span>
+              </span>
+
+              <span class="work-item-card__state">
+                <span class="status-pill" [attr.data-status]="item.status">
+                  {{ workItemStatusLabel(item.status) }}
+                </span>
+                <span class="priority-pill" [attr.data-priority]="item.priority">
+                  {{ workItemPriorityLabel(item.priority) }}
+                </span>
+              </span>
+
+              <dl class="work-item-card__facts">
+                @if (workspaceItem(item); as workspaceItem) {
+                  <div>
+                    <dt>Project</dt>
+                    <dd>{{ workspaceItem.project.key }} · {{ workspaceItem.project.name }}</dd>
+                  </div>
+                }
+                <div>
+                  <dt>Assignee</dt>
+                  <dd>{{ item.assignee === null ? 'Unassigned' : memberDisplayName(item.assignee) }}</dd>
+                </div>
+                <div>
+                  <dt>Milestone</dt>
+                  <dd>{{ item.milestone?.name ?? 'No milestone' }}</dd>
+                </div>
+                <div>
+                  <dt>Due date</dt>
+                  <dd>{{ dueDateLabel(item) }}</dd>
+                </div>
+                <div>
+                  <dt>Dependency</dt>
+                  <dd>{{ dependencyLabel(item) }}</dd>
+                </div>
+              </dl>
+
+              <span class="work-item-card__labels">
+                @if (item.labels.length === 0) {
+                  <span class="muted-pill">No labels</span>
+                } @else {
+                  @for (label of item.labels; track label.id) {
+                    <span class="label-pill" [style.border-color]="label.color ?? '#cbd5e1'">
+                      {{ label.name }}
+                    </span>
+                  }
+                }
+              </span>
+            </a>
+          }
+        </div>
       }
     </section>
   `,
@@ -146,6 +218,10 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
     .work-item-table {
       display: grid;
       overflow-x: auto;
+    }
+
+    .work-item-cards {
+      display: none;
     }
 
     .work-item-table__head,
@@ -190,13 +266,15 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
 
     .work-item-row__title,
     .project-cell,
-    .planning-cell {
+    .planning-cell,
+    .work-item-card__heading {
       display: grid;
       gap: 4px;
       align-content: center;
     }
 
-    .work-item-row strong {
+    .work-item-row strong,
+    .work-item-card strong {
       color: #111827;
       line-height: 1.35;
     }
@@ -210,6 +288,9 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
     }
 
     .row-meta,
+    .work-item-card__meta,
+    .work-item-card__state,
+    .work-item-card__labels,
     .key-pill,
     .label-pill,
     .milestone-pill,
@@ -228,6 +309,14 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
     .row-meta {
       flex-wrap: wrap;
       gap: 5px;
+    }
+
+    .work-item-card__meta,
+    .work-item-card__state,
+    .work-item-card__labels {
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
     }
 
     .label-pill,
@@ -349,6 +438,70 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
       background: #fef2f2;
       color: #b91c1c;
     }
+
+    .work-item-card {
+      display: grid;
+      gap: 12px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 12px;
+      background: #ffffff;
+      color: #334155;
+      font-size: 0.875rem;
+      text-decoration: none;
+    }
+
+    .work-item-card:hover {
+      background: #f8fafc;
+    }
+
+    .work-item-card__facts {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin: 0;
+    }
+
+    .work-item-card__facts div {
+      min-width: 0;
+    }
+
+    .work-item-card__facts dt {
+      color: #64748b;
+      font-size: 0.7rem;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .work-item-card__facts dd {
+      margin: 2px 0 0;
+      color: #111827;
+      font-size: 0.8125rem;
+      font-weight: 750;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 760px) {
+      .list-panel {
+        padding: 12px;
+      }
+
+      .work-item-table {
+        display: none;
+      }
+
+      .work-item-cards {
+        display: grid;
+        gap: 10px;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .work-item-card__facts {
+        grid-template-columns: 1fr;
+      }
+    }
   `
 })
 export class WorkItemResultListComponent {
@@ -383,6 +536,18 @@ export class WorkItemResultListComponent {
 
   dueDateLabel(item: ResultItem): string {
     return item.dueDate === null ? 'No due date' : `Due ${this.formatDateOnly(item.dueDate)}`;
+  }
+
+  dependencyLabel(item: ResultItem): string {
+    if (item.openBlockerCount > 0) {
+      return `Blocked by ${item.openBlockerCount}`;
+    }
+
+    if (item.openBlockedWorkCount > 0) {
+      return `Blocks ${item.openBlockedWorkCount}`;
+    }
+
+    return 'No open dependency signals';
   }
 
   formatDate(value: string): string {

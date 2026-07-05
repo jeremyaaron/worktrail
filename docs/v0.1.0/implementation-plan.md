@@ -814,6 +814,20 @@ npm run build --workspace @worktrail/web
 git diff --check
 ```
 
+Completed in Phase 10:
+
+- Added mobile work item cards that replace the dense results table at narrow widths.
+- Included title, display key, type, project badge/detail for workspace lists, status, priority, assignee, milestone, due date, labels, and dependency signal on the mobile card surface.
+- Collapsed the dense filter panel behind a compact mobile `Filters` control while keeping active filter chips outside the panel.
+- Kept saved-view management behind its existing explicit disclosure control.
+- Tightened global nav, actor selector, and project subnav behavior for narrow screens.
+- Added component tests for mobile result-card content/linking and compact filter toggle/apply behavior.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/web`
+  - `npm test --workspace @worktrail/web -- --watch=false`
+  - `npm run build --workspace @worktrail/web`
+  - `git diff --check`
+
 ## Phase 11: CI And Lint Guardrails
 
 Goal: add lightweight project guardrails appropriate for a growing reference app.

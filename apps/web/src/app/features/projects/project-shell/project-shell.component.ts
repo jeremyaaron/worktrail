@@ -268,10 +268,12 @@ interface ProjectSectionLink {
       gap: 6px;
       overflow-x: auto;
       border-bottom: 1px solid #d7e0ea;
+      scrollbar-width: thin;
     }
 
     .project-shell__nav a {
       display: inline-flex;
+      flex: 0 0 auto;
       align-items: center;
       min-height: 40px;
       border-bottom: 3px solid transparent;
@@ -305,6 +307,17 @@ interface ProjectSectionLink {
 
       .project-shell__actions {
         justify-content: flex-end;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .project-shell__header {
+        padding: 14px;
+      }
+
+      .project-shell__nav a {
+        min-height: 38px;
+        padding: 0 8px;
       }
     }
   `
