@@ -615,6 +615,40 @@ npm test --workspace @worktrail/web -- --watch=false --include 'src/app/features
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-05.
+- Added `apps/web/src/app/core/api/notifications-api.ts` with:
+  - notification list;
+  - unread count;
+  - read/unread mutation;
+  - mark-all-read mutation.
+- Added watcher API methods for:
+  - get work item watch state;
+  - watch work item;
+  - unwatch work item.
+- Added `put` support to the shared `ApiClient`.
+- Exposed notification and watcher methods through `WorktrailApiService`.
+- Confirmed comment creation can send `mentionMemberIds` through the existing typed contract.
+- Added `InboxStateService` with:
+  - unread count signal;
+  - loading/error state;
+  - explicit unread-count refresh;
+  - selected-actor refresh effect;
+  - local count sync helpers for list/read/unread/mark-all-read flows.
+- Added focused web tests for:
+  - notification API URLs, methods, params, and request bodies;
+  - watcher API URLs and methods;
+  - comment mention request payloads;
+  - unread count refresh;
+  - actor-switch refresh;
+  - local unread count updates after read-state mutations.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/web`
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/core/**/*.spec.ts'`
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/features/inbox/**/*.spec.ts'`
+  - `git diff --check`
+
 ## Phase 8: Inbox Route, Navigation Badge, And My Work Integration
 
 Goal: add the primary user-facing inbox and connect unread state to navigation and My Work.

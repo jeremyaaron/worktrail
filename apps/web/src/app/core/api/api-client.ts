@@ -48,6 +48,14 @@ export class ApiClient {
     return this.http.patch<TResponse>(this.url(path), body, this.options(options));
   }
 
+  put<TResponse, TBody = unknown>(
+    path: string,
+    body: TBody,
+    options: ApiRequestOptions = {}
+  ): Observable<TResponse> {
+    return this.http.put<TResponse>(this.url(path), body, this.options(options));
+  }
+
   delete<TResponse>(path: string, options: ApiRequestOptions = {}): Observable<TResponse> {
     return this.http.delete<TResponse>(this.url(path), this.options(options));
   }
