@@ -21,6 +21,7 @@ import {
   type ProjectStatus,
   type SavedWorkViewVisibility,
   type WorkItemPriority,
+  type WorkItemRelationshipType,
   type WorkItemStatus,
   type WorkItemType,
   type WorkspaceActivityEventType,
@@ -30,6 +31,7 @@ import {
   projectStatuses,
   savedWorkViewVisibilities,
   workItemPriorities,
+  workItemRelationshipTypes,
   workItemStatuses,
   workItemTypes,
   workspaceActivityEventTypes
@@ -178,6 +180,40 @@ export const workItems = pgTable(
     index('work_items_workspace_id_updated_at_idx').on(table.workspaceId, table.updatedAt.desc()),
     uniqueIndex('work_items_project_id_item_number_unique').on(table.projectId, table.itemNumber),
     uniqueIndex('work_items_workspace_id_display_key_unique').on(table.workspaceId, table.displayKey)
+  ]
+);
+
+export const workItemRelationships = pgTable(
+  'work_item_relationships',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    relationshipType: text('relationship_type').$type<WorkItemRelationshipType>().notNull(),
+    sourceWorkItemId: uuid('source_work_item_id')
+      .notNull()
+      .references(() => workItems.id, { onDelete: 'cascade' }),
+    targetWorkItemId: uuid('target_work_item_id')
+      .notNull()
+      .references(() => workItems.id, { onDelete: 'cascade' }),
+    createdById: uuid('created_by_id')
+      .notNull()
+      .references(() => members.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull()
+  },
+  (table) => [
+    check('work_item_relationships_type_check', enumCheckSql('relationship_type', workItemRelationshipTypes)),
+    check('work_item_relationships_no_self_check', sql`${table.sourceWorkItemId} <> ${table.targetWorkItemId}`),
+    index('work_item_relationships_workspace_id_idx').on(table.workspaceId),
+    index('work_item_relationships_source_work_item_id_idx').on(table.sourceWorkItemId),
+    index('work_item_relationships_target_work_item_id_idx').on(table.targetWorkItemId),
+    uniqueIndex('work_item_relationships_unique').on(
+      table.workspaceId,
+      table.relationshipType,
+      table.sourceWorkItemId,
+      table.targetWorkItemId
+    )
   ]
 );
 

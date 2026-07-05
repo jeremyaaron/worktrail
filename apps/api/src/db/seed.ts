@@ -12,6 +12,7 @@ import {
   projects,
   savedWorkViews,
   workItemLabels,
+  workItemRelationships,
   workItems,
   workspaces,
   workspaceActivityEvents
@@ -53,6 +54,12 @@ const ids = {
     unassigned: '10000000-0000-4000-8000-000000000408',
     contributorOverdue: '10000000-0000-4000-8000-000000000409',
     platformBlocked: '10000000-0000-4000-8000-000000000410'
+  },
+  workItemRelationships: {
+    sameProjectBlock: '10000000-0000-4000-8000-000000000451',
+    crossProjectBlock: '10000000-0000-4000-8000-000000000452',
+    relatedWork: '10000000-0000-4000-8000-000000000453',
+    terminalBlocker: '10000000-0000-4000-8000-000000000454'
   },
   comments: {
     first: '10000000-0000-4000-8000-000000000501',
@@ -576,6 +583,48 @@ try {
         { workItemId: ids.workItems.unassigned, labelId: ids.labels.design },
         { workItemId: ids.workItems.contributorOverdue, labelId: ids.labels.frontend },
         { workItemId: ids.workItems.platformBlocked, labelId: ids.labels.reliability }
+      ])
+      .onConflictDoNothing();
+
+    await tx
+      .insert(workItemRelationships)
+      .values([
+        {
+          id: ids.workItemRelationships.sameProjectBlock,
+          workspaceId: ids.workspace,
+          relationshipType: 'blocks',
+          sourceWorkItemId: ids.workItems.inProgress,
+          targetWorkItemId: ids.workItems.ready,
+          createdById: ids.members.maintainer,
+          createdAt: now
+        },
+        {
+          id: ids.workItemRelationships.crossProjectBlock,
+          workspaceId: ids.workspace,
+          relationshipType: 'blocks',
+          sourceWorkItemId: ids.workItems.platform,
+          targetWorkItemId: ids.workItems.contributorOverdue,
+          createdById: ids.members.owner,
+          createdAt: now
+        },
+        {
+          id: ids.workItemRelationships.relatedWork,
+          workspaceId: ids.workspace,
+          relationshipType: 'relates_to',
+          sourceWorkItemId: ids.workItems.backlog,
+          targetWorkItemId: ids.workItems.unassigned,
+          createdById: ids.members.owner,
+          createdAt: now
+        },
+        {
+          id: ids.workItemRelationships.terminalBlocker,
+          workspaceId: ids.workspace,
+          relationshipType: 'blocks',
+          sourceWorkItemId: ids.workItems.done,
+          targetWorkItemId: ids.workItems.blocked,
+          createdById: ids.members.owner,
+          createdAt: now
+        }
       ])
       .onConflictDoNothing();
 

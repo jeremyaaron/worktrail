@@ -36,6 +36,13 @@
       "when": 1783200768507,
       "tag": "0004_modern_jane_foster",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1783220766995,
+      "tag": "0005_hot_post",
+      "breakpoints": true
     }
   ]
 }

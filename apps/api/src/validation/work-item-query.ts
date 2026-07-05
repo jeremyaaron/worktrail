@@ -26,6 +26,7 @@ const workItemQuerySchema = z.object({
   milestoneId: z.string().uuid().optional(),
   dueDateState: z.enum(['overdue', 'due_soon', 'none']).optional(),
   blocked: queryBooleanSchema,
+  dependency: z.enum(['dependency_blocked', 'blocking_open_work']).optional(),
   archivedProjects: z.enum(['exclude', 'include', 'only']).default('exclude'),
   search: z.string().trim().max(120).optional(),
   sort: z
@@ -63,6 +64,7 @@ export function parseWorkItemQuery(query: Record<string, string | string[] | und
     milestoneId: emptyToUndefined(firstQueryValue(query.milestoneId)),
     dueDateState: emptyToUndefined(firstQueryValue(query.dueDateState)),
     blocked: emptyToUndefined(firstQueryValue(query.blocked)),
+    dependency: emptyToUndefined(firstQueryValue(query.dependency)),
     archivedProjects: emptyToUndefined(firstQueryValue(query.archivedProjects)),
     search: emptyToUndefined(firstQueryValue(query.search)),
     sort: emptyToUndefined(firstQueryValue(query.sort))

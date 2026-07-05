@@ -1,5 +1,6 @@
 import type {
   ProjectDto,
+  DependencyFilter,
   WorkItemListItemDto,
   WorkItemPriority,
   WorkItemStatus,
@@ -29,6 +30,11 @@ const typeLabels: Record<WorkItemType, string> = {
   chore: 'Chore'
 };
 
+const dependencyFilterLabels: Record<DependencyFilter, string> = {
+  dependency_blocked: 'Blocked by open work',
+  blocking_open_work: 'Blocking open work'
+};
+
 export function projectBadge(project: Pick<ProjectDto, 'key' | 'status'>): string {
   return project.status === 'archived' ? `${project.key} archived` : project.key;
 }
@@ -53,4 +59,8 @@ export function workItemStatusLabel(status: WorkItemStatus): string {
 
 export function workItemPriorityLabel(priority: WorkItemPriority): string {
   return priorityLabels[priority];
+}
+
+export function dependencyFilterLabel(dependency: DependencyFilter): string {
+  return dependencyFilterLabels[dependency];
 }

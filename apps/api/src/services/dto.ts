@@ -12,7 +12,8 @@ import type {
   WorkspaceDto,
   WorkspaceWorkItemListItemDto,
   WorkItemDetailDto,
-  WorkItemListItemDto
+  WorkItemListItemDto,
+  WorkItemRelationshipSummaryDto
 } from '@worktrail/contracts';
 
 import type {
@@ -28,8 +29,24 @@ import type {
   WorkspaceActivityEvent
 } from '../repositories/types.js';
 
+export interface DependencyCounts {
+  openBlockerCount: number;
+  openBlockedWorkCount: number;
+}
+
 function toNullableRecord(value: Record<string, unknown> | null): Record<string, unknown> | null {
   return value;
+}
+
+export function emptyRelationshipSummary(): WorkItemRelationshipSummaryDto {
+  return {
+    blockedBy: [],
+    blocks: [],
+    related: [],
+    dependencyBlocked: false,
+    openBlockerCount: 0,
+    openBlockedWorkCount: 0
+  };
 }
 
 export function toMemberDto(member: Member): MemberDto {
@@ -169,7 +186,13 @@ export function toWorkItemListItemDto(input: {
   reporter: Member;
   labels: Label[];
   milestone?: Milestone | null;
+  dependencyCounts?: DependencyCounts;
 }): WorkItemListItemDto {
+  const dependencyCounts = input.dependencyCounts ?? {
+    openBlockerCount: 0,
+    openBlockedWorkCount: 0
+  };
+
   return {
     id: input.workItem.id,
     workspaceId: input.workItem.workspaceId,
@@ -187,6 +210,9 @@ export function toWorkItemListItemDto(input: {
     boardPosition: input.workItem.boardPosition,
     dueDate: input.workItem.dueDate,
     estimatePoints: input.workItem.estimatePoints,
+    dependencyBlocked: dependencyCounts.openBlockerCount > 0,
+    openBlockerCount: dependencyCounts.openBlockerCount,
+    openBlockedWorkCount: dependencyCounts.openBlockedWorkCount,
     createdAt: input.workItem.createdAt.toISOString(),
     updatedAt: input.workItem.updatedAt.toISOString()
   };
@@ -199,6 +225,7 @@ export function toWorkspaceWorkItemListItemDto(input: {
   labels: Label[];
   milestone?: Milestone | null;
   project: Pick<Project, 'id' | 'key' | 'name' | 'status'>;
+  dependencyCounts?: DependencyCounts;
 }): WorkspaceWorkItemListItemDto {
   return {
     ...toWorkItemListItemDto(input),
@@ -225,12 +252,15 @@ export function toWorkItemDetailDto(input: {
   reporter: Member;
   labels: Label[];
   milestone?: Milestone | null;
+  dependencyCounts?: DependencyCounts;
+  relationships?: WorkItemRelationshipSummaryDto;
   comments: CommentDto[];
   activity: ActivityEventDto[];
 }): WorkItemDetailDto {
   return {
     ...toWorkItemListItemDto(input),
     description: input.workItem.description,
+    relationships: input.relationships ?? emptyRelationshipSummary(),
     comments: input.comments,
     activity: input.activity
   };

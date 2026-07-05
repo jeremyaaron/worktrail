@@ -60,6 +60,7 @@ describe('WorktrailApiService', () => {
         workState: 'open',
         assigneeState: 'unassigned',
         blocked: false,
+        dependency: 'dependency_blocked',
         archivedProjects: 'include',
         search: '  ',
         sort: 'priority_desc'
@@ -72,6 +73,7 @@ describe('WorktrailApiService', () => {
     expect(request.request.params.get('workState')).toBe('open');
     expect(request.request.params.get('assigneeState')).toBe('unassigned');
     expect(request.request.params.get('blocked')).toBe('false');
+    expect(request.request.params.get('dependency')).toBe('dependency_blocked');
     expect(request.request.params.get('archivedProjects')).toBe('include');
     expect(request.request.params.get('sort')).toBe('priority_desc');
     expect(request.request.params.has('search')).toBeFalse();
@@ -111,6 +113,7 @@ describe('WorktrailApiService', () => {
     api
       .exportProjectWorkItems(projectId, {
         status: 'ready',
+        dependency: 'blocking_open_work',
         labelId: '10000000-0000-4000-8000-000000000301',
         search: '  ',
         sort: 'priority_desc'
@@ -124,6 +127,7 @@ describe('WorktrailApiService', () => {
     expect(request.request.method).toBe('GET');
     expect(request.request.responseType).toBe('blob');
     expect(request.request.params.get('status')).toBe('ready');
+    expect(request.request.params.get('dependency')).toBe('blocking_open_work');
     expect(request.request.params.get('labelId')).toBe('10000000-0000-4000-8000-000000000301');
     expect(request.request.params.get('sort')).toBe('priority_desc');
     expect(request.request.params.has('search')).toBeFalse();
@@ -137,6 +141,7 @@ describe('WorktrailApiService', () => {
         workState: 'open',
         assigneeState: 'unassigned',
         blocked: false,
+        dependency: 'dependency_blocked',
         archivedProjects: 'include',
         search: 'import',
         sort: 'updated_desc'
@@ -150,11 +155,49 @@ describe('WorktrailApiService', () => {
     expect(request.request.params.get('workState')).toBe('open');
     expect(request.request.params.get('assigneeState')).toBe('unassigned');
     expect(request.request.params.get('blocked')).toBe('false');
+    expect(request.request.params.get('dependency')).toBe('dependency_blocked');
     expect(request.request.params.get('archivedProjects')).toBe('include');
     expect(request.request.params.get('search')).toBe('import');
     expect(request.request.params.get('sort')).toBe('updated_desc');
     expect(request.request.headers.get('x-worktrail-workspace-id')).toBe(actor.workspaceId);
     request.flush(new Blob(['project_key\n'], { type: 'text/csv' }));
+  });
+
+  it('supports work item relationship requests', () => {
+    const workItemId = '10000000-0000-4000-8000-000000000401';
+    const targetWorkItemId = '10000000-0000-4000-8000-000000000402';
+    const relationshipId = '10000000-0000-4000-8000-000000000801';
+
+    api.listWorkItemRelationships(workItemId).subscribe();
+    const list = http.expectOne(`/api/work-items/${workItemId}/relationships`);
+    expect(list.request.method).toBe('GET');
+    list.flush({
+      blockedBy: [],
+      blocks: [],
+      related: [],
+      dependencyBlocked: false,
+      openBlockerCount: 0,
+      openBlockedWorkCount: 0
+    });
+
+    api
+      .createWorkItemRelationship(workItemId, {
+        relationshipType: 'blocks',
+        targetWorkItemId
+      })
+      .subscribe();
+    const create = http.expectOne(`/api/work-items/${workItemId}/relationships`);
+    expect(create.request.method).toBe('POST');
+    expect(create.request.body).toEqual({
+      relationshipType: 'blocks',
+      targetWorkItemId
+    });
+    create.flush({});
+
+    api.deleteWorkItemRelationship(workItemId, relationshipId).subscribe();
+    const remove = http.expectOne(`/api/work-items/${workItemId}/relationships/${relationshipId}`);
+    expect(remove.request.method).toBe('DELETE');
+    remove.flush(null);
   });
 
   it('supports saved work view CRUD requests', () => {

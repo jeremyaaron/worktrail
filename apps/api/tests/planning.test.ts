@@ -33,6 +33,7 @@ function actorHeaders(input: { workspaceId: string; memberId: string; role: stri
 async function cleanupWorkspace(workspaceId: string) {
   await pool.query('delete from activity_events where workspace_id = $1', [workspaceId]);
   await pool.query('delete from comments where workspace_id = $1', [workspaceId]);
+  await pool.query('delete from work_item_relationships where workspace_id = $1', [workspaceId]);
   await pool.query(
     'delete from work_item_labels where work_item_id in (select id from work_items where workspace_id = $1)',
     [workspaceId]
@@ -178,6 +179,24 @@ async function createWorkItem(
   });
 }
 
+async function createBlockingRelationship(
+  fixture: Awaited<ReturnType<typeof createFixture>>,
+  input: {
+    sourceWorkItemId: string;
+    targetWorkItemId: string;
+  }
+) {
+  return repositories.workItemRelationships.create({
+    id: randomUUID(),
+    workspaceId: fixture.workspaceId,
+    relationshipType: 'blocks',
+    sourceWorkItemId: input.sourceWorkItemId,
+    targetWorkItemId: input.targetWorkItemId,
+    createdById: fixture.actorId,
+    createdAt: now()
+  });
+}
+
 beforeAll(() => {
   pool = createPool();
   db = createDb(pool);
@@ -249,6 +268,20 @@ describe('planning summary', () => {
       milestoneId: plannedMilestone.id,
       updatedAt: staleUpdatedAt()
     });
+    const dependencyBlocker = await createWorkItem(fixture, {
+      title: 'Blocking open dependency',
+      status: 'ready',
+      priority: 'high'
+    });
+    const dependencyBlocked = await createWorkItem(fixture, {
+      title: 'Dependency-blocked delivery work',
+      status: 'in_progress',
+      priority: 'urgent'
+    });
+    await createBlockingRelationship(fixture, {
+      sourceWorkItemId: dependencyBlocker.id,
+      targetWorkItemId: dependencyBlocked.id
+    });
     await createWorkItem(fixture, {
       title: 'Canceled old work',
       status: 'canceled',
@@ -286,10 +319,16 @@ describe('planning summary', () => {
     expect(summary.dueSoonWork.map((item) => item.id)).toEqual([dueSoon.id]);
     expect(summary.unassignedActiveWork.map((item) => item.id)).toEqual([dueSoon.id]);
     expect(summary.staleInProgressWork.map((item) => item.id)).toEqual([stale.id]);
+    expect(summary.dependencyBlockedWork.map((item) => item.id)).toEqual([dependencyBlocked.id]);
+    expect(summary.blockingOpenWork.map((item) => item.id)).toEqual([dependencyBlocker.id]);
     expect(summary.blockedWork[0]).toMatchObject({
       assignee: expect.objectContaining({ id: fixture.assigneeId }),
       milestone: expect.objectContaining({ id: activeMilestone.id }),
       dueDate: '2026-07-09'
+    });
+    expect(summary.dependencyBlockedWork[0]).toMatchObject({
+      assignee: expect.objectContaining({ id: fixture.assigneeId }),
+      milestone: null
     });
     expect(summary.overdueWork.find((item) => item.id === done.id)).toBeUndefined();
   });

@@ -12,6 +12,7 @@ export const workItemStatuses = [
 export const workItemPriorities = ['low', 'medium', 'high', 'urgent'] as const;
 export const milestoneStatuses = ['planned', 'active', 'completed', 'canceled'] as const;
 export const savedWorkViewVisibilities = ['personal'] as const;
+export const workItemRelationshipTypes = ['blocks', 'relates_to'] as const;
 export const activityEventTypes = [
   'project.name_changed',
   'project.description_changed',
@@ -38,6 +39,8 @@ export const activityEventTypes = [
   'work_item.milestone_changed',
   'work_item.label_added',
   'work_item.label_removed',
+  'work_item.relationship_added',
+  'work_item.relationship_removed',
   'comment.added',
   'comment.edited',
   'comment.deleted'
@@ -60,6 +63,7 @@ export type WorkItemStatus = (typeof workItemStatuses)[number];
 export type WorkItemPriority = (typeof workItemPriorities)[number];
 export type MilestoneStatus = (typeof milestoneStatuses)[number];
 export type SavedWorkViewVisibility = (typeof savedWorkViewVisibilities)[number];
+export type WorkItemRelationshipType = (typeof workItemRelationshipTypes)[number];
 export type ActivityEventType = (typeof activityEventTypes)[number];
 export type WorkspaceActivityEventType = (typeof workspaceActivityEventTypes)[number];
 

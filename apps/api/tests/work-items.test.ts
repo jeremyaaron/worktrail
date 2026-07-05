@@ -695,6 +695,56 @@ describe('work item API', () => {
       });
   });
 
+  it('exports dependency-filtered project and workspace work items as CSV', async () => {
+    const fixture = await createFixture('owner');
+    const blocker = await createWorkItem(fixture, {
+      title: 'CSV export blocker',
+      status: 'in_progress',
+      updatedAt: new Date('2026-07-02T12:00:00.000Z')
+    });
+    const blocked = await createWorkItem(fixture, {
+      title: 'CSV export dependency blocked',
+      status: 'ready',
+      updatedAt: new Date('2026-07-03T12:00:00.000Z')
+    });
+    const unrelated = await createWorkItem(fixture, {
+      title: 'CSV export unrelated',
+      status: 'ready',
+      updatedAt: new Date('2026-07-04T12:00:00.000Z')
+    });
+    await repositories.workItemRelationships.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      relationshipType: 'blocks',
+      sourceWorkItemId: blocker.id,
+      targetWorkItemId: blocked.id,
+      createdById: fixture.actorId,
+      createdAt: now()
+    });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items/export`)
+      .query({ dependency: 'dependency_blocked' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ text }) => {
+        expect(text).toContain(`WI,${blocked.displayKey},CSV export dependency blocked`);
+        expect(text).not.toContain(`WI,${blocker.displayKey},CSV export blocker`);
+        expect(text).not.toContain(`WI,${unrelated.displayKey},CSV export unrelated`);
+      });
+
+    await request(app)
+      .get('/api/work-items/export')
+      .query({ dependency: 'blocking_open_work' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ text }) => {
+        expect(text).toContain(`WI,${blocker.displayKey},CSV export blocker`);
+        expect(text).not.toContain(`WI,${blocked.displayKey},CSV export dependency blocked`);
+        expect(text).not.toContain(`WI,${unrelated.displayKey},CSV export unrelated`);
+      });
+  });
+
   it('exports header-only CSV for empty project work item results', async () => {
     const fixture = await createFixture('owner');
     await createWorkItem(fixture, {
@@ -872,6 +922,66 @@ describe('work item API', () => {
       });
   });
 
+  it('supports workspace dependency filters', async () => {
+    const fixture = await createFixture('owner');
+    const openBlocker = await createWorkItem(fixture, {
+      title: 'Workspace open blocker',
+      status: 'in_progress'
+    });
+    const terminalBlocker = await createWorkItem(fixture, {
+      title: 'Workspace terminal blocker',
+      status: 'done'
+    });
+    const dependencyBlocked = await createWorkItem(fixture, {
+      title: 'Workspace dependency blocked',
+      status: 'ready'
+    });
+    const terminalOnlyBlocked = await createWorkItem(fixture, {
+      title: 'Workspace terminal-only blocked',
+      status: 'canceled'
+    });
+
+    for (const relationship of [
+      { sourceWorkItemId: openBlocker.id, targetWorkItemId: dependencyBlocked.id },
+      { sourceWorkItemId: terminalBlocker.id, targetWorkItemId: terminalOnlyBlocked.id }
+    ]) {
+      await repositories.workItemRelationships.create({
+        id: randomUUID(),
+        workspaceId: fixture.workspaceId,
+        relationshipType: 'blocks',
+        sourceWorkItemId: relationship.sourceWorkItemId,
+        targetWorkItemId: relationship.targetWorkItemId,
+        createdById: fixture.actorId,
+        createdAt: now()
+      });
+    }
+
+    await request(app)
+      .get('/api/work-items')
+      .query({ dependency: 'dependency_blocked' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.map((item: { id: string }) => item.id)).toEqual([dependencyBlocked.id]);
+        expect(body[0]).toMatchObject({
+          dependencyBlocked: true,
+          openBlockerCount: 1
+        });
+      });
+
+    await request(app)
+      .get('/api/work-items')
+      .query({ dependency: 'blocking_open_work' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.map((item: { id: string }) => item.id)).toEqual([openBlocker.id]);
+        expect(body[0]).toMatchObject({
+          openBlockedWorkCount: 1
+        });
+      });
+  });
+
   it('supports archived project inclusion modes for workspace work item queries', async () => {
     const fixture = await createFixture('owner');
     const archivedProject = await createProject(fixture, {
@@ -1042,6 +1152,66 @@ describe('work item API', () => {
       });
   });
 
+  it('supports project dependency filters', async () => {
+    const fixture = await createFixture('owner');
+    const openBlocker = await createWorkItem(fixture, {
+      title: 'Project open blocker',
+      status: 'in_progress'
+    });
+    const terminalBlocker = await createWorkItem(fixture, {
+      title: 'Project terminal blocker',
+      status: 'done'
+    });
+    const dependencyBlocked = await createWorkItem(fixture, {
+      title: 'Project dependency blocked',
+      status: 'ready'
+    });
+    const terminalOnlyBlocked = await createWorkItem(fixture, {
+      title: 'Project terminal-only blocked',
+      status: 'canceled'
+    });
+
+    for (const relationship of [
+      { sourceWorkItemId: openBlocker.id, targetWorkItemId: dependencyBlocked.id },
+      { sourceWorkItemId: terminalBlocker.id, targetWorkItemId: terminalOnlyBlocked.id }
+    ]) {
+      await repositories.workItemRelationships.create({
+        id: randomUUID(),
+        workspaceId: fixture.workspaceId,
+        relationshipType: 'blocks',
+        sourceWorkItemId: relationship.sourceWorkItemId,
+        targetWorkItemId: relationship.targetWorkItemId,
+        createdById: fixture.actorId,
+        createdAt: now()
+      });
+    }
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items`)
+      .query({ dependency: 'dependency_blocked' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.map((item: { id: string }) => item.id)).toEqual([dependencyBlocked.id]);
+        expect(body[0]).toMatchObject({
+          dependencyBlocked: true,
+          openBlockerCount: 1
+        });
+      });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items`)
+      .query({ dependency: 'blocking_open_work' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.map((item: { id: string }) => item.id)).toEqual([openBlocker.id]);
+        expect(body[0]).toMatchObject({
+          openBlockedWorkCount: 1
+        });
+      });
+  });
+
   it('searches and filters by milestone, reporter, due date state, and board order', async () => {
     const fixture = await createFixture('owner');
     const milestone = await createMilestone(fixture);
@@ -1123,6 +1293,236 @@ describe('work item API', () => {
       });
 
     await request(app).get(`/api/work-items/${workItem.id}`).set(otherFixture.headers).expect(404);
+  });
+
+  it('creates, lists, returns, and deletes work item relationships through the API', async () => {
+    const fixture = await createFixture('owner');
+    const source = await createWorkItem(fixture, {
+      title: 'API blocker',
+      status: 'in_progress'
+    });
+    const target = await createWorkItem(fixture, {
+      title: 'API blocked work',
+      status: 'ready'
+    });
+
+    const createResponse = await request(app)
+      .post(`/api/work-items/${source.id}/relationships`)
+      .set(fixture.headers)
+      .send({
+        relationshipType: 'blocks',
+        targetWorkItemId: target.id
+      })
+      .expect(201);
+
+    expect(createResponse.body).toMatchObject({
+      relationshipType: 'blocks',
+      sourceWorkItemId: source.id,
+      targetWorkItemId: target.id,
+      sourceWorkItem: { id: source.id, displayKey: source.displayKey },
+      targetWorkItem: { id: target.id, displayKey: target.displayKey },
+      createdBy: { id: fixture.actorId }
+    });
+
+    await request(app)
+      .get(`/api/work-items/${source.id}/relationships`)
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          dependencyBlocked: false,
+          openBlockerCount: 0,
+          openBlockedWorkCount: 1
+        });
+        expect(body.blocks).toHaveLength(1);
+        expect(body.blocks[0]).toMatchObject({
+          relationshipType: 'blocks',
+          direction: 'outbound',
+          workItem: { id: target.id }
+        });
+      });
+
+    await request(app)
+      .get(`/api/work-items/${target.id}`)
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          id: target.id,
+          dependencyBlocked: true,
+          openBlockerCount: 1,
+          relationships: {
+            dependencyBlocked: true,
+            openBlockerCount: 1,
+            openBlockedWorkCount: 0
+          }
+        });
+        expect(body.relationships.blockedBy).toHaveLength(1);
+      });
+
+    await request(app)
+      .delete(`/api/work-items/${target.id}/relationships/${createResponse.body.id}`)
+      .set(fixture.headers)
+      .expect(204);
+
+    await expect(repositories.workItemRelationships.findById(createResponse.body.id)).resolves.toBeNull();
+    const activity = await repositories.activityEvents.findByWorkItem(target.id);
+    expect(activity.at(-1)).toMatchObject({
+      eventType: 'work_item.relationship_removed',
+      summary: `Removed blocker ${source.displayKey}.`
+    });
+  });
+
+  it('rejects invalid relationship requests, duplicates, and cycles through the API', async () => {
+    const fixture = await createFixture('owner');
+    const first = await createWorkItem(fixture, { status: 'ready' });
+    const second = await createWorkItem(fixture, { status: 'ready' });
+    const third = await createWorkItem(fixture, { status: 'ready' });
+
+    await request(app)
+      .post(`/api/work-items/${first.id}/relationships`)
+      .set(fixture.headers)
+      .send({
+        relationshipType: 'depends_on',
+        targetWorkItemId: second.id
+      })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('VALIDATION_ERROR');
+      });
+
+    await request(app)
+      .post(`/api/work-items/${first.id}/relationships`)
+      .set(fixture.headers)
+      .send({
+        relationshipType: 'blocks',
+        targetWorkItemId: first.id
+      })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.error).toMatchObject({
+          code: 'VALIDATION_ERROR',
+          message: 'Cannot relate a work item to itself.'
+        });
+      });
+
+    await request(app)
+      .post(`/api/work-items/${first.id}/relationships`)
+      .set(fixture.headers)
+      .send({
+        relationshipType: 'blocks',
+        targetWorkItemId: second.id
+      })
+      .expect(201);
+    await request(app)
+      .post(`/api/work-items/${second.id}/relationships`)
+      .set(fixture.headers)
+      .send({
+        relationshipType: 'blocks',
+        targetWorkItemId: third.id
+      })
+      .expect(201);
+
+    await request(app)
+      .post(`/api/work-items/${first.id}/relationships`)
+      .set(fixture.headers)
+      .send({
+        relationshipType: 'blocks',
+        targetWorkItemId: second.id
+      })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error).toMatchObject({
+          code: 'CONFLICT',
+          message: 'That relationship already exists.'
+        });
+      });
+
+    await request(app)
+      .post(`/api/work-items/${third.id}/relationships`)
+      .set(fixture.headers)
+      .send({
+        relationshipType: 'blocks',
+        targetWorkItemId: first.id
+      })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.error).toMatchObject({
+          code: 'VALIDATION_ERROR',
+          message: 'This relationship would create a blocking cycle.'
+        });
+      });
+
+    await request(app)
+      .delete(`/api/work-items/${first.id}/relationships/${randomUUID()}`)
+      .set(fixture.headers)
+      .expect(404)
+      .expect(({ body }) => {
+        expect(body.error).toMatchObject({
+          code: 'NOT_FOUND',
+          message: 'Relationship not found.'
+        });
+      });
+  });
+
+  it('rejects relationship writes under archived projects and for unauthorized contributors', async () => {
+    const fixture = await createFixture('owner');
+    const source = await createWorkItem(fixture);
+    const archivedProject = await createProject(fixture, {
+      key: 'ARCH',
+      status: 'archived'
+    });
+    const archivedTarget = await createWorkItem(fixture, {
+      projectId: archivedProject.id
+    });
+
+    await request(app)
+      .post(`/api/work-items/${source.id}/relationships`)
+      .set(fixture.headers)
+      .send({
+        relationshipType: 'blocks',
+        targetWorkItemId: archivedTarget.id
+      })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error).toMatchObject({
+          code: 'CONFLICT',
+          message: 'Relationships cannot be changed for archived projects.'
+        });
+      });
+
+    const contributorFixture = await createFixture('contributor');
+    const actorAssigned = await createWorkItem(contributorFixture, {
+      assigneeId: contributorFixture.actorId
+    });
+    const otherAssigned = await createWorkItem(contributorFixture, {
+      assigneeId: contributorFixture.maintainerId
+    });
+    const target = await createWorkItem(contributorFixture);
+
+    await request(app)
+      .post(`/api/work-items/${actorAssigned.id}/relationships`)
+      .set(contributorFixture.headers)
+      .send({
+        relationshipType: 'blocks',
+        targetWorkItemId: target.id
+      })
+      .expect(201);
+
+    await request(app)
+      .post(`/api/work-items/${otherAssigned.id}/relationships`)
+      .set(contributorFixture.headers)
+      .send({
+        relationshipType: 'blocks',
+        targetWorkItemId: target.id
+      })
+      .expect(403)
+      .expect(({ body }) => {
+        expect(body.error).toMatchObject({
+          code: 'FORBIDDEN',
+          message: 'You do not have permission to update this work item.'
+        });
+      });
   });
 
   it('updates editable fields and records activity', async () => {

@@ -117,6 +117,9 @@ const workItem: WorkspaceWorkItemListItemDto = {
   boardPosition: 1024,
   dueDate: '2026-07-08',
   estimatePoints: 5,
+  dependencyBlocked: false,
+  openBlockerCount: 0,
+  openBlockedWorkCount: 0,
   createdAt: '2026-07-02T12:00:00.000Z',
   updatedAt: '2026-07-04T12:00:00.000Z',
   project: {
@@ -221,6 +224,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
       labelId: designLabel.id,
       milestoneId: milestone.id,
       dueDateState: 'due_soon',
+      dependency: 'dependency_blocked',
       archivedProjects: 'include',
       search: 'workspace',
       sort: 'due_date_asc'
@@ -239,12 +243,13 @@ describe('WorkspaceWorkItemListPageComponent', () => {
         candidate.params.get('labelId') === designLabel.id &&
         candidate.params.get('milestoneId') === milestone.id &&
         candidate.params.get('dueDateState') === 'due_soon' &&
+        candidate.params.get('dependency') === 'dependency_blocked' &&
         candidate.params.get('archivedProjects') === 'include' &&
         candidate.params.get('search') === 'workspace' &&
         candidate.params.get('sort') === 'due_date_asc'
       );
     });
-    request.flush([workItem]);
+    request.flush([{ ...workItem, dependencyBlocked: true, openBlockerCount: 2, openBlockedWorkCount: 1 }]);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
@@ -260,6 +265,8 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect(compiled.textContent).toContain('Story · In progress · High');
     expect(compiled.textContent).toContain('Avery Owner');
     expect(compiled.textContent).toContain('Due Jul 8');
+    expect(compiled.textContent).toContain('Blocked by 2');
+    expect(compiled.textContent).toContain('Blocks 1');
     expect(row?.getAttribute('href')).toBe(`/work-items/${workItemId}`);
     expect(activeFilters).toContain('Search: workspace');
     expect(activeFilters).toContain('Project: WT · Worktrail App');
@@ -268,6 +275,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect(activeFilters).toContain('Label: design');
     expect(activeFilters).toContain('Milestone: v0.0.5');
     expect(activeFilters).toContain('Due date: Due soon');
+    expect(activeFilters).toContain('Dependency: Blocked by open work');
     expect(activeFilters).toContain('Projects: Active and archived');
     expect(activeFilters).toContain('Sort: Due date');
   });
@@ -276,6 +284,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     spyOnCsvDownload();
     const { fixture, http } = setup({
       status: 'in_progress',
+      dependency: 'blocking_open_work',
       archivedProjects: 'include',
       search: 'workspace',
       sort: 'due_date_asc'
@@ -298,6 +307,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
         candidate.url === '/api/work-items/export' &&
         candidate.params.get('search') === 'workspace' &&
         candidate.params.get('status') === 'in_progress' &&
+        candidate.params.get('dependency') === 'blocking_open_work' &&
         candidate.params.get('priority') === null &&
         candidate.params.get('archivedProjects') === 'include' &&
         candidate.params.get('sort') === 'due_date_asc'
@@ -403,6 +413,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     const { fixture, http } = setup({
       status: 'blocked',
       search: 'risk',
+      dependency: 'dependency_blocked',
       archivedProjects: 'only',
       sort: 'priority_desc'
     });
@@ -424,6 +435,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
       jasmine.objectContaining({
         search: null,
         status: null,
+        dependency: null,
         archivedProjects: null,
         sort: null
       })
@@ -434,6 +446,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     const { fixture, http } = setup({
       status: 'blocked',
       search: 'risk',
+      dependency: 'blocking_open_work',
       archivedProjects: 'include'
     });
     flushProjectSummaries(http);
@@ -457,6 +470,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
         assigneeState: undefined,
         archivedProjects: 'include',
         blocked: undefined,
+        dependency: 'blocking_open_work',
         dueDateState: undefined,
         labelId: undefined,
         milestoneId: undefined,
@@ -472,7 +486,12 @@ describe('WorkspaceWorkItemListPageComponent', () => {
       ...savedView,
       id: '10000000-0000-4000-8000-000000000702',
       name: 'Blocked risks',
-      query: { search: 'risk', status: 'blocked', archivedProjects: 'include' }
+      query: {
+        search: 'risk',
+        status: 'blocked',
+        dependency: 'blocking_open_work',
+        archivedProjects: 'include'
+      }
     };
     create.flush(createdView);
     fixture.detectChanges();
@@ -509,6 +528,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
       jasmine.objectContaining({
         search: 'risk',
         status: 'blocked',
+        dependency: 'blocking_open_work',
         archivedProjects: 'include'
       })
     );

@@ -9,7 +9,8 @@ import type {
   ProjectDto,
   WorkspaceCapabilitiesDto,
   WorkItemDetailDto,
-  WorkItemListItemDto
+  WorkItemListItemDto,
+  WorkItemRelationshipSummaryDto
 } from '@worktrail/contracts';
 import { BehaviorSubject } from 'rxjs';
 
@@ -45,6 +46,15 @@ const inactiveMember: MemberDto = {
   deactivatedAt: '2026-06-28T12:00:00.000Z',
   createdAt: '2026-07-02T12:00:00.000Z',
   updatedAt: '2026-07-03T12:00:00.000Z'
+};
+
+const emptyRelationships: WorkItemRelationshipSummaryDto = {
+  blockedBy: [],
+  blocks: [],
+  related: [],
+  dependencyBlocked: false,
+  openBlockerCount: 0,
+  openBlockedWorkCount: 0
 };
 
 const activeProject: ProjectDto = {
@@ -102,6 +112,9 @@ const workItem: WorkItemListItemDto = {
   boardPosition: 1024,
   dueDate: null,
   estimatePoints: 5,
+  dependencyBlocked: false,
+  openBlockerCount: 0,
+  openBlockedWorkCount: 0,
   createdAt: '2026-07-02T12:00:00.000Z',
   updatedAt: '2026-07-03T12:00:00.000Z'
 };
@@ -188,6 +201,7 @@ describe('WorkItemListPageComponent', () => {
             reporterId: contributorId,
             milestoneId: activeMilestone.id,
             dueDateState: 'due_soon',
+            dependency: 'dependency_blocked',
             search: 'api',
             sort: 'due_date_asc'
           })
@@ -217,11 +231,12 @@ describe('WorkItemListPageComponent', () => {
         candidate.params.get('reporterId') === contributorId &&
         candidate.params.get('milestoneId') === activeMilestone.id &&
         candidate.params.get('dueDateState') === 'due_soon' &&
+        candidate.params.get('dependency') === 'dependency_blocked' &&
         candidate.params.get('search') === 'api' &&
         candidate.params.get('sort') === 'due_date_asc'
       );
     });
-    request.flush([workItem]);
+    request.flush([{ ...workItem, dependencyBlocked: true, openBlockerCount: 2, openBlockedWorkCount: 1 }]);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
@@ -231,6 +246,9 @@ describe('WorkItemListPageComponent', () => {
     expect(compiled.textContent).toContain('backend');
     expect(compiled.textContent).toContain('v0.0.3');
     expect(compiled.textContent).toContain('Due date: Due soon');
+    expect(compiled.textContent).toContain('Dependency: Blocked by open work');
+    expect(compiled.textContent).toContain('Blocked by 2');
+    expect(compiled.textContent).toContain('Blocks 1');
     expect(compiled.textContent).toContain('Export CSV');
     expect(compiled.querySelector<HTMLAnchorElement>(`a[href="/projects/${projectId}/work-items/import"]`)).not.toBeNull();
   });
@@ -260,6 +278,7 @@ describe('WorkItemListPageComponent', () => {
         candidate.params.get('search') === 'api' &&
         candidate.params.get('status') === 'in_progress' &&
         candidate.params.get('assigneeId') === contributorId &&
+        candidate.params.get('dependency') === 'dependency_blocked' &&
         candidate.params.get('priority') === null &&
         candidate.params.get('sort') === 'due_date_asc'
       );
@@ -353,6 +372,7 @@ describe('WorkItemListPageComponent', () => {
       milestoneId: activeMilestone.id,
       priority: 'high',
       dueDateState: 'overdue',
+      dependency: 'blocking_open_work',
       sort: 'created_desc'
     });
     fixture.componentInstance.applyFilters();
@@ -369,6 +389,7 @@ describe('WorkItemListPageComponent', () => {
         milestoneId: activeMilestone.id,
         priority: 'high',
         dueDateState: 'overdue',
+        dependency: 'blocking_open_work',
         sort: 'created_desc'
       }
     });
@@ -724,6 +745,7 @@ describe('WorkItemCreatePageComponent', () => {
       displayKey: 'WT-499',
       title: 'Create filtering UI',
       description: 'Build the Phase 10 list filters.',
+      relationships: emptyRelationships,
       comments: [],
       activity: []
     } satisfies WorkItemDetailDto);
@@ -771,6 +793,7 @@ describe('WorkItemCreatePageComponent', () => {
       id: '10000000-0000-4000-8000-000000000498',
       title: 'Create estimate normalization',
       description: '',
+      relationships: emptyRelationships,
       comments: [],
       activity: []
     } satisfies WorkItemDetailDto);
@@ -896,6 +919,7 @@ describe('WorkItemCreatePageComponent global route', () => {
       displayKey: 'WT-497',
       title: 'Capture from workspace',
       description: 'Create without entering a project first.',
+      relationships: emptyRelationships,
       comments: [],
       activity: []
     } satisfies WorkItemDetailDto);

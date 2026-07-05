@@ -56,9 +56,12 @@ import {
 import {
   applyWorkItemCsvImportHandler,
   createWorkItemHandler,
+  createWorkItemRelationshipHandler,
+  deleteWorkItemRelationshipHandler,
   exportProjectWorkItemsHandler,
   exportWorkspaceWorkItemsHandler,
   getWorkItemHandler,
+  listWorkItemRelationshipsHandler,
   listWorkspaceWorkItemsHandler,
   listWorkItemsHandler,
   moveWorkItemOnBoardHandler,
@@ -321,6 +324,27 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
     app.get(
       '/api/work-items/:workItemId/activity',
       adaptEndpoint(listWorkItemActivityHandler(options.repositories), adapterOptions)
+    );
+    app.get(
+      '/api/work-items/:workItemId/relationships',
+      adaptEndpoint(
+        listWorkItemRelationshipsHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
+    );
+    app.post(
+      '/api/work-items/:workItemId/relationships',
+      adaptEndpoint(
+        createWorkItemRelationshipHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
+    );
+    app.delete(
+      '/api/work-items/:workItemId/relationships/:relationshipId',
+      adaptEndpoint(
+        deleteWorkItemRelationshipHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
     );
     app.get(
       '/api/work-items/:workItemId',

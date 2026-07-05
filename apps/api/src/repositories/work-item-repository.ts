@@ -1,8 +1,8 @@
-import type { WorkItemQuery } from '@worktrail/contracts';
+import type { DependencyFilter, WorkItemQuery } from '@worktrail/contracts';
 import { and, asc, count, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 
 import type { WorktrailDb } from '../db/client.js';
-import { projects, workItemLabels, workItems } from '../db/schema.js';
+import { projects, workItemLabels, workItemRelationships, workItems } from '../db/schema.js';
 import type { NewWorkItem, Project, WorkItem } from './types.js';
 
 export interface WorkItemFilters {
@@ -14,6 +14,7 @@ export interface WorkItemFilters {
   labelId?: string;
   milestoneId?: string;
   dueDateState?: 'overdue' | 'due_soon' | 'none';
+  dependency?: DependencyFilter;
   search?: string;
   sort?:
     | 'updated_desc'
@@ -141,6 +142,8 @@ export function createWorkItemRepository(db: WorktrailDb) {
       if (filters.dueDateState === 'none') {
         conditions.push(sql`${workItems.dueDate} is null`);
       }
+
+      pushDependencyCondition(conditions, filters.dependency);
 
       if (filters.search !== undefined && filters.search.trim() !== '') {
         const search = `%${filters.search.trim()}%`;
@@ -273,6 +276,8 @@ export function createWorkItemRepository(db: WorktrailDb) {
       if (filters.dueDateState === 'none') {
         conditions.push(sql`${workItems.dueDate} is null`);
       }
+
+      pushDependencyCondition(conditions, filters.dependency);
 
       if (filters.search !== undefined && filters.search.trim() !== '') {
         const search = `%${filters.search.trim()}%`;
@@ -414,4 +419,35 @@ export function createWorkItemRepository(db: WorktrailDb) {
       return workItem ?? null;
     }
   };
+}
+
+function pushDependencyCondition(
+  conditions: unknown[],
+  dependency: DependencyFilter | undefined
+): void {
+  if (dependency === 'dependency_blocked') {
+    conditions.push(
+      sql`exists (
+        select 1 from ${workItemRelationships}
+        inner join ${workItems} blocker
+          on blocker.id = ${workItemRelationships.sourceWorkItemId}
+        where ${workItemRelationships.relationshipType} = 'blocks'
+          and ${workItemRelationships.targetWorkItemId} = ${workItems.id}
+          and blocker.status not in ('done', 'canceled')
+      )`
+    );
+  }
+
+  if (dependency === 'blocking_open_work') {
+    conditions.push(
+      sql`exists (
+        select 1 from ${workItemRelationships}
+        inner join ${workItems} blocked
+          on blocked.id = ${workItemRelationships.targetWorkItemId}
+        where ${workItemRelationships.relationshipType} = 'blocks'
+          and ${workItemRelationships.sourceWorkItemId} = ${workItems.id}
+          and blocked.status not in ('done', 'canceled')
+      )`
+    );
+  }
 }

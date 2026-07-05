@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Worktrail API
-  version: 0.0.7
+  version: 0.0.8
   summary: HTTP API reference for the Worktrail local-first project management app.
   description: |
     This document describes the implemented Worktrail API routes. It is intentionally
@@ -29,6 +29,7 @@ tags:
   - name: Labels
   - name: Milestones
   - name: Work Items
+  - name: Relationships
   - name: Comments
   - name: Activity
   - name: My Work
@@ -574,6 +575,7 @@ paths:
         - $ref: "#/components/parameters/WorkItemMilestoneIdQuery"
         - $ref: "#/components/parameters/WorkItemDueDateStateQuery"
         - $ref: "#/components/parameters/WorkItemBlockedQuery"
+        - $ref: "#/components/parameters/WorkItemDependencyQuery"
         - $ref: "#/components/parameters/WorkItemArchivedProjectsQuery"
         - $ref: "#/components/parameters/SearchQuery"
         - $ref: "#/components/parameters/WorkItemSortQuery"
@@ -606,6 +608,7 @@ paths:
         - $ref: "#/components/parameters/WorkItemMilestoneIdQuery"
         - $ref: "#/components/parameters/WorkItemDueDateStateQuery"
         - $ref: "#/components/parameters/WorkItemBlockedQuery"
+        - $ref: "#/components/parameters/WorkItemDependencyQuery"
         - $ref: "#/components/parameters/WorkItemArchivedProjectsQuery"
         - $ref: "#/components/parameters/SearchQuery"
         - $ref: "#/components/parameters/WorkItemSortQuery"
@@ -637,6 +640,7 @@ paths:
         - $ref: "#/components/parameters/WorkItemLabelIdQuery"
         - $ref: "#/components/parameters/WorkItemMilestoneIdQuery"
         - $ref: "#/components/parameters/WorkItemDueDateStateQuery"
+        - $ref: "#/components/parameters/WorkItemDependencyQuery"
         - $ref: "#/components/parameters/SearchQuery"
         - $ref: "#/components/parameters/WorkItemSortQuery"
       responses:
@@ -729,6 +733,7 @@ paths:
         - $ref: "#/components/parameters/WorkItemLabelIdQuery"
         - $ref: "#/components/parameters/WorkItemMilestoneIdQuery"
         - $ref: "#/components/parameters/WorkItemDueDateStateQuery"
+        - $ref: "#/components/parameters/WorkItemDependencyQuery"
         - $ref: "#/components/parameters/SearchQuery"
         - $ref: "#/components/parameters/WorkItemSortQuery"
       responses:
@@ -911,6 +916,54 @@ paths:
                   $ref: "#/components/schemas/ActivityEvent"
         default:
           $ref: "#/components/responses/Error"
+  /api/work-items/{workItemId}/relationships:
+    get:
+      tags: [Relationships]
+      summary: List relationships for a work item.
+      parameters:
+        - $ref: "#/components/parameters/WorkItemId"
+      responses:
+        "200":
+          description: Relationship summary for the work item.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkItemRelationshipSummary"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Relationships]
+      summary: Create a work item relationship.
+      description: Creates a `blocks` or `relates_to` relationship. The API rejects cross-workspace targets, duplicate relationships, self-links, and blocking cycles.
+      parameters:
+        - $ref: "#/components/parameters/WorkItemId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkItemRelationshipRequest"
+      responses:
+        "201":
+          description: Created relationship.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkItemRelationship"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/work-items/{workItemId}/relationships/{relationshipId}:
+    delete:
+      tags: [Relationships]
+      summary: Delete a work item relationship.
+      parameters:
+        - $ref: "#/components/parameters/WorkItemId"
+        - $ref: "#/components/parameters/WorkItemRelationshipId"
+      responses:
+        "204":
+          description: Relationship deleted.
+        default:
+          $ref: "#/components/responses/Error"
   /api/my-work:
     get:
       tags: [My Work]
@@ -1006,6 +1059,13 @@ components:
         format: uuid
     WorkItemId:
       name: workItemId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    WorkItemRelationshipId:
+      name: relationshipId
       in: path
       required: true
       schema:
@@ -1107,6 +1167,12 @@ components:
       in: query
       schema:
         type: boolean
+    WorkItemDependencyQuery:
+      name: dependency
+      in: query
+      description: Derived dependency state for open blocking relationships.
+      schema:
+        $ref: "#/components/schemas/DependencyFilter"
     WorkItemArchivedProjectsQuery:
       name: archivedProjects
       in: query
@@ -1213,6 +1279,12 @@ components:
     MilestoneStatus:
       type: string
       enum: [planned, active, completed, canceled]
+    WorkItemRelationshipType:
+      type: string
+      enum: [blocks, relates_to]
+    DependencyFilter:
+      type: string
+      enum: [dependency_blocked, blocking_open_work]
     WorkItemQuery:
       type: object
       additionalProperties: false
@@ -1249,6 +1321,8 @@ components:
           enum: [overdue, due_soon, none]
         blocked:
           type: boolean
+        dependency:
+          $ref: "#/components/schemas/DependencyFilter"
         archivedProjects:
           type: string
           enum: [exclude, include, only]
@@ -1366,6 +1440,7 @@ components:
           $ref: "#/components/schemas/Member"
         eventType:
           type: string
+          examples: [work_item.relationship_added, work_item.relationship_removed]
         summary:
           type: string
         previousValue:
@@ -1477,7 +1552,16 @@ components:
           format: date-time
     ProjectPlanningSummary:
       type: object
-      required: [project, milestoneProgress, blockedWork, overdueWork, dueSoonWork]
+      required:
+        - project
+        - milestoneProgress
+        - blockedWork
+        - overdueWork
+        - dueSoonWork
+        - unassignedActiveWork
+        - staleInProgressWork
+        - dependencyBlockedWork
+        - blockingOpenWork
       properties:
         project:
           $ref: "#/components/schemas/Project"
@@ -1506,6 +1590,14 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PlanningRiskItem"
+        dependencyBlockedWork:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanningRiskItem"
+        blockingOpenWork:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanningRiskItem"
     PlanningRiskItem:
       type: object
       required: [id, displayKey, title, status, priority, assignee, dueDate, updatedAt]
@@ -1528,6 +1620,10 @@ components:
         dueDate:
           type: [string, "null"]
           format: date
+        milestone:
+          anyOf:
+            - $ref: "#/components/schemas/Milestone"
+            - type: "null"
         updatedAt:
           type: string
           format: date-time
@@ -1622,7 +1718,20 @@ components:
           format: date
     WorkItemListItem:
       type: object
-      required: [id, workspaceId, projectId, displayKey, title, type, status, priority, reporter, labels]
+      required:
+        - id
+        - workspaceId
+        - projectId
+        - displayKey
+        - title
+        - type
+        - status
+        - priority
+        - reporter
+        - labels
+        - dependencyBlocked
+        - openBlockerCount
+        - openBlockedWorkCount
       properties:
         id:
           type: string
@@ -1666,6 +1775,15 @@ components:
           format: date
         estimatePoints:
           type: [number, "null"]
+        dependencyBlocked:
+          type: boolean
+          description: True when this open work item has at least one open upstream blocker.
+        openBlockerCount:
+          type: integer
+          minimum: 0
+        openBlockedWorkCount:
+          type: integer
+          minimum: 0
         createdAt:
           type: string
           format: date-time
@@ -1695,10 +1813,12 @@ components:
       allOf:
         - $ref: "#/components/schemas/WorkItemListItem"
         - type: object
-          required: [description, comments, activity]
+          required: [description, relationships, comments, activity]
           properties:
             description:
               type: string
+            relationships:
+              $ref: "#/components/schemas/WorkItemRelationshipSummary"
             comments:
               type: array
               items:
@@ -1707,6 +1827,129 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/ActivityEvent"
+    WorkItemRelationshipWorkItem:
+      type: object
+      required: [id, workspaceId, projectId, project, displayKey, title, status, priority, assignee]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        project:
+          type: object
+          required: [id, key, name, status]
+          properties:
+            id:
+              type: string
+              format: uuid
+            key:
+              type: string
+            name:
+              type: string
+            status:
+              $ref: "#/components/schemas/ProjectStatus"
+        displayKey:
+          type: string
+        title:
+          type: string
+        status:
+          $ref: "#/components/schemas/WorkItemStatus"
+        priority:
+          $ref: "#/components/schemas/WorkItemPriority"
+        assignee:
+          anyOf:
+            - $ref: "#/components/schemas/Member"
+            - type: "null"
+    WorkItemRelationshipItem:
+      type: object
+      required: [id, relationshipType, direction, workItem, createdBy, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        relationshipType:
+          $ref: "#/components/schemas/WorkItemRelationshipType"
+        direction:
+          type: string
+          enum: [inbound, outbound, related]
+        workItem:
+          $ref: "#/components/schemas/WorkItemRelationshipWorkItem"
+        createdBy:
+          $ref: "#/components/schemas/Member"
+        createdAt:
+          type: string
+          format: date-time
+    WorkItemRelationshipSummary:
+      type: object
+      required: [blockedBy, blocks, related, dependencyBlocked, openBlockerCount, openBlockedWorkCount]
+      properties:
+        blockedBy:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkItemRelationshipItem"
+        blocks:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkItemRelationshipItem"
+        related:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkItemRelationshipItem"
+        dependencyBlocked:
+          type: boolean
+        openBlockerCount:
+          type: integer
+          minimum: 0
+        openBlockedWorkCount:
+          type: integer
+          minimum: 0
+    CreateWorkItemRelationshipRequest:
+      type: object
+      required: [relationshipType, targetWorkItemId]
+      additionalProperties: false
+      properties:
+        relationshipType:
+          $ref: "#/components/schemas/WorkItemRelationshipType"
+        targetWorkItemId:
+          type: string
+          format: uuid
+    WorkItemRelationship:
+      type: object
+      required:
+        - id
+        - relationshipType
+        - sourceWorkItemId
+        - targetWorkItemId
+        - sourceWorkItem
+        - targetWorkItem
+        - createdBy
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        relationshipType:
+          $ref: "#/components/schemas/WorkItemRelationshipType"
+        sourceWorkItemId:
+          type: string
+          format: uuid
+        targetWorkItemId:
+          type: string
+          format: uuid
+        sourceWorkItem:
+          $ref: "#/components/schemas/WorkItemRelationshipWorkItem"
+        targetWorkItem:
+          $ref: "#/components/schemas/WorkItemRelationshipWorkItem"
+        createdBy:
+          $ref: "#/components/schemas/Member"
+        createdAt:
+          type: string
+          format: date-time
     WorkItemCsvImportPreviewRequest:
       type: object
       required: [csv]
@@ -1977,7 +2220,14 @@ components:
           format: date-time
     MyWorkDashboard:
       type: object
-      required: [actor, summaryCounts, assignedToMe, dueSoonOrOverdue, blockedRelevant, recentlyUpdated]
+      required:
+        - actor
+        - summaryCounts
+        - assignedToMe
+        - dueSoonOrOverdue
+        - blockedRelevant
+        - dependencyBlockedAssigned
+        - recentlyUpdated
       properties:
         actor:
           $ref: "#/components/schemas/Member"
@@ -1989,6 +2239,7 @@ components:
             properties:
               key:
                 type: string
+                enum: [assigned_open, due_soon, overdue, blocked, dependency_blocked, stale_assigned, reported_open]
               label:
                 type: string
               count:
@@ -2004,6 +2255,10 @@ components:
           items:
             $ref: "#/components/schemas/WorkspaceWorkItemListItem"
         blockedRelevant:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceWorkItemListItem"
+        dependencyBlockedAssigned:
           type: array
           items:
             $ref: "#/components/schemas/WorkspaceWorkItemListItem"

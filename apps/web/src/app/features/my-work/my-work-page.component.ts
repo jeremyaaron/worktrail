@@ -82,6 +82,12 @@ interface DashboardSection {
                           {{ projectBadge(item.project) }}
                         </span>
                         <span class="key-pill">{{ item.displayKey }}</span>
+                        @if (item.openBlockerCount > 0) {
+                          <span class="dependency-pill">Blocked by {{ item.openBlockerCount }}</span>
+                        }
+                        @if (item.openBlockedWorkCount > 0) {
+                          <span class="dependency-pill">Blocks {{ item.openBlockedWorkCount }}</span>
+                        }
                         <span>{{ workItemMetadata(item) }}</span>
                       </small>
                     </span>
@@ -180,7 +186,7 @@ interface DashboardSection {
 
     .summary-grid {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
       gap: 10px;
       margin-bottom: 18px;
     }
@@ -463,6 +469,13 @@ export class MyWorkPageComponent implements OnDestroy {
         emptyTitle: 'No relevant blockers',
         emptyMessage: 'Blocked assigned or reported work will appear here.',
         items: dashboard.blockedRelevant
+      },
+      {
+        key: 'dependency-blocked-assigned',
+        heading: 'Dependency blocked assigned work',
+        emptyTitle: 'No assigned dependency blockers',
+        emptyMessage: 'Assigned work blocked by open upstream dependencies will appear here.',
+        items: dashboard.dependencyBlockedAssigned
       },
       {
         key: 'recently-updated',

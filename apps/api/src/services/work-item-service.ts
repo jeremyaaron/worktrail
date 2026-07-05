@@ -43,6 +43,7 @@ import {
   toWorkItemListItemDto,
   toWorkspaceWorkItemListItemDto
 } from './dto.js';
+import { WorkItemRelationshipService } from './work-item-relationship-service.js';
 
 const boardPositionStep = 1024;
 
@@ -73,6 +74,11 @@ interface WorkItemBundle {
   reporter: Member;
   labels: Label[];
   milestone: Milestone | null;
+}
+
+interface WorkItemDependencyCounts {
+  openBlockerCount: number;
+  openBlockedWorkCount: number;
 }
 
 export interface WorkItemCreationInput extends CreateWorkItemRequest {
@@ -605,10 +611,16 @@ export class WorkItemService {
     }
 
     const dtos: WorkItemListItemDto[] = [];
+    const dependencyCountsById = await repositories.workItemRelationships.listDependencyCounts(
+      workItems.map((workItem) => workItem.id)
+    );
 
     for (const workItem of workItems) {
       const bundle = await this.toBundle(workItem, repositories, labelsByWorkItem.get(workItem.id) ?? []);
-      dtos.push(toWorkItemListItemDto(bundle));
+      dtos.push(toWorkItemListItemDto({
+        ...bundle,
+        dependencyCounts: this.toDependencyCounts(dependencyCountsById.get(workItem.id))
+      }));
     }
 
     return dtos;
@@ -627,6 +639,9 @@ export class WorkItemService {
     }
 
     const dtos: WorkspaceWorkItemListItemDto[] = [];
+    const dependencyCountsById = await repositories.workItemRelationships.listDependencyCounts(
+      records.map((record) => record.workItem.id)
+    );
 
     for (const record of records) {
       const bundle = await this.toBundle(
@@ -634,7 +649,11 @@ export class WorkItemService {
         repositories,
         labelsByWorkItem.get(record.workItem.id) ?? []
       );
-      dtos.push(toWorkspaceWorkItemListItemDto({ ...bundle, project: record.project }));
+      dtos.push(toWorkspaceWorkItemListItemDto({
+        ...bundle,
+        project: record.project,
+        dependencyCounts: this.toDependencyCounts(dependencyCountsById.get(record.workItem.id))
+      }));
     }
 
     return dtos;
@@ -647,12 +666,34 @@ export class WorkItemService {
     const labels = await repositories.labels.listByWorkItem(workItem.id);
     const comments = await repositories.comments.findByWorkItem(workItem.id);
     const activity = await repositories.activityEvents.findByWorkItem(workItem.id);
+    const relationships = await new WorkItemRelationshipService({
+      actor: this.context.actor,
+      repositories,
+      clock: this.clock,
+      idGenerator: this.idGenerator
+    }).getRelationshipSummaryWithRepositories(workItem.id, repositories);
 
     return toWorkItemDetailDto({
       ...(await this.toBundle(workItem, repositories, labels)),
+      dependencyCounts: relationships,
+      relationships,
       comments: await this.toCommentDtos(comments, repositories),
       activity: await this.toActivityDtos(activity, repositories)
     });
+  }
+
+  private toDependencyCounts(
+    counts:
+      | {
+          openBlockerCount: number;
+          openBlockedWorkCount: number;
+        }
+      | undefined
+  ): WorkItemDependencyCounts {
+    return {
+      openBlockerCount: counts?.openBlockerCount ?? 0,
+      openBlockedWorkCount: counts?.openBlockedWorkCount ?? 0
+    };
   }
 
   private async toBundle(

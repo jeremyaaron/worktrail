@@ -77,6 +77,21 @@ textarea {
   color: #b91c1c;
 }
 
+.dependency-pill {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 22px;
+  border: 1px solid #bae6fd;
+  border-radius: 999px;
+  padding: 2px 8px;
+  background: #f0f9ff;
+  color: #0369a1;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: none;
+}
+
 app-project-planning-page {
   .dashboard-section,
   .risk-section-list,
@@ -200,7 +215,7 @@ app-project-planning-page {
 
   .risk-metrics {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
     gap: 8px;
     margin: 14px 0;
   }
@@ -288,6 +303,135 @@ app-project-planning-page {
     .risk-row__planning {
       justify-items: start;
       text-align: left;
+    }
+  }
+}
+
+app-work-item-detail-page {
+  .panel-heading {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: start;
+  }
+
+  .panel-heading p,
+  .muted {
+    margin-top: 6px;
+    color: #64748b;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+
+  .relationship-panel {
+    margin-bottom: 18px;
+  }
+
+  .relationship-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .relationship-group,
+  .relationship-list,
+  .relationship-form {
+    display: grid;
+    gap: 10px;
+  }
+
+  .relationship-row,
+  .candidate-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px;
+    background: #ffffff;
+    text-align: left;
+  }
+
+  .relationship-row a {
+    display: inline-flex;
+    margin-top: 3px;
+    color: #1d4ed8;
+    font-size: 0.875rem;
+    font-weight: 900;
+    text-decoration: none;
+  }
+
+  .relationship-project,
+  .relationship-meta,
+  .candidate-row small {
+    display: block;
+    color: #64748b;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.45;
+  }
+
+  .relationship-form {
+    border-top: 1px solid #e5e7eb;
+    padding-top: 14px;
+  }
+
+  .relationship-form-grid {
+    display: grid;
+    grid-template-columns: minmax(180px, 220px) minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: end;
+  }
+
+  .candidate-list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .candidate-row {
+    width: 100%;
+    min-height: auto;
+    border-color: #cbd5e1;
+    background: #f8fafc;
+    color: #111827;
+    cursor: pointer;
+  }
+
+  .candidate-row.selected {
+    border-color: #1d4ed8;
+    background: #eff6ff;
+  }
+
+  .candidate-row:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+
+  .candidate-row strong {
+    display: block;
+    color: #111827;
+    font-size: 0.875rem;
+    line-height: 1.35;
+  }
+
+  .linked-marker {
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    padding: 3px 8px;
+    background: #ffffff;
+    color: #64748b;
+    font-size: 0.6875rem;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+}
+
+@media (max-width: 920px) {
+  app-work-item-detail-page {
+    .relationship-grid,
+    .relationship-form-grid {
+      grid-template-columns: 1fr;
     }
   }
 }

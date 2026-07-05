@@ -94,6 +94,30 @@ const overdueWorkItem: PlanningRiskItemDto = {
   updatedAt: '2026-06-25T12:00:00.000Z'
 };
 
+const dependencyBlockedWorkItem: PlanningRiskItemDto = {
+  id: '10000000-0000-4000-8000-000000000303',
+  displayKey: 'WT-3',
+  title: 'Wait for upstream schema work',
+  status: 'ready',
+  priority: 'high',
+  assignee: owner,
+  dueDate: null,
+  milestone: activeMilestone,
+  updatedAt: '2026-07-04T10:00:00.000Z'
+};
+
+const blockingOpenWorkItem: PlanningRiskItemDto = {
+  id: '10000000-0000-4000-8000-000000000304',
+  displayKey: 'WT-4',
+  title: 'Finish shared dependency package',
+  status: 'in_progress',
+  priority: 'urgent',
+  assignee: contributor,
+  dueDate: '2026-07-12',
+  milestone: null,
+  updatedAt: '2026-07-04T09:00:00.000Z'
+};
+
 const defaultPlanningSummary: ProjectPlanningSummaryDto = {
   project: activeProject,
   milestoneProgress: [
@@ -109,7 +133,9 @@ const defaultPlanningSummary: ProjectPlanningSummaryDto = {
   overdueWork: [overdueWorkItem],
   dueSoonWork: [],
   unassignedActiveWork: [overdueWorkItem],
-  staleInProgressWork: [overdueWorkItem]
+  staleInProgressWork: [overdueWorkItem],
+  dependencyBlockedWork: [dependencyBlockedWorkItem],
+  blockingOpenWork: [blockingOpenWorkItem]
 };
 
 const archivedMilestone: MilestoneDto = {
@@ -191,7 +217,7 @@ describe('ProjectPlanningPageComponent', () => {
     expect(compiled.textContent).toContain('archived');
     expect(compiled.textContent).toContain('2 total');
     expect(compiled.textContent).toContain('Planning dashboard');
-    expect(compiled.textContent).toContain('4 risks');
+    expect(compiled.textContent).toContain('6 risks');
     expect(links).toEqual([
       { text: 'Overview', href: `/projects/${projectId}` },
       { text: 'Work items', href: `/projects/${projectId}/work-items` },
@@ -211,12 +237,19 @@ describe('ProjectPlanningPageComponent', () => {
         href: link.getAttribute('href')
       })
     );
+    const listLinks = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('.section-heading a')).map(
+      (link) => link.getAttribute('href') ?? ''
+    );
 
     expect(compiled.textContent).toContain('Milestone progress');
     expect(compiled.textContent).toContain('2 of 4 done');
     expect(compiled.textContent).toContain('1 blocked');
     expect(compiled.textContent).toContain('Resolve deployment blocker');
     expect(compiled.textContent).toContain('Finish stale planning copy');
+    expect(compiled.textContent).toContain('Dependency blocked work');
+    expect(compiled.textContent).toContain('Wait for upstream schema work');
+    expect(compiled.textContent).toContain('Blocking open work');
+    expect(compiled.textContent).toContain('Finish shared dependency package');
     expect(progressLink?.getAttribute('href')).toBe(
       `/projects/${projectId}/work-items?milestoneId=${activeMilestone.id}&sort=due_date_asc`
     );
@@ -228,6 +261,16 @@ describe('ProjectPlanningPageComponent', () => {
       text: jasmine.stringContaining('WT-2'),
       href: `/work-items/${overdueWorkItem.id}`
     }));
+    expect(riskLinks).toContain(jasmine.objectContaining({
+      text: jasmine.stringContaining('WT-3'),
+      href: `/work-items/${dependencyBlockedWorkItem.id}`
+    }));
+    expect(riskLinks).toContain(jasmine.objectContaining({
+      text: jasmine.stringContaining('WT-4'),
+      href: `/work-items/${blockingOpenWorkItem.id}`
+    }));
+    expect(listLinks.some((href) => href.includes('dependency=dependency_blocked'))).toBeTrue();
+    expect(listLinks.some((href) => href.includes('dependency=blocking_open_work'))).toBeTrue();
   });
 
   it('renders compact empty dashboard states', () => {
@@ -238,7 +281,9 @@ describe('ProjectPlanningPageComponent', () => {
       overdueWork: [],
       dueSoonWork: [],
       unassignedActiveWork: [],
-      staleInProgressWork: []
+      staleInProgressWork: [],
+      dependencyBlockedWork: [],
+      blockingOpenWork: []
     };
     const { fixture } = setupPlanningPage(activeProject, [], owner, emptySummary);
 
@@ -247,6 +292,8 @@ describe('ProjectPlanningPageComponent', () => {
     expect(compiled.textContent).toContain('No blocked work');
     expect(compiled.textContent).toContain('No overdue work');
     expect(compiled.textContent).toContain('Nothing due soon');
+    expect(compiled.textContent).toContain('No dependency-blocked work');
+    expect(compiled.textContent).toContain('No work blocking dependencies');
     expect(compiled.textContent).toContain('No unassigned active work');
     expect(compiled.textContent).toContain('No stale in-progress work');
   });

@@ -40,8 +40,22 @@ export class PlanningService {
 
   async getProjectPlanningSummary(projectId: string): Promise<ProjectPlanningSummaryDto> {
     const project = await this.requireProject(projectId);
-    const [workItems, milestones, members] = await Promise.all([
+    const [
+      workItems,
+      dependencyBlockedWorkItems,
+      blockingOpenWorkItems,
+      milestones,
+      members
+    ] = await Promise.all([
       this.context.repositories.workItems.listByProject(projectId, { sort: 'board_order' }),
+      this.context.repositories.workItems.listByProject(projectId, {
+        dependency: 'dependency_blocked',
+        sort: 'priority_desc'
+      }),
+      this.context.repositories.workItems.listByProject(projectId, {
+        dependency: 'blocking_open_work',
+        sort: 'priority_desc'
+      }),
       this.context.repositories.milestones.listByProject(projectId, { includeArchived: true }),
       this.context.repositories.members.listByWorkspace(this.context.actor.workspaceId)
     ]);
@@ -89,6 +103,16 @@ export class PlanningService {
               workItem.status === 'in_progress' && workItem.updatedAt.getTime() < staleCutoff.getTime()
           )
           .sort((left, right) => left.updatedAt.getTime() - right.updatedAt.getTime()),
+        memberById,
+        milestoneById
+      ),
+      dependencyBlockedWork: this.toRiskItems(
+        dependencyBlockedWorkItems.filter((workItem) => isOpenWorkItem(workItem)),
+        memberById,
+        milestoneById
+      ),
+      blockingOpenWork: this.toRiskItems(
+        blockingOpenWorkItems.filter((workItem) => isOpenWorkItem(workItem)),
         memberById,
         milestoneById
       )
