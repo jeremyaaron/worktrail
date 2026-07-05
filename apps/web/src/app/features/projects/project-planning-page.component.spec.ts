@@ -109,7 +109,9 @@ const defaultPlanningSummary: ProjectPlanningSummaryDto = {
   overdueWork: [overdueWorkItem],
   dueSoonWork: [],
   unassignedActiveWork: [overdueWorkItem],
-  staleInProgressWork: [overdueWorkItem]
+  staleInProgressWork: [overdueWorkItem],
+  dependencyBlockedWork: [],
+  blockingOpenWork: []
 };
 
 const archivedMilestone: MilestoneDto = {
@@ -238,7 +240,9 @@ describe('ProjectPlanningPageComponent', () => {
       overdueWork: [],
       dueSoonWork: [],
       unassignedActiveWork: [],
-      staleInProgressWork: []
+      staleInProgressWork: [],
+      dependencyBlockedWork: [],
+      blockingOpenWork: []
     };
     const { fixture } = setupPlanningPage(activeProject, [], owner, emptySummary);
 

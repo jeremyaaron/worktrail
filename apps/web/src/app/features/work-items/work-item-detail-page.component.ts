@@ -11,8 +11,11 @@ import type {
   UpdateWorkItemRequest,
   WorkItemDetailDto,
   WorkItemPriority,
+  WorkItemRelationshipItemDto,
+  WorkItemRelationshipType,
   WorkItemStatus,
-  WorkItemType
+  WorkItemType,
+  WorkspaceWorkItemListItemDto
 } from '@worktrail/contracts';
 
 import { CurrentUserService } from '../../core/current-user.service';
@@ -32,6 +35,7 @@ const statuses: WorkItemStatus[] = [
 const types: WorkItemType[] = ['task', 'bug', 'story', 'chore'];
 const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
 const terminalStatuses = new Set<WorkItemStatus>(['done', 'canceled']);
+type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
 
 @Component({
   selector: 'app-work-item-detail-page',
@@ -254,6 +258,197 @@ const terminalStatuses = new Set<WorkItemStatus>(['done', 'canceled']);
             </dl>
           </section>
         </aside>
+      </section>
+
+      <section class="panel relationship-panel" aria-labelledby="relationships-heading">
+        <div class="panel-heading">
+          <div>
+            <h2 id="relationships-heading">Relationships</h2>
+            <p>Connect blockers, downstream work, and related items across the workspace.</p>
+          </div>
+        </div>
+
+        <div class="relationship-grid">
+          <section class="relationship-group" aria-labelledby="blocked-by-heading">
+            <h3 id="blocked-by-heading">Blocked by</h3>
+            @if (item.relationships.blockedBy.length === 0) {
+              <p class="muted">No blockers linked.</p>
+            } @else {
+              <div class="relationship-list">
+                @for (relationship of item.relationships.blockedBy; track relationship.id) {
+                  <article class="relationship-row">
+                    <div>
+                      <span class="relationship-project">
+                        {{ relationship.workItem.project.key }} · {{ relationship.workItem.project.name }}
+                      </span>
+                      <a [routerLink]="['/work-items', relationship.workItem.id]">
+                        {{ relationship.workItem.displayKey }} {{ relationship.workItem.title }}
+                      </a>
+                      <span class="relationship-meta">
+                        {{ formatToken(relationship.workItem.status) }} ·
+                        {{ formatToken(relationship.workItem.priority) }} ·
+                        {{ relationship.workItem.assignee === null ? 'Unassigned' : memberDisplayName(relationship.workItem.assignee) }}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      class="danger-action"
+                      [disabled]="isRelationshipReadOnly() || removingRelationshipId() === relationship.id"
+                      (click)="removeRelationship(relationship)"
+                    >
+                      {{ removingRelationshipId() === relationship.id ? 'Removing...' : 'Remove' }}
+                    </button>
+                  </article>
+                }
+              </div>
+            }
+          </section>
+
+          <section class="relationship-group" aria-labelledby="blocks-heading">
+            <h3 id="blocks-heading">Blocks</h3>
+            @if (item.relationships.blocks.length === 0) {
+              <p class="muted">No blocked work linked.</p>
+            } @else {
+              <div class="relationship-list">
+                @for (relationship of item.relationships.blocks; track relationship.id) {
+                  <article class="relationship-row">
+                    <div>
+                      <span class="relationship-project">
+                        {{ relationship.workItem.project.key }} · {{ relationship.workItem.project.name }}
+                      </span>
+                      <a [routerLink]="['/work-items', relationship.workItem.id]">
+                        {{ relationship.workItem.displayKey }} {{ relationship.workItem.title }}
+                      </a>
+                      <span class="relationship-meta">
+                        {{ formatToken(relationship.workItem.status) }} ·
+                        {{ formatToken(relationship.workItem.priority) }} ·
+                        {{ relationship.workItem.assignee === null ? 'Unassigned' : memberDisplayName(relationship.workItem.assignee) }}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      class="danger-action"
+                      [disabled]="isRelationshipReadOnly() || removingRelationshipId() === relationship.id"
+                      (click)="removeRelationship(relationship)"
+                    >
+                      {{ removingRelationshipId() === relationship.id ? 'Removing...' : 'Remove' }}
+                    </button>
+                  </article>
+                }
+              </div>
+            }
+          </section>
+
+          <section class="relationship-group" aria-labelledby="related-heading">
+            <h3 id="related-heading">Related work</h3>
+            @if (item.relationships.related.length === 0) {
+              <p class="muted">No related work linked.</p>
+            } @else {
+              <div class="relationship-list">
+                @for (relationship of item.relationships.related; track relationship.id) {
+                  <article class="relationship-row">
+                    <div>
+                      <span class="relationship-project">
+                        {{ relationship.workItem.project.key }} · {{ relationship.workItem.project.name }}
+                      </span>
+                      <a [routerLink]="['/work-items', relationship.workItem.id]">
+                        {{ relationship.workItem.displayKey }} {{ relationship.workItem.title }}
+                      </a>
+                      <span class="relationship-meta">
+                        {{ formatToken(relationship.workItem.status) }} ·
+                        {{ formatToken(relationship.workItem.priority) }} ·
+                        {{ relationship.workItem.assignee === null ? 'Unassigned' : memberDisplayName(relationship.workItem.assignee) }}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      class="danger-action"
+                      [disabled]="isRelationshipReadOnly() || removingRelationshipId() === relationship.id"
+                      (click)="removeRelationship(relationship)"
+                    >
+                      {{ removingRelationshipId() === relationship.id ? 'Removing...' : 'Remove' }}
+                    </button>
+                  </article>
+                }
+              </div>
+            }
+          </section>
+        </div>
+
+        <form
+          class="relationship-form"
+          [formGroup]="relationshipForm"
+          (ngSubmit)="addRelationship()"
+          novalidate
+        >
+          <div class="relationship-form-grid">
+            <label>
+              <span>Relationship</span>
+              <select formControlName="kind">
+                <option value="blocked_by">Add blocker</option>
+                <option value="blocks">Add blocked work</option>
+                <option value="related">Add related work</option>
+              </select>
+            </label>
+
+            <label>
+              <span>Find work item</span>
+              <input type="search" formControlName="search" placeholder="Key, title, or description" />
+            </label>
+
+            <button type="button" class="secondary-action" [disabled]="isRelationshipReadOnly() || isSearchingCandidates()" (click)="searchRelationshipCandidates()">
+              {{ isSearchingCandidates() ? 'Searching...' : 'Search' }}
+            </button>
+          </div>
+
+          @if (candidateSearchError()) {
+            <app-error-panel
+              title="Search failed"
+              [message]="candidateSearchError() ?? ''"
+              (retry)="searchRelationshipCandidates()"
+            />
+          }
+
+          @if (relationshipCandidates().length > 0) {
+            <div class="candidate-list" aria-label="Relationship candidates">
+              @for (candidate of relationshipCandidates(); track candidate.id) {
+                <button
+                  type="button"
+                  class="candidate-row"
+                  [class.selected]="relationshipForm.getRawValue().targetWorkItemId === candidate.id"
+                  [disabled]="isRelationshipReadOnly() || isAlreadyLinked(candidate.id)"
+                  (click)="selectRelationshipCandidate(candidate)"
+                >
+                  <span>
+                    <strong>{{ candidate.displayKey }} {{ candidate.title }}</strong>
+                    <small>
+                      {{ candidate.project.key }} · {{ candidate.project.name }} ·
+                      {{ formatToken(candidate.status) }} · {{ formatToken(candidate.priority) }} ·
+                      {{ candidate.assignee === null ? 'Unassigned' : memberDisplayName(candidate.assignee) }}
+                    </small>
+                  </span>
+                  @if (isAlreadyLinked(candidate.id)) {
+                    <span class="linked-marker">Linked</span>
+                  }
+                </button>
+              }
+            </div>
+          } @else if (hasSearchedRelationshipCandidates()) {
+            <p class="muted">No matching work items found.</p>
+          }
+
+          @if (relationshipError()) {
+            <app-error-panel
+              title="Relationship not changed"
+              [message]="relationshipError() ?? ''"
+              (retry)="addRelationship()"
+            />
+          }
+
+          <button type="submit" [disabled]="isRelationshipReadOnly() || isAddingRelationship()">
+            {{ isAddingRelationship() ? 'Adding...' : relationshipActionLabel() }}
+          </button>
+        </form>
       </section>
 
       <section class="collaboration-grid">
@@ -804,22 +999,29 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly isUpdating = signal(false);
   readonly isTransitioning = signal(false);
   readonly isCommenting = signal(false);
+  readonly isSearchingCandidates = signal(false);
+  readonly isAddingRelationship = signal(false);
   readonly savingCommentId = signal<string | null>(null);
   readonly deletingCommentId = signal<string | null>(null);
   readonly editingCommentId = signal<string | null>(null);
   readonly confirmingDeleteCommentId = signal<string | null>(null);
+  readonly removingRelationshipId = signal<string | null>(null);
   readonly hasSubmittedDetail = signal(false);
   readonly hasSubmittedComment = signal(false);
   readonly hasSubmittedEditComment = signal(false);
+  readonly hasSearchedRelationshipCandidates = signal(false);
   readonly loadError = signal<string | null>(null);
   readonly updateError = signal<string | null>(null);
   readonly statusError = signal<string | null>(null);
   readonly commentError = signal<string | null>(null);
   readonly commentMutationError = signal<string | null>(null);
+  readonly relationshipError = signal<string | null>(null);
+  readonly candidateSearchError = signal<string | null>(null);
   readonly labelLoadError = signal<string | null>(null);
   readonly milestoneLoadError = signal<string | null>(null);
   readonly availableLabels = signal<LabelDto[]>([]);
   readonly availableMilestones = signal<MilestoneDto[]>([]);
+  readonly relationshipCandidates = signal<WorkspaceWorkItemListItemDto[]>([]);
   readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
   readonly isTerminalWorkItem = computed(() => terminalStatuses.has(this.workItem()?.status ?? 'backlog'));
   readonly canReopenTerminalWorkItem = computed(() => {
@@ -836,6 +1038,19 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly archivedAttachedLabels = computed(() =>
     (this.workItem()?.labels ?? []).filter((label) => label.isArchived)
   );
+  readonly linkedWorkItemIds = computed(() => {
+    const relationships = this.workItem()?.relationships;
+
+    if (relationships === undefined) {
+      return new Set<string>();
+    }
+
+    return new Set([
+      ...relationships.blockedBy.map((relationship) => relationship.workItem.id),
+      ...relationships.blocks.map((relationship) => relationship.workItem.id),
+      ...relationships.related.map((relationship) => relationship.workItem.id)
+    ]);
+  });
 
   readonly detailForm = this.formBuilder.nonNullable.group({
     title: ['', [Validators.required]],
@@ -856,6 +1071,12 @@ export class WorkItemDetailPageComponent implements OnInit {
 
   readonly editCommentForm = this.formBuilder.nonNullable.group({
     body: ['', [Validators.required]]
+  });
+
+  readonly relationshipForm = this.formBuilder.nonNullable.group({
+    kind: ['blocked_by'],
+    search: [''],
+    targetWorkItemId: ['']
   });
 
   constructor() {
@@ -1056,6 +1277,137 @@ export class WorkItemDetailPageComponent implements OnInit {
     this.commentMutationError.set(null);
   }
 
+  searchRelationshipCandidates(): void {
+    this.candidateSearchError.set(null);
+    this.relationshipError.set(null);
+    this.hasSearchedRelationshipCandidates.set(true);
+    this.relationshipForm.patchValue({ targetWorkItemId: '' }, { emitEvent: false });
+
+    if (this.isRelationshipReadOnly()) {
+      return;
+    }
+
+    const search = this.relationshipForm.getRawValue().search.trim();
+    this.isSearchingCandidates.set(true);
+
+    this.api
+      .listWorkspaceWorkItems({
+        search,
+        archivedProjects: 'exclude',
+        sort: 'updated_desc'
+      })
+      .subscribe({
+        next: (candidates) => {
+          this.relationshipCandidates.set(
+            candidates.filter((candidate) => candidate.id !== this.workItemId())
+          );
+          this.isSearchingCandidates.set(false);
+        },
+        error: () => {
+          this.candidateSearchError.set('Work item candidates could not be loaded.');
+          this.relationshipCandidates.set([]);
+          this.isSearchingCandidates.set(false);
+        }
+      });
+  }
+
+  selectRelationshipCandidate(candidate: WorkspaceWorkItemListItemDto): void {
+    if (this.isRelationshipReadOnly() || this.isAlreadyLinked(candidate.id)) {
+      return;
+    }
+
+    this.relationshipError.set(null);
+    this.relationshipForm.patchValue({ targetWorkItemId: candidate.id }, { emitEvent: false });
+  }
+
+  addRelationship(): void {
+    this.relationshipError.set(null);
+
+    if (this.isRelationshipReadOnly()) {
+      return;
+    }
+
+    const formValue = this.relationshipForm.getRawValue();
+    const targetWorkItemId = formValue.targetWorkItemId;
+
+    if (targetWorkItemId === '') {
+      this.relationshipError.set('Select a work item to link.');
+      return;
+    }
+
+    if (this.isAlreadyLinked(targetWorkItemId)) {
+      this.relationshipError.set('That work item is already linked.');
+      return;
+    }
+
+    const kind = formValue.kind as RelationshipKind;
+    const sourceWorkItemId = kind === 'blocked_by' ? targetWorkItemId : this.workItemId();
+    const relationshipTargetWorkItemId = kind === 'blocked_by' ? this.workItemId() : targetWorkItemId;
+    const relationshipType: WorkItemRelationshipType = kind === 'related' ? 'relates_to' : 'blocks';
+
+    this.isAddingRelationship.set(true);
+    this.api
+      .createWorkItemRelationship(sourceWorkItemId, {
+        relationshipType,
+        targetWorkItemId: relationshipTargetWorkItemId
+      })
+      .subscribe({
+        next: () => {
+          this.refreshAfterRelationshipMutation(() => {
+            this.relationshipForm.patchValue({ targetWorkItemId: '' }, { emitEvent: false });
+            this.isAddingRelationship.set(false);
+          });
+        },
+        error: () => {
+          this.relationshipError.set('The relationship could not be added.');
+          this.isAddingRelationship.set(false);
+        }
+      });
+  }
+
+  removeRelationship(relationship: WorkItemRelationshipItemDto): void {
+    this.relationshipError.set(null);
+
+    if (this.isRelationshipReadOnly()) {
+      return;
+    }
+
+    this.removingRelationshipId.set(relationship.id);
+    this.api.deleteWorkItemRelationship(this.workItemId(), relationship.id).subscribe({
+      next: () => {
+        this.refreshAfterRelationshipMutation(() => {
+          this.removingRelationshipId.set(null);
+        });
+      },
+      error: () => {
+        this.relationshipError.set('The relationship could not be removed.');
+        this.removingRelationshipId.set(null);
+      }
+    });
+  }
+
+  isRelationshipReadOnly(): boolean {
+    return this.isArchivedProject();
+  }
+
+  isAlreadyLinked(workItemId: string): boolean {
+    return this.linkedWorkItemIds().has(workItemId);
+  }
+
+  relationshipActionLabel(): string {
+    const kind = this.relationshipForm.getRawValue().kind as RelationshipKind;
+
+    if (kind === 'blocked_by') {
+      return 'Add blocker';
+    }
+
+    if (kind === 'blocks') {
+      return 'Add blocked work';
+    }
+
+    return 'Add related work';
+  }
+
   toggleLabel(labelId: string, event: Event): void {
     if (this.isArchivedProject()) {
       return;
@@ -1195,6 +1547,19 @@ export class WorkItemDetailPageComponent implements OnInit {
     });
   }
 
+  private refreshAfterRelationshipMutation(afterRefresh: () => void): void {
+    this.api.getWorkItem(this.workItemId()).subscribe({
+      next: (workItem) => {
+        this.applyWorkItem(workItem);
+        afterRefresh();
+      },
+      error: () => {
+        this.relationshipError.set('The relationship changed, but the latest detail could not be loaded.');
+        afterRefresh();
+      }
+    });
+  }
+
   private applyWorkItem(workItem: WorkItemDetailDto): void {
     this.workItem.set(workItem);
     this.selectedLabelIds.set(workItem.labels.filter((label) => !label.isArchived).map((label) => label.id));
@@ -1208,6 +1573,7 @@ export class WorkItemDetailPageComponent implements OnInit {
       milestoneId: workItem.milestone?.id ?? ''
     });
     this.statusForm.reset({ status: workItem.status });
+    this.relationshipError.set(null);
     this.syncReadOnlyState();
   }
 
@@ -1265,10 +1631,12 @@ export class WorkItemDetailPageComponent implements OnInit {
       this.statusForm.disable(options);
       this.commentForm.disable(options);
       this.editCommentForm.disable(options);
+      this.relationshipForm.disable(options);
     } else {
       this.detailForm.enable(options);
       this.commentForm.enable(options);
       this.editCommentForm.enable(options);
+      this.relationshipForm.enable(options);
 
       if (this.isStatusTransitionReadOnly()) {
         this.statusForm.disable(options);

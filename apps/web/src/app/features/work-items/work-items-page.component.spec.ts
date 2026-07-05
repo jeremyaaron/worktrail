@@ -9,7 +9,8 @@ import type {
   ProjectDto,
   WorkspaceCapabilitiesDto,
   WorkItemDetailDto,
-  WorkItemListItemDto
+  WorkItemListItemDto,
+  WorkItemRelationshipSummaryDto
 } from '@worktrail/contracts';
 import { BehaviorSubject } from 'rxjs';
 
@@ -45,6 +46,15 @@ const inactiveMember: MemberDto = {
   deactivatedAt: '2026-06-28T12:00:00.000Z',
   createdAt: '2026-07-02T12:00:00.000Z',
   updatedAt: '2026-07-03T12:00:00.000Z'
+};
+
+const emptyRelationships: WorkItemRelationshipSummaryDto = {
+  blockedBy: [],
+  blocks: [],
+  related: [],
+  dependencyBlocked: false,
+  openBlockerCount: 0,
+  openBlockedWorkCount: 0
 };
 
 const activeProject: ProjectDto = {
@@ -102,6 +112,9 @@ const workItem: WorkItemListItemDto = {
   boardPosition: 1024,
   dueDate: null,
   estimatePoints: 5,
+  dependencyBlocked: false,
+  openBlockerCount: 0,
+  openBlockedWorkCount: 0,
   createdAt: '2026-07-02T12:00:00.000Z',
   updatedAt: '2026-07-03T12:00:00.000Z'
 };
@@ -724,6 +737,7 @@ describe('WorkItemCreatePageComponent', () => {
       displayKey: 'WT-499',
       title: 'Create filtering UI',
       description: 'Build the Phase 10 list filters.',
+      relationships: emptyRelationships,
       comments: [],
       activity: []
     } satisfies WorkItemDetailDto);
@@ -771,6 +785,7 @@ describe('WorkItemCreatePageComponent', () => {
       id: '10000000-0000-4000-8000-000000000498',
       title: 'Create estimate normalization',
       description: '',
+      relationships: emptyRelationships,
       comments: [],
       activity: []
     } satisfies WorkItemDetailDto);
@@ -896,6 +911,7 @@ describe('WorkItemCreatePageComponent global route', () => {
       displayKey: 'WT-497',
       title: 'Capture from workspace',
       description: 'Create without entering a project first.',
+      relationships: emptyRelationships,
       comments: [],
       activity: []
     } satisfies WorkItemDetailDto);

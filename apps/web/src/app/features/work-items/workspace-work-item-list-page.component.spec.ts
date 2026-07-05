@@ -117,6 +117,9 @@ const workItem: WorkspaceWorkItemListItemDto = {
   boardPosition: 1024,
   dueDate: '2026-07-08',
   estimatePoints: 5,
+  dependencyBlocked: false,
+  openBlockerCount: 0,
+  openBlockedWorkCount: 0,
   createdAt: '2026-07-02T12:00:00.000Z',
   updatedAt: '2026-07-04T12:00:00.000Z',
   project: {

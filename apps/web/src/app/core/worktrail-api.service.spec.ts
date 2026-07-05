@@ -157,6 +157,43 @@ describe('WorktrailApiService', () => {
     request.flush(new Blob(['project_key\n'], { type: 'text/csv' }));
   });
 
+  it('supports work item relationship requests', () => {
+    const workItemId = '10000000-0000-4000-8000-000000000401';
+    const targetWorkItemId = '10000000-0000-4000-8000-000000000402';
+    const relationshipId = '10000000-0000-4000-8000-000000000801';
+
+    api.listWorkItemRelationships(workItemId).subscribe();
+    const list = http.expectOne(`/api/work-items/${workItemId}/relationships`);
+    expect(list.request.method).toBe('GET');
+    list.flush({
+      blockedBy: [],
+      blocks: [],
+      related: [],
+      dependencyBlocked: false,
+      openBlockerCount: 0,
+      openBlockedWorkCount: 0
+    });
+
+    api
+      .createWorkItemRelationship(workItemId, {
+        relationshipType: 'blocks',
+        targetWorkItemId
+      })
+      .subscribe();
+    const create = http.expectOne(`/api/work-items/${workItemId}/relationships`);
+    expect(create.request.method).toBe('POST');
+    expect(create.request.body).toEqual({
+      relationshipType: 'blocks',
+      targetWorkItemId
+    });
+    create.flush({});
+
+    api.deleteWorkItemRelationship(workItemId, relationshipId).subscribe();
+    const remove = http.expectOne(`/api/work-items/${workItemId}/relationships/${relationshipId}`);
+    expect(remove.request.method).toBe('DELETE');
+    remove.flush(null);
+  });
+
   it('supports saved work view CRUD requests', () => {
     const savedView: SavedWorkViewDto = {
       id: '10000000-0000-4000-8000-000000000201',

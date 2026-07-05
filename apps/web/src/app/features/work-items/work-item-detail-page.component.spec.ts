@@ -2,7 +2,14 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import type { MemberDto, MilestoneDto, ProjectDto, WorkItemDetailDto } from '@worktrail/contracts';
+import type {
+  MemberDto,
+  MilestoneDto,
+  ProjectDto,
+  WorkItemDetailDto,
+  WorkItemRelationshipItemDto,
+  WorkspaceWorkItemListItemDto
+} from '@worktrail/contracts';
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorkItemDetailPageComponent } from './work-item-detail-page.component';
@@ -17,6 +24,9 @@ const frontendLabelId = '10000000-0000-4000-8000-000000000301';
 const archivedLabelId = '10000000-0000-4000-8000-000000000399';
 const milestoneId = '10000000-0000-4000-8000-000000000501';
 const nextMilestoneId = '10000000-0000-4000-8000-000000000502';
+const blockerWorkItemId = '10000000-0000-4000-8000-000000000404';
+const blockedWorkItemId = '10000000-0000-4000-8000-000000000405';
+const relatedWorkItemId = '10000000-0000-4000-8000-000000000406';
 
 const owner: MemberDto = {
   id: ownerId,
@@ -92,6 +102,74 @@ const nextMilestone: MilestoneDto = {
   targetDate: '2026-08-01'
 };
 
+function relationshipItem(input: {
+  id: string;
+  workItemId: string;
+  displayKey: string;
+  title: string;
+  direction: 'inbound' | 'outbound' | 'related';
+}): WorkItemRelationshipItemDto {
+  return {
+    id: input.id,
+    relationshipType: input.direction === 'related' ? 'relates_to' : 'blocks',
+    direction: input.direction,
+    workItem: {
+      id: input.workItemId,
+      workspaceId: owner.workspaceId,
+      projectId,
+      project: {
+        id: projectId,
+        key: activeProject.key,
+        name: activeProject.name,
+        status: activeProject.status
+      },
+      displayKey: input.displayKey,
+      title: input.title,
+      status: 'ready',
+      priority: 'medium',
+      assignee: contributor
+    },
+    createdBy: owner,
+    createdAt: '2026-07-04T12:00:00.000Z'
+  };
+}
+
+function candidate(input: {
+  id: string;
+  displayKey: string;
+  title: string;
+}): WorkspaceWorkItemListItemDto {
+  return {
+    id: input.id,
+    workspaceId: owner.workspaceId,
+    projectId,
+    itemNumber: Number(input.displayKey.split('-')[1]),
+    displayKey: input.displayKey,
+    title: input.title,
+    type: 'task',
+    status: 'ready',
+    priority: 'medium',
+    assignee: contributor,
+    reporter: owner,
+    labels: [],
+    milestone: null,
+    boardPosition: 1024,
+    dueDate: null,
+    estimatePoints: null,
+    dependencyBlocked: false,
+    openBlockerCount: 0,
+    openBlockedWorkCount: 0,
+    createdAt: '2026-07-03T12:00:00.000Z',
+    updatedAt: '2026-07-04T12:00:00.000Z',
+    project: {
+      id: projectId,
+      key: activeProject.key,
+      name: activeProject.name,
+      status: activeProject.status
+    }
+  };
+}
+
 const detail: WorkItemDetailDto = {
   id: workItemId,
   workspaceId: owner.workspaceId,
@@ -110,8 +188,19 @@ const detail: WorkItemDetailDto = {
   boardPosition: 1024,
   dueDate: '2026-07-20',
   estimatePoints: 5,
+  dependencyBlocked: false,
+  openBlockerCount: 0,
+  openBlockedWorkCount: 0,
   createdAt: '2026-07-02T12:00:00.000Z',
   updatedAt: '2026-07-03T12:00:00.000Z',
+  relationships: {
+    blockedBy: [],
+    blocks: [],
+    related: [],
+    dependencyBlocked: false,
+    openBlockerCount: 0,
+    openBlockedWorkCount: 0
+  },
   comments: [
     {
       id: '10000000-0000-4000-8000-000000000501',
@@ -206,6 +295,228 @@ describe('WorkItemDetailPageComponent', () => {
     expect(compiled.textContent).toContain('v0.0.3');
     expect(compiled.textContent).toContain('Initial implementation note.');
     expect(compiled.textContent).toContain('Avery Owner created this work item.');
+  });
+
+  it('renders relationship sections with linked work item metadata', () => {
+    const relationshipDetail: WorkItemDetailDto = {
+      ...detail,
+      relationships: {
+        blockedBy: [
+          relationshipItem({
+            id: '10000000-0000-4000-8000-000000000801',
+            workItemId: blockerWorkItemId,
+            displayKey: 'WT-4',
+            title: 'Finish API contract',
+            direction: 'inbound'
+          })
+        ],
+        blocks: [
+          relationshipItem({
+            id: '10000000-0000-4000-8000-000000000802',
+            workItemId: blockedWorkItemId,
+            displayKey: 'WT-5',
+            title: 'Build detail controls',
+            direction: 'outbound'
+          })
+        ],
+        related: [
+          relationshipItem({
+            id: '10000000-0000-4000-8000-000000000803',
+            workItemId: relatedWorkItemId,
+            displayKey: 'WT-6',
+            title: 'Update product docs',
+            direction: 'related'
+          })
+        ],
+        dependencyBlocked: true,
+        openBlockerCount: 1,
+        openBlockedWorkCount: 1
+      }
+    };
+    const { fixture } = setup({ workItem: relationshipDetail });
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(compiled.textContent).toContain('Blocked by');
+    expect(compiled.textContent).toContain('WT-4 Finish API contract');
+    expect(compiled.textContent).toContain('Blocks');
+    expect(compiled.textContent).toContain('WT-5 Build detail controls');
+    expect(compiled.textContent).toContain('Related work');
+    expect(compiled.textContent).toContain('WT-6 Update product docs');
+    expect(compiled.textContent).toContain('Worktrail App');
+    expect(compiled.textContent).toContain('Case Contributor');
+  });
+
+  it('searches relationship candidates while excluding the current work item', () => {
+    const { fixture, http } = setup();
+    fixture.componentInstance.relationshipForm.patchValue({ search: 'api' });
+    fixture.componentInstance.searchRelationshipCandidates();
+
+    const request = http.expectOne((candidateRequest) => candidateRequest.url === '/api/work-items');
+    expect(request.request.method).toBe('GET');
+    expect(request.request.params.get('search')).toBe('api');
+    expect(request.request.params.get('archivedProjects')).toBe('exclude');
+    request.flush([
+      candidate({ id: workItemId, displayKey: 'WT-3', title: 'Implement detail surface' }),
+      candidate({ id: blockerWorkItemId, displayKey: 'WT-4', title: 'Finish API contract' })
+    ]);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.relationshipCandidates().map((item) => item.id)).toEqual([
+      blockerWorkItemId
+    ]);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('WT-4 Finish API contract');
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain(
+      'WT-3 Implement detail surface'
+    );
+  });
+
+  it('adds a blocker by posting from the selected blocker to the current work item', () => {
+    const { fixture, http } = setup();
+    const blocker = candidate({
+      id: blockerWorkItemId,
+      displayKey: 'WT-4',
+      title: 'Finish API contract'
+    });
+    fixture.componentInstance.relationshipCandidates.set([blocker]);
+    fixture.componentInstance.relationshipForm.patchValue({ kind: 'blocked_by' });
+    fixture.componentInstance.selectRelationshipCandidate(blocker);
+    fixture.componentInstance.addRelationship();
+
+    const request = http.expectOne(`/api/work-items/${blockerWorkItemId}/relationships`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({
+      relationshipType: 'blocks',
+      targetWorkItemId: workItemId
+    });
+    request.flush({});
+
+    const refresh = http.expectOne(`/api/work-items/${workItemId}`);
+    refresh.flush({
+      ...detail,
+      relationships: {
+        ...detail.relationships,
+        blockedBy: [
+          relationshipItem({
+            id: '10000000-0000-4000-8000-000000000801',
+            workItemId: blockerWorkItemId,
+            displayKey: 'WT-4',
+            title: 'Finish API contract',
+            direction: 'inbound'
+          })
+        ],
+        dependencyBlocked: true,
+        openBlockerCount: 1
+      }
+    } satisfies WorkItemDetailDto);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('WT-4 Finish API contract');
+    expect(fixture.componentInstance.isAddingRelationship()).toBeFalse();
+  });
+
+  it('adds blocked work by posting from the current work item to the selected target', () => {
+    const { fixture, http } = setup();
+    fixture.componentInstance.relationshipForm.patchValue({
+      kind: 'blocks',
+      targetWorkItemId: blockedWorkItemId
+    });
+    fixture.componentInstance.addRelationship();
+
+    const request = http.expectOne(`/api/work-items/${workItemId}/relationships`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({
+      relationshipType: 'blocks',
+      targetWorkItemId: blockedWorkItemId
+    });
+    request.flush({});
+
+    const refresh = http.expectOne(`/api/work-items/${workItemId}`);
+    refresh.flush(detail);
+  });
+
+  it('adds related work with the symmetric relationship type', () => {
+    const { fixture, http } = setup();
+    fixture.componentInstance.relationshipForm.patchValue({
+      kind: 'related',
+      targetWorkItemId: relatedWorkItemId
+    });
+    fixture.componentInstance.addRelationship();
+
+    const request = http.expectOne(`/api/work-items/${workItemId}/relationships`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({
+      relationshipType: 'relates_to',
+      targetWorkItemId: relatedWorkItemId
+    });
+    request.flush({});
+
+    const refresh = http.expectOne(`/api/work-items/${workItemId}`);
+    refresh.flush(detail);
+  });
+
+  it('removes a relationship and refreshes detail', () => {
+    const relationship = relationshipItem({
+      id: '10000000-0000-4000-8000-000000000801',
+      workItemId: blockerWorkItemId,
+      displayKey: 'WT-4',
+      title: 'Finish API contract',
+      direction: 'inbound'
+    });
+    const { fixture, http } = setup({
+      workItem: {
+        ...detail,
+        relationships: {
+          ...detail.relationships,
+          blockedBy: [relationship],
+          dependencyBlocked: true,
+          openBlockerCount: 1
+        }
+      }
+    });
+
+    fixture.componentInstance.removeRelationship(relationship);
+
+    const request = http.expectOne(`/api/work-items/${workItemId}/relationships/${relationship.id}`);
+    expect(request.request.method).toBe('DELETE');
+    request.flush(null);
+
+    const refresh = http.expectOne(`/api/work-items/${workItemId}`);
+    refresh.flush(detail);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('No blockers linked.');
+  });
+
+  it('prevents already-linked relationship candidates from being selected', () => {
+    const linked = candidate({
+      id: blockerWorkItemId,
+      displayKey: 'WT-4',
+      title: 'Finish API contract'
+    });
+    const { fixture } = setup({
+      workItem: {
+        ...detail,
+        relationships: {
+          ...detail.relationships,
+          blockedBy: [
+            relationshipItem({
+              id: '10000000-0000-4000-8000-000000000801',
+              workItemId: blockerWorkItemId,
+              displayKey: 'WT-4',
+              title: 'Finish API contract',
+              direction: 'inbound'
+            })
+          ]
+        }
+      }
+    });
+
+    fixture.componentInstance.relationshipCandidates.set([linked]);
+    fixture.componentInstance.selectRelationshipCandidate(linked);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.relationshipForm.getRawValue().targetWorkItemId).toBe('');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Linked');
   });
 
   it('edits a comment inline and refreshes activity', () => {
@@ -544,6 +855,7 @@ describe('WorkItemDetailPageComponent', () => {
     expect(compiled.textContent).toContain('Archived project');
     expect(compiled.querySelector('button[type="submit"]')?.hasAttribute('disabled')).toBeTrue();
     expect(compiled.querySelector('input[type="checkbox"]')?.hasAttribute('disabled')).toBeTrue();
+    expect(fixture.componentInstance.relationshipForm.disabled).toBeTrue();
 
     fixture.componentInstance.detailForm.patchValue({ title: 'Archived edit attempt' });
     fixture.componentInstance.updateWorkItem();
@@ -551,10 +863,13 @@ describe('WorkItemDetailPageComponent', () => {
     fixture.componentInstance.transitionStatus();
     fixture.componentInstance.commentForm.setValue({ body: 'Archived comment attempt.' });
     fixture.componentInstance.addComment();
+    fixture.componentInstance.relationshipForm.patchValue({ targetWorkItemId: blockedWorkItemId });
+    fixture.componentInstance.addRelationship();
 
     http.expectNone(`/api/work-items/${workItemId}`);
     http.expectNone(`/api/work-items/${workItemId}/transitions`);
     http.expectNone(`/api/work-items/${workItemId}/comments`);
+    http.expectNone(`/api/work-items/${workItemId}/relationships`);
   });
 
   it('shows workflow errors when a status transition is rejected', () => {

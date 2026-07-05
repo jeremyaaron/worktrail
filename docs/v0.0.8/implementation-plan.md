@@ -587,7 +587,29 @@ npm run build --workspace @worktrail/web
 git diff --check
 ```
 
-Status: Not started.
+Status:
+
+- Completed on 2026-07-05.
+- Added relationship client methods to `WorktrailApiService` for:
+  - listing relationship summaries;
+  - creating relationships;
+  - deleting relationships.
+- Added a relationship management panel to the work item detail route with grouped `Blocked by`, `Blocks`, and `Related work` sections.
+- Rendered linked work item rows with project identity, display key, title link, status, priority, and assignee.
+- Added relationship controls for:
+  - adding a blocker by posting from the selected blocker to the current work item;
+  - adding blocked work by posting from the current work item to the selected target;
+  - adding related work with `relates_to`;
+  - removing existing relationships.
+- Added searchable workspace work item candidate lookup through the existing workspace discovery API.
+- Excluded the current work item from candidate results and prevented locally known linked items from being selected again.
+- Preserved archived-project read-only behavior for relationship form controls and mutation attempts.
+- Moved relationship-specific detail page styles to global styles under `app-work-item-detail-page` to avoid the component style budget warning.
+- Updated frontend fixtures for relationship-enabled detail DTOs and dependency-summary list DTOs.
+- Added frontend coverage for API client relationship methods and detail-page relationship rendering, search, add, remove, read-only, and direction translation behavior.
+- Verified `npm test --workspace @worktrail/web`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm run build --workspace @worktrail/web`.
 
 ## Phase 7: Dependency Filter UI, Saved Views, And List Signals
 

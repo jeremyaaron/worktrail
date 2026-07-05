@@ -10,6 +10,7 @@ import type {
   CreateProjectRequest,
   CreateSavedWorkViewRequest,
   CreateWorkItemRequest,
+  CreateWorkItemRelationshipRequest,
   DueDateState,
   LabelDto,
   MemberDto,
@@ -37,6 +38,8 @@ import type {
   WorkItemDetailDto,
   WorkItemListItemDto,
   WorkItemPriority,
+  WorkItemRelationshipDto,
+  WorkItemRelationshipSummaryDto,
   WorkItemSort,
   WorkItemStatus,
   WorkItemType,
@@ -375,6 +378,31 @@ export class WorktrailApiService {
     return this.http.post<WorkItemDetailDto>(
       this.url(`/work-items/${workItemId}/board-move`),
       input,
+      this.options()
+    );
+  }
+
+  listWorkItemRelationships(workItemId: string): Observable<WorkItemRelationshipSummaryDto> {
+    return this.http.get<WorkItemRelationshipSummaryDto>(
+      this.url(`/work-items/${workItemId}/relationships`),
+      this.options()
+    );
+  }
+
+  createWorkItemRelationship(
+    workItemId: string,
+    input: CreateWorkItemRelationshipRequest
+  ): Observable<WorkItemRelationshipDto> {
+    return this.http.post<WorkItemRelationshipDto>(
+      this.url(`/work-items/${workItemId}/relationships`),
+      input,
+      this.options()
+    );
+  }
+
+  deleteWorkItemRelationship(workItemId: string, relationshipId: string): Observable<void> {
+    return this.http.delete<void>(
+      this.url(`/work-items/${workItemId}/relationships/${relationshipId}`),
       this.options()
     );
   }

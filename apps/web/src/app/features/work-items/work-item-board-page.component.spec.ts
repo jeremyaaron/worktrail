@@ -2,7 +2,13 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import type { MemberDto, ProjectDto, WorkItemDetailDto, WorkItemListItemDto } from '@worktrail/contracts';
+import type {
+  MemberDto,
+  ProjectDto,
+  WorkItemDetailDto,
+  WorkItemListItemDto,
+  WorkItemRelationshipSummaryDto
+} from '@worktrail/contracts';
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorkItemBoardPageComponent } from './work-item-board-page.component';
@@ -26,6 +32,15 @@ const contributor: MemberDto = {
   name: 'Case Contributor',
   email: 'case.contributor@example.com',
   role: 'contributor'
+};
+
+const emptyRelationships: WorkItemRelationshipSummaryDto = {
+  blockedBy: [],
+  blocks: [],
+  related: [],
+  dependencyBlocked: false,
+  openBlockerCount: 0,
+  openBlockedWorkCount: 0
 };
 
 const activeProject: ProjectDto = {
@@ -69,6 +84,9 @@ const readyItem: WorkItemListItemDto = {
   boardPosition: 1024,
   dueDate: null,
   estimatePoints: 3,
+  dependencyBlocked: false,
+  openBlockerCount: 0,
+  openBlockedWorkCount: 0,
   createdAt: '2026-07-02T12:00:00.000Z',
   updatedAt: '2026-07-03T12:00:00.000Z'
 };
@@ -191,6 +209,7 @@ describe('WorkItemBoardPageComponent', () => {
       ...readyItem,
       status: 'in_progress',
       description: '',
+      relationships: emptyRelationships,
       comments: [],
       activity: []
     } satisfies WorkItemDetailDto);
@@ -245,6 +264,7 @@ describe('WorkItemBoardPageComponent', () => {
       ...readyItem,
       status: 'in_progress',
       description: '',
+      relationships: emptyRelationships,
       comments: [],
       activity: []
     } satisfies WorkItemDetailDto);
@@ -306,7 +326,13 @@ describe('WorkItemBoardPageComponent', () => {
       beforeWorkItemId: firstItem.id,
       afterWorkItemId: secondItem.id
     });
-    request.flush({ ...thirdItem, description: '', comments: [], activity: [] } satisfies WorkItemDetailDto);
+    request.flush({
+      ...thirdItem,
+      description: '',
+      relationships: emptyRelationships,
+      comments: [],
+      activity: []
+    } satisfies WorkItemDetailDto);
 
     const refresh = http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`);
     refresh.flush([firstItem, thirdItem, secondItem]);
