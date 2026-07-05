@@ -246,7 +246,31 @@ npm run typecheck --workspace @worktrail/api
 git diff --check
 ```
 
-Status: Not started.
+Status:
+
+- Completed on 2026-07-05.
+- Added `apps/api/src/repositories/work-item-relationship-repository.ts`.
+- Wired `workItemRelationships` into `createRepositories` and transactional repository binding.
+- Implemented relationship repository methods:
+  - create relationship;
+  - find by ID;
+  - find exact source/target/type duplicate;
+  - list relationships for one work item;
+  - list relationships for many work items;
+  - delete relationship;
+  - recursive CTE cycle detection for proposed `blocks` relationships;
+  - batch open blocker and open blocked-work count aggregation.
+- Kept rich work item/project/member DTO joins out of the repository for Phase 2; Phase 3 service mapping will use repository rows plus existing repositories.
+- Extended repository integration tests for:
+  - create/find/list/delete;
+  - duplicate lookup;
+  - canonical `relates_to` lookup support;
+  - direct and multi-hop cycle detection;
+  - open blocker and open blocked-work count aggregation;
+  - empty dependency count inputs.
+- Verified `npm test --workspace @worktrail/api -- repositories`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm test --workspace @worktrail/api`.
 
 ## Phase 3: Relationship Service And DTO Mapping
 

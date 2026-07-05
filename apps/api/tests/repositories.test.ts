@@ -166,6 +166,38 @@ async function createRepositoryGraph(repos: Repositories, id = ids()) {
   };
 }
 
+async function createRepositoryWorkItem(
+  repos: Repositories,
+  graph: Awaited<ReturnType<typeof createRepositoryGraph>>,
+  input: {
+    id?: string;
+    itemNumber: number;
+    status?: 'backlog' | 'ready' | 'in_progress' | 'blocked' | 'done' | 'canceled';
+    title?: string;
+  }
+) {
+  const timestamp = now();
+
+  return repos.workItems.create({
+    id: input.id ?? randomUUID(),
+    workspaceId: graph.id.workspaceId,
+    projectId: graph.id.projectId,
+    itemNumber: input.itemNumber,
+    displayKey: `RT-${input.itemNumber}`,
+    title: input.title ?? `Repository work item ${input.itemNumber}`,
+    description: 'Created by repository relationship tests.',
+    type: 'task',
+    status: input.status ?? 'ready',
+    priority: 'medium',
+    assigneeId: graph.id.contributorId,
+    reporterId: graph.id.ownerId,
+    dueDate: null,
+    estimatePoints: null,
+    createdAt: timestamp,
+    updatedAt: timestamp
+  });
+}
+
 beforeAll(() => {
   pool = createPool();
   db = createDb(pool);
@@ -260,5 +292,200 @@ describe('Drizzle repositories', () => {
       id: id.workItemId,
       title: 'Repository work item'
     });
+  });
+
+  it('creates, finds, lists, and deletes work item relationships', async () => {
+    const graph = await createRepositoryGraph(repositories);
+    const target = await createRepositoryWorkItem(repositories, graph, { itemNumber: 2 });
+    const createdAt = now();
+
+    const relationship = await repositories.workItemRelationships.create({
+      id: randomUUID(),
+      workspaceId: graph.id.workspaceId,
+      relationshipType: 'blocks',
+      sourceWorkItemId: graph.id.workItemId,
+      targetWorkItemId: target.id,
+      createdById: graph.id.ownerId,
+      createdAt
+    });
+
+    expect(relationship).toMatchObject({
+      workspaceId: graph.id.workspaceId,
+      relationshipType: 'blocks',
+      sourceWorkItemId: graph.id.workItemId,
+      targetWorkItemId: target.id,
+      createdById: graph.id.ownerId
+    });
+
+    await expect(repositories.workItemRelationships.findById(relationship.id)).resolves.toMatchObject({
+      id: relationship.id
+    });
+
+    await expect(
+      repositories.workItemRelationships.findBetween({
+        workspaceId: graph.id.workspaceId,
+        relationshipType: 'blocks',
+        sourceWorkItemId: graph.id.workItemId,
+        targetWorkItemId: target.id
+      })
+    ).resolves.toMatchObject({ id: relationship.id });
+
+    await expect(repositories.workItemRelationships.listForWorkItem(graph.id.workItemId)).resolves.toHaveLength(1);
+    await expect(repositories.workItemRelationships.listForWorkItem(target.id)).resolves.toHaveLength(1);
+    await expect(
+      repositories.workItemRelationships.listForWorkItems([graph.id.workItemId, target.id])
+    ).resolves.toHaveLength(1);
+
+    await expect(repositories.workItemRelationships.delete(relationship.id)).resolves.toMatchObject({
+      id: relationship.id
+    });
+    await expect(repositories.workItemRelationships.findById(relationship.id)).resolves.toBeNull();
+  });
+
+  it('supports canonical related-work duplicate lookup', async () => {
+    const graph = await createRepositoryGraph(repositories);
+    const target = await createRepositoryWorkItem(repositories, graph, { itemNumber: 2 });
+    const [sourceWorkItemId, targetWorkItemId] = [graph.id.workItemId, target.id].sort();
+
+    const relationship = await repositories.workItemRelationships.create({
+      id: randomUUID(),
+      workspaceId: graph.id.workspaceId,
+      relationshipType: 'relates_to',
+      sourceWorkItemId,
+      targetWorkItemId,
+      createdById: graph.id.ownerId,
+      createdAt: now()
+    });
+
+    await expect(
+      repositories.workItemRelationships.findBetween({
+        workspaceId: graph.id.workspaceId,
+        relationshipType: 'relates_to',
+        sourceWorkItemId,
+        targetWorkItemId
+      })
+    ).resolves.toMatchObject({ id: relationship.id });
+  });
+
+  it('detects direct and multi-hop blocking cycles', async () => {
+    const graph = await createRepositoryGraph(repositories);
+    const second = await createRepositoryWorkItem(repositories, graph, { itemNumber: 2 });
+    const third = await createRepositoryWorkItem(repositories, graph, { itemNumber: 3 });
+    const fourth = await createRepositoryWorkItem(repositories, graph, { itemNumber: 4 });
+
+    await repositories.workItemRelationships.create({
+      id: randomUUID(),
+      workspaceId: graph.id.workspaceId,
+      relationshipType: 'blocks',
+      sourceWorkItemId: graph.id.workItemId,
+      targetWorkItemId: second.id,
+      createdById: graph.id.ownerId,
+      createdAt: now()
+    });
+    await repositories.workItemRelationships.create({
+      id: randomUUID(),
+      workspaceId: graph.id.workspaceId,
+      relationshipType: 'blocks',
+      sourceWorkItemId: second.id,
+      targetWorkItemId: third.id,
+      createdById: graph.id.ownerId,
+      createdAt: now()
+    });
+
+    await expect(
+      repositories.workItemRelationships.wouldCreateBlockingCycle({
+        workspaceId: graph.id.workspaceId,
+        sourceWorkItemId: second.id,
+        targetWorkItemId: graph.id.workItemId
+      })
+    ).resolves.toBe(true);
+
+    await expect(
+      repositories.workItemRelationships.wouldCreateBlockingCycle({
+        workspaceId: graph.id.workspaceId,
+        sourceWorkItemId: third.id,
+        targetWorkItemId: graph.id.workItemId
+      })
+    ).resolves.toBe(true);
+
+    await expect(
+      repositories.workItemRelationships.wouldCreateBlockingCycle({
+        workspaceId: graph.id.workspaceId,
+        sourceWorkItemId: third.id,
+        targetWorkItemId: fourth.id
+      })
+    ).resolves.toBe(false);
+  });
+
+  it('aggregates open blocker and open blocked-work counts', async () => {
+    const graph = await createRepositoryGraph(repositories);
+    const openBlocker = await createRepositoryWorkItem(repositories, graph, {
+      itemNumber: 2,
+      status: 'in_progress'
+    });
+    const terminalBlocker = await createRepositoryWorkItem(repositories, graph, {
+      itemNumber: 3,
+      status: 'done'
+    });
+    const openDownstream = await createRepositoryWorkItem(repositories, graph, {
+      itemNumber: 4,
+      status: 'blocked'
+    });
+    const terminalDownstream = await createRepositoryWorkItem(repositories, graph, {
+      itemNumber: 5,
+      status: 'canceled'
+    });
+
+    for (const relationship of [
+      {
+        sourceWorkItemId: openBlocker.id,
+        targetWorkItemId: graph.id.workItemId
+      },
+      {
+        sourceWorkItemId: terminalBlocker.id,
+        targetWorkItemId: graph.id.workItemId
+      },
+      {
+        sourceWorkItemId: graph.id.workItemId,
+        targetWorkItemId: openDownstream.id
+      },
+      {
+        sourceWorkItemId: graph.id.workItemId,
+        targetWorkItemId: terminalDownstream.id
+      }
+    ]) {
+      await repositories.workItemRelationships.create({
+        id: randomUUID(),
+        workspaceId: graph.id.workspaceId,
+        relationshipType: 'blocks',
+        sourceWorkItemId: relationship.sourceWorkItemId,
+        targetWorkItemId: relationship.targetWorkItemId,
+        createdById: graph.id.ownerId,
+        createdAt: now()
+      });
+    }
+
+    const counts = await repositories.workItemRelationships.listDependencyCounts([
+      graph.id.workItemId,
+      openDownstream.id,
+      terminalDownstream.id
+    ]);
+
+    expect(counts.get(graph.id.workItemId)).toEqual({
+      workItemId: graph.id.workItemId,
+      openBlockerCount: 1,
+      openBlockedWorkCount: 1
+    });
+    expect(counts.get(openDownstream.id)).toEqual({
+      workItemId: openDownstream.id,
+      openBlockerCount: 1,
+      openBlockedWorkCount: 0
+    });
+    expect(counts.get(terminalDownstream.id)).toEqual({
+      workItemId: terminalDownstream.id,
+      openBlockerCount: 1,
+      openBlockedWorkCount: 0
+    });
+    await expect(repositories.workItemRelationships.listDependencyCounts([])).resolves.toEqual(new Map());
   });
 });
