@@ -172,7 +172,29 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-05.
+- Added shared delivery-health contract types:
+  - `DeliveryHealthState`;
+  - `DeliveryHealthSeverity`;
+  - `DeliveryHealthReasonKey`;
+  - `PlanningReviewItemKind`.
+- Added shared delivery-health DTOs:
+  - `DeliveryHealthReasonDto`;
+  - `ProjectDeliveryHealthDto`;
+  - `PlanningReviewItemDto`;
+  - `PlanningReviewDto`.
+- Extended `MilestoneProgressDto` with open, dependency-blocked, due-soon, unassigned, stale, health, and reason fields.
+- Extended `ProjectSummaryDto` with `deliveryHealth`.
+- Extended `ProjectPlanningSummaryDto` with `deliveryHealth` and `planningReview`.
+- Added temporary API placeholder helpers for neutral delivery health and empty planning review data.
+- Updated `ProjectService.getProjectSummary` and `PlanningService.getProjectPlanningSummary` to satisfy the new contracts without changing real derivation behavior yet.
+- Updated web and API test fixtures/assertions for the new DTO shape.
+- Verified `npm run typecheck --workspace @worktrail/contracts`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `npm test --workspace @worktrail/web -- --watch=false`.
+- Verified `git diff --check`.
 
 ## Phase 2: Delivery Health Derivation Service
 

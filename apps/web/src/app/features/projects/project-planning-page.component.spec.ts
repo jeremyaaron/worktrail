@@ -6,7 +6,9 @@ import type {
   MemberDto,
   MilestoneDto,
   PlanningRiskItemDto,
+  PlanningReviewDto,
   ProjectDto,
+  ProjectDeliveryHealthDto,
   ProjectPlanningSummaryDto
 } from '@worktrail/contracts';
 
@@ -15,6 +17,32 @@ import { ProjectPlanningPageComponent } from './project-planning-page.component'
 
 const projectId = '10000000-0000-4000-8000-000000000201';
 const workspaceId = '10000000-0000-4000-8000-000000000001';
+
+const defaultDeliveryHealth: ProjectDeliveryHealthDto = {
+  health: 'healthy',
+  activeMilestoneCount: 0,
+  healthyMilestoneCount: 0,
+  atRiskMilestoneCount: 0,
+  blockedMilestoneCount: 0,
+  completeMilestoneCount: 0,
+  inactiveMilestoneCount: 0,
+  openWorkCount: 0,
+  blockedWorkCount: 0,
+  dependencyBlockedWorkCount: 0,
+  blockingOpenWorkCount: 0,
+  overdueWorkCount: 0,
+  dueSoonWorkCount: 0,
+  unassignedActiveWorkCount: 0,
+  staleInProgressWorkCount: 0,
+  unmilestonedActiveRiskCount: 0,
+  reasons: []
+};
+
+const emptyPlanningReview: PlanningReviewDto = {
+  needsAttention: [],
+  upcoming: [],
+  recentlyChanged: []
+};
 
 const owner: MemberDto = {
   id: '10000000-0000-4000-8000-000000000101',
@@ -120,15 +148,24 @@ const blockingOpenWorkItem: PlanningRiskItemDto = {
 
 const defaultPlanningSummary: ProjectPlanningSummaryDto = {
   project: activeProject,
+  deliveryHealth: defaultDeliveryHealth,
   milestoneProgress: [
     {
       milestone: activeMilestone,
       totalCount: 4,
       doneCount: 2,
+      openCount: 2,
       blockedCount: 1,
-      overdueCount: 1
+      dependencyBlockedCount: 0,
+      overdueCount: 1,
+      dueSoonCount: 0,
+      unassignedActiveCount: 0,
+      staleInProgressCount: 0,
+      health: 'healthy',
+      reasons: []
     }
   ],
+  planningReview: emptyPlanningReview,
   blockedWork: [blockedWorkItem],
   overdueWork: [overdueWorkItem],
   dueSoonWork: [],
@@ -276,7 +313,9 @@ describe('ProjectPlanningPageComponent', () => {
   it('renders compact empty dashboard states', () => {
     const emptySummary: ProjectPlanningSummaryDto = {
       project: activeProject,
+      deliveryHealth: defaultDeliveryHealth,
       milestoneProgress: [],
+      planningReview: emptyPlanningReview,
       blockedWork: [],
       overdueWork: [],
       dueSoonWork: [],

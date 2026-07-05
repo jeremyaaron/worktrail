@@ -41,6 +41,24 @@ export type ArchivedProjectMode = 'exclude' | 'include' | 'only';
 export type AssigneeState = 'assigned' | 'unassigned';
 export type WorkItemState = 'open' | 'terminal';
 export type DependencyFilter = 'dependency_blocked' | 'blocking_open_work';
+export type DeliveryHealthState = 'healthy' | 'at_risk' | 'blocked' | 'complete' | 'inactive';
+export type DeliveryHealthSeverity = 'info' | 'warning' | 'critical';
+export type DeliveryHealthReasonKey =
+  | 'all_work_done'
+  | 'blocked_work'
+  | 'blocking_open_work'
+  | 'completed_with_open_work'
+  | 'dependency_blocked'
+  | 'due_soon'
+  | 'empty_active_milestone'
+  | 'inactive_milestone'
+  | 'open_work'
+  | 'overdue_work'
+  | 'stale_in_progress'
+  | 'target_date_past'
+  | 'unassigned_active'
+  | 'unmilestoned_risk';
+export type PlanningReviewItemKind = 'work_item' | 'milestone' | 'activity';
 export type WorkItemSort =
   | 'updated_desc'
   | 'updated_asc'
@@ -208,10 +226,39 @@ export interface RecentWorkItemDto {
   updatedAt: string;
 }
 
+export interface DeliveryHealthReasonDto {
+  key: DeliveryHealthReasonKey;
+  severity: DeliveryHealthSeverity;
+  message: string;
+  count: number;
+  query: WorkItemQuery | null;
+}
+
+export interface ProjectDeliveryHealthDto {
+  health: DeliveryHealthState;
+  activeMilestoneCount: number;
+  healthyMilestoneCount: number;
+  atRiskMilestoneCount: number;
+  blockedMilestoneCount: number;
+  completeMilestoneCount: number;
+  inactiveMilestoneCount: number;
+  openWorkCount: number;
+  blockedWorkCount: number;
+  dependencyBlockedWorkCount: number;
+  blockingOpenWorkCount: number;
+  overdueWorkCount: number;
+  dueSoonWorkCount: number;
+  unassignedActiveWorkCount: number;
+  staleInProgressWorkCount: number;
+  unmilestonedActiveRiskCount: number;
+  reasons: DeliveryHealthReasonDto[];
+}
+
 export interface ProjectSummaryDto {
   project: ProjectDto;
   countsByStatus: ProjectStatusCountDto[];
   recentWorkItems: RecentWorkItemDto[];
+  deliveryHealth: ProjectDeliveryHealthDto;
 }
 
 export interface ProjectNavigationSummaryDto {
@@ -503,8 +550,15 @@ export interface MilestoneProgressDto {
   milestone: MilestoneDto;
   totalCount: number;
   doneCount: number;
+  openCount: number;
   blockedCount: number;
+  dependencyBlockedCount: number;
   overdueCount: number;
+  dueSoonCount: number;
+  unassignedActiveCount: number;
+  staleInProgressCount: number;
+  health: DeliveryHealthState;
+  reasons: DeliveryHealthReasonDto[];
 }
 
 export interface PlanningRiskItemDto {
@@ -519,9 +573,31 @@ export interface PlanningRiskItemDto {
   updatedAt: string;
 }
 
+export interface PlanningReviewItemDto {
+  id: string;
+  kind: PlanningReviewItemKind;
+  title: string;
+  detail: string;
+  severity: DeliveryHealthSeverity;
+  workItemId: string | null;
+  milestoneId: string | null;
+  displayKey: string | null;
+  dueDate: string | null;
+  updatedAt: string;
+  query: WorkItemQuery | null;
+}
+
+export interface PlanningReviewDto {
+  needsAttention: PlanningReviewItemDto[];
+  upcoming: PlanningReviewItemDto[];
+  recentlyChanged: PlanningReviewItemDto[];
+}
+
 export interface ProjectPlanningSummaryDto {
   project: ProjectDto;
+  deliveryHealth: ProjectDeliveryHealthDto;
   milestoneProgress: MilestoneProgressDto[];
+  planningReview: PlanningReviewDto;
   blockedWork: PlanningRiskItemDto[];
   overdueWork: PlanningRiskItemDto[];
   dueSoonWork: PlanningRiskItemDto[];

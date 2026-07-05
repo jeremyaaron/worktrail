@@ -298,20 +298,58 @@ describe('planning summary', () => {
     const summary = await service.getProjectPlanningSummary(fixture.projectId);
 
     expect(summary.project.id).toBe(fixture.projectId);
+    expect(summary.deliveryHealth).toEqual({
+      health: 'healthy',
+      activeMilestoneCount: 0,
+      healthyMilestoneCount: 0,
+      atRiskMilestoneCount: 0,
+      blockedMilestoneCount: 0,
+      completeMilestoneCount: 0,
+      inactiveMilestoneCount: 0,
+      openWorkCount: 0,
+      blockedWorkCount: 0,
+      dependencyBlockedWorkCount: 0,
+      blockingOpenWorkCount: 0,
+      overdueWorkCount: 0,
+      dueSoonWorkCount: 0,
+      unassignedActiveWorkCount: 0,
+      staleInProgressWorkCount: 0,
+      unmilestonedActiveRiskCount: 0,
+      reasons: []
+    });
+    expect(summary.planningReview).toEqual({
+      needsAttention: [],
+      upcoming: [],
+      recentlyChanged: []
+    });
     expect(summary.milestoneProgress).toEqual([
       {
         milestone: expect.objectContaining({ id: activeMilestone.id, name: 'v0.0.3' }),
         totalCount: 3,
         doneCount: 1,
+        openCount: 2,
         blockedCount: 1,
-        overdueCount: 1
+        dependencyBlockedCount: 0,
+        overdueCount: 1,
+        dueSoonCount: 0,
+        unassignedActiveCount: 0,
+        staleInProgressCount: 0,
+        health: 'healthy',
+        reasons: []
       },
       {
         milestone: expect.objectContaining({ id: plannedMilestone.id, name: 'v0.0.4' }),
         totalCount: 2,
         doneCount: 0,
+        openCount: 1,
         blockedCount: 0,
-        overdueCount: 0
+        dependencyBlockedCount: 0,
+        overdueCount: 0,
+        dueSoonCount: 0,
+        unassignedActiveCount: 0,
+        staleInProgressCount: 0,
+        health: 'healthy',
+        reasons: []
       }
     ]);
     expect(summary.blockedWork.map((item) => item.id)).toEqual([blocked.id]);

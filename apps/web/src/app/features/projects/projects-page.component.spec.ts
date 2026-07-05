@@ -6,6 +6,7 @@ import type {
   ActivityEventDto,
   MemberDto,
   ProjectDto,
+  ProjectDeliveryHealthDto,
   ProjectNavigationSummaryDto,
   ProjectSummaryDto,
   WorkspaceCapabilitiesDto
@@ -19,6 +20,26 @@ import { ProjectSettingsPageComponent } from './project-settings-page.component'
 const projectId = '10000000-0000-4000-8000-000000000201';
 const archivedProjectId = '10000000-0000-4000-8000-000000000203';
 const workspaceId = '10000000-0000-4000-8000-000000000001';
+
+const defaultDeliveryHealth: ProjectDeliveryHealthDto = {
+  health: 'healthy',
+  activeMilestoneCount: 0,
+  healthyMilestoneCount: 0,
+  atRiskMilestoneCount: 0,
+  blockedMilestoneCount: 0,
+  completeMilestoneCount: 0,
+  inactiveMilestoneCount: 0,
+  openWorkCount: 0,
+  blockedWorkCount: 0,
+  dependencyBlockedWorkCount: 0,
+  blockingOpenWorkCount: 0,
+  overdueWorkCount: 0,
+  dueSoonWorkCount: 0,
+  unassignedActiveWorkCount: 0,
+  staleInProgressWorkCount: 0,
+  unmilestonedActiveRiskCount: 0,
+  reasons: []
+};
 
 const owner: MemberDto = {
   id: '10000000-0000-4000-8000-000000000101',
@@ -100,7 +121,8 @@ const projectSummary: ProjectSummaryDto = {
       status: 'in_progress',
       updatedAt: '2026-07-03T12:00:00.000Z'
     }
-  ]
+  ],
+  deliveryHealth: defaultDeliveryHealth
 };
 
 const archivedProjectSummary: ProjectSummaryDto = {

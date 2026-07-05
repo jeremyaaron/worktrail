@@ -10,6 +10,10 @@ import { openWorkItemStatuses, terminalWorkItemStatuses } from '../domain/consta
 import { NotFoundError } from '../errors/app-error.js';
 import type { Repositories } from '../repositories/index.js';
 import type { Member, Milestone, Project, WorkItem } from '../repositories/types.js';
+import {
+  createDefaultProjectDeliveryHealth,
+  createEmptyPlanningReview
+} from './delivery-health-placeholders.js';
 import { toMemberDto, toMilestoneDto, toProjectDto } from './dto.js';
 
 const dueSoonWindowDays = 7;
@@ -68,7 +72,9 @@ export class PlanningService {
 
     return {
       project: toProjectDto(project),
+      deliveryHealth: createDefaultProjectDeliveryHealth(),
       milestoneProgress: this.getMilestoneProgress(workItems, milestones, today),
+      planningReview: createEmptyPlanningReview(),
       blockedWork: this.toRiskItems(
         workItems.filter((workItem) => workItem.status === 'blocked'),
         memberById,
@@ -146,10 +152,17 @@ export class PlanningService {
           milestone: toMilestoneDto(milestone),
           totalCount: assignedItems.length,
           doneCount: assignedItems.filter((workItem) => workItem.status === 'done').length,
+          openCount: assignedItems.filter((workItem) => isOpenWorkItem(workItem)).length,
           blockedCount: assignedItems.filter((workItem) => workItem.status === 'blocked').length,
+          dependencyBlockedCount: 0,
           overdueCount: assignedItems.filter(
             (workItem) => isOpenWorkItem(workItem) && isOverdue(workItem, today)
-          ).length
+          ).length,
+          dueSoonCount: 0,
+          unassignedActiveCount: 0,
+          staleInProgressCount: 0,
+          health: 'healthy',
+          reasons: []
         };
       });
   }

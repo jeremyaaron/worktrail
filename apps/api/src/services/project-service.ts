@@ -23,6 +23,7 @@ import {
   withRepositoriesTransaction
 } from '../repositories/index.js';
 import type { Project, WorkItem } from '../repositories/types.js';
+import { createDefaultProjectDeliveryHealth } from './delivery-health-placeholders.js';
 import { toProjectDto, toRecentWorkItemDto } from './dto.js';
 
 function normalizeProjectKeyInput(input: string): string {
@@ -297,7 +298,8 @@ export class ProjectService {
           count: countByStatus.get(status) ?? 0
         })
       ),
-      recentWorkItems: recentWorkItems.map(toRecentWorkItemDto)
+      recentWorkItems: recentWorkItems.map(toRecentWorkItemDto),
+      deliveryHealth: createDefaultProjectDeliveryHealth()
     };
   }
 
