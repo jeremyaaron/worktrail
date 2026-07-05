@@ -10,6 +10,7 @@ import {
 } from '../repositories/index.js';
 import type { Comment, Member, Project, WorkItem } from '../repositories/types.js';
 import { toCommentDto } from './dto.js';
+import { NotificationService } from './notification-service.js';
 
 export interface CommentServiceContext {
   actor: ActorContext;
@@ -63,7 +64,7 @@ export class CommentService {
         }))
       );
 
-      await repositories.activityEvents.create({
+      const activityEvent = await repositories.activityEvents.create({
         id: this.idGenerator(),
         workspaceId: workItem.workspaceId,
         projectId: workItem.projectId,
@@ -75,6 +76,15 @@ export class CommentService {
         newValue: null,
         metadata: { commentId: comment.id },
         createdAt: timestamp
+      });
+
+      await this.notificationService(repositories).recordCommentCreated({
+        repositories,
+        workItem,
+        comment,
+        mentionedMemberIds: mentionedMembers.map((member) => member.id),
+        activityEventId: activityEvent.id,
+        timestamp
       });
 
       return this.toCommentDto(comment, repositories);
@@ -161,6 +171,15 @@ export class CommentService {
     }
 
     return withRepositoriesTransaction(this.context.db, callback);
+  }
+
+  private notificationService(repositories: Repositories): NotificationService {
+    return new NotificationService({
+      actor: this.context.actor,
+      repositories,
+      clock: this.clock,
+      idGenerator: this.idGenerator
+    });
   }
 
   private async requireWorkItem(workItemId: string, repositories: Repositories): Promise<WorkItem> {

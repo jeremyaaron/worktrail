@@ -26,9 +26,12 @@ function actorHeaders(input: { workspaceId: string; memberId: string; role: stri
 }
 
 async function cleanupWorkspace(workspaceId: string) {
+  await pool.query('delete from notifications where workspace_id = $1', [workspaceId]);
   await pool.query('delete from comment_mentions where workspace_id = $1', [workspaceId]);
   await pool.query('delete from activity_events where workspace_id = $1', [workspaceId]);
   await pool.query('delete from comments where workspace_id = $1', [workspaceId]);
+  await pool.query('delete from work_item_watchers where workspace_id = $1', [workspaceId]);
+  await pool.query('delete from work_item_relationships where workspace_id = $1', [workspaceId]);
   await pool.query(
     'delete from work_item_labels where work_item_id in (select id from work_items where workspace_id = $1)',
     [workspaceId]
@@ -149,6 +152,16 @@ describe('comments and activity API', () => {
   it('adds comments with author details and records comment activity', async () => {
     const fixture = await createFixture('owner');
     const workItem = await createWorkItem(fixture);
+    await repositories.workItemWatchers.watch({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      workItemId: workItem.id,
+      memberId: fixture.contributorId,
+      watchedAt: now(),
+      unwatchedAt: null,
+      createdAt: now(),
+      updatedAt: now()
+    });
 
     const response = await request(app)
       .post(`/api/work-items/${workItem.id}/comments`)
@@ -176,11 +189,34 @@ describe('comments and activity API', () => {
       actorId: fixture.actorId,
       metadata: { commentId: response.body.id }
     });
+    await expect(
+      repositories.notifications.listByRecipient({
+        workspaceId: fixture.workspaceId,
+        recipientMemberId: fixture.contributorId,
+        state: 'all'
+      })
+    ).resolves.toEqual([
+      expect.objectContaining({
+        notificationType: 'watched_comment',
+        workItemId: workItem.id,
+        metadata: { commentId: response.body.id }
+      })
+    ]);
   });
 
   it('adds comments with deduped mentions and returns mention metadata', async () => {
     const fixture = await createFixture('owner');
     const workItem = await createWorkItem(fixture);
+    await repositories.workItemWatchers.watch({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      workItemId: workItem.id,
+      memberId: fixture.contributorId,
+      watchedAt: now(),
+      unwatchedAt: null,
+      createdAt: now(),
+      updatedAt: now()
+    });
 
     const response = await request(app)
       .post(`/api/work-items/${workItem.id}/comments`)
@@ -237,11 +273,18 @@ describe('comments and activity API', () => {
       })
     ).resolves.toBe(0);
     await expect(
-      repositories.notifications.unreadCount({
+      repositories.notifications.listByRecipient({
         workspaceId: fixture.workspaceId,
-        recipientMemberId: fixture.contributorId
+        recipientMemberId: fixture.contributorId,
+        state: 'all'
       })
-    ).resolves.toBe(0);
+    ).resolves.toEqual([
+      expect.objectContaining({
+        notificationType: 'mention',
+        workItemId: workItem.id,
+        metadata: { commentId: response.body.id }
+      })
+    ]);
   });
 
   it('lists comments in creation order', async () => {

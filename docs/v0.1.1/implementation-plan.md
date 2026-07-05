@@ -482,6 +482,36 @@ npm run typecheck --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-05.
+- Added centralized notification fan-out helpers to `NotificationService` for:
+  - assignment notifications;
+  - mention notifications;
+  - watched-comment notifications;
+  - watched status changes;
+  - watched assignee changes;
+  - watched relationship changes;
+  - dependency blocker add/remove notifications.
+- Added centralized recipient filtering for actor exclusion, inactive-member exclusion, dedupe, and mention-over-watched-comment priority.
+- Added idempotent notification insertion through `createManyIgnoringDuplicates`.
+- Integrated fan-out inside existing write transactions for:
+  - work item creation;
+  - work item assignee updates;
+  - work item status transitions and board moves;
+  - comment creation;
+  - relationship creation and deletion.
+- Added automatic watch behavior for reporters, assignees, and newly assigned members.
+- Updated mutation tests to cover expected recipients, actor exclusion, inactive watcher exclusion, mention/watch dedupe, dependency notifications, and cleanup of new side-effect rows.
+- Verified:
+  - `npm test --workspace @worktrail/api -- notifications`
+  - `npm test --workspace @worktrail/api -- work-items`
+  - `npm test --workspace @worktrail/api -- comments`
+  - `npm test --workspace @worktrail/api -- relationships`
+  - `npm test --workspace @worktrail/api`
+  - `npm run typecheck --workspace @worktrail/api`
+  - `git diff --check`
+
 ## Phase 6: Seed Data And Backend Verification
 
 Goal: make the new collaboration loop visible in deterministic local data and stabilize backend verification.

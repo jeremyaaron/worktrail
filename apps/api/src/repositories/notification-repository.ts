@@ -40,6 +40,18 @@ export function createNotificationRepository(db: WorktrailDb) {
       return db.insert(notifications).values(input).returning();
     },
 
+    async createManyIgnoringDuplicates(input: NewNotification[]) {
+      if (input.length === 0) {
+        return [];
+      }
+
+      return db
+        .insert(notifications)
+        .values(input)
+        .onConflictDoNothing()
+        .returning();
+    },
+
     async listByRecipient(input: ListNotificationsInput) {
       const conditions = [
         eq(notifications.workspaceId, input.workspaceId),

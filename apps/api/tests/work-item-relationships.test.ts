@@ -28,8 +28,11 @@ function actor(input: { workspaceId: string; memberId: string; role: MemberRole 
 }
 
 async function cleanupWorkspace(workspaceId: string) {
+  await pool.query('delete from notifications where workspace_id = $1', [workspaceId]);
+  await pool.query('delete from comment_mentions where workspace_id = $1', [workspaceId]);
   await pool.query('delete from activity_events where workspace_id = $1', [workspaceId]);
   await pool.query('delete from comments where workspace_id = $1', [workspaceId]);
+  await pool.query('delete from work_item_watchers where workspace_id = $1', [workspaceId]);
   await pool.query('delete from work_item_relationships where workspace_id = $1', [workspaceId]);
   await pool.query(
     'delete from work_item_labels where work_item_id in (select id from work_items where workspace_id = $1)',
@@ -218,6 +221,16 @@ describe('work item relationship service', () => {
     const fixture = await createFixture({ role: 'owner' });
     const source = await createWorkItem(fixture, { itemNumber: 1, status: 'in_progress' });
     const target = await createWorkItem(fixture, { itemNumber: 2, status: 'ready' });
+    await repositories.workItemWatchers.watch({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      workItemId: source.id,
+      memberId: fixture.maintainerId,
+      watchedAt: now(),
+      unwatchedAt: null,
+      createdAt: now(),
+      updatedAt: now()
+    });
 
     const created = await relationshipService(fixture.actor).createRelationship(source.id, {
       relationshipType: 'blocks',
@@ -256,6 +269,39 @@ describe('work item relationship service', () => {
       openBlockerCount: 1,
       dependencyBlocked: true
     });
+    await expect(
+      repositories.notifications.listByRecipient({
+        workspaceId: fixture.workspaceId,
+        recipientMemberId: fixture.maintainerId,
+        state: 'all'
+      })
+    ).resolves.toEqual([
+      expect.objectContaining({
+        notificationType: 'watched_relationship_change',
+        workItemId: source.id,
+        metadata: expect.objectContaining({
+          relationshipId: created.id,
+          action: 'added'
+        })
+      })
+    ]);
+    await expect(
+      repositories.notifications.listByRecipient({
+        workspaceId: fixture.workspaceId,
+        recipientMemberId: fixture.contributorId,
+        state: 'all'
+      })
+    ).resolves.toEqual([
+      expect.objectContaining({
+        notificationType: 'dependency_blocker_added',
+        workItemId: target.id,
+        metadata: expect.objectContaining({
+          relationshipId: created.id,
+          sourceWorkItemId: source.id,
+          targetWorkItemId: target.id
+        })
+      })
+    ]);
 
     const activity = await repositories.activityEvents.findByWorkItem(source.id);
     expect(activity.at(-1)).toMatchObject({
@@ -439,6 +485,25 @@ describe('work item relationship service', () => {
     await relationshipService(fixture.actor).deleteRelationship(target.id, created.id);
 
     await expect(repositories.workItemRelationships.findById(created.id)).resolves.toBeNull();
+    await expect(
+      repositories.notifications.listByRecipient({
+        workspaceId: fixture.workspaceId,
+        recipientMemberId: fixture.contributorId,
+        state: 'all'
+      })
+    ).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          notificationType: 'dependency_blocker_added',
+          workItemId: target.id
+        }),
+        expect.objectContaining({
+          notificationType: 'dependency_blocker_removed',
+          workItemId: target.id,
+          metadata: expect.objectContaining({ action: 'removed' })
+        })
+      ])
+    );
     const targetActivity = await repositories.activityEvents.findByWorkItem(target.id);
     expect(targetActivity.at(-1)).toMatchObject({
       eventType: 'work_item.relationship_removed',

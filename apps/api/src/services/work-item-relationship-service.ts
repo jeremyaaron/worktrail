@@ -17,12 +17,14 @@ import {
   withRepositoriesTransaction
 } from '../repositories/index.js';
 import type {
+  ActivityEvent,
   Member,
   Project,
   WorkItem,
   WorkItemRelationship
 } from '../repositories/types.js';
 import { emptyRelationshipSummary, toMemberDto } from './dto.js';
+import { NotificationService } from './notification-service.js';
 
 export interface WorkItemRelationshipServiceContext {
   actor: ActorContext;
@@ -139,11 +141,23 @@ export class WorkItemRelationshipService {
         createdAt: timestamp
       });
 
-      await this.recordRelationshipActivity({
+      const activityEvent = await this.recordRelationshipActivity({
         contextWorkItem: source,
         relationship,
         action: 'added',
         repositories,
+        timestamp
+      });
+      const relationshipSource = await this.requireWorkItem(relationship.sourceWorkItemId, repositories);
+      const relationshipTarget = await this.requireWorkItem(relationship.targetWorkItemId, repositories);
+
+      await this.notificationService(repositories).recordRelationshipChanged({
+        repositories,
+        relationship,
+        sourceWorkItem: relationshipSource,
+        targetWorkItem: relationshipTarget,
+        action: 'added',
+        activityEventId: activityEvent.id,
         timestamp
       });
 
@@ -175,11 +189,20 @@ export class WorkItemRelationshipService {
       this.assertCanUpdateWorkItem(contextWorkItem);
 
       const timestamp = this.clock();
-      await this.recordRelationshipActivity({
+      const activityEvent = await this.recordRelationshipActivity({
         contextWorkItem,
         relationship,
         action: 'removed',
         repositories,
+        timestamp
+      });
+      await this.notificationService(repositories).recordRelationshipChanged({
+        repositories,
+        relationship,
+        sourceWorkItem: source,
+        targetWorkItem: target,
+        action: 'removed',
+        activityEventId: activityEvent.id,
         timestamp
       });
       await repositories.workItemRelationships.delete(relationship.id);
@@ -219,6 +242,15 @@ export class WorkItemRelationshipService {
     }
 
     return withRepositoriesTransaction(this.context.db, callback);
+  }
+
+  private notificationService(repositories: Repositories): NotificationService {
+    return new NotificationService({
+      actor: this.context.actor,
+      repositories,
+      clock: this.clock,
+      idGenerator: this.idGenerator
+    });
   }
 
   private async toRelationshipDto(
@@ -335,7 +367,7 @@ export class WorkItemRelationshipService {
     action: 'added' | 'removed';
     repositories: Repositories;
     timestamp: Date;
-  }): Promise<void> {
+  }): Promise<ActivityEvent> {
     const relatedWorkItemId =
       input.relationship.relationshipType === 'relates_to'
         ? input.relationship.sourceWorkItemId === input.contextWorkItem.id
@@ -353,7 +385,7 @@ export class WorkItemRelationshipService {
       action: input.action
     });
 
-    await input.repositories.activityEvents.create({
+    return input.repositories.activityEvents.create({
       id: this.idGenerator(),
       workspaceId: input.contextWorkItem.workspaceId,
       projectId: input.contextWorkItem.projectId,
