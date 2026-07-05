@@ -145,7 +145,48 @@ npm run typecheck --workspace @worktrail/api
 git diff --check
 ```
 
-Status: Not started.
+Status:
+
+- Completed on 2026-07-05.
+- Added shared import/export contracts:
+  - `WorkItemCsvImportPreviewRequest`;
+  - `WorkItemCsvImportApplyRequest`;
+  - `WorkItemCsvImportErrorDto`;
+  - `WorkItemCsvImportWarningDto`;
+  - `WorkItemCsvImportPreviewRowDto`;
+  - `WorkItemCsvImportPreviewDto`;
+  - `WorkItemCsvImportApplyDto`.
+- Added API dependencies:
+  - `csv-parse`;
+  - `csv-stringify`.
+- Added `apps/api/src/services/csv/parse-csv-records.ts` with:
+  - BOM-aware parsing;
+  - header row capture;
+  - empty-line skipping;
+  - trimming;
+  - quoted comma support through `csv-parse`;
+  - 1-based physical row numbers from parser metadata;
+  - required header validation;
+  - unknown header validation;
+  - duplicate header validation;
+  - safe parser failure errors.
+- Added `apps/api/src/services/csv/stringify-csv-records.ts` with:
+  - stable column order;
+  - required header row output;
+  - CSV escaping through `csv-stringify`.
+- Added focused CSV utility tests for:
+  - quoted commas;
+  - empty lines;
+  - physical row numbers;
+  - missing required headers;
+  - unknown and duplicate headers;
+  - safe parser failures;
+  - stable export column order;
+  - empty export header rows.
+- Verified `npm test --workspace @worktrail/api -- csv`.
+- Verified `npm run typecheck --workspace @worktrail/contracts`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm test --workspace @worktrail/api`.
 
 ## Phase 2: Import Validation Service
 
