@@ -15,13 +15,16 @@ import {
   exportProjectWorkItemsHandler,
   exportWorkspaceWorkItemsHandler,
   getWorkItemHandler,
+  getWorkItemWatchStateHandler,
   listWorkItemRelationshipsHandler,
   listWorkspaceWorkItemsHandler,
   listWorkItemsHandler,
   moveWorkItemOnBoardHandler,
   previewWorkItemCsvImportHandler,
   transitionWorkItemHandler,
-  updateWorkItemHandler
+  updateWorkItemHandler,
+  unwatchWorkItemHandler,
+  watchWorkItemHandler
 } from '../../../endpoints/work-items.js';
 import { adaptEndpoint } from '../handler-adapter.js';
 import { adapterOptions, type ExpressRouteContext } from './context.js';
@@ -92,6 +95,18 @@ export function registerWorkItemRoutes(app: Express, context: ExpressRouteContex
       listWorkItemRelationshipsHandler({ repositories: context.repositories, db: context.db }),
       options
     )
+  );
+  app.get(
+    '/api/work-items/:workItemId/watchers',
+    adaptEndpoint(getWorkItemWatchStateHandler({ repositories: context.repositories }), options)
+  );
+  app.put(
+    '/api/work-items/:workItemId/watch',
+    adaptEndpoint(watchWorkItemHandler({ repositories: context.repositories }), options)
+  );
+  app.delete(
+    '/api/work-items/:workItemId/watch',
+    adaptEndpoint(unwatchWorkItemHandler({ repositories: context.repositories }), options)
   );
   app.post(
     '/api/work-items/:workItemId/relationships',

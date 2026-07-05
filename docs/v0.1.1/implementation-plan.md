@@ -336,6 +336,35 @@ npm run typecheck --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-05.
+- Added `apps/api/src/services/notification-service.ts` with actor-scoped notification list/count, read-state mutation, mark-all-read, and DTO conversion.
+- Added `apps/api/src/services/work-item-watcher-service.ts` with watch-state lookup, idempotent watch creation, unwatch support, active-member scoping, and archived-project write protection.
+- Added `apps/api/src/endpoints/notifications.ts` and registered Express routes for:
+  - `GET /api/notifications`;
+  - `GET /api/notifications/unread-count`;
+  - `PATCH /api/notifications/:notificationId`;
+  - `POST /api/notifications/mark-all-read`.
+- Added work item watcher endpoint handlers and routes for:
+  - `GET /api/work-items/:workItemId/watchers`;
+  - `PUT /api/work-items/:workItemId/watch`;
+  - `DELETE /api/work-items/:workItemId/watch`.
+- Updated Express route registration tests for the new notification and watcher routes.
+- Added API coverage in `apps/api/tests/notifications-watchers.test.ts` for:
+  - recipient-scoped notification listing;
+  - unread-count isolation;
+  - read/unread updates;
+  - mark-all-read behavior;
+  - idempotent watch/unwatch behavior;
+  - archived-project watch write rejection.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/api`
+  - `npm test --workspace @worktrail/api -- notifications-watchers`
+  - `npm test --workspace @worktrail/api -- server`
+  - `npm test --workspace @worktrail/api`
+  - `git diff --check`
+
 ## Phase 4: Comment Mentions Backend
 
 Goal: support deterministic comment mentions and mention metadata before wiring the full UI.

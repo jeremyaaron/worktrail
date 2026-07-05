@@ -11,6 +11,7 @@ import { adaptEndpoint } from './handler-adapter.js';
 import { requestLogger } from './request-logging.js';
 import { registerHealthRoutes } from './routes/health-routes.js';
 import { registerMemberRoutes } from './routes/member-routes.js';
+import { registerNotificationRoutes } from './routes/notification-routes.js';
 import { registerPlanningRoutes } from './routes/planning-routes.js';
 import { registerProjectRoutes } from './routes/project-routes.js';
 import { registerSavedWorkViewRoutes } from './routes/saved-work-view-routes.js';
@@ -52,6 +53,7 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
     registerProjectRoutes(app, routeContext);
     registerPlanningRoutes(app, routeContext);
     registerSavedWorkViewRoutes(app, routeContext);
+    registerNotificationRoutes(app, routeContext);
     registerWorkItemRoutes(app, routeContext);
   }
 
