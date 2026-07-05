@@ -436,7 +436,32 @@ npm test --workspace @worktrail/api
 git diff --check
 ```
 
-Status: Not started.
+Status:
+
+- Completed on 2026-07-05.
+- Added relationship request validation schemas in `apps/api/src/endpoints/work-items.ts`.
+- Added handlers:
+  - `GET /api/work-items/:workItemId/relationships`;
+  - `POST /api/work-items/:workItemId/relationships`;
+  - `DELETE /api/work-items/:workItemId/relationships/:relationshipId`.
+- Registered relationship routes in the Express server before the generic work item detail route.
+- Confirmed `GET /api/work-items/:workItemId` returns relationship summaries through the Phase 3 detail DTO enrichment.
+- Added API coverage in `apps/api/tests/work-items.test.ts` for:
+  - creating relationships;
+  - listing relationship summaries;
+  - relationship data on work item detail;
+  - deleting relationships with `204`;
+  - malformed relationship payload validation;
+  - self relationship validation;
+  - duplicate relationship errors;
+  - cycle errors;
+  - missing relationship deletion errors;
+  - archived-project write protection;
+  - contributor permission errors.
+- Verified `npm test --workspace @worktrail/api -- work-items`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `git diff --check`.
 
 ## Phase 5: Dependency Filters And Export Integration
 

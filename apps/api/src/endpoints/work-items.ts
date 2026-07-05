@@ -1,5 +1,6 @@
 import type {
   CreateWorkItemRequest,
+  CreateWorkItemRelationshipRequest,
   DueDateState,
   MoveWorkItemOnBoardRequest,
   TransitionWorkItemRequest,
@@ -11,12 +12,19 @@ import type {
   WorkspaceWorkItemListItemDto,
   WorkItemDetailDto,
   WorkItemListItemDto,
+  WorkItemRelationshipDto,
+  WorkItemRelationshipSummaryDto,
   WorkItemSort
 } from '@worktrail/contracts';
 import { z } from 'zod';
 
 import type { WorktrailDb } from '../db/client.js';
-import { workItemPriorities, workItemStatuses, workItemTypes } from '../domain/constants.js';
+import {
+  workItemPriorities,
+  workItemRelationshipTypes,
+  workItemStatuses,
+  workItemTypes
+} from '../domain/constants.js';
 import type { EndpointHandler } from '../http/app-request.js';
 import type { Repositories } from '../repositories/index.js';
 import {
@@ -25,6 +33,7 @@ import {
 } from '../services/work-item-service.js';
 import { WorkItemCsvImportService } from '../services/work-item-csv-import-service.js';
 import { WorkItemCsvExportService } from '../services/work-item-csv-export-service.js';
+import { WorkItemRelationshipService } from '../services/work-item-relationship-service.js';
 import { parseWithSchema } from '../validation/parse.js';
 import { parseWorkItemQuery } from '../validation/work-item-query.js';
 
@@ -34,6 +43,11 @@ const projectIdParamSchema = z.object({
 
 const workItemIdParamSchema = z.object({
   workItemId: z.string().uuid()
+});
+
+const workItemRelationshipIdParamSchema = z.object({
+  workItemId: z.string().uuid(),
+  relationshipId: z.string().uuid()
 });
 
 const nullableUuidSchema = z.string().uuid().nullable();
@@ -86,6 +100,11 @@ const moveWorkItemOnBoardSchema = z.object({
   beforeWorkItemId: nullableUuidSchema.optional(),
   afterWorkItemId: nullableUuidSchema.optional()
 }) satisfies z.ZodType<MoveWorkItemOnBoardRequest>;
+
+const createWorkItemRelationshipSchema = z.object({
+  relationshipType: z.enum(workItemRelationshipTypes),
+  targetWorkItemId: z.string().uuid()
+}) satisfies z.ZodType<CreateWorkItemRelationshipRequest>;
 
 const workItemFilterSchema = z.object({
   status: z.enum(workItemStatuses).optional(),
@@ -274,6 +293,64 @@ export function getWorkItemHandler(input: {
     return {
       status: 200,
       body: await service.getWorkItem(workItemId)
+    };
+  };
+}
+
+export function listWorkItemRelationshipsHandler(input: {
+  repositories: Repositories;
+  db?: WorktrailDb;
+}): EndpointHandler<WorkItemRelationshipSummaryDto> {
+  return async (request) => {
+    const { workItemId } = parseWithSchema(workItemIdParamSchema, request.params);
+    const service = new WorkItemRelationshipService({
+      actor: request.actor,
+      repositories: input.repositories,
+      db: input.db
+    });
+    return {
+      status: 200,
+      body: await service.getRelationshipSummary(workItemId)
+    };
+  };
+}
+
+export function createWorkItemRelationshipHandler(input: {
+  repositories: Repositories;
+  db?: WorktrailDb;
+}): EndpointHandler<WorkItemRelationshipDto> {
+  return async (request) => {
+    const { workItemId } = parseWithSchema(workItemIdParamSchema, request.params);
+    const body = parseWithSchema(createWorkItemRelationshipSchema, request.body);
+    const service = new WorkItemRelationshipService({
+      actor: request.actor,
+      repositories: input.repositories,
+      db: input.db
+    });
+    return {
+      status: 201,
+      body: await service.createRelationship(workItemId, body)
+    };
+  };
+}
+
+export function deleteWorkItemRelationshipHandler(input: {
+  repositories: Repositories;
+  db?: WorktrailDb;
+}): EndpointHandler<void> {
+  return async (request) => {
+    const { workItemId, relationshipId } = parseWithSchema(
+      workItemRelationshipIdParamSchema,
+      request.params
+    );
+    const service = new WorkItemRelationshipService({
+      actor: request.actor,
+      repositories: input.repositories,
+      db: input.db
+    });
+    await service.deleteRelationship(workItemId, relationshipId);
+    return {
+      status: 204
     };
   };
 }
