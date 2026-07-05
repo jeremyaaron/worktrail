@@ -599,7 +599,37 @@ npm test --workspace @worktrail/web
 git diff --check
 ```
 
-Status: Not started.
+Status:
+
+- Completed on 2026-07-05.
+- Extended `WorktrailApiService` with:
+  - `previewWorkItemCsvImport`;
+  - `applyWorkItemCsvImport`;
+  - `exportProjectWorkItems`;
+  - `exportWorkspaceWorkItems`.
+- Import preview/apply methods send JSON `{ csv }` request bodies and preserve current actor headers.
+- Export methods use `HttpClient` with:
+  - existing actor headers;
+  - existing project/workspace query serialization;
+  - `responseType: 'blob'`;
+  - `observe: 'response'` so callers can read `Content-Disposition`.
+- Added `apps/web/src/app/shared/download-file.ts` with:
+  - `fileNameFromContentDisposition`;
+  - `downloadBlob`;
+  - injectable document/object URL dependencies for testability.
+- Added frontend tests for:
+  - import preview request path/body/headers;
+  - import apply request path/body/headers;
+  - project export blob response requests;
+  - project export applied filter params and blank-param skipping;
+  - workspace export blob response requests;
+  - workspace export query params;
+  - actor headers on export/import requests;
+  - filename extraction from `Content-Disposition`;
+  - object URL download and cleanup behavior.
+- Verified `npm test --workspace @worktrail/web -- --include src/app/core/worktrail-api.service.spec.ts --include src/app/shared/download-file.spec.ts`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm test --workspace @worktrail/web`.
 
 ## Phase 7: Import Page UI
 

@@ -1,4 +1,4 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpParams, type HttpResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import type {
   ActivityEventDto,
@@ -31,6 +31,8 @@ import type {
   UpdateSavedWorkViewRequest,
   UpdateWorkspaceRequest,
   UpdateWorkItemRequest,
+  WorkItemCsvImportApplyDto,
+  WorkItemCsvImportPreviewDto,
   WorkItemQuery,
   WorkItemDetailDto,
   WorkItemListItemDto,
@@ -274,6 +276,14 @@ export class WorktrailApiService {
     );
   }
 
+  exportWorkspaceWorkItems(filters: WorkItemQuery = {}): Observable<HttpResponse<Blob>> {
+    return this.http.get(this.url('/work-items/export'), {
+      ...this.options({ params: workItemQueryToHttpParams(filters) }),
+      observe: 'response',
+      responseType: 'blob'
+    });
+  }
+
   listSavedWorkViews(): Observable<SavedWorkViewDto[]> {
     return this.http.get<SavedWorkViewDto[]>(this.url('/saved-work-views'), this.options());
   }
@@ -303,6 +313,36 @@ export class WorktrailApiService {
       input,
       this.options()
     );
+  }
+
+  previewWorkItemCsvImport(
+    projectId: string,
+    csv: string
+  ): Observable<WorkItemCsvImportPreviewDto> {
+    return this.http.post<WorkItemCsvImportPreviewDto>(
+      this.url(`/projects/${projectId}/work-items/imports/preview`),
+      { csv },
+      this.options()
+    );
+  }
+
+  applyWorkItemCsvImport(projectId: string, csv: string): Observable<WorkItemCsvImportApplyDto> {
+    return this.http.post<WorkItemCsvImportApplyDto>(
+      this.url(`/projects/${projectId}/work-items/imports`),
+      { csv },
+      this.options()
+    );
+  }
+
+  exportProjectWorkItems(
+    projectId: string,
+    filters: WorkItemListFilters = {}
+  ): Observable<HttpResponse<Blob>> {
+    return this.http.get(this.url(`/projects/${projectId}/work-items/export`), {
+      ...this.options({ params: queryToHttpParams(filters) }),
+      observe: 'response',
+      responseType: 'blob'
+    });
   }
 
   getWorkItem(workItemId: string): Observable<WorkItemDetailDto> {
