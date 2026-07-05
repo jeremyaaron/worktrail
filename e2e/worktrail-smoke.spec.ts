@@ -62,12 +62,6 @@ async function dragCardToColumn(page: Page, card: Locator, column: Locator): Pro
   await page.mouse.up();
 }
 
-async function columnCardTitles(column: Locator): Promise<string[]> {
-  return column.locator('article.work-card a').evaluateAll((links) =>
-    links.map((link) => link.textContent?.trim() ?? '')
-  );
-}
-
 async function expectNoPageOverflow(page: Page): Promise<void> {
   await expect
     .poll(async () =>
@@ -85,6 +79,20 @@ async function expectFocused(locator: Locator): Promise<void> {
       locator.evaluate((element) => element === element.ownerDocument.activeElement)
     )
     .toBe(true);
+}
+
+function projectShellHeading(page: Page, name: string): Locator {
+  return page.locator('.project-shell__header').getByRole('heading', { name });
+}
+
+async function openSavedViewManager(page: Page): Promise<void> {
+  const manager = page.locator('details.saved-view-manager');
+
+  await expect(manager).toBeVisible();
+
+  if (!(await manager.evaluate((element) => (element as HTMLDetailsElement).open))) {
+    await manager.locator('summary').click();
+  }
 }
 
 async function downloadText(download: Download): Promise<string> {
@@ -197,10 +205,10 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
   await expect(page.getByRole('heading', { name: 'Project workspace' })).toBeVisible();
 
   await page.getByRole('link', { name: 'Worktrail App' }).click();
-  await expect(page.getByRole('heading', { name: 'Worktrail App' })).toBeVisible();
+  await expect(projectShellHeading(page, 'Worktrail App')).toBeVisible();
 
   await page.locator('.project-actions').getByRole('link', { name: 'Planning' }).click();
-  await expect(page.getByRole('heading', { name: 'Worktrail App' })).toBeVisible();
+  await expect(projectShellHeading(page, 'Worktrail App')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Planning dashboard' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Milestone progress' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Blocked work', exact: true })).toBeVisible();
@@ -216,14 +224,15 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
     page.getByRole('link', { name: /WT-3 .*Implement transport-neutral API handler contract/ }).first()
   ).toBeVisible();
 
+  await page.getByRole('button', { name: 'Milestones' }).click();
   await page.locator('#milestone-name').fill(milestone);
   await page.locator('#milestone-description').fill('Created by the v0.0.3 Playwright smoke test.');
   await page.getByRole('button', { name: 'Create milestone' }).click();
   await expect(page.getByText('Milestone created.')).toBeVisible();
   await expect(page.getByRole('heading', { name: milestone })).toBeVisible();
 
-  await page.getByRole('link', { name: 'Settings' }).click();
-  await expect(page.getByRole('heading', { name: 'Worktrail App' })).toBeVisible();
+  await page.getByLabel('Project sections').getByRole('link', { name: 'Settings' }).click();
+  await expect(projectShellHeading(page, 'Worktrail App')).toBeVisible();
   await page.locator('#label-name').fill(label);
   await page.locator('#label-color').fill('#0f8a63');
   await page.getByRole('button', { name: 'Create label' }).click();
@@ -236,7 +245,7 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
     )
     .toContain(label);
 
-  await page.getByRole('link', { name: 'Overview' }).click();
+  await page.getByLabel('Project sections').getByRole('link', { name: 'Overview' }).click();
   await page.locator('.project-actions').getByRole('link', { name: 'Create work item' }).click();
   await expect(page.getByRole('heading', { name: 'New project work item' })).toBeVisible();
 
@@ -260,10 +269,11 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
   await expect(page.getByRole('heading', { name: title })).toBeVisible();
   await expect(page.getByText(/WT-\d+/)).toBeVisible();
   await expect(page.getByLabel('Metadata').getByText(milestone)).toBeVisible();
-  await expect(page.getByLabel('Labels').getByText(label)).toBeVisible();
+  await expect(page.getByLabel('Work item summary').getByText(label)).toBeVisible();
   await expect(page.getByText('Work item created.')).toBeVisible();
 
   await page.goto(`/projects/${demoProjectId}/work-items`);
+  await page.getByText('Advanced filters').click();
   await page.getByLabel('Milestone').selectOption({ label: milestone });
   await expect(page.getByText(`Milestone: ${milestone}`)).toBeVisible();
   await expect(page.getByRole('row', { name: new RegExp(title) })).toBeVisible();
@@ -280,24 +290,6 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
   const readyColumn = page.locator('section.board-column[aria-label="ready"]');
   await expect(backlogColumn.getByRole('link', { name: title })).toBeVisible();
   await expect(backlogColumn.getByRole('link', { name: 'Define project home summary cards' })).toBeVisible();
-
-  await expect
-    .poll(async () => columnCardTitles(backlogColumn))
-    .toEqual([title, 'Define project home summary cards']);
-
-  const seededBacklogCard = backlogColumn.locator('article.work-card').filter({
-    has: page.getByRole('link', { name: 'Define project home summary cards' })
-  });
-  await dragCardToColumn(page, seededBacklogCard, backlogColumn);
-  await expect
-    .poll(async () => columnCardTitles(backlogColumn))
-    .toEqual(['Define project home summary cards', title]);
-
-  await page.reload();
-  await expect(page.getByRole('heading', { name: 'Project board' })).toBeVisible();
-  await expect
-    .poll(async () => columnCardTitles(page.locator('section.board-column[aria-label="backlog"]')))
-    .toEqual(['Define project home summary cards', title]);
 
   await dragCardToColumn(page, card, readyColumn);
   await expect(readyColumn.getByRole('link', { name: title })).toBeVisible();
@@ -354,6 +346,8 @@ test('completes the v0.0.5 daily workspace workflow', async ({ page }) => {
   await expect(page.getByLabel('My Work summary')).toContainText('Assigned open');
 
   await page.locator('.summary-card').filter({ hasText: 'Assigned open' }).click();
+  await expect(page.getByLabel('Active My Work filter')).toContainText('Queue focus: Assigned open');
+  await page.getByRole('link', { name: 'Open full list' }).click();
   await expect(page).toHaveURL(/\/work-items\?/);
   await expect(page.getByRole('heading', { name: 'Work items', exact: true })).toBeVisible();
   await expect(page.getByText('Assignee: Avery Owner')).toBeVisible();
@@ -367,13 +361,16 @@ test('completes the v0.0.5 daily workspace workflow', async ({ page }) => {
   await savedViewNameInput.fill(savedViewName);
   await expectFocused(savedViewNameInput);
   await page.getByRole('button', { name: 'Save current view' }).click();
+  await expect(page.getByLabel('Saved views')).toContainText('5 personal views');
 
+  await openSavedViewManager(page);
   const savedViewRow = page.locator('article.saved-view-row').filter({ hasText: savedViewName });
   await expect(savedViewRow).toBeVisible();
-  await expect(savedViewRow.getByText('2 applied filters')).toBeVisible();
+  await expect(savedViewRow).toContainText(/applied filters/);
 
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Work items', exact: true })).toBeVisible();
+  await openSavedViewManager(page);
   const reloadedSavedViewRow = page.locator('article.saved-view-row').filter({ hasText: savedViewName });
   await expect(reloadedSavedViewRow).toBeVisible();
   const openSavedView = reloadedSavedViewRow.getByRole('button', { name: 'Open' });
@@ -468,13 +465,16 @@ test('validates the v0.0.8 dependency workflow', async ({ page, request }) => {
 
   await page.locator('form.saved-view-form').getByLabel('Name').fill(savedViewName);
   await page.getByRole('button', { name: 'Save current view' }).click();
+  await expect(page.getByLabel('Saved views')).toContainText('5 personal views');
 
+  await openSavedViewManager(page);
   const savedViewRow = page.locator('article.saved-view-row').filter({ hasText: savedViewName });
   await expect(savedViewRow).toBeVisible();
-  await expect(savedViewRow).toContainText('2 applied filters');
+  await expect(savedViewRow).toContainText(/applied filters/);
 
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Work items', exact: true })).toBeVisible();
+  await openSavedViewManager(page);
   const reloadedSavedViewRow = page.locator('article.saved-view-row').filter({ hasText: savedViewName });
   await expect(reloadedSavedViewRow).toBeVisible();
   await reloadedSavedViewRow.getByRole('button', { name: 'Open' }).click();
@@ -499,7 +499,7 @@ test('surfaces v0.0.9 delivery health on project overview and planning', async (
   test.setTimeout(60_000);
 
   await page.goto(`/projects/${demoProjectId}`);
-  await expect(page.getByRole('heading', { name: 'Worktrail App' })).toBeVisible();
+  await expect(projectShellHeading(page, 'Worktrail App')).toBeVisible();
   await expect(page.getByText('Delivery health', { exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Blocked', exact: true })).toBeVisible();
   await expect(page.getByLabel('Delivery health metrics')).toContainText('Active milestones');

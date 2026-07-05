@@ -1011,6 +1011,28 @@ git status --short --branch
 git diff --check
 ```
 
+Completed in Phase 13:
+
+- Added `docs/v0.1.0/release-notes.md` with the v0.1.0 product highlights, technical highlights, documentation/site updates, verification evidence, and known limitations.
+- Bumped package metadata to `0.1.0` for:
+  - root workspace package;
+  - `@worktrail/api`;
+  - `@worktrail/web`;
+  - `@worktrail/contracts`.
+- Updated `package-lock.json` after the package version bump.
+- Fixed a saved-view toolbar submit bug discovered during E2E verification by using a native submit handler that prevents default form navigation.
+- Updated Playwright smoke coverage for the v0.1.0 project shell, planning tabs, saved-view manager, My Work summary-to-list flow, dependency workflow, and responsive smoke assertions.
+- Confirmed Playwright database reset/migrate/seed setup remains functional.
+- Confirmed no generated test or build artifacts are intentionally included in the release changes.
+- Confirmed repository status before handoff.
+- Verified:
+  - `npm run lint`
+  - `npm run typecheck`
+  - `npm test`
+  - `npm run build`
+  - `npm run test:e2e`
+  - `git diff --check`
+
 ## Verification Cadence
 
 Use this cadence unless a phase requires broader checks:

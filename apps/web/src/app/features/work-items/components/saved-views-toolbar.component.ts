@@ -23,7 +23,7 @@ import { LoadingIndicatorComponent } from '../../../shared/ui/loading-indicator.
         <p class="inline-error">{{ loadError }}</p>
       }
 
-      <form class="saved-view-form" (ngSubmit)="saveRequested()">
+      <form class="saved-view-form" (submit)="saveRequested(); $event.preventDefault()">
         <label>
           <span>Name</span>
           <input
