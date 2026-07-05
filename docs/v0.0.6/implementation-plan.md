@@ -335,6 +335,29 @@ curl http://localhost:3000/api/health/ready
 git diff --check
 ```
 
+Status: Completed on 2026-07-04.
+
+Notes:
+
+- Added API `start` and `start:prod` scripts.
+- Added root `preview` and `start:prod` scripts.
+- Wired `main.ts` to pass runtime CORS and static asset settings into `createExpressApp`.
+- Preserved production defaults where `NODE_ENV=production` enables static serving and uses the derived Angular browser build path.
+- Expanded startup logs to include base URL, runtime mode, static asset serving mode/path, liveness URL, and readiness URL.
+- Manually verified a production preview on port `3106` with:
+  - `/api/health/live`;
+  - `/api/health/ready`;
+  - `/my-work`;
+  - `/work-items/new`;
+  - `/projects/10000000-0000-4000-8000-000000000201/board`.
+- Confirmed the preview process was stopped and no listener remained on port `3106`.
+- Verified `npm test --workspace @worktrail/api -- server`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm run build`.
+- Verified production config failure exits with status `1`.
+- Verified `npm run typecheck --if-present`.
+- Verified `npm test --workspace @worktrail/api`.
+
 ## Phase 5: OpenAPI Reference
 
 Goal: add a useful checked-in HTTP API reference for implemented routes.

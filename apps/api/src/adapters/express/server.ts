@@ -79,6 +79,7 @@ export interface CreateExpressAppOptions {
   repositories?: Repositories;
   db?: WorktrailDb;
   healthCheckPool?: HealthCheckPool;
+  corsOrigin?: string | false;
   staticAssets?: StaticAssetOptions;
   testRoutes?: Record<string, EndpointHandler>;
 }
@@ -93,7 +94,7 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
 
   app.use(
     cors({
-      origin: process.env.CORS_ORIGIN ?? 'http://localhost:4200'
+      origin: options.corsOrigin ?? 'http://localhost:4200'
     })
   );
   app.use(express.json());
