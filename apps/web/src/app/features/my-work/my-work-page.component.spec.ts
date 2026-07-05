@@ -96,6 +96,22 @@ const dependencyBlockedWorkItem: WorkspaceWorkItemListItemDto = {
   openBlockedWorkCount: 0
 };
 
+const reportedWorkItem: WorkspaceWorkItemListItemDto = {
+  ...workItem,
+  id: '10000000-0000-4000-8000-000000000403',
+  itemNumber: 3,
+  displayKey: 'WT-3',
+  title: 'Review reported release notes',
+  status: 'ready',
+  priority: 'medium',
+  assignee: contributor,
+  reporter: owner,
+  dueDate: null,
+  dependencyBlocked: false,
+  openBlockerCount: 0,
+  updatedAt: '2026-07-04T10:00:00.000Z'
+};
+
 function dashboard(input: Partial<MyWorkDashboardDto> = {}): MyWorkDashboardDto {
   return {
     actor: owner,
@@ -123,6 +139,7 @@ function dashboard(input: Partial<MyWorkDashboardDto> = {}): MyWorkDashboardDto 
     dueSoonOrOverdue: [workItem],
     blockedRelevant: [],
     dependencyBlockedAssigned: [],
+    reportedByMe: [],
     recentlyUpdated: [workItem],
     ...input
   };
@@ -159,41 +176,82 @@ describe('MyWorkPageComponent', () => {
     TestBed.inject(HttpTestingController).verify();
   });
 
-  it('renders summary links and dense work rows', () => {
+  it('renders a deduped attention queue and secondary reported work', () => {
     const { fixture, http } = setup();
     const request = http.expectOne('/api/my-work');
     expect(request.request.headers.get('x-worktrail-member-id')).toBe(owner.id);
     request.flush(
       dashboard({
+        assignedToMe: [workItem, dependencyBlockedWorkItem],
+        dueSoonOrOverdue: [workItem],
+        dependencyBlockedAssigned: [dependencyBlockedWorkItem],
+        reportedByMe: [reportedWorkItem],
+        recentlyUpdated: [workItem, dependencyBlockedWorkItem, reportedWorkItem]
+      })
+    );
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const summaryButtons = Array.from(compiled.querySelectorAll<HTMLButtonElement>('.summary-card'));
+    const queueRows = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('.queue-row'));
+    const secondaryRows = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('.work-row'));
+
+    expect(compiled.textContent).toContain('Avery Owner');
+    expect(compiled.textContent).toContain('Owner');
+    expect(compiled.textContent).toContain('Assigned open');
+    expect(compiled.textContent).toContain('Dependency blocked');
+    expect(compiled.textContent).toContain('Needs attention');
+    expect(compiled.textContent).toContain('Next actions');
+    expect(compiled.textContent).toContain('Shape the default dashboard');
+    expect(compiled.textContent).toContain('Wait for import adapter');
+    expect(compiled.textContent).toContain('Reported by me');
+    expect(compiled.textContent).toContain('Review reported release notes');
+    expect(compiled.textContent).toContain('Blocked by 2');
+    expect(compiled.textContent).toContain('WT-1');
+    expect(compiled.textContent).toContain('Story · In progress · High');
+    expect(compiled.textContent).toContain('v0.0.5');
+    expect(compiled.textContent).toContain('Due Jul 8');
+    expect(summaryButtons[0].textContent).toContain('Assigned open');
+    expect(queueRows.map((row) => row.getAttribute('href'))).toEqual([
+      `/work-items/${dependencyBlockedWorkItem.id}`,
+      `/work-items/${workItem.id}`
+    ]);
+    expect(queueRows.filter((row) => row.textContent?.includes('Shape the default dashboard')).length)
+      .toBe(1);
+    expect(secondaryRows.map((row) => row.getAttribute('href'))).toEqual([
+      `/work-items/${reportedWorkItem.id}`
+    ]);
+  });
+
+  it('uses summary cards as queue filters with full-list links', () => {
+    const { fixture, http } = setup();
+    http.expectOne('/api/my-work').flush(
+      dashboard({
+        assignedToMe: [workItem, dependencyBlockedWorkItem],
+        dueSoonOrOverdue: [workItem],
         dependencyBlockedAssigned: [dependencyBlockedWorkItem]
       })
     );
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    const summaryLinks = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('.summary-card'));
-    const workRows = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('.work-row'));
+    const dependencyButton = Array.from(
+      compiled.querySelectorAll<HTMLButtonElement>('.summary-card')
+    ).find((button) => button.textContent?.includes('Dependency blocked'));
+    dependencyButton?.click();
+    fixture.detectChanges();
 
-    expect(compiled.textContent).toContain('Avery Owner');
-    expect(compiled.textContent).toContain('Owner');
-    expect(compiled.textContent).toContain('Assigned open');
-    expect(compiled.textContent).toContain('Dependency blocked');
-    expect(compiled.textContent).toContain('Shape the default dashboard');
-    expect(compiled.textContent).toContain('Dependency blocked assigned work');
-    expect(compiled.textContent).toContain('Wait for import adapter');
-    expect(compiled.textContent).toContain('Blocked by 2');
-    expect(compiled.textContent).toContain('WT-1');
-    expect(compiled.textContent).toContain('Story · In progress · High');
-    expect(compiled.textContent).toContain('v0.0.5');
-    expect(compiled.textContent).toContain('Due Jul 8');
-    expect(summaryLinks[0].getAttribute('href')).toContain('/work-items?assigneeId=');
-    expect(summaryLinks[0].getAttribute('href')).toContain('workState=open');
-    expect(summaryLinks[1].getAttribute('href')).toContain('blocked=true');
-    expect(summaryLinks[2].getAttribute('href')).toContain('dependency=dependency_blocked');
-    expect(workRows[0].getAttribute('href')).toBe(`/work-items/${workItem.id}`);
+    const queueRows = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('.queue-row'));
+    const fullListLink = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('.active-filter a'))
+      .at(0);
+
+    expect(compiled.textContent).toContain('Queue focus: Dependency blocked');
+    expect(fullListLink?.getAttribute('href')).toContain('dependency=dependency_blocked');
+    expect(queueRows.length).toBe(1);
+    expect(queueRows[0].textContent).toContain('Wait for import adapter');
   });
 
-  it('renders specific empty states for dashboard sections', () => {
+  it('renders compact empty states for low-signal sections', () => {
     const { fixture, http } = setup();
     http.expectOne('/api/my-work').flush(
       dashboard({
@@ -202,17 +260,16 @@ describe('MyWorkPageComponent', () => {
         dueSoonOrOverdue: [],
         blockedRelevant: [],
         dependencyBlockedAssigned: [],
+        reportedByMe: [],
         recentlyUpdated: []
       })
     );
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('No assigned work');
-    expect(text).toContain('No urgent due dates');
-    expect(text).toContain('No relevant blockers');
-    expect(text).toContain('No assigned dependency blockers');
-    expect(text).toContain('No recent work');
+    expect(text).toContain('No attention needed');
+    expect(text).toContain('No reported open work');
+    expect(text).not.toContain('No recent work');
   });
 
   it('refreshes dashboard data when the selected actor changes', () => {

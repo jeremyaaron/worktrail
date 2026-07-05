@@ -22,5 +22,6 @@ export interface MyWorkDashboardDto {
   dueSoonOrOverdue: WorkspaceWorkItemListItemDto[];
   blockedRelevant: WorkspaceWorkItemListItemDto[];
   dependencyBlockedAssigned: WorkspaceWorkItemListItemDto[];
+  reportedByMe: WorkspaceWorkItemListItemDto[];
   recentlyUpdated: WorkspaceWorkItemListItemDto[];
 }

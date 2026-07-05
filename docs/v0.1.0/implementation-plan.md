@@ -677,6 +677,29 @@ npm test --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-05.
+- Added feature-local My Work components:
+  - `DailyQueueComponent` for the review-first attention queue;
+  - `MyWorkSummaryComponent` for summary cards that focus the queue and expose full-list links.
+- Extended the My Work contract and API response with `reportedByMe` so reported work can remain visible as real secondary content.
+- Reworked My Work into a deduped `Needs attention` queue built from assigned-work signals:
+  - overdue;
+  - due soon;
+  - blocked status;
+  - dependency-blocked assigned work;
+  - stale in-progress work;
+  - urgent assigned work without stronger risk signals.
+- Demoted reported-by-me and recently-updated work into secondary sections, excluding items already shown in the attention queue.
+- Replaced repeated empty section panels with compact empty states and hid empty low-signal recently-updated content.
+- Updated API and web tests for the new `reportedByMe` field, queue deduping, queue filtering from summary cards, and compact empty states.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/web`
+  - `npm test --workspace @worktrail/web -- --watch=false`
+  - `npm run typecheck --workspace @worktrail/api`
+  - `npm test --workspace @worktrail/api`
+
 ## Phase 9: Work Item Detail Context And Panel Extraction
 
 Goal: make work item detail easier to read first and edit second, while reducing the size of the route component.

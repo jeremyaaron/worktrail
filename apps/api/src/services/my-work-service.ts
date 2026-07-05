@@ -139,6 +139,7 @@ export class MyWorkService {
         .slice(0, dashboardLimit),
       blockedRelevant: blockedRelevant.slice(0, dashboardLimit),
       dependencyBlockedAssigned: dependencyBlockedAssigned.slice(0, dashboardLimit),
+      reportedByMe: reportedOpen.slice(0, dashboardLimit),
       recentlyUpdated: recentlyUpdated.slice(0, dashboardLimit)
     };
   }
