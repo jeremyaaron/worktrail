@@ -41,7 +41,10 @@ const ids = {
   milestones: {
     planning: '10000000-0000-4000-8000-000000000351',
     cloud: '10000000-0000-4000-8000-000000000352',
-    completed: '10000000-0000-4000-8000-000000000353'
+    completed: '10000000-0000-4000-8000-000000000353',
+    health: '10000000-0000-4000-8000-000000000354',
+    atRisk: '10000000-0000-4000-8000-000000000355',
+    inactive: '10000000-0000-4000-8000-000000000356'
   },
   workItems: {
     backlog: '10000000-0000-4000-8000-000000000401',
@@ -53,7 +56,10 @@ const ids = {
     platform: '10000000-0000-4000-8000-000000000407',
     unassigned: '10000000-0000-4000-8000-000000000408',
     contributorOverdue: '10000000-0000-4000-8000-000000000409',
-    platformBlocked: '10000000-0000-4000-8000-000000000410'
+    platformBlocked: '10000000-0000-4000-8000-000000000410',
+    healthyMilestone: '10000000-0000-4000-8000-000000000411',
+    atRiskMilestone: '10000000-0000-4000-8000-000000000412',
+    unmilestonedRisk: '10000000-0000-4000-8000-000000000413'
   },
   workItemRelationships: {
     sameProjectBlock: '10000000-0000-4000-8000-000000000451',
@@ -191,7 +197,7 @@ try {
           id: ids.projects.app,
           workspaceId: ids.workspace,
           key: 'WT',
-          nextWorkItemNumber: 9,
+          nextWorkItemNumber: 12,
           name: 'Worktrail App',
           description: 'MVP project management reference application.',
           status: 'active',
@@ -336,6 +342,45 @@ try {
           description: 'Completed baseline local project management workflow.',
           status: 'completed',
           targetDate: '2026-07-03',
+          archivedAt: null,
+          archivedById: null,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.milestones.health,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.app,
+          name: 'v0.0.9 Health Model',
+          description: 'On-track target for delivery health display and reason-link demos.',
+          status: 'active',
+          targetDate: '2026-07-24',
+          archivedAt: null,
+          archivedById: null,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.milestones.atRisk,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.app,
+          name: 'Planning Review Polish',
+          description: 'At-risk target with upcoming work for delivery review examples.',
+          status: 'planned',
+          targetDate: '2026-07-09',
+          archivedAt: null,
+          archivedById: null,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.milestones.inactive,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.app,
+          name: 'Deprecated Timeline Prototype',
+          description: 'Canceled milestone kept to demonstrate inactive delivery-health state.',
+          status: 'canceled',
+          targetDate: '2026-07-12',
           archivedAt: null,
           archivedById: null,
           createdAt: earlier,
@@ -557,6 +602,66 @@ try {
           estimatePoints: 8,
           createdAt: earlier,
           updatedAt: stale
+        },
+        {
+          id: ids.workItems.healthyMilestone,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.app,
+          itemNumber: 9,
+          displayKey: 'WT-9',
+          title: 'Publish delivery health service contract',
+          description: 'Assigned future work that should keep the health milestone on track.',
+          type: 'task',
+          status: 'ready',
+          priority: 'medium',
+          assigneeId: ids.members.maintainer,
+          reporterId: ids.members.owner,
+          milestoneId: ids.milestones.health,
+          boardPosition: 3072,
+          dueDate: '2026-07-20',
+          estimatePoints: 3,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.workItems.atRiskMilestone,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.app,
+          itemNumber: 10,
+          displayKey: 'WT-10',
+          title: 'Review planning health copy',
+          description: 'Upcoming assigned work that should make its milestone at risk, not blocked.',
+          type: 'story',
+          status: 'ready',
+          priority: 'high',
+          assigneeId: ids.members.owner,
+          reporterId: ids.members.maintainer,
+          milestoneId: ids.milestones.atRisk,
+          boardPosition: 4096,
+          dueDate: '2026-07-09',
+          estimatePoints: 2,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.workItems.unmilestonedRisk,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.app,
+          itemNumber: 11,
+          displayKey: 'WT-11',
+          title: 'Triage unmilestoned delivery risk',
+          description: 'Active work without a milestone so project health can explain unmilestoned risk.',
+          type: 'bug',
+          status: 'ready',
+          priority: 'urgent',
+          assigneeId: null,
+          reporterId: ids.members.owner,
+          milestoneId: null,
+          boardPosition: 5120,
+          dueDate: '2026-07-09',
+          estimatePoints: 1,
+          createdAt: earlier,
+          updatedAt: now
         }
       ])
       .onConflictDoUpdate({
@@ -582,7 +687,10 @@ try {
         { workItemId: ids.workItems.platform, labelId: ids.labels.reliability },
         { workItemId: ids.workItems.unassigned, labelId: ids.labels.design },
         { workItemId: ids.workItems.contributorOverdue, labelId: ids.labels.frontend },
-        { workItemId: ids.workItems.platformBlocked, labelId: ids.labels.reliability }
+        { workItemId: ids.workItems.platformBlocked, labelId: ids.labels.reliability },
+        { workItemId: ids.workItems.healthyMilestone, labelId: ids.labels.backend },
+        { workItemId: ids.workItems.atRiskMilestone, labelId: ids.labels.design },
+        { workItemId: ids.workItems.unmilestonedRisk, labelId: ids.labels.reliability }
       ])
       .onConflictDoNothing();
 

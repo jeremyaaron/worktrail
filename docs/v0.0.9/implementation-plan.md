@@ -431,7 +431,35 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-05.
+- Updated deterministic seed milestone data with:
+  - an on-track active milestone;
+  - a separate at-risk milestone;
+  - an inactive canceled milestone;
+  - the existing completed milestone;
+  - the existing blocked planning milestone.
+- Updated deterministic seed work item data with:
+  - assigned future work for the on-track milestone;
+  - due-soon assigned work for the at-risk milestone;
+  - unmilestoned active risk;
+  - labels for the new health examples.
+- Preserved existing v0.0.8 relationship examples, including same-project blocking, cross-project blocking, related work, and terminal blocker scenarios.
+- Verified seeded planning summary produces:
+  - project health `blocked`;
+  - one healthy milestone;
+  - one at-risk milestone;
+  - one blocked milestone;
+  - one complete milestone;
+  - one inactive milestone;
+  - unmilestoned active risk;
+  - populated planning review sections.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `npm run db:reset`.
+- Verified `npm run db:migrate`.
+- Verified `npm run db:seed`.
+- Verified seeded planning summary through `PlanningService`.
+- Verified `git diff --check`.
 
 ## Phase 6: Frontend Delivery Health Helpers
 
