@@ -509,7 +509,55 @@ npm test --workspace @worktrail/api
 git diff --check
 ```
 
-Status: Not started.
+Status:
+
+- Completed on 2026-07-05.
+- Added `apps/api/src/services/work-item-csv-export-service.ts`.
+- Implemented project-scoped CSV export through existing project work item list semantics.
+- Implemented workspace-scoped CSV export through existing workspace work item discovery semantics.
+- Added stable export columns:
+  - `project_key`;
+  - `display_key`;
+  - `title`;
+  - `type`;
+  - `status`;
+  - `priority`;
+  - `assignee_name`;
+  - `assignee_email`;
+  - `reporter_name`;
+  - `reporter_email`;
+  - `label_names`;
+  - `milestone_name`;
+  - `due_date`;
+  - `estimate_points`;
+  - `created_at`;
+  - `updated_at`.
+- Updated the Express endpoint adapter to send string and `Buffer` response bodies with `send` instead of JSON serialization.
+- Added export handlers:
+  - `exportProjectWorkItemsHandler`;
+  - `exportWorkspaceWorkItemsHandler`.
+- Registered routes:
+  - `GET /api/projects/:projectId/work-items/export`;
+  - `GET /api/work-items/export`.
+- Set CSV response headers:
+  - `Content-Type: text/csv; charset=utf-8`;
+  - `Content-Disposition` with project-specific or workspace export file names.
+- Reused existing query parsers:
+  - `parseFilters` for project exports;
+  - `parseWorkItemQuery` for workspace exports.
+- Added adapter test coverage for non-JSON string responses.
+- Added API test coverage for:
+  - project export headers;
+  - project export escaping;
+  - project filter behavior;
+  - empty project export header rows;
+  - workspace export filters;
+  - workspace archived project inclusion modes;
+  - CSV attachment file names.
+- Verified `npm test --workspace @worktrail/api -- work-items`.
+- Verified `npm test --workspace @worktrail/api -- server`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm test --workspace @worktrail/api`.
 
 ## Phase 6: Frontend API Client And Download Helper
 

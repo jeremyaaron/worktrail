@@ -657,6 +657,108 @@ describe('work item API', () => {
       });
   });
 
+  it('exports filtered project work items as CSV', async () => {
+    const fixture = await createFixture('owner');
+    const ready = await createWorkItem(fixture, {
+      title: 'Exported, ready work',
+      status: 'ready',
+      priority: 'urgent',
+      assigneeId: fixture.contributorId,
+      reporterId: fixture.maintainerId,
+      dueDate: '2026-07-12',
+      estimatePoints: 8,
+      createdAt: new Date('2026-07-01T12:00:00.000Z'),
+      updatedAt: new Date('2026-07-03T12:00:00.000Z')
+    });
+    await repositories.labels.replaceForWorkItem(ready.id, [fixture.backendLabelId]);
+    await createWorkItem(fixture, {
+      title: 'Blocked unrelated export work',
+      status: 'blocked',
+      updatedAt: new Date('2026-07-04T12:00:00.000Z')
+    });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items/export`)
+      .query({ status: 'ready' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect('Content-Type', /text\/csv/)
+      .expect('Content-Disposition', 'attachment; filename="worktrail-wi-work-items.csv"')
+      .expect(({ text }) => {
+        expect(text).toBe(
+          [
+            'project_key,display_key,title,type,status,priority,assignee_name,assignee_email,reporter_name,reporter_email,label_names,milestone_name,due_date,estimate_points,created_at,updated_at',
+            `WI,${ready.displayKey},"Exported, ready work",task,ready,urgent,API Contributor,${fixture.contributorId}@example.com,API Maintainer,${fixture.maintainerId}@example.com,backend,,2026-07-12,8,2026-07-01T12:00:00.000Z,2026-07-03T12:00:00.000Z`,
+            ''
+          ].join('\n')
+        );
+      });
+  });
+
+  it('exports header-only CSV for empty project work item results', async () => {
+    const fixture = await createFixture('owner');
+    await createWorkItem(fixture, {
+      title: 'Only existing export work',
+      status: 'ready'
+    });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items/export`)
+      .query({ status: 'done' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect('Content-Type', /text\/csv/)
+      .expect(({ text }) => {
+        expect(text).toBe(
+          'project_key,display_key,title,type,status,priority,assignee_name,assignee_email,reporter_name,reporter_email,label_names,milestone_name,due_date,estimate_points,created_at,updated_at\n'
+        );
+      });
+  });
+
+  it('exports workspace work items with filters and archived project modes', async () => {
+    const fixture = await createFixture('owner');
+    const archivedProject = await createProject(fixture, {
+      key: 'OLD',
+      name: 'Archived Operations',
+      status: 'archived'
+    });
+    const activeItem = await createWorkItem(fixture, {
+      title: 'Shared export active work',
+      status: 'ready',
+      updatedAt: new Date('2026-07-03T12:00:00.000Z')
+    });
+    const archivedItem = await createWorkItem(fixture, {
+      projectId: archivedProject.id,
+      itemNumber: 1,
+      displayKey: 'OLD-1',
+      title: 'Shared export archived work',
+      status: 'ready',
+      updatedAt: new Date('2026-07-04T12:00:00.000Z')
+    });
+
+    await request(app)
+      .get('/api/work-items/export')
+      .query({ search: 'shared export', archivedProjects: 'include' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect('Content-Type', /text\/csv/)
+      .expect('Content-Disposition', 'attachment; filename="worktrail-work-items.csv"')
+      .expect(({ text }) => {
+        expect(text).toContain(`OLD,${archivedItem.displayKey},Shared export archived work`);
+        expect(text).toContain(`WI,${activeItem.displayKey},Shared export active work`);
+      });
+
+    await request(app)
+      .get('/api/work-items/export')
+      .query({ search: 'shared export', archivedProjects: 'only' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ text }) => {
+        expect(text).toContain(`OLD,${archivedItem.displayKey},Shared export archived work`);
+        expect(text).not.toContain(`WI,${activeItem.displayKey},Shared export active work`);
+      });
+  });
+
   it('lists workspace work items across active projects by default', async () => {
     const fixture = await createFixture('owner');
     const otherProject = await createProject(fixture);

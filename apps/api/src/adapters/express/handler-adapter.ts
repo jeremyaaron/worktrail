@@ -65,6 +65,11 @@ export function adaptEndpoint(handler: EndpointHandler, options: AdaptEndpointOp
         response.setHeader(key, value);
       }
 
+      if (typeof appResponse.body === 'string' || Buffer.isBuffer(appResponse.body)) {
+        response.status(appResponse.status).send(appResponse.body);
+        return;
+      }
+
       response.status(appResponse.status).json(appResponse.body ?? {});
     } catch (error) {
       const apiError = toApiErrorResponse(error);

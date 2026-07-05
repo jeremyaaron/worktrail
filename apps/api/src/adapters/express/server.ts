@@ -56,6 +56,8 @@ import {
 import {
   applyWorkItemCsvImportHandler,
   createWorkItemHandler,
+  exportProjectWorkItemsHandler,
+  exportWorkspaceWorkItemsHandler,
   getWorkItemHandler,
   listWorkspaceWorkItemsHandler,
   listWorkItemsHandler,
@@ -186,6 +188,10 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
         adapterOptions
       )
     );
+    app.get(
+      '/api/work-items/export',
+      adaptEndpoint(exportWorkspaceWorkItemsHandler({ repositories: options.repositories }), adapterOptions)
+    );
     app.post(
       '/api/projects',
       adaptEndpoint(
@@ -199,6 +205,10 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
         listWorkItemsHandler({ repositories: options.repositories, db: options.db }),
         adapterOptions
       )
+    );
+    app.get(
+      '/api/projects/:projectId/work-items/export',
+      adaptEndpoint(exportProjectWorkItemsHandler({ repositories: options.repositories }), adapterOptions)
     );
     app.post(
       '/api/projects/:projectId/work-items/imports/preview',

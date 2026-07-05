@@ -24,6 +24,7 @@ import {
   WorkItemService
 } from '../services/work-item-service.js';
 import { WorkItemCsvImportService } from '../services/work-item-csv-import-service.js';
+import { WorkItemCsvExportService } from '../services/work-item-csv-export-service.js';
 import { parseWithSchema } from '../validation/parse.js';
 import { parseWorkItemQuery } from '../validation/work-item-query.js';
 
@@ -222,6 +223,43 @@ export function applyWorkItemCsvImportHandler(input: {
   };
 }
 
+export function exportProjectWorkItemsHandler(input: {
+  repositories: Repositories;
+}): EndpointHandler<string> {
+  return async (request) => {
+    const { projectId } = parseWithSchema(projectIdParamSchema, request.params);
+    const service = new WorkItemCsvExportService({
+      actor: request.actor,
+      repositories: input.repositories
+    });
+    const exportResult = await service.exportProjectWorkItems(projectId, parseFilters(request.query));
+
+    return {
+      status: 200,
+      body: exportResult.csv,
+      headers: csvExportHeaders(exportResult.fileName)
+    };
+  };
+}
+
+export function exportWorkspaceWorkItemsHandler(input: {
+  repositories: Repositories;
+}): EndpointHandler<string> {
+  return async (request) => {
+    const service = new WorkItemCsvExportService({
+      actor: request.actor,
+      repositories: input.repositories
+    });
+    const exportResult = await service.exportWorkspaceWorkItems(parseWorkItemQuery(request.query));
+
+    return {
+      status: 200,
+      body: exportResult.csv,
+      headers: csvExportHeaders(exportResult.fileName)
+    };
+  };
+}
+
 export function getWorkItemHandler(input: {
   repositories: Repositories;
   db?: WorktrailDb;
@@ -237,6 +275,13 @@ export function getWorkItemHandler(input: {
       status: 200,
       body: await service.getWorkItem(workItemId)
     };
+  };
+}
+
+function csvExportHeaders(fileName: string): Record<string, string> {
+  return {
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': `attachment; filename="${fileName}"`
   };
 }
 
