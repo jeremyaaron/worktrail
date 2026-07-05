@@ -562,8 +562,21 @@ paths:
       tags: [Work Items]
       summary: List workspace work items.
       parameters:
+        - $ref: "#/components/parameters/WorkItemProjectIdQuery"
         - $ref: "#/components/parameters/WorkItemStatusQuery"
+        - $ref: "#/components/parameters/WorkItemStateQuery"
+        - $ref: "#/components/parameters/WorkItemAssigneeIdQuery"
+        - $ref: "#/components/parameters/WorkItemAssigneeStateQuery"
+        - $ref: "#/components/parameters/WorkItemReporterIdQuery"
+        - $ref: "#/components/parameters/WorkItemTypeQuery"
+        - $ref: "#/components/parameters/WorkItemPriorityQuery"
+        - $ref: "#/components/parameters/WorkItemLabelIdQuery"
+        - $ref: "#/components/parameters/WorkItemMilestoneIdQuery"
+        - $ref: "#/components/parameters/WorkItemDueDateStateQuery"
+        - $ref: "#/components/parameters/WorkItemBlockedQuery"
+        - $ref: "#/components/parameters/WorkItemArchivedProjectsQuery"
         - $ref: "#/components/parameters/SearchQuery"
+        - $ref: "#/components/parameters/WorkItemSortQuery"
       responses:
         "200":
           description: Workspace work items.
@@ -575,6 +588,41 @@ paths:
                   $ref: "#/components/schemas/WorkspaceWorkItemListItem"
         default:
           $ref: "#/components/responses/Error"
+  /api/work-items/export:
+    get:
+      tags: [Work Items]
+      summary: Export workspace work items as CSV.
+      description: Exports the workspace discovery result set using the same applied query parameters as `GET /api/work-items`.
+      parameters:
+        - $ref: "#/components/parameters/WorkItemProjectIdQuery"
+        - $ref: "#/components/parameters/WorkItemStatusQuery"
+        - $ref: "#/components/parameters/WorkItemStateQuery"
+        - $ref: "#/components/parameters/WorkItemAssigneeIdQuery"
+        - $ref: "#/components/parameters/WorkItemAssigneeStateQuery"
+        - $ref: "#/components/parameters/WorkItemReporterIdQuery"
+        - $ref: "#/components/parameters/WorkItemTypeQuery"
+        - $ref: "#/components/parameters/WorkItemPriorityQuery"
+        - $ref: "#/components/parameters/WorkItemLabelIdQuery"
+        - $ref: "#/components/parameters/WorkItemMilestoneIdQuery"
+        - $ref: "#/components/parameters/WorkItemDueDateStateQuery"
+        - $ref: "#/components/parameters/WorkItemBlockedQuery"
+        - $ref: "#/components/parameters/WorkItemArchivedProjectsQuery"
+        - $ref: "#/components/parameters/SearchQuery"
+        - $ref: "#/components/parameters/WorkItemSortQuery"
+      responses:
+        "200":
+          description: CSV export for the filtered workspace work item result set.
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: Attachment filename, currently `worktrail-work-items.csv`.
+          content:
+            text/csv:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Error"
   /api/projects/{projectId}/work-items:
     get:
       tags: [Work Items]
@@ -582,7 +630,15 @@ paths:
       parameters:
         - $ref: "#/components/parameters/ProjectId"
         - $ref: "#/components/parameters/WorkItemStatusQuery"
+        - $ref: "#/components/parameters/WorkItemAssigneeIdQuery"
+        - $ref: "#/components/parameters/WorkItemReporterIdQuery"
+        - $ref: "#/components/parameters/WorkItemTypeQuery"
+        - $ref: "#/components/parameters/WorkItemPriorityQuery"
+        - $ref: "#/components/parameters/WorkItemLabelIdQuery"
+        - $ref: "#/components/parameters/WorkItemMilestoneIdQuery"
+        - $ref: "#/components/parameters/WorkItemDueDateStateQuery"
         - $ref: "#/components/parameters/SearchQuery"
+        - $ref: "#/components/parameters/WorkItemSortQuery"
       responses:
         "200":
           description: Project work items.
@@ -612,6 +668,81 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/WorkItemDetail"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/projects/{projectId}/work-items/imports/preview:
+    post:
+      tags: [Work Items]
+      summary: Preview a project work item CSV import.
+      description: Validates CSV content and returns normalized rows without creating work items.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkItemCsvImportPreviewRequest"
+      responses:
+        "200":
+          description: Import validation preview.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkItemCsvImportPreview"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/projects/{projectId}/work-items/imports:
+    post:
+      tags: [Work Items]
+      summary: Apply a project work item CSV import.
+      description: Revalidates CSV content and creates all valid rows transactionally. Validation failures prevent all writes.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkItemCsvImportApplyRequest"
+      responses:
+        "201":
+          description: Import result with created work items.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkItemCsvImportApply"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/projects/{projectId}/work-items/export:
+    get:
+      tags: [Work Items]
+      summary: Export project work items as CSV.
+      description: Exports the project work item list using the same applied query parameters as `GET /api/projects/{projectId}/work-items`.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/WorkItemStatusQuery"
+        - $ref: "#/components/parameters/WorkItemAssigneeIdQuery"
+        - $ref: "#/components/parameters/WorkItemReporterIdQuery"
+        - $ref: "#/components/parameters/WorkItemTypeQuery"
+        - $ref: "#/components/parameters/WorkItemPriorityQuery"
+        - $ref: "#/components/parameters/WorkItemLabelIdQuery"
+        - $ref: "#/components/parameters/WorkItemMilestoneIdQuery"
+        - $ref: "#/components/parameters/WorkItemDueDateStateQuery"
+        - $ref: "#/components/parameters/SearchQuery"
+        - $ref: "#/components/parameters/WorkItemSortQuery"
+      responses:
+        "200":
+          description: CSV export for the filtered project work item result set.
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: Attachment filename, currently `worktrail-{projectKey}-work-items.csv`.
+          content:
+            text/csv:
+              schema:
+                type: string
         default:
           $ref: "#/components/responses/Error"
   /api/work-items/{workItemId}:
@@ -913,11 +1044,87 @@ components:
       in: query
       schema:
         $ref: "#/components/schemas/WorkItemStatus"
+    WorkItemProjectIdQuery:
+      name: projectId
+      in: query
+      schema:
+        type: string
+        format: uuid
+    WorkItemStateQuery:
+      name: workState
+      in: query
+      schema:
+        type: string
+        enum: [open, terminal]
+    WorkItemAssigneeIdQuery:
+      name: assigneeId
+      in: query
+      schema:
+        type: string
+        format: uuid
+    WorkItemAssigneeStateQuery:
+      name: assigneeState
+      in: query
+      schema:
+        type: string
+        enum: [assigned, unassigned]
+    WorkItemReporterIdQuery:
+      name: reporterId
+      in: query
+      schema:
+        type: string
+        format: uuid
+    WorkItemTypeQuery:
+      name: type
+      in: query
+      schema:
+        $ref: "#/components/schemas/WorkItemType"
+    WorkItemPriorityQuery:
+      name: priority
+      in: query
+      schema:
+        $ref: "#/components/schemas/WorkItemPriority"
+    WorkItemLabelIdQuery:
+      name: labelId
+      in: query
+      schema:
+        type: string
+        format: uuid
+    WorkItemMilestoneIdQuery:
+      name: milestoneId
+      in: query
+      schema:
+        type: string
+        format: uuid
+    WorkItemDueDateStateQuery:
+      name: dueDateState
+      in: query
+      schema:
+        type: string
+        enum: [overdue, due_soon, none]
+    WorkItemBlockedQuery:
+      name: blocked
+      in: query
+      schema:
+        type: boolean
+    WorkItemArchivedProjectsQuery:
+      name: archivedProjects
+      in: query
+      schema:
+        type: string
+        enum: [exclude, include, only]
     SearchQuery:
       name: search
       in: query
       schema:
         type: string
+        maxLength: 120
+    WorkItemSortQuery:
+      name: sort
+      in: query
+      schema:
+        type: string
+        enum: [updated_desc, updated_asc, priority_desc, priority_asc, due_date_asc, created_desc, board_order]
   responses:
     Error:
       description: Structured API error.
@@ -1015,6 +1222,9 @@ components:
           format: uuid
         status:
           $ref: "#/components/schemas/WorkItemStatus"
+        workState:
+          type: string
+          enum: [open, terminal]
         assigneeId:
           type: string
           format: uuid
@@ -1034,10 +1244,17 @@ components:
         milestoneId:
           type: string
           format: uuid
+        dueDateState:
+          type: string
+          enum: [overdue, due_soon, none]
         blocked:
           type: boolean
+        archivedProjects:
+          type: string
+          enum: [exclude, include, only]
         search:
           type: string
+          maxLength: 120
         sort:
           type: string
           enum: [updated_desc, updated_asc, priority_desc, priority_asc, due_date_asc, created_desc, board_order]
@@ -1490,6 +1707,113 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/ActivityEvent"
+    WorkItemCsvImportPreviewRequest:
+      type: object
+      required: [csv]
+      additionalProperties: false
+      properties:
+        csv:
+          type: string
+          description: CSV document text. Payloads are limited to 1 MiB and 250 data rows.
+    WorkItemCsvImportApplyRequest:
+      type: object
+      required: [csv]
+      additionalProperties: false
+      properties:
+        csv:
+          type: string
+          description: CSV document text. The server revalidates this content before writing any work items.
+    WorkItemCsvImportIssue:
+      type: object
+      required: [rowNumber, field, message]
+      properties:
+        rowNumber:
+          type: [integer, "null"]
+          description: CSV row number when the issue is row-specific; file-level issues use null.
+        field:
+          type: [string, "null"]
+          description: CSV column name when the issue is field-specific.
+        message:
+          type: string
+    WorkItemCsvImportPreviewRow:
+      type: object
+      required:
+        - rowNumber
+        - title
+        - type
+        - status
+        - priority
+        - assigneeEmail
+        - reporterEmail
+        - labelNames
+        - milestoneName
+        - dueDate
+        - estimatePoints
+      properties:
+        rowNumber:
+          type: integer
+        title:
+          type: string
+        type:
+          $ref: "#/components/schemas/WorkItemType"
+        status:
+          $ref: "#/components/schemas/WorkItemStatus"
+        priority:
+          $ref: "#/components/schemas/WorkItemPriority"
+        assigneeEmail:
+          type: [string, "null"]
+          format: email
+        reporterEmail:
+          type: string
+          format: email
+        labelNames:
+          type: array
+          items:
+            type: string
+        milestoneName:
+          type: [string, "null"]
+        dueDate:
+          type: [string, "null"]
+          format: date
+        estimatePoints:
+          type: [integer, "null"]
+          minimum: 0
+    WorkItemCsvImportPreview:
+      type: object
+      required: [totalRows, validRows, invalidRows, errors, warnings, rows]
+      properties:
+        totalRows:
+          type: integer
+          minimum: 0
+        validRows:
+          type: integer
+          minimum: 0
+        invalidRows:
+          type: integer
+          minimum: 0
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkItemCsvImportIssue"
+        warnings:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkItemCsvImportIssue"
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkItemCsvImportPreviewRow"
+    WorkItemCsvImportApply:
+      type: object
+      required: [createdCount, workItems]
+      properties:
+        createdCount:
+          type: integer
+          minimum: 0
+        workItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkItemListItem"
     CreateWorkItemRequest:
       type: object
       required: [title, type, priority]

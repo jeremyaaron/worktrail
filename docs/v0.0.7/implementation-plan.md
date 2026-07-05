@@ -876,7 +876,23 @@ npm run typecheck
 git diff --check
 ```
 
-Status: Not started.
+Status:
+
+- Completed on 2026-07-05.
+- Updated `docs/api/openapi.yaml` with:
+  - `POST /api/projects/:projectId/work-items/imports/preview`;
+  - `POST /api/projects/:projectId/work-items/imports`;
+  - `GET /api/projects/:projectId/work-items/export`;
+  - `GET /api/work-items/export`;
+  - CSV import request, preview, issue, preview-row, and apply response schemas;
+  - `text/csv` export responses and `Content-Disposition` headers.
+- Expanded documented work item query parameters so list and export endpoints reflect implemented filters, sorts, due-date state, archived-project mode, work state, blocked state, and assignee state.
+- Updated the OpenAPI guard test to require the new import/export path keys, import schemas, and CSV media type.
+- Added `docs/v0.0.7/csv-import-export.md` covering supported columns, required columns, sample CSV, limits, validation behavior, transactional apply behavior, export columns, and common troubleshooting cases.
+- Verified `npm test --workspace @worktrail/api -- openapi`.
+- Verified `sed -n '1,260p' docs/v0.0.7/csv-import-export.md`.
+- Verified `ruby -e "require 'yaml'; YAML.load_file('docs/api/openapi.yaml'); puts 'YAML parsed'"`.
+- Verified `npm run typecheck`.
 
 ## Phase 11: Product Documentation, Site, Extraction Notes, And Version Finalization
 
