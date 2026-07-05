@@ -1,6 +1,6 @@
 # Worktrail
 
-Worktrail is a project management reference app. The v0.0.6 release is a local-first Angular + TypeScript API + Postgres application that focuses on daily team workflow and operational credibility: My Work, cross-project discovery, saved views, quick work capture, workspace governance, planning, durable boards, comments, activity, production-like preview, health/readiness checks, and checked-in API documentation.
+Worktrail is a project management reference app. The v0.0.7 release is a local-first Angular + TypeScript API + Postgres application that focuses on daily team workflow, operational credibility, and data portability: My Work, cross-project discovery, saved views, quick work capture, workspace governance, planning, durable boards, comments, activity, CSV import/export, production-like preview, health/readiness checks, and checked-in API documentation.
 
 The app is intentionally built as a credible product surface before extracting broader framework patterns. It runs locally today, while preserving a path toward an S3/CloudFront Angular frontend with API Gateway/Lambda-style endpoint handlers and managed Postgres.
 
@@ -19,6 +19,7 @@ docs/
   v0.0.4/  Governance sprint PRD, technical design, implementation plan, and extraction notes
   v0.0.5/  Daily workflow PRD, technical design, implementation plan, and extraction notes
   v0.0.6/  Operations sprint PRD, technical design, implementation plan, runbook, and extraction notes
+  v0.0.7/  CSV import/export PRD, technical design, implementation plan, guide, and extraction notes
   api/     OpenAPI reference
 site/       Static GitHub Pages product site
 e2e/        Playwright smoke tests
@@ -81,7 +82,7 @@ Local services:
 
 ## Production Preview
 
-v0.0.6 adds a production-like local preview. It builds contracts, the API, and the Angular app, then runs compiled API code while Express serves the built Angular assets and `/api/*` routes from one origin.
+v0.0.6 introduced a production-like local preview. It builds contracts, the API, and the Angular app, then runs compiled API code while Express serves the built Angular assets and `/api/*` routes from one origin.
 
 After migrations and seed data are in place:
 
@@ -112,6 +113,19 @@ The detailed operator guide is in [docs/v0.0.6/operations-runbook.md](docs/v0.0.
 ## API Reference
 
 The checked-in OpenAPI reference lives at [docs/api/openapi.yaml](docs/api/openapi.yaml). It documents the implemented route surface, representative DTOs, development-only local actor headers, readiness behavior, and the common structured error shape.
+
+## CSV Import And Export
+
+v0.0.7 adds project-scoped CSV work item import and CSV export for both project lists and workspace discovery.
+
+Import is a two-step flow:
+
+1. Preview validates a CSV file and returns normalized rows without creating work.
+2. Apply revalidates the same CSV and creates all rows transactionally.
+
+If any row is invalid during apply, no work items are created. Project and workspace exports use the same applied filters as the visible list or discovery view, so exported CSV matches the current result set rather than pending draft search input.
+
+The detailed CSV guide is in [docs/v0.0.7/csv-import-export.md](docs/v0.0.7/csv-import-export.md).
 
 ## Verification
 
@@ -154,7 +168,7 @@ Seeded data includes:
 
 Use the `Acting as` selector in the top bar to switch the local placeholder actor. The selector only shows active members. This is intentionally local-only behavior and is not production authentication; the API derives the actor role and active state from the selected member record instead of trusting a client-supplied role.
 
-Suggested v0.0.6 walkthrough:
+Suggested v0.0.7 walkthrough:
 
 1. Open My Work and review the selected actor's assigned open, due soon, overdue, blocked, stale, and reported work counts.
 2. Click a My Work summary count to open the cross-project Work Items page with URL-backed filters applied.
@@ -172,12 +186,15 @@ Suggested v0.0.6 walkthrough:
 14. Open Planning and review milestone progress, overdue/due-soon work, blocked work, unassigned work, and stale work.
 15. Create a milestone, then create a work item assigned to that milestone.
 16. Use the project work item list search and filters. Dropdown filters apply immediately, while search applies after a short debounce.
-17. Open the board, drag cards within a column to set planning order, reload, and confirm the order persists.
-18. Move a card through valid workflow columns with drag/drop or the status menu.
-19. Open the work item detail page, update fields, change milestone assignment, add and edit a comment, delete a comment, and review activity.
-20. Open the archived project to confirm read-only project, milestone, work item, label, comment, and transition behavior.
+17. Export the currently filtered project work item list to CSV.
+18. Import a small CSV through the project import page, review dry-run validation, apply it, and confirm created work appears in the project list and board.
+19. Export a filtered cross-project workspace discovery view to CSV.
+20. Open the board, drag cards within a column to set planning order, reload, and confirm the order persists.
+21. Move a card through valid workflow columns with drag/drop or the status menu.
+22. Open the work item detail page, update fields, change milestone assignment, add and edit a comment, delete a comment, and review activity.
+23. Open the archived project to confirm read-only project, milestone, work item, label, comment, import, and transition behavior.
 
-## v0.0.6 Capabilities
+## v0.0.7 Capabilities
 
 - My Work dashboard for the selected active actor.
 - Dashboard summary counts linked to filtered cross-project discovery.
@@ -198,6 +215,9 @@ Suggested v0.0.6 walkthrough:
 - Project-scoped milestones with due dates, archive/reactivate behavior, assignment on create/edit, and activity coverage.
 - Planning dashboard with milestone progress, due-soon/overdue work, blocked work, unassigned work, stale work, and links back into filtered lists.
 - Project work item list search and filters for status, type, priority, assignee, reporter, label, milestone, due date, and sort.
+- Project-scoped CSV import with dry-run preview, normalized rows, row-level validation errors, and transactional apply.
+- Project and workspace CSV export that serializes the currently applied filters.
+- CSV import/export guide under `docs/v0.0.7/csv-import-export.md`.
 - Persisted board ordering for same-status reorder and cross-status movement.
 - Angular CDK drag/drop board interaction backed by server-side workflow validation.
 - Comment add/edit/delete with role-aware UI affordances and deleted-comment tombstones.
@@ -210,15 +230,18 @@ Suggested v0.0.6 walkthrough:
 - OpenAPI reference under `docs/api/openapi.yaml`.
 - Operations runbook for runtime modes, environment variables, migrations, seed/reset flow, preview, health checks, troubleshooting, and future cloud mapping.
 
-## v0.0.6 Limitations
+## v0.0.7 Limitations
 
 - Authentication is represented by local request headers and the top-bar actor selector.
 - Permissions are enforced against local member records and are useful for exercising policy paths, but they are not production authentication.
 - Production preview is not a secure public deployment and should not be exposed as an authenticated product.
-- Saved views are personal only in v0.0.6; workspace-visible shared saved views are deferred.
-- Custom workflows, file attachments, notifications, imports, and production auth are intentionally out of scope.
+- Saved views are personal only in v0.0.7; workspace-visible shared saved views are deferred.
+- CSV import is project-scoped and limited to 1 MiB and 250 data rows per file.
+- CSV import supports Worktrail's current columns only; third-party tracker migration mappings are deferred.
+- CSV export is a direct file download; export history, scheduled exports, and alternate formats are deferred.
+- Custom workflows, file attachments, notifications, and production auth are intentionally out of scope.
 - Invitations, multi-workspace switching, custom roles, project-specific membership, pinned projects, recent projects, and audit export are intentionally out of scope.
-- The local Express adapter is the only runtime adapter in v0.0.6, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
+- The local Express adapter is the only runtime adapter in v0.0.7, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
 - AWS deployment assets are not included yet; the Angular static build and transport-neutral handlers preserve that path.
 - Readiness checks database connectivity only; migration drift detection, metrics, tracing, and managed deployment runbooks are deferred.
 

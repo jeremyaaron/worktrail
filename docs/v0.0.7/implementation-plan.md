@@ -947,7 +947,25 @@ git diff --check
 git status --short --branch
 ```
 
-Status: Not started.
+Status:
+
+- Completed on 2026-07-05.
+- Updated `README.md` to describe v0.0.7 CSV import/export capabilities, dry-run validation, transactional apply, export behavior, suggested walkthrough steps, and current limitations.
+- Updated `site/index.html` so the public product site reflects v0.0.7 data portability, CSV adoption flows, import/export capabilities, and current scope.
+- Added `docs/v0.0.7/jawstack-extraction-notes.md` covering reusable patterns for file ingestion, dry-run validation, transactional bulk commands, CSV export, non-JSON endpoint responses, and future cloud upload evolution.
+- Updated root, app, package, lockfile, and OpenAPI versions to `0.0.7`.
+- Stopped a leftover local `tsx watch src/main.ts` process before final verification.
+- Verified no local listeners remained on ports `3000` or `4200` before rerunning e2e.
+- Verified `npm install --package-lock-only`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `npm run test:e2e`.
+- Verified `npm run build`.
+- Verified `npm audit --omit=dev --audit-level=low`.
+- Restored deterministic local seed data with:
+  - `npm run db:reset`;
+  - `npm run db:migrate`;
+  - `npm run db:seed`.
 
 ## Release Verification
 
