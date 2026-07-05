@@ -248,6 +248,42 @@ npm run typecheck --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-05.
+- Added `apps/api/src/repositories/notification-repository.ts` with:
+  - `create`;
+  - `createMany`;
+  - actor-scoped list by unread/all state;
+  - actor-scoped unread count;
+  - actor-scoped read-state update;
+  - actor-scoped mark-all-read.
+- Added `apps/api/src/repositories/work-item-watcher-repository.ts` with:
+  - idempotent active watch creation;
+  - active watcher lookup;
+  - active watcher list by work item;
+  - active watcher member ID lookup filtered to active members;
+  - unwatch via `unwatchedAt`.
+- Added `apps/api/src/repositories/comment-mention-repository.ts` with:
+  - bulk create;
+  - list by comment;
+  - list by comment IDs.
+- Registered the new repositories in normal and transactional repository contexts.
+- Updated repository integration-test cleanup so notification, mention, and watcher rows do not block workspace cleanup.
+- Added repository tests for:
+  - actor-scoped notification list/count;
+  - read-state isolation across recipients;
+  - mark-all-read;
+  - idempotent watcher creation;
+  - unwatch/deactivation behavior;
+  - active watcher member ID lookup;
+  - comment mention create/list behavior.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/api`
+  - `npm test --workspace @worktrail/api -- repositories`
+  - `npm test --workspace @worktrail/api`
+  - `git diff --check`
+
 ## Phase 3: Notification And Watcher Services/Endpoints
 
 Goal: expose actor-scoped notification and watcher behavior without domain fan-out yet.
