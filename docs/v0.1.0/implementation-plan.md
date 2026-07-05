@@ -877,6 +877,7 @@ Completed in Phase 11:
 
 - Added `.github/workflows/ci.yml` for pull requests and pushes to `main`.
 - Configured CI to run `npm ci`, `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`.
+- Configured the CI verify job with a disposable Postgres service and `npm run db:reset && npm run db:migrate && npm run db:seed` before `npm test`.
 - Added a root ESLint flat config with low-churn TypeScript, Angular TypeScript, and Angular template coverage.
 - Added workspace `lint` scripts for API, web, and contracts while preserving the root `npm run lint` command.
 - Included lint in CI immediately because the baseline rule set was clean after targeted fixes.
@@ -1014,6 +1015,7 @@ git diff --check
 Completed in Phase 13:
 
 - Added `docs/v0.1.0/release-notes.md` with the v0.1.0 product highlights, technical highlights, documentation/site updates, verification evidence, and known limitations.
+- Fixed the CI verify job so API repository tests run against a prepared disposable Postgres service instead of an unavailable runner-local database.
 - Bumped package metadata to `0.1.0` for:
   - root workspace package;
   - `@worktrail/api`;

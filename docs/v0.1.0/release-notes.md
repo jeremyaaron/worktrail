@@ -26,7 +26,7 @@ The release does not introduce production authentication, hosted infrastructure,
 - Split frontend API calls into domain clients over a shared request utility.
 - Extracted feature-local UI components for work item filters, result lists, saved views, planning review, My Work, and detail panels.
 - Added low-churn ESLint coverage for API, web, and contracts.
-- Added GitHub Actions CI for pull requests and pushes to `main`.
+- Added GitHub Actions CI for pull requests and pushes to `main`, including a disposable Postgres service for API repository tests.
 
 ## Documentation And Site
 
@@ -42,6 +42,7 @@ Final local verification for this release candidate:
 ```sh
 npm run lint
 npm run typecheck
+npm run db:reset && npm run db:migrate && npm run db:seed
 npm test
 npm run build
 npm run test:e2e

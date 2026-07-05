@@ -182,7 +182,7 @@ npm run build
 npm audit --omit=dev --audit-level=low
 ```
 
-CI runs `npm ci`, `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` on pull requests and pushes to `main`. Playwright remains a local smoke test because it provisions and resets a local Postgres-backed app.
+CI runs `npm ci`, `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` on pull requests and pushes to `main`. The verify job provisions a Postgres service, sets `DATABASE_URL`, and runs `npm run db:reset && npm run db:migrate && npm run db:seed` before tests. Playwright remains a local smoke test because it provisions and resets a local Postgres-backed app.
 
 `npm run test:e2e` starts the local API and Angular dev server through Playwright. By default it runs:
 
@@ -312,7 +312,7 @@ Suggested delivery-health checks:
 - OpenAPI reference under `docs/api/openapi.yaml`.
 - Operations runbook for runtime modes, environment variables, migrations, seed/reset flow, preview, health checks, troubleshooting, and future cloud mapping.
 - ESLint guardrails for API, web, and contracts workspaces.
-- GitHub Actions CI for lint, typecheck, tests, and production build.
+- GitHub Actions CI for lint, typecheck, tests with a Postgres service, and production build.
 
 ## v0.1.0 Limitations
 

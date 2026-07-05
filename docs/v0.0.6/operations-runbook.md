@@ -270,9 +270,13 @@ CI runs the same baseline guardrails on pull requests and pushes to `main`:
 npm ci
 npm run lint
 npm run typecheck
+npm run db:reset && npm run db:migrate && npm run db:seed
 npm test
 npm run build
 ```
+
+The CI verify job provisions a disposable Postgres service and points `DATABASE_URL`
+at that service before preparing and seeding the schema for tests.
 
 Browser smoke test:
 
