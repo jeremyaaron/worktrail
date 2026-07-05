@@ -187,6 +187,45 @@ npm test --workspace @worktrail/web -- --watch=false
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-05.
+- Split `packages/contracts/src/index.ts` into domain files while preserving the public `@worktrail/contracts` barrel export:
+  - `activity.ts`;
+  - `csv.ts`;
+  - `health.ts`;
+  - `members.ts`;
+  - `my-work.ts`;
+  - `planning.ts`;
+  - `projects.ts`;
+  - `saved-work-views.ts`;
+  - `workspace.ts`;
+  - `work-items.ts`.
+- Added `packages/contracts/src/work-item-query.contract.test.ts` with representative contract checks for:
+  - workspace discovery query fields;
+  - saved-view query storage;
+  - health-reason query links;
+  - nullable planning-review query links.
+- Replaced the contracts package placeholder test script with Vitest and added the workspace dev dependency.
+- Added `apps/api/src/domain/work-risk-policy.ts` with shared:
+  - terminal/open status predicates;
+  - active-unassigned status predicate;
+  - due-soon window;
+  - stale in-progress threshold;
+  - overdue/due-soon/stale date helpers;
+  - UTC date helpers.
+- Updated workflow, planning, delivery health, My Work, and relationship services to consume the shared policy where behavior already matched.
+- Preserved My Work's existing stale-assigned status behavior while sharing its stale window and date helpers.
+- Added risk-policy tests in `apps/api/tests/domain.test.ts`.
+- Added `apps/api/tests/work-item-query.test.ts` to document current query normalization behavior before Phase 2 repository query consolidation.
+- Verified `npm run typecheck --workspace @worktrail/contracts`.
+- Verified `npm test --workspace @worktrail/contracts`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm test --workspace @worktrail/web -- --watch=false`.
+- Verified `git diff --check`.
+
 ## Phase 2: Backend Work Item Query Consolidation
 
 Goal: make project and workspace work item list behavior use one canonical query path.

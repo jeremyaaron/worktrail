@@ -10,17 +10,22 @@ import type {
 } from '@worktrail/contracts';
 
 import type { WorkItemPriority } from '../domain/constants.js';
-import { openWorkItemStatuses, terminalWorkItemStatuses } from '../domain/constants.js';
+import {
+  addDays,
+  dueSoonWindowDays,
+  isActiveUnassignedWorkItemStatus,
+  isDueSoonDueDate,
+  isOpenWorkItemStatus,
+  isOverdueDueDate,
+  isStaleInProgressStatus,
+  staleInProgressDays,
+  toDateString
+} from '../domain/work-risk-policy.js';
 import type { Milestone, Project, WorkItem } from '../repositories/types.js';
 import { toMilestoneDto } from './dto.js';
 
-const dueSoonWindowDays = 7;
 const upcomingMilestoneWindowDays = 14;
-const staleInProgressDays = 7;
 const planningMilestoneStatuses = new Set<Milestone['status']>(['planned', 'active']);
-const activeUnassignedStatuses = new Set<WorkItem['status']>(['ready', 'in_progress']);
-const openStatusSet = new Set<WorkItem['status']>(openWorkItemStatuses);
-const terminalStatusSet = new Set<WorkItem['status']>(terminalWorkItemStatuses);
 const priorityRank: Record<WorkItemPriority, number> = {
   urgent: 4,
   high: 3,
@@ -95,7 +100,7 @@ export class DeliveryHealthService {
         ).length;
         const unassignedActiveCount = openItems.filter(
           (workItem) =>
-            workItem.assigneeId === null && activeUnassignedStatuses.has(workItem.status)
+            workItem.assigneeId === null && isActiveUnassignedWorkItemStatus(workItem.status)
         ).length;
         const staleInProgressCount = openItems.filter((workItem) =>
           isStaleInProgress(workItem, context.staleCutoff)
@@ -172,7 +177,7 @@ export class DeliveryHealthService {
     );
     const unassignedActiveWorkItems = openWorkItems.filter(
       (workItem) =>
-        workItem.assigneeId === null && activeUnassignedStatuses.has(workItem.status)
+        workItem.assigneeId === null && isActiveUnassignedWorkItemStatus(workItem.status)
     );
     const staleInProgressWorkItems = openWorkItems.filter((workItem) =>
       isStaleInProgress(workItem, context.staleCutoff)
@@ -185,7 +190,7 @@ export class DeliveryHealthService {
           context.blockingOpenWorkIds.has(workItem.id) ||
           isOverdue(workItem, context.today) ||
           isDueSoon(workItem, context.today, context.dueSoonEnd) ||
-          (workItem.assigneeId === null && activeUnassignedStatuses.has(workItem.status)) ||
+          (workItem.assigneeId === null && isActiveUnassignedWorkItemStatus(workItem.status)) ||
           isStaleInProgress(workItem, context.staleCutoff))
     );
     const activeMilestones = milestoneProgress.filter((progress) =>
@@ -259,7 +264,7 @@ export class DeliveryHealthService {
             context.dependencyBlockedIds.has(workItem.id) ||
             isOverdue(workItem, context.today) ||
             isStaleInProgress(workItem, context.staleCutoff) ||
-            (workItem.assigneeId === null && activeUnassignedStatuses.has(workItem.status))
+            (workItem.assigneeId === null && isActiveUnassignedWorkItemStatus(workItem.status))
         )
         .map((workItem) => toWorkItemReviewItem(workItem, getWorkItemAttentionSeverity(workItem, context))),
       ...milestoneProgress
@@ -635,7 +640,7 @@ function getProjectHealth(input: {
       (workItem) =>
         isOverdue(workItem, input.today) ||
         isDueSoon(workItem, input.today, input.dueSoonEnd) ||
-        (workItem.assigneeId === null && activeUnassignedStatuses.has(workItem.status)) ||
+        (workItem.assigneeId === null && isActiveUnassignedWorkItemStatus(workItem.status)) ||
         isStaleInProgress(workItem, input.staleCutoff)
     )
   ) {
@@ -739,19 +744,19 @@ function getWorkItemAttentionSeverity(
 }
 
 function isOpenWorkItem(workItem: WorkItem): boolean {
-  return openStatusSet.has(workItem.status) && !terminalStatusSet.has(workItem.status);
+  return isOpenWorkItemStatus(workItem.status);
 }
 
 function isOverdue(workItem: WorkItem, today: string): boolean {
-  return workItem.dueDate !== null && workItem.dueDate < today;
+  return isOverdueDueDate(workItem.dueDate, today);
 }
 
 function isDueSoon(workItem: WorkItem, today: string, dueSoonEnd: string): boolean {
-  return workItem.dueDate !== null && workItem.dueDate >= today && workItem.dueDate <= dueSoonEnd;
+  return isDueSoonDueDate(workItem.dueDate, today, dueSoonEnd);
 }
 
 function isStaleInProgress(workItem: WorkItem, staleCutoff: Date): boolean {
-  return workItem.status === 'in_progress' && workItem.updatedAt.getTime() < staleCutoff.getTime();
+  return isStaleInProgressStatus(workItem.status, workItem.updatedAt, staleCutoff);
 }
 
 function compareMilestoneProgress(left: MilestoneProgressDto, right: MilestoneProgressDto): number {
@@ -810,16 +815,6 @@ function compareUpcomingReviewItems(
   }
 
   return right.updatedAt.localeCompare(left.updatedAt);
-}
-
-function addDays(date: Date, days: number): Date {
-  const nextDate = new Date(date.getTime());
-  nextDate.setUTCDate(nextDate.getUTCDate() + days);
-  return nextDate;
-}
-
-function toDateString(date: Date): string {
-  return date.toISOString().slice(0, 10);
 }
 
 function formatCount(count: number, singular: string, plural: string): string {

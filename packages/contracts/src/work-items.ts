@@ -1,0 +1,205 @@
+import type { ActivityEventDto } from './activity.js';
+import type { MemberDto } from './members.js';
+import type { MilestoneDto } from './planning.js';
+import type { ProjectDto } from './projects.js';
+
+export type WorkItemType = 'task' | 'bug' | 'story' | 'chore';
+export type WorkItemStatus =
+  | 'backlog'
+  | 'ready'
+  | 'in_progress'
+  | 'blocked'
+  | 'done'
+  | 'canceled';
+export type WorkItemPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type WorkItemRelationshipType = 'blocks' | 'relates_to';
+export type DueDateState = 'overdue' | 'due_soon' | 'none';
+export type ArchivedProjectMode = 'exclude' | 'include' | 'only';
+export type AssigneeState = 'assigned' | 'unassigned';
+export type WorkItemState = 'open' | 'terminal';
+export type DependencyFilter = 'dependency_blocked' | 'blocking_open_work';
+export type WorkItemSort =
+  | 'updated_desc'
+  | 'updated_asc'
+  | 'priority_desc'
+  | 'priority_asc'
+  | 'due_date_asc'
+  | 'created_desc'
+  | 'board_order';
+
+export interface WorkItemQuery {
+  projectId?: string;
+  status?: WorkItemStatus;
+  workState?: WorkItemState;
+  assigneeId?: string;
+  assigneeState?: AssigneeState;
+  reporterId?: string;
+  type?: WorkItemType;
+  priority?: WorkItemPriority;
+  labelId?: string;
+  milestoneId?: string;
+  dueDateState?: DueDateState;
+  blocked?: boolean;
+  dependency?: DependencyFilter;
+  archivedProjects?: ArchivedProjectMode;
+  search?: string;
+  sort?: WorkItemSort;
+}
+
+export interface LabelDto {
+  id: string;
+  name: string;
+  color: string | null;
+  isArchived: boolean;
+  archivedAt: string | null;
+}
+
+export interface CreateLabelRequest {
+  name: string;
+  color?: string | null;
+}
+
+export interface UpdateLabelRequest {
+  name?: string;
+  color?: string | null;
+}
+
+export interface WorkItemListItemDto {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  itemNumber: number;
+  displayKey: string;
+  title: string;
+  type: WorkItemType;
+  status: WorkItemStatus;
+  priority: WorkItemPriority;
+  assignee: MemberDto | null;
+  reporter: MemberDto;
+  labels: LabelDto[];
+  milestone: MilestoneDto | null;
+  boardPosition: number;
+  dueDate: string | null;
+  estimatePoints: number | null;
+  dependencyBlocked: boolean;
+  openBlockerCount: number;
+  openBlockedWorkCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkItemDetailDto extends WorkItemListItemDto {
+  description: string;
+  relationships: WorkItemRelationshipSummaryDto;
+  comments: CommentDto[];
+  activity: ActivityEventDto[];
+}
+
+export interface WorkspaceWorkItemListItemDto extends WorkItemListItemDto {
+  project: Pick<ProjectDto, 'id' | 'key' | 'name' | 'status'>;
+}
+
+export interface WorkItemRelationshipWorkItemDto {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  project: Pick<ProjectDto, 'id' | 'key' | 'name' | 'status'>;
+  displayKey: string;
+  title: string;
+  status: WorkItemStatus;
+  priority: WorkItemPriority;
+  assignee: MemberDto | null;
+}
+
+export interface WorkItemRelationshipItemDto {
+  id: string;
+  relationshipType: WorkItemRelationshipType;
+  direction: 'inbound' | 'outbound' | 'related';
+  workItem: WorkItemRelationshipWorkItemDto;
+  createdBy: MemberDto;
+  createdAt: string;
+}
+
+export interface WorkItemRelationshipSummaryDto {
+  blockedBy: WorkItemRelationshipItemDto[];
+  blocks: WorkItemRelationshipItemDto[];
+  related: WorkItemRelationshipItemDto[];
+  dependencyBlocked: boolean;
+  openBlockerCount: number;
+  openBlockedWorkCount: number;
+}
+
+export interface CreateWorkItemRelationshipRequest {
+  relationshipType: WorkItemRelationshipType;
+  targetWorkItemId: string;
+}
+
+export interface WorkItemRelationshipDto {
+  id: string;
+  relationshipType: WorkItemRelationshipType;
+  sourceWorkItemId: string;
+  targetWorkItemId: string;
+  sourceWorkItem: WorkItemRelationshipWorkItemDto;
+  targetWorkItem: WorkItemRelationshipWorkItemDto;
+  createdBy: MemberDto;
+  createdAt: string;
+}
+
+export interface CommentDto {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  workItemId: string;
+  author: MemberDto;
+  body: string;
+  isEdited: boolean;
+  isDeleted: boolean;
+  editedAt: string | null;
+  deletedAt: string | null;
+  deletedBy: MemberDto | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCommentRequest {
+  body: string;
+}
+
+export interface UpdateCommentRequest {
+  body: string;
+}
+
+export interface CreateWorkItemRequest {
+  title: string;
+  description?: string;
+  type: WorkItemType;
+  status?: WorkItemStatus;
+  priority: WorkItemPriority;
+  assigneeId?: string | null;
+  labelIds?: string[];
+  milestoneId?: string | null;
+  dueDate?: string | null;
+  estimatePoints?: number | null;
+}
+
+export interface UpdateWorkItemRequest {
+  title?: string;
+  description?: string;
+  type?: WorkItemType;
+  priority?: WorkItemPriority;
+  assigneeId?: string | null;
+  labelIds?: string[];
+  milestoneId?: string | null;
+  dueDate?: string | null;
+  estimatePoints?: number | null;
+}
+
+export interface TransitionWorkItemRequest {
+  status: WorkItemStatus;
+}
+
+export interface MoveWorkItemOnBoardRequest {
+  status: WorkItemStatus;
+  beforeWorkItemId?: string | null;
+  afterWorkItemId?: string | null;
+}

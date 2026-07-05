@@ -2,6 +2,18 @@ import { describe, expect, it } from 'vitest';
 
 import type { ActorContext } from '../src/domain/actor.js';
 import { canArchiveProject, canReopenTerminalWorkItem, canUpdateAssignedWorkItem } from '../src/domain/permissions.js';
+import {
+  addDays,
+  dueSoonWindowDays,
+  isActiveUnassignedWorkItemStatus,
+  isDueSoonDueDate,
+  isOpenWorkItemStatus,
+  isOverdueDueDate,
+  isStaleInProgressStatus,
+  isTerminalWorkItemStatus,
+  staleInProgressDays,
+  toDateString
+} from '../src/domain/work-risk-policy.js';
 import { canTransitionWorkItem } from '../src/domain/workflow.js';
 
 const owner: ActorContext = {
@@ -114,3 +126,38 @@ describe('permission helpers', () => {
   });
 });
 
+describe('work risk policy helpers', () => {
+  it('classifies open and terminal statuses', () => {
+    expect(isOpenWorkItemStatus('backlog')).toBe(true);
+    expect(isOpenWorkItemStatus('in_progress')).toBe(true);
+    expect(isOpenWorkItemStatus('done')).toBe(false);
+    expect(isTerminalWorkItemStatus('done')).toBe(true);
+    expect(isTerminalWorkItemStatus('canceled')).toBe(true);
+    expect(isTerminalWorkItemStatus('blocked')).toBe(false);
+  });
+
+  it('classifies active unassigned statuses', () => {
+    expect(isActiveUnassignedWorkItemStatus('ready')).toBe(true);
+    expect(isActiveUnassignedWorkItemStatus('in_progress')).toBe(true);
+    expect(isActiveUnassignedWorkItemStatus('backlog')).toBe(false);
+    expect(isActiveUnassignedWorkItemStatus('blocked')).toBe(false);
+  });
+
+  it('uses shared risk windows and UTC date helpers', () => {
+    const now = new Date('2026-07-05T16:30:00.000Z');
+    const dueSoonEnd = toDateString(addDays(now, dueSoonWindowDays));
+    const staleCutoff = addDays(now, -staleInProgressDays);
+
+    expect(toDateString(now)).toBe('2026-07-05');
+    expect(dueSoonEnd).toBe('2026-07-12');
+    expect(isOverdueDueDate('2026-07-04', '2026-07-05')).toBe(true);
+    expect(isDueSoonDueDate('2026-07-12', '2026-07-05', dueSoonEnd)).toBe(true);
+    expect(isDueSoonDueDate('2026-07-13', '2026-07-05', dueSoonEnd)).toBe(false);
+    expect(isStaleInProgressStatus('in_progress', new Date('2026-06-27T00:00:00.000Z'), staleCutoff)).toBe(
+      true
+    );
+    expect(isStaleInProgressStatus('blocked', new Date('2026-06-27T00:00:00.000Z'), staleCutoff)).toBe(
+      false
+    );
+  });
+});

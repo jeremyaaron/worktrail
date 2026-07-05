@@ -6,14 +6,18 @@ import type {
 } from '@worktrail/contracts';
 
 import type { ActorContext } from '../domain/actor.js';
+import {
+  addDays,
+  dueSoonWindowDays,
+  staleInProgressDays,
+  toDateString
+} from '../domain/work-risk-policy.js';
 import { NotFoundError } from '../errors/app-error.js';
 import type { Repositories } from '../repositories/index.js';
 import { toMemberDto } from './dto.js';
 import { WorkItemService } from './work-item-service.js';
 
 const dashboardLimit = 8;
-const dueSoonWindowDays = 7;
-const staleAssignedDays = 7;
 const activeWorkflowStatuses = new Set(['in_progress', 'blocked']);
 
 export interface MyWorkServiceContext {
@@ -177,7 +181,7 @@ export class MyWorkService {
       return false;
     }
 
-    return new Date(item.updatedAt).getTime() < addDays(this.clock(), -staleAssignedDays).getTime();
+    return new Date(item.updatedAt).getTime() < addDays(this.clock(), -staleInProgressDays).getTime();
   }
 }
 
@@ -192,14 +196,4 @@ function compareByDueDateThenUpdated(
   }
 
   return right.updatedAt.localeCompare(left.updatedAt);
-}
-
-function addDays(date: Date, days: number): Date {
-  const nextDate = new Date(date.getTime());
-  nextDate.setUTCDate(nextDate.getUTCDate() + days);
-  return nextDate;
-}
-
-function toDateString(date: Date): string {
-  return date.toISOString().slice(0, 10);
 }
