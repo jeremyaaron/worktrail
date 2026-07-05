@@ -4,6 +4,8 @@ import type {
   MoveWorkItemOnBoardRequest,
   TransitionWorkItemRequest,
   UpdateWorkItemRequest,
+  WorkItemCsvImportPreviewDto,
+  WorkItemCsvImportPreviewRequest,
   WorkspaceWorkItemListItemDto,
   WorkItemDetailDto,
   WorkItemListItemDto,
@@ -19,6 +21,7 @@ import {
   type WorkItemListFilters,
   WorkItemService
 } from '../services/work-item-service.js';
+import { WorkItemCsvImportService } from '../services/work-item-csv-import-service.js';
 import { parseWithSchema } from '../validation/parse.js';
 import { parseWorkItemQuery } from '../validation/work-item-query.js';
 
@@ -46,6 +49,10 @@ const createWorkItemSchema = z.object({
   dueDate: nullableDateSchema.optional(),
   estimatePoints: nullableEstimateSchema.optional()
 }) satisfies z.ZodType<CreateWorkItemRequest>;
+
+const csvImportPreviewSchema = z.object({
+  csv: z.string()
+}) satisfies z.ZodType<WorkItemCsvImportPreviewRequest>;
 
 const updateWorkItemSchema = z
   .object({
@@ -167,6 +174,25 @@ export function createWorkItemHandler(input: {
     return {
       status: 201,
       body: await service.createWorkItem(projectId, body)
+    };
+  };
+}
+
+export function previewWorkItemCsvImportHandler(input: {
+  repositories: Repositories;
+  db?: WorktrailDb;
+}): EndpointHandler<WorkItemCsvImportPreviewDto> {
+  return async (request) => {
+    const { projectId } = parseWithSchema(projectIdParamSchema, request.params);
+    const body = parseWithSchema(csvImportPreviewSchema, request.body);
+    const service = new WorkItemCsvImportService({
+      actor: request.actor,
+      repositories: input.repositories,
+      db: input.db
+    });
+    return {
+      status: 200,
+      body: await service.preview(projectId, body.csv)
     };
   };
 }

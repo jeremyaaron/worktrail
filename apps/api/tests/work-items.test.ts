@@ -388,6 +388,162 @@ describe('work item API', () => {
       });
   });
 
+  it('previews work item CSV imports without creating work items', async () => {
+    const fixture = await createFixture('owner');
+    const milestone = await createMilestone(fixture);
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/imports/preview`)
+      .set(fixture.headers)
+      .send({
+        csv: [
+          'title,type,status,priority,assignee_email,reporter_email,label_names,milestone_name,due_date,estimate_points',
+          `"Imported API row",task,ready,high,${fixture.contributorId}@example.com,,backend,${milestone.name},2026-07-12,5`
+        ].join('\n')
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          totalRows: 1,
+          validRows: 1,
+          invalidRows: 0,
+          errors: [],
+          warnings: [],
+          rows: [
+            {
+              rowNumber: 2,
+              title: 'Imported API row',
+              type: 'task',
+              status: 'ready',
+              priority: 'high',
+              assigneeEmail: `${fixture.contributorId}@example.com`,
+              reporterEmail: `${fixture.actorId}@example.com`,
+              labelNames: ['backend'],
+              milestoneName: milestone.name,
+              dueDate: '2026-07-12',
+              estimatePoints: 5
+            }
+          ]
+        });
+      });
+
+    const workItems = await repositories.workItems.listByProject(fixture.projectId);
+    expect(workItems).toHaveLength(0);
+  });
+
+  it('returns validation previews for invalid work item CSV import rows', async () => {
+    const fixture = await createFixture('owner');
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/imports/preview`)
+      .set(fixture.headers)
+      .send({
+        csv: [
+          'title,type,status,priority,assignee_email,label_names,due_date,estimate_points',
+          ',feature,unknown,extreme,inactive@example.com,missing,2026-02-31,-1'
+        ].join('\n')
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.totalRows).toBe(1);
+        expect(body.validRows).toBe(0);
+        expect(body.invalidRows).toBe(1);
+        expect(body.rows).toEqual([]);
+        expect(body.errors).toEqual([
+          {
+            rowNumber: 2,
+            field: 'title',
+            message: 'CSV field "title" is required.'
+          },
+          {
+            rowNumber: 2,
+            field: 'type',
+            message: 'CSV field "type" must be one of task, bug, story, chore.'
+          },
+          {
+            rowNumber: 2,
+            field: 'status',
+            message: 'CSV field "status" must be one of backlog, ready, in_progress, blocked, done, canceled.'
+          },
+          {
+            rowNumber: 2,
+            field: 'priority',
+            message: 'CSV field "priority" must be one of low, medium, high, urgent.'
+          },
+          {
+            rowNumber: 2,
+            field: 'assignee_email',
+            message: 'Member "inactive@example.com" was not found.'
+          },
+          {
+            rowNumber: 2,
+            field: 'label_names',
+            message: 'Label "missing" was not found.'
+          },
+          {
+            rowNumber: 2,
+            field: 'due_date',
+            message: 'CSV field "due_date" must be a valid YYYY-MM-DD date.'
+          },
+          {
+            rowNumber: 2,
+            field: 'estimate_points',
+            message: 'CSV field "estimate_points" must be a non-negative integer.'
+          }
+        ]);
+      });
+
+    const workItems = await repositories.workItems.listByProject(fixture.projectId);
+    expect(workItems).toHaveLength(0);
+  });
+
+  it('rejects malformed work item CSV import preview requests', async () => {
+    const fixture = await createFixture('owner');
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/imports/preview`)
+      .set(fixture.headers)
+      .send({ csv: 42 })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('VALIDATION_ERROR');
+        expect(body.error.message).toBe('Request validation failed.');
+      });
+  });
+
+  it('rejects work item CSV import previews for missing and archived projects', async () => {
+    const fixture = await createFixture('owner');
+
+    await request(app)
+      .post(`/api/projects/${randomUUID()}/work-items/imports/preview`)
+      .set(fixture.headers)
+      .send({ csv: 'title,type,priority\nMissing project import,task,medium\n' })
+      .expect(404)
+      .expect(({ body }) => {
+        expect(body.error).toEqual({
+          code: 'NOT_FOUND',
+          message: 'Project not found.'
+        });
+      });
+
+    await repositories.projects.update(fixture.projectId, {
+      status: 'archived',
+      updatedAt: now()
+    });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/imports/preview`)
+      .set(fixture.headers)
+      .send({ csv: 'title,type,priority\nArchived import,task,medium\n' })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error).toEqual({
+          code: 'CONFLICT',
+          message: 'Archived projects are read-only.'
+        });
+      });
+  });
+
   it('lists workspace work items across active projects by default', async () => {
     const fixture = await createFixture('owner');
     const otherProject = await createProject(fixture);

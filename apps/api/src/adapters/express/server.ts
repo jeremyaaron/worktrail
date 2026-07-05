@@ -59,6 +59,7 @@ import {
   listWorkspaceWorkItemsHandler,
   listWorkItemsHandler,
   moveWorkItemOnBoardHandler,
+  previewWorkItemCsvImportHandler,
   transitionWorkItemHandler,
   updateWorkItemHandler
 } from '../../endpoints/work-items.js';
@@ -195,6 +196,13 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
       '/api/projects/:projectId/work-items',
       adaptEndpoint(
         listWorkItemsHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
+    );
+    app.post(
+      '/api/projects/:projectId/work-items/imports/preview',
+      adaptEndpoint(
+        previewWorkItemCsvImportHandler({ repositories: options.repositories, db: options.db }),
         adapterOptions
       )
     );

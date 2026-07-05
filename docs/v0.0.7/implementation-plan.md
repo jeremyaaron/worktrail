@@ -328,7 +328,31 @@ npm run typecheck --workspace @worktrail/api
 git diff --check
 ```
 
-Status: Not started.
+Status:
+
+- Completed on 2026-07-05.
+- Added `WorkItemCsvImportPreviewRequest` request schema validation in `apps/api/src/endpoints/work-items.ts`.
+- Added `previewWorkItemCsvImportHandler`.
+- Registered `POST /api/projects/:projectId/work-items/imports/preview` in the Express adapter.
+- Preserved transport-neutral endpoint behavior by delegating CSV parsing and validation to `WorkItemCsvImportService`.
+- Preserved preview semantics:
+  - valid preview requests return `200`;
+  - parseable CSV with row validation errors returns `200` with structured row errors;
+  - malformed request bodies return `400`;
+  - missing projects return `404`;
+  - archived projects return `409`;
+  - preview does not create work items.
+- Added HTTP-level tests in `apps/api/tests/work-items.test.ts` for:
+  - valid preview response;
+  - validation-error preview response;
+  - malformed request body;
+  - missing project;
+  - archived project conflict;
+  - no writes during preview.
+- Verified `npm test --workspace @worktrail/api -- work-items`.
+- Verified `npm test --workspace @worktrail/api -- work-item-csv-import`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm test --workspace @worktrail/api`.
 
 ## Phase 4: Transactional Import Apply
 
