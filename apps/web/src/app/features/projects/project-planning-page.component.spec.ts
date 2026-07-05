@@ -11,6 +11,7 @@ import type {
   ProjectDeliveryHealthDto,
   ProjectPlanningSummaryDto
 } from '@worktrail/contracts';
+import { BehaviorSubject } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { ProjectPlanningPageComponent } from './project-planning-page.component';
@@ -303,7 +304,11 @@ function setupPlanningPage(
 }
 
 describe('ProjectPlanningPageComponent', () => {
+  let queryParamMapSubject: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
+
   beforeEach(async () => {
+    queryParamMapSubject = new BehaviorSubject(convertToParamMap({}));
+
     await TestBed.configureTestingModule({
       imports: [ProjectPlanningPageComponent],
       providers: [
@@ -314,8 +319,10 @@ describe('ProjectPlanningPageComponent', () => {
           provide: ActivatedRoute,
           useValue: {
             snapshot: {
-              paramMap: convertToParamMap({ projectId })
-            }
+              paramMap: convertToParamMap({ projectId }),
+              queryParamMap: convertToParamMap({})
+            },
+            queryParamMap: queryParamMapSubject.asObservable()
           }
         }
       ]
@@ -326,7 +333,7 @@ describe('ProjectPlanningPageComponent', () => {
     TestBed.inject(HttpTestingController).verify();
   });
 
-  it('renders milestone management with project navigation links', () => {
+  it('opens planning review with project navigation links', () => {
     const { fixture } = setupPlanningPage();
 
     const compiled = fixture.nativeElement as HTMLElement;
@@ -337,19 +344,36 @@ describe('ProjectPlanningPageComponent', () => {
 
     expect(compiled.textContent).toContain('Worktrail App');
     expect(compiled.textContent).toContain('v0.0.3');
-    expect(compiled.textContent).toContain('legacy target');
-    expect(compiled.textContent).toContain('archived');
-    expect(compiled.textContent).toContain('2 total');
     expect(compiled.textContent).toContain('Planning dashboard');
     expect(compiled.textContent).toContain('6 risks');
     expect(compiled.textContent).toContain('Delivery health');
     expect(compiled.textContent).toContain('Blocked');
+    expect(compiled.querySelector('button[aria-pressed="true"]')?.textContent?.trim()).toBe('Review');
+    expect(compiled.querySelector('button[type="submit"]')).toBeNull();
     expect(links).toEqual([
       { text: 'Overview', href: `/projects/${projectId}` },
       { text: 'Work items', href: `/projects/${projectId}/work-items` },
       { text: 'Board', href: `/projects/${projectId}/board` },
       { text: 'Settings', href: `/projects/${projectId}/settings` }
     ]);
+  });
+
+  it('switches milestone management into a URL-backed planning view', () => {
+    const { fixture } = setupPlanningPage();
+
+    fixture.componentInstance.setPlanningView('milestones');
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('button[aria-pressed="true"]')?.textContent?.trim()).toBe(
+      'Milestones'
+    );
+    expect(compiled.textContent).toContain('Plan named delivery targets for this project.');
+    expect(compiled.textContent).toContain('legacy target');
+    expect(compiled.textContent).toContain('2 total');
+    expect(compiled.querySelector('button[type="submit"]')?.textContent).toContain(
+      'Create milestone'
+    );
   });
 
   it('renders planning progress and risk links from the summary', () => {
@@ -469,6 +493,8 @@ describe('ProjectPlanningPageComponent', () => {
       targetDate: '2026-08-01'
     };
 
+    fixture.componentInstance.setPlanningView('milestones');
+    fixture.detectChanges();
     fixture.componentInstance.milestoneForm.setValue({
       name: 'v0.0.4',
       description: 'Next sprint.',
@@ -544,6 +570,8 @@ describe('ProjectPlanningPageComponent', () => {
   it('shows validation and duplicate-name API errors inline', () => {
     const { fixture, http } = setupPlanningPage(activeProject, []);
 
+    fixture.componentInstance.setPlanningView('milestones');
+    fixture.detectChanges();
     fixture.componentInstance.createMilestone();
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Milestone name is required.');
@@ -577,6 +605,8 @@ describe('ProjectPlanningPageComponent', () => {
   it('renders archived projects read-only', () => {
     const { fixture, http } = setupPlanningPage(archivedProject);
 
+    fixture.componentInstance.setPlanningView('milestones');
+    fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Archived project');
     expect(compiled.querySelector('button[type="submit"]')).toBeNull();
@@ -586,8 +616,9 @@ describe('ProjectPlanningPageComponent', () => {
         '.milestone-row input, .milestone-row select, .milestone-row textarea'
       )
     );
-    expect(editableFields.length).toBeGreaterThan(0);
-    expect(editableFields.every((field) => field.disabled)).toBeTrue();
+    expect(editableFields.length).toBe(0);
+    expect(compiled.textContent).toContain('v0.0.3');
+    expect(compiled.textContent).toContain('legacy target');
 
     fixture.componentInstance.createMilestone();
     fixture.detectChanges();
@@ -601,10 +632,16 @@ describe('ProjectPlanningPageComponent', () => {
   it('renders contributor access read-only', () => {
     const { fixture } = setupPlanningPage(activeProject, [activeMilestone], contributor);
 
+    fixture.componentInstance.setPlanningView('milestones');
+    fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Read-only planning');
     expect(compiled.querySelector('button[type="submit"]')).toBeNull();
     expect(compiled.textContent).toContain('v0.0.3');
+    expect(
+      compiled.querySelectorAll('.milestone-row input, .milestone-row select, .milestone-row textarea')
+        .length
+    ).toBe(0);
 
     fixture.componentInstance.createMilestone();
     fixture.detectChanges();

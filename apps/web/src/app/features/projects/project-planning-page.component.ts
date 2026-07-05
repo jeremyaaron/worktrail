@@ -1,7 +1,8 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Subscription } from 'rxjs';
 import type {
   DeliveryHealthReasonDto,
   DeliveryHealthState,
@@ -28,6 +29,8 @@ import {
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
+import { MilestoneManagerComponent } from './planning/milestone-manager.component';
+import { PlanningReviewComponent } from './planning/planning-review.component';
 
 const milestoneStatuses: MilestoneStatus[] = ['planned', 'active', 'completed', 'canceled'];
 const statusOrder = new Map<MilestoneStatus, number>(
@@ -41,6 +44,12 @@ const workItemStatusLabels: Record<WorkItemStatus, string> = {
   done: 'Done',
   canceled: 'Canceled'
 };
+type PlanningView = 'review' | 'milestones';
+const planningViews: { value: PlanningView; label: string }[] = [
+  { value: 'review', label: 'Review' },
+  { value: 'milestones', label: 'Milestones' }
+];
+const visibleRiskItemLimit = 4;
 
 interface PlanningRiskSection {
   title: string;
@@ -65,6 +74,8 @@ interface PlanningReviewSection {
     EmptyStateComponent,
     ErrorPanelComponent,
     LoadingIndicatorComponent,
+    MilestoneManagerComponent,
+    PlanningReviewComponent,
     ReactiveFormsModule,
     RouterLink
   ],
@@ -108,7 +119,21 @@ interface PlanningReviewSection {
         </section>
       }
 
+      <div class="planning-view-control" aria-label="Planning view">
+        @for (view of planningViews; track view.value) {
+          <button
+            type="button"
+            [attr.aria-pressed]="selectedPlanningView() === view.value"
+            (click)="setPlanningView(view.value)"
+          >
+            {{ view.label }}
+          </button>
+        }
+      </div>
+
       <section class="planning-grid" aria-label="Planning sections">
+        @if (selectedPlanningView() === 'milestones') {
+          <app-milestone-manager>
         <section class="panel milestone-panel" aria-labelledby="milestones-heading">
           <div class="panel-heading">
             <div>
@@ -195,50 +220,6 @@ interface PlanningReviewSection {
                     <p>{{ milestone.description || 'No description provided.' }}</p>
                   </div>
 
-                  <div class="milestone-row__fields">
-                    <label>
-                      <span>Name</span>
-                      <input
-                        #milestoneName
-                        type="text"
-                        [value]="milestone.name"
-                        [disabled]="!canManageMilestones() || isMutating(milestone)"
-                      />
-                    </label>
-
-                    <label>
-                      <span>Description</span>
-                      <textarea
-                        #milestoneDescription
-                        rows="2"
-                        [disabled]="!canManageMilestones() || isMutating(milestone)"
-                      >{{ milestone.description }}</textarea>
-                    </label>
-
-                    <label>
-                      <span>Status</span>
-                      <select
-                        #milestoneStatus
-                        [value]="milestone.status"
-                        [disabled]="!canManageMilestones() || isMutating(milestone)"
-                      >
-                        @for (status of milestoneStatuses; track status) {
-                          <option [value]="status">{{ formatToken(status) }}</option>
-                        }
-                      </select>
-                    </label>
-
-                    <label>
-                      <span>Target date</span>
-                      <input
-                        #milestoneTargetDate
-                        type="date"
-                        [value]="milestone.targetDate ?? ''"
-                        [disabled]="!canManageMilestones() || isMutating(milestone)"
-                      />
-                    </label>
-                  </div>
-
                   <div class="milestone-row__meta">
                     <span class="status-pill" [class.status-pill--archived]="milestone.isArchived">
                       {{ milestone.isArchived ? 'archived' : formatToken(milestone.status) }}
@@ -247,45 +228,94 @@ interface PlanningReviewSection {
                     <span>Updated {{ formatDateTime(milestone.updatedAt) }}</span>
                   </div>
 
-                  <div class="milestone-actions">
-                    <button
-                      type="button"
-                      [disabled]="!canManageMilestones() || isMutating(milestone)"
-                      (click)="updateMilestone(
-                        milestone,
-                        milestoneName.value,
-                        milestoneDescription.value,
-                        milestoneStatus.value,
-                        milestoneTargetDate.value
-                      )"
-                    >
-                      {{ isMutating(milestone) ? 'Saving...' : 'Save' }}
-                    </button>
+                  @if (canManageMilestones()) {
+                    <div class="milestone-row__fields">
+                      <label>
+                        <span>Name</span>
+                        <input
+                          #milestoneName
+                          type="text"
+                          [value]="milestone.name"
+                          [disabled]="isMutating(milestone)"
+                        />
+                      </label>
 
-                    @if (milestone.isArchived) {
+                      <label>
+                        <span>Description</span>
+                        <textarea
+                          #milestoneDescription
+                          rows="2"
+                          [disabled]="isMutating(milestone)"
+                        >{{ milestone.description }}</textarea>
+                      </label>
+
+                      <label>
+                        <span>Status</span>
+                        <select
+                          #milestoneStatus
+                          [value]="milestone.status"
+                          [disabled]="isMutating(milestone)"
+                        >
+                          @for (status of milestoneStatuses; track status) {
+                            <option [value]="status">{{ formatToken(status) }}</option>
+                          }
+                        </select>
+                      </label>
+
+                      <label>
+                        <span>Target date</span>
+                        <input
+                          #milestoneTargetDate
+                          type="date"
+                          [value]="milestone.targetDate ?? ''"
+                          [disabled]="isMutating(milestone)"
+                        />
+                      </label>
+                    </div>
+
+                    <div class="milestone-actions">
                       <button
                         type="button"
-                        [disabled]="!canManageMilestones() || isMutating(milestone)"
-                        (click)="reactivateMilestone(milestone)"
+                        [disabled]="isMutating(milestone)"
+                        (click)="updateMilestone(
+                          milestone,
+                          milestoneName.value,
+                          milestoneDescription.value,
+                          milestoneStatus.value,
+                          milestoneTargetDate.value
+                        )"
                       >
-                        Reactivate
+                        {{ isMutating(milestone) ? 'Saving...' : 'Save' }}
                       </button>
-                    } @else {
-                      <button
-                        type="button"
-                        class="danger-button"
-                        [disabled]="!canManageMilestones() || isMutating(milestone)"
-                        (click)="archiveMilestone(milestone)"
-                      >
-                        Archive
-                      </button>
-                    }
-                  </div>
+
+                      @if (milestone.isArchived) {
+                        <button
+                          type="button"
+                          [disabled]="isMutating(milestone)"
+                          (click)="reactivateMilestone(milestone)"
+                        >
+                          Reactivate
+                        </button>
+                      } @else {
+                        <button
+                          type="button"
+                          class="danger-button"
+                          [disabled]="isMutating(milestone)"
+                          (click)="archiveMilestone(milestone)"
+                        >
+                          Archive
+                        </button>
+                      }
+                    </div>
+                  }
                 </article>
               }
             </div>
           }
         </section>
+          </app-milestone-manager>
+        } @else {
+          <app-planning-review>
 
         <section class="panel summary-panel" aria-labelledby="planning-summary-heading">
           <div class="panel-heading">
@@ -557,7 +587,7 @@ interface PlanningReviewSection {
                     </div>
                   } @else {
                     <div class="risk-list">
-                      @for (item of section.items; track item.id) {
+                      @for (item of visibleRiskItems(section); track item.id) {
                         <a class="risk-row" [routerLink]="['/work-items', item.id]">
                           <span class="risk-row__title">
                             <strong>{{ item.displayKey }} · {{ item.title }}</strong>
@@ -578,6 +608,19 @@ interface PlanningReviewSection {
                           </span>
                         </a>
                       }
+                      @if (hiddenRiskItemCount(section) > 0) {
+                        @if (section.queryParams) {
+                          <a
+                            class="risk-more"
+                            [routerLink]="['/projects', projectId(), 'work-items']"
+                            [queryParams]="section.queryParams"
+                          >
+                            View {{ hiddenRiskItemCount(section) }} more
+                          </a>
+                        } @else {
+                          <span class="risk-more">{{ hiddenRiskItemCount(section) }} more hidden</span>
+                        }
+                      }
                     </div>
                   }
                 </section>
@@ -585,6 +628,8 @@ interface PlanningReviewSection {
             </div>
           }
         </section>
+          </app-planning-review>
+        }
       </section>
     }
   `,
@@ -697,6 +742,19 @@ interface PlanningReviewSection {
       font-size: 0.875rem;
     }
 
+    .planning-view-control {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .planning-view-control button[aria-pressed='true'] {
+      border-color: #1d4ed8;
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+
     .key-pill,
     .status-pill {
       display: inline-flex;
@@ -723,10 +781,7 @@ interface PlanningReviewSection {
     }
 
     .planning-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
-      gap: 16px;
-      align-items: start;
+      display: block;
     }
 
     .panel {
@@ -1056,6 +1111,7 @@ interface PlanningReviewSection {
     .reason-chip:hover,
     .review-row:hover,
     .risk-row:hover,
+    .risk-more:hover,
     .section-heading a:hover {
       background: #f8fafc;
     }
@@ -1113,6 +1169,19 @@ interface PlanningReviewSection {
       grid-template-columns: minmax(0, 1fr) auto;
       gap: 12px;
       align-items: center;
+    }
+
+    .risk-more {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 36px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      color: #1d4ed8;
+      font-size: 0.8125rem;
+      font-weight: 800;
+      text-decoration: none;
     }
 
     .risk-row__title,
@@ -1209,12 +1278,16 @@ interface PlanningReviewSection {
     }
   `
 })
-export class ProjectPlanningPageComponent implements OnInit {
+export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
   private readonly api = inject(WorktrailApiService);
   private readonly currentUser = inject(CurrentUserService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly subscriptions = new Subscription();
 
+  readonly planningViews = planningViews;
+  readonly selectedPlanningView = signal<PlanningView>('review');
   readonly milestoneStatuses = milestoneStatuses;
   readonly project = signal<ProjectDto | null>(null);
   readonly milestones = signal<MilestoneDto[]>([]);
@@ -1347,7 +1420,36 @@ export class ProjectPlanningPageComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    this.subscriptions.add(
+      this.route.queryParamMap.subscribe((params) => {
+        const requestedView = params.get('view');
+        const nextView = this.toPlanningView(requestedView);
+        this.selectedPlanningView.set(nextView);
+
+        if (requestedView !== nextView) {
+          this.persistPlanningView(nextView, true);
+        }
+      })
+    );
     this.loadProject();
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
+  }
+
+  setPlanningView(view: PlanningView): void {
+    this.selectedPlanningView.set(view);
+    this.persistPlanningView(view);
+  }
+
+  private persistPlanningView(view: PlanningView, replaceUrl = false): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { view },
+      queryParamsHandling: 'merge',
+      replaceUrl
+    });
   }
 
   loadProject(): void {
@@ -1564,6 +1666,14 @@ export class ProjectPlanningPageComponent implements OnInit {
     return reasons.slice(0, 3);
   }
 
+  visibleRiskItems(section: PlanningRiskSection): PlanningRiskItemDto[] {
+    return section.items.slice(0, visibleRiskItemLimit);
+  }
+
+  hiddenRiskItemCount(section: PlanningRiskSection): number {
+    return Math.max(section.items.length - visibleRiskItemLimit, 0);
+  }
+
   reasonLabel(reason: DeliveryHealthReasonDto): string {
     return deliveryHealthReasonLabel(reason);
   }
@@ -1682,5 +1792,9 @@ export class ProjectPlanningPageComponent implements OnInit {
     return this.isArchivedProject()
       ? 'Archived projects are read-only.'
       : 'Only owners and maintainers can manage milestones.';
+  }
+
+  private toPlanningView(value: string | null): PlanningView {
+    return value === 'milestones' ? 'milestones' : 'review';
   }
 }

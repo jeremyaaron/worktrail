@@ -615,6 +615,20 @@ npm test --workspace @worktrail/web -- --watch=false
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-05.
+- Added `Review` and `Milestones` planning views with `Review` as the default and selected view persisted through `?view=review` or `?view=milestones`.
+- Split the planning surface into focused `PlanningReviewComponent` and `MilestoneManagerComponent` wrappers while preserving the existing route-owned data loading and mutation behavior.
+- Moved milestone create/edit/archive/reactivate controls behind the Milestones view so Planning opens as a review-first dashboard.
+- Rendered read-only milestone summaries for contributors and archived projects without presenting disabled edit forms as the primary state.
+- Collapsed long planning risk lists to the first four items with a compact overflow affordance to the filtered work item list when available.
+- Updated planning page tests for default Review behavior, Milestones view switching, milestone mutation flows, and read-only milestone states.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/web`
+  - `npm test --workspace @worktrail/web -- --watch=false`
+  - `git diff --check`
+
 ## Phase 8: My Work Daily Queue
 
 Goal: make My Work a prioritized daily action queue with less duplication.
