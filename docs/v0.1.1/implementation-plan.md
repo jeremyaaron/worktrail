@@ -551,6 +551,32 @@ npm run typecheck --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-05.
+- Updated deterministic seed data with:
+  - active watcher rows for multiple seeded work items;
+  - three active watchers on `WT-3`;
+  - comment mention metadata on the seeded `WT-3` comment;
+  - unread notifications for Avery Owner and Casey Contributor;
+  - one read assignment notification for Morgan Maintainer.
+- Updated README seeded-data and capability notes to include in-app notifications, watchers, and mentions.
+- Verified fresh database prep:
+  - `npm run db:reset`
+  - `npm run db:migrate`
+  - `npm run db:seed`
+- Verified seeded collaboration counts:
+  - `WT-3` active watchers: `3`;
+  - seeded comment mentions: `2`;
+  - unread notifications: `3`;
+  - unread notification recipients: `2`;
+  - read notifications: `1`.
+- Verified seed idempotency by rerunning `npm run db:seed` and confirming the same counts.
+- Verified:
+  - `npm test --workspace @worktrail/api`
+  - `npm run typecheck --workspace @worktrail/api`
+  - `git diff --check`
+
 ## Phase 7: Frontend API Clients And Inbox State
 
 Goal: add frontend API access and app-shell unread count state before rendering the inbox page.

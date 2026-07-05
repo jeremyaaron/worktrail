@@ -212,6 +212,7 @@ Seeded data includes:
 - work items across every status with persisted board positions;
 - same-project, cross-project, and related-work relationships;
 - dependency-blocked examples where open blockers count and terminal blockers do not;
+- active work item watchers, comment mention metadata, unread notifications, and one read notification;
 - personal saved work views for each active seeded member;
 - project labels, comments, deleted-comment tombstones, project activity, and workspace activity events.
 
@@ -300,6 +301,7 @@ Suggested delivery-health checks:
 - Delivery-health reason links into filtered project work item lists where the reason can be represented by current query parameters.
 - Deterministic seed data for healthy, at-risk, blocked, complete, inactive, and unmilestoned delivery-health examples.
 - Relationship activity events for add/remove commands.
+- In-app notification persistence, unread/read state, work item watchers, and comment mention metadata.
 - Persisted board ordering for same-status reorder and cross-status movement.
 - Angular CDK drag/drop board interaction backed by server-side workflow validation.
 - Comment add/edit/delete with role-aware UI affordances and deleted-comment tombstones.
@@ -319,15 +321,15 @@ Suggested delivery-health checks:
 - Authentication is represented by local request headers and the top-bar actor selector.
 - Permissions are enforced against local member records and are useful for exercising policy paths, but they are not production authentication.
 - Production preview is not a secure public deployment and should not be exposed as an authenticated product.
-- Delivery health is deterministic and rule-based; custom health formulas, forecasting, critical path analysis, charts, notifications, and saved review snapshots are deferred.
+- Delivery health is deterministic and rule-based; custom health formulas, forecasting, critical path analysis, charts, delivery-health notifications, and saved review snapshots are deferred.
 - Saved views are personal only in v0.1.0; workspace-visible shared saved views are deferred.
 - CSV import is project-scoped and limited to 1 MiB and 250 data rows per file.
 - CSV import supports Worktrail's current columns only; third-party tracker migration mappings are deferred.
 - CSV export is a direct file download; export history, scheduled exports, and alternate formats are deferred.
 - Relationships support only `blocks` and `relates_to`; custom relationship types, hierarchy, and graph visualization are deferred.
-- Dependency-blocked state is derived from current open blockers; critical path analysis, dependency alerts, automation rules, and notifications are deferred.
+- Dependency-blocked state is derived from current open blockers; critical path analysis, external dependency alerts, and automation rules are deferred.
 - Relationship activity is recorded on the command context item only to avoid noisy cross-project activity.
-- Custom workflows, file attachments, notifications, and production auth are intentionally out of scope.
+- Custom workflows, file attachments, email/push notifications, and production auth are intentionally out of scope.
 - Invitations, multi-workspace switching, custom roles, project-specific membership, pinned projects, recent projects, and audit export are intentionally out of scope.
 - The local Express adapter is the only runtime adapter in v0.1.0, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
 - AWS deployment assets are not included yet; the Angular static build and transport-neutral handlers preserve that path.

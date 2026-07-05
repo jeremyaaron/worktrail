@@ -5,14 +5,17 @@ import { sql } from 'drizzle-orm';
 import { createDb, createPool } from './client.js';
 import {
   activityEvents,
+  commentMentions,
   comments,
   labels,
   members,
   milestones,
+  notifications,
   projects,
   savedWorkViews,
   workItemLabels,
   workItemRelationships,
+  workItemWatchers,
   workItems,
   workspaces,
   workspaceActivityEvents
@@ -71,6 +74,14 @@ const ids = {
     first: '10000000-0000-4000-8000-000000000501',
     second: '10000000-0000-4000-8000-000000000502'
   },
+  workItemWatchers: {
+    inProgressOwner: '10000000-0000-4000-8000-000000000551',
+    inProgressMaintainer: '10000000-0000-4000-8000-000000000552',
+    inProgressContributor: '10000000-0000-4000-8000-000000000553',
+    readyOwner: '10000000-0000-4000-8000-000000000554',
+    platformBlockedOwner: '10000000-0000-4000-8000-000000000555',
+    platformBlockedContributor: '10000000-0000-4000-8000-000000000556'
+  },
   activity: {
     created: '10000000-0000-4000-8000-000000000601',
     status: '10000000-0000-4000-8000-000000000602',
@@ -100,6 +111,12 @@ const ids = {
     contributorBlocked: '10000000-0000-4000-8000-000000000810',
     contributorDueSoon: '10000000-0000-4000-8000-000000000811',
     contributorUnassigned: '10000000-0000-4000-8000-000000000812'
+  },
+  notifications: {
+    ownerWatchedStatus: '10000000-0000-4000-8000-000000000901',
+    ownerDependency: '10000000-0000-4000-8000-000000000902',
+    contributorMention: '10000000-0000-4000-8000-000000000903',
+    maintainerReadAssignment: '10000000-0000-4000-8000-000000000904'
   }
 } as const;
 
@@ -737,6 +754,79 @@ try {
       .onConflictDoNothing();
 
     await tx
+      .insert(workItemWatchers)
+      .values([
+        {
+          id: ids.workItemWatchers.inProgressOwner,
+          workspaceId: ids.workspace,
+          workItemId: ids.workItems.inProgress,
+          memberId: ids.members.owner,
+          watchedAt: earlier,
+          unwatchedAt: null,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.workItemWatchers.inProgressMaintainer,
+          workspaceId: ids.workspace,
+          workItemId: ids.workItems.inProgress,
+          memberId: ids.members.maintainer,
+          watchedAt: earlier,
+          unwatchedAt: null,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.workItemWatchers.inProgressContributor,
+          workspaceId: ids.workspace,
+          workItemId: ids.workItems.inProgress,
+          memberId: ids.members.contributor,
+          watchedAt: now,
+          unwatchedAt: null,
+          createdAt: now,
+          updatedAt: now
+        },
+        {
+          id: ids.workItemWatchers.readyOwner,
+          workspaceId: ids.workspace,
+          workItemId: ids.workItems.ready,
+          memberId: ids.members.owner,
+          watchedAt: now,
+          unwatchedAt: null,
+          createdAt: now,
+          updatedAt: now
+        },
+        {
+          id: ids.workItemWatchers.platformBlockedOwner,
+          workspaceId: ids.workspace,
+          workItemId: ids.workItems.platformBlocked,
+          memberId: ids.members.owner,
+          watchedAt: now,
+          unwatchedAt: null,
+          createdAt: now,
+          updatedAt: now
+        },
+        {
+          id: ids.workItemWatchers.platformBlockedContributor,
+          workspaceId: ids.workspace,
+          workItemId: ids.workItems.platformBlocked,
+          memberId: ids.members.contributor,
+          watchedAt: now,
+          unwatchedAt: null,
+          createdAt: now,
+          updatedAt: now
+        }
+      ])
+      .onConflictDoUpdate({
+        target: workItemWatchers.id,
+        set: {
+          watchedAt: sql`excluded.watched_at`,
+          unwatchedAt: sql`excluded.unwatched_at`,
+          updatedAt: now
+        }
+      });
+
+    await tx
       .insert(comments)
       .values([
         {
@@ -769,12 +859,33 @@ try {
       .onConflictDoUpdate({
         target: comments.id,
         set: {
+          body: sql`excluded.body`,
           editedAt: sql`excluded.edited_at`,
           deletedAt: sql`excluded.deleted_at`,
           deletedById: sql`excluded.deleted_by_id`,
           updatedAt: now
         }
       });
+
+    await tx
+      .insert(commentMentions)
+      .values([
+        {
+          commentId: ids.comments.second,
+          memberId: ids.members.owner,
+          workspaceId: ids.workspace,
+          workItemId: ids.workItems.inProgress,
+          createdAt: now
+        },
+        {
+          commentId: ids.comments.second,
+          memberId: ids.members.contributor,
+          workspaceId: ids.workspace,
+          workItemId: ids.workItems.inProgress,
+          createdAt: now
+        }
+      ])
+      .onConflictDoNothing();
 
     await tx
       .insert(activityEvents)
@@ -872,6 +983,92 @@ try {
         }
       ])
       .onConflictDoNothing();
+
+    await tx
+      .insert(notifications)
+      .values([
+        {
+          id: ids.notifications.ownerWatchedStatus,
+          workspaceId: ids.workspace,
+          recipientMemberId: ids.members.owner,
+          actorMemberId: ids.members.maintainer,
+          projectId: ids.projects.app,
+          workItemId: ids.workItems.inProgress,
+          activityEventId: ids.activity.status,
+          notificationType: 'watched_status_change',
+          summary: 'WT-3 moved from ready to in_progress.',
+          metadata: { previousStatus: 'ready', status: 'in_progress' },
+          sourceEventKey: `seed:${ids.workItems.inProgress}:status:owner`,
+          readAt: null,
+          createdAt: now
+        },
+        {
+          id: ids.notifications.ownerDependency,
+          workspaceId: ids.workspace,
+          recipientMemberId: ids.members.owner,
+          actorMemberId: ids.members.owner,
+          projectId: ids.projects.platform,
+          workItemId: ids.workItems.platformBlocked,
+          activityEventId: null,
+          notificationType: 'dependency_blocker_added',
+          summary: 'CLOUD-1 is blocking CLOUD-2.',
+          metadata: {
+            relationshipId: ids.workItemRelationships.crossProjectBlock,
+            relationshipType: 'blocks',
+            action: 'added',
+            sourceWorkItemId: ids.workItems.platform,
+            sourceDisplayKey: 'CLOUD-1',
+            targetWorkItemId: ids.workItems.platformBlocked,
+            targetDisplayKey: 'CLOUD-2'
+          },
+          sourceEventKey: `seed:${ids.workItemRelationships.crossProjectBlock}:dependency:owner`,
+          readAt: null,
+          createdAt: now
+        },
+        {
+          id: ids.notifications.contributorMention,
+          workspaceId: ids.workspace,
+          recipientMemberId: ids.members.contributor,
+          actorMemberId: ids.members.maintainer,
+          projectId: ids.projects.app,
+          workItemId: ids.workItems.inProgress,
+          activityEventId: ids.activity.comment,
+          notificationType: 'mention',
+          summary: 'You were mentioned on WT-3.',
+          metadata: { commentId: ids.comments.second },
+          sourceEventKey: `seed:${ids.comments.second}:mention:contributor`,
+          readAt: null,
+          createdAt: now
+        },
+        {
+          id: ids.notifications.maintainerReadAssignment,
+          workspaceId: ids.workspace,
+          recipientMemberId: ids.members.maintainer,
+          actorMemberId: ids.members.owner,
+          projectId: ids.projects.app,
+          workItemId: ids.workItems.inProgress,
+          activityEventId: ids.activity.assignee,
+          notificationType: 'assignment',
+          summary: 'WT-3 was assigned to you.',
+          metadata: {
+            previousAssigneeId: null,
+            assigneeId: ids.members.maintainer
+          },
+          sourceEventKey: `seed:${ids.workItems.inProgress}:assignment:maintainer`,
+          readAt: now,
+          createdAt: now
+        }
+      ])
+      .onConflictDoUpdate({
+        target: notifications.id,
+        set: {
+          summary: sql`excluded.summary`,
+          metadata: sql`excluded.metadata`,
+          sourceEventKey: sql`excluded.source_event_key`,
+          readAt: sql`excluded.read_at`,
+          createdAt: sql`excluded.created_at`
+        }
+      });
 
     await tx
       .insert(workspaceActivityEvents)
