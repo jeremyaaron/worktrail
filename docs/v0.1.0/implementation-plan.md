@@ -873,6 +873,25 @@ npm run build
 git diff --check
 ```
 
+Completed in Phase 11:
+
+- Added `.github/workflows/ci.yml` for pull requests and pushes to `main`.
+- Configured CI to run `npm ci`, `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`.
+- Added a root ESLint flat config with low-churn TypeScript, Angular TypeScript, and Angular template coverage.
+- Added workspace `lint` scripts for API, web, and contracts while preserving the root `npm run lint` command.
+- Included lint in CI immediately because the baseline rule set was clean after targeted fixes.
+- Fixed initial lint findings:
+  - removed an unused delivery-health priority rank;
+  - renamed the My Work summary output away from the native `select` event name;
+  - removed unused test imports;
+  - rewrote the safe return URL control-character check without a control-character regex.
+- Verified:
+  - `npm run lint`
+  - `npm run typecheck`
+  - `npm test`
+  - `npm run build`
+  - `git diff --check`
+
 ## Phase 12: Documentation And Public Site Refresh
 
 Goal: align documentation and the public site with the v0.1.0 product baseline.
@@ -918,6 +937,27 @@ Suggested commands:
 npm run build
 git diff --check
 ```
+
+Completed in Phase 12:
+
+- Updated `README.md` around the v0.1.0 baseline, current capabilities, limitations, CI, lint, and verification commands.
+- Updated the operations runbook with v0.1.0 preview framing and CI/lint verification guidance.
+- Added `docs/v0.1.0/jawstack-extraction-notes.md` covering:
+  - project shell;
+  - query consolidation;
+  - risk policy;
+  - route registration split;
+  - API client split;
+  - feature-local component extraction;
+  - CI/lint guardrails.
+- Refreshed `site/index.html` around grouped product workflows, v0.1.0 baseline value, developer/reference value, operations, and current-scope limitations.
+- Updated `site/styles.css` for grouped capability lists and the baseline value grid.
+- Left OpenAPI unchanged because Phase 12 did not change endpoint behavior or query semantics.
+- Kept the existing primary screenshot because the public site refresh was hierarchy/copy focused and the board image remains a representative product signal.
+- Verified the existing GitHub Pages workflow remains compatible because the site is still static under `site/`.
+- Verified:
+  - `npm run build`
+  - `git diff --check`
 
 ## Phase 13: Final Verification And Release Notes
 

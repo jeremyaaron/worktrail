@@ -1610,7 +1610,7 @@ export class WorkItemDetailPageComponent implements OnInit {
       !rawReturnUrl.startsWith('/') ||
       rawReturnUrl.startsWith('//') ||
       /^[a-z][a-z0-9+.-]*:/i.test(rawReturnUrl) ||
-      /[\u0000-\u001f\u007f]/.test(rawReturnUrl)
+      this.hasControlCharacter(rawReturnUrl)
     ) {
       return null;
     }
@@ -1631,5 +1631,17 @@ export class WorkItemDetailPageComponent implements OnInit {
       path,
       queryParams: Object.keys(parsedQueryParams).length === 0 ? null : parsedQueryParams
     };
+  }
+
+  private hasControlCharacter(value: string): boolean {
+    for (const character of value) {
+      const code = character.charCodeAt(0);
+
+      if (code <= 31 || code === 127) {
+        return true;
+      }
+    }
+
+    return false;
   }
 }

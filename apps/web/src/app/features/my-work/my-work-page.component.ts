@@ -90,7 +90,7 @@ const priorityOrder = new Map([
       <app-my-work-summary
         [counts]="dashboard.summaryCounts"
         [activeKey]="selectedSummaryKey()"
-        (select)="toggleSummaryFilter($event)"
+        (summarySelect)="toggleSummaryFilter($event)"
       />
 
       @if (activeSummaryCount(); as selectedCount) {

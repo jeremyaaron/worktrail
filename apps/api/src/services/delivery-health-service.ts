@@ -9,7 +9,6 @@ import type {
   WorkItemQuery
 } from '@worktrail/contracts';
 
-import type { WorkItemPriority } from '../domain/constants.js';
 import {
   addDays,
   dueSoonWindowDays,
@@ -26,12 +25,6 @@ import { toMilestoneDto } from './dto.js';
 
 const upcomingMilestoneWindowDays = 14;
 const planningMilestoneStatuses = new Set<Milestone['status']>(['planned', 'active']);
-const priorityRank: Record<WorkItemPriority, number> = {
-  urgent: 4,
-  high: 3,
-  medium: 2,
-  low: 1
-};
 const severityRank: Record<DeliveryHealthSeverity, number> = {
   critical: 3,
   warning: 2,

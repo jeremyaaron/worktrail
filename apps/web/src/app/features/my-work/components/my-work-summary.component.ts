@@ -10,7 +10,7 @@ import type { MyWorkSummaryCountDto } from '@worktrail/contracts';
           type="button"
           class="summary-card"
           [attr.aria-pressed]="activeKey === count.key"
-          (click)="select.emit(count.key)"
+          (click)="summarySelect.emit(count.key)"
         >
           <span>{{ count.label }}</span>
           <strong>{{ count.count }}</strong>
@@ -86,5 +86,5 @@ import type { MyWorkSummaryCountDto } from '@worktrail/contracts';
 export class MyWorkSummaryComponent {
   @Input({ required: true }) counts: MyWorkSummaryCountDto[] = [];
   @Input() activeKey: MyWorkSummaryCountDto['key'] | null = null;
-  @Output() readonly select = new EventEmitter<MyWorkSummaryCountDto['key']>();
+  @Output() readonly summarySelect = new EventEmitter<MyWorkSummaryCountDto['key']>();
 }
