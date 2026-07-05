@@ -44,6 +44,33 @@ const emptyPlanningReview: PlanningReviewDto = {
   recentlyChanged: []
 };
 
+const blockedDeliveryHealth: ProjectDeliveryHealthDto = {
+  ...defaultDeliveryHealth,
+  health: 'blocked',
+  activeMilestoneCount: 1,
+  atRiskMilestoneCount: 0,
+  blockedMilestoneCount: 1,
+  openWorkCount: 6,
+  blockedWorkCount: 1,
+  dependencyBlockedWorkCount: 1,
+  reasons: [
+    {
+      key: 'blocked_work',
+      severity: 'critical',
+      message: '1 blocked work item',
+      count: 1,
+      query: { status: 'blocked', sort: 'priority_desc' }
+    },
+    {
+      key: 'dependency_blocked',
+      severity: 'critical',
+      message: '1 dependency-blocked work item',
+      count: 1,
+      query: { dependency: 'dependency_blocked', sort: 'priority_desc' }
+    }
+  ]
+};
+
 const owner: MemberDto = {
   id: '10000000-0000-4000-8000-000000000101',
   workspaceId,
@@ -146,9 +173,57 @@ const blockingOpenWorkItem: PlanningRiskItemDto = {
   updatedAt: '2026-07-04T09:00:00.000Z'
 };
 
+const populatedPlanningReview: PlanningReviewDto = {
+  needsAttention: [
+    {
+      id: blockedWorkItem.id,
+      kind: 'work_item',
+      title: blockedWorkItem.title,
+      detail: 'blocked · urgent',
+      severity: 'critical',
+      workItemId: blockedWorkItem.id,
+      milestoneId: activeMilestone.id,
+      displayKey: blockedWorkItem.displayKey,
+      dueDate: blockedWorkItem.dueDate,
+      updatedAt: blockedWorkItem.updatedAt,
+      query: null
+    }
+  ],
+  upcoming: [
+    {
+      id: activeMilestone.id,
+      kind: 'milestone',
+      title: activeMilestone.name,
+      detail: 'Target date 2026-07-18.',
+      severity: 'info',
+      workItemId: null,
+      milestoneId: activeMilestone.id,
+      displayKey: null,
+      dueDate: activeMilestone.targetDate,
+      updatedAt: activeMilestone.updatedAt,
+      query: { milestoneId: activeMilestone.id, sort: 'due_date_asc' }
+    }
+  ],
+  recentlyChanged: [
+    {
+      id: blockingOpenWorkItem.id,
+      kind: 'work_item',
+      title: blockingOpenWorkItem.title,
+      detail: 'in_progress · urgent',
+      severity: 'info',
+      workItemId: blockingOpenWorkItem.id,
+      milestoneId: null,
+      displayKey: blockingOpenWorkItem.displayKey,
+      dueDate: blockingOpenWorkItem.dueDate,
+      updatedAt: blockingOpenWorkItem.updatedAt,
+      query: null
+    }
+  ]
+};
+
 const defaultPlanningSummary: ProjectPlanningSummaryDto = {
   project: activeProject,
-  deliveryHealth: defaultDeliveryHealth,
+  deliveryHealth: blockedDeliveryHealth,
   milestoneProgress: [
     {
       milestone: activeMilestone,
@@ -161,11 +236,23 @@ const defaultPlanningSummary: ProjectPlanningSummaryDto = {
       dueSoonCount: 0,
       unassignedActiveCount: 0,
       staleInProgressCount: 0,
-      health: 'healthy',
-      reasons: []
+      health: 'blocked',
+      reasons: [
+        {
+          key: 'blocked_work',
+          severity: 'critical',
+          message: '1 blocked work item',
+          count: 1,
+          query: {
+            milestoneId: activeMilestone.id,
+            status: 'blocked',
+            sort: 'priority_desc'
+          }
+        }
+      ]
     }
   ],
-  planningReview: emptyPlanningReview,
+  planningReview: populatedPlanningReview,
   blockedWork: [blockedWorkItem],
   overdueWork: [overdueWorkItem],
   dueSoonWork: [],
@@ -255,6 +342,8 @@ describe('ProjectPlanningPageComponent', () => {
     expect(compiled.textContent).toContain('2 total');
     expect(compiled.textContent).toContain('Planning dashboard');
     expect(compiled.textContent).toContain('6 risks');
+    expect(compiled.textContent).toContain('Delivery health');
+    expect(compiled.textContent).toContain('Blocked');
     expect(links).toEqual([
       { text: 'Overview', href: `/projects/${projectId}` },
       { text: 'Work items', href: `/projects/${projectId}/work-items` },
@@ -267,7 +356,7 @@ describe('ProjectPlanningPageComponent', () => {
     const { fixture } = setupPlanningPage();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    const progressLink = compiled.querySelector<HTMLAnchorElement>('.progress-row');
+    const progressLink = compiled.querySelector<HTMLAnchorElement>('.progress-row__heading-link');
     const riskLinks = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('.risk-row')).map(
       (link) => ({
         text: link.textContent ?? '',
@@ -277,10 +366,25 @@ describe('ProjectPlanningPageComponent', () => {
     const listLinks = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('.section-heading a')).map(
       (link) => link.getAttribute('href') ?? ''
     );
+    const reasonLinks = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('.reason-chip')).map(
+      (link) => link.getAttribute('href') ?? ''
+    );
+    const reviewLinks = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('.review-row')).map(
+      (link) => ({
+        text: link.textContent ?? '',
+        href: link.getAttribute('href') ?? ''
+      })
+    );
 
+    expect(compiled.textContent).toContain('Delivery health');
+    expect(compiled.textContent).toContain('1 blocked work item');
+    expect(compiled.textContent).toContain('1 dependency-blocked work item');
     expect(compiled.textContent).toContain('Milestone progress');
     expect(compiled.textContent).toContain('2 of 4 done');
     expect(compiled.textContent).toContain('1 blocked');
+    expect(compiled.textContent).toContain('Needs attention');
+    expect(compiled.textContent).toContain('Upcoming');
+    expect(compiled.textContent).toContain('Recently changed');
     expect(compiled.textContent).toContain('Resolve deployment blocker');
     expect(compiled.textContent).toContain('Finish stale planning copy');
     expect(compiled.textContent).toContain('Dependency blocked work');
@@ -306,6 +410,19 @@ describe('ProjectPlanningPageComponent', () => {
       text: jasmine.stringContaining('WT-4'),
       href: `/work-items/${blockingOpenWorkItem.id}`
     }));
+    expect(reviewLinks).toContain(jasmine.objectContaining({
+      text: jasmine.stringContaining('WT-1'),
+      href: `/work-items/${blockedWorkItem.id}`
+    }));
+    expect(reviewLinks).toContain(jasmine.objectContaining({
+      text: jasmine.stringContaining('v0.0.3'),
+      href: `/projects/${projectId}/work-items?milestoneId=${activeMilestone.id}&sort=due_date_asc`
+    }));
+    expect(reviewLinks).toContain(jasmine.objectContaining({
+      text: jasmine.stringContaining('WT-4'),
+      href: `/work-items/${blockingOpenWorkItem.id}`
+    }));
+    expect(reasonLinks.some((href) => href.includes('status=blocked'))).toBeTrue();
     expect(listLinks.some((href) => href.includes('dependency=dependency_blocked'))).toBeTrue();
     expect(listLinks.some((href) => href.includes('dependency=blocking_open_work'))).toBeTrue();
   });
@@ -328,6 +445,10 @@ describe('ProjectPlanningPageComponent', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('No active milestones');
+    expect(compiled.textContent).toContain('No delivery risks found');
+    expect(compiled.textContent).toContain('Nothing needs attention');
+    expect(compiled.textContent).toContain('No upcoming review items');
+    expect(compiled.textContent).toContain('No recent changes');
     expect(compiled.textContent).toContain('No blocked work');
     expect(compiled.textContent).toContain('No overdue work');
     expect(compiled.textContent).toContain('Nothing due soon');

@@ -295,7 +295,7 @@ Out of scope:
 
 Acceptance criteria:
 
-- `GET /projects/:projectId/planning/summary` returns health and review data.
+- `GET /api/projects/:projectId/planning-summary` returns health and review data.
 - Existing risk lists still return expected data.
 - Existing planning tests pass after fixture updates.
 - No additional endpoint is introduced.
@@ -355,7 +355,7 @@ Out of scope:
 
 Acceptance criteria:
 
-- `GET /projects/:projectId/summary` returns `deliveryHealth`.
+- `GET /api/projects/:projectId/summary` returns `deliveryHealth`.
 - Existing summary status counts and recent work items are unchanged.
 - Project summary tests cover at least healthy and blocked/at-risk examples.
 - Typechecks pass.
@@ -618,7 +618,20 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-05.
+- Updated `ProjectPlanningPageComponent` with a detailed delivery-health summary.
+- Added project health counts for active milestones, on-track milestones, at-risk milestones, blocked milestones, and open work.
+- Added milestone health labels and reason chips, including reason links where the current `WorkItemQuery` contract supports them.
+- Added planning review sections for:
+  - Needs attention;
+  - Upcoming;
+  - Recently changed.
+- Preserved the existing planning risk metric tiles and detailed risk sections.
+- Updated planning page tests for populated health/reason/review content, reason links, and empty review states.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm test --workspace @worktrail/web -- --include="**/project-planning-page.component.spec.ts" --watch=false`.
+- Verified `npm test --workspace @worktrail/web -- --watch=false`.
+- Verified `git diff --check`.
 
 ## Phase 9: OpenAPI And E2E Coverage
 
@@ -626,7 +639,7 @@ Goal: update API reference and add smoke coverage for health-driven planning wor
 
 Scope:
 
-- Update `docs/openapi/worktrail.openapi.yaml` for:
+- Update `docs/api/openapi.yaml` for:
   - delivery-health enums;
   - delivery-health reason DTO;
   - project delivery-health DTO;
@@ -664,7 +677,29 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-05.
+- Updated the canonical checked-in OpenAPI reference at `docs/api/openapi.yaml` for:
+  - delivery-health enums;
+  - delivery-health reason DTO;
+  - project delivery-health DTO;
+  - extended milestone progress DTO;
+  - planning review DTOs;
+  - extended project summary response;
+  - extended planning summary response.
+- Updated the OpenAPI guard test to assert delivery-health and planning-review schemas.
+- Added a focused Playwright v0.0.9 smoke test covering:
+  - project overview delivery-health panel;
+  - planning delivery-health summary;
+  - milestone health and planning review sections;
+  - delivery-health reason link navigation to a filtered project work-item list.
+- Stabilized existing E2E create-work-item selectors by scoping type selection to the form control.
+- Corrected stale v0.0.9 planning docs references from `docs/openapi/worktrail.openapi.yaml` to `docs/api/openapi.yaml`.
+- Verified `ruby -e "require 'yaml'; YAML.load_file('docs/api/openapi.yaml'); puts 'YAML parsed'"`.
+- Verified `npm test --workspace @worktrail/api -- openapi`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm run test:e2e -- --grep "v0.0.9 delivery health"`.
+- Verified `npm run test:e2e`.
 
 ## Phase 10: Product Documentation, Site, Extraction Notes, And Final Verification
 

@@ -284,9 +284,9 @@ No new endpoint is required.
 
 Updated responses:
 
-- `GET /projects/:projectId/summary`
+- `GET /api/projects/:projectId/summary`
   - Adds compact `deliveryHealth`.
-- `GET /projects/:projectId/planning/summary`
+- `GET /api/projects/:projectId/planning-summary`
   - Adds detailed `deliveryHealth`.
   - Extends `milestoneProgress` items.
   - Adds `planningReview`.
@@ -607,7 +607,7 @@ Seed data should remain deterministic and should not depend on the real current 
 Update:
 
 ```txt
-docs/openapi/worktrail.openapi.yaml
+docs/api/openapi.yaml
 ```
 
 Required schema changes:
@@ -733,7 +733,7 @@ The future cloud path can introduce:
 Update:
 
 - `README.md`;
-- `docs/openapi/worktrail.openapi.yaml`;
+- `docs/api/openapi.yaml`;
 - `docs/product-site/index.html`;
 - `docs/v0.0.9/prd.md` if implementation changes scope;
 - `docs/v0.0.9/implementation-plan.md` after design approval;
