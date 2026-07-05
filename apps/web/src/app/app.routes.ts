@@ -15,6 +15,12 @@ export const routes: Routes = [
     title: 'My Work | Worktrail'
   },
   {
+    path: 'inbox',
+    loadComponent: () =>
+      import('./features/inbox/inbox-page.component').then((module) => module.InboxPageComponent),
+    title: 'Inbox | Worktrail'
+  },
+  {
     path: 'projects',
     loadComponent: () =>
       import('./features/projects/project-list-page.component').then(

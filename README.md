@@ -1,8 +1,8 @@
 # Worktrail
 
-Worktrail is a project management reference app. The v0.1.0 baseline is a local-first Angular + TypeScript API + Postgres application focused on daily team workflow, cross-project work discovery, dependency-aware planning, workspace governance, data portability, and production-shaped application boundaries.
+Worktrail is a project management reference app. The v0.1.1 baseline is a local-first Angular + TypeScript API + Postgres application focused on daily team workflow, collaboration updates, cross-project work discovery, dependency-aware planning, workspace governance, data portability, and production-shaped application boundaries.
 
-The app includes My Work, top-level Work Items discovery, saved views, quick work capture, persistent project workspaces, planning review, milestone management, durable boards, work item relationships, dependency-blocked signals, project delivery health, comments, activity, CSV import/export, production-like preview, health/readiness checks, checked-in API documentation, CI, lint, and responsive work item scanning.
+The app includes My Work, Action Inbox, top-level Work Items discovery, saved views, quick work capture, persistent project workspaces, planning review, milestone management, durable boards, work item relationships, dependency-blocked signals, project delivery health, comments, mentions, work item watchers, activity, CSV import/export, production-like preview, health/readiness checks, checked-in API documentation, CI, lint, and responsive work item scanning.
 
 The app is intentionally built as a credible product surface before extracting broader framework patterns. It runs locally today, while preserving a path toward an S3/CloudFront Angular frontend with API Gateway/Lambda-style endpoint handlers and managed Postgres.
 
@@ -15,16 +15,9 @@ apps/
 packages/
   contracts/ Shared DTO and API contract types
 docs/
-  v0.0.1/  MVP PRD, technical design, implementation plan, and extraction notes
-  v0.0.2/  Adoption sprint PRD, technical design, implementation plan, and extraction notes
-  v0.0.3/  Planning sprint PRD, technical design, implementation plan, and extraction notes
-  v0.0.4/  Governance sprint PRD, technical design, implementation plan, and extraction notes
-  v0.0.5/  Daily workflow PRD, technical design, implementation plan, and extraction notes
-  v0.0.6/  Operations sprint PRD, technical design, implementation plan, runbook, and extraction notes
-  v0.0.7/  CSV import/export PRD, technical design, implementation plan, guide, and extraction notes
-  v0.0.8/  Relationship/dependency PRD, technical design, implementation plan, and extraction notes
-  v0.0.9/  Delivery-health PRD, technical design, implementation plan, and extraction notes
+  v0.0.X/  Archived v0.0.1-v0.0.9 sprint docs
   v0.1.0/  Consolidation PRD, technical design, implementation plan, audits, and extraction notes
+  v0.1.1/  Action Inbox PRD, technical design, implementation plan, release notes, and extraction notes
   api/     OpenAPI reference
 site/       Static GitHub Pages product site
 e2e/        Playwright smoke tests
@@ -212,6 +205,7 @@ Seeded data includes:
 - work items across every status with persisted board positions;
 - same-project, cross-project, and related-work relationships;
 - dependency-blocked examples where open blockers count and terminal blockers do not;
+- active work item watchers, comment mention metadata, unread notifications, and one read notification;
 - personal saved work views for each active seeded member;
 - project labels, comments, deleted-comment tombstones, project activity, and workspace activity events.
 
@@ -241,11 +235,14 @@ Suggested walkthrough:
 20. Export the currently filtered project work item list to CSV.
 21. Import a small CSV through the project import page, review dry-run validation, apply it, and confirm created work appears in the project list and board.
 22. Export a filtered cross-project workspace discovery view to CSV.
-23. Open the board, drag cards within a column to set planning order, reload, and confirm the order persists.
-24. Move a card through valid workflow columns with drag/drop or the status menu.
-25. Open the work item detail page, update fields, change milestone assignment, add and edit a comment, delete a comment, and review activity.
-26. Add a blocking relationship, confirm the downstream dependency signal appears, move the blocker to done, and confirm the dependency signal clears.
-27. Open the archived project to confirm read-only project, milestone, work item, label, comment, relationship, import, and transition behavior.
+23. Open Inbox and review unread notifications for the selected actor.
+24. Mark an individual notification read, switch to All, and mark it unread again.
+25. Open the board, drag cards within a column to set planning order, reload, and confirm the order persists.
+26. Move a card through valid workflow columns with drag/drop or the status menu.
+27. Open the work item detail page, update fields, change milestone assignment, watch or unwatch the item, mention an active member in a new comment, add and edit another comment, delete a comment, and review activity.
+28. Switch to the mentioned actor and confirm the mention appears as an unread Inbox notification linking back to the work item.
+29. Add a blocking relationship, confirm the downstream dependency signal appears, move the blocker to done, and confirm the dependency signal clears.
+30. Open the archived project to confirm read-only project, milestone, work item, label, comment, relationship, import, and transition behavior.
 
 Suggested delivery-health checks:
 
@@ -255,10 +252,13 @@ Suggested delivery-health checks:
 4. Review Needs attention, Upcoming, and Recently changed planning review sections.
 5. Confirm blocked and dependency-blocked seed items affect project health, while the healthy milestone remains on track.
 
-## v0.1.0 Baseline Capabilities
+## v0.1.1 Baseline Capabilities
 
 - My Work dashboard for the selected active actor.
 - Prioritized My Work daily queue for assigned, due-soon, overdue, blocked, dependency-blocked, stale, reported, and recently updated work.
+- Inbox with unread/all views for actor-scoped collaboration notifications.
+- Unread notification count badge in primary navigation and Inbox summary from My Work.
+- Notification read/unread actions and mark-all-read support.
 - Top-level Work Items destination for cross-project discovery.
 - Dashboard summary counts linked to filtered cross-project discovery.
 - Cross-project work item discovery with URL-backed search, filters, sorts, project identity, archived-project modes, and active filter pills.
@@ -300,6 +300,10 @@ Suggested delivery-health checks:
 - Delivery-health reason links into filtered project work item lists where the reason can be represented by current query parameters.
 - Deterministic seed data for healthy, at-risk, blocked, complete, inactive, and unmilestoned delivery-health examples.
 - Relationship activity events for add/remove commands.
+- In-app notification persistence for assignments, mentions, watched comments, watched work changes, and dependency blocker changes.
+- Work item watch/unwatch controls with watcher count and compact watcher list on detail pages.
+- Automatic watching for work item reporters, assignees, and newly assigned members.
+- Comment mentions through an active-member picker, persisted mention metadata, and readable mention chips.
 - Persisted board ordering for same-status reorder and cross-status movement.
 - Angular CDK drag/drop board interaction backed by server-side workflow validation.
 - Comment add/edit/delete with role-aware UI affordances and deleted-comment tombstones.
@@ -314,28 +318,31 @@ Suggested delivery-health checks:
 - ESLint guardrails for API, web, and contracts workspaces.
 - GitHub Actions CI for lint, typecheck, tests with a Postgres service, and production build.
 
-## v0.1.0 Limitations
+## v0.1.1 Limitations
 
 - Authentication is represented by local request headers and the top-bar actor selector.
 - Permissions are enforced against local member records and are useful for exercising policy paths, but they are not production authentication.
 - Production preview is not a secure public deployment and should not be exposed as an authenticated product.
-- Delivery health is deterministic and rule-based; custom health formulas, forecasting, critical path analysis, charts, notifications, and saved review snapshots are deferred.
-- Saved views are personal only in v0.1.0; workspace-visible shared saved views are deferred.
+- Delivery health is deterministic and rule-based; custom health formulas, forecasting, critical path analysis, charts, delivery-health notifications, and saved review snapshots are deferred.
+- Notifications are in-app only. Email, push, WebSockets, digests, notification preferences, deletion/archive controls, and background delivery workers are deferred.
+- Comment mentions are selected through an active-member picker. Rich-text editing and free-text `@name` parsing are deferred.
+- Watchers are work-item scoped only. Project-level and workspace-level watching are deferred.
+- Saved views are personal only in v0.1.1; workspace-visible shared saved views are deferred.
 - CSV import is project-scoped and limited to 1 MiB and 250 data rows per file.
 - CSV import supports Worktrail's current columns only; third-party tracker migration mappings are deferred.
 - CSV export is a direct file download; export history, scheduled exports, and alternate formats are deferred.
 - Relationships support only `blocks` and `relates_to`; custom relationship types, hierarchy, and graph visualization are deferred.
-- Dependency-blocked state is derived from current open blockers; critical path analysis, dependency alerts, automation rules, and notifications are deferred.
+- Dependency-blocked state is derived from current open blockers; critical path analysis, external dependency alerts, and automation rules are deferred.
 - Relationship activity is recorded on the command context item only to avoid noisy cross-project activity.
-- Custom workflows, file attachments, notifications, and production auth are intentionally out of scope.
+- Custom workflows, file attachments, and production auth are intentionally out of scope.
 - Invitations, multi-workspace switching, custom roles, project-specific membership, pinned projects, recent projects, and audit export are intentionally out of scope.
-- The local Express adapter is the only runtime adapter in v0.1.0, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
+- The local Express adapter is the only runtime adapter in v0.1.1, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
 - AWS deployment assets are not included yet; the Angular static build and transport-neutral handlers preserve that path.
 - Readiness checks database connectivity only; migration drift detection, metrics, tracing, and managed deployment runbooks are deferred.
 
 ## Database Status
 
-The current schema includes workspace activity, member lifecycle metadata, project keys, scoped work item display keys, labels, milestones, comments, project activity, due dates, durable board positions, work item relationships, and personal saved work views.
+The current schema includes workspace activity, member lifecycle metadata, project keys, scoped work item display keys, labels, milestones, comments, comment mentions, project activity, due dates, durable board positions, work item relationships, work item watchers, notifications, and personal saved work views.
 
 Useful database commands:
 

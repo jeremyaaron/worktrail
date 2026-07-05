@@ -13,6 +13,16 @@ export const workItemPriorities = ['low', 'medium', 'high', 'urgent'] as const;
 export const milestoneStatuses = ['planned', 'active', 'completed', 'canceled'] as const;
 export const savedWorkViewVisibilities = ['personal'] as const;
 export const workItemRelationshipTypes = ['blocks', 'relates_to'] as const;
+export const notificationTypes = [
+  'assignment',
+  'mention',
+  'watched_comment',
+  'watched_status_change',
+  'watched_assignee_change',
+  'watched_relationship_change',
+  'dependency_blocker_added',
+  'dependency_blocker_removed'
+] as const;
 export const activityEventTypes = [
   'project.name_changed',
   'project.description_changed',
@@ -64,6 +74,7 @@ export type WorkItemPriority = (typeof workItemPriorities)[number];
 export type MilestoneStatus = (typeof milestoneStatuses)[number];
 export type SavedWorkViewVisibility = (typeof savedWorkViewVisibilities)[number];
 export type WorkItemRelationshipType = (typeof workItemRelationshipTypes)[number];
+export type NotificationType = (typeof notificationTypes)[number];
 export type ActivityEventType = (typeof activityEventTypes)[number];
 export type WorkspaceActivityEventType = (typeof workspaceActivityEventTypes)[number];
 

@@ -3,6 +3,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { CurrentUserService } from './core/current-user.service';
+import { InboxStateService } from './features/inbox/inbox-state.service';
 import { ErrorPanelComponent } from './shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from './shared/ui/loading-indicator.component';
 
@@ -21,6 +22,7 @@ import { LoadingIndicatorComponent } from './shared/ui/loading-indicator.compone
 })
 export class App implements OnInit {
   readonly currentUser = inject(CurrentUserService);
+  readonly inboxState = inject(InboxStateService);
 
   ngOnInit(): void {
     this.loadMembers();

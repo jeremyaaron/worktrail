@@ -6,12 +6,12 @@
     <title>Worktrail | Project management reference app</title>
     <meta
       name="description"
-      content="Worktrail is a local-first project-management reference app for daily work, dependency-aware planning, and production-shaped TypeScript architecture."
+      content="Worktrail is a local-first project-management reference app for daily work, collaboration updates, dependency-aware planning, and production-shaped TypeScript architecture."
     >
     <meta property="og:title" content="Worktrail">
     <meta
       property="og:description"
-      content="A local-first project-management reference app for daily work, dependency-aware planning, and production-shaped TypeScript architecture."
+      content="A local-first project-management reference app for daily work, collaboration updates, dependency-aware planning, and production-shaped TypeScript architecture."
     >
     <meta property="og:type" content="website">
     <meta name="theme-color" content="#f6f8fb">
@@ -46,8 +46,8 @@
           <p class="eyebrow">Project management reference app</p>
           <h1 id="hero-title">Worktrail</h1>
           <p class="hero-copy">
-            A local-first project-management reference app for daily work, dependency-aware planning,
-            and production-shaped TypeScript architecture.
+            A local-first project-management reference app for daily work, collaboration updates,
+            dependency-aware planning, and production-shaped TypeScript architecture.
           </p>
           <div class="hero-actions" aria-label="Primary actions">
             <a class="button button-primary" href="https://github.com/jeremyaaron/worktrail">
@@ -61,7 +61,7 @@
       <section class="signal-band" aria-label="Project signals">
         <div class="signal">
           <span class="signal-value">Daily</span>
-          <span class="signal-label">actor-focused work queue and cross-project discovery</span>
+          <span class="signal-label">actor-focused work queue, inbox, and cross-project discovery</span>
         </div>
         <div class="signal">
           <span class="signal-value">Planning</span>
@@ -83,9 +83,9 @@
           <h2 id="app-title">A focused operating surface for project work.</h2>
           <p>
             Worktrail is intentionally small, but the workflows are real. v0.1.0 consolidates
-            the app around daily execution, cross-project discovery, persistent project workspaces,
-            review-first planning, dependency visibility, workspace governance, and operational
-            reference patterns.
+            the app around daily execution, and v0.1.1 adds the attention loop: Inbox,
+            work item watchers, comment mentions, and actor-scoped read state. The product
+            stays focused while exercising production-shaped collaboration patterns.
           </p>
         </div>
         <div class="feature-grid">
@@ -94,8 +94,18 @@
             <h3>Start from the work that needs attention.</h3>
             <ul>
               <li>My Work daily queue for the selected local actor.</li>
+              <li>Inbox summary for unread collaboration updates.</li>
               <li>Quick capture for project-scoped work from a global route.</li>
               <li>Comments, tombstones, activity, and return-to-list context.</li>
+            </ul>
+          </article>
+          <article class="feature">
+            <span class="feature-kicker">Action Inbox</span>
+            <h3>Route important changes to the right person.</h3>
+            <ul>
+              <li>Unread and all notification views for the selected actor.</li>
+              <li>Read, unread, and mark-all-read controls.</li>
+              <li>Deep links back to mentioned, assigned, watched, and blocked work.</li>
             </ul>
           </article>
           <article class="feature">
@@ -148,23 +158,24 @@
 
       <section class="section" id="capabilities" aria-labelledby="capabilities-title">
         <div class="section-heading">
-          <p class="eyebrow">v0.1.0 baseline</p>
-          <h2 id="capabilities-title">Product polish plus reference-app discipline.</h2>
+          <p class="eyebrow">v0.1.1 baseline</p>
+          <h2 id="capabilities-title">Product polish, collaboration signals, and reference-app discipline.</h2>
           <p>
-            The v0.1.0 release turns accumulated capability into a clearer baseline. It promotes
-            cross-project work discovery, adds a persistent project workspace, makes planning
-            review-first, improves My Work prioritization, renders mobile work results as cards,
-            splits growing API/client/route/contract seams, and adds CI plus lint guardrails.
+            The v0.1.0 release turned accumulated capability into a clearer baseline.
+            v0.1.1 adds an actor-scoped collaboration layer: persisted in-app notifications,
+            work item watchers, comment mentions, unread state, and deterministic fan-out from
+            domain commands. Together they make Worktrail feel less like a passive tracker and
+            more like a daily operating surface.
           </p>
         </div>
         <div class="baseline-grid">
           <div>
             <strong>For product users</strong>
-            <span>Lower scan cost, clearer navigation, better planning hierarchy, and readable mobile work lists.</span>
+            <span>Lower scan cost, clearer navigation, visible collaboration updates, and readable mobile work lists.</span>
           </div>
           <div>
             <strong>For builders</strong>
-            <span>Domain contracts, route-level code splitting, shared query/risk policy, endpoint handlers, and API client boundaries.</span>
+            <span>Domain contracts, notification fan-out, route-level code splitting, shared query/risk policy, endpoint handlers, and API client boundaries.</span>
           </div>
           <div>
             <strong>For operators</strong>
@@ -226,6 +237,7 @@
             <div><strong>Lazy routes</strong><span>route chunks keep initial production bundles below warning budgets</span></div>
             <div><strong>Endpoint handlers</strong><span>transport-neutral request and response shape</span></div>
             <div><strong>Relationship services</strong><span>edge validation, cycle checks, and derived dependency state</span></div>
+            <div><strong>Notification services</strong><span>actor-scoped read state, watcher fan-out, mention metadata, and dedupe</span></div>
             <div><strong>Delivery health</strong><span>pure service-side derivation with explainable reason links</span></div>
             <div><strong>CSV flows</strong><span>dry-run validation, transactional bulk commands, and non-JSON responses</span></div>
             <div><strong>Express adapter</strong><span>local runtime and production preview host</span></div>
@@ -242,10 +254,11 @@
           <p class="eyebrow">Current scope</p>
           <h2 id="mvp-title">Local-first, cloud-shaped, still honest about limits.</h2>
           <p>
-            Worktrail v0.1.0 is still a local reference app. Production authentication,
+            Worktrail v0.1.1 is still a local reference app. Production authentication,
             invitations, workspace-visible saved views, pinned projects, custom roles, custom
-            workflows, notifications, attachments, third-party migration mappings, graph visualization,
-            dependency automation, custom health formulas, forecasting, critical path analysis,
+            workflows, email or push delivery, notification preferences, attachments, third-party
+            migration mappings, graph visualization, dependency automation, custom health formulas,
+            forecasting, critical path analysis,
             saved review snapshots, and hosted infrastructure are intentionally out of scope. Production
             preview is not an internet-safe authenticated deployment. The value today is a working
             product surface and operational boundary that can accumulate evidence before patterns are
@@ -273,8 +286,8 @@ DATABASE_URL=postgres://worktrail:worktrail@localhost:5432/worktrail npm run pre
     <footer class="footer">
       <span>Worktrail</span>
       <a href="https://github.com/jeremyaaron/worktrail">GitHub</a>
-      <a href="https://github.com/jeremyaaron/worktrail/tree/main/docs/v0.1.0">v0.1.0 docs</a>
-      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.1.0/jawstack-extraction-notes.md">Extraction notes</a>
+      <a href="https://github.com/jeremyaaron/worktrail/tree/main/docs/v0.1.1">v0.1.1 docs</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.1.1/jawstack-extraction-notes.md">Extraction notes</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.0.7/csv-import-export.md">CSV guide</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/api/openapi.yaml">OpenAPI</a>
     </footer>

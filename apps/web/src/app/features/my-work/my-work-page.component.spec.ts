@@ -162,6 +162,10 @@ function setup(member: MemberDto = owner): {
   return { fixture, http };
 }
 
+function flushInboxCount(http: HttpTestingController, unreadCount = 2): void {
+  http.expectOne('/api/notifications/unread-count').flush({ unreadCount });
+}
+
 describe('MyWorkPageComponent', () => {
   beforeEach(async () => {
     localStorage.clear();
@@ -180,6 +184,7 @@ describe('MyWorkPageComponent', () => {
     const { fixture, http } = setup();
     const request = http.expectOne('/api/my-work');
     expect(request.request.headers.get('x-worktrail-member-id')).toBe(owner.id);
+    flushInboxCount(http, 2);
     request.flush(
       dashboard({
         assignedToMe: [workItem, dependencyBlockedWorkItem],
@@ -205,6 +210,8 @@ describe('MyWorkPageComponent', () => {
     expect(compiled.textContent).toContain('Shape the default dashboard');
     expect(compiled.textContent).toContain('Wait for import adapter');
     expect(compiled.textContent).toContain('Reported by me');
+    expect(compiled.textContent).toContain('Inbox');
+    expect(compiled.textContent).toContain('2 unread notifications.');
     expect(compiled.textContent).toContain('Review reported release notes');
     expect(compiled.textContent).toContain('Blocked by 2');
     expect(compiled.textContent).toContain('WT-1');
@@ -225,6 +232,7 @@ describe('MyWorkPageComponent', () => {
 
   it('uses summary cards as queue filters with full-list links', () => {
     const { fixture, http } = setup();
+    flushInboxCount(http, 2);
     http.expectOne('/api/my-work').flush(
       dashboard({
         assignedToMe: [workItem, dependencyBlockedWorkItem],
@@ -253,6 +261,7 @@ describe('MyWorkPageComponent', () => {
 
   it('renders compact empty states for low-signal sections', () => {
     const { fixture, http } = setup();
+    flushInboxCount(http, 0);
     http.expectOne('/api/my-work').flush(
       dashboard({
         summaryCounts: [],
@@ -268,17 +277,23 @@ describe('MyWorkPageComponent', () => {
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('No attention needed');
+    expect(text).toContain('No unread notifications.');
     expect(text).toContain('No reported open work');
     expect(text).not.toContain('No recent work');
   });
 
   it('refreshes dashboard data when the selected actor changes', () => {
     const { fixture, http } = setup();
+    flushInboxCount(http, 2);
     http.expectOne('/api/my-work').flush(dashboard());
     fixture.detectChanges();
 
     TestBed.inject(CurrentUserService).selectMember(contributor.id);
     fixture.detectChanges();
+
+    const unreadRequest = http.expectOne('/api/notifications/unread-count');
+    expect(unreadRequest.request.headers.get('x-worktrail-member-id')).toBe(contributor.id);
+    unreadRequest.flush({ unreadCount: 1 });
 
     const request = http.expectOne('/api/my-work');
     expect(request.request.headers.get('x-worktrail-member-id')).toBe(contributor.id);
@@ -297,6 +312,7 @@ describe('MyWorkPageComponent', () => {
 
   it('shows an error state and retries the request', () => {
     const { fixture, http } = setup();
+    flushInboxCount(http, 2);
     http.expectOne('/api/my-work').flush(
       { message: 'unavailable' },
       { status: 500, statusText: 'Server Error' }

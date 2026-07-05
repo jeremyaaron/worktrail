@@ -152,6 +152,7 @@ export interface CommentDto {
   workItemId: string;
   author: MemberDto;
   body: string;
+  mentions: MemberDto[];
   isEdited: boolean;
   isDeleted: boolean;
   editedAt: string | null;
@@ -163,6 +164,7 @@ export interface CommentDto {
 
 export interface CreateCommentRequest {
   body: string;
+  mentionMemberIds?: string[];
 }
 
 export interface UpdateCommentRequest {

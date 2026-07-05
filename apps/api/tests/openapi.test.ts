@@ -20,6 +20,10 @@ describe('OpenAPI reference', () => {
       '/api/members/{memberId}',
       '/api/members/{memberId}/deactivate',
       '/api/members/{memberId}/reactivate',
+      '/api/notifications',
+      '/api/notifications/unread-count',
+      '/api/notifications/{notificationId}',
+      '/api/notifications/mark-all-read',
       '/api/projects',
       '/api/projects/navigation-summary',
       '/api/projects/{projectId}',
@@ -45,6 +49,8 @@ describe('OpenAPI reference', () => {
       '/api/work-items/{workItemId}',
       '/api/work-items/{workItemId}/transitions',
       '/api/work-items/{workItemId}/board-move',
+      '/api/work-items/{workItemId}/watchers',
+      '/api/work-items/{workItemId}/watch',
       '/api/work-items/{workItemId}/comments',
       '/api/comments/{commentId}',
       '/api/work-items/{workItemId}/activity',
@@ -72,6 +78,14 @@ describe('OpenAPI reference', () => {
     expect(openApi).toContain('WorkItemRelationshipSummary:');
     expect(openApi).toContain('CreateWorkItemRelationshipRequest:');
     expect(openApi).toContain('WorkItemRelationship:');
+    expect(openApi).toContain('NotificationType:');
+    expect(openApi).toContain('NotificationListResponse:');
+    expect(openApi).toContain('NotificationUnreadCountResponse:');
+    expect(openApi).toContain('UpdateNotificationReadStateRequest:');
+    expect(openApi).toContain('WorkItemWatcher:');
+    expect(openApi).toContain('WorkItemWatchState:');
+    expect(openApi).toContain('mentionMemberIds:');
+    expect(openApi).toContain('mentions:');
     expect(openApi).toContain('DeliveryHealthState:');
     expect(openApi).toContain('DeliveryHealthSeverity:');
     expect(openApi).toContain('DeliveryHealthReasonKey:');

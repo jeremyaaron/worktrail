@@ -8,6 +8,7 @@ import type {
   ProjectDto,
   WorkItemDetailDto,
   WorkItemRelationshipItemDto,
+  WorkItemWatchStateDto,
   WorkspaceWorkItemListItemDto
 } from '@worktrail/contracts';
 
@@ -210,6 +211,7 @@ const detail: WorkItemDetailDto = {
       workItemId,
       author: owner,
       body: 'Initial implementation note.',
+      mentions: [],
       isEdited: false,
       isDeleted: false,
       editedAt: null,
@@ -236,19 +238,51 @@ const detail: WorkItemDetailDto = {
   ]
 };
 
+const unwatchedState: WorkItemWatchStateDto = {
+  isWatchedByCurrentActor: false,
+  watcherCount: 1,
+  watchers: [
+    {
+      id: '10000000-0000-4000-8000-000000000701',
+      member: contributor,
+      watchedAt: '2026-07-03T14:00:00.000Z'
+    }
+  ]
+};
+
+const watchedState: WorkItemWatchStateDto = {
+  isWatchedByCurrentActor: true,
+  watcherCount: 2,
+  watchers: [
+    ...unwatchedState.watchers,
+    {
+      id: '10000000-0000-4000-8000-000000000702',
+      member: owner,
+      watchedAt: '2026-07-03T15:00:00.000Z'
+    }
+  ]
+};
+
 function seedCurrentUser() {
   const currentUser = TestBed.inject(CurrentUserService);
   currentUser.members.set([owner, contributor, inactiveMember]);
   currentUser.selectMember(owner.id);
 }
 
-function setup(input: { workItem?: WorkItemDetailDto; project?: ProjectDto } = {}) {
+function setup(
+  input: {
+    workItem?: WorkItemDetailDto;
+    project?: ProjectDto;
+    watchState?: WorkItemWatchStateDto;
+  } = {}
+) {
   const fixture = TestBed.createComponent(WorkItemDetailPageComponent);
   const http = TestBed.inject(HttpTestingController);
   const workItem = input.workItem ?? detail;
   const project = input.project ?? activeProject;
   fixture.detectChanges();
   http.expectOne(`/api/work-items/${workItemId}`).flush(workItem);
+  http.expectOne(`/api/work-items/${workItemId}/watchers`).flush(input.watchState ?? unwatchedState);
   http.expectOne(`/api/projects/${projectId}`).flush(project);
   http.expectOne(`/api/projects/${projectId}/labels`).flush([
     { id: frontendLabelId, name: 'frontend', color: '#2563eb', isArchived: false, archivedAt: null },
@@ -303,6 +337,62 @@ describe('WorkItemDetailPageComponent', () => {
     expect(compiled.textContent).toContain('Avery Owner created this work item.');
   });
 
+  it('renders watcher state with count and watcher list', () => {
+    const { fixture } = setup({ watchState: watchedState });
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(compiled.textContent).toContain('Watchers');
+    expect(compiled.textContent).toContain('2 watching');
+    expect(compiled.textContent).toContain('Case Contributor');
+    expect(compiled.textContent).toContain('Avery Owner');
+    expect(
+      compiled.querySelector<HTMLButtonElement>('.watch-panel button')?.textContent?.trim()
+    ).toBe('Unwatch');
+  });
+
+  it('watches and unwatches the work item from detail', () => {
+    const { fixture, http } = setup({ watchState: unwatchedState });
+
+    fixture.componentInstance.toggleWatch();
+    const watchRequest = http.expectOne(`/api/work-items/${workItemId}/watch`);
+    expect(watchRequest.request.method).toBe('PUT');
+    watchRequest.flush(watchedState);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.watchState()?.isWatchedByCurrentActor).toBeTrue();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('2 watching');
+
+    fixture.componentInstance.toggleWatch();
+    const unwatchRequest = http.expectOne(`/api/work-items/${workItemId}/watch`);
+    expect(unwatchRequest.request.method).toBe('DELETE');
+    unwatchRequest.flush(unwatchedState);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.watchState()?.isWatchedByCurrentActor).toBeFalse();
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.watch-panel button')
+        ?.textContent
+        ?.trim()
+    ).toBe('Watch');
+  });
+
+  it('selects and removes comment mention members', () => {
+    const { fixture } = setup();
+
+    fixture.componentInstance.addMentionMember(contributor.id);
+    fixture.componentInstance.addMentionMember(inactiveMember.id);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.selectedMentionMemberIds()).toEqual([contributor.id]);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Case Contributor');
+
+    fixture.componentInstance.removeMentionMember(contributor.id);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.selectedMentionMemberIds()).toEqual([]);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('No mentions selected.');
+  });
+
   it('uses safe return context and rejects external return URLs', () => {
     routeQueryParams = {
       returnUrl: `/projects/${projectId}/work-items?status=blocked&sort=priority_desc`
@@ -321,6 +411,7 @@ describe('WorkItemDetailPageComponent', () => {
     const http = TestBed.inject(HttpTestingController);
     unsafeFixture.detectChanges();
     http.expectOne(`/api/work-items/${workItemId}`).flush(detail);
+    http.expectOne(`/api/work-items/${workItemId}/watchers`).flush(unwatchedState);
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne(`/api/projects/${projectId}/labels`).flush([]);
     http.expectOne(`/api/projects/${projectId}/milestones`).flush([]);
@@ -852,6 +943,7 @@ describe('WorkItemDetailPageComponent', () => {
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
     http.expectOne(`/api/work-items/${workItemId}`).flush(archivedDetail);
+    http.expectOne(`/api/work-items/${workItemId}/watchers`).flush(unwatchedState);
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne(`/api/projects/${projectId}/labels`).flush([
       { id: frontendLabelId, name: 'frontend', color: '#2563eb', isArchived: false, archivedAt: null },
@@ -878,6 +970,7 @@ describe('WorkItemDetailPageComponent', () => {
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
     http.expectOne(`/api/work-items/${workItemId}`).flush(detail);
+    http.expectOne(`/api/work-items/${workItemId}/watchers`).flush(watchedState);
     http.expectOne(`/api/projects/${projectId}`).flush(archivedProject);
     http.expectOne(`/api/projects/${projectId}/labels`).flush([
       { id: frontendLabelId, name: 'frontend', color: '#2563eb', isArchived: false, archivedAt: null },
@@ -941,6 +1034,7 @@ describe('WorkItemDetailPageComponent', () => {
       workItemId,
       author: owner,
       body: 'New detail comment.',
+      mentions: [],
       isEdited: false,
       isDeleted: false,
       editedAt: null,
@@ -962,6 +1056,7 @@ describe('WorkItemDetailPageComponent', () => {
           workItemId,
           author: owner,
           body: 'New detail comment.',
+          mentions: [],
           isEdited: false,
           isDeleted: false,
           editedAt: null,
@@ -993,5 +1088,65 @@ describe('WorkItemDetailPageComponent', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('New detail comment.');
     expect(compiled.textContent).toContain('Comment added.');
+  });
+
+  it('creates a comment with selected mention member ids and renders returned mentions', () => {
+    const { fixture, http } = setup();
+    fixture.componentInstance.commentForm.setValue({ body: 'Mentioning a collaborator.' });
+    fixture.componentInstance.addMentionMember(contributor.id);
+    fixture.componentInstance.addComment();
+
+    const commentRequest = http.expectOne(`/api/work-items/${workItemId}/comments`);
+    expect(commentRequest.request.method).toBe('POST');
+    expect(commentRequest.request.body).toEqual({
+      body: 'Mentioning a collaborator.',
+      mentionMemberIds: [contributor.id]
+    });
+    commentRequest.flush({
+      id: '10000000-0000-4000-8000-000000000503',
+      workspaceId: owner.workspaceId,
+      projectId,
+      workItemId,
+      author: owner,
+      body: 'Mentioning a collaborator.',
+      mentions: [contributor],
+      isEdited: false,
+      isDeleted: false,
+      editedAt: null,
+      deletedAt: null,
+      deletedBy: null,
+      createdAt: '2026-07-03T13:10:00.000Z',
+      updatedAt: '2026-07-03T13:10:00.000Z'
+    });
+
+    const refreshRequest = http.expectOne(`/api/work-items/${workItemId}`);
+    refreshRequest.flush({
+      ...detail,
+      comments: [
+        ...detail.comments,
+        {
+          id: '10000000-0000-4000-8000-000000000503',
+          workspaceId: owner.workspaceId,
+          projectId,
+          workItemId,
+          author: owner,
+          body: 'Mentioning a collaborator.',
+          mentions: [contributor],
+          isEdited: false,
+          isDeleted: false,
+          editedAt: null,
+          deletedAt: null,
+          deletedBy: null,
+          createdAt: '2026-07-03T13:10:00.000Z',
+          updatedAt: '2026-07-03T13:10:00.000Z'
+        }
+      ]
+    } satisfies WorkItemDetailDto);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(fixture.componentInstance.selectedMentionMemberIds()).toEqual([]);
+    expect(compiled.textContent).toContain('Mentioning a collaborator.');
+    expect(compiled.textContent).toContain('@Case Contributor');
   });
 });

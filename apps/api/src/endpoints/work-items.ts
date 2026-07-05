@@ -12,7 +12,8 @@ import type {
   WorkItemDetailDto,
   WorkItemListItemDto,
   WorkItemRelationshipDto,
-  WorkItemRelationshipSummaryDto
+  WorkItemRelationshipSummaryDto,
+  WorkItemWatchStateDto
 } from '@worktrail/contracts';
 import { z } from 'zod';
 
@@ -29,6 +30,7 @@ import { WorkItemService } from '../services/work-item-service.js';
 import { WorkItemCsvImportService } from '../services/work-item-csv-import-service.js';
 import { WorkItemCsvExportService } from '../services/work-item-csv-export-service.js';
 import { WorkItemRelationshipService } from '../services/work-item-relationship-service.js';
+import { WorkItemWatcherService } from '../services/work-item-watcher-service.js';
 import { parseWithSchema } from '../validation/parse.js';
 import {
   parseProjectWorkItemQuery,
@@ -250,6 +252,54 @@ export function getWorkItemHandler(input: {
     return {
       status: 200,
       body: await service.getWorkItem(workItemId)
+    };
+  };
+}
+
+export function getWorkItemWatchStateHandler(input: {
+  repositories: Repositories;
+}): EndpointHandler<WorkItemWatchStateDto> {
+  return async (request) => {
+    const { workItemId } = parseWithSchema(workItemIdParamSchema, request.params);
+    const service = new WorkItemWatcherService({
+      actor: request.actor,
+      repositories: input.repositories
+    });
+    return {
+      status: 200,
+      body: await service.getWatchState(workItemId)
+    };
+  };
+}
+
+export function watchWorkItemHandler(input: {
+  repositories: Repositories;
+}): EndpointHandler<WorkItemWatchStateDto> {
+  return async (request) => {
+    const { workItemId } = parseWithSchema(workItemIdParamSchema, request.params);
+    const service = new WorkItemWatcherService({
+      actor: request.actor,
+      repositories: input.repositories
+    });
+    return {
+      status: 200,
+      body: await service.watch(workItemId)
+    };
+  };
+}
+
+export function unwatchWorkItemHandler(input: {
+  repositories: Repositories;
+}): EndpointHandler<WorkItemWatchStateDto> {
+  return async (request) => {
+    const { workItemId } = parseWithSchema(workItemIdParamSchema, request.params);
+    const service = new WorkItemWatcherService({
+      actor: request.actor,
+      repositories: input.repositories
+    });
+    return {
+      status: 200,
+      body: await service.unwatch(workItemId)
     };
   };
 }

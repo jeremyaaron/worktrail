@@ -3,6 +3,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type {
   CommentDto,
+  CreateCommentRequest,
   LabelDto,
   MemberDto,
   MilestoneDto,
@@ -14,6 +15,7 @@ import type {
   WorkItemRelationshipType,
   WorkItemStatus,
   WorkItemType,
+  WorkItemWatchStateDto,
   WorkspaceWorkItemListItemDto
 } from '@worktrail/contracts';
 
@@ -224,6 +226,53 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
                 {{ isTransitioning() ? 'Updating...' : 'Update status' }}
               </button>
             </form>
+          </section>
+
+          <section class="panel watch-panel" aria-labelledby="watch-heading">
+            <div class="watch-heading">
+              <div>
+                <h2 id="watch-heading">Watchers</h2>
+                <p>{{ watcherCount() }} watching</p>
+              </div>
+              <button
+                type="button"
+                class="secondary-action"
+                [disabled]="isArchivedProject() || isWatchLoading() || isWatchUpdating()"
+                (click)="toggleWatch()"
+              >
+                @if (isWatchUpdating()) {
+                  Updating...
+                } @else if (watchState()?.isWatchedByCurrentActor) {
+                  Unwatch
+                } @else {
+                  Watch
+                }
+              </button>
+            </div>
+
+            @if (watchError()) {
+              <app-error-panel
+                title="Watchers unavailable"
+                [message]="watchError() ?? ''"
+                (retry)="loadWatchState()"
+              />
+            } @else if (isWatchLoading()) {
+              <p class="muted">Loading watchers...</p>
+            } @else if (watchers().length === 0) {
+              <p class="muted">No active watchers.</p>
+            } @else {
+              <details class="watcher-list">
+                <summary>Show watchers</summary>
+                <ul>
+                  @for (watcher of watchers(); track watcher.id) {
+                    <li>
+                      <span>{{ memberDisplayName(watcher.member) }}</span>
+                      <time>{{ formatDateTime(watcher.watchedAt) }}</time>
+                    </li>
+                  }
+                </ul>
+              </details>
+            }
           </section>
 
           <section class="panel" aria-labelledby="metadata-heading">
@@ -505,6 +554,14 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
                   } @else {
                     <p>{{ comment.body }}</p>
 
+                    @if (comment.mentions.length > 0) {
+                      <div class="comment-mentions" aria-label="Mentioned members">
+                        @for (mention of comment.mentions; track mention.id) {
+                          <span>{{ '@' + memberDisplayName(mention) }}</span>
+                        }
+                      </div>
+                    }
+
                     @if (canModifyComment(comment)) {
                       <div class="comment-actions">
                         <button type="button" class="secondary-action" (click)="startEditComment(comment)">
@@ -556,6 +613,43 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
             @if (showCommentError()) {
               <p class="field-error">Comment body is required.</p>
             }
+
+            <section class="mention-picker" aria-label="Comment mentions">
+              <label for="comment-mention-member">Mention members</label>
+              <div class="mention-controls">
+                <select
+                  id="comment-mention-member"
+                  #mentionSelect
+                  [disabled]="isArchivedProject() || availableMentionMembers().length === 0"
+                  (change)="addMentionMember(mentionSelect.value); mentionSelect.value = ''"
+                >
+                  <option value="">Add mention</option>
+                  @for (member of availableMentionMembers(); track member.id) {
+                    <option [value]="member.id">{{ memberDisplayName(member) }}</option>
+                  }
+                </select>
+              </div>
+
+              @if (selectedMentionMembers().length > 0) {
+                <div class="mention-chips" aria-label="Selected mentions">
+                  @for (member of selectedMentionMembers(); track member.id) {
+                    <span>
+                      {{ memberDisplayName(member) }}
+                      <button
+                        type="button"
+                        class="chip-remove"
+                        [attr.aria-label]="'Remove ' + memberDisplayName(member)"
+                        (click)="removeMentionMember(member.id)"
+                      >
+                        x
+                      </button>
+                    </span>
+                  }
+                </div>
+              } @else {
+                <p class="muted">No mentions selected.</p>
+              }
+            </section>
 
             @if (commentError()) {
               <app-error-panel
@@ -794,6 +888,58 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
       gap: 3px;
     }
 
+    .watch-panel {
+      align-content: start;
+    }
+
+    .watch-heading {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .watch-heading p {
+      margin-top: 3px;
+      color: #64748b;
+      font-size: 0.8125rem;
+      font-weight: 800;
+      line-height: 1.4;
+    }
+
+    .watcher-list {
+      display: grid;
+      gap: 10px;
+      color: #334155;
+      font-size: 0.875rem;
+    }
+
+    .watcher-list summary {
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    .watcher-list ul {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .watcher-list li {
+      display: grid;
+      gap: 2px;
+      border-top: 1px solid #e5e7eb;
+      padding-top: 8px;
+    }
+
+    .watcher-list time {
+      color: #64748b;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
     dt {
       color: #64748b;
       font-size: 0.75rem;
@@ -860,6 +1006,54 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
       color: #334155;
       font-size: 0.875rem;
       line-height: 1.5;
+    }
+
+    .comment-mentions,
+    .mention-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .comment-mentions span,
+    .mention-chips span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid #cbd5e1;
+      border-radius: 999px;
+      padding: 3px 8px;
+      background: #f8fafc;
+      color: #334155;
+      font-size: 0.75rem;
+      font-weight: 800;
+    }
+
+    .mention-picker {
+      display: grid;
+      gap: 8px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 12px;
+      background: #f8fafc;
+    }
+
+    .mention-controls {
+      display: grid;
+      gap: 8px;
+    }
+
+    .chip-remove {
+      min-height: 20px;
+      width: 20px;
+      border: 0;
+      border-radius: 999px;
+      padding: 0;
+      background: #e2e8f0;
+      color: #334155;
+      font-size: 0.875rem;
+      line-height: 1;
     }
 
     .comment-tombstone {
@@ -935,6 +1129,8 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly isUpdating = signal(false);
   readonly isTransitioning = signal(false);
   readonly isCommenting = signal(false);
+  readonly isWatchLoading = signal(false);
+  readonly isWatchUpdating = signal(false);
   readonly isSearchingCandidates = signal(false);
   readonly isAddingRelationship = signal(false);
   readonly savingCommentId = signal<string | null>(null);
@@ -951,6 +1147,7 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly statusError = signal<string | null>(null);
   readonly commentError = signal<string | null>(null);
   readonly commentMutationError = signal<string | null>(null);
+  readonly watchError = signal<string | null>(null);
   readonly relationshipError = signal<string | null>(null);
   readonly candidateSearchError = signal<string | null>(null);
   readonly labelLoadError = signal<string | null>(null);
@@ -958,6 +1155,24 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly availableLabels = signal<LabelDto[]>([]);
   readonly availableMilestones = signal<MilestoneDto[]>([]);
   readonly relationshipCandidates = signal<WorkspaceWorkItemListItemDto[]>([]);
+  readonly watchState = signal<WorkItemWatchStateDto | null>(null);
+  readonly selectedMentionMemberIds = signal<string[]>([]);
+  readonly watchers = computed(() => this.watchState()?.watchers ?? []);
+  readonly watcherCount = computed(() => this.watchState()?.watcherCount ?? this.watchers().length);
+  readonly selectedMentionMembers = computed(() => {
+    const membersById = new Map(this.currentUser.activeMembers().map((member) => [member.id, member]));
+
+    return this.selectedMentionMemberIds()
+      .map((memberId) => membersById.get(memberId))
+      .filter((member): member is MemberDto => member !== undefined);
+  });
+  readonly availableMentionMembers = computed(() => {
+    const selected = new Set(this.selectedMentionMemberIds());
+    return this.currentUser
+      .activeMembers()
+      .filter((member) => !selected.has(member.id))
+      .sort((left, right) => left.name.localeCompare(right.name));
+  });
   readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
   readonly isTerminalWorkItem = computed(() => terminalStatuses.has(this.workItem()?.status ?? 'backlog'));
   readonly canReopenTerminalWorkItem = computed(() => {
@@ -1057,6 +1272,7 @@ export class WorkItemDetailPageComponent implements OnInit {
     this.api.getWorkItem(this.workItemId()).subscribe({
       next: (workItem) => {
         this.applyWorkItem(workItem);
+        this.loadWatchState();
         this.loadProject(workItem.projectId);
         this.loadProjectLabels(workItem.projectId);
         this.loadProjectMilestones(workItem.projectId);
@@ -1134,15 +1350,58 @@ export class WorkItemDetailPageComponent implements OnInit {
     }
 
     this.isCommenting.set(true);
-    this.api.createComment(this.workItemId(), { body: this.commentForm.getRawValue().body.trim() }).subscribe({
+    this.api.createComment(this.workItemId(), this.toCreateCommentRequest()).subscribe({
       next: () => {
         this.commentForm.reset();
+        this.selectedMentionMemberIds.set([]);
         this.hasSubmittedComment.set(false);
         this.refreshAfterComment();
       },
       error: () => {
         this.commentError.set('The comment could not be added.');
         this.isCommenting.set(false);
+      }
+    });
+  }
+
+  loadWatchState(): void {
+    this.isWatchLoading.set(true);
+    this.watchError.set(null);
+
+    this.api.getWorkItemWatchState(this.workItemId()).subscribe({
+      next: (watchState) => {
+        this.watchState.set(watchState);
+        this.isWatchLoading.set(false);
+      },
+      error: () => {
+        this.watchError.set('Watch state could not be loaded from the API.');
+        this.watchState.set(null);
+        this.isWatchLoading.set(false);
+      }
+    });
+  }
+
+  toggleWatch(): void {
+    if (this.isArchivedProject() || this.isWatchLoading() || this.isWatchUpdating()) {
+      return;
+    }
+
+    const isWatched = this.watchState()?.isWatchedByCurrentActor ?? false;
+    const request = isWatched
+      ? this.api.unwatchWorkItem(this.workItemId())
+      : this.api.watchWorkItem(this.workItemId());
+
+    this.isWatchUpdating.set(true);
+    this.watchError.set(null);
+
+    request.subscribe({
+      next: (watchState) => {
+        this.watchState.set(watchState);
+        this.isWatchUpdating.set(false);
+      },
+      error: () => {
+        this.watchError.set('Watch state could not be updated.');
+        this.isWatchUpdating.set(false);
       }
     });
   }
@@ -1364,6 +1623,26 @@ export class WorkItemDetailPageComponent implements OnInit {
     return 'Add related work';
   }
 
+  addMentionMember(memberId: string): void {
+    if (memberId === '' || this.isArchivedProject()) {
+      return;
+    }
+
+    if (!this.currentUser.activeMembers().some((member) => member.id === memberId)) {
+      return;
+    }
+
+    const selected = new Set(this.selectedMentionMemberIds());
+    selected.add(memberId);
+    this.selectedMentionMemberIds.set([...selected]);
+  }
+
+  removeMentionMember(memberId: string): void {
+    this.selectedMentionMemberIds.set(
+      this.selectedMentionMemberIds().filter((selectedMemberId) => selectedMemberId !== memberId)
+    );
+  }
+
   toggleLabel(labelId: string, event: Event): void {
     if (this.isArchivedProject()) {
       return;
@@ -1541,6 +1820,19 @@ export class WorkItemDetailPageComponent implements OnInit {
       milestoneId: formValue.milestoneId === '' ? null : formValue.milestoneId,
       labelIds: [...this.selectedLabelIds(), ...this.archivedAttachedLabels().map((label) => label.id)]
     };
+  }
+
+  private toCreateCommentRequest(): CreateCommentRequest {
+    const mentionMemberIds = this.selectedMentionMemberIds();
+    const request: CreateCommentRequest = {
+      body: this.commentForm.getRawValue().body.trim()
+    };
+
+    if (mentionMemberIds.length > 0) {
+      request.mentionMemberIds = mentionMemberIds;
+    }
+
+    return request;
   }
 
   private mergeCurrentMilestone(milestones: MilestoneDto[]): MilestoneDto[] {

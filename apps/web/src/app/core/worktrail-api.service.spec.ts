@@ -200,6 +200,76 @@ describe('WorktrailApiService', () => {
     remove.flush(null);
   });
 
+  it('supports work item watcher requests', () => {
+    const workItemId = '10000000-0000-4000-8000-000000000401';
+    const watchState = {
+      isWatchedByCurrentActor: true,
+      watcherCount: 1,
+      watchers: [
+        {
+          id: '10000000-0000-4000-8000-000000000901',
+          member: actor,
+          watchedAt: '2026-07-05T12:00:00.000Z'
+        }
+      ]
+    };
+
+    api.getWorkItemWatchState(workItemId).subscribe();
+    const getState = http.expectOne(`/api/work-items/${workItemId}/watchers`);
+    expect(getState.request.method).toBe('GET');
+    getState.flush(watchState);
+
+    api.watchWorkItem(workItemId).subscribe();
+    const watch = http.expectOne(`/api/work-items/${workItemId}/watch`);
+    expect(watch.request.method).toBe('PUT');
+    expect(watch.request.body).toEqual({});
+    watch.flush(watchState);
+
+    api.unwatchWorkItem(workItemId).subscribe();
+    const unwatch = http.expectOne(`/api/work-items/${workItemId}/watch`);
+    expect(unwatch.request.method).toBe('DELETE');
+    unwatch.flush({ ...watchState, isWatchedByCurrentActor: false });
+  });
+
+  it('supports notification inbox requests', () => {
+    const notificationId = '10000000-0000-4000-8000-000000000901';
+
+    api.listNotifications('all').subscribe();
+    const list = http.expectOne((candidate) => candidate.url === '/api/notifications');
+    expect(list.request.method).toBe('GET');
+    expect(list.request.params.get('state')).toBe('all');
+    list.flush({ items: [], unreadCount: 2 });
+
+    api.getNotificationUnreadCount().subscribe();
+    const count = http.expectOne('/api/notifications/unread-count');
+    expect(count.request.method).toBe('GET');
+    count.flush({ unreadCount: 2 });
+
+    api.updateNotificationReadState(notificationId, { read: true }).subscribe();
+    const update = http.expectOne(`/api/notifications/${notificationId}`);
+    expect(update.request.method).toBe('PATCH');
+    expect(update.request.body).toEqual({ read: true });
+    update.flush({});
+
+    api.markAllNotificationsRead().subscribe();
+    const markAllRead = http.expectOne('/api/notifications/mark-all-read');
+    expect(markAllRead.request.method).toBe('POST');
+    expect(markAllRead.request.body).toEqual({});
+    markAllRead.flush({ unreadCount: 0 });
+  });
+
+  it('sends comment mention member ids when creating comments', () => {
+    const workItemId = '10000000-0000-4000-8000-000000000401';
+    const mentionMemberIds = ['10000000-0000-4000-8000-000000000102'];
+
+    api.createComment(workItemId, { body: 'Please review this.', mentionMemberIds }).subscribe();
+
+    const request = http.expectOne(`/api/work-items/${workItemId}/comments`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ body: 'Please review this.', mentionMemberIds });
+    request.flush({});
+  });
+
   it('supports saved work view CRUD requests', () => {
     const savedView: SavedWorkViewDto = {
       id: '10000000-0000-4000-8000-000000000201',

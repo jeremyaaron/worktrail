@@ -18,6 +18,7 @@ import {
   type ActivityEventType,
   type MemberRole,
   type MilestoneStatus,
+  type NotificationType,
   type ProjectStatus,
   type SavedWorkViewVisibility,
   type WorkItemPriority,
@@ -28,6 +29,7 @@ import {
   activityEventTypes,
   memberRoles,
   milestoneStatuses,
+  notificationTypes,
   projectStatuses,
   savedWorkViewVisibilities,
   workItemPriorities,
@@ -217,6 +219,36 @@ export const workItemRelationships = pgTable(
   ]
 );
 
+export const workItemWatchers = pgTable(
+  'work_item_watchers',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    workItemId: uuid('work_item_id')
+      .notNull()
+      .references(() => workItems.id, { onDelete: 'cascade' }),
+    memberId: uuid('member_id')
+      .notNull()
+      .references(() => members.id),
+    watchedAt: timestamp('watched_at', { withTimezone: true }).notNull(),
+    unwatchedAt: timestamp('unwatched_at', { withTimezone: true }),
+    ...timestamps
+  },
+  (table) => [
+    index('work_item_watchers_workspace_member_unwatched_idx').on(
+      table.workspaceId,
+      table.memberId,
+      table.unwatchedAt
+    ),
+    index('work_item_watchers_work_item_unwatched_idx').on(table.workItemId, table.unwatchedAt),
+    uniqueIndex('work_item_watchers_active_unique')
+      .on(table.workItemId, table.memberId)
+      .where(sql`${table.unwatchedAt} is null`)
+  ]
+);
+
 export const savedWorkViews = pgTable(
   'saved_work_views',
   {
@@ -311,6 +343,34 @@ export const comments = pgTable(
   (table) => [index('comments_work_item_id_created_at_idx').on(table.workItemId, table.createdAt)]
 );
 
+export const commentMentions = pgTable(
+  'comment_mentions',
+  {
+    commentId: uuid('comment_id')
+      .notNull()
+      .references(() => comments.id, { onDelete: 'cascade' }),
+    memberId: uuid('member_id')
+      .notNull()
+      .references(() => members.id),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    workItemId: uuid('work_item_id')
+      .notNull()
+      .references(() => workItems.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull()
+  },
+  (table) => [
+    primaryKey({ columns: [table.commentId, table.memberId] }),
+    index('comment_mentions_workspace_member_created_idx').on(
+      table.workspaceId,
+      table.memberId,
+      table.createdAt.desc()
+    ),
+    index('comment_mentions_work_item_created_idx').on(table.workItemId, table.createdAt.desc())
+  ]
+);
+
 export const activityEvents = pgTable(
   'activity_events',
   {
@@ -336,6 +396,49 @@ export const activityEvents = pgTable(
     check('activity_events_event_type_check', enumCheckSql('event_type', activityEventTypes)),
     index('activity_events_work_item_id_created_at_idx').on(table.workItemId, table.createdAt.desc()),
     index('activity_events_project_id_created_at_idx').on(table.projectId, table.createdAt.desc())
+  ]
+);
+
+export const notifications = pgTable(
+  'notifications',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    recipientMemberId: uuid('recipient_member_id')
+      .notNull()
+      .references(() => members.id),
+    actorMemberId: uuid('actor_member_id').references(() => members.id),
+    projectId: uuid('project_id').references(() => projects.id),
+    workItemId: uuid('work_item_id').references(() => workItems.id, { onDelete: 'cascade' }),
+    activityEventId: uuid('activity_event_id').references(() => activityEvents.id, {
+      onDelete: 'set null'
+    }),
+    notificationType: text('notification_type').$type<NotificationType>().notNull(),
+    summary: text('summary').notNull(),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
+    sourceEventKey: text('source_event_key'),
+    readAt: timestamp('read_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull()
+  },
+  (table) => [
+    check('notifications_type_check', enumCheckSql('notification_type', notificationTypes)),
+    index('notifications_workspace_recipient_read_created_idx').on(
+      table.workspaceId,
+      table.recipientMemberId,
+      table.readAt,
+      table.createdAt.desc()
+    ),
+    index('notifications_workspace_recipient_created_idx').on(
+      table.workspaceId,
+      table.recipientMemberId,
+      table.createdAt.desc()
+    ),
+    index('notifications_work_item_created_idx').on(table.workItemId, table.createdAt.desc()),
+    uniqueIndex('notifications_recipient_source_event_unique')
+      .on(table.recipientMemberId, table.sourceEventKey)
+      .where(sql`${table.sourceEventKey} is not null`)
   ]
 );
 

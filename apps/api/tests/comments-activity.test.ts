@@ -26,8 +26,12 @@ function actorHeaders(input: { workspaceId: string; memberId: string; role: stri
 }
 
 async function cleanupWorkspace(workspaceId: string) {
+  await pool.query('delete from notifications where workspace_id = $1', [workspaceId]);
+  await pool.query('delete from comment_mentions where workspace_id = $1', [workspaceId]);
   await pool.query('delete from activity_events where workspace_id = $1', [workspaceId]);
   await pool.query('delete from comments where workspace_id = $1', [workspaceId]);
+  await pool.query('delete from work_item_watchers where workspace_id = $1', [workspaceId]);
+  await pool.query('delete from work_item_relationships where workspace_id = $1', [workspaceId]);
   await pool.query(
     'delete from work_item_labels where work_item_id in (select id from work_items where workspace_id = $1)',
     [workspaceId]
@@ -52,6 +56,7 @@ async function createFixture(role: 'owner' | 'maintainer' | 'contributor' = 'own
   const workspaceId = randomUUID();
   const actorId = randomUUID();
   const contributorId = randomUUID();
+  const inactiveMemberId = randomUUID();
   const projectId = randomUUID();
   workspaceIds.add(workspaceId);
 
@@ -63,8 +68,9 @@ async function createFixture(role: 'owner' | 'maintainer' | 'contributor' = 'own
   });
 
   for (const member of [
-    { id: actorId, role, name: 'Comment Actor' },
-    { id: contributorId, role: 'contributor' as const, name: 'Comment Contributor' }
+    { id: actorId, role, name: 'Comment Actor', isActive: true },
+    { id: contributorId, role: 'contributor' as const, name: 'Comment Contributor', isActive: true },
+    { id: inactiveMemberId, role: 'contributor' as const, name: 'Inactive Contributor', isActive: false }
   ]) {
     await repositories.members.create({
       id: member.id,
@@ -72,7 +78,7 @@ async function createFixture(role: 'owner' | 'maintainer' | 'contributor' = 'own
       name: member.name,
       email: `${member.id}@example.com`,
       role: member.role,
-      isActive: true,
+      isActive: member.isActive ?? true,
       createdAt: timestamp,
       updatedAt: timestamp
     });
@@ -94,6 +100,7 @@ async function createFixture(role: 'owner' | 'maintainer' | 'contributor' = 'own
     workspaceId,
     actorId,
     contributorId,
+    inactiveMemberId,
     projectId,
     headers: actorHeaders({ workspaceId, memberId: actorId, role }),
     contributorHeaders: actorHeaders({
@@ -145,6 +152,16 @@ describe('comments and activity API', () => {
   it('adds comments with author details and records comment activity', async () => {
     const fixture = await createFixture('owner');
     const workItem = await createWorkItem(fixture);
+    await repositories.workItemWatchers.watch({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      workItemId: workItem.id,
+      memberId: fixture.contributorId,
+      watchedAt: now(),
+      unwatchedAt: null,
+      createdAt: now(),
+      updatedAt: now()
+    });
 
     const response = await request(app)
       .post(`/api/work-items/${workItem.id}/comments`)
@@ -172,6 +189,102 @@ describe('comments and activity API', () => {
       actorId: fixture.actorId,
       metadata: { commentId: response.body.id }
     });
+    await expect(
+      repositories.notifications.listByRecipient({
+        workspaceId: fixture.workspaceId,
+        recipientMemberId: fixture.contributorId,
+        state: 'all'
+      })
+    ).resolves.toEqual([
+      expect.objectContaining({
+        notificationType: 'watched_comment',
+        workItemId: workItem.id,
+        metadata: { commentId: response.body.id }
+      })
+    ]);
+  });
+
+  it('adds comments with deduped mentions and returns mention metadata', async () => {
+    const fixture = await createFixture('owner');
+    const workItem = await createWorkItem(fixture);
+    await repositories.workItemWatchers.watch({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      workItemId: workItem.id,
+      memberId: fixture.contributorId,
+      watchedAt: now(),
+      unwatchedAt: null,
+      createdAt: now(),
+      updatedAt: now()
+    });
+
+    const response = await request(app)
+      .post(`/api/work-items/${workItem.id}/comments`)
+      .set(fixture.headers)
+      .send({
+        body: 'Mentioning the contributor and myself.',
+        mentionMemberIds: [fixture.contributorId, fixture.contributorId, fixture.actorId]
+      })
+      .expect(201);
+
+    expect(response.body.mentions).toHaveLength(2);
+    expect(response.body.mentions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: fixture.actorId, name: 'Comment Actor' }),
+        expect.objectContaining({ id: fixture.contributorId, name: 'Comment Contributor' })
+      ])
+    );
+
+    const mentions = await repositories.commentMentions.listByComment(response.body.id);
+    expect(mentions.map((mention) => mention.memberId).sort()).toEqual(
+      [fixture.actorId, fixture.contributorId].sort()
+    );
+
+    await request(app)
+      .get(`/api/work-items/${workItem.id}/comments`)
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body[0].mentions).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ id: fixture.actorId }),
+            expect.objectContaining({ id: fixture.contributorId })
+          ])
+        );
+      });
+
+    await request(app)
+      .get(`/api/work-items/${workItem.id}`)
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.comments[0].mentions).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ id: fixture.actorId }),
+            expect.objectContaining({ id: fixture.contributorId })
+          ])
+        );
+      });
+
+    await expect(
+      repositories.notifications.unreadCount({
+        workspaceId: fixture.workspaceId,
+        recipientMemberId: fixture.actorId
+      })
+    ).resolves.toBe(0);
+    await expect(
+      repositories.notifications.listByRecipient({
+        workspaceId: fixture.workspaceId,
+        recipientMemberId: fixture.contributorId,
+        state: 'all'
+      })
+    ).resolves.toEqual([
+      expect.objectContaining({
+        notificationType: 'mention',
+        workItemId: workItem.id,
+        metadata: { commentId: response.body.id }
+      })
+    ]);
   });
 
   it('lists comments in creation order', async () => {
@@ -209,7 +322,48 @@ describe('comments and activity API', () => {
           'Second comment'
         ]);
         expect(body[1]).toMatchObject({
-          author: { id: fixture.contributorId, name: 'Comment Contributor' }
+          author: { id: fixture.contributorId, name: 'Comment Contributor' },
+          mentions: []
+        });
+      });
+  });
+
+  it('rejects inactive and cross-workspace comment mentions', async () => {
+    const fixture = await createFixture('owner');
+    const otherFixture = await createFixture('owner');
+    const workItem = await createWorkItem(fixture);
+
+    for (const mentionMemberId of [fixture.inactiveMemberId, otherFixture.actorId]) {
+      await request(app)
+        .post(`/api/work-items/${workItem.id}/comments`)
+        .set(fixture.headers)
+        .send({
+          body: 'Invalid mention.',
+          mentionMemberIds: [mentionMemberId]
+        })
+        .expect(400)
+        .expect(({ body }) => {
+          expect(body.error.code).toBe('VALIDATION_ERROR');
+          expect(body.error.message).toBe('Mentioned members must be active workspace members.');
+        });
+    }
+
+    await expect(repositories.comments.findByWorkItem(workItem.id)).resolves.toEqual([]);
+  });
+
+  it('keeps legacy comment creation requests compatible without mention IDs', async () => {
+    const fixture = await createFixture('owner');
+    const workItem = await createWorkItem(fixture);
+
+    await request(app)
+      .post(`/api/work-items/${workItem.id}/comments`)
+      .set(fixture.headers)
+      .send({ body: 'Legacy body-only request.' })
+      .expect(201)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          body: 'Legacy body-only request.',
+          mentions: []
         });
       });
   });

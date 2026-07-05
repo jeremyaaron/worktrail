@@ -43,6 +43,7 @@ import {
   toWorkItemListItemDto,
   toWorkspaceWorkItemListItemDto
 } from './dto.js';
+import { NotificationService } from './notification-service.js';
 import { WorkItemRelationshipService } from './work-item-relationship-service.js';
 
 const boardPositionStep = 1024;
@@ -167,7 +168,7 @@ export class WorkItemService {
     });
 
     await repositories.labels.replaceForWorkItem(workItem.id, labelIds);
-    await repositories.activityEvents.create({
+    const activityEvent = await repositories.activityEvents.create({
       id: this.idGenerator(),
       workspaceId: workItem.workspaceId,
       projectId: workItem.projectId,
@@ -179,6 +180,13 @@ export class WorkItemService {
       newValue: { status: workItem.status },
       metadata: {},
       createdAt: timestamp
+    });
+
+    await this.notificationService(repositories).recordWorkItemCreated({
+      repositories,
+      workItem,
+      activityEventId: activityEvent.id,
+      timestamp
     });
 
     return this.toDetailDto(workItem, repositories);
@@ -241,7 +249,7 @@ export class WorkItemService {
         await repositories.labels.replaceForWorkItem(workItemId, nextLabelIds);
       }
 
-      await this.recordUpdateActivity({
+      const updateActivity = await this.recordUpdateActivity({
         current,
         updated,
         currentLabels,
@@ -250,6 +258,16 @@ export class WorkItemService {
         repositories,
         timestamp
       });
+
+      if (current.assigneeId !== updated.assigneeId) {
+        await this.notificationService(repositories).recordWorkItemAssigneeChanged({
+          repositories,
+          workItem: updated,
+          previousAssigneeId: current.assigneeId,
+          activityEventId: updateActivity.assigneeActivityEventId,
+          timestamp
+        });
+      }
 
       return this.toDetailDto(updated, repositories);
     });
@@ -294,7 +312,7 @@ export class WorkItemService {
       }
 
       if (current.status !== updated.status) {
-        await repositories.activityEvents.create({
+        const activityEvent = await repositories.activityEvents.create({
           id: this.idGenerator(),
           workspaceId: updated.workspaceId,
           projectId: updated.projectId,
@@ -306,6 +324,14 @@ export class WorkItemService {
           newValue: { status: updated.status },
           metadata: {},
           createdAt: timestamp
+        });
+
+        await this.notificationService(repositories).recordWorkItemStatusChanged({
+          repositories,
+          workItem: updated,
+          previousStatus: current.status,
+          activityEventId: activityEvent.id,
+          timestamp
         });
       }
 
@@ -355,7 +381,7 @@ export class WorkItemService {
       }
 
       if (current.status !== updated.status) {
-        await repositories.activityEvents.create({
+        const activityEvent = await repositories.activityEvents.create({
           id: this.idGenerator(),
           workspaceId: updated.workspaceId,
           projectId: updated.projectId,
@@ -367,6 +393,14 @@ export class WorkItemService {
           newValue: { status: updated.status, boardPosition: updated.boardPosition },
           metadata: {},
           createdAt: timestamp
+        });
+
+        await this.notificationService(repositories).recordWorkItemStatusChanged({
+          repositories,
+          workItem: updated,
+          previousStatus: current.status,
+          activityEventId: activityEvent.id,
+          timestamp
         });
       }
 
@@ -382,6 +416,15 @@ export class WorkItemService {
     }
 
     return withRepositoriesTransaction(this.context.db, callback);
+  }
+
+  private notificationService(repositories: Repositories): NotificationService {
+    return new NotificationService({
+      actor: this.context.actor,
+      repositories,
+      clock: this.clock,
+      idGenerator: this.idGenerator
+    });
   }
 
   private async requireProject(projectId: string): Promise<Project> {
@@ -726,6 +769,7 @@ export class WorkItemService {
 
   private async toCommentDtos(comments: Comment[], repositories: Repositories) {
     const dtos: CommentDto[] = [];
+    const mentionsByCommentId = await this.getMentionsByCommentId(comments, repositories);
 
     for (const comment of comments) {
       const author = await this.requireMember(comment.authorId, repositories, 'Comment author not found.');
@@ -733,10 +777,45 @@ export class WorkItemService {
         comment.deletedById === null
           ? null
           : await this.requireMember(comment.deletedById, repositories, 'Comment deletion actor not found.');
-      dtos.push(toCommentDto(comment, author, deletedBy));
+      dtos.push(toCommentDto(comment, author, deletedBy, mentionsByCommentId.get(comment.id) ?? []));
     }
 
     return dtos;
+  }
+
+  private async getMentionsByCommentId(
+    comments: Comment[],
+    repositories: Repositories
+  ): Promise<Map<string, Member[]>> {
+    const mentionsByCommentId = new Map<string, Member[]>();
+    const mentions = await repositories.commentMentions.listByComments(
+      comments.map((comment) => comment.id)
+    );
+
+    if (mentions.length === 0) {
+      return mentionsByCommentId;
+    }
+
+    const membersById = new Map(
+      (await repositories.members.listByWorkspace(this.context.actor.workspaceId)).map((member) => [
+        member.id,
+        member
+      ])
+    );
+
+    for (const mention of mentions) {
+      const member = membersById.get(mention.memberId);
+
+      if (member === undefined) {
+        throw new NotFoundError('Mentioned member not found.');
+      }
+
+      const existing = mentionsByCommentId.get(mention.commentId) ?? [];
+      existing.push(member);
+      mentionsByCommentId.set(mention.commentId, existing);
+    }
+
+    return mentionsByCommentId;
   }
 
   private async toActivityDtos(activity: ActivityEvent[], repositories: Repositories) {
@@ -771,11 +850,15 @@ export class WorkItemService {
     nextLabels: Label[];
     repositories: Repositories;
     timestamp: Date;
-  }): Promise<void> {
+  }): Promise<{ assigneeActivityEventId: string | null }> {
     await this.recordFieldActivity(input, 'title', 'work_item.title_changed');
     await this.recordFieldActivity(input, 'description', 'work_item.description_changed');
     await this.recordFieldActivity(input, 'priority', 'work_item.priority_changed');
-    await this.recordFieldActivity(input, 'assigneeId', 'work_item.assignee_changed');
+    const assigneeActivity = await this.recordFieldActivity(
+      input,
+      'assigneeId',
+      'work_item.assignee_changed'
+    );
     await this.recordMilestoneActivity(input);
 
     const currentLabelIds = new Set(input.currentLabels.map((label) => label.id));
@@ -816,6 +899,8 @@ export class WorkItemService {
         });
       }
     }
+
+    return { assigneeActivityEventId: assigneeActivity?.id ?? null };
   }
 
   private async recordFieldActivity(
@@ -831,12 +916,12 @@ export class WorkItemService {
       | 'work_item.description_changed'
       | 'work_item.priority_changed'
       | 'work_item.assignee_changed'
-  ): Promise<void> {
+  ): Promise<ActivityEvent | null> {
     if (input.current[field] === input.updated[field]) {
-      return;
+      return null;
     }
 
-    await input.repositories.activityEvents.create({
+    return input.repositories.activityEvents.create({
       id: this.idGenerator(),
       workspaceId: input.updated.workspaceId,
       projectId: input.updated.projectId,

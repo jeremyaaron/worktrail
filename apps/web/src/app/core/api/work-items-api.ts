@@ -24,6 +24,7 @@ import type {
   WorkItemSort,
   WorkItemStatus,
   WorkItemType,
+  WorkItemWatchStateDto,
   WorkspaceWorkItemListItemDto
 } from '@worktrail/contracts';
 import type { Observable } from 'rxjs';
@@ -159,6 +160,18 @@ export class WorkItemsApi {
 
   deleteWorkItemRelationship(workItemId: string, relationshipId: string): Observable<void> {
     return this.api.delete<void>(`/work-items/${workItemId}/relationships/${relationshipId}`);
+  }
+
+  getWorkItemWatchState(workItemId: string): Observable<WorkItemWatchStateDto> {
+    return this.api.get<WorkItemWatchStateDto>(`/work-items/${workItemId}/watchers`);
+  }
+
+  watchWorkItem(workItemId: string): Observable<WorkItemWatchStateDto> {
+    return this.api.put<WorkItemWatchStateDto>(`/work-items/${workItemId}/watch`, {});
+  }
+
+  unwatchWorkItem(workItemId: string): Observable<WorkItemWatchStateDto> {
+    return this.api.delete<WorkItemWatchStateDto>(`/work-items/${workItemId}/watch`);
   }
 
   listComments(workItemId: string): Observable<CommentDto[]> {

@@ -531,6 +531,66 @@ test('surfaces v0.0.9 delivery health on project overview and planning', async (
   ).toBeVisible();
 });
 
+test('completes the v0.1.1 inbox mention workflow', async ({ page }) => {
+  test.setTimeout(90_000);
+
+  const comment = `E2E mention notification ${Date.now()}`;
+  const wt3Id = '10000000-0000-4000-8000-000000000403';
+
+  await page.goto('/inbox');
+  await expect(page.getByRole('heading', { name: 'Inbox', exact: true })).toBeVisible();
+  await expect(page.getByText(/\d+ unread notifications?\./)).toBeVisible();
+  await expect(page.getByText('WT-3 moved from ready to in_progress.')).toBeVisible();
+
+  await page.goto(`/work-items/${wt3Id}`);
+  await expect(
+    page.getByRole('heading', { name: 'Implement transport-neutral API handler contract' })
+  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Watchers' })).toBeVisible();
+  await expect(page.locator('.watch-panel')).toContainText('3 watching');
+
+  const watchPanel = page.locator('.watch-panel');
+  await watchPanel.getByRole('button', { name: 'Unwatch' }).click();
+  await expect(watchPanel.getByRole('button', { name: 'Watch' })).toBeVisible();
+  await watchPanel.getByRole('button', { name: 'Watch' }).click();
+  await expect(watchPanel.getByRole('button', { name: 'Unwatch' })).toBeVisible();
+
+  await page.getByLabel('Add comment').fill(comment);
+  await page.getByLabel('Mention members').selectOption({ label: 'Casey Contributor' });
+  await expect(page.getByLabel('Selected mentions')).toContainText('Casey Contributor');
+  await page.getByRole('button', { name: 'Add comment' }).click();
+
+  const createdComment = page.locator('article.comment').filter({ hasText: comment });
+  await expect(createdComment).toBeVisible();
+  await expect(createdComment.getByLabel('Mentioned members')).toContainText('@Casey Contributor');
+  await expect(page.getByText('Comment added.')).toBeVisible();
+
+  await page.locator('#current-member').selectOption({ label: 'Casey Contributor · contributor' });
+  await page.goto('/inbox');
+  await expect(page.getByRole('heading', { name: 'Inbox', exact: true })).toBeVisible();
+
+  const mentionCard = page
+    .locator('article.notification-card')
+    .filter({ hasText: 'You were mentioned on WT-3.' })
+    .filter({ hasText: 'Avery Owner' });
+  await expect(mentionCard).toBeVisible();
+  await expect(mentionCard).toContainText('Mention');
+  await expect(
+    mentionCard.getByRole('link', { name: /WT-3.*Implement transport-neutral API handler contract/ })
+  ).toBeVisible();
+
+  await mentionCard.getByRole('button', { name: 'Mark read' }).click();
+  await expect(mentionCard).toHaveCount(0);
+
+  await page.getByLabel('Inbox views').getByRole('button', { name: 'All', exact: true }).click();
+  const readMentionCard = page
+    .locator('article.notification-card')
+    .filter({ hasText: 'You were mentioned on WT-3.' })
+    .filter({ hasText: 'Avery Owner' });
+  await expect(readMentionCard).toBeVisible();
+  await expect(readMentionCard.getByRole('button', { name: 'Mark unread' })).toBeVisible();
+});
+
 test('imports project work items from CSV and exports filtered results', async ({ page }) => {
   test.setTimeout(90_000);
 

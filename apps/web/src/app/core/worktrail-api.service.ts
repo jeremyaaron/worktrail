@@ -17,6 +17,10 @@ import type {
   MilestoneStatus,
   MoveWorkItemOnBoardRequest,
   MyWorkDashboardDto,
+  NotificationDto,
+  NotificationListResponse,
+  NotificationStateFilter,
+  NotificationUnreadCountResponse,
   ProjectDto,
   ProjectNavigationSummaryDto,
   ProjectPlanningSummaryDto,
@@ -27,6 +31,7 @@ import type {
   UpdateLabelRequest,
   UpdateMemberRequest,
   UpdateMilestoneRequest,
+  UpdateNotificationReadStateRequest,
   UpdateProjectRequest,
   UpdateSavedWorkViewRequest,
   UpdateWorkspaceRequest,
@@ -38,6 +43,7 @@ import type {
   WorkItemListItemDto,
   WorkItemRelationshipDto,
   WorkItemRelationshipSummaryDto,
+  WorkItemWatchStateDto,
   WorkspaceActivityEventDto,
   WorkspaceCapabilitiesDto,
   WorkspaceDto,
@@ -45,6 +51,7 @@ import type {
 } from '@worktrail/contracts';
 import type { Observable } from 'rxjs';
 
+import { NotificationsApi } from './api/notifications-api';
 import { PlanningApi } from './api/planning-api';
 import { ProjectsApi } from './api/projects-api';
 import { SavedViewsApi } from './api/saved-views-api';
@@ -56,6 +63,7 @@ export type { WorkItemListFilters } from './api/work-items-api';
 
 @Injectable({ providedIn: 'root' })
 export class WorktrailApiService {
+  private readonly notifications = inject(NotificationsApi);
   private readonly planning = inject(PlanningApi);
   private readonly projects = inject(ProjectsApi);
   private readonly savedViews = inject(SavedViewsApi);
@@ -64,6 +72,25 @@ export class WorktrailApiService {
 
   getWorkspace(): Observable<WorkspaceDto> {
     return this.workspace.getWorkspace();
+  }
+
+  listNotifications(state: NotificationStateFilter = 'unread'): Observable<NotificationListResponse> {
+    return this.notifications.listNotifications(state);
+  }
+
+  getNotificationUnreadCount(): Observable<NotificationUnreadCountResponse> {
+    return this.notifications.getUnreadCount();
+  }
+
+  updateNotificationReadState(
+    notificationId: string,
+    input: UpdateNotificationReadStateRequest
+  ): Observable<NotificationDto> {
+    return this.notifications.updateReadState(notificationId, input);
+  }
+
+  markAllNotificationsRead(): Observable<NotificationUnreadCountResponse> {
+    return this.notifications.markAllRead();
   }
 
   updateWorkspace(input: UpdateWorkspaceRequest): Observable<WorkspaceDto> {
@@ -276,6 +303,18 @@ export class WorktrailApiService {
 
   deleteWorkItemRelationship(workItemId: string, relationshipId: string): Observable<void> {
     return this.workItems.deleteWorkItemRelationship(workItemId, relationshipId);
+  }
+
+  getWorkItemWatchState(workItemId: string): Observable<WorkItemWatchStateDto> {
+    return this.workItems.getWorkItemWatchState(workItemId);
+  }
+
+  watchWorkItem(workItemId: string): Observable<WorkItemWatchStateDto> {
+    return this.workItems.watchWorkItem(workItemId);
+  }
+
+  unwatchWorkItem(workItemId: string): Observable<WorkItemWatchStateDto> {
+    return this.workItems.unwatchWorkItem(workItemId);
   }
 
   listComments(workItemId: string): Observable<CommentDto[]> {

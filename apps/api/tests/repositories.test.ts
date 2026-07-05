@@ -31,8 +31,11 @@ function ids() {
 }
 
 async function cleanupWorkspace(workspaceId: string) {
+  await pool.query('delete from notifications where workspace_id = $1', [workspaceId]);
+  await pool.query('delete from comment_mentions where workspace_id = $1', [workspaceId]);
   await pool.query('delete from activity_events where workspace_id = $1', [workspaceId]);
   await pool.query('delete from comments where workspace_id = $1', [workspaceId]);
+  await pool.query('delete from work_item_watchers where workspace_id = $1', [workspaceId]);
   await pool.query(
     'delete from work_item_labels where work_item_id in (select id from work_items where workspace_id = $1)',
     [workspaceId]
@@ -292,6 +295,186 @@ describe('Drizzle repositories', () => {
       id: id.workItemId,
       title: 'Repository work item'
     });
+  });
+
+  it('creates actor-scoped notifications and updates read state', async () => {
+    const graph = await createRepositoryGraph(repositories);
+    const createdAt = now();
+    const readAt = new Date('2026-07-03T13:00:00.000Z');
+    const otherRecipientNotificationId = randomUUID();
+
+    const notification = await repositories.notifications.create({
+      id: randomUUID(),
+      workspaceId: graph.id.workspaceId,
+      recipientMemberId: graph.id.contributorId,
+      actorMemberId: graph.id.ownerId,
+      projectId: graph.id.projectId,
+      workItemId: graph.id.workItemId,
+      activityEventId: graph.id.activityEventId,
+      notificationType: 'assignment',
+      summary: 'Repository work item was assigned to you.',
+      metadata: { displayKey: graph.workItem.displayKey },
+      sourceEventKey: `repository-test:${graph.id.workItemId}:assignment`,
+      readAt: null,
+      createdAt
+    });
+
+    await repositories.notifications.create({
+      id: otherRecipientNotificationId,
+      workspaceId: graph.id.workspaceId,
+      recipientMemberId: graph.id.ownerId,
+      actorMemberId: graph.id.contributorId,
+      projectId: graph.id.projectId,
+      workItemId: graph.id.workItemId,
+      activityEventId: null,
+      notificationType: 'watched_comment',
+      summary: 'Repository Contributor commented on watched work.',
+      metadata: {},
+      sourceEventKey: `repository-test:${graph.id.workItemId}:comment`,
+      readAt: null,
+      createdAt
+    });
+
+    await expect(
+      repositories.notifications.listByRecipient({
+        workspaceId: graph.id.workspaceId,
+        recipientMemberId: graph.id.contributorId,
+        state: 'unread'
+      })
+    ).resolves.toMatchObject([{ id: notification.id }]);
+
+    await expect(
+      repositories.notifications.unreadCount({
+        workspaceId: graph.id.workspaceId,
+        recipientMemberId: graph.id.contributorId
+      })
+    ).resolves.toBe(1);
+
+    await expect(
+      repositories.notifications.setReadState({
+        id: notification.id,
+        workspaceId: graph.id.workspaceId,
+        recipientMemberId: graph.id.ownerId,
+        readAt
+      })
+    ).resolves.toBeNull();
+
+    await expect(
+      repositories.notifications.setReadState({
+        id: notification.id,
+        workspaceId: graph.id.workspaceId,
+        recipientMemberId: graph.id.contributorId,
+        readAt
+      })
+    ).resolves.toMatchObject({ id: notification.id, readAt });
+
+    await expect(
+      repositories.notifications.unreadCount({
+        workspaceId: graph.id.workspaceId,
+        recipientMemberId: graph.id.contributorId
+      })
+    ).resolves.toBe(0);
+
+    await expect(
+      repositories.notifications.setReadState({
+        id: notification.id,
+        workspaceId: graph.id.workspaceId,
+        recipientMemberId: graph.id.contributorId,
+        readAt: null
+      })
+    ).resolves.toMatchObject({ id: notification.id, readAt: null });
+
+    await expect(
+      repositories.notifications.markAllRead({
+        workspaceId: graph.id.workspaceId,
+        recipientMemberId: graph.id.contributorId,
+        readAt
+      })
+    ).resolves.toBe(1);
+
+    await expect(
+      repositories.notifications.unreadCount({
+        workspaceId: graph.id.workspaceId,
+        recipientMemberId: graph.id.ownerId
+      })
+    ).resolves.toBe(1);
+  });
+
+  it('creates idempotent active watchers and deactivates them on unwatch', async () => {
+    const graph = await createRepositoryGraph(repositories);
+    const createdAt = now();
+    const unwatchedAt = new Date('2026-07-03T13:00:00.000Z');
+
+    const watcher = await repositories.workItemWatchers.watch({
+      id: randomUUID(),
+      workspaceId: graph.id.workspaceId,
+      workItemId: graph.id.workItemId,
+      memberId: graph.id.contributorId,
+      watchedAt: createdAt,
+      unwatchedAt: null,
+      createdAt,
+      updatedAt: createdAt
+    });
+
+    const duplicate = await repositories.workItemWatchers.watch({
+      id: randomUUID(),
+      workspaceId: graph.id.workspaceId,
+      workItemId: graph.id.workItemId,
+      memberId: graph.id.contributorId,
+      watchedAt: createdAt,
+      unwatchedAt: null,
+      createdAt,
+      updatedAt: createdAt
+    });
+
+    expect(duplicate.id).toBe(watcher.id);
+    await expect(repositories.workItemWatchers.listActiveByWorkItem(graph.id.workItemId)).resolves.toHaveLength(1);
+    await expect(
+      repositories.workItemWatchers.listActiveMemberIdsByWorkItem(graph.id.workItemId)
+    ).resolves.toEqual([graph.id.contributorId]);
+
+    await expect(
+      repositories.workItemWatchers.unwatch({
+        workItemId: graph.id.workItemId,
+        memberId: graph.id.contributorId,
+        unwatchedAt,
+        updatedAt: unwatchedAt
+      })
+    ).resolves.toMatchObject({
+      id: watcher.id,
+      unwatchedAt
+    });
+
+    await expect(repositories.workItemWatchers.findActive(graph.id.workItemId, graph.id.contributorId)).resolves.toBeNull();
+    await expect(
+      repositories.workItemWatchers.listActiveMemberIdsByWorkItem(graph.id.workItemId)
+    ).resolves.toEqual([]);
+  });
+
+  it('creates and lists comment mentions', async () => {
+    const graph = await createRepositoryGraph(repositories);
+    const createdAt = now();
+
+    await expect(
+      repositories.commentMentions.createMany([
+        {
+          commentId: graph.id.commentId,
+          memberId: graph.id.contributorId,
+          workspaceId: graph.id.workspaceId,
+          workItemId: graph.id.workItemId,
+          createdAt
+        }
+      ])
+    ).resolves.toMatchObject([{ commentId: graph.id.commentId, memberId: graph.id.contributorId }]);
+
+    await expect(repositories.commentMentions.createMany([])).resolves.toEqual([]);
+    await expect(repositories.commentMentions.listByComment(graph.id.commentId)).resolves.toMatchObject([
+      { commentId: graph.id.commentId, memberId: graph.id.contributorId }
+    ]);
+    await expect(repositories.commentMentions.listByComments([graph.id.commentId])).resolves.toMatchObject([
+      { commentId: graph.id.commentId, memberId: graph.id.contributorId }
+    ]);
+    await expect(repositories.commentMentions.listByComments([])).resolves.toEqual([]);
   });
 
   it('creates, finds, lists, and deletes work item relationships', async () => {

@@ -26,14 +26,10 @@
 }
 
 .brand__mark {
-  display: inline-grid;
-  place-items: center;
+  display: block;
   width: 32px;
   height: 32px;
   border-radius: 7px;
-  background: #1f4f99;
-  color: #ffffff;
-  font-size: 0.95rem;
 }
 
 .primary-nav {
@@ -44,6 +40,9 @@
 }
 
 .primary-nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   flex: 0 0 auto;
   min-height: 36px;
   border-radius: 6px;
@@ -52,6 +51,20 @@
   font-size: 0.875rem;
   font-weight: 700;
   text-decoration: none;
+}
+
+.primary-nav__badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  padding: 0 6px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .primary-nav a:hover,

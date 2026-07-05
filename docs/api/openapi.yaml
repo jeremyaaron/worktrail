@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Worktrail API
-  version: 0.0.9
+  version: 0.1.1
   summary: HTTP API reference for the Worktrail local-first project management app.
   description: |
     This document describes the implemented Worktrail API routes. It is intentionally
@@ -33,6 +33,7 @@ tags:
   - name: Comments
   - name: Activity
   - name: My Work
+  - name: Notifications
   - name: Saved Work Views
 paths:
   /api/health:
@@ -215,6 +216,68 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Member"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/notifications:
+    get:
+      tags: [Notifications]
+      summary: List notifications for the current actor.
+      parameters:
+        - $ref: "#/components/parameters/NotificationStateQuery"
+      responses:
+        "200":
+          description: Actor-scoped notification list with unread count.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationListResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/notifications/unread-count:
+    get:
+      tags: [Notifications]
+      summary: Get unread notification count for the current actor.
+      responses:
+        "200":
+          description: Unread notification count.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationUnreadCountResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/notifications/{notificationId}:
+    patch:
+      tags: [Notifications]
+      summary: Update notification read state.
+      parameters:
+        - $ref: "#/components/parameters/NotificationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateNotificationReadStateRequest"
+      responses:
+        "200":
+          description: Updated notification.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/notifications/mark-all-read:
+    post:
+      tags: [Notifications]
+      summary: Mark all current actor notifications read.
+      responses:
+        "200":
+          description: Remaining unread notification count.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationUnreadCountResponse"
         default:
           $ref: "#/components/responses/Error"
   /api/projects:
@@ -827,6 +890,50 @@ paths:
                 $ref: "#/components/schemas/WorkItemDetail"
         default:
           $ref: "#/components/responses/Error"
+  /api/work-items/{workItemId}/watchers:
+    get:
+      tags: [Work Items]
+      summary: Get watch state for a work item.
+      parameters:
+        - $ref: "#/components/parameters/WorkItemId"
+      responses:
+        "200":
+          description: Current actor watch state and active watcher list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkItemWatchState"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/work-items/{workItemId}/watch:
+    put:
+      tags: [Work Items]
+      summary: Watch a work item as the current actor.
+      parameters:
+        - $ref: "#/components/parameters/WorkItemId"
+      responses:
+        "200":
+          description: Updated watch state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkItemWatchState"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Work Items]
+      summary: Stop watching a work item as the current actor.
+      parameters:
+        - $ref: "#/components/parameters/WorkItemId"
+      responses:
+        "200":
+          description: Updated watch state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkItemWatchState"
+        default:
+          $ref: "#/components/responses/Error"
   /api/work-items/{workItemId}/comments:
     get:
       tags: [Comments]
@@ -1092,6 +1199,13 @@ components:
       schema:
         type: string
         format: uuid
+    NotificationId:
+      name: notificationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     SavedViewId:
       name: savedViewId
       in: path
@@ -1191,6 +1305,12 @@ components:
       schema:
         type: string
         enum: [updated_desc, updated_asc, priority_desc, priority_asc, due_date_asc, created_desc, board_order]
+    NotificationStateQuery:
+      name: state
+      in: query
+      schema:
+        type: string
+        enum: [unread, all]
   responses:
     Error:
       description: Structured API error.
@@ -2368,9 +2488,34 @@ components:
         afterWorkItemId:
           type: [string, "null"]
           format: uuid
+    WorkItemWatcher:
+      type: object
+      required: [id, member, watchedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        member:
+          $ref: "#/components/schemas/Member"
+        watchedAt:
+          type: string
+          format: date-time
+    WorkItemWatchState:
+      type: object
+      required: [isWatchedByCurrentActor, watcherCount, watchers]
+      properties:
+        isWatchedByCurrentActor:
+          type: boolean
+        watcherCount:
+          type: integer
+          minimum: 0
+        watchers:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkItemWatcher"
     Comment:
       type: object
-      required: [id, workspaceId, projectId, workItemId, author, body, isEdited, isDeleted, createdAt, updatedAt]
+      required: [id, workspaceId, projectId, workItemId, author, body, mentions, isEdited, isDeleted, createdAt, updatedAt]
       properties:
         id:
           type: string
@@ -2388,6 +2533,10 @@ components:
           $ref: "#/components/schemas/Member"
         body:
           type: string
+        mentions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Member"
         isEdited:
           type: boolean
         isDeleted:
@@ -2414,12 +2563,109 @@ components:
       properties:
         body:
           type: string
+        mentionMemberIds:
+          type: array
+          items:
+            type: string
+            format: uuid
     UpdateCommentRequest:
       type: object
       required: [body]
       properties:
         body:
           type: string
+    NotificationType:
+      type: string
+      enum:
+        - assignment
+        - mention
+        - watched_comment
+        - watched_status_change
+        - watched_assignee_change
+        - watched_relationship_change
+        - dependency_blocker_added
+        - dependency_blocker_removed
+    NotificationProjectRef:
+      type: object
+      required: [id, key, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        key:
+          type: string
+        name:
+          type: string
+    NotificationWorkItemRef:
+      type: object
+      required: [id, displayKey, title, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayKey:
+          type: string
+        title:
+          type: string
+        status:
+          $ref: "#/components/schemas/WorkItemStatus"
+    Notification:
+      type: object
+      required: [id, type, summary, actor, project, workItem, metadata, readAt, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/NotificationType"
+        summary:
+          type: string
+        actor:
+          anyOf:
+            - $ref: "#/components/schemas/Member"
+            - type: "null"
+        project:
+          anyOf:
+            - $ref: "#/components/schemas/NotificationProjectRef"
+            - type: "null"
+        workItem:
+          anyOf:
+            - $ref: "#/components/schemas/NotificationWorkItemRef"
+            - type: "null"
+        metadata:
+          type: object
+          additionalProperties: true
+        readAt:
+          type: [string, "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+    NotificationListResponse:
+      type: object
+      required: [items, unreadCount]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Notification"
+        unreadCount:
+          type: integer
+          minimum: 0
+    NotificationUnreadCountResponse:
+      type: object
+      required: [unreadCount]
+      properties:
+        unreadCount:
+          type: integer
+          minimum: 0
+    UpdateNotificationReadStateRequest:
+      type: object
+      required: [read]
+      additionalProperties: false
+      properties:
+        read:
+          type: boolean
     ActivityEvent:
       type: object
       required: [id, workspaceId, projectId, actor, eventType, summary, createdAt]

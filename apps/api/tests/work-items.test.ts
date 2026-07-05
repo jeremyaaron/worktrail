@@ -26,9 +26,13 @@ function actorHeaders(input: { workspaceId: string; memberId: string; role: stri
 }
 
 async function cleanupWorkspace(workspaceId: string) {
+  await pool.query('delete from notifications where workspace_id = $1', [workspaceId]);
+  await pool.query('delete from comment_mentions where workspace_id = $1', [workspaceId]);
   await pool.query('delete from workspace_activity_events where workspace_id = $1', [workspaceId]);
   await pool.query('delete from activity_events where workspace_id = $1', [workspaceId]);
   await pool.query('delete from comments where workspace_id = $1', [workspaceId]);
+  await pool.query('delete from work_item_watchers where workspace_id = $1', [workspaceId]);
+  await pool.query('delete from work_item_relationships where workspace_id = $1', [workspaceId]);
   await pool.query(
     'delete from work_item_labels where work_item_id in (select id from work_items where workspace_id = $1)',
     [workspaceId]
@@ -258,6 +262,29 @@ describe('work item API', () => {
     const activity = await repositories.activityEvents.findByWorkItem(response.body.id);
     expect(activity).toHaveLength(1);
     expect(activity[0]?.eventType).toBe('work_item.created');
+    await expect(repositories.workItemWatchers.listActiveMemberIdsByWorkItem(response.body.id)).resolves.toEqual(
+      expect.arrayContaining([fixture.actorId, fixture.contributorId])
+    );
+    await expect(
+      repositories.notifications.listByRecipient({
+        workspaceId: fixture.workspaceId,
+        recipientMemberId: fixture.contributorId,
+        state: 'all'
+      })
+    ).resolves.toMatchObject([
+      {
+        notificationType: 'assignment',
+        actorMemberId: fixture.actorId,
+        workItemId: response.body.id,
+        summary: 'WI-2 was assigned to you.'
+      }
+    ]);
+    await expect(
+      repositories.notifications.unreadCount({
+        workspaceId: fixture.workspaceId,
+        recipientMemberId: fixture.actorId
+      })
+    ).resolves.toBe(0);
 
     const secondResponse = await request(app)
       .post(`/api/projects/${fixture.projectId}/work-items`)
@@ -1572,6 +1599,22 @@ describe('work item API', () => {
         'work_item.label_removed'
       ])
     );
+    await expect(repositories.workItemWatchers.listActiveMemberIdsByWorkItem(workItem.id)).resolves.toEqual(
+      expect.arrayContaining([fixture.maintainerId])
+    );
+    await expect(
+      repositories.notifications.listByRecipient({
+        workspaceId: fixture.workspaceId,
+        recipientMemberId: fixture.maintainerId,
+        state: 'all'
+      })
+    ).resolves.toEqual([
+      expect.objectContaining({
+        notificationType: 'assignment',
+        workItemId: workItem.id,
+        summary: 'WI-1 was assigned to you.'
+      })
+    ]);
   });
 
   it('rejects work item updates to inactive assignees', async () => {
@@ -1763,6 +1806,26 @@ describe('work item API', () => {
   it('transitions work item status and records status activity', async () => {
     const fixture = await createFixture('maintainer');
     const workItem = await createWorkItem(fixture, { status: 'ready' });
+    await repositories.workItemWatchers.watch({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      workItemId: workItem.id,
+      memberId: fixture.contributorId,
+      watchedAt: now(),
+      unwatchedAt: null,
+      createdAt: now(),
+      updatedAt: now()
+    });
+    await repositories.workItemWatchers.watch({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      workItemId: workItem.id,
+      memberId: fixture.inactiveMemberId,
+      watchedAt: now(),
+      unwatchedAt: null,
+      createdAt: now(),
+      updatedAt: now()
+    });
 
     await request(app)
       .post(`/api/work-items/${workItem.id}/transitions`)
@@ -1775,6 +1838,26 @@ describe('work item API', () => {
 
     const activity = await repositories.activityEvents.findByWorkItem(workItem.id);
     expect(activity[0]?.eventType).toBe('work_item.status_changed');
+    await expect(
+      repositories.notifications.listByRecipient({
+        workspaceId: fixture.workspaceId,
+        recipientMemberId: fixture.contributorId,
+        state: 'all'
+      })
+    ).resolves.toEqual([
+      expect.objectContaining({
+        notificationType: 'watched_status_change',
+        workItemId: workItem.id,
+        metadata: { previousStatus: 'ready', status: 'in_progress' }
+      })
+    ]);
+    await expect(
+      repositories.notifications.listByRecipient({
+        workspaceId: fixture.workspaceId,
+        recipientMemberId: fixture.inactiveMemberId,
+        state: 'all'
+      })
+    ).resolves.toEqual([]);
   });
 
   it('positions status-menu transitions at the top of the destination status', async () => {

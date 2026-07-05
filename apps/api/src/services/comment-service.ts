@@ -3,13 +3,14 @@ import { randomUUID } from 'node:crypto';
 
 import type { WorktrailDb } from '../db/client.js';
 import type { ActorContext } from '../domain/actor.js';
-import { ConflictError, ForbiddenError, NotFoundError } from '../errors/app-error.js';
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../errors/app-error.js';
 import {
   type Repositories,
   withRepositoriesTransaction
 } from '../repositories/index.js';
 import type { Comment, Member, Project, WorkItem } from '../repositories/types.js';
 import { toCommentDto } from './dto.js';
+import { NotificationService } from './notification-service.js';
 
 export interface CommentServiceContext {
   actor: ActorContext;
@@ -40,6 +41,7 @@ export class CommentService {
       const project = await this.requireProject(workItem.projectId, repositories);
       this.assertProjectWritable(project);
       const timestamp = this.clock();
+      const mentionedMembers = await this.validateMentionMembers(input.mentionMemberIds ?? [], repositories);
 
       const comment = await repositories.comments.create({
         id: this.idGenerator(),
@@ -52,7 +54,17 @@ export class CommentService {
         updatedAt: timestamp
       });
 
-      await repositories.activityEvents.create({
+      await repositories.commentMentions.createMany(
+        mentionedMembers.map((member) => ({
+          commentId: comment.id,
+          memberId: member.id,
+          workspaceId: workItem.workspaceId,
+          workItemId,
+          createdAt: timestamp
+        }))
+      );
+
+      const activityEvent = await repositories.activityEvents.create({
         id: this.idGenerator(),
         workspaceId: workItem.workspaceId,
         projectId: workItem.projectId,
@@ -64,6 +76,15 @@ export class CommentService {
         newValue: null,
         metadata: { commentId: comment.id },
         createdAt: timestamp
+      });
+
+      await this.notificationService(repositories).recordCommentCreated({
+        repositories,
+        workItem,
+        comment,
+        mentionedMemberIds: mentionedMembers.map((member) => member.id),
+        activityEventId: activityEvent.id,
+        timestamp
       });
 
       return this.toCommentDto(comment, repositories);
@@ -152,6 +173,15 @@ export class CommentService {
     return withRepositoriesTransaction(this.context.db, callback);
   }
 
+  private notificationService(repositories: Repositories): NotificationService {
+    return new NotificationService({
+      actor: this.context.actor,
+      repositories,
+      clock: this.clock,
+      idGenerator: this.idGenerator
+    });
+  }
+
   private async requireWorkItem(workItemId: string, repositories: Repositories): Promise<WorkItem> {
     const workItem = await repositories.workItems.findById(workItemId);
 
@@ -210,14 +240,23 @@ export class CommentService {
     comments: Comment[],
     repositories: Repositories
   ): Promise<CommentDto[]> {
-    return Promise.all(comments.map((comment) => this.toCommentDto(comment, repositories)));
+    const mentionsByCommentId = await this.getMentionsByCommentId(comments, repositories);
+    return Promise.all(
+      comments.map((comment) => this.toCommentDto(comment, repositories, mentionsByCommentId))
+    );
   }
 
-  private async toCommentDto(comment: Comment, repositories: Repositories): Promise<CommentDto> {
+  private async toCommentDto(
+    comment: Comment,
+    repositories: Repositories,
+    mentionsByCommentId?: Map<string, Member[]>
+  ): Promise<CommentDto> {
     const author = await this.requireMember(comment.authorId, repositories);
     const deletedBy =
       comment.deletedById === null ? null : await this.requireMember(comment.deletedById, repositories);
-    return toCommentDto(comment, author, deletedBy);
+    const mentions =
+      mentionsByCommentId?.get(comment.id) ?? (await this.getMentionsByCommentId([comment], repositories)).get(comment.id) ?? [];
+    return toCommentDto(comment, author, deletedBy, mentions);
   }
 
   private async requireMember(memberId: string, repositories: Repositories): Promise<Member> {
@@ -228,5 +267,69 @@ export class CommentService {
     }
 
     return member;
+  }
+
+  private async validateMentionMembers(
+    memberIds: string[],
+    repositories: Repositories
+  ): Promise<Member[]> {
+    const dedupedMemberIds = [...new Set(memberIds)];
+
+    if (dedupedMemberIds.length === 0) {
+      return [];
+    }
+
+    const members = await Promise.all(dedupedMemberIds.map((memberId) => repositories.members.findById(memberId)));
+    const validMembers: Member[] = [];
+
+    for (let index = 0; index < dedupedMemberIds.length; index += 1) {
+      const member = members[index] ?? null;
+
+      if (
+        member === null ||
+        member.workspaceId !== this.context.actor.workspaceId ||
+        !member.isActive
+      ) {
+        throw new ValidationError('Mentioned members must be active workspace members.');
+      }
+
+      validMembers.push(member);
+    }
+
+    return validMembers;
+  }
+
+  private async getMentionsByCommentId(
+    comments: Comment[],
+    repositories: Repositories
+  ): Promise<Map<string, Member[]>> {
+    const mentionsByCommentId = new Map<string, Member[]>();
+    const commentIds = comments.map((comment) => comment.id);
+    const mentions = await repositories.commentMentions.listByComments(commentIds);
+
+    if (mentions.length === 0) {
+      return mentionsByCommentId;
+    }
+
+    const membersById = new Map(
+      (await repositories.members.listByWorkspace(this.context.actor.workspaceId)).map((member) => [
+        member.id,
+        member
+      ])
+    );
+
+    for (const mention of mentions) {
+      const member = membersById.get(mention.memberId);
+
+      if (member === undefined) {
+        throw new NotFoundError('Mentioned member not found.');
+      }
+
+      const existing = mentionsByCommentId.get(mention.commentId) ?? [];
+      existing.push(member);
+      mentionsByCommentId.set(mention.commentId, existing);
+    }
+
+    return mentionsByCommentId;
   }
 }
