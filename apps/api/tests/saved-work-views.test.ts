@@ -122,6 +122,7 @@ describe('saved work view API', () => {
         query: {
           assigneeId: fixture.actorId,
           workState: 'open',
+          dependency: 'dependency_blocked',
           search: '   ',
           blocked: false
         }
@@ -136,6 +137,7 @@ describe('saved work view API', () => {
       query: {
         assigneeId: fixture.actorId,
         workState: 'open',
+        dependency: 'dependency_blocked',
         blocked: false,
         archivedProjects: 'exclude',
         sort: 'updated_desc'
@@ -174,7 +176,8 @@ describe('saved work view API', () => {
         name: 'Urgent work',
         query: {
           priority: 'urgent',
-          workState: 'open'
+          workState: 'open',
+          dependency: 'blocking_open_work'
         }
       })
       .expect(200)
@@ -185,6 +188,7 @@ describe('saved work view API', () => {
           query: {
             priority: 'urgent',
             workState: 'open',
+            dependency: 'blocking_open_work',
             archivedProjects: 'exclude',
             sort: 'updated_desc'
           }
@@ -314,6 +318,20 @@ describe('saved work view API', () => {
           code: 'VALIDATION_ERROR',
           message: 'Blocked work item queries cannot specify another status.'
         });
+      });
+
+    await request(app)
+      .post('/api/saved-work-views')
+      .set(fixture.headers)
+      .send({
+        name: 'Invalid dependency query',
+        query: {
+          dependency: 'blocked_by_anything'
+        }
+      })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('VALIDATION_ERROR');
       });
 
     const staleLabelId = randomUUID();

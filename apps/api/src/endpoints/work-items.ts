@@ -1,6 +1,7 @@
 import type {
   CreateWorkItemRequest,
   CreateWorkItemRelationshipRequest,
+  DependencyFilter,
   DueDateState,
   MoveWorkItemOnBoardRequest,
   TransitionWorkItemRequest,
@@ -115,6 +116,7 @@ const workItemFilterSchema = z.object({
   milestoneId: z.string().uuid().optional(),
   priority: z.enum(workItemPriorities).optional(),
   dueDateState: z.enum(['overdue', 'due_soon', 'none']).optional(),
+  dependency: z.enum(['dependency_blocked', 'blocking_open_work']).optional(),
   search: z.string().trim().optional(),
   sort: z
     .enum([
@@ -143,6 +145,7 @@ function parseFilters(query: Record<string, string | string[] | undefined>): Wor
     milestoneId: firstQueryValue(query.milestoneId),
     priority: firstQueryValue(query.priority),
     dueDateState: firstQueryValue(query.dueDateState) as DueDateState | undefined,
+    dependency: firstQueryValue(query.dependency) as DependencyFilter | undefined,
     search: firstQueryValue(query.search),
     sort: firstQueryValue(query.sort) as WorkItemSort | undefined
   });

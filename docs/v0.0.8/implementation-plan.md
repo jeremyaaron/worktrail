@@ -507,7 +507,26 @@ npm run typecheck --workspace @worktrail/api
 git diff --check
 ```
 
-Status: Not started.
+Status:
+
+- Completed on 2026-07-05.
+- Added dependency query parsing for project-scoped work item lists and workspace work item discovery.
+- Added repository filtering for:
+  - `dependency_blocked`, returning work items blocked by at least one open blocker;
+  - `blocking_open_work`, returning work items blocking at least one open downstream item.
+- Confirmed CSV exports preserve dependency filters through the existing list/export repository flow.
+- Extended saved work view query validation to normalize valid dependency filters and reject invalid values with the existing validation error behavior.
+- Added API coverage in `apps/api/tests/work-items.test.ts` for:
+  - project dependency filters;
+  - workspace dependency filters;
+  - project CSV export dependency filters;
+  - workspace CSV export dependency filters.
+- Added saved view coverage in `apps/api/tests/saved-work-views.test.ts` for dependency filter persistence, update, and invalid payload validation.
+- Verified `npm test --workspace @worktrail/api -- work-items`.
+- Verified `npm test --workspace @worktrail/api -- saved-work-views`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `git diff --check`.
 
 ## Phase 6: Work Item Detail Relationship UI
 

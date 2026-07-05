@@ -695,6 +695,56 @@ describe('work item API', () => {
       });
   });
 
+  it('exports dependency-filtered project and workspace work items as CSV', async () => {
+    const fixture = await createFixture('owner');
+    const blocker = await createWorkItem(fixture, {
+      title: 'CSV export blocker',
+      status: 'in_progress',
+      updatedAt: new Date('2026-07-02T12:00:00.000Z')
+    });
+    const blocked = await createWorkItem(fixture, {
+      title: 'CSV export dependency blocked',
+      status: 'ready',
+      updatedAt: new Date('2026-07-03T12:00:00.000Z')
+    });
+    const unrelated = await createWorkItem(fixture, {
+      title: 'CSV export unrelated',
+      status: 'ready',
+      updatedAt: new Date('2026-07-04T12:00:00.000Z')
+    });
+    await repositories.workItemRelationships.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      relationshipType: 'blocks',
+      sourceWorkItemId: blocker.id,
+      targetWorkItemId: blocked.id,
+      createdById: fixture.actorId,
+      createdAt: now()
+    });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items/export`)
+      .query({ dependency: 'dependency_blocked' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ text }) => {
+        expect(text).toContain(`WI,${blocked.displayKey},CSV export dependency blocked`);
+        expect(text).not.toContain(`WI,${blocker.displayKey},CSV export blocker`);
+        expect(text).not.toContain(`WI,${unrelated.displayKey},CSV export unrelated`);
+      });
+
+    await request(app)
+      .get('/api/work-items/export')
+      .query({ dependency: 'blocking_open_work' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ text }) => {
+        expect(text).toContain(`WI,${blocker.displayKey},CSV export blocker`);
+        expect(text).not.toContain(`WI,${blocked.displayKey},CSV export dependency blocked`);
+        expect(text).not.toContain(`WI,${unrelated.displayKey},CSV export unrelated`);
+      });
+  });
+
   it('exports header-only CSV for empty project work item results', async () => {
     const fixture = await createFixture('owner');
     await createWorkItem(fixture, {
@@ -872,6 +922,66 @@ describe('work item API', () => {
       });
   });
 
+  it('supports workspace dependency filters', async () => {
+    const fixture = await createFixture('owner');
+    const openBlocker = await createWorkItem(fixture, {
+      title: 'Workspace open blocker',
+      status: 'in_progress'
+    });
+    const terminalBlocker = await createWorkItem(fixture, {
+      title: 'Workspace terminal blocker',
+      status: 'done'
+    });
+    const dependencyBlocked = await createWorkItem(fixture, {
+      title: 'Workspace dependency blocked',
+      status: 'ready'
+    });
+    const terminalOnlyBlocked = await createWorkItem(fixture, {
+      title: 'Workspace terminal-only blocked',
+      status: 'canceled'
+    });
+
+    for (const relationship of [
+      { sourceWorkItemId: openBlocker.id, targetWorkItemId: dependencyBlocked.id },
+      { sourceWorkItemId: terminalBlocker.id, targetWorkItemId: terminalOnlyBlocked.id }
+    ]) {
+      await repositories.workItemRelationships.create({
+        id: randomUUID(),
+        workspaceId: fixture.workspaceId,
+        relationshipType: 'blocks',
+        sourceWorkItemId: relationship.sourceWorkItemId,
+        targetWorkItemId: relationship.targetWorkItemId,
+        createdById: fixture.actorId,
+        createdAt: now()
+      });
+    }
+
+    await request(app)
+      .get('/api/work-items')
+      .query({ dependency: 'dependency_blocked' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.map((item: { id: string }) => item.id)).toEqual([dependencyBlocked.id]);
+        expect(body[0]).toMatchObject({
+          dependencyBlocked: true,
+          openBlockerCount: 1
+        });
+      });
+
+    await request(app)
+      .get('/api/work-items')
+      .query({ dependency: 'blocking_open_work' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.map((item: { id: string }) => item.id)).toEqual([openBlocker.id]);
+        expect(body[0]).toMatchObject({
+          openBlockedWorkCount: 1
+        });
+      });
+  });
+
   it('supports archived project inclusion modes for workspace work item queries', async () => {
     const fixture = await createFixture('owner');
     const archivedProject = await createProject(fixture, {
@@ -1038,6 +1148,66 @@ describe('work item API', () => {
           id: ready.id,
           title: 'Filtered ready work item',
           labels: [{ id: fixture.frontendLabelId }]
+        });
+      });
+  });
+
+  it('supports project dependency filters', async () => {
+    const fixture = await createFixture('owner');
+    const openBlocker = await createWorkItem(fixture, {
+      title: 'Project open blocker',
+      status: 'in_progress'
+    });
+    const terminalBlocker = await createWorkItem(fixture, {
+      title: 'Project terminal blocker',
+      status: 'done'
+    });
+    const dependencyBlocked = await createWorkItem(fixture, {
+      title: 'Project dependency blocked',
+      status: 'ready'
+    });
+    const terminalOnlyBlocked = await createWorkItem(fixture, {
+      title: 'Project terminal-only blocked',
+      status: 'canceled'
+    });
+
+    for (const relationship of [
+      { sourceWorkItemId: openBlocker.id, targetWorkItemId: dependencyBlocked.id },
+      { sourceWorkItemId: terminalBlocker.id, targetWorkItemId: terminalOnlyBlocked.id }
+    ]) {
+      await repositories.workItemRelationships.create({
+        id: randomUUID(),
+        workspaceId: fixture.workspaceId,
+        relationshipType: 'blocks',
+        sourceWorkItemId: relationship.sourceWorkItemId,
+        targetWorkItemId: relationship.targetWorkItemId,
+        createdById: fixture.actorId,
+        createdAt: now()
+      });
+    }
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items`)
+      .query({ dependency: 'dependency_blocked' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.map((item: { id: string }) => item.id)).toEqual([dependencyBlocked.id]);
+        expect(body[0]).toMatchObject({
+          dependencyBlocked: true,
+          openBlockerCount: 1
+        });
+      });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items`)
+      .query({ dependency: 'blocking_open_work' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.map((item: { id: string }) => item.id)).toEqual([openBlocker.id]);
+        expect(body[0]).toMatchObject({
+          openBlockedWorkCount: 1
         });
       });
   });
