@@ -2,6 +2,7 @@ import { asc, eq, inArray, or, sql } from 'drizzle-orm';
 
 import type { WorktrailDb } from '../db/client.js';
 import { workItemRelationships } from '../db/schema.js';
+import { riskTerminalWorkItemStatuses } from '../domain/work-risk-policy.js';
 import type { NewWorkItemRelationship, WorkItemRelationship } from './types.js';
 
 export interface RelationshipLookupInput {
@@ -132,6 +133,7 @@ export function createWorkItemRelationshipRepository(db: WorktrailDb) {
         workItemIds.map((workItemId) => sql`${workItemId}::uuid`),
         sql`, `
       );
+      const terminalStatuses = terminalStatusListSql();
       const result = await db.execute<{
         workItemId: string;
         openBlockerCount: number;
@@ -143,10 +145,10 @@ export function createWorkItemRelationshipRepository(db: WorktrailDb) {
         select
           requested_work_items.id as "workItemId",
           coalesce(count(distinct inbound.source_work_item_id) filter (
-            where blocker.status not in ('done', 'canceled')
+            where blocker.status not in ${terminalStatuses}
           ), 0)::int as "openBlockerCount",
           coalesce(count(distinct outbound.target_work_item_id) filter (
-            where blocked.status not in ('done', 'canceled')
+            where blocked.status not in ${terminalStatuses}
           ), 0)::int as "openBlockedWorkCount"
         from requested_work_items
         left join work_item_relationships inbound
@@ -173,4 +175,8 @@ export function createWorkItemRelationshipRepository(db: WorktrailDb) {
       return countsByWorkItemId;
     }
   };
+}
+
+function terminalStatusListSql() {
+  return sql.raw(`(${riskTerminalWorkItemStatuses.map((status) => `'${status}'`).join(', ')})`);
 }

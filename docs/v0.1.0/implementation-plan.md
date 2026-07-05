@@ -276,6 +276,39 @@ npm test --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-05.
+- Added canonical parser entry points in `apps/api/src/validation/work-item-query.ts`:
+  - `parseProjectWorkItemQuery`;
+  - `parseWorkspaceWorkItemQuery`;
+  - retained `parseWorkItemQuery` as a compatibility alias.
+- Removed endpoint-local project work item filter parsing from `apps/api/src/endpoints/work-items.ts`.
+- Updated project list and project CSV export handlers to use `parseProjectWorkItemQuery`.
+- Updated workspace list and workspace CSV export handlers to use `parseWorkspaceWorkItemQuery`.
+- Added `apps/api/src/repositories/work-item-query-builder.ts`.
+- Moved shared Drizzle SQL predicate construction into query-builder helpers for:
+  - project scope;
+  - workspace scope;
+  - archived project mode;
+  - status and work state;
+  - blocked flag;
+  - assignee/reporter;
+  - type/priority;
+  - label/milestone;
+  - due date state;
+  - dependency filters;
+  - search.
+- Moved shared order construction into query-builder helpers for project and workspace lists.
+- Refactored `work-item-repository.ts` to delegate project and workspace list filtering/ordering to query-builder helpers.
+- Reused risk-policy constants for open, terminal, and due-soon SQL behavior where practical.
+- Updated relationship dependency counts to derive terminal-status SQL from the shared risk-policy constants.
+- Extended work item query tests for project and workspace parser behavior.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `git diff --check`.
+- No OpenAPI changes were required because route paths and documented query behavior were preserved.
+
 ## Phase 3: Express Route Registration Split
 
 Goal: reduce the Express adapter routing monolith while preserving transport-neutral endpoint handlers and route behavior.

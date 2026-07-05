@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { ValidationError } from '../src/errors/app-error.js';
-import { normalizeWorkItemQuery, parseWorkItemQuery } from '../src/validation/work-item-query.js';
+import {
+  normalizeWorkItemQuery,
+  parseProjectWorkItemQuery,
+  parseWorkItemQuery,
+  parseWorkspaceWorkItemQuery
+} from '../src/validation/work-item-query.js';
 
 describe('work item query validation', () => {
   it('normalizes empty values and applies defaults', () => {
@@ -16,6 +21,35 @@ describe('work item query validation', () => {
       archivedProjects: 'exclude',
       search: 'dependency',
       sort: 'updated_desc'
+    });
+  });
+
+  it('parses project-scoped work item queries with the canonical query model', () => {
+    expect(
+      parseProjectWorkItemQuery({
+        archivedProjects: 'only',
+        projectId: '0f8fad5b-d9cb-469f-a165-70867728950e',
+        blocked: 'true',
+        sort: 'priority_desc'
+      })
+    ).toEqual({
+      blocked: true,
+      sort: 'priority_desc'
+    });
+  });
+
+  it('parses workspace work item queries with workspace scope fields', () => {
+    expect(
+      parseWorkspaceWorkItemQuery({
+        projectId: '0f8fad5b-d9cb-469f-a165-70867728950e',
+        archivedProjects: 'only',
+        workState: 'terminal'
+      })
+    ).toEqual({
+      archivedProjects: 'only',
+      projectId: '0f8fad5b-d9cb-469f-a165-70867728950e',
+      sort: 'updated_desc',
+      workState: 'terminal'
     });
   });
 

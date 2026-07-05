@@ -4,6 +4,8 @@ import { openWorkItemStatuses, terminalWorkItemStatuses } from './constants.js';
 export const dueSoonWindowDays = 7;
 export const staleInProgressDays = 7;
 export const activeUnassignedWorkItemStatuses = ['ready', 'in_progress'] as const satisfies readonly WorkItemStatus[];
+export const riskOpenWorkItemStatuses = openWorkItemStatuses;
+export const riskTerminalWorkItemStatuses = terminalWorkItemStatuses;
 
 const openStatusSet = new Set<WorkItemStatus>(openWorkItemStatuses);
 const terminalStatusSet = new Set<WorkItemStatus>(terminalWorkItemStatuses);

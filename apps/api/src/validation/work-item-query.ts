@@ -51,6 +51,12 @@ function emptyToUndefined(value: string | undefined): string | undefined {
 }
 
 export function parseWorkItemQuery(query: Record<string, string | string[] | undefined>): WorkItemQuery {
+  return parseWorkspaceWorkItemQuery(query);
+}
+
+export function parseWorkspaceWorkItemQuery(
+  query: Record<string, string | string[] | undefined>
+): WorkItemQuery {
   const parsed = parseWithSchema(workItemQuerySchema, {
     projectId: emptyToUndefined(firstQueryValue(query.projectId)),
     status: emptyToUndefined(firstQueryValue(query.status)),
@@ -73,6 +79,33 @@ export function parseWorkItemQuery(query: Record<string, string | string[] | und
   validateWorkItemQuery(parsed);
 
   return parsed;
+}
+
+export function parseProjectWorkItemQuery(
+  query: Record<string, string | string[] | undefined>
+): WorkItemQuery {
+  const parsed = parseWithSchema(workItemQuerySchema, {
+    status: emptyToUndefined(firstQueryValue(query.status)),
+    workState: emptyToUndefined(firstQueryValue(query.workState)),
+    assigneeId: emptyToUndefined(firstQueryValue(query.assigneeId)),
+    assigneeState: emptyToUndefined(firstQueryValue(query.assigneeState)),
+    reporterId: emptyToUndefined(firstQueryValue(query.reporterId)),
+    type: emptyToUndefined(firstQueryValue(query.type)),
+    priority: emptyToUndefined(firstQueryValue(query.priority)),
+    labelId: emptyToUndefined(firstQueryValue(query.labelId)),
+    milestoneId: emptyToUndefined(firstQueryValue(query.milestoneId)),
+    dueDateState: emptyToUndefined(firstQueryValue(query.dueDateState)),
+    blocked: emptyToUndefined(firstQueryValue(query.blocked)),
+    dependency: emptyToUndefined(firstQueryValue(query.dependency)),
+    search: emptyToUndefined(firstQueryValue(query.search)),
+    sort: emptyToUndefined(firstQueryValue(query.sort))
+  });
+  validateWorkItemQuery(parsed);
+
+  const { archivedProjects, projectId, ...projectQuery } = parsed;
+  void archivedProjects;
+  void projectId;
+  return projectQuery;
 }
 
 export function normalizeWorkItemQuery(input: WorkItemQuery): WorkItemQuery {
