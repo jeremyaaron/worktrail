@@ -495,6 +495,18 @@ npm test --workspace @worktrail/web -- --watch=false
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-05.
+- Added `ProjectShellComponent` with persistent project identity, project key, status, delivery-health state, archived/read-only notice, shell actions, and section navigation.
+- Refactored project routes under the `projects/:projectId` shell while preserving existing project URLs for overview, work, board, planning, settings, create, and import.
+- Enabled Angular route param inheritance so existing child project pages continue reading `projectId` from `ActivatedRoute`.
+- Updated global navigation to expose `Work Items`, label workspace administration as `Workspace Settings`, and shorten the global create action to `Create`.
+- Added route and shell component coverage for the nested route shape, active project shell display, and archived project read-only behavior.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/web`
+  - `npm test --workspace @worktrail/web -- --watch=false`
+
 ## Phase 6: Work Discovery Filters, Results, And Saved Views
 
 Goal: make project and workspace work item discovery share one filter/result pattern and make saved views compact by default.

@@ -79,8 +79,9 @@ describe('App', () => {
     expect([...compiled.querySelectorAll('nav a')].map((link) => link.textContent?.trim())).toEqual([
       'My Work',
       'Projects',
-      'Workspace',
-      'Create work item'
+      'Work Items',
+      'Workspace Settings',
+      'Create'
     ]);
     expect(compiled.querySelector('select')?.textContent).toContain('Avery Owner');
   });
