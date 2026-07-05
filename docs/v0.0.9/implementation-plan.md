@@ -746,7 +746,37 @@ git status --short --branch
 
 Status:
 
-- Not started.
+- Completed on 2026-07-05.
+- Updated `README.md` for v0.0.9 delivery-health and planning-review capabilities, walkthrough steps, limitations, and docs layout.
+- Updated the static GitHub Pages product site under `site/` for v0.0.9 delivery health, planning review, and current scope.
+- Added `docs/v0.0.9/jawstack-extraction-notes.md` covering:
+  - pure dashboard derivation service;
+  - read-time derived health over stored facts;
+  - explainable health reasons;
+  - query-linked metrics;
+  - compact overview plus detailed planning surfaces;
+  - derived planning review sections;
+  - shared display helpers.
+- Updated package metadata and lockfile versions to `0.0.9`.
+- Added a root `npm run check` script for the documented verification path.
+- Corrected the v0.0.9 technical design product-site path to `site/index.html`.
+- Raised the Angular production `anyComponentStyle` budget from `5kB` warning/`8kB` error to `8kB` warning/`12kB` error because the richer lazy-route overview/planning styles are intentional and the production initial bundle remains well below its warning budget.
+- Updated the Express static SPA fallback to serve deep links for `HEAD` as well as `GET`, preserving `/api/*` route isolation.
+- Added server coverage for `HEAD` deep-link fallback.
+- Confirmed production preview serves built API readiness and built Angular deep links from compiled artifacts.
+- Verified `ruby -e "require 'yaml'; YAML.load_file('docs/api/openapi.yaml'); puts 'YAML parsed'"`.
+- Verified `npm test --workspace @worktrail/api -- server`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm run build` with no budget warnings after budget adjustment.
+- Verified production preview with:
+  - `curl -fsS http://localhost:3100/api/health/live`;
+  - `curl -fsS http://localhost:3100/api/health/ready`;
+  - `curl -fsSI http://localhost:3100/projects/10000000-0000-4000-8000-000000000201/planning`;
+  - `curl -fsS http://localhost:3100/projects/10000000-0000-4000-8000-000000000201/planning`.
+- Verified `npm run test:e2e`.
+- Verified `npm audit --omit=dev --audit-level=low`.
+- Verified `npm run check`.
+- v0.0.9 is ready for user QA/UAT.
 
 ## Release Verification
 

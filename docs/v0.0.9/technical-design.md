@@ -734,7 +734,7 @@ Update:
 
 - `README.md`;
 - `docs/api/openapi.yaml`;
-- `docs/product-site/index.html`;
+- `site/index.html`;
 - `docs/v0.0.9/prd.md` if implementation changes scope;
 - `docs/v0.0.9/implementation-plan.md` after design approval;
 - extraction notes for dashboard derivation, explainable health reasons, and query-linked metrics.
