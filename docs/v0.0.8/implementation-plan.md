@@ -883,7 +883,41 @@ git diff --check
 git status --short --branch
 ```
 
-Status: Not started.
+Status:
+
+- Completed on 2026-07-05.
+- Updated `README.md` for v0.0.8:
+  - relationship capabilities;
+  - dependency-blocked signals;
+  - dependency filters;
+  - My Work and planning dependency risk;
+  - relationship and dependency limitations;
+  - current database scope.
+- Updated the static product site for v0.0.8 dependency visibility and release links.
+- Added `docs/v0.0.8/jawstack-extraction-notes.md` covering:
+  - graph-edge table modeling;
+  - directional versus symmetric edge semantics;
+  - canonicalization;
+  - cycle validation;
+  - derived relationship state;
+  - URL-backed relationship filters;
+  - relationship-aware export reuse;
+  - activity strategy;
+  - cloud-readiness implications for graph queries;
+  - patterns that should not be extracted yet.
+- Updated root, API, web, contracts, and lockfile versions to `0.0.8`.
+- Updated the local `@worktrail/contracts` workspace dependency to `0.0.8`.
+- Updated the OpenAPI info version to `0.0.8`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `npm run test:e2e`.
+- Verified `npm run build`.
+- Verified `npm audit --omit=dev --audit-level=low`.
+- Verified `npm run db:reset`.
+- Verified `npm run db:migrate`.
+- Verified `npm run db:seed`.
+- Verified `git diff --check`.
+- No residual release verification issues are known.
 
 ## Release Verification
 

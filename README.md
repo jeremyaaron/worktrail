@@ -1,6 +1,6 @@
 # Worktrail
 
-Worktrail is a project management reference app. The v0.0.7 release is a local-first Angular + TypeScript API + Postgres application that focuses on daily team workflow, operational credibility, and data portability: My Work, cross-project discovery, saved views, quick work capture, workspace governance, planning, durable boards, comments, activity, CSV import/export, production-like preview, health/readiness checks, and checked-in API documentation.
+Worktrail is a project management reference app. The v0.0.8 release is a local-first Angular + TypeScript API + Postgres application that focuses on daily team workflow, operational credibility, data portability, and dependency visibility: My Work, cross-project discovery, saved views, quick work capture, workspace governance, planning, durable boards, work item relationships, dependency-blocked signals, comments, activity, CSV import/export, production-like preview, health/readiness checks, and checked-in API documentation.
 
 The app is intentionally built as a credible product surface before extracting broader framework patterns. It runs locally today, while preserving a path toward an S3/CloudFront Angular frontend with API Gateway/Lambda-style endpoint handlers and managed Postgres.
 
@@ -20,6 +20,7 @@ docs/
   v0.0.5/  Daily workflow PRD, technical design, implementation plan, and extraction notes
   v0.0.6/  Operations sprint PRD, technical design, implementation plan, runbook, and extraction notes
   v0.0.7/  CSV import/export PRD, technical design, implementation plan, guide, and extraction notes
+  v0.0.8/  Relationship/dependency PRD, technical design, implementation plan, and extraction notes
   api/     OpenAPI reference
 site/       Static GitHub Pages product site
 e2e/        Playwright smoke tests
@@ -116,7 +117,7 @@ The checked-in OpenAPI reference lives at [docs/api/openapi.yaml](docs/api/opena
 
 ## CSV Import And Export
 
-v0.0.7 adds project-scoped CSV work item import and CSV export for both project lists and workspace discovery.
+v0.0.7 added project-scoped CSV work item import and CSV export for both project lists and workspace discovery.
 
 Import is a two-step flow:
 
@@ -126,6 +127,29 @@ Import is a two-step flow:
 If any row is invalid during apply, no work items are created. Project and workspace exports use the same applied filters as the visible list or discovery view, so exported CSV matches the current result set rather than pending draft search input.
 
 The detailed CSV guide is in [docs/v0.0.7/csv-import-export.md](docs/v0.0.7/csv-import-export.md).
+
+## Relationships And Dependency Signals
+
+v0.0.8 adds work item relationships and derived dependency visibility.
+
+Relationship support includes:
+
+- directional `blocks` relationships;
+- symmetric `relates_to` relationships;
+- same-project and cross-project relationships within the same workspace;
+- duplicate, self-link, cross-workspace, archived-project, and blocking-cycle rejection;
+- relationship add/remove controls on the work item detail page;
+- grouped detail views for `Blocked by`, `Blocks`, and `Related work`;
+- relationship activity events on the work item where the relationship command is performed.
+
+Dependency signals are derived from open blocking relationships. A work item is dependency-blocked when it has at least one open upstream blocker. Terminal blockers, currently `done` and `canceled`, do not keep downstream work dependency-blocked.
+
+The project work item list, cross-project workspace discovery, saved work views, and CSV export all support the same dependency filter values:
+
+- `dependency=dependency_blocked` finds open work blocked by upstream open work.
+- `dependency=blocking_open_work` finds open work that blocks downstream open work.
+
+My Work includes a dependency-blocked assigned summary and section. Planning includes dependency-blocked work and blocking-open-work risk sections. The OpenAPI reference documents the relationship endpoints, dependency query parameter, and relationship DTOs.
 
 ## Verification
 
@@ -163,12 +187,14 @@ Seeded data includes:
 - two active projects and one archived project;
 - project milestones with due dates and lifecycle state;
 - work items across every status with persisted board positions;
+- same-project, cross-project, and related-work relationships;
+- dependency-blocked examples where open blockers count and terminal blockers do not;
 - personal saved work views for each active seeded member;
 - project labels, comments, deleted-comment tombstones, project activity, and workspace activity events.
 
 Use the `Acting as` selector in the top bar to switch the local placeholder actor. The selector only shows active members. This is intentionally local-only behavior and is not production authentication; the API derives the actor role and active state from the selected member record instead of trusting a client-supplied role.
 
-Suggested v0.0.7 walkthrough:
+Suggested v0.0.8 walkthrough:
 
 1. Open My Work and review the selected actor's assigned open, due soon, overdue, blocked, stale, and reported work counts.
 2. Click a My Work summary count to open the cross-project Work Items page with URL-backed filters applied.
@@ -184,17 +210,21 @@ Suggested v0.0.7 walkthrough:
 12. Open the Worktrail App project.
 13. Review the project key, status counts, recently updated work, and activity.
 14. Open Planning and review milestone progress, overdue/due-soon work, blocked work, unassigned work, and stale work.
-15. Create a milestone, then create a work item assigned to that milestone.
-16. Use the project work item list search and filters. Dropdown filters apply immediately, while search applies after a short debounce.
-17. Export the currently filtered project work item list to CSV.
-18. Import a small CSV through the project import page, review dry-run validation, apply it, and confirm created work appears in the project list and board.
-19. Export a filtered cross-project workspace discovery view to CSV.
-20. Open the board, drag cards within a column to set planning order, reload, and confirm the order persists.
-21. Move a card through valid workflow columns with drag/drop or the status menu.
-22. Open the work item detail page, update fields, change milestone assignment, add and edit a comment, delete a comment, and review activity.
-23. Open the archived project to confirm read-only project, milestone, work item, label, comment, import, and transition behavior.
+15. Review dependency-blocked and blocking-open-work planning sections, then follow a dependency list link into filtered project work.
+16. Create a milestone, then create a work item assigned to that milestone.
+17. Use the project work item list search and filters. Dropdown filters apply immediately, while search applies after a short debounce.
+18. Filter by dependency state to find dependency-blocked work or work blocking downstream items.
+19. Save a dependency-filtered view, reload, and reopen it.
+20. Export the currently filtered project work item list to CSV.
+21. Import a small CSV through the project import page, review dry-run validation, apply it, and confirm created work appears in the project list and board.
+22. Export a filtered cross-project workspace discovery view to CSV.
+23. Open the board, drag cards within a column to set planning order, reload, and confirm the order persists.
+24. Move a card through valid workflow columns with drag/drop or the status menu.
+25. Open the work item detail page, update fields, change milestone assignment, add and edit a comment, delete a comment, and review activity.
+26. Add a blocking relationship, confirm the downstream dependency signal appears, move the blocker to done, and confirm the dependency signal clears.
+27. Open the archived project to confirm read-only project, milestone, work item, label, comment, relationship, import, and transition behavior.
 
-## v0.0.7 Capabilities
+## v0.0.8 Capabilities
 
 - My Work dashboard for the selected active actor.
 - Dashboard summary counts linked to filtered cross-project discovery.
@@ -214,10 +244,20 @@ Suggested v0.0.7 walkthrough:
 - Project settings for metadata, archive/reactivate, and label administration.
 - Project-scoped milestones with due dates, archive/reactivate behavior, assignment on create/edit, and activity coverage.
 - Planning dashboard with milestone progress, due-soon/overdue work, blocked work, unassigned work, stale work, and links back into filtered lists.
-- Project work item list search and filters for status, type, priority, assignee, reporter, label, milestone, due date, and sort.
+- Project work item list search and filters for status, type, priority, assignee, reporter, label, milestone, due date, dependency state, and sort.
 - Project-scoped CSV import with dry-run preview, normalized rows, row-level validation errors, and transactional apply.
 - Project and workspace CSV export that serializes the currently applied filters.
 - CSV import/export guide under `docs/v0.0.7/csv-import-export.md`.
+- Work item relationships with directional `blocks` and symmetric `relates_to` semantics.
+- Cross-project relationships inside the same workspace with project identity shown in relationship rows.
+- Blocking-cycle, duplicate, self-link, cross-workspace, and archived-project relationship write validation.
+- Work item detail relationship sections for inbound blockers, outbound blocked work, and related work.
+- Derived dependency counts on list rows, including compact `Blocked by` and `Blocks` indicators.
+- Dependency filters on project work item lists and cross-project workspace discovery.
+- Saved work views and CSV export support for dependency filters.
+- My Work dependency-blocked assigned summary and section.
+- Planning dependency risk sections for dependency-blocked work and work blocking open downstream items.
+- Relationship activity events for add/remove commands.
 - Persisted board ordering for same-status reorder and cross-status movement.
 - Angular CDK drag/drop board interaction backed by server-side workflow validation.
 - Comment add/edit/delete with role-aware UI affordances and deleted-comment tombstones.
@@ -230,24 +270,27 @@ Suggested v0.0.7 walkthrough:
 - OpenAPI reference under `docs/api/openapi.yaml`.
 - Operations runbook for runtime modes, environment variables, migrations, seed/reset flow, preview, health checks, troubleshooting, and future cloud mapping.
 
-## v0.0.7 Limitations
+## v0.0.8 Limitations
 
 - Authentication is represented by local request headers and the top-bar actor selector.
 - Permissions are enforced against local member records and are useful for exercising policy paths, but they are not production authentication.
 - Production preview is not a secure public deployment and should not be exposed as an authenticated product.
-- Saved views are personal only in v0.0.7; workspace-visible shared saved views are deferred.
+- Saved views are personal only in v0.0.8; workspace-visible shared saved views are deferred.
 - CSV import is project-scoped and limited to 1 MiB and 250 data rows per file.
 - CSV import supports Worktrail's current columns only; third-party tracker migration mappings are deferred.
 - CSV export is a direct file download; export history, scheduled exports, and alternate formats are deferred.
+- Relationships support only `blocks` and `relates_to`; custom relationship types, hierarchy, and graph visualization are deferred.
+- Dependency-blocked state is derived from current open blockers; critical path analysis, dependency alerts, automation rules, and notifications are deferred.
+- Relationship activity is recorded on the command context item only to avoid noisy cross-project activity.
 - Custom workflows, file attachments, notifications, and production auth are intentionally out of scope.
 - Invitations, multi-workspace switching, custom roles, project-specific membership, pinned projects, recent projects, and audit export are intentionally out of scope.
-- The local Express adapter is the only runtime adapter in v0.0.7, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
+- The local Express adapter is the only runtime adapter in v0.0.8, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
 - AWS deployment assets are not included yet; the Angular static build and transport-neutral handlers preserve that path.
 - Readiness checks database connectivity only; migration drift detection, metrics, tracing, and managed deployment runbooks are deferred.
 
 ## Database Status
 
-The current schema includes workspace activity, member lifecycle metadata, project keys, scoped work item display keys, labels, milestones, comments, project activity, due dates, durable board positions, and personal saved work views.
+The current schema includes workspace activity, member lifecycle metadata, project keys, scoped work item display keys, labels, milestones, comments, project activity, due dates, durable board positions, work item relationships, and personal saved work views.
 
 Useful database commands:
 
