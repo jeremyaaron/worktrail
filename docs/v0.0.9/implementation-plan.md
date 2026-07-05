@@ -499,7 +499,21 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-05.
+- Added `apps/web/src/app/shared/delivery-health/delivery-health-display.ts`.
+- Added reusable helpers for:
+  - delivery-health state labels;
+  - delivery-health state tones;
+  - severity labels;
+  - severity tones;
+  - reason labels;
+  - reason query-param conversion;
+  - generic `WorkItemQuery` to router query-param conversion.
+- Added focused helper coverage in `apps/web/src/app/shared/delivery-health/delivery-health-display.spec.ts`.
+- Verified `npm test --workspace @worktrail/web -- --include="**/delivery-health-display.spec.ts" --watch=false`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm test --workspace @worktrail/web -- --watch=false`.
+- Verified `git diff --check`.
 
 ## Phase 7: Project Overview Delivery Health UI
 
