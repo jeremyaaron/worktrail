@@ -350,6 +350,35 @@ npm test --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-05.
+- Added shared Express route context in `apps/api/src/adapters/express/routes/context.ts`.
+- Added route registrar modules:
+  - `health-routes.ts`;
+  - `member-routes.ts`;
+  - `planning-routes.ts`;
+  - `project-routes.ts`;
+  - `saved-work-view-routes.ts`;
+  - `work-item-routes.ts`;
+  - `workspace-routes.ts`.
+- Moved health, workspace, member, project, planning, saved-view, and work-item route registration out of `server.ts`.
+- Kept `createExpressApp` responsible for:
+  - Express app creation;
+  - CORS;
+  - JSON parsing;
+  - request logging;
+  - route registrar invocation;
+  - test routes;
+  - static asset serving;
+  - SPA fallback behavior.
+- Preserved existing route paths, HTTP methods, handler construction, and adapter options.
+- Added route registration smoke coverage in `apps/api/tests/server.test.ts` to catch dropped or reordered API routes.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `git diff --check`.
+- No OpenAPI changes were required because route paths and behavior were preserved.
+
 ## Phase 4: Frontend API Clients And Shared UI Utilities
 
 Goal: split frontend API access by domain and create shared frontend helpers before extracting large UI surfaces.
