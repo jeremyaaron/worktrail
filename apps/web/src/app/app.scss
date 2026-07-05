@@ -26,14 +26,10 @@
 }
 
 .brand__mark {
-  display: inline-grid;
-  place-items: center;
+  display: block;
   width: 32px;
   height: 32px;
   border-radius: 7px;
-  background: #1f4f99;
-  color: #ffffff;
-  font-size: 0.95rem;
 }
 
 .primary-nav {

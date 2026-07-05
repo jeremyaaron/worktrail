@@ -917,6 +917,43 @@ git status --short --branch
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-05.
+- Updated `README.md` for the v0.1.1 baseline, including:
+  - Action Inbox;
+  - notification unread/read state;
+  - My Work Inbox summary;
+  - work item watchers;
+  - comment mentions;
+  - in-app-only notification limitations;
+  - archived v0.0.x documentation layout.
+- Added `docs/v0.1.1/release-notes.md` summarizing product highlights, technical highlights, documentation updates, verification, and known limitations.
+- Added `docs/v0.1.1/jawstack-extraction-notes.md` covering:
+  - activity versus attention records;
+  - synchronous fan-out before queues;
+  - recipient filtering and dedupe;
+  - watcher subscriptions;
+  - explicit mention metadata;
+  - actor-scoped reads;
+  - shared frontend unread-count state;
+  - deep links and return context.
+- Refreshed the static GitHub Pages site around v0.1.1 collaboration capabilities and updated footer links to the v0.1.1 docs.
+- Confirmed the Pages workflow still deploys the `site/` directory on merges to `main`; no workflow change was needed.
+- Replaced the in-app plain `W` brand mark with the same stylized SVG mark used by the app favicon and static site.
+- Confirmed generated build/test artifacts remain ignored and are not included intentionally.
+- Verified:
+  - `npm run lint`
+  - `npm run typecheck`
+  - `npm run db:reset`
+  - `npm run db:migrate`
+  - `npm run db:seed`
+  - `npm test`
+  - `npm run build`
+  - `npm run test:e2e`
+  - `git status --short --branch`
+  - `git diff --check`
+
 ## Verification Cadence
 
 Use this cadence unless a phase requires broader checks:
