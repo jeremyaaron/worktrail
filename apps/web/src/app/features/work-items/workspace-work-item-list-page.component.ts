@@ -5,6 +5,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type {
   ArchivedProjectMode,
   AssigneeState,
+  DependencyFilter,
   DueDateState,
   LabelDto,
   MemberDto,
@@ -28,6 +29,7 @@ import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
 import {
+  dependencyFilterLabel,
   filterPillLabel,
   projectBadge,
   projectTitle,
@@ -60,6 +62,10 @@ const blockedOptions: Array<{ label: string; value: string }> = [
   { label: 'Blocked only', value: 'true' },
   { label: 'Not blocked', value: 'false' }
 ];
+const dependencyOptions: Array<{ label: string; value: DependencyFilter }> = [
+  { label: dependencyFilterLabel('dependency_blocked'), value: 'dependency_blocked' },
+  { label: dependencyFilterLabel('blocking_open_work'), value: 'blocking_open_work' }
+];
 const archivedProjectModes: Array<{ label: string; value: ArchivedProjectMode }> = [
   { label: 'Active projects', value: 'exclude' },
   { label: 'Active and archived', value: 'include' },
@@ -88,6 +94,7 @@ interface WorkspaceFilterFormValue {
   priority: string;
   dueDateState: string;
   blocked: string;
+  dependency: string;
   archivedProjects: string;
   sort: string;
 }
@@ -105,6 +112,7 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
   priority: '',
   dueDateState: '',
   blocked: '',
+  dependency: '',
   archivedProjects: 'exclude',
   sort: 'updated_desc'
 };
@@ -330,6 +338,16 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
       </label>
 
       <label>
+        <span>Dependency</span>
+        <select formControlName="dependency">
+          <option value="">Any dependency state</option>
+          @for (option of dependencyOptions; track option.value) {
+            <option [value]="option.value">{{ option.label }}</option>
+          }
+        </select>
+      </label>
+
+      <label>
         <span>Projects</span>
         <select formControlName="archivedProjects">
           @for (mode of archivedProjectModes; track mode.value) {
@@ -402,6 +420,12 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
                         {{ label.name }}
                       </span>
                     }
+                  }
+                  @if (item.openBlockerCount > 0) {
+                    <span class="dependency-pill">Blocked by {{ item.openBlockerCount }}</span>
+                  }
+                  @if (item.openBlockedWorkCount > 0) {
+                    <span class="dependency-pill">Blocks {{ item.openBlockedWorkCount }}</span>
                   }
                 </small>
               </span>
@@ -881,6 +905,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   readonly priorities = priorities;
   readonly dueDateStates = dueDateStates;
   readonly blockedOptions = blockedOptions;
+  readonly dependencyOptions = dependencyOptions;
   readonly archivedProjectModes = archivedProjectModes;
   readonly sorts = sorts;
   readonly unassignedAssigneeValue = unassignedAssigneeValue;
@@ -922,6 +947,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     priority: [''],
     dueDateState: [''],
     blocked: [''],
+    dependency: [''],
     archivedProjects: ['exclude'],
     sort: ['updated_desc']
   });
@@ -1214,6 +1240,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       priority: this.optional(formValue.priority) as WorkItemPriority | undefined,
       dueDateState: this.optional(formValue.dueDateState) as DueDateState | undefined,
       blocked: blocked === undefined ? undefined : blocked === 'true',
+      dependency: this.optional(formValue.dependency) as DependencyFilter | undefined,
       archivedProjects:
         archivedProjects === undefined || archivedProjects === 'exclude'
           ? undefined
@@ -1249,6 +1276,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       priority: this.optional(formValue.priority) ?? null,
       dueDateState: this.optional(formValue.dueDateState) ?? null,
       blocked: this.optional(formValue.blocked) ?? null,
+      dependency: this.optional(formValue.dependency) ?? null,
       archivedProjects: archivedProjects === 'exclude' ? null : archivedProjects,
       sort: sort === 'updated_desc' ? null : sort
     };
@@ -1269,6 +1297,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       priority: query.priority ?? '',
       dueDateState: query.dueDateState ?? '',
       blocked: query.blocked === undefined ? '' : String(query.blocked),
+      dependency: query.dependency ?? '',
       archivedProjects: query.archivedProjects ?? 'exclude',
       sort: query.sort ?? 'updated_desc'
     };
@@ -1294,6 +1323,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       priority: params.get('priority') ?? '',
       dueDateState: params.get('dueDateState') ?? '',
       blocked: params.get('blocked') ?? '',
+      dependency: params.get('dependency') ?? '',
       archivedProjects: params.get('archivedProjects') ?? 'exclude',
       sort: params.get('sort') ?? 'updated_desc'
     };
@@ -1342,6 +1372,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       this.filterForm.controls.priority,
       this.filterForm.controls.dueDateState,
       this.filterForm.controls.blocked,
+      this.filterForm.controls.dependency,
       this.filterForm.controls.archivedProjects,
       this.filterForm.controls.sort
     ];
@@ -1402,6 +1433,11 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     this.pushFilterLabel(labels, 'Priority', filters.priority === '' ? '' : workItemPriorityLabel(filters.priority as WorkItemPriority));
     this.pushFilterLabel(labels, 'Due date', this.optionLabel(dueDateStates, filters.dueDateState));
     this.pushFilterLabel(labels, 'Blocked', this.optionLabel(blockedOptions, filters.blocked));
+    this.pushFilterLabel(
+      labels,
+      'Dependency',
+      this.optionLabel(dependencyOptions, filters.dependency)
+    );
     this.pushFilterLabel(
       labels,
       'Projects',

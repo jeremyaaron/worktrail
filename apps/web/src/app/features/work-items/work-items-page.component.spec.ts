@@ -201,6 +201,7 @@ describe('WorkItemListPageComponent', () => {
             reporterId: contributorId,
             milestoneId: activeMilestone.id,
             dueDateState: 'due_soon',
+            dependency: 'dependency_blocked',
             search: 'api',
             sort: 'due_date_asc'
           })
@@ -230,11 +231,12 @@ describe('WorkItemListPageComponent', () => {
         candidate.params.get('reporterId') === contributorId &&
         candidate.params.get('milestoneId') === activeMilestone.id &&
         candidate.params.get('dueDateState') === 'due_soon' &&
+        candidate.params.get('dependency') === 'dependency_blocked' &&
         candidate.params.get('search') === 'api' &&
         candidate.params.get('sort') === 'due_date_asc'
       );
     });
-    request.flush([workItem]);
+    request.flush([{ ...workItem, dependencyBlocked: true, openBlockerCount: 2, openBlockedWorkCount: 1 }]);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
@@ -244,6 +246,9 @@ describe('WorkItemListPageComponent', () => {
     expect(compiled.textContent).toContain('backend');
     expect(compiled.textContent).toContain('v0.0.3');
     expect(compiled.textContent).toContain('Due date: Due soon');
+    expect(compiled.textContent).toContain('Dependency: Blocked by open work');
+    expect(compiled.textContent).toContain('Blocked by 2');
+    expect(compiled.textContent).toContain('Blocks 1');
     expect(compiled.textContent).toContain('Export CSV');
     expect(compiled.querySelector<HTMLAnchorElement>(`a[href="/projects/${projectId}/work-items/import"]`)).not.toBeNull();
   });
@@ -273,6 +278,7 @@ describe('WorkItemListPageComponent', () => {
         candidate.params.get('search') === 'api' &&
         candidate.params.get('status') === 'in_progress' &&
         candidate.params.get('assigneeId') === contributorId &&
+        candidate.params.get('dependency') === 'dependency_blocked' &&
         candidate.params.get('priority') === null &&
         candidate.params.get('sort') === 'due_date_asc'
       );
@@ -366,6 +372,7 @@ describe('WorkItemListPageComponent', () => {
       milestoneId: activeMilestone.id,
       priority: 'high',
       dueDateState: 'overdue',
+      dependency: 'blocking_open_work',
       sort: 'created_desc'
     });
     fixture.componentInstance.applyFilters();
@@ -382,6 +389,7 @@ describe('WorkItemListPageComponent', () => {
         milestoneId: activeMilestone.id,
         priority: 'high',
         dueDateState: 'overdue',
+        dependency: 'blocking_open_work',
         sort: 'created_desc'
       }
     });

@@ -11,6 +11,7 @@ import type {
   CreateSavedWorkViewRequest,
   CreateWorkItemRequest,
   CreateWorkItemRelationshipRequest,
+  DependencyFilter,
   DueDateState,
   LabelDto,
   MemberDto,
@@ -66,6 +67,7 @@ export interface WorkItemListFilters {
   milestoneId?: string;
   priority?: WorkItemPriority;
   dueDateState?: DueDateState;
+  dependency?: DependencyFilter;
   search?: string;
   sort?: WorkItemSort;
 }

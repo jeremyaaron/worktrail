@@ -661,7 +661,33 @@ npm run typecheck --workspace @worktrail/web
 git diff --check
 ```
 
-Status: Not started.
+Status:
+
+- Completed on 2026-07-05.
+- Extended frontend filter/query types with the `dependency` filter.
+- Added dependency filter selects to:
+  - project work item list;
+  - workspace work item discovery.
+- Added active filter pills for dependency filters using user-facing labels:
+  - `Blocked by open work`;
+  - `Blocking open work`.
+- Added compact dependency row indicators on project and workspace lists:
+  - `Blocked by N`;
+  - `Blocks N`.
+- Extended project URL serialization/deserialization and project CSV export filters with dependency state.
+- Extended workspace URL serialization/deserialization, saved view create/open/update, stale saved view tolerance, and workspace CSV export query params with dependency state.
+- Extended `workItemQueryToHttpParams` so workspace API calls and exports include `dependency`.
+- Moved the shared dependency chip style to global styles to keep component style budgets clean.
+- Added frontend coverage for:
+  - project dependency filter serialization;
+  - workspace dependency filter serialization;
+  - dependency active filter labels;
+  - dependency row indicators;
+  - saved view dependency persistence;
+  - project and workspace CSV export dependency params.
+- Verified `npm test --workspace @worktrail/web`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm run build --workspace @worktrail/web`.
 
 ## Phase 8: My Work And Planning Dependency Signals
 

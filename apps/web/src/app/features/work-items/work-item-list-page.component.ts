@@ -6,6 +6,7 @@ import type {
   LabelDto,
   MemberDto,
   MilestoneDto,
+  DependencyFilter,
   DueDateState,
   ProjectDto,
   WorkItemListItemDto,
@@ -22,6 +23,7 @@ import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
 import { downloadBlob, fileNameFromContentDisposition } from '../../shared/download-file';
+import { dependencyFilterLabel } from '../../shared/work-items/work-item-display';
 
 const statuses: WorkItemStatus[] = [
   'backlog',
@@ -37,6 +39,10 @@ const dueDateStates: Array<{ label: string; value: DueDateState }> = [
   { label: 'Overdue', value: 'overdue' },
   { label: 'Due soon', value: 'due_soon' },
   { label: 'No due date', value: 'none' }
+];
+const dependencyOptions: Array<{ label: string; value: DependencyFilter }> = [
+  { label: 'Blocked by open work', value: 'dependency_blocked' },
+  { label: 'Blocking open work', value: 'blocking_open_work' }
 ];
 const sorts: Array<{ label: string; value: WorkItemSort }> = [
   { label: 'Updated newest', value: 'updated_desc' },
@@ -58,6 +64,7 @@ interface WorkItemFilterFormValue {
   milestoneId: string;
   priority: string;
   dueDateState: string;
+  dependency: string;
   sort: string;
 }
 
@@ -71,6 +78,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
   milestoneId: '',
   priority: '',
   dueDateState: '',
+  dependency: '',
   sort: 'updated_desc'
 };
 
@@ -213,6 +221,16 @@ const defaultFilterValues: WorkItemFilterFormValue = {
       </label>
 
       <label>
+        <span>Dependency</span>
+        <select formControlName="dependency">
+          <option value="">Any dependency state</option>
+          @for (option of dependencyOptions; track option.value) {
+            <option [value]="option.value">{{ option.label }}</option>
+          }
+        </select>
+      </label>
+
+      <label>
         <span>Sort</span>
         <select formControlName="sort">
           @for (sort of sorts; track sort.value) {
@@ -279,6 +297,12 @@ const defaultFilterValues: WorkItemFilterFormValue = {
                         {{ label.name }}
                       </span>
                     }
+                  }
+                  @if (item.openBlockerCount > 0) {
+                    <span class="dependency-pill">Blocked by {{ item.openBlockerCount }}</span>
+                  }
+                  @if (item.openBlockedWorkCount > 0) {
+                    <span class="dependency-pill">Blocks {{ item.openBlockedWorkCount }}</span>
                   }
                 </small>
               </span>
@@ -712,6 +736,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   readonly types = types;
   readonly priorities = priorities;
   readonly dueDateStates = dueDateStates;
+  readonly dependencyOptions = dependencyOptions;
   readonly sorts = sorts;
   readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
   readonly members = computed<MemberDto[]>(() => this.currentUser.members());
@@ -744,6 +769,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     milestoneId: [''],
     priority: [''],
     dueDateState: [''],
+    dependency: [''],
     sort: ['updated_desc']
   });
 
@@ -768,6 +794,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
           milestoneId: params.get('milestoneId') ?? '',
           priority: params.get('priority') ?? '',
           dueDateState: params.get('dueDateState') ?? '',
+          dependency: params.get('dependency') ?? '',
           sort: params.get('sort') ?? 'updated_desc'
         };
 
@@ -903,6 +930,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
       milestoneId: this.optional(formValue.milestoneId),
       priority: this.optional(formValue.priority) as WorkItemPriority | undefined,
       dueDateState: this.optional(formValue.dueDateState) as DueDateState | undefined,
+      dependency: this.optional(formValue.dependency) as DependencyFilter | undefined,
       sort: formValue.sort as WorkItemSort
     };
   }
@@ -924,6 +952,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
       milestoneId: filters.milestoneId ?? null,
       priority: filters.priority ?? null,
       dueDateState: filters.dueDateState ?? null,
+      dependency: filters.dependency ?? null,
       sort: sort === 'updated_desc' ? null : sort
     };
   }
@@ -944,6 +973,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
       this.filterForm.controls.milestoneId,
       this.filterForm.controls.priority,
       this.filterForm.controls.dueDateState,
+      this.filterForm.controls.dependency,
       this.filterForm.controls.sort
     ];
 
@@ -997,6 +1027,9 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     this.pushLookupLabel(labels, 'Milestone', formValue.milestoneId, (value) => this.milestoneName(value));
     this.pushLookupLabel(labels, 'Priority', formValue.priority, (value) => this.formatToken(value));
     this.pushLookupLabel(labels, 'Due date', formValue.dueDateState, (value) => this.dueDateStateLabel(value));
+    this.pushLookupLabel(labels, 'Dependency', formValue.dependency, (value) =>
+      this.dependencyLabel(value)
+    );
 
     if (formValue.sort !== 'updated_desc') {
       labels.push(`Sort: ${this.sortLabel(formValue.sort)}`);
@@ -1054,6 +1087,12 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
 
   private sortLabel(value: string): string {
     return sorts.find((sort) => sort.value === value)?.label ?? value;
+  }
+
+  private dependencyLabel(value: string): string {
+    return dependencyOptions.some((option) => option.value === value)
+      ? dependencyFilterLabel(value as DependencyFilter)
+      : value;
   }
 
   private toExportErrorMessage(error: HttpErrorResponse): string {
