@@ -407,6 +407,28 @@ npm run typecheck --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-05.
+- Updated `CommentService.createComment` to dedupe `mentionMemberIds`, validate that every mentioned member is active in the actor workspace, persist `comment_mentions`, and return mention metadata.
+- Updated comment DTO conversion so `mentions` are hydrated from stored mention rows instead of always returning an empty array.
+- Updated work item detail comment conversion so embedded comments also include mention metadata.
+- Kept body-only comment creation requests compatible with `mentions: []`.
+- Added deterministic secondary ordering for comment mention repository reads.
+- Added API coverage for:
+  - comment creation with mentions;
+  - duplicate mention IDs;
+  - inactive member rejection;
+  - cross-workspace member rejection;
+  - self mention metadata without notification fan-out;
+  - list/detail mention hydration;
+  - legacy body-only comment creation.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/api`
+  - `npm test --workspace @worktrail/api -- comments`
+  - `npm test --workspace @worktrail/api`
+  - `git diff --check`
+
 ## Phase 5: Domain Notification Fan-Out
 
 Goal: create notifications from collaboration events with centralized dedupe and actor/inactive-member exclusion.

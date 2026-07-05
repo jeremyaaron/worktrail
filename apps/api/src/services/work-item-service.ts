@@ -726,6 +726,7 @@ export class WorkItemService {
 
   private async toCommentDtos(comments: Comment[], repositories: Repositories) {
     const dtos: CommentDto[] = [];
+    const mentionsByCommentId = await this.getMentionsByCommentId(comments, repositories);
 
     for (const comment of comments) {
       const author = await this.requireMember(comment.authorId, repositories, 'Comment author not found.');
@@ -733,10 +734,45 @@ export class WorkItemService {
         comment.deletedById === null
           ? null
           : await this.requireMember(comment.deletedById, repositories, 'Comment deletion actor not found.');
-      dtos.push(toCommentDto(comment, author, deletedBy));
+      dtos.push(toCommentDto(comment, author, deletedBy, mentionsByCommentId.get(comment.id) ?? []));
     }
 
     return dtos;
+  }
+
+  private async getMentionsByCommentId(
+    comments: Comment[],
+    repositories: Repositories
+  ): Promise<Map<string, Member[]>> {
+    const mentionsByCommentId = new Map<string, Member[]>();
+    const mentions = await repositories.commentMentions.listByComments(
+      comments.map((comment) => comment.id)
+    );
+
+    if (mentions.length === 0) {
+      return mentionsByCommentId;
+    }
+
+    const membersById = new Map(
+      (await repositories.members.listByWorkspace(this.context.actor.workspaceId)).map((member) => [
+        member.id,
+        member
+      ])
+    );
+
+    for (const mention of mentions) {
+      const member = membersById.get(mention.memberId);
+
+      if (member === undefined) {
+        throw new NotFoundError('Mentioned member not found.');
+      }
+
+      const existing = mentionsByCommentId.get(mention.commentId) ?? [];
+      existing.push(member);
+      mentionsByCommentId.set(mention.commentId, existing);
+    }
+
+    return mentionsByCommentId;
   }
 
   private async toActivityDtos(activity: ActivityEvent[], repositories: Repositories) {

@@ -127,7 +127,12 @@ export function toMilestoneDto(milestone: Milestone): MilestoneDto {
   };
 }
 
-export function toCommentDto(comment: Comment, author: Member, deletedBy: Member | null = null): CommentDto {
+export function toCommentDto(
+  comment: Comment,
+  author: Member,
+  deletedBy: Member | null = null,
+  mentions: Member[] = []
+): CommentDto {
   const isDeleted = comment.deletedAt !== null;
 
   return {
@@ -137,7 +142,7 @@ export function toCommentDto(comment: Comment, author: Member, deletedBy: Member
     workItemId: comment.workItemId,
     author: toMemberDto(author),
     body: isDeleted ? '' : comment.body,
-    mentions: [],
+    mentions: mentions.map(toMemberDto),
     isEdited: comment.editedAt !== null,
     isDeleted,
     editedAt: comment.editedAt?.toISOString() ?? null,

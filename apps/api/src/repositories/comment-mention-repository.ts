@@ -19,7 +19,7 @@ export function createCommentMentionRepository(db: WorktrailDb) {
         .select()
         .from(commentMentions)
         .where(eq(commentMentions.commentId, commentId))
-        .orderBy(asc(commentMentions.createdAt));
+        .orderBy(asc(commentMentions.createdAt), asc(commentMentions.memberId));
     },
 
     async listByComments(commentIds: string[]) {
@@ -31,7 +31,7 @@ export function createCommentMentionRepository(db: WorktrailDb) {
         .select()
         .from(commentMentions)
         .where(inArray(commentMentions.commentId, commentIds))
-        .orderBy(asc(commentMentions.createdAt));
+        .orderBy(asc(commentMentions.createdAt), asc(commentMentions.memberId));
     }
   };
 }
