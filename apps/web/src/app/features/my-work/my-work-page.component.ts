@@ -103,6 +103,7 @@ const priorityOrder = new Map([
 
       <app-daily-queue
         [items]="visibleAttentionQueue()"
+        returnUrl="/my-work"
         [heading]="queueHeading()"
         [emptyTitle]="queueEmptyTitle()"
         [emptyMessage]="queueEmptyMessage()"
@@ -124,7 +125,11 @@ const priorityOrder = new Map([
             } @else {
               <div class="work-list">
                 @for (item of section.items; track item.id) {
-                  <a class="work-row" [routerLink]="['/work-items', item.id]">
+                  <a
+                    class="work-row"
+                    [routerLink]="['/work-items', item.id]"
+                    [queryParams]="detailQueryParams()"
+                  >
                     <span class="work-row__title">
                       <strong>{{ item.title }}</strong>
                       <small>
@@ -632,6 +637,10 @@ export class MyWorkPageComponent implements OnDestroy {
 
   clearSummaryFilter(): void {
     this.selectedSummaryKey.set(null);
+  }
+
+  detailQueryParams(): { returnUrl: string } {
+    return { returnUrl: '/my-work' };
   }
 
   queueHeading(): string {

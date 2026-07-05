@@ -41,7 +41,11 @@ export interface DailyQueueItem {
       } @else {
         <div class="queue-list">
           @for (queueItem of items; track queueItem.item.id) {
-            <a class="queue-row" [routerLink]="['/work-items', queueItem.item.id]">
+            <a
+              class="queue-row"
+              [routerLink]="['/work-items', queueItem.item.id]"
+              [queryParams]="detailQueryParams()"
+            >
               <span class="queue-row__main">
                 <strong>{{ queueItem.item.title }}</strong>
                 <small>
@@ -316,6 +320,7 @@ export interface DailyQueueItem {
 })
 export class DailyQueueComponent {
   @Input({ required: true }) items: DailyQueueItem[] = [];
+  @Input() returnUrl: string | null = null;
   @Input() heading = 'Next actions';
   @Input() emptyTitle = 'No attention needed';
   @Input() emptyMessage = 'Assigned work with delivery risk signals will appear here.';
@@ -324,6 +329,10 @@ export class DailyQueueComponent {
   workItemMetadata = workItemMetadata;
   workItemStatusLabel = workItemStatusLabel;
   workItemPriorityLabel = workItemPriorityLabel;
+
+  detailQueryParams(): { returnUrl: string } | null {
+    return this.returnUrl === null ? null : { returnUrl: this.returnUrl };
+  }
 
   dueDateLabel(item: WorkspaceWorkItemListItemDto): string {
     return item.dueDate === null ? 'No due date' : `Due ${this.formatDateOnly(item.dueDate)}`;

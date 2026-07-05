@@ -2,7 +2,6 @@ import { Component, OnInit, computed, effect, inject, signal } from '@angular/co
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type {
-  ActivityEventDto,
   CommentDto,
   LabelDto,
   MemberDto,
@@ -23,6 +22,8 @@ import { WorktrailApiService } from '../../core/worktrail-api.service';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
+import { ActivityTimelineComponent } from './components/activity-timeline.component';
+import { WorkItemDetailSummaryComponent } from './components/work-item-detail-summary.component';
 
 const statuses: WorkItemStatus[] = [
   'backlog',
@@ -40,11 +41,13 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
 @Component({
   selector: 'app-work-item-detail-page',
   imports: [
+    ActivityTimelineComponent,
     EmptyStateComponent,
     ErrorPanelComponent,
     LoadingIndicatorComponent,
     ReactiveFormsModule,
-    RouterLink
+    RouterLink,
+    WorkItemDetailSummaryComponent
   ],
   template: `
     @if (isLoading()) {
@@ -53,16 +56,11 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
       <app-error-panel [message]="loadError() ?? ''" (retry)="loadWorkItem()" />
     } @else if (workItem(); as item) {
       <section class="detail-header">
-        <div>
-          <p class="eyebrow">Work item</p>
-          <h1>{{ item.title }}</h1>
-          <div class="work-item-meta">
-            <span>{{ item.displayKey }}</span>
-          </div>
-          <p>{{ item.description || 'No description provided.' }}</p>
-        </div>
+        <app-work-item-detail-summary [item]="item" />
 
-        <a [routerLink]="['/projects', item.projectId, 'work-items']">Back to list</a>
+        <a [routerLink]="returnTarget().path" [queryParams]="returnTarget().queryParams">
+          {{ returnTarget().label }}
+        </a>
       </section>
 
       @if (isArchivedProject()) {
@@ -573,22 +571,7 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
           </form>
         </section>
 
-        <section class="panel" aria-labelledby="activity-heading">
-          <h2 id="activity-heading">Activity</h2>
-
-          @if (item.activity.length === 0) {
-            <app-empty-state title="No activity yet" message="Meaningful changes will appear here." />
-          } @else {
-            <ol class="activity-list">
-              @for (event of item.activity; track event.id) {
-                <li>
-                  <strong>{{ event.summary }}</strong>
-                  <span>{{ memberDisplayName(event.actor) }} · {{ formatEventType(event) }} · {{ formatDateTime(event.createdAt) }}</span>
-                </li>
-              }
-            </ol>
-          }
-        </section>
+        <app-activity-timeline [events]="item.activity" />
       </section>
     }
   `,
@@ -613,16 +596,6 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
       margin-bottom: 18px;
     }
 
-    .eyebrow {
-      margin: 0 0 6px;
-      color: #64748b;
-      font-size: 0.75rem;
-      font-weight: 800;
-      letter-spacing: 0;
-      text-transform: uppercase;
-    }
-
-    h1,
     h2,
     h3,
     p,
@@ -630,12 +603,6 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
     dd,
     ol {
       margin: 0;
-    }
-
-    h1 {
-      color: #111827;
-      font-size: 1.75rem;
-      line-height: 1.2;
     }
 
     h2 {
@@ -650,30 +617,11 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
       line-height: 1.35;
     }
 
-    .detail-header p,
     .label-editor p {
       margin-top: 8px;
       color: #64748b;
       font-size: 0.875rem;
       line-height: 1.5;
-    }
-
-    .work-item-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 10px;
-    }
-
-    .work-item-meta span {
-      border: 1px solid #c7d2fe;
-      border-radius: 999px;
-      padding: 3px 9px;
-      background: #eef2ff;
-      color: #3730a3;
-      font-size: 0.75rem;
-      font-weight: 900;
-      text-transform: uppercase;
     }
 
     .notice {
@@ -889,8 +837,7 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
     }
 
     .comment time,
-    .comment-marker,
-    .activity-list span {
+    .comment-marker {
       color: #64748b;
       font-size: 0.75rem;
       font-weight: 700;
@@ -909,8 +856,7 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
       text-transform: uppercase;
     }
 
-    .comment p,
-    .activity-list strong {
+    .comment p {
       color: #334155;
       font-size: 0.875rem;
       line-height: 1.5;
@@ -938,16 +884,6 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
       color: #991b1b;
       font-size: 0.8125rem;
       font-weight: 800;
-    }
-
-    .activity-list {
-      list-style: none;
-      padding: 0;
-    }
-
-    .activity-list li {
-      display: grid;
-      gap: 5px;
     }
 
     @media (max-width: 920px) {
@@ -1050,6 +986,26 @@ export class WorkItemDetailPageComponent implements OnInit {
       ...relationships.blocks.map((relationship) => relationship.workItem.id),
       ...relationships.related.map((relationship) => relationship.workItem.id)
     ]);
+  });
+  readonly returnTarget = computed(() => {
+    const item = this.workItem();
+    const fallbackPath = item === null ? '/work-items' : `/projects/${item.projectId}/work-items`;
+    const parsedReturnUrl = this.parseSafeReturnUrl(
+      this.route.snapshot.queryParamMap.get('returnUrl')
+    );
+
+    if (parsedReturnUrl !== null) {
+      return {
+        ...parsedReturnUrl,
+        label: 'Back'
+      };
+    }
+
+    return {
+      path: fallbackPath,
+      queryParams: null,
+      label: item === null ? 'Back to work items' : 'Back to project work'
+    };
   });
 
   readonly detailForm = this.formBuilder.nonNullable.group({
@@ -1507,10 +1463,6 @@ export class WorkItemDetailPageComponent implements OnInit {
     }).format(new Date(value));
   }
 
-  formatEventType(event: ActivityEventDto): string {
-    return this.formatToken(event.eventType.replace('.', ' '));
-  }
-
   memberDisplayName(member: MemberDto): string {
     return member.isActive ? member.name : `${member.name} (inactive)`;
   }
@@ -1644,5 +1596,40 @@ export class WorkItemDetailPageComponent implements OnInit {
         this.statusForm.enable(options);
       }
     }
+  }
+
+  private parseSafeReturnUrl(rawReturnUrl: string | null): {
+    path: string;
+    queryParams: Record<string, string> | null;
+  } | null {
+    if (rawReturnUrl === null || rawReturnUrl.trim() === '') {
+      return null;
+    }
+
+    if (
+      !rawReturnUrl.startsWith('/') ||
+      rawReturnUrl.startsWith('//') ||
+      /^[a-z][a-z0-9+.-]*:/i.test(rawReturnUrl) ||
+      /[\u0000-\u001f\u007f]/.test(rawReturnUrl)
+    ) {
+      return null;
+    }
+
+    const [pathAndQuery] = rawReturnUrl.split('#', 1);
+    const [path, queryString = ''] = pathAndQuery.split('?', 2);
+
+    if (path === '' || path.includes('\\')) {
+      return null;
+    }
+
+    const parsedQueryParams: Record<string, string> = {};
+    new URLSearchParams(queryString).forEach((value, key) => {
+      parsedQueryParams[key] = value;
+    });
+
+    return {
+      path,
+      queryParams: Object.keys(parsedQueryParams).length === 0 ? null : parsedQueryParams
+    };
   }
 }

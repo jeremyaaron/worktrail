@@ -326,6 +326,7 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
       ariaLabel="Workspace work items"
       [emptyTitle]="activeFilterLabels().length > 0 ? 'No work items match these filters' : 'No work items found'"
       [emptyMessage]="activeFilterLabels().length > 0 ? 'Reset filters or adjust the criteria to broaden the list.' : 'Workspace work from active projects will appear here.'"
+      [returnUrl]="detailReturnUrl()"
       (retry)="loadWorkItems()"
     />
   `,
@@ -930,6 +931,10 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     return this.getActiveFilterLabels();
   }
 
+  detailReturnUrl(): string {
+    return this.toReturnUrl('/work-items', this.queryParamsFromQuery(this.appliedQuery()));
+  }
+
   removeActiveFilter(label: string): void {
     const filterName = label.split(':', 1)[0];
     const updates: Partial<WorkspaceFilterFormValue> = {};
@@ -1157,6 +1162,19 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
 
   private queryParamsFromForm(): Record<string, string | null> {
     return this.queryParamsFromFormValue(this.filterForm.getRawValue());
+  }
+
+  private toReturnUrl(path: string, queryParams: Record<string, string | null>): string {
+    const searchParams = new URLSearchParams();
+
+    for (const [key, value] of Object.entries(queryParams)) {
+      if (value !== null) {
+        searchParams.set(key, value);
+      }
+    }
+
+    const queryString = searchParams.toString();
+    return queryString === '' ? path : `${path}?${queryString}`;
   }
 
   private queryParamsFromQuery(query: WorkItemQuery): Record<string, string | null> {

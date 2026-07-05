@@ -255,6 +255,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
       ariaLabel="Work items"
       [emptyTitle]="activeFilterLabels().length > 0 ? 'No work items match these filters' : 'No work items yet'"
       [emptyMessage]="activeFilterLabels().length > 0 ? 'Clear filters or adjust the criteria to broaden the list.' : 'Create the first work item for this project.'"
+      [returnUrl]="detailReturnUrl()"
       (retry)="loadWorkItems()"
     />
   `,
@@ -839,6 +840,13 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     return this.getActiveFilterLabels();
   }
 
+  detailReturnUrl(): string {
+    return this.toReturnUrl(
+      `/projects/${this.projectId()}/work-items`,
+      this.toQueryParams(this.toFilters(this.appliedFilterValues()))
+    );
+  }
+
   removeActiveFilter(label: string): void {
     const filterName = label.split(':', 1)[0];
     const updates: Partial<WorkItemFilterFormValue> = {};
@@ -915,6 +923,19 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
       dependency: filters.dependency ?? null,
       sort: sort === 'updated_desc' ? null : sort
     };
+  }
+
+  private toReturnUrl(path: string, queryParams: Record<string, string | null>): string {
+    const searchParams = new URLSearchParams();
+
+    for (const [key, value] of Object.entries(queryParams)) {
+      if (value !== null) {
+        searchParams.set(key, value);
+      }
+    }
+
+    const queryString = searchParams.toString();
+    return queryString === '' ? path : `${path}?${queryString}`;
   }
 
   private watchFilterChanges(): void {

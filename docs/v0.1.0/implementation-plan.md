@@ -749,6 +749,24 @@ npm test --workspace @worktrail/web -- --watch=false
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-05.
+- Added focused detail components:
+  - `WorkItemDetailSummaryComponent` for read-first title, display key, status, priority, assignee, milestone, due date, labels, and dependency state;
+  - `ActivityTimelineComponent` for activity rendering and empty state ownership.
+- Kept edit, status transition, relationship, comment, and activity refresh behavior route-owned to avoid destabilizing existing mutations.
+- Added safe `returnUrl` query-param support on detail:
+  - accepts internal app paths only;
+  - rejects external URLs, protocol URLs, protocol-relative URLs, malformed paths, and control characters;
+  - preserves safe query parameters;
+  - falls back to the project work list or workspace work items.
+- Added return context from project work lists, workspace work lists, board cards, My Work queue/secondary rows, and planning review/risk rows.
+- Updated detail, workspace list, My Work, and planning tests for return context behavior.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/web`
+  - `npm test --workspace @worktrail/web -- --watch=false`
+
 ## Phase 10: Responsive Work Item Cards And Mobile Polish
 
 Goal: make core work item scanning intentionally readable on mobile.

@@ -526,7 +526,12 @@ interface PlanningReviewSection {
                     <div class="review-list">
                       @for (item of section.items; track item.id + item.kind) {
                         @if (reviewWorkItemLink(item); as workItemLink) {
-                          <a class="review-row" [attr.data-tone]="severityTone(item.severity)" [routerLink]="workItemLink">
+                          <a
+                            class="review-row"
+                            [attr.data-tone]="severityTone(item.severity)"
+                            [routerLink]="workItemLink"
+                            [queryParams]="detailQueryParams()"
+                          >
                             <span>
                               <strong>{{ item.displayKey === null ? item.title : item.displayKey + ' · ' + item.title }}</strong>
                               <small>{{ item.detail }}</small>
@@ -588,7 +593,11 @@ interface PlanningReviewSection {
                   } @else {
                     <div class="risk-list">
                       @for (item of visibleRiskItems(section); track item.id) {
-                        <a class="risk-row" [routerLink]="['/work-items', item.id]">
+                        <a
+                          class="risk-row"
+                          [routerLink]="['/work-items', item.id]"
+                          [queryParams]="detailQueryParams()"
+                        >
                           <span class="risk-row__title">
                             <strong>{{ item.displayKey }} · {{ item.title }}</strong>
                             <small>
@@ -1684,6 +1693,10 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
 
   reviewWorkItemLink(item: PlanningReviewItemDto): string[] | null {
     return item.workItemId === null ? null : ['/work-items', item.workItemId];
+  }
+
+  detailQueryParams(): { returnUrl: string } {
+    return { returnUrl: `/projects/${this.projectId()}/planning?view=review` };
   }
 
   reviewQueryParams(item: PlanningReviewItemDto): Record<string, string> | null {

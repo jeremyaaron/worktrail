@@ -49,7 +49,12 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
           </div>
 
           @for (item of items; track item.id) {
-            <a class="work-item-row" role="row" [routerLink]="['/work-items', item.id]">
+            <a
+              class="work-item-row"
+              role="row"
+              [routerLink]="['/work-items', item.id]"
+              [queryParams]="detailQueryParams()"
+            >
               <span class="work-item-row__title">
                 <strong>{{ item.title }}</strong>
                 <small class="row-meta">
@@ -351,6 +356,7 @@ export class WorkItemResultListComponent {
   @Input() mode: 'project' | 'workspace' = 'project';
   @Input() isLoading = false;
   @Input() error: string | null = null;
+  @Input() returnUrl: string | null = null;
   @Input() loadingLabel = 'Loading work items';
   @Input() emptyTitle = 'No work items found';
   @Input() emptyMessage = 'Work items will appear here.';
@@ -366,6 +372,10 @@ export class WorkItemResultListComponent {
   workItemMetadata = workItemMetadata;
   workItemPriorityLabel = workItemPriorityLabel;
   workItemStatusLabel = workItemStatusLabel;
+
+  detailQueryParams(): { returnUrl: string } | null {
+    return this.returnUrl === null ? null : { returnUrl: this.returnUrl };
+  }
 
   workspaceItem(item: ResultItem): WorkspaceWorkItemListItemDto | null {
     return 'project' in item ? item : null;

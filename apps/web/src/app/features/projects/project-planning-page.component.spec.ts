@@ -420,23 +420,23 @@ describe('ProjectPlanningPageComponent', () => {
     );
     expect(riskLinks).toContain(jasmine.objectContaining({
       text: jasmine.stringContaining('WT-1'),
-      href: `/work-items/${blockedWorkItem.id}`
+      href: jasmine.stringContaining(`/work-items/${blockedWorkItem.id}?returnUrl=`)
     }));
     expect(riskLinks).toContain(jasmine.objectContaining({
       text: jasmine.stringContaining('WT-2'),
-      href: `/work-items/${overdueWorkItem.id}`
+      href: jasmine.stringContaining(`/work-items/${overdueWorkItem.id}?returnUrl=`)
     }));
     expect(riskLinks).toContain(jasmine.objectContaining({
       text: jasmine.stringContaining('WT-3'),
-      href: `/work-items/${dependencyBlockedWorkItem.id}`
+      href: jasmine.stringContaining(`/work-items/${dependencyBlockedWorkItem.id}?returnUrl=`)
     }));
     expect(riskLinks).toContain(jasmine.objectContaining({
       text: jasmine.stringContaining('WT-4'),
-      href: `/work-items/${blockingOpenWorkItem.id}`
+      href: jasmine.stringContaining(`/work-items/${blockingOpenWorkItem.id}?returnUrl=`)
     }));
     expect(reviewLinks).toContain(jasmine.objectContaining({
       text: jasmine.stringContaining('WT-1'),
-      href: `/work-items/${blockedWorkItem.id}`
+      href: jasmine.stringContaining(`/work-items/${blockedWorkItem.id}?returnUrl=`)
     }));
     expect(reviewLinks).toContain(jasmine.objectContaining({
       text: jasmine.stringContaining('v0.0.3'),
@@ -444,7 +444,7 @@ describe('ProjectPlanningPageComponent', () => {
     }));
     expect(reviewLinks).toContain(jasmine.objectContaining({
       text: jasmine.stringContaining('WT-4'),
-      href: `/work-items/${blockingOpenWorkItem.id}`
+      href: jasmine.stringContaining(`/work-items/${blockingOpenWorkItem.id}?returnUrl=`)
     }));
     expect(reasonLinks.some((href) => href.includes('status=blocked'))).toBeTrue();
     expect(listLinks.some((href) => href.includes('dependency=dependency_blocked'))).toBeTrue();

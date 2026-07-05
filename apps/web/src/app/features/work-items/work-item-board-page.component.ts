@@ -121,7 +121,12 @@ const terminalStatuses = new Set<WorkItemStatus>(['done', 'canceled']);
                           Move
                         </button>
                       </div>
-                      <a [routerLink]="['/work-items', item.id]">{{ item.title }}</a>
+                      <a
+                        [routerLink]="['/work-items', item.id]"
+                        [queryParams]="detailQueryParams()"
+                      >
+                        {{ item.title }}
+                      </a>
                       <span class="priority-pill" [attr.data-priority]="item.priority">
                         {{ formatToken(item.priority) }}
                       </span>
@@ -649,6 +654,10 @@ export class WorkItemBoardPageComponent implements OnInit {
 
   formatToken(value: string): string {
     return value.replaceAll('_', ' ');
+  }
+
+  detailQueryParams(): { returnUrl: string } {
+    return { returnUrl: `/projects/${this.projectId()}/board` };
   }
 
   memberDisplayName(member: WorkItemListItemDto['assignee']): string {

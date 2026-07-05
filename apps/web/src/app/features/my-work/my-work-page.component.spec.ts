@@ -213,13 +213,13 @@ describe('MyWorkPageComponent', () => {
     expect(compiled.textContent).toContain('Due Jul 8');
     expect(summaryButtons[0].textContent).toContain('Assigned open');
     expect(queueRows.map((row) => row.getAttribute('href'))).toEqual([
-      `/work-items/${dependencyBlockedWorkItem.id}`,
-      `/work-items/${workItem.id}`
+      `/work-items/${dependencyBlockedWorkItem.id}?returnUrl=%2Fmy-work`,
+      `/work-items/${workItem.id}?returnUrl=%2Fmy-work`
     ]);
     expect(queueRows.filter((row) => row.textContent?.includes('Shape the default dashboard')).length)
       .toBe(1);
     expect(secondaryRows.map((row) => row.getAttribute('href'))).toEqual([
-      `/work-items/${reportedWorkItem.id}`
+      `/work-items/${reportedWorkItem.id}?returnUrl=%2Fmy-work`
     ]);
   });
 
