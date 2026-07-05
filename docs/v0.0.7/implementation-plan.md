@@ -811,7 +811,24 @@ npm test
 git diff --check
 ```
 
-Status: Not started.
+Status:
+
+- Completed on 2026-07-05.
+- Added Playwright coverage for importing a valid two-row CSV into the seeded active Worktrail App project.
+- The browser scenario verifies:
+  - the import page starts with apply disabled;
+  - file selection triggers preview;
+  - preview shows the selected filename, valid-row summary, and normalized row titles;
+  - applying the import creates two work items;
+  - imported work appears through the project work item list search;
+  - imported backlog and ready items appear in the expected board columns.
+- Added stable export smoke coverage through Playwright download handling from the project work item list.
+- Export smoke verifies the suggested filename and downloaded CSV content for the imported filtered result.
+- Confirmed the existing Playwright global setup still resets, migrates, and seeds before the run, and the existing `afterAll` restore returns the database to deterministic seed data after mutation-heavy tests.
+- Verified `npx playwright test e2e/worktrail-smoke.spec.ts -g "imports project work items"`.
+- Verified `npm run test:e2e`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
 
 ## Phase 10: OpenAPI And CSV Documentation
 
