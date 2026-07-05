@@ -464,6 +464,18 @@ sed -n '1,260p' docs/v0.0.6/operations-runbook.md
 git diff --check
 ```
 
+Status: Completed on 2026-07-04.
+
+Notes:
+
+- Added `docs/v0.0.6/operations-runbook.md`.
+- Documented runtime modes, environment variables, local setup, migration and seed flow, production preview flow, health/readiness checks, deep-link checks, database reset safety, troubleshooting, verification commands, and future cloud mapping.
+- Included copy-paste friendly commands for development, production preview, health checks, reset/migrate/seed, E2E controls, and process cleanup checks.
+- Explicitly documented that local actor headers and actor selection are development scaffolding, not production authentication.
+- Explicitly documented that production preview should not be exposed to the public internet as an authenticated product.
+- Verified `sed -n '1,260p' docs/v0.0.6/operations-runbook.md`.
+- Verified `git diff --check`.
+
 ## Phase 7: Documentation, Product Site, Extraction Notes, And Version Finalization
 
 Goal: prepare v0.0.6 release-facing materials.
