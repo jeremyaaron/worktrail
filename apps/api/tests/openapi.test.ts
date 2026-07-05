@@ -37,7 +37,11 @@ describe('OpenAPI reference', () => {
       '/api/milestones/{milestoneId}/archive',
       '/api/milestones/{milestoneId}/reactivate',
       '/api/work-items',
+      '/api/work-items/export',
       '/api/projects/{projectId}/work-items',
+      '/api/projects/{projectId}/work-items/imports/preview',
+      '/api/projects/{projectId}/work-items/imports',
+      '/api/projects/{projectId}/work-items/export',
       '/api/work-items/{workItemId}',
       '/api/work-items/{workItemId}/transitions',
       '/api/work-items/{workItemId}/board-move',
@@ -57,6 +61,11 @@ describe('OpenAPI reference', () => {
     expect(openApi).toContain('x-worktrail-workspace-id');
     expect(openApi).toContain('x-worktrail-role');
     expect(openApi).toContain('ErrorResponse:');
+    expect(openApi).toContain('WorkItemCsvImportPreviewRequest:');
+    expect(openApi).toContain('WorkItemCsvImportApplyRequest:');
+    expect(openApi).toContain('WorkItemCsvImportPreview:');
+    expect(openApi).toContain('WorkItemCsvImportApply:');
+    expect(openApi).toContain('text/csv:');
     expect(openApi).toContain('VALIDATION_ERROR');
     expect(openApi).toContain('INTERNAL_ERROR');
   });

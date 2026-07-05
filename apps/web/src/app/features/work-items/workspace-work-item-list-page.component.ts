@@ -23,6 +23,7 @@ import { Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorktrailApiService } from '../../core/worktrail-api.service';
+import { downloadBlob, fileNameFromContentDisposition } from '../../shared/download-file';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
@@ -125,8 +126,17 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
         <p>Find work across projects, owners, priorities, and due dates.</p>
       </div>
 
-      <a class="primary-action" routerLink="/work-items/new">Create work item</a>
+      <div class="header-actions">
+        <button type="button" class="secondary-action" [disabled]="isExporting()" (click)="exportCsv()">
+          {{ isExporting() ? 'Exporting...' : 'Export CSV' }}
+        </button>
+        <a class="primary-action" routerLink="/work-items/new">Create work item</a>
+      </div>
     </section>
+
+    @if (exportError()) {
+      <p class="inline-error export-error">{{ exportError() }}</p>
+    }
 
     <section class="saved-views" aria-labelledby="saved-views-heading">
       <div class="saved-views__heading">
@@ -445,6 +455,12 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
       margin-bottom: 20px;
     }
 
+    .header-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
     .eyebrow {
       margin: 0 0 6px;
       color: #64748b;
@@ -511,6 +527,10 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
       font-size: 0.875rem;
       font-weight: 700;
       line-height: 1.5;
+    }
+
+    .export-error {
+      margin-bottom: 18px;
     }
 
     .saved-views,
@@ -882,6 +902,8 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   readonly appliedFilterValues = signal<WorkspaceFilterFormValue>({ ...defaultFilterValues });
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
+  readonly isExporting = signal(false);
+  readonly exportError = signal<string | null>(null);
   readonly isSavedViewLoading = signal(false);
   readonly savedViewLoadError = signal<string | null>(null);
   readonly isSavingView = signal(false);
@@ -957,6 +979,34 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       error: () => {
         this.error.set('Workspace work items could not be loaded from the API.');
         this.isLoading.set(false);
+      }
+    });
+  }
+
+  exportCsv(): void {
+    if (this.isExporting()) {
+      return;
+    }
+
+    this.isExporting.set(true);
+    this.exportError.set(null);
+
+    this.api.exportWorkspaceWorkItems(this.appliedQuery()).subscribe({
+      next: (response) => {
+        const fileName = fileNameFromContentDisposition(
+          response.headers.get('content-disposition'),
+          'worktrail-workspace-work-items.csv'
+        );
+
+        downloadBlob({
+          blob: response.body ?? new Blob([''], { type: 'text/csv' }),
+          fileName
+        });
+        this.isExporting.set(false);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.exportError.set(this.toErrorMessage(error, 'CSV export could not be downloaded.'));
+        this.isExporting.set(false);
       }
     });
   }

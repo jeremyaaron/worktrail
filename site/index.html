@@ -6,12 +6,12 @@
     <title>Worktrail | Project management reference app</title>
     <meta
       name="description"
-      content="Worktrail is a project management reference app with My Work, cross-project discovery, saved views, quick work capture, workspace governance, durable boards, comments, activity, production preview, readiness checks, API docs, and cloud-ready application boundaries."
+      content="Worktrail is a project management reference app with My Work, cross-project discovery, saved views, quick work capture, workspace governance, durable boards, comments, activity, CSV import/export, production preview, readiness checks, API docs, and cloud-ready application boundaries."
     >
     <meta property="og:title" content="Worktrail">
     <meta
       property="og:description"
-      content="An Angular, Postgres, and TypeScript API reference app shaped around daily work visibility, team governance, operational preview, readiness checks, and a path toward cloud deployment."
+      content="An Angular, Postgres, and TypeScript API reference app shaped around daily work visibility, team governance, CSV data portability, operational preview, readiness checks, and a path toward cloud deployment."
     >
     <meta property="og:type" content="website">
     <meta name="theme-color" content="#f6f8fb">
@@ -49,8 +49,8 @@
             A small but real project workflow built to expose reusable application patterns:
             Angular screens, Postgres persistence, personal dashboards, cross-project discovery,
             saved query state, quick work capture, workspace governance, permission-aware UI,
-            stable work item keys, milestones, durable boards, audited comments, and a practical
-            path from local development to production-like preview and cloud deployment.
+            stable work item keys, milestones, durable boards, audited comments, CSV import/export,
+            and a practical path from local development to production-like preview and cloud deployment.
           </p>
           <div class="hero-actions" aria-label="Primary actions">
             <a class="button button-primary" href="https://github.com/jeremyaaron/worktrail">
@@ -71,8 +71,8 @@
           <span class="signal-label">local and managed database parity</span>
         </div>
         <div class="signal">
-          <span class="signal-value">Preview</span>
-          <span class="signal-label">built Angular assets served with operational API checks</span>
+          <span class="signal-value">CSV</span>
+          <span class="signal-label">dry-run import, transactional apply, and filtered export</span>
         </div>
       </section>
 
@@ -85,9 +85,10 @@
             project settings, milestones, label catalogs, keyed work items, auto-applied discovery
             filters, a persisted drag/drop board, planning summaries, comment lifecycle controls,
             local actor selection, activity events, workspace settings, member lifecycle,
-            role-aware affordances, inactive-member handling, and workspace activity. v0.0.6 keeps
-            the daily operating loop and adds production-like preview, validated runtime config,
-            liveness/readiness checks, OpenAPI documentation, and an operator runbook.
+            role-aware affordances, inactive-member handling, workspace activity, production-like
+            preview, validated runtime config, liveness/readiness checks, OpenAPI documentation,
+            and an operator runbook. v0.0.7 adds CSV data portability with dry-run import,
+            transactional apply, and filtered exports.
           </p>
         </div>
         <div class="feature-grid">
@@ -110,6 +111,16 @@
             <span class="feature-kicker">Quick capture</span>
             <h3>Create work without starting in a project.</h3>
             <p>Select an active project, load project-specific labels and milestones, and keep moving.</p>
+          </article>
+          <article class="feature">
+            <span class="feature-kicker">Import</span>
+            <h3>Validate CSV before creating work.</h3>
+            <p>Preview normalized rows, catch file and row errors, then apply all valid rows transactionally.</p>
+          </article>
+          <article class="feature">
+            <span class="feature-kicker">Export</span>
+            <h3>Download the work you are looking at.</h3>
+            <p>Export project lists or workspace discovery results using the currently applied filters.</p>
           </article>
           <article class="feature">
             <span class="feature-kicker">Workspace</span>
@@ -151,15 +162,15 @@
 
       <section class="section" id="capabilities" aria-labelledby="capabilities-title">
         <div class="section-heading">
-          <p class="eyebrow">v0.0.6 capabilities</p>
-          <h2 id="capabilities-title">Daily work visibility with operational footing.</h2>
+          <p class="eyebrow">v0.0.7 capabilities</p>
+          <h2 id="capabilities-title">Daily work visibility with data portability.</h2>
           <p>
             Worktrail remains useful as an everyday project app: each actor gets a My Work dashboard,
             summary counts link into cross-project discovery, useful filters can be saved as personal
             views, work can be captured from a global route, and project navigation exposes operating
-            signals as the workspace grows. v0.0.6 adds the pieces needed to inspect it like a service:
-            production preview, validated runtime config, health/readiness endpoints, API reference
-            documentation, and an operations runbook.
+            signals as the workspace grows. v0.0.7 adds CSV adoption flows: project import starts
+            with dry-run validation, apply creates all rows transactionally, and export downloads
+            the currently filtered project or workspace result set.
           </p>
         </div>
       </section>
@@ -215,7 +226,8 @@
             <div><strong>Angular SPA</strong><span>static build suitable for S3 and CloudFront</span></div>
             <div><strong>Lazy routes</strong><span>route chunks keep initial production bundles below warning budgets</span></div>
             <div><strong>Endpoint handlers</strong><span>transport-neutral request and response shape</span></div>
-            <div><strong>Express adapter</strong><span>local runtime and production preview host for v0.0.6</span></div>
+            <div><strong>CSV flows</strong><span>dry-run validation, transactional bulk commands, and non-JSON responses</span></div>
+            <div><strong>Express adapter</strong><span>local runtime and production preview host</span></div>
             <div><strong>Health checks</strong><span>liveness and Postgres readiness for operational inspection</span></div>
             <div><strong>Postgres + Drizzle</strong><span>migrations, saved views, and deterministic seed data</span></div>
             <div><strong>Playwright smoke</strong><span>browser-level coverage for daily workflow, governance, planning, and responsiveness</span></div>
@@ -228,9 +240,9 @@
           <p class="eyebrow">Current scope</p>
           <h2 id="mvp-title">Local-first, cloud-shaped, still honest about limits.</h2>
           <p>
-            Worktrail v0.0.6 is still a local reference app. Production authentication,
+            Worktrail v0.0.7 is still a local reference app. Production authentication,
             invitations, workspace-visible saved views, pinned projects, custom roles, custom
-            workflows, notifications, attachments, imports, and hosted infrastructure are
+            workflows, notifications, attachments, third-party migration mappings, and hosted infrastructure are
             intentionally out of scope. Production preview is not an internet-safe authenticated
             deployment. The value today is a working product surface and operational boundary that
             can accumulate evidence before patterns are extracted into broader framework ideas.
@@ -257,7 +269,8 @@ DATABASE_URL=postgres://worktrail:worktrail@localhost:5432/worktrail npm run pre
     <footer class="footer">
       <span>Worktrail</span>
       <a href="https://github.com/jeremyaaron/worktrail">GitHub</a>
-      <a href="https://github.com/jeremyaaron/worktrail/tree/main/docs/v0.0.6">v0.0.6 docs</a>
+      <a href="https://github.com/jeremyaaron/worktrail/tree/main/docs/v0.0.7">v0.0.7 docs</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.0.7/csv-import-export.md">CSV guide</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/api/openapi.yaml">OpenAPI</a>
     </footer>
   </body>

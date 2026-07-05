@@ -54,11 +54,15 @@ import {
   updateSavedWorkViewHandler
 } from '../../endpoints/saved-work-views.js';
 import {
+  applyWorkItemCsvImportHandler,
   createWorkItemHandler,
+  exportProjectWorkItemsHandler,
+  exportWorkspaceWorkItemsHandler,
   getWorkItemHandler,
   listWorkspaceWorkItemsHandler,
   listWorkItemsHandler,
   moveWorkItemOnBoardHandler,
+  previewWorkItemCsvImportHandler,
   transitionWorkItemHandler,
   updateWorkItemHandler
 } from '../../endpoints/work-items.js';
@@ -184,6 +188,10 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
         adapterOptions
       )
     );
+    app.get(
+      '/api/work-items/export',
+      adaptEndpoint(exportWorkspaceWorkItemsHandler({ repositories: options.repositories }), adapterOptions)
+    );
     app.post(
       '/api/projects',
       adaptEndpoint(
@@ -195,6 +203,24 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
       '/api/projects/:projectId/work-items',
       adaptEndpoint(
         listWorkItemsHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
+    );
+    app.get(
+      '/api/projects/:projectId/work-items/export',
+      adaptEndpoint(exportProjectWorkItemsHandler({ repositories: options.repositories }), adapterOptions)
+    );
+    app.post(
+      '/api/projects/:projectId/work-items/imports/preview',
+      adaptEndpoint(
+        previewWorkItemCsvImportHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
+    );
+    app.post(
+      '/api/projects/:projectId/work-items/imports',
+      adaptEndpoint(
+        applyWorkItemCsvImportHandler({ repositories: options.repositories, db: options.db }),
         adapterOptions
       )
     );

@@ -23,5 +23,9 @@ describe('routes', () => {
     expect(paths).toContain('work-items/new');
     expect(paths.indexOf('work-items/new')).toBeLessThan(paths.indexOf('work-items/:workItemId'));
     expect(paths).toContain('projects/:projectId/work-items/new');
+    expect(paths).toContain('projects/:projectId/work-items/import');
+    expect(paths.indexOf('projects/:projectId/work-items/import')).toBeLessThan(
+      paths.indexOf('projects/:projectId/work-items')
+    );
   });
 });

@@ -1,7 +1,10 @@
 import { execFileSync } from 'node:child_process';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { expect, test } from '@playwright/test';
-import type { Locator, Page } from '@playwright/test';
+import type { Download, Locator, Page } from '@playwright/test';
 
 const demoProjectId = '10000000-0000-4000-8000-000000000201';
 
@@ -42,6 +45,18 @@ async function expectFocused(locator: Locator): Promise<void> {
       locator.evaluate((element) => element === element.ownerDocument.activeElement)
     )
     .toBe(true);
+}
+
+async function downloadText(download: Download): Promise<string> {
+  const directory = await mkdtemp(join(tmpdir(), 'worktrail-download-'));
+  const filePath = join(directory, download.suggestedFilename());
+
+  try {
+    await download.saveAs(filePath);
+    return await readFile(filePath, 'utf8');
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 }
 
 function runNpmScript(script: string): void {
@@ -360,6 +375,65 @@ test('completes the v0.0.5 daily workspace workflow', async ({ page }) => {
   await expect(page).toHaveURL(/search=/);
   await expect(page.getByText(`Search: ${title}`)).toBeVisible();
   await expect(page.getByRole('row', { name: new RegExp(title) })).toBeVisible();
+});
+
+test('imports project work items from CSV and exports filtered results', async ({ page }) => {
+  test.setTimeout(90_000);
+
+  const runId = Date.now();
+  const firstTitle = `E2E imported backlog ${runId}`;
+  const secondTitle = `E2E imported ready ${runId}`;
+  const csv = [
+    'title,description,type,status,priority,assignee_email,reporter_email,label_names,milestone_name,due_date,estimate_points',
+    `"${firstTitle}","Imported through the v0.0.7 Playwright workflow.",task,backlog,medium,morgan.maintainer@example.com,avery.owner@example.com,backend,v0.0.3 Planning,2026-07-20,2`,
+    `"${secondTitle}","Second imported row.",story,ready,high,casey.contributor@example.com,avery.owner@example.com,design,v0.0.3 Planning,2026-07-21,3`
+  ].join('\n');
+
+  await page.goto(`/projects/${demoProjectId}/work-items/import`);
+  await expect(page.getByRole('heading', { name: 'Import work items' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Import work items' })).toBeDisabled();
+
+  await page.getByLabel('Choose CSV').setInputFiles({
+    name: `worktrail-import-${runId}.csv`,
+    mimeType: 'text/csv',
+    buffer: Buffer.from(csv)
+  });
+
+  await expect(page.getByText(`worktrail-import-${runId}.csv`)).toBeVisible();
+  await expect(page.getByLabel('Import summary')).toContainText('Valid rows');
+  await expect(page.getByLabel('Import summary')).toContainText('2');
+  await expect(page.getByRole('row', { name: new RegExp(firstTitle) })).toBeVisible();
+  await expect(page.getByRole('row', { name: new RegExp(secondTitle) })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Import work items' }).click();
+
+  await expect(page.getByLabel('Import complete')).toContainText('2 work items imported');
+  await expect(page.getByRole('link', { name: /WT-\d+/ }).first()).toBeVisible();
+
+  await page.getByRole('link', { name: 'Project list' }).click();
+  await expect(page.getByRole('heading', { name: 'Project work items' })).toBeVisible();
+  await page.getByLabel('Search').fill(firstTitle);
+  await expect(page.getByText(`Search: ${firstTitle}`)).toBeVisible();
+  await expect(page.getByRole('row', { name: new RegExp(firstTitle) })).toBeVisible();
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export CSV' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe('worktrail-wt-work-items.csv');
+  expect(await downloadText(download)).toContain(firstTitle);
+
+  await page.goto(`/projects/${demoProjectId}/board`);
+  await expect(page.getByRole('heading', { name: 'Project board' })).toBeVisible();
+  await expect(
+    page.locator('section.board-column[aria-label="backlog"]').getByRole('link', {
+      name: firstTitle
+    })
+  ).toBeVisible();
+  await expect(
+    page.locator('section.board-column[aria-label="ready"]').getByRole('link', {
+      name: secondTitle
+    })
+  ).toBeVisible();
 });
 
 test('keeps core pages usable at common desktop widths', async ({ page }) => {

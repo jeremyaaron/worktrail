@@ -272,6 +272,28 @@ describe('Express API foundation', () => {
     errorSpy.mockRestore();
   });
 
+  it('sends string endpoint responses without JSON serialization', async () => {
+    const app = createExpressApp({
+      testRoutes: {
+        '/api/test/csv': () => ({
+          status: 200,
+          body: 'name,value\nWorktrail,1\n',
+          headers: {
+            'Content-Type': 'text/csv; charset=utf-8'
+          }
+        })
+      }
+    });
+
+    await request(app)
+      .get('/api/test/csv')
+      .expect(200)
+      .expect('Content-Type', /text\/csv/)
+      .expect(({ text }) => {
+        expect(text).toBe('name,value\nWorktrail,1\n');
+      });
+  });
+
   it('serves configured static assets', async () => {
     const directory = await createStaticFixture();
 

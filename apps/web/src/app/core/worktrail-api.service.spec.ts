@@ -1,21 +1,39 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import type { SavedWorkViewDto } from '@worktrail/contracts';
+import type { MemberDto, SavedWorkViewDto } from '@worktrail/contracts';
 
+import { CurrentUserService } from './current-user.service';
 import { WorktrailApiService } from './worktrail-api.service';
 
 describe('WorktrailApiService', () => {
   let api: WorktrailApiService;
   let http: HttpTestingController;
+  let currentUser: CurrentUserService;
+
+  const actor: MemberDto = {
+    id: '10000000-0000-4000-8000-000000000101',
+    workspaceId: '10000000-0000-4000-8000-000000000001',
+    name: 'Avery Owner',
+    email: 'avery.owner@example.com',
+    role: 'owner',
+    isActive: true,
+    deactivatedAt: null,
+    createdAt: '2026-07-02T12:00:00.000Z',
+    updatedAt: '2026-07-03T12:00:00.000Z'
+  };
 
   beforeEach(() => {
+    localStorage.clear();
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting()]
     });
 
     api = TestBed.inject(WorktrailApiService);
     http = TestBed.inject(HttpTestingController);
+    currentUser = TestBed.inject(CurrentUserService);
+    currentUser.members.set([actor]);
+    currentUser.selectMember(actor.id);
   });
 
   afterEach(() => {
@@ -26,6 +44,8 @@ describe('WorktrailApiService', () => {
     api.getMyWork().subscribe();
     const myWork = http.expectOne('/api/my-work');
     expect(myWork.request.method).toBe('GET');
+    expect(myWork.request.headers.get('x-worktrail-member-id')).toBe(actor.id);
+    expect(myWork.request.headers.get('x-worktrail-workspace-id')).toBe(actor.workspaceId);
     myWork.flush({ summaryCounts: [] });
 
     api.listProjectNavigationSummaries().subscribe();
@@ -57,6 +77,84 @@ describe('WorktrailApiService', () => {
     expect(request.request.params.has('search')).toBeFalse();
 
     request.flush([]);
+  });
+
+  it('previews and applies work item CSV imports', () => {
+    const projectId = '10000000-0000-4000-8000-000000000201';
+    const csv = 'title,type,priority\nImported task,task,medium\n';
+
+    api.previewWorkItemCsvImport(projectId, csv).subscribe();
+    const preview = http.expectOne(`/api/projects/${projectId}/work-items/imports/preview`);
+    expect(preview.request.method).toBe('POST');
+    expect(preview.request.body).toEqual({ csv });
+    expect(preview.request.headers.get('x-worktrail-member-id')).toBe(actor.id);
+    preview.flush({
+      totalRows: 1,
+      validRows: 1,
+      invalidRows: 0,
+      errors: [],
+      warnings: [],
+      rows: []
+    });
+
+    api.applyWorkItemCsvImport(projectId, csv).subscribe();
+    const apply = http.expectOne(`/api/projects/${projectId}/work-items/imports`);
+    expect(apply.request.method).toBe('POST');
+    expect(apply.request.body).toEqual({ csv });
+    expect(apply.request.headers.get('x-worktrail-workspace-id')).toBe(actor.workspaceId);
+    apply.flush({ createdCount: 0, workItems: [] });
+  });
+
+  it('exports project work items with filters as a blob response', () => {
+    const projectId = '10000000-0000-4000-8000-000000000201';
+
+    api
+      .exportProjectWorkItems(projectId, {
+        status: 'ready',
+        labelId: '10000000-0000-4000-8000-000000000301',
+        search: '  ',
+        sort: 'priority_desc'
+      })
+      .subscribe();
+
+    const request = http.expectOne(
+      (candidate) => candidate.url === `/api/projects/${projectId}/work-items/export`
+    );
+
+    expect(request.request.method).toBe('GET');
+    expect(request.request.responseType).toBe('blob');
+    expect(request.request.params.get('status')).toBe('ready');
+    expect(request.request.params.get('labelId')).toBe('10000000-0000-4000-8000-000000000301');
+    expect(request.request.params.get('sort')).toBe('priority_desc');
+    expect(request.request.params.has('search')).toBeFalse();
+    expect(request.request.headers.get('x-worktrail-member-id')).toBe(actor.id);
+    request.flush(new Blob(['project_key\n'], { type: 'text/csv' }));
+  });
+
+  it('exports workspace work items with query params as a blob response', () => {
+    api
+      .exportWorkspaceWorkItems({
+        workState: 'open',
+        assigneeState: 'unassigned',
+        blocked: false,
+        archivedProjects: 'include',
+        search: 'import',
+        sort: 'updated_desc'
+      })
+      .subscribe();
+
+    const request = http.expectOne((candidate) => candidate.url === '/api/work-items/export');
+
+    expect(request.request.method).toBe('GET');
+    expect(request.request.responseType).toBe('blob');
+    expect(request.request.params.get('workState')).toBe('open');
+    expect(request.request.params.get('assigneeState')).toBe('unassigned');
+    expect(request.request.params.get('blocked')).toBe('false');
+    expect(request.request.params.get('archivedProjects')).toBe('include');
+    expect(request.request.params.get('search')).toBe('import');
+    expect(request.request.params.get('sort')).toBe('updated_desc');
+    expect(request.request.headers.get('x-worktrail-workspace-id')).toBe(actor.workspaceId);
+    request.flush(new Blob(['project_key\n'], { type: 'text/csv' }));
   });
 
   it('supports saved work view CRUD requests', () => {

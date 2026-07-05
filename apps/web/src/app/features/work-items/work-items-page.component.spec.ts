@@ -14,6 +14,7 @@ import type {
 import { BehaviorSubject } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
+import { WorkItemImportPageComponent } from './work-item-import-page.component';
 import { WorkItemCreatePageComponent } from './work-item-create-page.component';
 import { WorkItemListPageComponent } from './work-item-list-page.component';
 
@@ -151,6 +152,11 @@ function seedCurrentUser() {
   currentUser.selectMember(member.id);
 }
 
+function spyOnCsvDownload(): void {
+  spyOn(URL, 'createObjectURL').and.returnValue('blob:worktrail-export');
+  spyOn(URL, 'revokeObjectURL');
+}
+
 function flushCreateContext(
   http: HttpTestingController,
   input: {
@@ -225,6 +231,76 @@ describe('WorkItemListPageComponent', () => {
     expect(compiled.textContent).toContain('backend');
     expect(compiled.textContent).toContain('v0.0.3');
     expect(compiled.textContent).toContain('Due date: Due soon');
+    expect(compiled.textContent).toContain('Export CSV');
+    expect(compiled.querySelector<HTMLAnchorElement>(`a[href="/projects/${projectId}/work-items/import"]`)).not.toBeNull();
+  });
+
+  it('exports CSV with applied filters instead of pending draft form values', () => {
+    spyOnCsvDownload();
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
+    fixture.componentInstance.filterForm.patchValue(
+      {
+        search: 'draft search',
+        priority: 'urgent'
+      },
+      { emitEvent: false }
+    );
+    fixture.detectChanges();
+
+    fixture.componentInstance.exportCsv();
+    const exportRequest = http.expectOne((candidate) => {
+      return (
+        candidate.url === `/api/projects/${projectId}/work-items/export` &&
+        candidate.params.get('search') === 'api' &&
+        candidate.params.get('status') === 'in_progress' &&
+        candidate.params.get('assigneeId') === contributorId &&
+        candidate.params.get('priority') === null &&
+        candidate.params.get('sort') === 'due_date_asc'
+      );
+    });
+    expect(exportRequest.request.method).toBe('GET');
+    exportRequest.flush(
+      new Blob(['displayKey,title\nWT-3,Implement work item API client\n'], {
+        type: 'text/csv'
+      }),
+      {
+        headers: {
+          'Content-Disposition': 'attachment; filename="project-work-items.csv"'
+        }
+      }
+    );
+
+    expect(URL.createObjectURL).toHaveBeenCalled();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:worktrail-export');
+    expect(fixture.componentInstance.isExporting()).toBeFalse();
+  });
+
+  it('shows project export failures inline', () => {
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
+
+    fixture.componentInstance.exportCsv();
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items/export`).flush(
+      new Blob(['Export is temporarily unavailable.'], { type: 'text/plain' }),
+      { status: 500, statusText: 'Server Error' }
+    );
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'CSV export could not be downloaded.'
+    );
+    expect(fixture.componentInstance.isExporting()).toBeFalse();
   });
 
   it('resolves inactive member names from filter state without making them default choices', () => {
@@ -362,6 +438,209 @@ describe('WorkItemListPageComponent', () => {
       })
     });
   }));
+});
+
+describe('WorkItemImportPageComponent', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [WorkItemImportPageComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: routeStub()
+        }
+      ]
+    }).compileComponents();
+
+    seedCurrentUser();
+  });
+
+  afterEach(() => {
+    TestBed.inject(HttpTestingController).verify();
+  });
+
+  it('loads project context and starts with apply disabled', () => {
+    const fixture = TestBed.createComponent(WorkItemImportPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Import work items');
+    expect(compiled.textContent).toContain('CSV file');
+    expect(compiled.querySelector('button')?.hasAttribute('disabled')).toBeTrue();
+  });
+
+  it('previews a selected CSV file and enables apply when valid', async () => {
+    const fixture = TestBed.createComponent(WorkItemImportPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    await fixture.componentInstance.previewFile(
+      new File(['title,type,priority\nImported task,task,medium\n'], 'import.csv', {
+        type: 'text/csv'
+      })
+    );
+
+    const preview = http.expectOne(`/api/projects/${projectId}/work-items/imports/preview`);
+    expect(preview.request.method).toBe('POST');
+    expect(preview.request.body).toEqual({
+      csv: 'title,type,priority\nImported task,task,medium\n'
+    });
+    preview.flush({
+      totalRows: 1,
+      validRows: 1,
+      invalidRows: 0,
+      errors: [],
+      warnings: [],
+      rows: [
+        {
+          rowNumber: 2,
+          title: 'Imported task',
+          type: 'task',
+          status: 'backlog',
+          priority: 'medium',
+          assigneeEmail: null,
+          reporterEmail: member.email,
+          labelNames: [],
+          milestoneName: null,
+          dueDate: null,
+          estimatePoints: null
+        }
+      ]
+    });
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('import.csv');
+    expect(compiled.textContent).toContain('Valid rows');
+    expect(compiled.textContent).toContain('Imported task');
+    expect(fixture.componentInstance.canApply()).toBeTrue();
+    expect(compiled.querySelector('button')?.hasAttribute('disabled')).toBeFalse();
+  });
+
+  it('renders validation errors and keeps apply disabled', async () => {
+    const fixture = TestBed.createComponent(WorkItemImportPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    await fixture.componentInstance.previewFile(
+      new File(['title,type,priority\n,feature,extreme\n'], 'invalid.csv', {
+        type: 'text/csv'
+      })
+    );
+
+    http.expectOne(`/api/projects/${projectId}/work-items/imports/preview`).flush({
+      totalRows: 1,
+      validRows: 0,
+      invalidRows: 1,
+      warnings: [],
+      rows: [],
+      errors: [
+        {
+          rowNumber: 2,
+          field: 'title',
+          message: 'CSV field "title" is required.'
+        }
+      ]
+    });
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Errors');
+    expect(compiled.textContent).toContain('CSV field "title" is required.');
+    expect(fixture.componentInstance.canApply()).toBeFalse();
+    expect(compiled.querySelector('button')?.hasAttribute('disabled')).toBeTrue();
+  });
+
+  it('applies a valid preview and renders created item links', async () => {
+    const fixture = TestBed.createComponent(WorkItemImportPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    await fixture.componentInstance.previewFile(
+      new File(['title,type,priority\nImported task,task,medium\n'], 'import.csv', {
+        type: 'text/csv'
+      })
+    );
+    http.expectOne(`/api/projects/${projectId}/work-items/imports/preview`).flush({
+      totalRows: 1,
+      validRows: 1,
+      invalidRows: 0,
+      errors: [],
+      warnings: [],
+      rows: [
+        {
+          rowNumber: 2,
+          title: 'Imported task',
+          type: 'task',
+          status: 'backlog',
+          priority: 'medium',
+          assigneeEmail: null,
+          reporterEmail: member.email,
+          labelNames: [],
+          milestoneName: null,
+          dueDate: null,
+          estimatePoints: null
+        }
+      ]
+    });
+
+    fixture.componentInstance.applyImport();
+    const apply = http.expectOne(`/api/projects/${projectId}/work-items/imports`);
+    expect(apply.request.method).toBe('POST');
+    expect(apply.request.body).toEqual({
+      csv: 'title,type,priority\nImported task,task,medium\n'
+    });
+    apply.flush({
+      createdCount: 1,
+      workItems: [
+        {
+          ...workItem,
+          id: '10000000-0000-4000-8000-000000000490',
+          displayKey: 'WT-490',
+          title: 'Imported task'
+        }
+      ]
+    });
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('1 work items imported');
+    expect(compiled.querySelector<HTMLAnchorElement>('a[href="/work-items/10000000-0000-4000-8000-000000000490"]')).not.toBeNull();
+    expect(compiled.querySelector<HTMLAnchorElement>(`a[href="/projects/${projectId}/work-items"]`)).not.toBeNull();
+    expect(compiled.querySelector<HTMLAnchorElement>(`a[href="/projects/${projectId}/board"]`)).not.toBeNull();
+  });
+
+  it('shows archived project state and blocks preview/apply', async () => {
+    const fixture = TestBed.createComponent(WorkItemImportPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}`).flush(archivedProject);
+    fixture.detectChanges();
+
+    await fixture.componentInstance.previewFile(
+      new File(['title,type,priority\nArchived task,task,medium\n'], 'archived.csv', {
+        type: 'text/csv'
+      })
+    );
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Archived project');
+    expect(fixture.componentInstance.canApply()).toBeFalse();
+    expect(compiled.querySelector<HTMLInputElement>('input[type="file"]')?.disabled).toBeTrue();
+    http.expectNone(`/api/projects/${projectId}/work-items/imports/preview`);
+  });
 });
 
 describe('WorkItemCreatePageComponent', () => {
