@@ -6,6 +6,7 @@ import type {
   ActivityEventDto,
   MemberDto,
   ProjectDto,
+  ProjectDeliveryHealthDto,
   ProjectNavigationSummaryDto,
   ProjectSummaryDto,
   WorkspaceCapabilitiesDto
@@ -19,6 +20,81 @@ import { ProjectSettingsPageComponent } from './project-settings-page.component'
 const projectId = '10000000-0000-4000-8000-000000000201';
 const archivedProjectId = '10000000-0000-4000-8000-000000000203';
 const workspaceId = '10000000-0000-4000-8000-000000000001';
+
+const defaultDeliveryHealth: ProjectDeliveryHealthDto = {
+  health: 'healthy',
+  activeMilestoneCount: 0,
+  healthyMilestoneCount: 0,
+  atRiskMilestoneCount: 0,
+  blockedMilestoneCount: 0,
+  completeMilestoneCount: 0,
+  inactiveMilestoneCount: 0,
+  openWorkCount: 0,
+  blockedWorkCount: 0,
+  dependencyBlockedWorkCount: 0,
+  blockingOpenWorkCount: 0,
+  overdueWorkCount: 0,
+  dueSoonWorkCount: 0,
+  unassignedActiveWorkCount: 0,
+  staleInProgressWorkCount: 0,
+  unmilestonedActiveRiskCount: 0,
+  reasons: []
+};
+
+const blockedDeliveryHealth: ProjectDeliveryHealthDto = {
+  ...defaultDeliveryHealth,
+  health: 'blocked',
+  activeMilestoneCount: 3,
+  healthyMilestoneCount: 1,
+  atRiskMilestoneCount: 1,
+  blockedMilestoneCount: 1,
+  openWorkCount: 7,
+  blockedWorkCount: 1,
+  dependencyBlockedWorkCount: 1,
+  reasons: [
+    {
+      key: 'blocked_work',
+      severity: 'critical',
+      message: '1 blocked work item',
+      count: 1,
+      query: {
+        status: 'blocked',
+        sort: 'priority_desc'
+      }
+    },
+    {
+      key: 'dependency_blocked',
+      severity: 'critical',
+      message: '1 dependency-blocked work item',
+      count: 1,
+      query: {
+        dependency: 'dependency_blocked',
+        sort: 'priority_desc'
+      }
+    },
+    {
+      key: 'unmilestoned_risk',
+      severity: 'warning',
+      message: '1 unmilestoned risk item',
+      count: 1,
+      query: null
+    }
+  ]
+};
+
+const inactiveDeliveryHealth: ProjectDeliveryHealthDto = {
+  ...defaultDeliveryHealth,
+  health: 'inactive',
+  reasons: [
+    {
+      key: 'inactive_milestone',
+      severity: 'info',
+      message: 'Project is archived.',
+      count: 1,
+      query: null
+    }
+  ]
+};
 
 const owner: MemberDto = {
   id: '10000000-0000-4000-8000-000000000101',
@@ -100,13 +176,15 @@ const projectSummary: ProjectSummaryDto = {
       status: 'in_progress',
       updatedAt: '2026-07-03T12:00:00.000Z'
     }
-  ]
+  ],
+  deliveryHealth: blockedDeliveryHealth
 };
 
 const archivedProjectSummary: ProjectSummaryDto = {
   ...projectSummary,
   project: archivedProject,
-  recentWorkItems: []
+  recentWorkItems: [],
+  deliveryHealth: inactiveDeliveryHealth
 };
 
 const backendLabel = {
@@ -456,6 +534,20 @@ describe('ProjectHomePageComponent', () => {
     expect(compiled.textContent).toContain('Implement API client');
     expect(compiled.textContent).toContain('Create work item');
     expect(compiled.textContent).toContain('Settings');
+    expect(compiled.textContent).toContain('Delivery health');
+    expect(compiled.textContent).toContain('Blocked');
+    expect(compiled.textContent).toContain('Active milestones');
+    expect(compiled.textContent).toContain('Open work');
+    expect(compiled.textContent).toContain('1 blocked work item');
+    expect(compiled.textContent).toContain('1 dependency-blocked work item');
+    expect(compiled.textContent).toContain('1 unmilestoned risk item');
+
+    const reasonLinks = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('.reason-row'));
+    const reasonHrefs = reasonLinks.map((link) => link.getAttribute('href') ?? '');
+    expect(reasonHrefs.some((href) => href.includes('/projects/' + projectId + '/work-items'))).toBeTrue();
+    expect(reasonHrefs.some((href) => href.includes('status=blocked'))).toBeTrue();
+    expect(reasonHrefs.some((href) => href.includes('dependency=dependency_blocked'))).toBeTrue();
+    expect(compiled.querySelector<HTMLAnchorElement>('a[href="/projects/10000000-0000-4000-8000-000000000201/planning"]')).not.toBeNull();
   });
 
   it('renders archived project state without the create action', () => {
@@ -467,6 +559,8 @@ describe('ProjectHomePageComponent', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Archived project');
     expect(compiled.textContent).toContain('ARCH');
+    expect(compiled.textContent).toContain('Inactive');
+    expect(compiled.textContent).toContain('Project is archived.');
     expect(compiled.textContent).not.toContain('Create work item');
   });
 });

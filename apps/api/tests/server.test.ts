@@ -323,6 +323,11 @@ describe('Express API foundation', () => {
         .expect(({ text }) => {
           expect(text).toContain('<app-root></app-root>');
         });
+
+      await request(app)
+        .head('/projects/10000000-0000-4000-8000-000000000201/board')
+        .expect(200)
+        .expect('Content-Type', /text\/html/);
     } finally {
       await rm(directory, { force: true, recursive: true });
     }

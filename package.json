@@ -1,6 +1,6 @@
 {
   "name": "worktrail",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "private": true,
   "description": "Worktrail project management reference app.",
   "type": "module",
@@ -16,6 +16,7 @@
     "build:api": "npm run build --workspace @worktrail/api",
     "build:web": "npm run build --workspace @worktrail/web",
     "build:contracts": "npm run build --workspace @worktrail/contracts",
+    "check": "npm run typecheck && npm test",
     "preview": "npm run build && npm run start:prod",
     "start:prod": "NODE_ENV=production npm run start --workspace @worktrail/api",
     "typecheck": "npm run typecheck --workspaces --if-present",

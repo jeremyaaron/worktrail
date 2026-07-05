@@ -1,5 +1,4 @@
 import type {
-  MilestoneProgressDto,
   PlanningRiskItemDto,
   ProjectPlanningSummaryDto
 } from '@worktrail/contracts';
@@ -10,11 +9,11 @@ import { openWorkItemStatuses, terminalWorkItemStatuses } from '../domain/consta
 import { NotFoundError } from '../errors/app-error.js';
 import type { Repositories } from '../repositories/index.js';
 import type { Member, Milestone, Project, WorkItem } from '../repositories/types.js';
+import { DeliveryHealthService } from './delivery-health-service.js';
 import { toMemberDto, toMilestoneDto, toProjectDto } from './dto.js';
 
 const dueSoonWindowDays = 7;
 const staleInProgressDays = 7;
-const planningMilestoneStatuses = new Set<Milestone['status']>(['planned', 'active']);
 const activeUnassignedStatuses = new Set<WorkItem['status']>(['ready', 'in_progress']);
 const openStatusSet = new Set<WorkItem['status']>(openWorkItemStatuses);
 const terminalStatusSet = new Set<WorkItem['status']>(terminalWorkItemStatuses);
@@ -60,15 +59,26 @@ export class PlanningService {
       this.context.repositories.members.listByWorkspace(this.context.actor.workspaceId)
     ]);
 
-    const today = toDateString(this.clock());
-    const dueSoonEnd = toDateString(addDays(this.clock(), dueSoonWindowDays));
-    const staleCutoff = addDays(this.clock(), -staleInProgressDays);
+    const now = this.clock();
+    const today = toDateString(now);
+    const dueSoonEnd = toDateString(addDays(now, dueSoonWindowDays));
+    const staleCutoff = addDays(now, -staleInProgressDays);
+    const healthSummary = new DeliveryHealthService().derive({
+      project,
+      workItems,
+      dependencyBlockedWorkItems,
+      blockingOpenWorkItems,
+      milestones,
+      now
+    });
     const memberById = new Map(members.map((member) => [member.id, member]));
     const milestoneById = new Map(milestones.map((milestone) => [milestone.id, milestone]));
 
     return {
       project: toProjectDto(project),
-      milestoneProgress: this.getMilestoneProgress(workItems, milestones, today),
+      deliveryHealth: healthSummary.deliveryHealth,
+      milestoneProgress: healthSummary.milestoneProgress,
+      planningReview: healthSummary.planningReview,
       blockedWork: this.toRiskItems(
         workItems.filter((workItem) => workItem.status === 'blocked'),
         memberById,
@@ -127,31 +137,6 @@ export class PlanningService {
     }
 
     return project;
-  }
-
-  private getMilestoneProgress(
-    workItems: WorkItem[],
-    milestones: Milestone[],
-    today: string
-  ): MilestoneProgressDto[] {
-    return milestones
-      .filter(
-        (milestone) =>
-          milestone.archivedAt === null && planningMilestoneStatuses.has(milestone.status)
-      )
-      .map((milestone) => {
-        const assignedItems = workItems.filter((workItem) => workItem.milestoneId === milestone.id);
-
-        return {
-          milestone: toMilestoneDto(milestone),
-          totalCount: assignedItems.length,
-          doneCount: assignedItems.filter((workItem) => workItem.status === 'done').length,
-          blockedCount: assignedItems.filter((workItem) => workItem.status === 'blocked').length,
-          overdueCount: assignedItems.filter(
-            (workItem) => isOpenWorkItem(workItem) && isOverdue(workItem, today)
-          ).length
-        };
-      });
   }
 
   private toRiskItems(

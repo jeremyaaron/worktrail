@@ -443,7 +443,11 @@ function configureStaticAssets(app: Express, options: StaticAssetOptions): void 
   );
 
   app.use((request, response, next) => {
-    if (request.method !== 'GET' || request.path === '/api' || request.path.startsWith('/api/')) {
+    if (
+      (request.method !== 'GET' && request.method !== 'HEAD') ||
+      request.path === '/api' ||
+      request.path.startsWith('/api/')
+    ) {
       next();
       return;
     }

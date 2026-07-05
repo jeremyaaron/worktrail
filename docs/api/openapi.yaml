@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Worktrail API
-  version: 0.0.8
+  version: 0.0.9
   summary: HTTP API reference for the Worktrail local-first project management app.
   description: |
     This document describes the implemented Worktrail API routes. It is intentionally
@@ -1285,6 +1285,33 @@ components:
     DependencyFilter:
       type: string
       enum: [dependency_blocked, blocking_open_work]
+    DeliveryHealthState:
+      type: string
+      enum: [healthy, at_risk, blocked, complete, inactive]
+      description: Derived delivery-health state. The frontend labels `healthy` as "On track".
+    DeliveryHealthSeverity:
+      type: string
+      enum: [info, warning, critical]
+    DeliveryHealthReasonKey:
+      type: string
+      enum:
+        - all_work_done
+        - blocked_work
+        - blocking_open_work
+        - completed_with_open_work
+        - dependency_blocked
+        - due_soon
+        - empty_active_milestone
+        - inactive_milestone
+        - open_work
+        - overdue_work
+        - stale_in_progress
+        - target_date_past
+        - unassigned_active
+        - unmilestoned_risk
+    PlanningReviewItemKind:
+      type: string
+      enum: [work_item, milestone, activity]
     WorkItemQuery:
       type: object
       additionalProperties: false
@@ -1517,7 +1544,7 @@ components:
           format: date-time
     ProjectSummary:
       type: object
-      required: [project, countsByStatus, recentWorkItems]
+      required: [project, countsByStatus, recentWorkItems, deliveryHealth]
       properties:
         project:
           $ref: "#/components/schemas/Project"
@@ -1534,6 +1561,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RecentWorkItem"
+        deliveryHealth:
+          $ref: "#/components/schemas/ProjectDeliveryHealth"
     RecentWorkItem:
       type: object
       required: [id, displayKey, title, status, updatedAt]
@@ -1554,7 +1583,9 @@ components:
       type: object
       required:
         - project
+        - deliveryHealth
         - milestoneProgress
+        - planningReview
         - blockedWork
         - overdueWork
         - dueSoonWork
@@ -1565,11 +1596,14 @@ components:
       properties:
         project:
           $ref: "#/components/schemas/Project"
+        deliveryHealth:
+          $ref: "#/components/schemas/ProjectDeliveryHealth"
         milestoneProgress:
           type: array
           items:
-            type: object
-            additionalProperties: true
+            $ref: "#/components/schemas/MilestoneProgress"
+        planningReview:
+          $ref: "#/components/schemas/PlanningReview"
         blockedWork:
           type: array
           items:
@@ -1598,6 +1632,208 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PlanningRiskItem"
+    DeliveryHealthReason:
+      type: object
+      required: [key, severity, message, count, query]
+      properties:
+        key:
+          $ref: "#/components/schemas/DeliveryHealthReasonKey"
+        severity:
+          $ref: "#/components/schemas/DeliveryHealthSeverity"
+        message:
+          type: string
+          examples: [1 blocked work item, 2 due-soon work items]
+        count:
+          type: integer
+          minimum: 0
+        query:
+          anyOf:
+            - $ref: "#/components/schemas/WorkItemQuery"
+            - type: "null"
+          description: Work item filter query when the reason can be represented by the current query contract.
+    ProjectDeliveryHealth:
+      type: object
+      required:
+        - health
+        - activeMilestoneCount
+        - healthyMilestoneCount
+        - atRiskMilestoneCount
+        - blockedMilestoneCount
+        - completeMilestoneCount
+        - inactiveMilestoneCount
+        - openWorkCount
+        - blockedWorkCount
+        - dependencyBlockedWorkCount
+        - blockingOpenWorkCount
+        - overdueWorkCount
+        - dueSoonWorkCount
+        - unassignedActiveWorkCount
+        - staleInProgressWorkCount
+        - unmilestonedActiveRiskCount
+        - reasons
+      properties:
+        health:
+          $ref: "#/components/schemas/DeliveryHealthState"
+        activeMilestoneCount:
+          type: integer
+          minimum: 0
+        healthyMilestoneCount:
+          type: integer
+          minimum: 0
+        atRiskMilestoneCount:
+          type: integer
+          minimum: 0
+        blockedMilestoneCount:
+          type: integer
+          minimum: 0
+        completeMilestoneCount:
+          type: integer
+          minimum: 0
+        inactiveMilestoneCount:
+          type: integer
+          minimum: 0
+        openWorkCount:
+          type: integer
+          minimum: 0
+        blockedWorkCount:
+          type: integer
+          minimum: 0
+        dependencyBlockedWorkCount:
+          type: integer
+          minimum: 0
+        blockingOpenWorkCount:
+          type: integer
+          minimum: 0
+        overdueWorkCount:
+          type: integer
+          minimum: 0
+        dueSoonWorkCount:
+          type: integer
+          minimum: 0
+        unassignedActiveWorkCount:
+          type: integer
+          minimum: 0
+        staleInProgressWorkCount:
+          type: integer
+          minimum: 0
+        unmilestonedActiveRiskCount:
+          type: integer
+          minimum: 0
+        reasons:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeliveryHealthReason"
+    MilestoneProgress:
+      type: object
+      required:
+        - milestone
+        - totalCount
+        - doneCount
+        - openCount
+        - blockedCount
+        - dependencyBlockedCount
+        - overdueCount
+        - dueSoonCount
+        - unassignedActiveCount
+        - staleInProgressCount
+        - health
+        - reasons
+      properties:
+        milestone:
+          $ref: "#/components/schemas/Milestone"
+        totalCount:
+          type: integer
+          minimum: 0
+        doneCount:
+          type: integer
+          minimum: 0
+        openCount:
+          type: integer
+          minimum: 0
+        blockedCount:
+          type: integer
+          minimum: 0
+        dependencyBlockedCount:
+          type: integer
+          minimum: 0
+        overdueCount:
+          type: integer
+          minimum: 0
+        dueSoonCount:
+          type: integer
+          minimum: 0
+        unassignedActiveCount:
+          type: integer
+          minimum: 0
+        staleInProgressCount:
+          type: integer
+          minimum: 0
+        health:
+          $ref: "#/components/schemas/DeliveryHealthState"
+        reasons:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeliveryHealthReason"
+    PlanningReview:
+      type: object
+      required: [needsAttention, upcoming, recentlyChanged]
+      properties:
+        needsAttention:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanningReviewItem"
+        upcoming:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanningReviewItem"
+        recentlyChanged:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanningReviewItem"
+    PlanningReviewItem:
+      type: object
+      required:
+        - id
+        - kind
+        - title
+        - detail
+        - severity
+        - workItemId
+        - milestoneId
+        - displayKey
+        - dueDate
+        - updatedAt
+        - query
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: "#/components/schemas/PlanningReviewItemKind"
+        title:
+          type: string
+        detail:
+          type: string
+        severity:
+          $ref: "#/components/schemas/DeliveryHealthSeverity"
+        workItemId:
+          type: [string, "null"]
+          format: uuid
+        milestoneId:
+          type: [string, "null"]
+          format: uuid
+        displayKey:
+          type: [string, "null"]
+        dueDate:
+          type: [string, "null"]
+          format: date
+        updatedAt:
+          type: string
+          format: date-time
+        query:
+          anyOf:
+            - $ref: "#/components/schemas/WorkItemQuery"
+            - type: "null"
     PlanningRiskItem:
       type: object
       required: [id, displayKey, title, status, priority, assignee, dueDate, updatedAt]

@@ -1,6 +1,6 @@
 # Worktrail
 
-Worktrail is a project management reference app. The v0.0.8 release is a local-first Angular + TypeScript API + Postgres application that focuses on daily team workflow, operational credibility, data portability, and dependency visibility: My Work, cross-project discovery, saved views, quick work capture, workspace governance, planning, durable boards, work item relationships, dependency-blocked signals, comments, activity, CSV import/export, production-like preview, health/readiness checks, and checked-in API documentation.
+Worktrail is a project management reference app. The v0.0.9 release is a local-first Angular + TypeScript API + Postgres application that focuses on daily team workflow, operational credibility, data portability, dependency visibility, and delivery health: My Work, cross-project discovery, saved views, quick work capture, workspace governance, planning, durable boards, work item relationships, dependency-blocked signals, milestone health, project delivery-health summaries, planning review sections, comments, activity, CSV import/export, production-like preview, health/readiness checks, and checked-in API documentation.
 
 The app is intentionally built as a credible product surface before extracting broader framework patterns. It runs locally today, while preserving a path toward an S3/CloudFront Angular frontend with API Gateway/Lambda-style endpoint handlers and managed Postgres.
 
@@ -21,6 +21,7 @@ docs/
   v0.0.6/  Operations sprint PRD, technical design, implementation plan, runbook, and extraction notes
   v0.0.7/  CSV import/export PRD, technical design, implementation plan, guide, and extraction notes
   v0.0.8/  Relationship/dependency PRD, technical design, implementation plan, and extraction notes
+  v0.0.9/  Delivery-health PRD, technical design, implementation plan, and extraction notes
   api/     OpenAPI reference
 site/       Static GitHub Pages product site
 e2e/        Playwright smoke tests
@@ -151,6 +152,22 @@ The project work item list, cross-project workspace discovery, saved work views,
 
 My Work includes a dependency-blocked assigned summary and section. Planning includes dependency-blocked work and blocking-open-work risk sections. The OpenAPI reference documents the relationship endpoints, dependency query parameter, and relationship DTOs.
 
+## Delivery Health And Planning Review
+
+v0.0.9 adds derived delivery health to project overview and planning.
+
+Delivery-health support includes:
+
+- project-level health states: on track, at risk, blocked, complete, and inactive;
+- compact delivery-health panels on project overview;
+- detailed planning delivery-health summaries with active, on-track, at-risk, blocked, and open-work counts;
+- milestone health labels and explainable reason chips;
+- reason links into filtered project work item lists when the current work-item query model supports the reason;
+- planning review sections for needs attention, upcoming work, and recently changed work;
+- deterministic seed examples for blocked, at-risk, healthy, complete, inactive, and unmilestoned risk scenarios.
+
+Delivery health is derived at read time from milestones, work item status, due dates, assignees, stale in-progress work, and dependency relationships. It is not stored in the database and does not trigger automatic workflow transitions.
+
 ## Verification
 
 ```sh
@@ -194,7 +211,7 @@ Seeded data includes:
 
 Use the `Acting as` selector in the top bar to switch the local placeholder actor. The selector only shows active members. This is intentionally local-only behavior and is not production authentication; the API derives the actor role and active state from the selected member record instead of trusting a client-supplied role.
 
-Suggested v0.0.8 walkthrough:
+Suggested walkthrough:
 
 1. Open My Work and review the selected actor's assigned open, due soon, overdue, blocked, stale, and reported work counts.
 2. Click a My Work summary count to open the cross-project Work Items page with URL-backed filters applied.
@@ -224,7 +241,15 @@ Suggested v0.0.8 walkthrough:
 26. Add a blocking relationship, confirm the downstream dependency signal appears, move the blocker to done, and confirm the dependency signal clears.
 27. Open the archived project to confirm read-only project, milestone, work item, label, comment, relationship, import, and transition behavior.
 
-## v0.0.8 Capabilities
+Suggested v0.0.9 additions:
+
+1. Open the Worktrail App project overview and review the compact delivery-health panel.
+2. Follow a delivery-health reason link into a filtered project work item list.
+3. Open Planning and review project delivery health, milestone health labels, and milestone reason chips.
+4. Review Needs attention, Upcoming, and Recently changed planning review sections.
+5. Confirm blocked and dependency-blocked seed items affect project health, while the healthy milestone remains on track.
+
+## v0.0.9 Capabilities
 
 - My Work dashboard for the selected active actor.
 - Dashboard summary counts linked to filtered cross-project discovery.
@@ -257,6 +282,12 @@ Suggested v0.0.8 walkthrough:
 - Saved work views and CSV export support for dependency filters.
 - My Work dependency-blocked assigned summary and section.
 - Planning dependency risk sections for dependency-blocked work and work blocking open downstream items.
+- Project overview delivery-health panel with health state, milestone risk counts, open-work count, top reasons, and planning link.
+- Planning delivery-health summary with active, on-track, at-risk, blocked, and open-work counts.
+- Milestone health labels and explainable health reason chips on planning progress rows.
+- Planning review sections for needs attention, upcoming work, and recently changed work.
+- Delivery-health reason links into filtered project work item lists where the reason can be represented by current query parameters.
+- Deterministic seed data for healthy, at-risk, blocked, complete, inactive, and unmilestoned delivery-health examples.
 - Relationship activity events for add/remove commands.
 - Persisted board ordering for same-status reorder and cross-status movement.
 - Angular CDK drag/drop board interaction backed by server-side workflow validation.
@@ -270,12 +301,13 @@ Suggested v0.0.8 walkthrough:
 - OpenAPI reference under `docs/api/openapi.yaml`.
 - Operations runbook for runtime modes, environment variables, migrations, seed/reset flow, preview, health checks, troubleshooting, and future cloud mapping.
 
-## v0.0.8 Limitations
+## v0.0.9 Limitations
 
 - Authentication is represented by local request headers and the top-bar actor selector.
 - Permissions are enforced against local member records and are useful for exercising policy paths, but they are not production authentication.
 - Production preview is not a secure public deployment and should not be exposed as an authenticated product.
-- Saved views are personal only in v0.0.8; workspace-visible shared saved views are deferred.
+- Delivery health is deterministic and rule-based; custom health formulas, forecasting, critical path analysis, charts, notifications, and saved review snapshots are deferred.
+- Saved views are personal only in v0.0.9; workspace-visible shared saved views are deferred.
 - CSV import is project-scoped and limited to 1 MiB and 250 data rows per file.
 - CSV import supports Worktrail's current columns only; third-party tracker migration mappings are deferred.
 - CSV export is a direct file download; export history, scheduled exports, and alternate formats are deferred.
@@ -284,7 +316,7 @@ Suggested v0.0.8 walkthrough:
 - Relationship activity is recorded on the command context item only to avoid noisy cross-project activity.
 - Custom workflows, file attachments, notifications, and production auth are intentionally out of scope.
 - Invitations, multi-workspace switching, custom roles, project-specific membership, pinned projects, recent projects, and audit export are intentionally out of scope.
-- The local Express adapter is the only runtime adapter in v0.0.8, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
+- The local Express adapter is the only runtime adapter in v0.0.9, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
 - AWS deployment assets are not included yet; the Angular static build and transport-neutral handlers preserve that path.
 - Readiness checks database connectivity only; migration drift detection, metrics, tracing, and managed deployment runbooks are deferred.
 

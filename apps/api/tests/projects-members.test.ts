@@ -132,6 +132,8 @@ async function createWorkItem(input: {
   assigneeId?: string | null;
   title?: string;
   status?: 'backlog' | 'ready' | 'in_progress' | 'blocked' | 'done' | 'canceled';
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  milestoneId?: string | null;
   dueDate?: string | null;
   updatedAt?: Date;
 }) {
@@ -148,15 +150,37 @@ async function createWorkItem(input: {
     description: '',
     type: 'task',
     status: input.status ?? 'ready',
-    priority: 'medium',
+    priority: input.priority ?? 'medium',
     assigneeId: input.assigneeId === undefined ? input.reporterId : input.assigneeId,
     reporterId: input.reporterId,
-    milestoneId: null,
+    milestoneId: input.milestoneId ?? null,
     boardPosition: itemNumber * 1024,
     dueDate: input.dueDate ?? null,
     estimatePoints: null,
     createdAt: now(),
     updatedAt: input.updatedAt ?? now()
+  });
+}
+
+async function createMilestone(input: {
+  workspaceId: string;
+  projectId: string;
+  name: string;
+  status?: 'planned' | 'active' | 'completed' | 'canceled';
+  targetDate?: string | null;
+}) {
+  return repositories.milestones.create({
+    id: randomUUID(),
+    workspaceId: input.workspaceId,
+    projectId: input.projectId,
+    name: input.name,
+    description: '',
+    status: input.status ?? 'active',
+    targetDate: input.targetDate ?? null,
+    archivedAt: null,
+    archivedById: null,
+    createdAt: now(),
+    updatedAt: now()
   });
 }
 
@@ -883,6 +907,102 @@ describe('projects API', () => {
           title: 'Done summary item',
           status: 'done'
         });
+        expect(body.deliveryHealth).toMatchObject({
+          health: 'healthy',
+          activeMilestoneCount: 0,
+          openWorkCount: 1,
+          blockedWorkCount: 0,
+          dependencyBlockedWorkCount: 0,
+          reasons: []
+        });
+      });
+  });
+
+  it('returns project summary delivery health for blocked project risk', async () => {
+    const fixture = await createWorkspaceFixture('owner');
+    const project = await createProject({ workspaceId: fixture.workspaceId });
+    const milestone = await createMilestone({
+      workspaceId: fixture.workspaceId,
+      projectId: project.id,
+      name: 'Blocked summary milestone',
+      targetDate: '2026-07-10'
+    });
+    const blocked = await createWorkItem({
+      workspaceId: fixture.workspaceId,
+      projectId: project.id,
+      reporterId: fixture.actorId,
+      title: 'Blocked summary item',
+      status: 'blocked',
+      priority: 'high',
+      milestoneId: milestone.id,
+      dueDate: '2026-07-02'
+    });
+    const dependencyBlocker = await createWorkItem({
+      workspaceId: fixture.workspaceId,
+      projectId: project.id,
+      reporterId: fixture.actorId,
+      title: 'Open dependency blocker',
+      status: 'ready',
+      priority: 'urgent'
+    });
+    const dependencyBlocked = await createWorkItem({
+      workspaceId: fixture.workspaceId,
+      projectId: project.id,
+      reporterId: fixture.actorId,
+      title: 'Dependency blocked summary item',
+      status: 'in_progress',
+      priority: 'urgent'
+    });
+    await repositories.workItemRelationships.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      relationshipType: 'blocks',
+      sourceWorkItemId: dependencyBlocker.id,
+      targetWorkItemId: dependencyBlocked.id,
+      createdById: fixture.actorId,
+      createdAt: now()
+    });
+
+    await request(app)
+      .get(`/api/projects/${project.id}/summary`)
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.deliveryHealth).toMatchObject({
+          health: 'blocked',
+          activeMilestoneCount: 1,
+          blockedMilestoneCount: 1,
+          openWorkCount: 3,
+          blockedWorkCount: 1,
+          dependencyBlockedWorkCount: 1,
+          blockingOpenWorkCount: 1,
+          overdueWorkCount: 1,
+          unmilestonedActiveRiskCount: 2
+        });
+        expect(body.deliveryHealth.reasons).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            key: 'blocked_work',
+            query: { status: 'blocked', sort: 'priority_desc' }
+          }),
+          expect.objectContaining({
+            key: 'dependency_blocked',
+            query: { dependency: 'dependency_blocked', sort: 'priority_desc' }
+          }),
+          expect.objectContaining({
+            key: 'unmilestoned_risk',
+            query: null
+          })
+        ]));
+        expect(body.countsByStatus).toEqual(expect.arrayContaining([
+          { status: 'blocked', count: 1 },
+          { status: 'ready', count: 1 },
+          { status: 'in_progress', count: 1 }
+        ]));
+        expect(body.recentWorkItems.map((item: { id: string }) => item.id)).toEqual(expect.arrayContaining([
+          blocked.id,
+          dependencyBlocker.id,
+          dependencyBlocked.id
+        ]));
       });
   });
 

@@ -3,10 +3,13 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type {
+  DeliveryHealthReasonDto,
+  DeliveryHealthState,
   MilestoneDto,
   MilestoneProgressDto,
   MilestoneStatus,
   PlanningRiskItemDto,
+  PlanningReviewItemDto,
   ProjectDto,
   ProjectPlanningSummaryDto,
   WorkItemStatus
@@ -14,6 +17,14 @@ import type {
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorktrailApiService } from '../../core/worktrail-api.service';
+import {
+  deliveryHealthLabel,
+  deliveryHealthReasonLabel,
+  deliveryHealthReasonQueryParams,
+  deliveryHealthSeverityTone,
+  deliveryHealthTone,
+  workItemQueryToRouterQueryParams
+} from '../../shared/delivery-health/delivery-health-display';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
@@ -38,6 +49,14 @@ interface PlanningRiskSection {
   emptyTitle: string;
   emptyMessage: string;
   queryParams?: Record<string, string>;
+}
+
+interface PlanningReviewSection {
+  title: string;
+  description: string;
+  items: PlanningReviewItemDto[];
+  emptyTitle: string;
+  emptyMessage: string;
 }
 
 @Component({
@@ -287,6 +306,67 @@ interface PlanningRiskSection {
               (retry)="loadPlanningSummary()"
             />
           } @else if (planningSummary(); as summary) {
+            <section class="dashboard-section health-summary" aria-labelledby="delivery-health-heading">
+              <div class="health-summary__heading">
+                <div>
+                  <p class="section-eyebrow">Delivery health</p>
+                  <h3 id="delivery-health-heading">{{ healthLabel(summary.deliveryHealth.health) }}</h3>
+                </div>
+                <span class="health-pill" [attr.data-tone]="healthTone(summary.deliveryHealth.health)">
+                  {{ healthLabel(summary.deliveryHealth.health) }}
+                </span>
+              </div>
+
+              <dl class="health-counts" aria-label="Delivery health counts">
+                <div>
+                  <dt>Active</dt>
+                  <dd>{{ summary.deliveryHealth.activeMilestoneCount }}</dd>
+                </div>
+                <div>
+                  <dt>On track</dt>
+                  <dd>{{ summary.deliveryHealth.healthyMilestoneCount }}</dd>
+                </div>
+                <div>
+                  <dt>At risk</dt>
+                  <dd>{{ summary.deliveryHealth.atRiskMilestoneCount }}</dd>
+                </div>
+                <div>
+                  <dt>Blocked</dt>
+                  <dd>{{ summary.deliveryHealth.blockedMilestoneCount }}</dd>
+                </div>
+                <div>
+                  <dt>Open work</dt>
+                  <dd>{{ summary.deliveryHealth.openWorkCount }}</dd>
+                </div>
+              </dl>
+
+              @if (summary.deliveryHealth.reasons.length === 0) {
+                <div class="compact-empty">
+                  <strong>No delivery risks found</strong>
+                  <span>Current project work has no surfaced delivery-health reasons.</span>
+                </div>
+              } @else {
+                <div class="reason-list" aria-label="Delivery health reasons">
+                  @for (reason of topReasons(summary.deliveryHealth.reasons); track reason.key + reason.message) {
+                    @if (reasonQueryParams(reason); as queryParams) {
+                      <a
+                        class="reason-chip"
+                        [attr.data-tone]="severityTone(reason.severity)"
+                        [routerLink]="['/projects', projectId(), 'work-items']"
+                        [queryParams]="queryParams"
+                      >
+                        {{ reasonLabel(reason) }}
+                      </a>
+                    } @else {
+                      <span class="reason-chip" [attr.data-tone]="severityTone(reason.severity)">
+                        {{ reasonLabel(reason) }}
+                      </span>
+                    }
+                  }
+                </div>
+              }
+            </section>
+
             <section class="dashboard-section" aria-labelledby="milestone-progress-heading">
               <div class="section-heading">
                 <h3 id="milestone-progress-heading">Milestone progress</h3>
@@ -301,13 +381,20 @@ interface PlanningRiskSection {
               } @else {
                 <div class="progress-list">
                   @for (progress of summary.milestoneProgress; track progress.milestone.id) {
-                    <a
+                    <article
                       class="progress-row"
-                      [routerLink]="['/projects', projectId(), 'work-items']"
-                      [queryParams]="{ milestoneId: progress.milestone.id, sort: 'due_date_asc' }"
                     >
                       <span class="progress-row__heading">
-                        <strong>{{ progress.milestone.name }}</strong>
+                        <a
+                          class="progress-row__heading-link"
+                          [routerLink]="['/projects', projectId(), 'work-items']"
+                          [queryParams]="{ milestoneId: progress.milestone.id, sort: 'due_date_asc' }"
+                        >
+                          {{ progress.milestone.name }}
+                        </a>
+                        <span class="health-pill" [attr.data-tone]="healthTone(progress.health)">
+                          {{ healthLabel(progress.health) }}
+                        </span>
                         <small>
                           {{ progress.doneCount }} of {{ progress.totalCount }} done
                         </small>
@@ -319,7 +406,27 @@ interface PlanningRiskSection {
                         <span>{{ progress.blockedCount }} blocked</span>
                         <span>{{ progress.overdueCount }} overdue</span>
                       </span>
-                    </a>
+                      @if (progress.reasons.length > 0) {
+                        <span class="progress-reasons">
+                          @for (reason of topReasons(progress.reasons); track reason.key + reason.message) {
+                            @if (reasonQueryParams(reason); as queryParams) {
+                              <a
+                                class="reason-chip"
+                                [attr.data-tone]="severityTone(reason.severity)"
+                                [routerLink]="['/projects', projectId(), 'work-items']"
+                                [queryParams]="queryParams"
+                              >
+                                {{ reasonLabel(reason) }}
+                              </a>
+                            } @else {
+                              <span class="reason-chip" [attr.data-tone]="severityTone(reason.severity)">
+                                {{ reasonLabel(reason) }}
+                              </span>
+                            }
+                          }
+                        </span>
+                      }
+                    </article>
                   }
                 </div>
               }
@@ -369,6 +476,61 @@ interface PlanningRiskSection {
                 <strong>{{ summary.staleInProgressWork.length }}</strong>
               </a>
             </section>
+
+            <div class="review-section-list">
+              @for (section of reviewSections(); track section.title) {
+                <section class="dashboard-section" [attr.aria-labelledby]="reviewHeadingId(section)">
+                  <div class="section-heading">
+                    <div>
+                      <h3 [id]="reviewHeadingId(section)">{{ section.title }}</h3>
+                      <p>{{ section.description }}</p>
+                    </div>
+                  </div>
+
+                  @if (section.items.length === 0) {
+                    <div class="compact-empty">
+                      <strong>{{ section.emptyTitle }}</strong>
+                      <span>{{ section.emptyMessage }}</span>
+                    </div>
+                  } @else {
+                    <div class="review-list">
+                      @for (item of section.items; track item.id + item.kind) {
+                        @if (reviewWorkItemLink(item); as workItemLink) {
+                          <a class="review-row" [attr.data-tone]="severityTone(item.severity)" [routerLink]="workItemLink">
+                            <span>
+                              <strong>{{ item.displayKey === null ? item.title : item.displayKey + ' · ' + item.title }}</strong>
+                              <small>{{ item.detail }}</small>
+                            </span>
+                            <small>{{ reviewItemMeta(item) }}</small>
+                          </a>
+                        } @else if (reviewQueryParams(item); as queryParams) {
+                          <a
+                            class="review-row"
+                            [attr.data-tone]="severityTone(item.severity)"
+                            [routerLink]="['/projects', projectId(), 'work-items']"
+                            [queryParams]="queryParams"
+                          >
+                            <span>
+                              <strong>{{ item.title }}</strong>
+                              <small>{{ item.detail }}</small>
+                            </span>
+                            <small>{{ reviewItemMeta(item) }}</small>
+                          </a>
+                        } @else {
+                          <div class="review-row" [attr.data-tone]="severityTone(item.severity)">
+                            <span>
+                              <strong>{{ item.title }}</strong>
+                              <small>{{ item.detail }}</small>
+                            </span>
+                            <small>{{ reviewItemMeta(item) }}</small>
+                          </div>
+                        }
+                      }
+                    </div>
+                  }
+                </section>
+              }
+            </div>
 
             <div class="risk-section-list">
               @for (section of riskSections(); track section.title) {
@@ -694,6 +856,335 @@ interface PlanningRiskSection {
       min-height: 220px;
     }
 
+    .dashboard-section,
+    .risk-section-list,
+    .review-section-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .dashboard-section {
+      border-top: 1px solid #e5e7eb;
+      padding-top: 16px;
+    }
+
+    .dashboard-section:first-of-type {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .section-heading,
+    .health-summary__heading {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .section-heading > span {
+      color: #64748b;
+      font-size: 0.8125rem;
+      font-weight: 800;
+    }
+
+    .section-heading a {
+      min-height: 32px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 6px 10px;
+      color: #1d4ed8;
+      font-size: 0.8125rem;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .section-eyebrow {
+      margin: 0 0 4px;
+      color: #64748b;
+      font-size: 0.72rem;
+      font-weight: 900;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .health-counts,
+    .risk-metrics {
+      display: grid;
+      gap: 8px;
+    }
+
+    .health-counts {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      margin: 0;
+    }
+
+    .health-counts div,
+    .risk-metrics a {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 10px;
+      background: #f8fafc;
+    }
+
+    .health-counts div {
+      display: grid;
+      gap: 5px;
+    }
+
+    .health-counts dd {
+      margin: 0;
+      color: #111827;
+      font-size: 1.15rem;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .health-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      border: 1px solid #cbd5e1;
+      border-radius: 999px;
+      padding: 3px 9px;
+      background: #f8fafc;
+      color: #334155;
+      font-size: 0.72rem;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .health-pill[data-tone='positive'] {
+      border-color: #86efac;
+      background: #f0fdf4;
+      color: #166534;
+    }
+
+    .health-pill[data-tone='warning'] {
+      border-color: #fcd34d;
+      background: #fffbeb;
+      color: #92400e;
+    }
+
+    .health-pill[data-tone='critical'] {
+      border-color: #fca5a5;
+      background: #fef2f2;
+      color: #991b1b;
+    }
+
+    .health-pill[data-tone='info'] {
+      border-color: #93c5fd;
+      background: #eff6ff;
+      color: #1e40af;
+    }
+
+    .reason-list,
+    .progress-reasons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .reason-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      border: 1px solid #cbd5e1;
+      border-radius: 999px;
+      padding: 4px 8px;
+      background: #ffffff;
+      color: #334155;
+      font-size: 0.75rem;
+      font-weight: 800;
+      line-height: 1.2;
+      text-decoration: none;
+    }
+
+    .reason-chip[data-tone='critical'] {
+      border-color: #fca5a5;
+      color: #991b1b;
+    }
+
+    .reason-chip[data-tone='warning'] {
+      border-color: #fcd34d;
+      color: #92400e;
+    }
+
+    .reason-chip[data-tone='info'] {
+      border-color: #93c5fd;
+      color: #1e40af;
+    }
+
+    .progress-list,
+    .risk-list,
+    .review-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .progress-row,
+    .risk-row,
+    .review-row {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 12px;
+      background: #ffffff;
+      color: #111827;
+      text-decoration: none;
+    }
+
+    .progress-row {
+      display: grid;
+      gap: 10px;
+    }
+
+    .progress-row__heading,
+    .progress-row__counts {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .progress-row__heading-link {
+      color: #1d4ed8;
+      font-size: 0.875rem;
+      font-weight: 900;
+      text-decoration: none;
+    }
+
+    .progress-row__heading-link:hover,
+    .reason-chip:hover,
+    .review-row:hover,
+    .risk-row:hover,
+    .section-heading a:hover {
+      background: #f8fafc;
+    }
+
+    .progress-row__heading small,
+    .progress-row__counts,
+    .review-row small {
+      color: #64748b;
+      font-size: 0.75rem;
+      font-weight: 800;
+    }
+
+    .progress-bar {
+      overflow: hidden;
+      height: 8px;
+      border-radius: 999px;
+      background: #e5e7eb;
+    }
+
+    .progress-bar span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: #2563eb;
+    }
+
+    .risk-metrics {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .risk-metrics a {
+      display: grid;
+      gap: 6px;
+      color: #111827;
+      text-decoration: none;
+    }
+
+    .risk-metrics span,
+    dt {
+      color: #64748b;
+      font-size: 0.72rem;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .risk-metrics strong {
+      color: #111827;
+      font-size: 1.25rem;
+      line-height: 1;
+    }
+
+    .risk-row,
+    .review-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .risk-row__title,
+    .risk-row__planning,
+    .review-row span {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .risk-row strong,
+    .review-row strong {
+      color: #111827;
+      font-size: 0.875rem;
+      line-height: 1.35;
+    }
+
+    .review-row {
+      border-left-width: 4px;
+    }
+
+    .review-row[data-tone='critical'] {
+      border-left-color: #dc2626;
+    }
+
+    .review-row[data-tone='warning'] {
+      border-left-color: #f59e0b;
+    }
+
+    .review-row[data-tone='info'] {
+      border-left-color: #2563eb;
+    }
+
+    .milestone-pill,
+    .muted-pill {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      min-height: 22px;
+      border: 1px solid #bfdbfe;
+      border-radius: 999px;
+      padding: 2px 7px;
+      color: #1e3a8a;
+      font-size: 0.72rem;
+      font-weight: 900;
+    }
+
+    .muted-pill {
+      border-color: #cbd5e1;
+      color: #64748b;
+    }
+
+    .compact-empty {
+      display: grid;
+      gap: 4px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      padding: 12px;
+      background: #f8fafc;
+    }
+
+    .compact-empty strong {
+      color: #111827;
+      font-size: 0.875rem;
+    }
+
+    .compact-empty span {
+      color: #64748b;
+      font-size: 0.8125rem;
+      line-height: 1.4;
+    }
+
     @media (max-width: 900px) {
       .page-header,
       .planning-grid,
@@ -704,6 +1195,16 @@ interface PlanningRiskSection {
 
       nav {
         justify-content: flex-start;
+      }
+
+      .health-counts,
+      .risk-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .risk-row,
+      .review-row {
+        grid-template-columns: 1fr;
       }
     }
   `
@@ -805,6 +1306,37 @@ export class ProjectPlanningPageComponent implements OnInit {
     ];
 
     return sections;
+  });
+  readonly reviewSections = computed<PlanningReviewSection[]>(() => {
+    const summary = this.planningSummary();
+
+    if (summary === null) {
+      return [];
+    }
+
+    return [
+      {
+        title: 'Needs attention',
+        description: 'Highest-priority planning items to review first.',
+        items: summary.planningReview.needsAttention,
+        emptyTitle: 'Nothing needs attention',
+        emptyMessage: 'No planning review items need intervention.'
+      },
+      {
+        title: 'Upcoming',
+        description: 'Due-soon work and milestone targets approaching.',
+        items: summary.planningReview.upcoming,
+        emptyTitle: 'No upcoming review items',
+        emptyMessage: 'No due-soon work or milestone targets are in the review window.'
+      },
+      {
+        title: 'Recently changed',
+        description: 'Recently updated active work and milestones.',
+        items: summary.planningReview.recentlyChanged,
+        emptyTitle: 'No recent changes',
+        emptyMessage: 'No active planning items changed recently.'
+      }
+    ];
   });
 
   readonly milestoneForm = this.formBuilder.nonNullable.group({
@@ -1010,6 +1542,50 @@ export class ProjectPlanningPageComponent implements OnInit {
 
   riskHeadingId(section: PlanningRiskSection): string {
     return `risk-${section.title.toLowerCase().replaceAll(' ', '-')}`;
+  }
+
+  reviewHeadingId(section: PlanningReviewSection): string {
+    return `review-${section.title.toLowerCase().replaceAll(' ', '-')}`;
+  }
+
+  healthLabel(state: DeliveryHealthState): string {
+    return deliveryHealthLabel(state);
+  }
+
+  healthTone(state: DeliveryHealthState): string {
+    return deliveryHealthTone(state);
+  }
+
+  severityTone(severity: DeliveryHealthReasonDto['severity']): string {
+    return deliveryHealthSeverityTone(severity);
+  }
+
+  topReasons(reasons: DeliveryHealthReasonDto[]): DeliveryHealthReasonDto[] {
+    return reasons.slice(0, 3);
+  }
+
+  reasonLabel(reason: DeliveryHealthReasonDto): string {
+    return deliveryHealthReasonLabel(reason);
+  }
+
+  reasonQueryParams(reason: DeliveryHealthReasonDto): Record<string, string> | null {
+    return deliveryHealthReasonQueryParams(reason);
+  }
+
+  reviewWorkItemLink(item: PlanningReviewItemDto): string[] | null {
+    return item.workItemId === null ? null : ['/work-items', item.workItemId];
+  }
+
+  reviewQueryParams(item: PlanningReviewItemDto): Record<string, string> | null {
+    return workItemQueryToRouterQueryParams(item.query);
+  }
+
+  reviewItemMeta(item: PlanningReviewItemDto): string {
+    if (item.dueDate !== null) {
+      return `Due ${this.formatDate(item.dueDate)}`;
+    }
+
+    return this.formatDateTime(item.updatedAt);
   }
 
   formatDate(value: string): string {

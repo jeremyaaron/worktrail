@@ -240,7 +240,7 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
   await page.locator('.project-actions').getByRole('link', { name: 'Create work item' }).click();
   await expect(page.getByRole('heading', { name: 'New project work item' })).toBeVisible();
 
-  await page.getByLabel('Type').selectOption('story');
+  await page.locator('select[formcontrolname="type"]').selectOption('story');
   await page.getByLabel('Priority').selectOption('high');
   await page.getByLabel('Assignee').selectOption({ label: 'Morgan Maintainer' });
   await page.getByLabel('Milestone').selectOption({ label: milestone });
@@ -395,7 +395,7 @@ test('completes the v0.0.5 daily workspace workflow', async ({ page }) => {
   await expectFocused(page.locator('#work-item-title'));
   await page.locator('#work-item-title').fill(title);
   await page.locator('#work-item-description').fill(description);
-  await page.getByLabel('Type').selectOption('task');
+  await page.locator('select[formcontrolname="type"]').selectOption('task');
   await page.getByLabel('Priority').selectOption('high');
   await page.getByLabel('Assignee').selectOption({ label: 'Avery Owner' });
   await page.getByLabel('Due date').fill('2026-07-18');
@@ -493,6 +493,42 @@ test('validates the v0.0.8 dependency workflow', async ({ page, request }) => {
   await expect(page.getByText(`Search: ${blockedTitle}`)).toBeVisible();
   await expect(page.getByRole('row', { name: new RegExp(blockedTitle) })).toHaveCount(0);
   await expect(page.getByText('No work items match these filters')).toBeVisible();
+});
+
+test('surfaces v0.0.9 delivery health on project overview and planning', async ({ page }) => {
+  test.setTimeout(60_000);
+
+  await page.goto(`/projects/${demoProjectId}`);
+  await expect(page.getByRole('heading', { name: 'Worktrail App' })).toBeVisible();
+  await expect(page.getByText('Delivery health', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Blocked', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Delivery health metrics')).toContainText('Active milestones');
+  await expect(page.getByLabel('Delivery health reasons')).toContainText(/blocked work items?/);
+
+  await page.getByRole('link', { name: 'Open planning' }).click();
+  await expect(page.getByRole('heading', { name: 'Planning dashboard' })).toBeVisible();
+  await expect(page.getByText('Delivery health', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Blocked', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Delivery health counts')).toContainText('Open work');
+  await expect(page.getByRole('heading', { name: 'Milestone progress' })).toBeVisible();
+  await expect(
+    page.locator('.progress-list').getByRole('link', { name: 'v0.0.3 Planning', exact: true })
+  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Needs attention' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Upcoming' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Recently changed' })).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: /WT-4 .*Choose status transition copy/ }).first()
+  ).toBeVisible();
+
+  await page.getByRole('link', { name: /^\d+ blocked work items?$/ }).first().click();
+  await expect(page).toHaveURL(/\/projects\/10000000-0000-4000-8000-000000000201\/work-items\?/);
+  await expect(page).toHaveURL(/status=blocked/);
+  await expect(page.getByRole('heading', { name: 'Project work items' })).toBeVisible();
+  await expect(page.getByText('Status: Blocked')).toBeVisible();
+  await expect(
+    page.getByRole('row', { name: /Choose status transition copy.*WT-4/ })
+  ).toBeVisible();
 });
 
 test('imports project work items from CSV and exports filtered results', async ({ page }) => {
