@@ -9,6 +9,7 @@ import { Subscription } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorktrailApiService } from '../../core/worktrail-api.service';
+import { InboxStateService } from '../inbox/inbox-state.service';
 import {
   projectBadge,
   workItemMetadata,
@@ -100,6 +101,21 @@ const priorityOrder = new Map([
           <button type="button" (click)="clearSummaryFilter()">Clear</button>
         </section>
       }
+
+      <section class="inbox-summary" aria-labelledby="inbox-summary-heading">
+        <div>
+          <h2 id="inbox-summary-heading">Inbox</h2>
+          @if (inboxState.isLoadingUnreadCount()) {
+            <p>Loading unread notifications.</p>
+          } @else if (inboxState.unreadCountError()) {
+            <p>{{ inboxState.unreadCountError() }}</p>
+          } @else {
+            <p>{{ inboxSummaryText() }}</p>
+          }
+        </div>
+
+        <a routerLink="/inbox">Open inbox</a>
+      </section>
 
       <app-daily-queue
         [items]="visibleAttentionQueue()"
@@ -270,6 +286,39 @@ const priorityOrder = new Map([
       display: grid;
       gap: 18px;
       margin-top: 18px;
+    }
+
+    .inbox-summary {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      border: 1px solid #dbe3ea;
+      border-radius: 8px;
+      margin-bottom: 18px;
+      padding: 14px 16px;
+      background: #ffffff;
+    }
+
+    .inbox-summary p {
+      margin-top: 4px;
+    }
+
+    .inbox-summary a {
+      flex: 0 0 auto;
+      min-height: 36px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 8px 12px;
+      color: #1f2937;
+      font-size: 0.875rem;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .inbox-summary a:hover {
+      border-color: #94a3b8;
+      background: #f8fafc;
     }
 
     .work-panel {
@@ -479,6 +528,14 @@ const priorityOrder = new Map([
         flex-direction: column;
       }
 
+      .inbox-summary {
+        display: grid;
+      }
+
+      .inbox-summary a {
+        width: fit-content;
+      }
+
       .work-row {
         grid-template-columns: 1fr;
       }
@@ -488,6 +545,7 @@ const priorityOrder = new Map([
 export class MyWorkPageComponent implements OnDestroy {
   private readonly api = inject(WorktrailApiService);
   readonly currentUser = inject(CurrentUserService);
+  readonly inboxState = inject(InboxStateService);
   private dashboardSubscription: Subscription | null = null;
   private lastActorId: string | null = null;
 
@@ -663,6 +721,11 @@ export class MyWorkPageComponent implements OnDestroy {
     }
 
     return 'Assigned work with this attention signal will appear here.';
+  }
+
+  inboxSummaryText(): string {
+    const count = this.inboxState.unreadCount();
+    return count === 0 ? 'No unread notifications.' : `${count} unread notification${count === 1 ? '' : 's'}.`;
   }
 
   memberDisplayName(member: WorkspaceWorkItemListItemDto['assignee']): string {

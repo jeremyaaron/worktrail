@@ -73,11 +73,14 @@ describe('App', () => {
     const request = http.expectOne('/api/members');
     request.flush([owner]);
     fixture.detectChanges();
+    http.expectOne('/api/notifications/unread-count').flush({ unreadCount: 2 });
+    fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('.brand')?.textContent).toContain('Worktrail');
     expect([...compiled.querySelectorAll('nav a')].map((link) => link.textContent?.trim())).toEqual([
       'My Work',
+      'Inbox 2',
       'Projects',
       'Work Items',
       'Workspace Settings',
@@ -91,6 +94,8 @@ describe('App', () => {
     fixture.detectChanges();
 
     http.expectOne('/api/members').flush([owner, inactiveMember, contributor]);
+    fixture.detectChanges();
+    http.expectOne('/api/notifications/unread-count').flush({ unreadCount: 0 });
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
@@ -106,6 +111,8 @@ describe('App', () => {
     fixture.detectChanges();
 
     http.expectOne('/api/members').flush([contributor, inactiveMember, owner]);
+    fixture.detectChanges();
+    http.expectOne('/api/notifications/unread-count').flush({ unreadCount: 0 });
     fixture.detectChanges();
 
     const currentUser = TestBed.inject(CurrentUserService);

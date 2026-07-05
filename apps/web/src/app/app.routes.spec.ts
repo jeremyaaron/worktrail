@@ -19,9 +19,17 @@ describe('routes', () => {
     const paths = routes.map((route) => route.path);
 
     expect(paths).toContain('my-work');
+    expect(paths).toContain('inbox');
     expect(paths).toContain('work-items');
     expect(paths).toContain('work-items/new');
     expect(paths.indexOf('work-items/new')).toBeLessThan(paths.indexOf('work-items/:workItemId'));
+  });
+
+  it('registers Inbox as a lazy route', () => {
+    const inboxRoute = routes.find((route) => route.path === 'inbox');
+
+    expect(inboxRoute?.loadComponent).toBeDefined();
+    expect(inboxRoute?.title).toBe('Inbox | Worktrail');
   });
 
   it('nests project routes under the project shell while preserving child URLs', () => {

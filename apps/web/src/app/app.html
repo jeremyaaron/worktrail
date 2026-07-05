@@ -7,6 +7,14 @@
 
     <nav class="primary-nav" aria-label="Primary navigation">
       <a routerLink="/my-work" routerLinkActive="primary-nav__link--active">My Work</a>
+      <a routerLink="/inbox" routerLinkActive="primary-nav__link--active">
+        <span>Inbox</span>
+        @if (inboxState.unreadCount() > 0) {
+          <span class="primary-nav__badge" aria-label="Unread notifications">
+            {{ inboxState.unreadCount() }}
+          </span>
+        }
+      </a>
       <a routerLink="/projects" routerLinkActive="primary-nav__link--active">Projects</a>
       <a routerLink="/work-items" routerLinkActive="primary-nav__link--active">Work Items</a>
       <a routerLink="/workspace/settings" routerLinkActive="primary-nav__link--active">

@@ -697,6 +697,35 @@ npm test --workspace @worktrail/web -- --watch=false --include 'src/app/features
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-05.
+- Added lazy `/inbox` route and `InboxPageComponent`.
+- Added unread/all Inbox views with:
+  - loading, empty, and error states;
+  - notification cards;
+  - work item deep links with return URL;
+  - per-notification read/unread actions;
+  - mark-all-read action.
+- Connected Inbox list responses and read-state mutations to `InboxStateService` so unread count stays in sync.
+- Added primary navigation Inbox link with unread badge.
+- Instantiated unread-count state from the app shell so actor changes refresh the badge.
+- Added compact Inbox summary/link to My Work without duplicating the notification feed.
+- Added responsive styling for inbox cards and summary surfaces.
+- Added web tests for:
+  - lazy route registration;
+  - app-shell badge rendering;
+  - unread/all view switching;
+  - read/unread actions;
+  - mark-all-read behavior;
+  - My Work inbox summary.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/web`
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/features/inbox/**/*.spec.ts'`
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/app*.spec.ts'`
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/features/my-work/**/*.spec.ts'`
+  - `git diff --check`
+
 ## Phase 9: Work Item Detail Watch And Mention UI
 
 Goal: complete the collaboration loop on work item detail.
@@ -738,6 +767,33 @@ npm test --workspace @worktrail/web -- --watch=false --include 'src/app/features
 npm test --workspace @worktrail/web -- --watch=false
 git diff --check
 ```
+
+Status:
+
+- Completed on 2026-07-05.
+- Added a work item detail watcher panel with:
+  - current watch/unwatch action;
+  - watcher count;
+  - compact watcher list with watched timestamps;
+  - read-only behavior for archived projects;
+  - loading and recoverable error states.
+- Loaded watcher state from `GET /api/work-items/:workItemId/watchers` when detail loads.
+- Updated watch/unwatch state in place from `PUT /api/work-items/:workItemId/watch` and `DELETE /api/work-items/:workItemId/watch`.
+- Added a comment mention picker backed by active workspace members.
+- Tracked selected mentions separately from comment body text.
+- Sent `mentionMemberIds` only when selected mention members exist.
+- Rendered returned comment mentions as readable mention chips.
+- Added focused web tests for:
+  - watcher count/list rendering;
+  - watch and unwatch requests;
+  - active-member mention selection/removal;
+  - comment creation payloads with and without `mentionMemberIds`;
+  - rendered comment mentions after refresh.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/features/work-items/*detail*.spec.ts'`
+  - `npm run typecheck --workspace @worktrail/web`
+  - `npm test --workspace @worktrail/web -- --watch=false`
+  - `git diff --check`
 
 ## Phase 10: E2E Smoke And OpenAPI
 
