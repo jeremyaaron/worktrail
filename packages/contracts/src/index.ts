@@ -3,6 +3,7 @@ export * from './csv.js';
 export * from './health.js';
 export * from './members.js';
 export * from './my-work.js';
+export * from './notifications.js';
 export * from './planning.js';
 export * from './projects.js';
 export * from './saved-work-views.js';

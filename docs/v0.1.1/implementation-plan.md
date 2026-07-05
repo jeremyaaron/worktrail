@@ -162,6 +162,41 @@ npm run typecheck --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-05.
+- Added `packages/contracts/src/notifications.ts` with:
+  - notification type/state contracts;
+  - notification list/count/read-state DTOs;
+  - work item watcher state DTOs.
+- Exported notification contracts through `@worktrail/contracts`.
+- Updated comment contracts:
+  - `CreateCommentRequest.mentionMemberIds?: string[]`;
+  - `CommentDto.mentions: MemberDto[]`.
+- Added contract tests covering notification list responses, watcher state, and optional comment mention create requests.
+- Added API notification type constants.
+- Updated Drizzle schema with:
+  - `notifications`;
+  - `work_item_watchers`;
+  - `comment_mentions`.
+- Generated migration `apps/api/drizzle/0006_odd_valeria_richards.sql`.
+- Updated Drizzle metadata snapshot and journal.
+- Added API repository select/insert type aliases for the new tables.
+- Updated comment response mapping to return an empty `mentions` array until Phase 4 adds mention persistence.
+- Updated create-comment endpoint validation to accept optional `mentionMemberIds` without requiring existing callers to send it.
+- Updated work item detail web test fixtures for the new `CommentDto.mentions` field.
+- Verified:
+  - `npm run db:generate`
+  - `npm run db:reset`
+  - `npm run db:migrate`
+  - `npm run db:seed`
+  - `npm run typecheck --workspace @worktrail/contracts`
+  - `npm test --workspace @worktrail/contracts`
+  - `npm run typecheck --workspace @worktrail/api`
+  - `npm test --workspace @worktrail/api`
+  - `npm run typecheck --workspace @worktrail/web`
+  - `git diff --check`
+
 ## Phase 2: Notification And Watcher Repositories
 
 Goal: add persistence APIs with focused tests before adding service behavior.

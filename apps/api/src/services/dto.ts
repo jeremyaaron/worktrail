@@ -137,6 +137,7 @@ export function toCommentDto(comment: Comment, author: Member, deletedBy: Member
     workItemId: comment.workItemId,
     author: toMemberDto(author),
     body: isDeleted ? '' : comment.body,
+    mentions: [],
     isEdited: comment.editedAt !== null,
     isDeleted,
     editedAt: comment.editedAt?.toISOString() ?? null,

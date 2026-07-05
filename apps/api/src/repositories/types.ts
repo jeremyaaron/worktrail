@@ -2,14 +2,17 @@ import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 
 import type {
   activityEvents,
+  commentMentions,
   comments,
   labels,
   members,
   milestones,
+  notifications,
   projects,
   savedWorkViews,
   workItemLabels,
   workItemRelationships,
+  workItemWatchers,
   workItems,
   workspaces,
   workspaceActivityEvents
@@ -29,12 +32,18 @@ export type WorkItem = InferSelectModel<typeof workItems>;
 export type NewWorkItem = InferInsertModel<typeof workItems>;
 export type WorkItemRelationship = InferSelectModel<typeof workItemRelationships>;
 export type NewWorkItemRelationship = InferInsertModel<typeof workItemRelationships>;
+export type WorkItemWatcher = InferSelectModel<typeof workItemWatchers>;
+export type NewWorkItemWatcher = InferInsertModel<typeof workItemWatchers>;
 export type Label = InferSelectModel<typeof labels>;
 export type NewLabel = InferInsertModel<typeof labels>;
 export type WorkItemLabel = InferSelectModel<typeof workItemLabels>;
 export type Comment = InferSelectModel<typeof comments>;
 export type NewComment = InferInsertModel<typeof comments>;
+export type CommentMention = InferSelectModel<typeof commentMentions>;
+export type NewCommentMention = InferInsertModel<typeof commentMentions>;
 export type ActivityEvent = InferSelectModel<typeof activityEvents>;
 export type NewActivityEvent = InferInsertModel<typeof activityEvents>;
+export type Notification = InferSelectModel<typeof notifications>;
+export type NewNotification = InferInsertModel<typeof notifications>;
 export type WorkspaceActivityEvent = InferSelectModel<typeof workspaceActivityEvents>;
 export type NewWorkspaceActivityEvent = InferInsertModel<typeof workspaceActivityEvents>;

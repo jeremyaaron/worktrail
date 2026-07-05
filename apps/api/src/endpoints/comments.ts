@@ -16,7 +16,8 @@ const commentIdParamSchema = z.object({
 });
 
 const createCommentSchema = z.object({
-  body: z.string().trim().min(1)
+  body: z.string().trim().min(1),
+  mentionMemberIds: z.array(z.string().uuid()).optional()
 }) satisfies z.ZodType<CreateCommentRequest>;
 
 const updateCommentSchema = z.object({
