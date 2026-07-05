@@ -4,6 +4,8 @@ import type {
   MoveWorkItemOnBoardRequest,
   TransitionWorkItemRequest,
   UpdateWorkItemRequest,
+  WorkItemCsvImportApplyDto,
+  WorkItemCsvImportApplyRequest,
   WorkItemCsvImportPreviewDto,
   WorkItemCsvImportPreviewRequest,
   WorkspaceWorkItemListItemDto,
@@ -53,6 +55,10 @@ const createWorkItemSchema = z.object({
 const csvImportPreviewSchema = z.object({
   csv: z.string()
 }) satisfies z.ZodType<WorkItemCsvImportPreviewRequest>;
+
+const csvImportApplySchema = z.object({
+  csv: z.string()
+}) satisfies z.ZodType<WorkItemCsvImportApplyRequest>;
 
 const updateWorkItemSchema = z
   .object({
@@ -193,6 +199,25 @@ export function previewWorkItemCsvImportHandler(input: {
     return {
       status: 200,
       body: await service.preview(projectId, body.csv)
+    };
+  };
+}
+
+export function applyWorkItemCsvImportHandler(input: {
+  repositories: Repositories;
+  db?: WorktrailDb;
+}): EndpointHandler<WorkItemCsvImportApplyDto> {
+  return async (request) => {
+    const { projectId } = parseWithSchema(projectIdParamSchema, request.params);
+    const body = parseWithSchema(csvImportApplySchema, request.body);
+    const service = new WorkItemCsvImportService({
+      actor: request.actor,
+      repositories: input.repositories,
+      db: input.db
+    });
+    return {
+      status: 201,
+      body: await service.apply(projectId, body.csv)
     };
   };
 }

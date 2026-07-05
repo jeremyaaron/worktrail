@@ -1,8 +1,10 @@
 import type {
+  WorkItemCsvImportApplyDto,
   WorkItemCsvImportErrorDto,
   WorkItemCsvImportPreviewDto,
   WorkItemCsvImportPreviewRowDto
 } from '@worktrail/contracts';
+import { randomUUID } from 'node:crypto';
 
 import type { WorktrailDb } from '../db/client.js';
 import type { ActorContext } from '../domain/actor.js';
@@ -15,13 +17,14 @@ import {
   workItemTypes
 } from '../domain/constants.js';
 import { ConflictError, NotFoundError, ValidationError } from '../errors/app-error.js';
-import type { Repositories } from '../repositories/index.js';
+import { type Repositories, withRepositoriesTransaction } from '../repositories/index.js';
 import type { Label, Member, Milestone, Project } from '../repositories/types.js';
 import {
   CsvRecordsParseError,
   type CsvRecord,
   parseCsvRecords
 } from './csv/parse-csv-records.js';
+import { WorkItemService } from './work-item-service.js';
 
 const csvImportRequiredHeaders = ['title', 'type', 'priority'] as const;
 const csvImportAllowedHeaders = [
@@ -48,6 +51,8 @@ export interface WorkItemCsvImportServiceContext {
   actor: ActorContext;
   repositories: Repositories;
   db?: WorktrailDb;
+  clock?: () => Date;
+  idGenerator?: () => string;
 }
 
 interface NormalizedImportRow {
@@ -84,7 +89,13 @@ interface ImportValidationResult {
 }
 
 export class WorkItemCsvImportService {
-  constructor(private readonly context: WorkItemCsvImportServiceContext) {}
+  private readonly clock: () => Date;
+  private readonly idGenerator: () => string;
+
+  constructor(private readonly context: WorkItemCsvImportServiceContext) {
+    this.clock = context.clock ?? (() => new Date());
+    this.idGenerator = context.idGenerator ?? randomUUID;
+  }
 
   async preview(projectId: string, csv: string): Promise<WorkItemCsvImportPreviewDto> {
     const result = await this.validate(projectId, csv);
@@ -102,6 +113,79 @@ export class WorkItemCsvImportService {
       warnings: [],
       rows: result.rows.map((row) => this.toPreviewRow(row))
     };
+  }
+
+  async apply(projectId: string, csv: string): Promise<WorkItemCsvImportApplyDto> {
+    const result = await this.validate(projectId, csv);
+    const invalidRowNumbers = this.invalidRowNumbers(result.errors);
+
+    if (result.errors.length > 0 || result.rows.length === 0) {
+      throw new ValidationError('CSV import validation failed.', {
+        totalRows: result.totalRows,
+        validRows: result.rows.length,
+        invalidRows: invalidRowNumbers.size,
+        warnings: [],
+        errors:
+          result.rows.length === 0 && result.errors.length === 0
+            ? [
+                {
+                  rowNumber: null,
+                  field: null,
+                  message: 'CSV import must include at least one data row.'
+                }
+              ]
+            : result.errors
+      });
+    }
+
+    const workItems = await this.withWriteRepositories(async (repositories) => {
+      const service = new WorkItemService({
+        actor: this.context.actor,
+        repositories,
+        clock: this.clock,
+        idGenerator: this.idGenerator
+      });
+      const created = [];
+
+      for (const row of result.rows) {
+        created.push(
+          await service.createWorkItemWithRepositories(
+            projectId,
+            {
+              title: row.title,
+              description: row.description,
+              type: row.type,
+              status: row.status,
+              priority: row.priority,
+              assigneeId: row.assigneeId,
+              reporterId: row.reporterId,
+              labelIds: row.labelIds,
+              milestoneId: row.milestoneId,
+              dueDate: row.dueDate,
+              estimatePoints: row.estimatePoints
+            },
+            repositories
+          )
+        );
+      }
+
+      return created;
+    });
+
+    return {
+      createdCount: workItems.length,
+      workItems
+    };
+  }
+
+  private async withWriteRepositories<T>(
+    callback: (repositories: Repositories) => Promise<T>
+  ): Promise<T> {
+    if (this.context.db === undefined) {
+      return callback(this.context.repositories);
+    }
+
+    return withRepositoriesTransaction(this.context.db, callback);
   }
 
   private async validate(projectId: string, csv: string): Promise<ImportValidationResult> {
@@ -141,6 +225,14 @@ export class WorkItemCsvImportService {
       errors,
       rows
     };
+  }
+
+  private invalidRowNumbers(errors: WorkItemCsvImportErrorDto[]): Set<number> {
+    return new Set(
+      errors
+        .map((error) => error.rowNumber)
+        .filter((rowNumber): rowNumber is number => rowNumber !== null && rowNumber > 1)
+    );
   }
 
   private validateHardLimitsBeforeParse(csv: string): void {

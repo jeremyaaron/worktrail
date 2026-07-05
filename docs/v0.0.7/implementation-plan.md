@@ -403,7 +403,44 @@ npm test --workspace @worktrail/api
 git diff --check
 ```
 
-Status: Not started.
+Status:
+
+- Completed on 2026-07-05.
+- Refactored `WorkItemService.createWorkItem` to delegate to `createWorkItemWithRepositories`.
+- Added `WorkItemCreationInput` with optional `reporterId` support for import-created work items.
+- Preserved normal single-item creation behavior:
+  - default reporter remains the acting member;
+  - creation activity actor remains the acting member;
+  - display keys, board positions, label assignment, milestone assignment, and activity creation are unchanged.
+- Added reporter validation so import-provided reporters must be active members of the actor workspace.
+- Added `WorkItemCsvImportService.apply`.
+- Apply now:
+  - reruns CSV validation from submitted CSV;
+  - rejects validation errors with structured `VALIDATION_ERROR` details;
+  - rejects header-only/no-row imports;
+  - creates imported work items through `WorkItemService.createWorkItemWithRepositories`;
+  - writes all rows in one transaction when a database handle is available;
+  - returns `WorkItemCsvImportApplyDto` with created count and created work item DTOs.
+- Added `applyWorkItemCsvImportHandler`.
+- Registered `POST /api/projects/:projectId/work-items/imports`.
+- Added service tests for:
+  - successful multi-row apply;
+  - sequential display keys;
+  - board positions;
+  - imported reporter support;
+  - label and milestone assignment;
+  - creation activity;
+  - apply-time validation failure with no partial writes;
+  - forced write failure rollback inside the transaction.
+- Added HTTP tests for:
+  - successful apply;
+  - validation failure response details;
+  - no partial writes through the API;
+  - archived project conflict.
+- Verified `npm test --workspace @worktrail/api -- work-item-csv-import`.
+- Verified `npm test --workspace @worktrail/api -- work-items`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm test --workspace @worktrail/api`.
 
 ## Phase 5: CSV Export Backend
 

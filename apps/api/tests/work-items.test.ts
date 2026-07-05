@@ -544,6 +544,119 @@ describe('work item API', () => {
       });
   });
 
+  it('applies work item CSV imports through the API', async () => {
+    const fixture = await createFixture('owner');
+    const milestone = await createMilestone(fixture);
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/imports`)
+      .set(fixture.headers)
+      .send({
+        csv: [
+          'title,description,type,status,priority,assignee_email,reporter_email,label_names,milestone_name,due_date,estimate_points',
+          `"Imported API apply row",Created through CSV import,story,ready,high,${fixture.contributorId}@example.com,${fixture.maintainerId}@example.com,"backend,frontend",${milestone.name},2026-07-12,5`
+        ].join('\n')
+      })
+      .expect(201)
+      .expect(({ body }) => {
+        expect(body.createdCount).toBe(1);
+        expect(body.workItems).toHaveLength(1);
+        expect(body.workItems[0]).toMatchObject({
+          projectId: fixture.projectId,
+          itemNumber: 2,
+          displayKey: 'WI-2',
+          title: 'Imported API apply row',
+          description: 'Created through CSV import',
+          type: 'story',
+          status: 'ready',
+          priority: 'high',
+          assignee: { id: fixture.contributorId },
+          reporter: { id: fixture.maintainerId },
+          labels: expect.arrayContaining([
+            expect.objectContaining({ id: fixture.backendLabelId, name: 'backend' }),
+            expect.objectContaining({ id: fixture.frontendLabelId, name: 'frontend' })
+          ]),
+          milestone: { id: milestone.id, name: milestone.name },
+          boardPosition: 1024,
+          dueDate: '2026-07-12',
+          estimatePoints: 5
+        });
+      });
+
+    const workItems = await repositories.workItems.listByProject(fixture.projectId);
+    expect(workItems).toHaveLength(1);
+    expect(workItems[0]).toMatchObject({
+      itemNumber: 2,
+      displayKey: 'WI-2',
+      reporterId: fixture.maintainerId
+    });
+
+    const activity = await repositories.activityEvents.findByWorkItem(workItems[0]!.id);
+    expect(activity).toHaveLength(1);
+    expect(activity[0]).toMatchObject({
+      actorId: fixture.actorId,
+      eventType: 'work_item.created'
+    });
+  });
+
+  it('rejects invalid work item CSV import apply requests without partial writes', async () => {
+    const fixture = await createFixture('owner');
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/imports`)
+      .set(fixture.headers)
+      .send({
+        csv: [
+          'title,type,priority,label_names',
+          'Valid first row,task,medium,backend',
+          'Invalid second row,bug,high,missing-label'
+        ].join('\n')
+      })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('VALIDATION_ERROR');
+        expect(body.error.message).toBe('CSV import validation failed.');
+        expect(body.error.details).toMatchObject({
+          totalRows: 2,
+          validRows: 1,
+          invalidRows: 1,
+          errors: [
+            {
+              rowNumber: 3,
+              field: 'label_names',
+              message: 'Label "missing-label" was not found.'
+            }
+          ]
+        });
+      });
+
+    const workItems = await repositories.workItems.listByProject(fixture.projectId);
+    expect(workItems).toHaveLength(0);
+
+    const project = await repositories.projects.findById(fixture.projectId);
+    expect(project?.nextWorkItemNumber).toBe(2);
+  });
+
+  it('rejects work item CSV import apply under archived projects', async () => {
+    const fixture = await createFixture('owner');
+    await repositories.projects.update(fixture.projectId, {
+      status: 'archived',
+      updatedAt: now()
+    });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/imports`)
+      .set(fixture.headers)
+      .send({ csv: 'title,type,priority\nArchived import,task,medium\n' })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error).toEqual({
+          code: 'CONFLICT',
+          message: 'Archived projects are read-only.'
+        });
+      });
+  });
+
   it('lists workspace work items across active projects by default', async () => {
     const fixture = await createFixture('owner');
     const otherProject = await createProject(fixture);

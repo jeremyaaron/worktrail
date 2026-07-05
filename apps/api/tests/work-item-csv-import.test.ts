@@ -208,11 +208,15 @@ async function createFixture() {
   };
 }
 
-function createService(actor: ActorContext) {
+function createService(
+  actor: ActorContext,
+  options: { idGenerator?: () => string; clock?: () => Date } = {}
+) {
   return new WorkItemCsvImportService({
     actor,
     repositories,
-    db
+    db,
+    ...options
   });
 }
 
@@ -283,6 +287,127 @@ describe('work item CSV import validation', () => {
 
     const workItems = await repositories.workItems.listByProject(fixture.projectId);
     expect(workItems).toHaveLength(0);
+  });
+
+  it('applies valid imports transactionally with normal work item semantics', async () => {
+    const fixture = await createFixture();
+    const service = createService(fixture.actor, {
+      clock: now
+    });
+
+    const result = await service.apply(
+      fixture.projectId,
+      [
+        'title,description,type,status,priority,assignee_email,reporter_email,label_names,milestone_name,due_date,estimate_points',
+        'First imported row,Created from CSV,task,ready,medium,morgan.maintainer@example.com,casey.contributor@example.com,"backend,design",v0.0.7,2026-07-31,3',
+        'Second imported row,,bug,ready,high,,,,,,'
+      ].join('\n')
+    );
+
+    expect(result.createdCount).toBe(2);
+    expect(result.workItems.map((item) => item.displayKey)).toEqual(['CSV-1', 'CSV-2']);
+    expect(result.workItems).toMatchObject([
+      {
+        title: 'First imported row',
+        description: 'Created from CSV',
+        type: 'task',
+        status: 'ready',
+        priority: 'medium',
+        assignee: { id: fixture.maintainerId },
+        reporter: { id: fixture.contributorId },
+        labels: [
+          { id: fixture.backendLabelId, name: 'backend' },
+          { id: fixture.designLabelId, name: 'Design' }
+        ],
+        milestone: { id: fixture.milestoneId, name: 'v0.0.7' },
+        boardPosition: 1024,
+        dueDate: '2026-07-31',
+        estimatePoints: 3
+      },
+      {
+        title: 'Second imported row',
+        description: '',
+        type: 'bug',
+        status: 'ready',
+        priority: 'high',
+        assignee: null,
+        reporter: { id: fixture.actorId },
+        labels: [],
+        milestone: null,
+        boardPosition: 0,
+        dueDate: null,
+        estimatePoints: null
+      }
+    ]);
+
+    const project = await repositories.projects.findById(fixture.projectId);
+    expect(project?.nextWorkItemNumber).toBe(3);
+
+    const workItems = await repositories.workItems.listByProject(fixture.projectId);
+    expect(workItems.map((item) => item.displayKey).sort()).toEqual(['CSV-1', 'CSV-2']);
+
+    for (const item of result.workItems) {
+      const activity = await repositories.activityEvents.findByWorkItem(item.id);
+      expect(activity).toHaveLength(1);
+      expect(activity[0]).toMatchObject({
+        actorId: fixture.actorId,
+        eventType: 'work_item.created',
+        summary: 'Work item created.'
+      });
+    }
+  });
+
+  it('rejects apply-time validation failures without partial writes', async () => {
+    const fixture = await createFixture();
+    const service = createService(fixture.actor);
+
+    await expect(
+      service.apply(
+        fixture.projectId,
+        [
+          'title,type,priority,label_names',
+          'Valid first row,task,medium,backend',
+          'Invalid second row,bug,high,missing-label'
+        ].join('\n')
+      )
+    ).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      message: 'CSV import validation failed.'
+    });
+
+    const workItems = await repositories.workItems.listByProject(fixture.projectId);
+    expect(workItems).toHaveLength(0);
+
+    const project = await repositories.projects.findById(fixture.projectId);
+    expect(project?.nextWorkItemNumber).toBe(1);
+  });
+
+  it('rolls back all imported work if a write fails inside the transaction', async () => {
+    const fixture = await createFixture();
+    const duplicateId = '00000000-0000-4000-8000-000000000777';
+    const service = createService(fixture.actor, {
+      idGenerator: () => duplicateId
+    });
+
+    await expect(
+      service.apply(
+        fixture.projectId,
+        [
+          'title,type,status,priority',
+          'First imported row,task,ready,medium',
+          'Second imported row,bug,ready,high'
+        ].join('\n')
+      )
+    ).rejects.toThrow();
+
+    const workItems = await repositories.workItems.listByProject(fixture.projectId);
+    expect(workItems).toHaveLength(0);
+
+    const activity = await repositories.activityEvents.findByProject(fixture.projectId);
+    expect(activity).toHaveLength(0);
+
+    const project = await repositories.projects.findById(fixture.projectId);
+    expect(project?.nextWorkItemNumber).toBe(1);
   });
 
   it('returns row-level errors for invalid values and unknown references without writing', async () => {

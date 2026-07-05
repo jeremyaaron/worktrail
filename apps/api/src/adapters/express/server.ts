@@ -54,6 +54,7 @@ import {
   updateSavedWorkViewHandler
 } from '../../endpoints/saved-work-views.js';
 import {
+  applyWorkItemCsvImportHandler,
   createWorkItemHandler,
   getWorkItemHandler,
   listWorkspaceWorkItemsHandler,
@@ -203,6 +204,13 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
       '/api/projects/:projectId/work-items/imports/preview',
       adaptEndpoint(
         previewWorkItemCsvImportHandler({ repositories: options.repositories, db: options.db }),
+        adapterOptions
+      )
+    );
+    app.post(
+      '/api/projects/:projectId/work-items/imports',
+      adaptEndpoint(
+        applyWorkItemCsvImportHandler({ repositories: options.repositories, db: options.db }),
         adapterOptions
       )
     );

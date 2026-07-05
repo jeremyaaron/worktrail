@@ -75,6 +75,10 @@ interface WorkItemBundle {
   milestone: Milestone | null;
 }
 
+export interface WorkItemCreationInput extends CreateWorkItemRequest {
+  reporterId?: string;
+}
+
 export class WorkItemService {
   private readonly clock: () => Date;
   private readonly idGenerator: () => string;
@@ -105,63 +109,73 @@ export class WorkItemService {
 
   async createWorkItem(projectId: string, input: CreateWorkItemRequest): Promise<WorkItemDetailDto> {
     return this.withWriteRepositories(async (repositories) => {
-      const timestamp = this.clock();
-      const labelIds = input.labelIds ?? [];
-      const project = await this.requireProjectFromRepositories(projectId, repositories);
-      this.assertProjectWritable(project);
-      await this.validateLabels(projectId, labelIds, repositories);
-      await this.validateMilestone(projectId, input.milestoneId ?? null, repositories);
-      await this.validateAssignee(input.assigneeId ?? null, repositories);
-      const status = input.status ?? 'backlog';
-      const boardPosition = await this.getTopInsertionPosition(projectId, status, repositories);
-      const numberedProject = await repositories.projects.allocateWorkItemNumber(projectId, timestamp);
-
-      if (numberedProject === null || numberedProject.workspaceId !== this.context.actor.workspaceId) {
-        throw new NotFoundError('Project not found.');
-      }
-
-      this.assertProjectWritable(numberedProject);
-
-      const itemNumber = numberedProject.nextWorkItemNumber - 1;
-
-      const workItem = await repositories.workItems.create({
-        id: this.idGenerator(),
-        workspaceId: this.context.actor.workspaceId,
-        projectId,
-        title: input.title,
-        description: input.description ?? '',
-        itemNumber,
-        displayKey: `${numberedProject.key}-${itemNumber}`,
-        type: input.type,
-        status,
-        priority: input.priority,
-        assigneeId: input.assigneeId ?? null,
-        reporterId: this.context.actor.memberId,
-        milestoneId: input.milestoneId ?? null,
-        boardPosition,
-        dueDate: input.dueDate ?? null,
-        estimatePoints: input.estimatePoints ?? null,
-        createdAt: timestamp,
-        updatedAt: timestamp
-      });
-
-      await repositories.labels.replaceForWorkItem(workItem.id, labelIds);
-      await repositories.activityEvents.create({
-        id: this.idGenerator(),
-        workspaceId: workItem.workspaceId,
-        projectId: workItem.projectId,
-        workItemId: workItem.id,
-        actorId: this.context.actor.memberId,
-        eventType: 'work_item.created',
-        summary: 'Work item created.',
-        previousValue: null,
-        newValue: { status: workItem.status },
-        metadata: {},
-        createdAt: timestamp
-      });
-
-      return this.toDetailDto(workItem, repositories);
+      return this.createWorkItemWithRepositories(projectId, input, repositories);
     });
+  }
+
+  async createWorkItemWithRepositories(
+    projectId: string,
+    input: WorkItemCreationInput,
+    repositories: Repositories
+  ): Promise<WorkItemDetailDto> {
+    const timestamp = this.clock();
+    const labelIds = input.labelIds ?? [];
+    const reporterId = input.reporterId ?? this.context.actor.memberId;
+    const project = await this.requireProjectFromRepositories(projectId, repositories);
+    this.assertProjectWritable(project);
+    await this.validateLabels(projectId, labelIds, repositories);
+    await this.validateMilestone(projectId, input.milestoneId ?? null, repositories);
+    await this.validateAssignee(input.assigneeId ?? null, repositories);
+    await this.validateReporter(reporterId, repositories);
+    const status = input.status ?? 'backlog';
+    const boardPosition = await this.getTopInsertionPosition(projectId, status, repositories);
+    const numberedProject = await repositories.projects.allocateWorkItemNumber(projectId, timestamp);
+
+    if (numberedProject === null || numberedProject.workspaceId !== this.context.actor.workspaceId) {
+      throw new NotFoundError('Project not found.');
+    }
+
+    this.assertProjectWritable(numberedProject);
+
+    const itemNumber = numberedProject.nextWorkItemNumber - 1;
+
+    const workItem = await repositories.workItems.create({
+      id: this.idGenerator(),
+      workspaceId: this.context.actor.workspaceId,
+      projectId,
+      title: input.title,
+      description: input.description ?? '',
+      itemNumber,
+      displayKey: `${numberedProject.key}-${itemNumber}`,
+      type: input.type,
+      status,
+      priority: input.priority,
+      assigneeId: input.assigneeId ?? null,
+      reporterId,
+      milestoneId: input.milestoneId ?? null,
+      boardPosition,
+      dueDate: input.dueDate ?? null,
+      estimatePoints: input.estimatePoints ?? null,
+      createdAt: timestamp,
+      updatedAt: timestamp
+    });
+
+    await repositories.labels.replaceForWorkItem(workItem.id, labelIds);
+    await repositories.activityEvents.create({
+      id: this.idGenerator(),
+      workspaceId: workItem.workspaceId,
+      projectId: workItem.projectId,
+      workItemId: workItem.id,
+      actorId: this.context.actor.memberId,
+      eventType: 'work_item.created',
+      summary: 'Work item created.',
+      previousValue: null,
+      newValue: { status: workItem.status },
+      metadata: {},
+      createdAt: timestamp
+    });
+
+    return this.toDetailDto(workItem, repositories);
   }
 
   async getWorkItem(workItemId: string): Promise<WorkItemDetailDto> {
@@ -565,6 +579,18 @@ export class WorkItemService {
       !assignee.isActive
     ) {
       throw new ValidationError('Assignee must be an active workspace member.');
+    }
+  }
+
+  private async validateReporter(reporterId: string, repositories: Repositories): Promise<void> {
+    const reporter = await repositories.members.findById(reporterId);
+
+    if (
+      reporter === null ||
+      reporter.workspaceId !== this.context.actor.workspaceId ||
+      !reporter.isActive
+    ) {
+      throw new ValidationError('Reporter must be an active workspace member.');
     }
   }
 
