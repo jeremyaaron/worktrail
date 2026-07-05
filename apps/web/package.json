@@ -1,13 +1,14 @@
 {
   "name": "@worktrail/web",
-  "version": "0.0.9",
+  "version": "0.1.0",
   "scripts": {
     "ng": "ng",
     "start": "ng serve --host 0.0.0.0 --proxy-config proxy.conf.json",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test --watch=false --browsers=ChromeHeadless",
-    "typecheck": "ng build --configuration development"
+    "typecheck": "ng build --configuration development",
+    "lint": "eslint src --max-warnings=0"
   },
   "prettier": {
     "printWidth": 100,

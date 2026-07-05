@@ -25,9 +25,6 @@ import { Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorktrailApiService } from '../../core/worktrail-api.service';
 import { downloadBlob, fileNameFromContentDisposition } from '../../shared/download-file';
-import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
-import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
-import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
 import {
   dependencyFilterLabel,
   filterPillLabel,
@@ -37,6 +34,10 @@ import {
   workItemPriorityLabel,
   workItemStatusLabel
 } from '../../shared/work-items/work-item-display';
+import { ActiveFilterChipsComponent } from './components/active-filter-chips.component';
+import { SavedViewsToolbarComponent } from './components/saved-views-toolbar.component';
+import { WorkItemFilterPanelComponent } from './components/work-item-filter-panel.component';
+import { WorkItemResultListComponent } from './components/work-item-result-list.component';
 
 const unassignedAssigneeValue = '__unassigned';
 const statuses: WorkItemStatus[] = [
@@ -120,11 +121,12 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
 @Component({
   selector: 'app-workspace-work-item-list-page',
   imports: [
-    EmptyStateComponent,
-    ErrorPanelComponent,
-    LoadingIndicatorComponent,
+    ActiveFilterChipsComponent,
     ReactiveFormsModule,
-    RouterLink
+    RouterLink,
+    SavedViewsToolbarComponent,
+    WorkItemFilterPanelComponent,
+    WorkItemResultListComponent
   ],
   template: `
     <section class="page-header">
@@ -146,85 +148,28 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
       <p class="inline-error export-error">{{ exportError() }}</p>
     }
 
-    <section class="saved-views" aria-labelledby="saved-views-heading">
-      <div class="saved-views__heading">
-        <div>
-          <h2 id="saved-views-heading">Saved views</h2>
-          <p>Personal workspace filters.</p>
-        </div>
-        @if (isSavedViewLoading()) {
-          <app-loading-indicator label="Loading saved views" />
-        }
-      </div>
+    <app-saved-views-toolbar
+      [savedViews]="savedViews()"
+      [draftNames]="savedViewDraftNames()"
+      [isLoading]="isSavedViewLoading()"
+      [isSaving]="isSavingView()"
+      [loadError]="savedViewLoadError()"
+      [mutationError]="savedViewMutationError()"
+      (save)="saveCurrentViewName($event)"
+      (open)="openSavedView($event)"
+      (rename)="renameSavedView($event)"
+      (updateQuery)="updateSavedViewQuery($event)"
+      (delete)="deleteSavedView($event)"
+      (draftNameChange)="setSavedViewDraftName($event.savedViewId, $event.name)"
+    />
 
-      @if (savedViewLoadError()) {
-        <p class="inline-error">{{ savedViewLoadError() }}</p>
-      }
-
-      <form class="saved-view-form" [formGroup]="savedViewForm" (ngSubmit)="saveCurrentView()">
-        <label>
-          <span>Name</span>
-          <input type="text" formControlName="name" placeholder="Open owner work" />
-        </label>
-        <button type="submit" [disabled]="isSavingView()">
-          {{ isSavingView() ? 'Saving...' : 'Save current view' }}
-        </button>
-      </form>
-
-      @if (savedViewMutationError()) {
-        <p class="inline-error">{{ savedViewMutationError() }}</p>
-      }
-
-      @if (savedViews().length === 0) {
-        <app-empty-state
-          title="No saved views"
-          message="Save the current filters to reuse this workspace view."
-        />
-      } @else {
-        <div class="saved-view-list">
-          @for (view of savedViews(); track view.id) {
-            <article class="saved-view-row">
-              <div>
-                <strong>{{ view.name }}</strong>
-                <small>{{ savedViewQueryLabel(view) }}</small>
-              </div>
-
-              <label>
-                <span>Rename</span>
-                <input
-                  type="text"
-                  [value]="savedViewDraftName(view.id)"
-                  (input)="setSavedViewDraftName(view.id, $any($event.target).value)"
-                />
-              </label>
-
-              <div class="saved-view-actions">
-                <button type="button" class="secondary-action" (click)="openSavedView(view)">
-                  Open
-                </button>
-                <button type="button" class="secondary-action" (click)="renameSavedView(view)">
-                  Rename
-                </button>
-                <button type="button" class="secondary-action" (click)="updateSavedViewQuery(view)">
-                  Update query
-                </button>
-                <button type="button" class="danger-action" (click)="deleteSavedView(view)">
-                  Delete
-                </button>
-              </div>
-            </article>
-          }
-        </div>
-      }
-    </section>
-
-    <form class="filters" [formGroup]="filterForm" (ngSubmit)="applyFilters()">
-      <label class="filters__search">
+    <app-work-item-filter-panel [formGroup]="filterForm" (apply)="applyFilters()">
+      <label filterCore class="filters__search">
         <span>Search</span>
         <input type="search" formControlName="search" placeholder="Key, title, or description" />
       </label>
 
-      <label>
+      <label filterCore>
         <span>Project</span>
         <select formControlName="projectId">
           <option value="">All projects</option>
@@ -236,7 +181,7 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
         </select>
       </label>
 
-      <label>
+      <label filterCore>
         <span>Status</span>
         <select formControlName="status">
           <option value="">All statuses</option>
@@ -246,7 +191,7 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
         </select>
       </label>
 
-      <label>
+      <label filterCore>
         <span>State</span>
         <select formControlName="workState">
           <option value="">Any state</option>
@@ -256,7 +201,7 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
         </select>
       </label>
 
-      <label>
+      <label filterAdvanced>
         <span>Assignee</span>
         <select formControlName="assigneeId">
           <option value="">Any assignee</option>
@@ -267,7 +212,7 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
         </select>
       </label>
 
-      <label>
+      <label filterAdvanced>
         <span>Reporter</span>
         <select formControlName="reporterId">
           <option value="">Any reporter</option>
@@ -277,7 +222,7 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
         </select>
       </label>
 
-      <label>
+      <label filterAdvanced>
         <span>Type</span>
         <select formControlName="type">
           <option value="">All types</option>
@@ -287,7 +232,7 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
         </select>
       </label>
 
-      <label>
+      <label filterAdvanced>
         <span>Label</span>
         <select formControlName="labelId">
           <option value="">All labels</option>
@@ -297,7 +242,7 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
         </select>
       </label>
 
-      <label>
+      <label filterAdvanced>
         <span>Milestone</span>
         <select formControlName="milestoneId">
           <option value="">All milestones</option>
@@ -307,7 +252,7 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
         </select>
       </label>
 
-      <label>
+      <label filterAdvanced>
         <span>Priority</span>
         <select formControlName="priority">
           <option value="">All priorities</option>
@@ -317,7 +262,7 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
         </select>
       </label>
 
-      <label>
+      <label filterAdvanced>
         <span>Due date</span>
         <select formControlName="dueDateState">
           <option value="">Any due date</option>
@@ -327,7 +272,7 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
         </select>
       </label>
 
-      <label>
+      <label filterAdvanced>
         <span>Blocked</span>
         <select formControlName="blocked">
           <option value="">Any blocker state</option>
@@ -337,7 +282,7 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
         </select>
       </label>
 
-      <label>
+      <label filterAdvanced>
         <span>Dependency</span>
         <select formControlName="dependency">
           <option value="">Any dependency state</option>
@@ -347,7 +292,7 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
         </select>
       </label>
 
-      <label>
+      <label filterAdvanced>
         <span>Projects</span>
         <select formControlName="archivedProjects">
           @for (mode of archivedProjectModes; track mode.value) {
@@ -356,7 +301,7 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
         </select>
       </label>
 
-      <label>
+      <label filterAdvanced>
         <span>Sort</span>
         <select formControlName="sort">
           @for (sort of sorts; track sort.value) {
@@ -365,110 +310,25 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
         </select>
       </label>
 
-      <div class="filter-actions">
+      <div filterActions class="filter-actions">
         <button type="button" class="secondary-action" (click)="resetFilters()">Reset</button>
       </div>
-    </form>
+    </app-work-item-filter-panel>
 
-    @if (activeFilterLabels().length > 0) {
-      <section class="active-filters" aria-label="Active filters">
-        @for (label of activeFilterLabels(); track label) {
-          <span>{{ label }}</span>
-        }
-      </section>
-    }
+    <app-active-filter-chips [labels]="activeFilterLabels()" (remove)="removeActiveFilter($event)" />
 
-    <section class="list-panel">
-      <div class="list-heading">
-        <h2>{{ workItems().length }} work items</h2>
-      </div>
-
-      @if (isLoading()) {
-        <app-loading-indicator label="Loading workspace work items" />
-      } @else if (error()) {
-        <app-error-panel [message]="error() ?? ''" (retry)="loadWorkItems()" />
-      } @else if (workItems().length === 0) {
-        <app-empty-state
-          [title]="activeFilterLabels().length > 0 ? 'No work items match these filters' : 'No work items found'"
-          [message]="activeFilterLabels().length > 0 ? 'Reset filters or adjust the criteria to broaden the list.' : 'Workspace work from active projects will appear here.'"
-        />
-      } @else {
-        <div class="work-item-table" role="table" aria-label="Workspace work items">
-          <div class="work-item-table__head" role="row">
-            <span>Title</span>
-            <span>Project</span>
-            <span>Status</span>
-            <span>Assignee</span>
-            <span>Planning</span>
-            <span>Priority</span>
-            <span>Updated</span>
-          </div>
-
-          @for (item of workItems(); track item.id) {
-            <a class="work-item-row" role="row" [routerLink]="['/work-items', item.id]">
-              <span class="work-item-row__title">
-                <strong>{{ item.title }}</strong>
-                <small class="row-meta">
-                  <span class="key-pill">{{ item.displayKey }}</span>
-                  <span class="type-pill">{{ formatToken(item.type) }}</span>
-                  <span>{{ workItemMetadata(item) }}</span>
-                  @if (item.labels.length === 0) {
-                    <span class="muted-pill">No labels</span>
-                  } @else {
-                    @for (label of item.labels; track label.id) {
-                      <span class="label-pill" [style.border-color]="label.color ?? '#cbd5e1'">
-                        {{ label.name }}
-                      </span>
-                    }
-                  }
-                  @if (item.openBlockerCount > 0) {
-                    <span class="dependency-pill">Blocked by {{ item.openBlockerCount }}</span>
-                  }
-                  @if (item.openBlockedWorkCount > 0) {
-                    <span class="dependency-pill">Blocks {{ item.openBlockedWorkCount }}</span>
-                  }
-                </small>
-              </span>
-
-              <span class="project-cell">
-                <span
-                  class="project-pill"
-                  [class.project-pill--archived]="item.project.status === 'archived'"
-                >
-                  {{ projectBadge(item.project) }}
-                </span>
-                <small>{{ item.project.name }}</small>
-              </span>
-
-              <span class="status-pill" [attr.data-status]="item.status">
-                {{ workItemStatusLabel(item.status) }}
-              </span>
-
-              <span
-                class="assignee-pill"
-                [class.assignee-pill--empty]="item.assignee === null"
-                [class.assignee-pill--inactive]="item.assignee?.isActive === false"
-              >
-                {{ item.assignee === null ? 'Unassigned' : memberDisplayName(item.assignee) }}
-              </span>
-
-              <span class="planning-cell">
-                <span [class.muted-pill]="item.milestone === null" [class.milestone-pill]="item.milestone !== null">
-                  {{ item.milestone?.name ?? 'No milestone' }}
-                </span>
-                <small>{{ dueDateLabel(item) }}</small>
-              </span>
-
-              <span class="priority-pill" [attr.data-priority]="item.priority">
-                {{ workItemPriorityLabel(item.priority) }}
-              </span>
-
-              <span>{{ formatDate(item.updatedAt) }}</span>
-            </a>
-          }
-        </div>
-      }
-    </section>
+    <app-work-item-result-list
+      [items]="workItems()"
+      mode="workspace"
+      [isLoading]="isLoading()"
+      [error]="error()"
+      loadingLabel="Loading workspace work items"
+      ariaLabel="Workspace work items"
+      [emptyTitle]="activeFilterLabels().length > 0 ? 'No work items match these filters' : 'No work items found'"
+      [emptyMessage]="activeFilterLabels().length > 0 ? 'Reset filters or adjust the criteria to broaden the list.' : 'Workspace work from active projects will appear here.'"
+      [returnUrl]="detailReturnUrl()"
+      (retry)="loadWorkItems()"
+    />
   `,
   styles: `
     .page-header {
@@ -1071,6 +931,52 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     return this.getActiveFilterLabels();
   }
 
+  detailReturnUrl(): string {
+    return this.toReturnUrl('/work-items', this.queryParamsFromQuery(this.appliedQuery()));
+  }
+
+  removeActiveFilter(label: string): void {
+    const filterName = label.split(':', 1)[0];
+    const updates: Partial<WorkspaceFilterFormValue> = {};
+
+    if (filterName === 'Search') {
+      updates.search = '';
+    } else if (filterName === 'Project') {
+      updates.projectId = '';
+      updates.labelId = '';
+      updates.milestoneId = '';
+    } else if (filterName === 'Status') {
+      updates.status = '';
+    } else if (filterName === 'State') {
+      updates.workState = '';
+    } else if (filterName === 'Assignee') {
+      updates.assigneeId = '';
+    } else if (filterName === 'Reporter') {
+      updates.reporterId = '';
+    } else if (filterName === 'Type') {
+      updates.type = '';
+    } else if (filterName === 'Label') {
+      updates.labelId = '';
+    } else if (filterName === 'Milestone') {
+      updates.milestoneId = '';
+    } else if (filterName === 'Priority') {
+      updates.priority = '';
+    } else if (filterName === 'Due date') {
+      updates.dueDateState = '';
+    } else if (filterName === 'Blocked') {
+      updates.blocked = '';
+    } else if (filterName === 'Dependency') {
+      updates.dependency = '';
+    } else if (filterName === 'Projects') {
+      updates.archivedProjects = 'exclude';
+    } else if (filterName === 'Sort') {
+      updates.sort = 'updated_desc';
+    }
+
+    this.filterForm.patchValue(updates, { emitEvent: false });
+    this.applyFilters();
+  }
+
   projectBadge(project: WorkspaceWorkItemListItemDto['project']): string {
     return projectBadge(project);
   }
@@ -1111,6 +1017,11 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
         this.isSavingView.set(false);
       }
     });
+  }
+
+  saveCurrentViewName(name: string): void {
+    this.savedViewForm.controls.name.setValue(name);
+    this.saveCurrentView();
   }
 
   openSavedView(savedView: SavedWorkViewDto): void {
@@ -1251,6 +1162,19 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
 
   private queryParamsFromForm(): Record<string, string | null> {
     return this.queryParamsFromFormValue(this.filterForm.getRawValue());
+  }
+
+  private toReturnUrl(path: string, queryParams: Record<string, string | null>): string {
+    const searchParams = new URLSearchParams();
+
+    for (const [key, value] of Object.entries(queryParams)) {
+      if (value !== null) {
+        searchParams.set(key, value);
+      }
+    }
+
+    const queryString = searchParams.toString();
+    return queryString === '' ? path : `${path}?${queryString}`;
   }
 
   private queryParamsFromQuery(query: WorkItemQuery): Record<string, string | null> {

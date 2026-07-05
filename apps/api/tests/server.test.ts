@@ -21,6 +21,29 @@ async function createStaticFixture(): Promise<string> {
   return directory;
 }
 
+function registeredRoutes(app: ReturnType<typeof createExpressApp>): string[] {
+  const router = (app as unknown as {
+    router: {
+      stack: Array<{
+        route?: {
+          path: string;
+          methods: Record<string, boolean>;
+        };
+      }>;
+    };
+  }).router;
+
+  return router.stack.flatMap((layer) => {
+    if (layer.route === undefined) {
+      return [];
+    }
+
+    return Object.entries(layer.route.methods)
+      .filter(([, isEnabled]) => isEnabled)
+      .map(([method]) => `${method.toUpperCase()} ${layer.route?.path}`);
+  });
+}
+
 describe('Express API foundation', () => {
   it('returns health through the endpoint adapter', async () => {
     const app = createExpressApp();
@@ -46,6 +69,73 @@ describe('Express API foundation', () => {
         expect(body.service).toBe('worktrail-api');
         expect(body.checkedAt).toEqual(expect.any(String));
       });
+  });
+
+  it('registers repository-backed API routes through domain route modules', () => {
+    const repositories = {
+      members: {
+        findById: vi.fn(async () => null)
+      }
+    } as unknown as Repositories;
+    const app = createExpressApp({ repositories });
+
+    expect(registeredRoutes(app)).toEqual([
+      'GET /api/health',
+      'GET /api/health/live',
+      'GET /api/workspace',
+      'PATCH /api/workspace',
+      'GET /api/workspace/capabilities',
+      'GET /api/workspace/activity',
+      'GET /api/my-work',
+      'GET /api/members',
+      'POST /api/members',
+      'PATCH /api/members/:memberId',
+      'POST /api/members/:memberId/deactivate',
+      'POST /api/members/:memberId/reactivate',
+      'GET /api/projects',
+      'GET /api/projects/navigation-summary',
+      'POST /api/projects',
+      'GET /api/projects/:projectId/summary',
+      'GET /api/projects/:projectId/activity',
+      'GET /api/projects/:projectId/labels',
+      'POST /api/projects/:projectId/labels',
+      'GET /api/projects/:projectId/milestones',
+      'POST /api/projects/:projectId/milestones',
+      'POST /api/projects/:projectId/archive',
+      'POST /api/projects/:projectId/reactivate',
+      'GET /api/projects/:projectId',
+      'PATCH /api/projects/:projectId',
+      'PATCH /api/labels/:labelId',
+      'PATCH /api/milestones/:milestoneId',
+      'POST /api/labels/:labelId/archive',
+      'POST /api/milestones/:milestoneId/archive',
+      'POST /api/labels/:labelId/reactivate',
+      'POST /api/milestones/:milestoneId/reactivate',
+      'GET /api/projects/:projectId/planning-summary',
+      'GET /api/saved-work-views',
+      'POST /api/saved-work-views',
+      'PATCH /api/saved-work-views/:savedViewId',
+      'DELETE /api/saved-work-views/:savedViewId',
+      'GET /api/work-items',
+      'GET /api/work-items/export',
+      'GET /api/projects/:projectId/work-items',
+      'GET /api/projects/:projectId/work-items/export',
+      'POST /api/projects/:projectId/work-items/imports/preview',
+      'POST /api/projects/:projectId/work-items/imports',
+      'POST /api/projects/:projectId/work-items',
+      'GET /api/work-items/:workItemId/comments',
+      'POST /api/work-items/:workItemId/comments',
+      'PATCH /api/comments/:commentId',
+      'DELETE /api/comments/:commentId',
+      'GET /api/work-items/:workItemId/activity',
+      'GET /api/work-items/:workItemId/relationships',
+      'POST /api/work-items/:workItemId/relationships',
+      'DELETE /api/work-items/:workItemId/relationships/:relationshipId',
+      'GET /api/work-items/:workItemId',
+      'PATCH /api/work-items/:workItemId',
+      'POST /api/work-items/:workItemId/transitions',
+      'POST /api/work-items/:workItemId/board-move'
+    ]);
   });
 
   it('returns readiness when the database check succeeds', async () => {

@@ -9,8 +9,8 @@ import { randomUUID } from 'node:crypto';
 
 import type { WorktrailDb } from '../db/client.js';
 import type { ActorContext } from '../domain/actor.js';
-import { terminalWorkItemStatuses } from '../domain/constants.js';
 import { canUpdateAssignedWorkItem } from '../domain/permissions.js';
+import { isTerminalWorkItemStatus } from '../domain/work-risk-policy.js';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../errors/app-error.js';
 import {
   type Repositories,
@@ -23,8 +23,6 @@ import type {
   WorkItemRelationship
 } from '../repositories/types.js';
 import { emptyRelationshipSummary, toMemberDto } from './dto.js';
-
-const terminalStatuses = new Set<WorkItem['status']>(terminalWorkItemStatuses);
 
 export interface WorkItemRelationshipServiceContext {
   actor: ActorContext;
@@ -441,7 +439,7 @@ export class WorkItemRelationshipService {
       !canUpdateAssignedWorkItem({
         actor: this.context.actor,
         assigneeId: workItem.assigneeId,
-        isTerminal: terminalStatuses.has(workItem.status)
+        isTerminal: isTerminalWorkItemStatus(workItem.status)
       })
     ) {
       throw new ForbiddenError('You do not have permission to update this work item.');

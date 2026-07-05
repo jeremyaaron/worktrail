@@ -1,9 +1,9 @@
-# Worktrail v0.0.6 Operations Runbook
+# Worktrail Operations Runbook
 
 This runbook describes how to run, inspect, reset, and troubleshoot Worktrail in local
 development and production preview modes.
 
-Worktrail v0.0.6 is still a local reference application. The production preview path
+Worktrail v0.1.0 is still a local reference application. The production preview path
 uses built artifacts and production-mode runtime validation, but it is not a secure
 internet-facing deployment.
 
@@ -258,10 +258,25 @@ session management, or a deployable security model.
 Routine local verification:
 
 ```sh
+npm run lint
 npm run typecheck
 npm test
 npm run build
 ```
+
+CI runs the same baseline guardrails on pull requests and pushes to `main`:
+
+```sh
+npm ci
+npm run lint
+npm run typecheck
+npm run db:reset && npm run db:migrate && npm run db:seed
+npm test
+npm run build
+```
+
+The CI verify job provisions a disposable Postgres service and points `DATABASE_URL`
+at that service before preparing and seeding the schema for tests.
 
 Browser smoke test:
 
@@ -360,7 +375,7 @@ npm run db:down
 
 ## Future Cloud Mapping
 
-The v0.0.6 preview is deliberately not the final cloud topology. It establishes runtime
+The production preview is deliberately not the final cloud topology. It establishes runtime
 boundaries that can map cleanly to cloud infrastructure later:
 
 - Angular build output -> S3 static website origin or private S3 behind CloudFront.

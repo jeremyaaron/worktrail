@@ -1,30 +1,18 @@
-import type { DependencyFilter, WorkItemQuery } from '@worktrail/contracts';
-import { and, asc, count, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
+import type { WorkItemQuery } from '@worktrail/contracts';
+import { and, asc, count, desc, eq } from 'drizzle-orm';
 
 import type { WorktrailDb } from '../db/client.js';
-import { projects, workItemLabels, workItemRelationships, workItems } from '../db/schema.js';
+import { projects, workItems } from '../db/schema.js';
+import {
+  buildProjectWorkItemConditions,
+  buildProjectWorkItemOrderBy,
+  buildWorkspaceWorkItemConditions,
+  buildWorkspaceWorkItemOrderBy,
+  type ProjectWorkItemQuery
+} from './work-item-query-builder.js';
 import type { NewWorkItem, Project, WorkItem } from './types.js';
 
-export interface WorkItemFilters {
-  status?: WorkItem['status'];
-  assigneeId?: string;
-  reporterId?: string;
-  type?: WorkItem['type'];
-  priority?: WorkItem['priority'];
-  labelId?: string;
-  milestoneId?: string;
-  dueDateState?: 'overdue' | 'due_soon' | 'none';
-  dependency?: DependencyFilter;
-  search?: string;
-  sort?:
-    | 'updated_desc'
-    | 'updated_asc'
-    | 'priority_desc'
-    | 'priority_asc'
-    | 'due_date_asc'
-    | 'created_desc'
-    | 'board_order';
-}
+export type WorkItemFilters = ProjectWorkItemQuery;
 
 export interface UpdateWorkItemInput {
   title?: string;
@@ -49,16 +37,6 @@ export interface MoveWorkItemInput {
 export interface WorkspaceWorkItemRecord {
   workItem: WorkItem;
   project: Pick<Project, 'id' | 'key' | 'name' | 'status'>;
-}
-
-function priorityRankSql() {
-  return sql`case ${workItems.priority}
-    when 'urgent' then 4
-    when 'high' then 3
-    when 'medium' then 2
-    when 'low' then 1
-    else 0
-  end`;
 }
 
 export function createWorkItemRepository(db: WorktrailDb) {
@@ -92,98 +70,8 @@ export function createWorkItemRepository(db: WorktrailDb) {
     },
 
     async listByProject(projectId: string, filters: WorkItemFilters = {}) {
-      const conditions = [eq(workItems.projectId, projectId)];
-
-      if (filters.status !== undefined) {
-        conditions.push(eq(workItems.status, filters.status));
-      }
-
-      if (filters.assigneeId !== undefined) {
-        conditions.push(eq(workItems.assigneeId, filters.assigneeId));
-      }
-
-      if (filters.reporterId !== undefined) {
-        conditions.push(eq(workItems.reporterId, filters.reporterId));
-      }
-
-      if (filters.type !== undefined) {
-        conditions.push(eq(workItems.type, filters.type));
-      }
-
-      if (filters.priority !== undefined) {
-        conditions.push(eq(workItems.priority, filters.priority));
-      }
-
-      if (filters.labelId !== undefined) {
-        conditions.push(
-          sql`exists (
-            select 1 from ${workItemLabels}
-            where ${workItemLabels.workItemId} = ${workItems.id}
-            and ${workItemLabels.labelId} = ${filters.labelId}
-          )`
-        );
-      }
-
-      if (filters.milestoneId !== undefined) {
-        conditions.push(eq(workItems.milestoneId, filters.milestoneId));
-      }
-
-      if (filters.dueDateState === 'overdue') {
-        conditions.push(sql`${workItems.dueDate} < current_date`);
-        conditions.push(sql`${workItems.status} not in ('done', 'canceled')`);
-      }
-
-      if (filters.dueDateState === 'due_soon') {
-        conditions.push(sql`${workItems.dueDate} >= current_date`);
-        conditions.push(sql`${workItems.dueDate} <= current_date + interval '7 days'`);
-        conditions.push(sql`${workItems.status} not in ('done', 'canceled')`);
-      }
-
-      if (filters.dueDateState === 'none') {
-        conditions.push(sql`${workItems.dueDate} is null`);
-      }
-
-      pushDependencyCondition(conditions, filters.dependency);
-
-      if (filters.search !== undefined && filters.search.trim() !== '') {
-        const search = `%${filters.search.trim()}%`;
-        conditions.push(
-          or(
-            ilike(workItems.displayKey, search),
-            ilike(workItems.title, search),
-            ilike(workItems.description, search)
-          )!
-        );
-      }
-
-      const priorityRank = priorityRankSql();
-      const orderBy = (() => {
-        if (filters.sort === 'updated_asc') {
-          return [asc(workItems.updatedAt), asc(workItems.itemNumber)];
-        }
-
-        if (filters.sort === 'priority_desc') {
-          return [desc(priorityRank), desc(workItems.updatedAt), asc(workItems.itemNumber)];
-        }
-
-        if (filters.sort === 'priority_asc') {
-          return [asc(priorityRank), desc(workItems.updatedAt), asc(workItems.itemNumber)];
-        }
-
-        if (filters.sort === 'due_date_asc') {
-          return [sql`${workItems.dueDate} asc nulls last`, asc(workItems.itemNumber)];
-        }
-
-        if (filters.sort === 'created_desc') {
-          return [desc(workItems.createdAt), asc(workItems.itemNumber)];
-        }
-
-        if (filters.sort === 'board_order') {
-          return [asc(workItems.status), asc(workItems.boardPosition), asc(workItems.itemNumber)];
-        }
-
-        return [desc(workItems.updatedAt), asc(workItems.itemNumber)];
-      })();
+      const conditions = buildProjectWorkItemConditions(projectId, filters);
+      const orderBy = buildProjectWorkItemOrderBy(filters.sort);
 
       return db
         .select()
@@ -196,133 +84,8 @@ export function createWorkItemRepository(db: WorktrailDb) {
       workspaceId: string,
       filters: WorkItemQuery = {}
     ): Promise<WorkspaceWorkItemRecord[]> {
-      const conditions = [eq(workItems.workspaceId, workspaceId)];
-
-      if (filters.projectId !== undefined) {
-        conditions.push(eq(workItems.projectId, filters.projectId));
-      }
-
-      if (filters.archivedProjects === 'only') {
-        conditions.push(eq(projects.status, 'archived'));
-      } else if (filters.archivedProjects !== 'include') {
-        conditions.push(eq(projects.status, 'active'));
-      }
-
-      if (filters.status !== undefined) {
-        conditions.push(eq(workItems.status, filters.status));
-      }
-
-      if (filters.workState === 'open') {
-        conditions.push(inArray(workItems.status, ['backlog', 'ready', 'in_progress', 'blocked']));
-      }
-
-      if (filters.workState === 'terminal') {
-        conditions.push(inArray(workItems.status, ['done', 'canceled']));
-      }
-
-      if (filters.blocked === true && filters.status === undefined) {
-        conditions.push(eq(workItems.status, 'blocked'));
-      }
-
-      if (filters.assigneeId !== undefined) {
-        conditions.push(eq(workItems.assigneeId, filters.assigneeId));
-      }
-
-      if (filters.assigneeState === 'unassigned') {
-        conditions.push(sql`${workItems.assigneeId} is null`);
-      }
-
-      if (filters.assigneeState === 'assigned') {
-        conditions.push(sql`${workItems.assigneeId} is not null`);
-      }
-
-      if (filters.reporterId !== undefined) {
-        conditions.push(eq(workItems.reporterId, filters.reporterId));
-      }
-
-      if (filters.type !== undefined) {
-        conditions.push(eq(workItems.type, filters.type));
-      }
-
-      if (filters.priority !== undefined) {
-        conditions.push(eq(workItems.priority, filters.priority));
-      }
-
-      if (filters.labelId !== undefined) {
-        conditions.push(
-          sql`exists (
-            select 1 from ${workItemLabels}
-            where ${workItemLabels.workItemId} = ${workItems.id}
-            and ${workItemLabels.labelId} = ${filters.labelId}
-          )`
-        );
-      }
-
-      if (filters.milestoneId !== undefined) {
-        conditions.push(eq(workItems.milestoneId, filters.milestoneId));
-      }
-
-      if (filters.dueDateState === 'overdue') {
-        conditions.push(sql`${workItems.dueDate} < current_date`);
-        conditions.push(sql`${workItems.status} not in ('done', 'canceled')`);
-      }
-
-      if (filters.dueDateState === 'due_soon') {
-        conditions.push(sql`${workItems.dueDate} >= current_date`);
-        conditions.push(sql`${workItems.dueDate} <= current_date + interval '7 days'`);
-        conditions.push(sql`${workItems.status} not in ('done', 'canceled')`);
-      }
-
-      if (filters.dueDateState === 'none') {
-        conditions.push(sql`${workItems.dueDate} is null`);
-      }
-
-      pushDependencyCondition(conditions, filters.dependency);
-
-      if (filters.search !== undefined && filters.search.trim() !== '') {
-        const search = `%${filters.search.trim()}%`;
-        conditions.push(
-          or(
-            ilike(workItems.displayKey, search),
-            ilike(workItems.title, search),
-            ilike(workItems.description, search)
-          )!
-        );
-      }
-
-      const priorityRank = priorityRankSql();
-      const orderBy = (() => {
-        if (filters.sort === 'updated_asc') {
-          return [asc(workItems.updatedAt), asc(projects.key), asc(workItems.itemNumber)];
-        }
-
-        if (filters.sort === 'priority_desc') {
-          return [desc(priorityRank), desc(workItems.updatedAt), asc(projects.key), asc(workItems.itemNumber)];
-        }
-
-        if (filters.sort === 'priority_asc') {
-          return [asc(priorityRank), desc(workItems.updatedAt), asc(projects.key), asc(workItems.itemNumber)];
-        }
-
-        if (filters.sort === 'due_date_asc') {
-          return [sql`${workItems.dueDate} asc nulls last`, asc(projects.key), asc(workItems.itemNumber)];
-        }
-
-        if (filters.sort === 'created_desc') {
-          return [desc(workItems.createdAt), asc(projects.key), asc(workItems.itemNumber)];
-        }
-
-        if (filters.sort === 'board_order') {
-          return [
-            asc(projects.key),
-            asc(workItems.status),
-            asc(workItems.boardPosition),
-            asc(workItems.itemNumber)
-          ];
-        }
-
-        return [desc(workItems.updatedAt), asc(projects.key), asc(workItems.itemNumber)];
-      })();
+      const conditions = buildWorkspaceWorkItemConditions(workspaceId, filters);
+      const orderBy = buildWorkspaceWorkItemOrderBy(filters.sort);
 
       return db
         .select({
@@ -419,35 +182,4 @@ export function createWorkItemRepository(db: WorktrailDb) {
       return workItem ?? null;
     }
   };
-}
-
-function pushDependencyCondition(
-  conditions: unknown[],
-  dependency: DependencyFilter | undefined
-): void {
-  if (dependency === 'dependency_blocked') {
-    conditions.push(
-      sql`exists (
-        select 1 from ${workItemRelationships}
-        inner join ${workItems} blocker
-          on blocker.id = ${workItemRelationships.sourceWorkItemId}
-        where ${workItemRelationships.relationshipType} = 'blocks'
-          and ${workItemRelationships.targetWorkItemId} = ${workItems.id}
-          and blocker.status not in ('done', 'canceled')
-      )`
-    );
-  }
-
-  if (dependency === 'blocking_open_work') {
-    conditions.push(
-      sql`exists (
-        select 1 from ${workItemRelationships}
-        inner join ${workItems} blocked
-          on blocked.id = ${workItemRelationships.targetWorkItemId}
-        where ${workItemRelationships.relationshipType} = 'blocks'
-          and ${workItemRelationships.sourceWorkItemId} = ${workItems.id}
-          and blocked.status not in ('done', 'canceled')
-      )`
-    );
-  }
 }

@@ -383,6 +383,10 @@ describe('My Work dashboard', () => {
       dependencyBlocked: true,
       openBlockerCount: 1
     });
+    expect(dashboard.reportedByMe.map((item) => item.id)).toEqual([
+      reportedBlocked.id,
+      reportedReady.id
+    ]);
     expect(dashboard.recentlyUpdated.map((item) => item.id)).toEqual([
       reportedBlocked.id,
       assignedDueSoon.id,
@@ -408,6 +412,7 @@ describe('My Work dashboard', () => {
     expect(dashboard.dueSoonOrOverdue).toEqual([]);
     expect(dashboard.blockedRelevant).toEqual([]);
     expect(dashboard.dependencyBlockedAssigned).toEqual([]);
+    expect(dashboard.reportedByMe).toEqual([]);
     expect(dashboard.recentlyUpdated).toEqual([]);
   });
 

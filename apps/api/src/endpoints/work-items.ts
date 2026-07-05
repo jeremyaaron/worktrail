@@ -1,8 +1,6 @@
 import type {
   CreateWorkItemRequest,
   CreateWorkItemRelationshipRequest,
-  DependencyFilter,
-  DueDateState,
   MoveWorkItemOnBoardRequest,
   TransitionWorkItemRequest,
   UpdateWorkItemRequest,
@@ -14,8 +12,7 @@ import type {
   WorkItemDetailDto,
   WorkItemListItemDto,
   WorkItemRelationshipDto,
-  WorkItemRelationshipSummaryDto,
-  WorkItemSort
+  WorkItemRelationshipSummaryDto
 } from '@worktrail/contracts';
 import { z } from 'zod';
 
@@ -28,15 +25,15 @@ import {
 } from '../domain/constants.js';
 import type { EndpointHandler } from '../http/app-request.js';
 import type { Repositories } from '../repositories/index.js';
-import {
-  type WorkItemListFilters,
-  WorkItemService
-} from '../services/work-item-service.js';
+import { WorkItemService } from '../services/work-item-service.js';
 import { WorkItemCsvImportService } from '../services/work-item-csv-import-service.js';
 import { WorkItemCsvExportService } from '../services/work-item-csv-export-service.js';
 import { WorkItemRelationshipService } from '../services/work-item-relationship-service.js';
 import { parseWithSchema } from '../validation/parse.js';
-import { parseWorkItemQuery } from '../validation/work-item-query.js';
+import {
+  parseProjectWorkItemQuery,
+  parseWorkspaceWorkItemQuery
+} from '../validation/work-item-query.js';
 
 const projectIdParamSchema = z.object({
   projectId: z.string().uuid()
@@ -107,52 +104,6 @@ const createWorkItemRelationshipSchema = z.object({
   targetWorkItemId: z.string().uuid()
 }) satisfies z.ZodType<CreateWorkItemRelationshipRequest>;
 
-const workItemFilterSchema = z.object({
-  status: z.enum(workItemStatuses).optional(),
-  assigneeId: z.string().uuid().optional(),
-  reporterId: z.string().uuid().optional(),
-  type: z.enum(workItemTypes).optional(),
-  labelId: z.string().uuid().optional(),
-  milestoneId: z.string().uuid().optional(),
-  priority: z.enum(workItemPriorities).optional(),
-  dueDateState: z.enum(['overdue', 'due_soon', 'none']).optional(),
-  dependency: z.enum(['dependency_blocked', 'blocking_open_work']).optional(),
-  search: z.string().trim().optional(),
-  sort: z
-    .enum([
-      'updated_desc',
-      'updated_asc',
-      'priority_desc',
-      'priority_asc',
-      'due_date_asc',
-      'created_desc',
-      'board_order'
-    ])
-    .optional()
-});
-
-function firstQueryValue(value: string | string[] | undefined): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-function parseFilters(query: Record<string, string | string[] | undefined>): WorkItemListFilters {
-  const parsed = parseWithSchema(workItemFilterSchema, {
-    status: firstQueryValue(query.status),
-    assigneeId: firstQueryValue(query.assigneeId),
-    reporterId: firstQueryValue(query.reporterId),
-    type: firstQueryValue(query.type),
-    labelId: firstQueryValue(query.labelId),
-    milestoneId: firstQueryValue(query.milestoneId),
-    priority: firstQueryValue(query.priority),
-    dueDateState: firstQueryValue(query.dueDateState) as DueDateState | undefined,
-    dependency: firstQueryValue(query.dependency) as DependencyFilter | undefined,
-    search: firstQueryValue(query.search),
-    sort: firstQueryValue(query.sort) as WorkItemSort | undefined
-  });
-
-  return parsed;
-}
-
 export function listWorkItemsHandler(input: {
   repositories: Repositories;
   db?: WorktrailDb;
@@ -166,7 +117,7 @@ export function listWorkItemsHandler(input: {
     });
     return {
       status: 200,
-      body: await service.listWorkItems(projectId, parseFilters(request.query))
+      body: await service.listWorkItems(projectId, parseProjectWorkItemQuery(request.query))
     };
   };
 }
@@ -183,7 +134,7 @@ export function listWorkspaceWorkItemsHandler(input: {
     });
     return {
       status: 200,
-      body: await service.listWorkspaceWorkItems(parseWorkItemQuery(request.query))
+      body: await service.listWorkspaceWorkItems(parseWorkspaceWorkItemQuery(request.query))
     };
   };
 }
@@ -254,7 +205,10 @@ export function exportProjectWorkItemsHandler(input: {
       actor: request.actor,
       repositories: input.repositories
     });
-    const exportResult = await service.exportProjectWorkItems(projectId, parseFilters(request.query));
+    const exportResult = await service.exportProjectWorkItems(
+      projectId,
+      parseProjectWorkItemQuery(request.query)
+    );
 
     return {
       status: 200,
@@ -272,7 +226,7 @@ export function exportWorkspaceWorkItemsHandler(input: {
       actor: request.actor,
       repositories: input.repositories
     });
-    const exportResult = await service.exportWorkspaceWorkItems(parseWorkItemQuery(request.query));
+    const exportResult = await service.exportWorkspaceWorkItems(parseWorkspaceWorkItemQuery(request.query));
 
     return {
       status: 200,

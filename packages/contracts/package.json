@@ -1,6 +1,6 @@
 {
   "name": "@worktrail/contracts",
-  "version": "0.0.9",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -14,9 +14,11 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "echo \"No contract tests yet\""
+    "lint": "eslint src --max-warnings=0",
+    "test": "vitest run --passWithNoTests"
   },
   "devDependencies": {
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "vitest": "^4.0.14"
   }
 }

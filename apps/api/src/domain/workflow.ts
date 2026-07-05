@@ -1,9 +1,8 @@
 import {
   type MemberRole,
-  type WorkItemStatus,
-  openWorkItemStatuses,
-  terminalWorkItemStatuses
+  type WorkItemStatus
 } from './constants.js';
+import { isOpenWorkItemStatus, isTerminalWorkItemStatus } from './work-risk-policy.js';
 
 const forwardTransitions: Partial<Record<WorkItemStatus, readonly WorkItemStatus[]>> = {
   backlog: ['ready', 'blocked', 'canceled'],
@@ -14,14 +13,6 @@ const forwardTransitions: Partial<Record<WorkItemStatus, readonly WorkItemStatus
 
 function canReopen(role: MemberRole): boolean {
   return role === 'owner' || role === 'maintainer';
-}
-
-export function isTerminalWorkItemStatus(status: WorkItemStatus): boolean {
-  return (terminalWorkItemStatuses as readonly WorkItemStatus[]).includes(status);
-}
-
-export function isOpenWorkItemStatus(status: WorkItemStatus): boolean {
-  return (openWorkItemStatuses as readonly WorkItemStatus[]).includes(status);
 }
 
 export function canTransitionWorkItem(input: {

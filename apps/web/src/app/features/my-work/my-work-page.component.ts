@@ -1,6 +1,10 @@
 import { Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import type { MyWorkDashboardDto, WorkspaceWorkItemListItemDto } from '@worktrail/contracts';
+import type {
+  MyWorkDashboardDto,
+  MyWorkSummaryCountDto,
+  WorkspaceWorkItemListItemDto
+} from '@worktrail/contracts';
 import { Subscription } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
@@ -14,8 +18,14 @@ import {
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
+import {
+  DailyQueueComponent,
+  type DailyQueueItem,
+  type DailyQueueReason
+} from './components/daily-queue.component';
+import { MyWorkSummaryComponent } from './components/my-work-summary.component';
 
-interface DashboardSection {
+interface SecondaryWorkSection {
   key: string;
   heading: string;
   emptyTitle: string;
@@ -23,9 +33,34 @@ interface DashboardSection {
   items: WorkspaceWorkItemListItemDto[];
 }
 
+const staleInProgressDays = 7;
+const dueSoonWindowDays = 7;
+const activeSummaryFilterLabels: Record<MyWorkSummaryCountDto['key'], string> = {
+  assigned_open: 'Assigned open',
+  due_soon: 'Due soon',
+  overdue: 'Overdue',
+  blocked: 'Blocked',
+  dependency_blocked: 'Dependency blocked',
+  stale_assigned: 'Stale assigned',
+  reported_open: 'Reported open'
+};
+const priorityOrder = new Map([
+  ['urgent', 0],
+  ['high', 1],
+  ['medium', 2],
+  ['low', 3]
+]);
+
 @Component({
   selector: 'app-my-work-page',
-  imports: [EmptyStateComponent, ErrorPanelComponent, LoadingIndicatorComponent, RouterLink],
+  imports: [
+    DailyQueueComponent,
+    EmptyStateComponent,
+    ErrorPanelComponent,
+    LoadingIndicatorComponent,
+    MyWorkSummaryComponent,
+    RouterLink
+  ],
   template: `
     <section class="page-header">
       <div>
@@ -52,17 +87,30 @@ interface DashboardSection {
         (retry)="loadDashboard()"
       />
     } @else if (dashboard(); as dashboard) {
-      <section class="summary-grid" aria-label="My Work summary">
-        @for (count of dashboard.summaryCounts; track count.key) {
-          <a class="summary-card" [routerLink]="['/work-items']" [queryParams]="count.query">
-            <span>{{ count.label }}</span>
-            <strong>{{ count.count }}</strong>
-          </a>
-        }
-      </section>
+      <app-my-work-summary
+        [counts]="dashboard.summaryCounts"
+        [activeKey]="selectedSummaryKey()"
+        (summarySelect)="toggleSummaryFilter($event)"
+      />
 
-      <section class="dashboard-grid" aria-label="My Work sections">
-        @for (section of sections(); track section.key) {
+      @if (activeSummaryCount(); as selectedCount) {
+        <section class="active-filter" aria-label="Active My Work filter">
+          <span>Queue focus: {{ selectedCount.label }}</span>
+          <a [routerLink]="['/work-items']" [queryParams]="selectedCount.query">Open full list</a>
+          <button type="button" (click)="clearSummaryFilter()">Clear</button>
+        </section>
+      }
+
+      <app-daily-queue
+        [items]="visibleAttentionQueue()"
+        returnUrl="/my-work"
+        [heading]="queueHeading()"
+        [emptyTitle]="queueEmptyTitle()"
+        [emptyMessage]="queueEmptyMessage()"
+      />
+
+      <section class="dashboard-grid" aria-label="Secondary My Work sections">
+        @for (section of secondarySections(); track section.key) {
           <section class="work-panel" [attr.aria-labelledby]="section.key + '-heading'">
             <div class="panel-heading">
               <h2 [id]="section.key + '-heading'">{{ section.heading }}</h2>
@@ -70,11 +118,18 @@ interface DashboardSection {
             </div>
 
             @if (section.items.length === 0) {
-              <app-empty-state [title]="section.emptyTitle" [message]="section.emptyMessage" />
+              <div class="compact-empty">
+                <strong>{{ section.emptyTitle }}</strong>
+                <span>{{ section.emptyMessage }}</span>
+              </div>
             } @else {
               <div class="work-list">
                 @for (item of section.items; track item.id) {
-                  <a class="work-row" [routerLink]="['/work-items', item.id]">
+                  <a
+                    class="work-row"
+                    [routerLink]="['/work-items', item.id]"
+                    [queryParams]="detailQueryParams()"
+                  >
                     <span class="work-row__title">
                       <strong>{{ item.title }}</strong>
                       <small>
@@ -179,52 +234,42 @@ interface DashboardSection {
       text-decoration: none;
     }
 
-    .header-action:hover {
+    .header-action:hover,
+    .active-filter a:hover,
+    .active-filter button:hover {
       border-color: #94a3b8;
       background: #f8fafc;
+      cursor: pointer;
     }
 
-    .summary-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
-      gap: 10px;
-      margin-bottom: 18px;
-    }
-
-    .summary-card {
-      display: grid;
+    .active-filter {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
       gap: 8px;
-      min-height: 92px;
-      border: 1px solid #dbe3ea;
-      border-radius: 8px;
-      padding: 14px;
+      margin-bottom: 14px;
+      color: #334155;
+      font-size: 0.8125rem;
+      font-weight: 800;
+    }
+
+    .active-filter span,
+    .active-filter a,
+    .active-filter button {
+      min-height: 30px;
+      border: 1px solid #cbd5e1;
+      border-radius: 999px;
+      padding: 5px 10px;
       background: #ffffff;
       color: #334155;
+      font: inherit;
       text-decoration: none;
-    }
-
-    .summary-card:hover {
-      border-color: #93c5fd;
-      background: #f8fafc;
-    }
-
-    .summary-card span {
-      color: #64748b;
-      font-size: 0.75rem;
-      font-weight: 900;
-      line-height: 1.3;
-      text-transform: uppercase;
-    }
-
-    .summary-card strong {
-      color: #111827;
-      font-size: 1.75rem;
-      line-height: 1;
     }
 
     .dashboard-grid {
       display: grid;
       gap: 18px;
+      margin-top: 18px;
     }
 
     .work-panel {
@@ -257,17 +302,17 @@ interface DashboardSection {
 
     .work-list {
       display: grid;
-      overflow-x: auto;
+      gap: 8px;
     }
 
     .work-row {
       display: grid;
-      grid-template-columns: minmax(280px, 2fr) minmax(120px, 0.8fr) minmax(110px, 0.7fr) minmax(160px, 1fr) minmax(150px, 1fr) minmax(110px, 0.7fr);
-      gap: 14px;
-      min-width: 1040px;
+      grid-template-columns: minmax(260px, 2fr) minmax(120px, 0.8fr) minmax(110px, 0.7fr) minmax(160px, 1fr) minmax(150px, 1fr) minmax(110px, 0.7fr);
+      gap: 12px;
       align-items: center;
-      border-top: 1px solid #eef2f7;
-      padding: 12px 10px;
+      border: 1px solid #eef2f7;
+      border-radius: 8px;
+      padding: 12px;
       color: #334155;
       font-size: 0.875rem;
       text-decoration: none;
@@ -409,10 +454,24 @@ interface DashboardSection {
       font-weight: 700;
     }
 
-    @media (max-width: 1120px) {
-      .summary-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
+    .compact-empty {
+      display: grid;
+      gap: 4px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      padding: 12px;
+      background: #f8fafc;
+    }
+
+    .compact-empty strong {
+      color: #111827;
+      font-size: 0.875rem;
+    }
+
+    .compact-empty span {
+      color: #64748b;
+      font-size: 0.8125rem;
+      line-height: 1.4;
     }
 
     @media (max-width: 760px) {
@@ -420,13 +479,7 @@ interface DashboardSection {
         flex-direction: column;
       }
 
-      .summary-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-    }
-
-    @media (max-width: 520px) {
-      .summary-grid {
+      .work-row {
         grid-template-columns: 1fr;
       }
     }
@@ -441,50 +494,81 @@ export class MyWorkPageComponent implements OnDestroy {
   readonly dashboard = signal<MyWorkDashboardDto | null>(null);
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
-  readonly sections = computed<DashboardSection[]>(() => {
+  readonly selectedSummaryKey = signal<MyWorkSummaryCountDto['key'] | null>(null);
+  readonly activeSummaryCount = computed(() => {
+    const selectedKey = this.selectedSummaryKey();
+    const dashboard = this.dashboard();
+
+    if (selectedKey === null || dashboard === null) {
+      return null;
+    }
+
+    return dashboard.summaryCounts.find((count) => count.key === selectedKey) ?? null;
+  });
+  readonly attentionQueue = computed<DailyQueueItem[]>(() => {
     const dashboard = this.dashboard();
 
     if (dashboard === null) {
       return [];
     }
 
+    const dueSoonOrOverdueIds = new Set(dashboard.dueSoonOrOverdue.map((item) => item.id));
+    const dependencyBlockedIds = new Set(
+      dashboard.dependencyBlockedAssigned.map((item) => item.id)
+    );
+
+    return dashboard.assignedToMe
+      .map((item): DailyQueueItem | null => {
+        const reasons = this.queueReasons(item, dueSoonOrOverdueIds, dependencyBlockedIds);
+        return reasons.length === 0 ? null : { item, reasons };
+      })
+      .filter((item): item is DailyQueueItem => item !== null)
+      .sort((left, right) => this.compareQueueItems(left, right));
+  });
+  readonly visibleAttentionQueue = computed<DailyQueueItem[]>(() => {
+    const selectedKey = this.selectedSummaryKey();
+    const queue = this.attentionQueue();
+
+    if (selectedKey === null || selectedKey === 'assigned_open') {
+      return queue;
+    }
+
+    if (selectedKey === 'reported_open') {
+      return [];
+    }
+
+    return queue.filter((queueItem) =>
+      queueItem.reasons.some((reason) => reason.key === selectedKey)
+    );
+  });
+  readonly secondarySections = computed<SecondaryWorkSection[]>(() => {
+    const dashboard = this.dashboard();
+
+    if (dashboard === null) {
+      return [];
+    }
+
+    const queueIds = new Set(this.attentionQueue().map((queueItem) => queueItem.item.id));
+    const reportedByMe = this.withoutIds(dashboard.reportedByMe, queueIds);
+    const reportedIds = new Set(reportedByMe.map((item) => item.id));
+    const recentlyUpdated = this.withoutIds(dashboard.recentlyUpdated, new Set([...queueIds, ...reportedIds]));
+
     return [
       {
-        key: 'assigned-to-me',
-        heading: 'Assigned to me',
-        emptyTitle: 'No assigned work',
-        emptyMessage: 'Open work assigned to this member will appear here.',
-        items: dashboard.assignedToMe
-      },
-      {
-        key: 'due-soon-or-overdue',
-        heading: 'Due soon or overdue',
-        emptyTitle: 'No urgent due dates',
-        emptyMessage: 'Work with near or missed due dates will appear here.',
-        items: dashboard.dueSoonOrOverdue
-      },
-      {
-        key: 'blocked-relevant',
-        heading: 'Blocked relevant work',
-        emptyTitle: 'No relevant blockers',
-        emptyMessage: 'Blocked assigned or reported work will appear here.',
-        items: dashboard.blockedRelevant
-      },
-      {
-        key: 'dependency-blocked-assigned',
-        heading: 'Dependency blocked assigned work',
-        emptyTitle: 'No assigned dependency blockers',
-        emptyMessage: 'Assigned work blocked by open upstream dependencies will appear here.',
-        items: dashboard.dependencyBlockedAssigned
+        key: 'reported-by-me',
+        heading: 'Reported by me',
+        emptyTitle: 'No reported open work',
+        emptyMessage: 'Open work reported by this member will appear here.',
+        items: reportedByMe
       },
       {
         key: 'recently-updated',
         heading: 'Recently updated',
         emptyTitle: 'No recent work',
         emptyMessage: 'Recently updated assigned or reported work will appear here.',
-        items: dashboard.recentlyUpdated
+        items: recentlyUpdated
       }
-    ];
+    ].filter((section) => section.key === 'reported-by-me' || section.items.length > 0);
   });
 
   private readonly actorReload = effect(() => {
@@ -525,6 +609,7 @@ export class MyWorkPageComponent implements OnDestroy {
     this.dashboardSubscription = this.api.getMyWork().subscribe({
       next: (dashboard) => {
         this.dashboard.set(dashboard);
+        this.selectedSummaryKey.set(null);
         this.isLoading.set(false);
       },
       error: () => {
@@ -545,6 +630,40 @@ export class MyWorkPageComponent implements OnDestroy {
 
   workItemStatusLabel = workItemStatusLabel;
   workItemPriorityLabel = workItemPriorityLabel;
+
+  toggleSummaryFilter(key: MyWorkSummaryCountDto['key']): void {
+    this.selectedSummaryKey.update((currentKey) => (currentKey === key ? null : key));
+  }
+
+  clearSummaryFilter(): void {
+    this.selectedSummaryKey.set(null);
+  }
+
+  detailQueryParams(): { returnUrl: string } {
+    return { returnUrl: '/my-work' };
+  }
+
+  queueHeading(): string {
+    const selectedKey = this.selectedSummaryKey();
+
+    if (selectedKey === null) {
+      return 'Next actions';
+    }
+
+    return activeSummaryFilterLabels[selectedKey];
+  }
+
+  queueEmptyTitle(): string {
+    return this.selectedSummaryKey() === null ? 'No attention needed' : 'No matching queue items';
+  }
+
+  queueEmptyMessage(): string {
+    if (this.selectedSummaryKey() === 'reported_open') {
+      return 'Reported work is shown below as secondary context.';
+    }
+
+    return 'Assigned work with this attention signal will appear here.';
+  }
 
   memberDisplayName(member: WorkspaceWorkItemListItemDto['assignee']): string {
     if (member === null) {
@@ -579,5 +698,111 @@ export class MyWorkPageComponent implements OnDestroy {
       month: 'short',
       day: 'numeric'
     }).format(new Date(year, month - 1, day));
+  }
+
+  private queueReasons(
+    item: WorkspaceWorkItemListItemDto,
+    dueSoonOrOverdueIds: Set<string>,
+    dependencyBlockedIds: Set<string>
+  ): DailyQueueReason[] {
+    const reasons: DailyQueueReason[] = [];
+
+    if (dueSoonOrOverdueIds.has(item.id) && this.isOverdue(item)) {
+      reasons.push({ key: 'overdue', label: 'Overdue', tone: 'critical' });
+    } else if (dueSoonOrOverdueIds.has(item.id) && this.isDueSoon(item)) {
+      reasons.push({ key: 'due_soon', label: 'Due soon', tone: 'warning' });
+    }
+
+    if (item.status === 'blocked') {
+      reasons.push({ key: 'blocked', label: 'Blocked', tone: 'critical' });
+    }
+
+    if (dependencyBlockedIds.has(item.id) || item.dependencyBlocked || item.openBlockerCount > 0) {
+      reasons.push({ key: 'dependency_blocked', label: 'Dependency blocked', tone: 'critical' });
+    }
+
+    if (this.isStaleInProgress(item)) {
+      reasons.push({ key: 'stale_assigned', label: 'Stale', tone: 'warning' });
+    }
+
+    if (item.priority === 'urgent' && reasons.length === 0) {
+      reasons.push({ key: 'assigned_open', label: 'Urgent priority', tone: 'warning' });
+    }
+
+    return reasons;
+  }
+
+  private compareQueueItems(left: DailyQueueItem, right: DailyQueueItem): number {
+    const leftSeverity = this.queueSeverity(left);
+    const rightSeverity = this.queueSeverity(right);
+
+    if (leftSeverity !== rightSeverity) {
+      return leftSeverity - rightSeverity;
+    }
+
+    const leftDueDate = left.item.dueDate ?? '9999-12-31';
+    const rightDueDate = right.item.dueDate ?? '9999-12-31';
+    const dueDateCompare = leftDueDate.localeCompare(rightDueDate);
+
+    if (dueDateCompare !== 0) {
+      return dueDateCompare;
+    }
+
+    const priorityCompare =
+      (priorityOrder.get(left.item.priority) ?? 99) - (priorityOrder.get(right.item.priority) ?? 99);
+
+    if (priorityCompare !== 0) {
+      return priorityCompare;
+    }
+
+    return right.item.updatedAt.localeCompare(left.item.updatedAt);
+  }
+
+  private queueSeverity(queueItem: DailyQueueItem): number {
+    if (queueItem.reasons.some((reason) => reason.tone === 'critical')) {
+      return 0;
+    }
+
+    if (queueItem.reasons.some((reason) => reason.tone === 'warning')) {
+      return 1;
+    }
+
+    return 2;
+  }
+
+  private withoutIds(
+    items: WorkspaceWorkItemListItemDto[],
+    ignoredIds: Set<string>
+  ): WorkspaceWorkItemListItemDto[] {
+    return items.filter((item) => !ignoredIds.has(item.id));
+  }
+
+  private isOverdue(item: WorkspaceWorkItemListItemDto): boolean {
+    return item.dueDate !== null && item.dueDate < this.dateString(new Date());
+  }
+
+  private isDueSoon(item: WorkspaceWorkItemListItemDto): boolean {
+    if (item.dueDate === null || this.isOverdue(item)) {
+      return false;
+    }
+
+    return item.dueDate <= this.dateString(this.addDays(new Date(), dueSoonWindowDays));
+  }
+
+  private isStaleInProgress(item: WorkspaceWorkItemListItemDto): boolean {
+    return (
+      item.status === 'in_progress' &&
+      new Date(item.updatedAt).getTime() < this.addDays(new Date(), -staleInProgressDays).getTime()
+    );
+  }
+
+  private addDays(date: Date, days: number): Date {
+    const nextDate = new Date(date.getTime());
+    nextDate.setDate(nextDate.getDate() + days);
+    return nextDate;
+  }
+
+  private dateString(date: Date): string {
+    return date.toISOString().slice(0, 10);
   }
 }

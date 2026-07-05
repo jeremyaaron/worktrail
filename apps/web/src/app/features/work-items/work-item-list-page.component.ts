@@ -19,11 +19,11 @@ import { Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorkItemListFilters, WorktrailApiService } from '../../core/worktrail-api.service';
-import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
-import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
-import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
 import { downloadBlob, fileNameFromContentDisposition } from '../../shared/download-file';
 import { dependencyFilterLabel } from '../../shared/work-items/work-item-display';
+import { ActiveFilterChipsComponent } from './components/active-filter-chips.component';
+import { WorkItemFilterPanelComponent } from './components/work-item-filter-panel.component';
+import { WorkItemResultListComponent } from './components/work-item-result-list.component';
 
 const statuses: WorkItemStatus[] = [
   'backlog',
@@ -85,11 +85,11 @@ const defaultFilterValues: WorkItemFilterFormValue = {
 @Component({
   selector: 'app-work-item-list-page',
   imports: [
-    EmptyStateComponent,
-    ErrorPanelComponent,
-    LoadingIndicatorComponent,
+    ActiveFilterChipsComponent,
     ReactiveFormsModule,
-    RouterLink
+    RouterLink,
+    WorkItemFilterPanelComponent,
+    WorkItemResultListComponent
   ],
   template: `
     <section class="page-header">
@@ -134,13 +134,13 @@ const defaultFilterValues: WorkItemFilterFormValue = {
       </section>
     }
 
-    <form class="filters" [formGroup]="filterForm" (ngSubmit)="applyFilters()">
-      <label>
+    <app-work-item-filter-panel [formGroup]="filterForm" (apply)="applyFilters()">
+      <label filterCore>
         <span>Search</span>
         <input type="search" formControlName="search" placeholder="Key, title, or description" />
       </label>
 
-      <label>
+      <label filterCore>
         <span>Status</span>
         <select formControlName="status">
           <option value="">All statuses</option>
@@ -150,7 +150,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
         </select>
       </label>
 
-      <label>
+      <label filterCore>
         <span>Assignee</span>
         <select formControlName="assigneeId">
           <option value="">Any assignee</option>
@@ -160,7 +160,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
         </select>
       </label>
 
-      <label>
+      <label filterCore>
         <span>Reporter</span>
         <select formControlName="reporterId">
           <option value="">Any reporter</option>
@@ -170,7 +170,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
         </select>
       </label>
 
-      <label>
+      <label filterAdvanced>
         <span>Type</span>
         <select formControlName="type">
           <option value="">All types</option>
@@ -180,7 +180,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
         </select>
       </label>
 
-      <label>
+      <label filterAdvanced>
         <span>Label</span>
         <select formControlName="labelId">
           <option value="">All labels</option>
@@ -190,7 +190,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
         </select>
       </label>
 
-      <label>
+      <label filterAdvanced>
         <span>Milestone</span>
         <select formControlName="milestoneId">
           <option value="">All milestones</option>
@@ -200,7 +200,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
         </select>
       </label>
 
-      <label>
+      <label filterAdvanced>
         <span>Priority</span>
         <select formControlName="priority">
           <option value="">All priorities</option>
@@ -210,7 +210,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
         </select>
       </label>
 
-      <label>
+      <label filterAdvanced>
         <span>Due date</span>
         <select formControlName="dueDateState">
           <option value="">Any due date</option>
@@ -220,7 +220,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
         </select>
       </label>
 
-      <label>
+      <label filterAdvanced>
         <span>Dependency</span>
         <select formControlName="dependency">
           <option value="">Any dependency state</option>
@@ -230,7 +230,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
         </select>
       </label>
 
-      <label>
+      <label filterAdvanced>
         <span>Sort</span>
         <select formControlName="sort">
           @for (sort of sorts; track sort.value) {
@@ -239,96 +239,25 @@ const defaultFilterValues: WorkItemFilterFormValue = {
         </select>
       </label>
 
-      <div class="filter-actions">
+      <div filterActions>
         <button type="button" class="secondary-action" (click)="clearFilters()">Clear</button>
       </div>
-    </form>
+    </app-work-item-filter-panel>
 
-    @if (activeFilterLabels().length > 0) {
-      <section class="active-filters" aria-label="Active filters">
-        @for (label of activeFilterLabels(); track label) {
-          <span>{{ label }}</span>
-        }
-      </section>
-    }
+    <app-active-filter-chips [labels]="activeFilterLabels()" (remove)="removeActiveFilter($event)" />
 
-    <section class="list-panel">
-      <div class="list-heading">
-        <h2>{{ workItems().length }} work items</h2>
-      </div>
-
-      @if (isLoading()) {
-        <app-loading-indicator label="Loading work items" />
-      } @else if (error()) {
-        <app-error-panel [message]="error() ?? ''" (retry)="loadWorkItems()" />
-      } @else if (workItems().length === 0) {
-        <app-empty-state
-          [title]="activeFilterLabels().length > 0 ? 'No work items match these filters' : 'No work items yet'"
-          [message]="activeFilterLabels().length > 0 ? 'Clear filters or adjust the criteria to broaden the list.' : 'Create the first work item for this project.'"
-        />
-      } @else {
-        <div class="work-item-table" role="table" aria-label="Work items">
-          <div class="work-item-table__head" role="row">
-            <span>Title</span>
-            <span>Status</span>
-            <span>Assignee</span>
-            <span>Planning</span>
-            <span>Priority</span>
-            <span>Updated</span>
-          </div>
-
-          @for (item of workItems(); track item.id) {
-            <a class="work-item-row" role="row" [routerLink]="['/work-items', item.id]">
-              <span class="work-item-row__title">
-                <strong>{{ item.title }}</strong>
-                <small class="row-meta">
-                  <span class="key-pill">{{ item.displayKey }}</span>
-                  <span class="type-pill">{{ formatToken(item.type) }}</span>
-                  @if (item.milestone === null) {
-                    <span class="muted-pill">No milestone</span>
-                  } @else {
-                    <span class="milestone-pill">{{ item.milestone.name }}</span>
-                  }
-                  @if (item.labels.length === 0) {
-                    <span class="muted-pill">No labels</span>
-                  } @else {
-                    @for (label of item.labels; track label.id) {
-                      <span class="label-pill" [style.border-color]="label.color ?? '#cbd5e1'">
-                        {{ label.name }}
-                      </span>
-                    }
-                  }
-                  @if (item.openBlockerCount > 0) {
-                    <span class="dependency-pill">Blocked by {{ item.openBlockerCount }}</span>
-                  }
-                  @if (item.openBlockedWorkCount > 0) {
-                    <span class="dependency-pill">Blocks {{ item.openBlockedWorkCount }}</span>
-                  }
-                </small>
-              </span>
-              <span class="status-pill" [attr.data-status]="item.status">{{ formatToken(item.status) }}</span>
-              <span
-                class="assignee-pill"
-                [class.assignee-pill--empty]="item.assignee === null"
-                [class.assignee-pill--inactive]="item.assignee?.isActive === false"
-              >
-                {{ item.assignee === null ? 'Unassigned' : memberDisplayName(item.assignee) }}
-              </span>
-              <span class="planning-cell">
-                <span [class.muted-pill]="item.milestone === null" [class.milestone-pill]="item.milestone !== null">
-                  {{ item.milestone?.name ?? 'No milestone' }}
-                </span>
-                <small>{{ item.dueDate === null ? 'No due date' : 'Due ' + formatDateOnly(item.dueDate) }}</small>
-              </span>
-              <span class="priority-pill" [attr.data-priority]="item.priority">
-                {{ formatToken(item.priority) }}
-              </span>
-              <span>{{ formatDate(item.updatedAt) }}</span>
-            </a>
-          }
-        </div>
-      }
-    </section>
+    <app-work-item-result-list
+      [items]="workItems()"
+      mode="project"
+      [isLoading]="isLoading()"
+      [error]="error()"
+      loadingLabel="Loading work items"
+      ariaLabel="Work items"
+      [emptyTitle]="activeFilterLabels().length > 0 ? 'No work items match these filters' : 'No work items yet'"
+      [emptyMessage]="activeFilterLabels().length > 0 ? 'Clear filters or adjust the criteria to broaden the list.' : 'Create the first work item for this project.'"
+      [returnUrl]="detailReturnUrl()"
+      (retry)="loadWorkItems()"
+    />
   `,
   styles: `
     .page-header {
@@ -911,6 +840,45 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     return this.getActiveFilterLabels();
   }
 
+  detailReturnUrl(): string {
+    return this.toReturnUrl(
+      `/projects/${this.projectId()}/work-items`,
+      this.toQueryParams(this.toFilters(this.appliedFilterValues()))
+    );
+  }
+
+  removeActiveFilter(label: string): void {
+    const filterName = label.split(':', 1)[0];
+    const updates: Partial<WorkItemFilterFormValue> = {};
+
+    if (filterName === 'Search') {
+      updates.search = '';
+    } else if (filterName === 'Status') {
+      updates.status = '';
+    } else if (filterName === 'Assignee') {
+      updates.assigneeId = '';
+    } else if (filterName === 'Reporter') {
+      updates.reporterId = '';
+    } else if (filterName === 'Type') {
+      updates.type = '';
+    } else if (filterName === 'Label') {
+      updates.labelId = '';
+    } else if (filterName === 'Milestone') {
+      updates.milestoneId = '';
+    } else if (filterName === 'Priority') {
+      updates.priority = '';
+    } else if (filterName === 'Due date') {
+      updates.dueDateState = '';
+    } else if (filterName === 'Dependency') {
+      updates.dependency = '';
+    } else if (filterName === 'Sort') {
+      updates.sort = 'updated_desc';
+    }
+
+    this.filterForm.patchValue(updates, { emitEvent: false });
+    this.applyFilters();
+  }
+
   memberDisplayName(member: MemberDto): string {
     return member.isActive ? member.name : `${member.name} (inactive)`;
   }
@@ -955,6 +923,19 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
       dependency: filters.dependency ?? null,
       sort: sort === 'updated_desc' ? null : sort
     };
+  }
+
+  private toReturnUrl(path: string, queryParams: Record<string, string | null>): string {
+    const searchParams = new URLSearchParams();
+
+    for (const [key, value] of Object.entries(queryParams)) {
+      if (value !== null) {
+        searchParams.set(key, value);
+      }
+    }
+
+    const queryString = searchParams.toString();
+    return queryString === '' ? path : `${path}?${queryString}`;
   }
 
   private watchFilterChanges(): void {

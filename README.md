@@ -1,6 +1,8 @@
 # Worktrail
 
-Worktrail is a project management reference app. The v0.0.9 release is a local-first Angular + TypeScript API + Postgres application that focuses on daily team workflow, operational credibility, data portability, dependency visibility, and delivery health: My Work, cross-project discovery, saved views, quick work capture, workspace governance, planning, durable boards, work item relationships, dependency-blocked signals, milestone health, project delivery-health summaries, planning review sections, comments, activity, CSV import/export, production-like preview, health/readiness checks, and checked-in API documentation.
+Worktrail is a project management reference app. The v0.1.0 baseline is a local-first Angular + TypeScript API + Postgres application focused on daily team workflow, cross-project work discovery, dependency-aware planning, workspace governance, data portability, and production-shaped application boundaries.
+
+The app includes My Work, top-level Work Items discovery, saved views, quick work capture, persistent project workspaces, planning review, milestone management, durable boards, work item relationships, dependency-blocked signals, project delivery health, comments, activity, CSV import/export, production-like preview, health/readiness checks, checked-in API documentation, CI, lint, and responsive work item scanning.
 
 The app is intentionally built as a credible product surface before extracting broader framework patterns. It runs locally today, while preserving a path toward an S3/CloudFront Angular frontend with API Gateway/Lambda-style endpoint handlers and managed Postgres.
 
@@ -22,6 +24,7 @@ docs/
   v0.0.7/  CSV import/export PRD, technical design, implementation plan, guide, and extraction notes
   v0.0.8/  Relationship/dependency PRD, technical design, implementation plan, and extraction notes
   v0.0.9/  Delivery-health PRD, technical design, implementation plan, and extraction notes
+  v0.1.0/  Consolidation PRD, technical design, implementation plan, audits, and extraction notes
   api/     OpenAPI reference
 site/       Static GitHub Pages product site
 e2e/        Playwright smoke tests
@@ -84,7 +87,7 @@ Local services:
 
 ## Production Preview
 
-v0.0.6 introduced a production-like local preview. It builds contracts, the API, and the Angular app, then runs compiled API code while Express serves the built Angular assets and `/api/*` routes from one origin.
+Production preview builds contracts, the API, and the Angular app, then runs compiled API code while Express serves the built Angular assets and `/api/*` routes from one origin.
 
 After migrations and seed data are in place:
 
@@ -154,7 +157,7 @@ My Work includes a dependency-blocked assigned summary and section. Planning inc
 
 ## Delivery Health And Planning Review
 
-v0.0.9 adds derived delivery health to project overview and planning.
+Derived delivery health appears on project overview and planning surfaces.
 
 Delivery-health support includes:
 
@@ -171,12 +174,15 @@ Delivery health is derived at read time from milestones, work item status, due d
 ## Verification
 
 ```sh
+npm run lint
 npm run typecheck
 npm test
 npm run test:e2e
 npm run build
 npm audit --omit=dev --audit-level=low
 ```
+
+CI runs `npm ci`, `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` on pull requests and pushes to `main`. The verify job provisions a Postgres service, sets `DATABASE_URL`, and runs `npm run db:reset && npm run db:migrate && npm run db:seed` before tests. Playwright remains a local smoke test because it provisions and resets a local Postgres-backed app.
 
 `npm run test:e2e` starts the local API and Angular dev server through Playwright. By default it runs:
 
@@ -219,7 +225,7 @@ Suggested walkthrough:
 4. Save a useful cross-project filter as a personal saved view, reload the page, and reopen it.
 5. Use the global Create work item route, select a project, choose project-dependent labels or milestones, create work, and open the created item.
 6. Open Projects, search by project name or key, and review project summary signals for open, blocked, overdue, status, and last updated state.
-7. Open Workspace and review role summaries, members, and workspace activity.
+7. Open Workspace Settings and review role summaries, members, and workspace activity.
 8. As Avery Owner, create a contributor, promote the member to maintainer, deactivate the member, and reactivate the member.
 9. Confirm the actor selector updates when active members are created, changed, deactivated, and reactivated.
 10. Switch to a maintainer and confirm project creation is available, then create a project with an explicit key.
@@ -241,7 +247,7 @@ Suggested walkthrough:
 26. Add a blocking relationship, confirm the downstream dependency signal appears, move the blocker to done, and confirm the dependency signal clears.
 27. Open the archived project to confirm read-only project, milestone, work item, label, comment, relationship, import, and transition behavior.
 
-Suggested v0.0.9 additions:
+Suggested delivery-health checks:
 
 1. Open the Worktrail App project overview and review the compact delivery-health panel.
 2. Follow a delivery-health reason link into a filtered project work item list.
@@ -249,14 +255,18 @@ Suggested v0.0.9 additions:
 4. Review Needs attention, Upcoming, and Recently changed planning review sections.
 5. Confirm blocked and dependency-blocked seed items affect project health, while the healthy milestone remains on track.
 
-## v0.0.9 Capabilities
+## v0.1.0 Baseline Capabilities
 
 - My Work dashboard for the selected active actor.
+- Prioritized My Work daily queue for assigned, due-soon, overdue, blocked, dependency-blocked, stale, reported, and recently updated work.
+- Top-level Work Items destination for cross-project discovery.
 - Dashboard summary counts linked to filtered cross-project discovery.
 - Cross-project work item discovery with URL-backed search, filters, sorts, project identity, archived-project modes, and active filter pills.
+- Compact mobile work item cards for readable work scanning on narrow screens.
 - Personal saved work views with create, open, rename, update, delete, duplicate-name validation, and stale-query tolerance.
 - Global quick work capture at `/work-items/new` with active project selection and project-dependent labels and milestones.
 - Project-scoped work item creation still works with the project preselected and the same success actions.
+- Persistent project shell with project identity, status, delivery health, and consistent Overview, Work, Board, Planning, and Settings navigation.
 - Project navigation summaries with project search by name/key, active/archived grouping, open count, blocked count, overdue count, and updated timestamp.
 - Workspace settings for workspace name, role summary, member administration, and workspace activity.
 - Owner-only member creation, profile editing, role changes, deactivation, and reactivation.
@@ -269,6 +279,7 @@ Suggested v0.0.9 additions:
 - Project settings for metadata, archive/reactivate, and label administration.
 - Project-scoped milestones with due dates, archive/reactivate behavior, assignment on create/edit, and activity coverage.
 - Planning dashboard with milestone progress, due-soon/overdue work, blocked work, unassigned work, stale work, and links back into filtered lists.
+- Review-first planning with Planning Review and Milestones views.
 - Project work item list search and filters for status, type, priority, assignee, reporter, label, milestone, due date, dependency state, and sort.
 - Project-scoped CSV import with dry-run preview, normalized rows, row-level validation errors, and transactional apply.
 - Project and workspace CSV export that serializes the currently applied filters.
@@ -300,14 +311,16 @@ Suggested v0.0.9 additions:
 - Liveness and database readiness endpoints at `/api/health/live` and `/api/health/ready`.
 - OpenAPI reference under `docs/api/openapi.yaml`.
 - Operations runbook for runtime modes, environment variables, migrations, seed/reset flow, preview, health checks, troubleshooting, and future cloud mapping.
+- ESLint guardrails for API, web, and contracts workspaces.
+- GitHub Actions CI for lint, typecheck, tests with a Postgres service, and production build.
 
-## v0.0.9 Limitations
+## v0.1.0 Limitations
 
 - Authentication is represented by local request headers and the top-bar actor selector.
 - Permissions are enforced against local member records and are useful for exercising policy paths, but they are not production authentication.
 - Production preview is not a secure public deployment and should not be exposed as an authenticated product.
 - Delivery health is deterministic and rule-based; custom health formulas, forecasting, critical path analysis, charts, notifications, and saved review snapshots are deferred.
-- Saved views are personal only in v0.0.9; workspace-visible shared saved views are deferred.
+- Saved views are personal only in v0.1.0; workspace-visible shared saved views are deferred.
 - CSV import is project-scoped and limited to 1 MiB and 250 data rows per file.
 - CSV import supports Worktrail's current columns only; third-party tracker migration mappings are deferred.
 - CSV export is a direct file download; export history, scheduled exports, and alternate formats are deferred.
@@ -316,7 +329,7 @@ Suggested v0.0.9 additions:
 - Relationship activity is recorded on the command context item only to avoid noisy cross-project activity.
 - Custom workflows, file attachments, notifications, and production auth are intentionally out of scope.
 - Invitations, multi-workspace switching, custom roles, project-specific membership, pinned projects, recent projects, and audit export are intentionally out of scope.
-- The local Express adapter is the only runtime adapter in v0.0.9, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
+- The local Express adapter is the only runtime adapter in v0.1.0, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
 - AWS deployment assets are not included yet; the Angular static build and transport-neutral handlers preserve that path.
 - Readiness checks database connectivity only; migration drift detection, metrics, tracing, and managed deployment runbooks are deferred.
 

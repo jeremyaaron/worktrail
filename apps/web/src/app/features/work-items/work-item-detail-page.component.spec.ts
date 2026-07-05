@@ -27,6 +27,7 @@ const nextMilestoneId = '10000000-0000-4000-8000-000000000502';
 const blockerWorkItemId = '10000000-0000-4000-8000-000000000404';
 const blockedWorkItemId = '10000000-0000-4000-8000-000000000405';
 const relatedWorkItemId = '10000000-0000-4000-8000-000000000406';
+let routeQueryParams: Record<string, string>;
 
 const owner: MemberDto = {
   id: ownerId,
@@ -260,6 +261,8 @@ function setup(input: { workItem?: WorkItemDetailDto; project?: ProjectDto } = {
 
 describe('WorkItemDetailPageComponent', () => {
   beforeEach(async () => {
+    routeQueryParams = {};
+
     await TestBed.configureTestingModule({
       imports: [WorkItemDetailPageComponent],
       providers: [
@@ -270,7 +273,10 @@ describe('WorkItemDetailPageComponent', () => {
           provide: ActivatedRoute,
           useValue: {
             snapshot: {
-              paramMap: convertToParamMap({ workItemId })
+              paramMap: convertToParamMap({ workItemId }),
+              get queryParamMap() {
+                return convertToParamMap(routeQueryParams);
+              }
             }
           }
         }
@@ -295,6 +301,35 @@ describe('WorkItemDetailPageComponent', () => {
     expect(compiled.textContent).toContain('v0.0.3');
     expect(compiled.textContent).toContain('Initial implementation note.');
     expect(compiled.textContent).toContain('Avery Owner created this work item.');
+  });
+
+  it('uses safe return context and rejects external return URLs', () => {
+    routeQueryParams = {
+      returnUrl: `/projects/${projectId}/work-items?status=blocked&sort=priority_desc`
+    };
+    const { fixture } = setup();
+    const backLink = (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>(
+      '.detail-header a'
+    );
+
+    expect(backLink?.getAttribute('href')).toBe(
+      `/projects/${projectId}/work-items?status=blocked&sort=priority_desc`
+    );
+
+    routeQueryParams = { returnUrl: 'https://example.com/phish' };
+    const unsafeFixture = TestBed.createComponent(WorkItemDetailPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    unsafeFixture.detectChanges();
+    http.expectOne(`/api/work-items/${workItemId}`).flush(detail);
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/labels`).flush([]);
+    http.expectOne(`/api/projects/${projectId}/milestones`).flush([]);
+    unsafeFixture.detectChanges();
+
+    const fallbackLink = (unsafeFixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>(
+      '.detail-header a'
+    );
+    expect(fallbackLink?.getAttribute('href')).toBe(`/projects/${projectId}/work-items`);
   });
 
   it('renders relationship sections with linked work item metadata', () => {

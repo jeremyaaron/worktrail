@@ -267,7 +267,8 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect(compiled.textContent).toContain('Due Jul 8');
     expect(compiled.textContent).toContain('Blocked by 2');
     expect(compiled.textContent).toContain('Blocks 1');
-    expect(row?.getAttribute('href')).toBe(`/work-items/${workItemId}`);
+    expect(row?.getAttribute('href')).toContain(`/work-items/${workItemId}`);
+    expect(row?.getAttribute('href')).toContain('returnUrl=');
     expect(activeFilters).toContain('Search: workspace');
     expect(activeFilters).toContain('Project: WT · Worktrail App');
     expect(activeFilters).toContain('Status: In progress');
