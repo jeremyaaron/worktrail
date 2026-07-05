@@ -524,6 +524,24 @@ git diff --check
 git status --short --branch
 ```
 
+Status: Completed on 2026-07-04.
+
+Notes:
+
+- Updated `README.md` for v0.0.6 capabilities, production preview, liveness/readiness, OpenAPI reference, operations runbook, and current limitations.
+- Updated the static product site for production preview, readiness checks, API documentation, the operations runbook, and cloud-shaped runtime boundaries.
+- Added `docs/v0.0.6/jawstack-extraction-notes.md` with reusable operational patterns and deferred abstractions.
+- Bumped root, app, and package versions to `0.0.6`.
+- Updated `@worktrail/api` to depend on `@worktrail/contracts@0.0.6`.
+- Updated `package-lock.json`.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `npm run test:e2e`.
+- Verified `npm run build`.
+- Verified `npm audit --omit=dev --audit-level=low`.
+- Verified `git diff --check`.
+- Verified `git status --short --branch`.
+
 ## Phase 8: Final Preview And Release Verification
 
 Goal: complete the operational verification that distinguishes v0.0.6 from a standard code release.
@@ -574,3 +592,29 @@ npm audit --omit=dev --audit-level=low
 git diff --check
 git status --short --branch
 ```
+
+Status: Completed on 2026-07-04.
+
+Notes:
+
+- Reset, migrated, and seeded the local database.
+- Built contracts, API, and Angular production artifacts with `npm run build`.
+- Started production preview from compiled API code and built Angular assets with `DATABASE_URL=postgres://worktrail:worktrail@localhost:5432/worktrail npm run start:prod`.
+- Verified startup logs reported production mode, static asset serving, liveness URL, and readiness URL.
+- Verified `GET /api/health/live` returned `200`.
+- Verified `GET /api/health/ready` returned `200` with database readiness.
+- Verified production preview returned Angular HTML for:
+  - `/my-work`;
+  - `/work-items`;
+  - `/work-items/new`;
+  - `/work-items/10000000-0000-4000-8000-000000000401`;
+  - `/projects/10000000-0000-4000-8000-000000000201/board`.
+- Verified `/api/unknown` returned an API `404` instead of SPA fallback HTML.
+- Verified browser refresh on the lazy work item detail route using Playwright against the production preview.
+- Stopped the preview process and confirmed port `3000` was closed.
+- Verified `npm run typecheck`.
+- Verified `npm test`.
+- Verified `npm run test:e2e`; the E2E suite restored deterministic seed data after mutation-heavy checks.
+- Verified `npm audit --omit=dev --audit-level=low`.
+- Verified `git diff --check`.
+- Verified no server process remained listening on ports `3000`, `4200`, or `9876`.
