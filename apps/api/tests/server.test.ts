@@ -1,3 +1,8 @@
+import { randomUUID } from 'node:crypto';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
@@ -6,6 +11,15 @@ import { createExpressApp } from '../src/adapters/express/server.js';
 import { ValidationError } from '../src/errors/app-error.js';
 import type { Repositories } from '../src/repositories/index.js';
 import { parseWithSchema } from '../src/validation/parse.js';
+
+async function createStaticFixture(): Promise<string> {
+  const directory = await mkdtemp(join(tmpdir(), 'worktrail-static-'));
+
+  await writeFile(join(directory, 'index.html'), '<!doctype html><title>Worktrail</title><app-root></app-root>');
+  await writeFile(join(directory, 'asset.txt'), 'static asset response');
+
+  return directory;
+}
 
 describe('Express API foundation', () => {
   it('returns health through the endpoint adapter', async () => {
@@ -256,6 +270,84 @@ describe('Express API foundation', () => {
       });
 
     errorSpy.mockRestore();
+  });
+
+  it('serves configured static assets', async () => {
+    const directory = await createStaticFixture();
+
+    try {
+      const app = createExpressApp({ staticAssets: { directory } });
+
+      await request(app)
+        .get('/asset.txt')
+        .expect(200)
+        .expect(({ text }) => {
+          expect(text).toBe('static asset response');
+        });
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+
+  it('serves the SPA index for non-API deep links', async () => {
+    const directory = await createStaticFixture();
+
+    try {
+      const app = createExpressApp({ staticAssets: { directory } });
+
+      await request(app)
+        .get('/projects/10000000-0000-4000-8000-000000000201/board')
+        .expect(200)
+        .expect(({ text }) => {
+          expect(text).toContain('<app-root></app-root>');
+        });
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+
+  it('keeps API routes ahead of static fallback', async () => {
+    const directory = await createStaticFixture();
+
+    try {
+      const app = createExpressApp({ staticAssets: { directory } });
+
+      await request(app)
+        .get('/api/health')
+        .expect(200)
+        .expect(({ body, text }) => {
+          expect(body.status).toBe('ok');
+          expect(body.service).toBe('worktrail-api');
+          expect(text).not.toContain('<app-root></app-root>');
+        });
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+
+  it('does not swallow unknown API routes with the SPA fallback', async () => {
+    const directory = await createStaticFixture();
+
+    try {
+      const app = createExpressApp({ staticAssets: { directory } });
+
+      await request(app)
+        .get('/api/unknown')
+        .expect(404)
+        .expect(({ text }) => {
+          expect(text).not.toContain('<app-root></app-root>');
+        });
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+
+  it('fails fast when a configured static assets directory is missing', () => {
+    const directory = join(tmpdir(), `worktrail-static-missing-${randomUUID()}`);
+
+    expect(() => createExpressApp({ staticAssets: { directory } })).toThrow(
+      `Static assets directory does not exist: ${directory}`
+    );
   });
 });
 

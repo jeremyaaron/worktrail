@@ -265,6 +265,21 @@ npm test --workspace @worktrail/api
 git diff --check
 ```
 
+Status: Completed on 2026-07-04.
+
+Notes:
+
+- Added `staticAssets` options to `createExpressApp`.
+- Added adapter-only static file serving after API and test route registration.
+- Added non-API GET fallback to the configured SPA `index.html`.
+- Preserved `/api/*` behavior so API routes and unknown API paths are not swallowed by the SPA fallback.
+- Added fail-fast validation for configured static asset directories and index files.
+- Added server tests for static file serving, SPA deep-link fallback, API route precedence, unknown API route behavior, and missing directory behavior.
+- Verified `npm test --workspace @worktrail/api -- server`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `npm run typecheck --if-present`.
+
 ## Phase 4: Production Preview Wiring
 
 Goal: provide a documented command path for running built Worktrail artifacts locally.

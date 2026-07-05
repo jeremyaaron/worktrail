@@ -1,5 +1,7 @@
 import cors from 'cors';
 import express, { type Express } from 'express';
+import { existsSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 
 import {
   listProjectActivityHandler,
@@ -77,7 +79,13 @@ export interface CreateExpressAppOptions {
   repositories?: Repositories;
   db?: WorktrailDb;
   healthCheckPool?: HealthCheckPool;
+  staticAssets?: StaticAssetOptions;
   testRoutes?: Record<string, EndpointHandler>;
+}
+
+export interface StaticAssetOptions {
+  directory: string;
+  indexFile?: string;
 }
 
 export function createExpressApp(options: CreateExpressAppOptions = {}): Express {
@@ -363,5 +371,52 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
     app.all(path, adaptEndpoint(handler, { repositories: options.repositories }));
   }
 
+  if (options.staticAssets !== undefined) {
+    configureStaticAssets(app, options.staticAssets);
+  }
+
   return app;
+}
+
+function configureStaticAssets(app: Express, options: StaticAssetOptions): void {
+  const indexFile = options.indexFile ?? 'index.html';
+  const indexPath = join(options.directory, indexFile);
+
+  assertStaticAssetPath(options.directory, 'Static assets directory', 'directory');
+  assertStaticAssetPath(indexPath, 'Static assets index file', 'file');
+
+  app.use(
+    express.static(options.directory, {
+      index: false
+    })
+  );
+
+  app.use((request, response, next) => {
+    if (request.method !== 'GET' || request.path === '/api' || request.path.startsWith('/api/')) {
+      next();
+      return;
+    }
+
+    response.sendFile(indexPath, (error) => {
+      if (error !== undefined) {
+        next(error);
+      }
+    });
+  });
+}
+
+function assertStaticAssetPath(path: string, label: string, expectedType: 'directory' | 'file'): void {
+  if (!existsSync(path)) {
+    throw new Error(`${label} does not exist: ${path}`);
+  }
+
+  const stats = statSync(path);
+
+  if (expectedType === 'directory' && !stats.isDirectory()) {
+    throw new Error(`${label} is not a directory: ${path}`);
+  }
+
+  if (expectedType === 'file' && !stats.isFile()) {
+    throw new Error(`${label} is not a file: ${path}`);
+  }
 }
