@@ -35,10 +35,12 @@ export type WorkItemStatus =
   | 'canceled';
 export type WorkItemPriority = 'low' | 'medium' | 'high' | 'urgent';
 export type MilestoneStatus = 'planned' | 'active' | 'completed' | 'canceled';
+export type WorkItemRelationshipType = 'blocks' | 'relates_to';
 export type DueDateState = 'overdue' | 'due_soon' | 'none';
 export type ArchivedProjectMode = 'exclude' | 'include' | 'only';
 export type AssigneeState = 'assigned' | 'unassigned';
 export type WorkItemState = 'open' | 'terminal';
+export type DependencyFilter = 'dependency_blocked' | 'blocking_open_work';
 export type WorkItemSort =
   | 'updated_desc'
   | 'updated_asc'
@@ -60,6 +62,7 @@ export interface WorkItemQuery {
   milestoneId?: string;
   dueDateState?: DueDateState;
   blocked?: boolean;
+  dependency?: DependencyFilter;
   archivedProjects?: ArchivedProjectMode;
   search?: string;
   sort?: WorkItemSort;
@@ -90,6 +93,8 @@ export type ActivityEventType =
   | 'work_item.milestone_changed'
   | 'work_item.label_added'
   | 'work_item.label_removed'
+  | 'work_item.relationship_added'
+  | 'work_item.relationship_removed'
   | 'comment.added'
   | 'comment.edited'
   | 'comment.deleted';
@@ -256,18 +261,68 @@ export interface WorkItemListItemDto {
   boardPosition: number;
   dueDate: string | null;
   estimatePoints: number | null;
+  dependencyBlocked: boolean;
+  openBlockerCount: number;
+  openBlockedWorkCount: number;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface WorkItemDetailDto extends WorkItemListItemDto {
   description: string;
+  relationships: WorkItemRelationshipSummaryDto;
   comments: CommentDto[];
   activity: ActivityEventDto[];
 }
 
 export interface WorkspaceWorkItemListItemDto extends WorkItemListItemDto {
   project: Pick<ProjectDto, 'id' | 'key' | 'name' | 'status'>;
+}
+
+export interface WorkItemRelationshipWorkItemDto {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  project: Pick<ProjectDto, 'id' | 'key' | 'name' | 'status'>;
+  displayKey: string;
+  title: string;
+  status: WorkItemStatus;
+  priority: WorkItemPriority;
+  assignee: MemberDto | null;
+}
+
+export interface WorkItemRelationshipItemDto {
+  id: string;
+  relationshipType: WorkItemRelationshipType;
+  direction: 'inbound' | 'outbound' | 'related';
+  workItem: WorkItemRelationshipWorkItemDto;
+  createdBy: MemberDto;
+  createdAt: string;
+}
+
+export interface WorkItemRelationshipSummaryDto {
+  blockedBy: WorkItemRelationshipItemDto[];
+  blocks: WorkItemRelationshipItemDto[];
+  related: WorkItemRelationshipItemDto[];
+  dependencyBlocked: boolean;
+  openBlockerCount: number;
+  openBlockedWorkCount: number;
+}
+
+export interface CreateWorkItemRelationshipRequest {
+  relationshipType: WorkItemRelationshipType;
+  targetWorkItemId: string;
+}
+
+export interface WorkItemRelationshipDto {
+  id: string;
+  relationshipType: WorkItemRelationshipType;
+  sourceWorkItemId: string;
+  targetWorkItemId: string;
+  sourceWorkItem: WorkItemRelationshipWorkItemDto;
+  targetWorkItem: WorkItemRelationshipWorkItemDto;
+  createdBy: MemberDto;
+  createdAt: string;
 }
 
 export interface WorkItemCsvImportPreviewRequest {
@@ -324,6 +379,7 @@ export interface MyWorkSummaryCountDto {
     | 'due_soon'
     | 'overdue'
     | 'blocked'
+    | 'dependency_blocked'
     | 'stale_assigned'
     | 'reported_open';
   label: string;
@@ -337,6 +393,7 @@ export interface MyWorkDashboardDto {
   assignedToMe: WorkspaceWorkItemListItemDto[];
   dueSoonOrOverdue: WorkspaceWorkItemListItemDto[];
   blockedRelevant: WorkspaceWorkItemListItemDto[];
+  dependencyBlockedAssigned: WorkspaceWorkItemListItemDto[];
   recentlyUpdated: WorkspaceWorkItemListItemDto[];
 }
 
@@ -470,6 +527,8 @@ export interface ProjectPlanningSummaryDto {
   dueSoonWork: PlanningRiskItemDto[];
   unassignedActiveWork: PlanningRiskItemDto[];
   staleInProgressWork: PlanningRiskItemDto[];
+  dependencyBlockedWork: PlanningRiskItemDto[];
+  blockingOpenWork: PlanningRiskItemDto[];
 }
 
 export interface CreateCommentRequest {

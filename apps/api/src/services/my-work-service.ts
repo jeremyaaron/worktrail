@@ -115,6 +115,7 @@ export class MyWorkService {
         .sort(compareByDueDateThenUpdated)
         .slice(0, dashboardLimit),
       blockedRelevant: blockedRelevant.slice(0, dashboardLimit),
+      dependencyBlockedAssigned: [],
       recentlyUpdated: recentlyUpdated.slice(0, dashboardLimit)
     };
   }

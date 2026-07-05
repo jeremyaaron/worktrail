@@ -12,7 +12,8 @@ import type {
   WorkspaceDto,
   WorkspaceWorkItemListItemDto,
   WorkItemDetailDto,
-  WorkItemListItemDto
+  WorkItemListItemDto,
+  WorkItemRelationshipSummaryDto
 } from '@worktrail/contracts';
 
 import type {
@@ -30,6 +31,17 @@ import type {
 
 function toNullableRecord(value: Record<string, unknown> | null): Record<string, unknown> | null {
   return value;
+}
+
+function emptyRelationshipSummary(): WorkItemRelationshipSummaryDto {
+  return {
+    blockedBy: [],
+    blocks: [],
+    related: [],
+    dependencyBlocked: false,
+    openBlockerCount: 0,
+    openBlockedWorkCount: 0
+  };
 }
 
 export function toMemberDto(member: Member): MemberDto {
@@ -187,6 +199,9 @@ export function toWorkItemListItemDto(input: {
     boardPosition: input.workItem.boardPosition,
     dueDate: input.workItem.dueDate,
     estimatePoints: input.workItem.estimatePoints,
+    dependencyBlocked: false,
+    openBlockerCount: 0,
+    openBlockedWorkCount: 0,
     createdAt: input.workItem.createdAt.toISOString(),
     updatedAt: input.workItem.updatedAt.toISOString()
   };
@@ -231,6 +246,7 @@ export function toWorkItemDetailDto(input: {
   return {
     ...toWorkItemListItemDto(input),
     description: input.workItem.description,
+    relationships: emptyRelationshipSummary(),
     comments: input.comments,
     activity: input.activity
   };

@@ -159,7 +159,46 @@ npm run db:seed
 git diff --check
 ```
 
-Status: Not started.
+Status:
+
+- Completed on 2026-07-05.
+- Added shared contracts:
+  - `WorkItemRelationshipType`;
+  - `DependencyFilter`;
+  - `WorkItemRelationshipWorkItemDto`;
+  - `WorkItemRelationshipItemDto`;
+  - `WorkItemRelationshipSummaryDto`;
+  - `CreateWorkItemRelationshipRequest`;
+  - `WorkItemRelationshipDto`.
+- Extended work item contracts with neutral Phase 1 relationship fields:
+  - dependency counts on `WorkItemListItemDto`;
+  - relationship summary on `WorkItemDetailDto`;
+  - dependency query filter on `WorkItemQuery`;
+  - dependency-blocked My Work summary key;
+  - `dependencyBlockedAssigned` dashboard list;
+  - planning dependency-risk arrays.
+- Added API domain constants for relationship types and relationship activity event types.
+- Added `work_item_relationships` to the Drizzle schema.
+- Generated migration `apps/api/drizzle/0005_hot_post.sql`.
+- Added repository inferred types for work item relationships.
+- Added neutral DTO defaults so existing API reads compile before Phase 2/3 populate relationship data.
+- Added deterministic seed relationships:
+  - same-project `blocks`;
+  - cross-project `blocks`;
+  - `relates_to`;
+  - an active dependency-blocked downstream case;
+  - a terminal-blocker case that should not count as dependency-blocked later.
+- Verified seeded relationship counts through the Node `pg` client:
+  - `blocks`: 3;
+  - `relates_to`: 1.
+- Verified `npm run db:generate --workspace @worktrail/api`.
+- Verified `npm run typecheck --workspace @worktrail/contracts`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm run db:reset`.
+- Verified `npm run db:migrate`.
+- Verified `npm run db:seed`.
+- Verified `git diff --check`.
 
 ## Phase 2: Relationship Repository
 

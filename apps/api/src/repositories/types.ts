@@ -9,6 +9,7 @@ import type {
   projects,
   savedWorkViews,
   workItemLabels,
+  workItemRelationships,
   workItems,
   workspaces,
   workspaceActivityEvents
@@ -26,6 +27,8 @@ export type SavedWorkView = InferSelectModel<typeof savedWorkViews>;
 export type NewSavedWorkView = InferInsertModel<typeof savedWorkViews>;
 export type WorkItem = InferSelectModel<typeof workItems>;
 export type NewWorkItem = InferInsertModel<typeof workItems>;
+export type WorkItemRelationship = InferSelectModel<typeof workItemRelationships>;
+export type NewWorkItemRelationship = InferInsertModel<typeof workItemRelationships>;
 export type Label = InferSelectModel<typeof labels>;
 export type NewLabel = InferInsertModel<typeof labels>;
 export type WorkItemLabel = InferSelectModel<typeof workItemLabels>;

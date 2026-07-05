@@ -91,7 +91,9 @@ export class PlanningService {
           .sort((left, right) => left.updatedAt.getTime() - right.updatedAt.getTime()),
         memberById,
         milestoneById
-      )
+      ),
+      dependencyBlockedWork: [],
+      blockingOpenWork: []
     };
   }
 
