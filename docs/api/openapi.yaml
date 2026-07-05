@@ -1,0 +1,1728 @@
+openapi: 3.1.0
+info:
+  title: Worktrail API
+  version: 0.0.6
+  summary: HTTP API reference for the Worktrail local-first project management app.
+  description: |
+    This document describes the implemented Worktrail API routes. It is intentionally
+    representative rather than fully exhaustive; shared TypeScript contracts remain the
+    source of truth for complete DTO details during early development.
+
+    In local development, requests may include actor headers to simulate the signed-in
+    workspace member. These headers are development-only and are not a production
+    authentication design:
+
+    - `x-worktrail-member-id`
+    - `x-worktrail-workspace-id`
+    - `x-worktrail-role`
+
+    When actor headers are omitted in local development, the API falls back to the seed
+    owner actor.
+servers:
+  - url: http://localhost:3000
+    description: Local API or production preview server.
+tags:
+  - name: Health
+  - name: Workspace
+  - name: Members
+  - name: Projects
+  - name: Labels
+  - name: Milestones
+  - name: Work Items
+  - name: Comments
+  - name: Activity
+  - name: My Work
+  - name: Saved Work Views
+paths:
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Compatibility liveness check.
+      responses:
+        "200":
+          description: API process is alive.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /api/health/live:
+    get:
+      tags: [Health]
+      summary: Liveness check.
+      responses:
+        "200":
+          description: API process is alive.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /api/health/ready:
+    get:
+      tags: [Health]
+      summary: Readiness check with database connectivity.
+      responses:
+        "200":
+          description: API process can reach its database.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
+        "503":
+          description: API process is not ready.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessFailureResponse"
+  /api/workspace:
+    get:
+      tags: [Workspace]
+      summary: Get the current workspace.
+      responses:
+        "200":
+          description: Current workspace.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workspace"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      tags: [Workspace]
+      summary: Update the current workspace.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWorkspaceRequest"
+      responses:
+        "200":
+          description: Updated workspace.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workspace"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/workspace/capabilities:
+    get:
+      tags: [Workspace]
+      summary: Get current actor capabilities.
+      responses:
+        "200":
+          description: Actor permissions and workspace role labels.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceCapabilities"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/workspace/activity:
+    get:
+      tags: [Activity]
+      summary: List workspace activity events.
+      responses:
+        "200":
+          description: Workspace activity events.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkspaceActivityEvent"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/members:
+    get:
+      tags: [Members]
+      summary: List workspace members.
+      responses:
+        "200":
+          description: Workspace members.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Member"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Members]
+      summary: Create a workspace member.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMemberRequest"
+      responses:
+        "201":
+          description: Created member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/members/{memberId}:
+    patch:
+      tags: [Members]
+      summary: Update a workspace member.
+      parameters:
+        - $ref: "#/components/parameters/MemberId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMemberRequest"
+      responses:
+        "200":
+          description: Updated member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/members/{memberId}/deactivate:
+    post:
+      tags: [Members]
+      summary: Deactivate a workspace member.
+      parameters:
+        - $ref: "#/components/parameters/MemberId"
+      responses:
+        "200":
+          description: Deactivated member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/members/{memberId}/reactivate:
+    post:
+      tags: [Members]
+      summary: Reactivate a workspace member.
+      parameters:
+        - $ref: "#/components/parameters/MemberId"
+      responses:
+        "200":
+          description: Reactivated member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/projects:
+    get:
+      tags: [Projects]
+      summary: List projects.
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/ProjectStatus"
+      responses:
+        "200":
+          description: Projects.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Project"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Projects]
+      summary: Create a project.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectRequest"
+      responses:
+        "201":
+          description: Created project.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/projects/navigation-summary:
+    get:
+      tags: [Projects]
+      summary: List project navigation summaries.
+      responses:
+        "200":
+          description: Navigation summaries for project switching.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProjectNavigationSummary"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/projects/{projectId}:
+    get:
+      tags: [Projects]
+      summary: Get a project.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Project.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      tags: [Projects]
+      summary: Update a project.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjectRequest"
+      responses:
+        "200":
+          description: Updated project.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/projects/{projectId}/summary:
+    get:
+      tags: [Projects]
+      summary: Get project dashboard summary.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Project counts and recent work.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectSummary"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/projects/{projectId}/planning-summary:
+    get:
+      tags: [Projects]
+      summary: Get project planning and risk summary.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Project planning summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectPlanningSummary"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/projects/{projectId}/activity:
+    get:
+      tags: [Activity]
+      summary: List project activity events.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Project activity events.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityEvent"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/projects/{projectId}/archive:
+    post:
+      tags: [Projects]
+      summary: Archive a project.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Archived project.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/projects/{projectId}/reactivate:
+    post:
+      tags: [Projects]
+      summary: Reactivate a project.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Reactivated project.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/projects/{projectId}/labels:
+    get:
+      tags: [Labels]
+      summary: List project labels.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Project labels.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Label"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Labels]
+      summary: Create a project label.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLabelRequest"
+      responses:
+        "201":
+          description: Created label.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Label"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/labels/{labelId}:
+    patch:
+      tags: [Labels]
+      summary: Update a label.
+      parameters:
+        - $ref: "#/components/parameters/LabelId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLabelRequest"
+      responses:
+        "200":
+          description: Updated label.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Label"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/labels/{labelId}/archive:
+    post:
+      tags: [Labels]
+      summary: Archive a label.
+      parameters:
+        - $ref: "#/components/parameters/LabelId"
+      responses:
+        "200":
+          description: Archived label.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Label"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/labels/{labelId}/reactivate:
+    post:
+      tags: [Labels]
+      summary: Reactivate a label.
+      parameters:
+        - $ref: "#/components/parameters/LabelId"
+      responses:
+        "200":
+          description: Reactivated label.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Label"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/projects/{projectId}/milestones:
+    get:
+      tags: [Milestones]
+      summary: List project milestones.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Project milestones.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Milestone"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Milestones]
+      summary: Create a project milestone.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMilestoneRequest"
+      responses:
+        "201":
+          description: Created milestone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Milestone"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/milestones/{milestoneId}:
+    patch:
+      tags: [Milestones]
+      summary: Update a milestone.
+      parameters:
+        - $ref: "#/components/parameters/MilestoneId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMilestoneRequest"
+      responses:
+        "200":
+          description: Updated milestone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Milestone"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/milestones/{milestoneId}/archive:
+    post:
+      tags: [Milestones]
+      summary: Archive a milestone.
+      parameters:
+        - $ref: "#/components/parameters/MilestoneId"
+      responses:
+        "200":
+          description: Archived milestone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Milestone"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/milestones/{milestoneId}/reactivate:
+    post:
+      tags: [Milestones]
+      summary: Reactivate a milestone.
+      parameters:
+        - $ref: "#/components/parameters/MilestoneId"
+      responses:
+        "200":
+          description: Reactivated milestone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Milestone"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/work-items:
+    get:
+      tags: [Work Items]
+      summary: List workspace work items.
+      parameters:
+        - $ref: "#/components/parameters/WorkItemStatusQuery"
+        - $ref: "#/components/parameters/SearchQuery"
+      responses:
+        "200":
+          description: Workspace work items.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkspaceWorkItemListItem"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/projects/{projectId}/work-items:
+    get:
+      tags: [Work Items]
+      summary: List work items for a project.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/WorkItemStatusQuery"
+        - $ref: "#/components/parameters/SearchQuery"
+      responses:
+        "200":
+          description: Project work items.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkItemListItem"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Work Items]
+      summary: Create a project work item.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkItemRequest"
+      responses:
+        "201":
+          description: Created work item.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkItemDetail"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/work-items/{workItemId}:
+    get:
+      tags: [Work Items]
+      summary: Get work item detail.
+      parameters:
+        - $ref: "#/components/parameters/WorkItemId"
+      responses:
+        "200":
+          description: Work item detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkItemDetail"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      tags: [Work Items]
+      summary: Update a work item.
+      parameters:
+        - $ref: "#/components/parameters/WorkItemId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWorkItemRequest"
+      responses:
+        "200":
+          description: Updated work item.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkItemDetail"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/work-items/{workItemId}/transitions:
+    post:
+      tags: [Work Items]
+      summary: Transition a work item to another status.
+      parameters:
+        - $ref: "#/components/parameters/WorkItemId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransitionWorkItemRequest"
+      responses:
+        "200":
+          description: Transitioned work item.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkItemDetail"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/work-items/{workItemId}/board-move:
+    post:
+      tags: [Work Items]
+      summary: Move a work item on the project board.
+      parameters:
+        - $ref: "#/components/parameters/WorkItemId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MoveWorkItemOnBoardRequest"
+      responses:
+        "200":
+          description: Moved work item.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkItemDetail"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/work-items/{workItemId}/comments:
+    get:
+      tags: [Comments]
+      summary: List work item comments.
+      parameters:
+        - $ref: "#/components/parameters/WorkItemId"
+      responses:
+        "200":
+          description: Comments.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Comment"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Comments]
+      summary: Create a work item comment.
+      parameters:
+        - $ref: "#/components/parameters/WorkItemId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCommentRequest"
+      responses:
+        "201":
+          description: Created comment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/comments/{commentId}:
+    patch:
+      tags: [Comments]
+      summary: Update a comment.
+      parameters:
+        - $ref: "#/components/parameters/CommentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCommentRequest"
+      responses:
+        "200":
+          description: Updated comment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Comments]
+      summary: Delete a comment.
+      parameters:
+        - $ref: "#/components/parameters/CommentId"
+      responses:
+        "200":
+          description: Deleted comment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/work-items/{workItemId}/activity:
+    get:
+      tags: [Activity]
+      summary: List work item activity events.
+      parameters:
+        - $ref: "#/components/parameters/WorkItemId"
+      responses:
+        "200":
+          description: Work item activity events.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityEvent"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/my-work:
+    get:
+      tags: [My Work]
+      summary: Get the current actor's work dashboard.
+      responses:
+        "200":
+          description: My Work dashboard.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyWorkDashboard"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/saved-work-views:
+    get:
+      tags: [Saved Work Views]
+      summary: List saved work views for the current actor.
+      responses:
+        "200":
+          description: Saved work views.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SavedWorkView"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Saved Work Views]
+      summary: Create a saved work view.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSavedWorkViewRequest"
+      responses:
+        "201":
+          description: Created saved work view.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedWorkView"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/saved-work-views/{savedViewId}:
+    patch:
+      tags: [Saved Work Views]
+      summary: Update a saved work view.
+      parameters:
+        - $ref: "#/components/parameters/SavedViewId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSavedWorkViewRequest"
+      responses:
+        "200":
+          description: Updated saved work view.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedWorkView"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Saved Work Views]
+      summary: Delete a saved work view.
+      parameters:
+        - $ref: "#/components/parameters/SavedViewId"
+      responses:
+        "204":
+          description: Saved work view deleted.
+        default:
+          $ref: "#/components/responses/Error"
+components:
+  parameters:
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    MemberId:
+      name: memberId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    WorkItemId:
+      name: workItemId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    LabelId:
+      name: labelId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    MilestoneId:
+      name: milestoneId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    CommentId:
+      name: commentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    SavedViewId:
+      name: savedViewId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    WorkItemStatusQuery:
+      name: status
+      in: query
+      schema:
+        $ref: "#/components/schemas/WorkItemStatus"
+    SearchQuery:
+      name: search
+      in: query
+      schema:
+        type: string
+  responses:
+    Error:
+      description: Structured API error.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status, service, checkedAt]
+      properties:
+        status:
+          const: ok
+        service:
+          const: worktrail-api
+        checkedAt:
+          type: string
+          format: date-time
+    ReadinessResponse:
+      type: object
+      required: [status, service, checks, checkedAt]
+      properties:
+        status:
+          const: ready
+        service:
+          const: worktrail-api
+        checks:
+          type: object
+          required: [database]
+          properties:
+            database:
+              const: ok
+        checkedAt:
+          type: string
+          format: date-time
+    ReadinessFailureResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, checks]
+          properties:
+            code:
+              const: READINESS_FAILED
+            message:
+              type: string
+            checks:
+              type: object
+              required: [database]
+              properties:
+                database:
+                  const: failed
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              examples: [VALIDATION_ERROR, FORBIDDEN, NOT_FOUND, INTERNAL_ERROR]
+            message:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+    MemberRole:
+      type: string
+      enum: [owner, maintainer, contributor]
+    ProjectStatus:
+      type: string
+      enum: [active, archived]
+    WorkItemType:
+      type: string
+      enum: [task, bug, story, chore]
+    WorkItemStatus:
+      type: string
+      enum: [backlog, ready, in_progress, blocked, done, canceled]
+    WorkItemPriority:
+      type: string
+      enum: [low, medium, high, urgent]
+    MilestoneStatus:
+      type: string
+      enum: [planned, active, completed, canceled]
+    WorkItemQuery:
+      type: object
+      additionalProperties: false
+      properties:
+        projectId:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/WorkItemStatus"
+        assigneeId:
+          type: string
+          format: uuid
+        assigneeState:
+          type: string
+          enum: [assigned, unassigned]
+        reporterId:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/WorkItemType"
+        priority:
+          $ref: "#/components/schemas/WorkItemPriority"
+        labelId:
+          type: string
+          format: uuid
+        milestoneId:
+          type: string
+          format: uuid
+        blocked:
+          type: boolean
+        search:
+          type: string
+        sort:
+          type: string
+          enum: [updated_desc, updated_asc, priority_desc, priority_asc, due_date_asc, created_desc, board_order]
+    Member:
+      type: object
+      required: [id, workspaceId, name, email, role, isActive, deactivatedAt, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          $ref: "#/components/schemas/MemberRole"
+        isActive:
+          type: boolean
+        deactivatedAt:
+          type: [string, "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateMemberRequest:
+      type: object
+      required: [name, email, role]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          $ref: "#/components/schemas/MemberRole"
+    UpdateMemberRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          $ref: "#/components/schemas/MemberRole"
+    Workspace:
+      type: object
+      required: [id, name, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    UpdateWorkspaceRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+    WorkspaceCapabilities:
+      type: object
+      required: [actor, canManageWorkspace, canManageMembers, canCreateProjects, canManageProjects]
+      properties:
+        actor:
+          $ref: "#/components/schemas/Member"
+        canManageWorkspace:
+          type: boolean
+        canManageMembers:
+          type: boolean
+        canCreateProjects:
+          type: boolean
+        canManageProjects:
+          type: boolean
+        canManageMilestones:
+          type: boolean
+        canManageLabels:
+          type: boolean
+        canCreateWorkItems:
+          type: boolean
+        roleSummary:
+          type: object
+          additionalProperties:
+            type: string
+    WorkspaceActivityEvent:
+      type: object
+      required: [id, workspaceId, actor, eventType, summary, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        actor:
+          $ref: "#/components/schemas/Member"
+        eventType:
+          type: string
+        summary:
+          type: string
+        previousValue:
+          type: [object, "null"]
+          additionalProperties: true
+        newValue:
+          type: [object, "null"]
+          additionalProperties: true
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+    Project:
+      type: object
+      required: [id, workspaceId, key, name, description, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        key:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          $ref: "#/components/schemas/ProjectStatus"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateProjectRequest:
+      type: object
+      required: [name]
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+    UpdateProjectRequest:
+      type: object
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          $ref: "#/components/schemas/ProjectStatus"
+    ProjectNavigationSummary:
+      type: object
+      required: [project, openWorkItemCount, blockedWorkItemCount, overdueWorkItemCount, updatedAt]
+      properties:
+        project:
+          $ref: "#/components/schemas/Project"
+        openWorkItemCount:
+          type: integer
+        blockedWorkItemCount:
+          type: integer
+        overdueWorkItemCount:
+          type: integer
+        updatedAt:
+          type: string
+          format: date-time
+    ProjectSummary:
+      type: object
+      required: [project, countsByStatus, recentWorkItems]
+      properties:
+        project:
+          $ref: "#/components/schemas/Project"
+        countsByStatus:
+          type: array
+          items:
+            type: object
+            properties:
+              status:
+                $ref: "#/components/schemas/WorkItemStatus"
+              count:
+                type: integer
+        recentWorkItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecentWorkItem"
+    RecentWorkItem:
+      type: object
+      required: [id, displayKey, title, status, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayKey:
+          type: string
+        title:
+          type: string
+        status:
+          $ref: "#/components/schemas/WorkItemStatus"
+        updatedAt:
+          type: string
+          format: date-time
+    ProjectPlanningSummary:
+      type: object
+      required: [project, milestoneProgress, blockedWork, overdueWork, dueSoonWork]
+      properties:
+        project:
+          $ref: "#/components/schemas/Project"
+        milestoneProgress:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        blockedWork:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanningRiskItem"
+        overdueWork:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanningRiskItem"
+        dueSoonWork:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanningRiskItem"
+        unassignedActiveWork:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanningRiskItem"
+        staleInProgressWork:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanningRiskItem"
+    PlanningRiskItem:
+      type: object
+      required: [id, displayKey, title, status, priority, assignee, dueDate, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayKey:
+          type: string
+        title:
+          type: string
+        status:
+          $ref: "#/components/schemas/WorkItemStatus"
+        priority:
+          $ref: "#/components/schemas/WorkItemPriority"
+        assignee:
+          anyOf:
+            - $ref: "#/components/schemas/Member"
+            - type: "null"
+        dueDate:
+          type: [string, "null"]
+          format: date
+        updatedAt:
+          type: string
+          format: date-time
+    Label:
+      type: object
+      required: [id, name, color, isArchived, archivedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        color:
+          type: [string, "null"]
+        isArchived:
+          type: boolean
+        archivedAt:
+          type: [string, "null"]
+          format: date-time
+    CreateLabelRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        color:
+          type: [string, "null"]
+    UpdateLabelRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        color:
+          type: [string, "null"]
+    Milestone:
+      type: object
+      required: [id, workspaceId, projectId, name, description, status, targetDate, isArchived]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          $ref: "#/components/schemas/MilestoneStatus"
+        targetDate:
+          type: [string, "null"]
+          format: date
+        isArchived:
+          type: boolean
+        archivedAt:
+          type: [string, "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateMilestoneRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          $ref: "#/components/schemas/MilestoneStatus"
+        targetDate:
+          type: [string, "null"]
+          format: date
+    UpdateMilestoneRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          $ref: "#/components/schemas/MilestoneStatus"
+        targetDate:
+          type: [string, "null"]
+          format: date
+    WorkItemListItem:
+      type: object
+      required: [id, workspaceId, projectId, displayKey, title, type, status, priority, reporter, labels]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        itemNumber:
+          type: integer
+        displayKey:
+          type: string
+        title:
+          type: string
+        type:
+          $ref: "#/components/schemas/WorkItemType"
+        status:
+          $ref: "#/components/schemas/WorkItemStatus"
+        priority:
+          $ref: "#/components/schemas/WorkItemPriority"
+        assignee:
+          anyOf:
+            - $ref: "#/components/schemas/Member"
+            - type: "null"
+        reporter:
+          $ref: "#/components/schemas/Member"
+        labels:
+          type: array
+          items:
+            $ref: "#/components/schemas/Label"
+        milestone:
+          anyOf:
+            - $ref: "#/components/schemas/Milestone"
+            - type: "null"
+        boardPosition:
+          type: number
+        dueDate:
+          type: [string, "null"]
+          format: date
+        estimatePoints:
+          type: [number, "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    WorkspaceWorkItemListItem:
+      allOf:
+        - $ref: "#/components/schemas/WorkItemListItem"
+        - type: object
+          required: [project]
+          properties:
+            project:
+              type: object
+              required: [id, key, name, status]
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                key:
+                  type: string
+                name:
+                  type: string
+                status:
+                  $ref: "#/components/schemas/ProjectStatus"
+    WorkItemDetail:
+      allOf:
+        - $ref: "#/components/schemas/WorkItemListItem"
+        - type: object
+          required: [description, comments, activity]
+          properties:
+            description:
+              type: string
+            comments:
+              type: array
+              items:
+                $ref: "#/components/schemas/Comment"
+            activity:
+              type: array
+              items:
+                $ref: "#/components/schemas/ActivityEvent"
+    CreateWorkItemRequest:
+      type: object
+      required: [title, type, priority]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        type:
+          $ref: "#/components/schemas/WorkItemType"
+        status:
+          $ref: "#/components/schemas/WorkItemStatus"
+        priority:
+          $ref: "#/components/schemas/WorkItemPriority"
+        assigneeId:
+          type: [string, "null"]
+          format: uuid
+        labelIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        milestoneId:
+          type: [string, "null"]
+          format: uuid
+        dueDate:
+          type: [string, "null"]
+          format: date
+        estimatePoints:
+          type: [number, "null"]
+    UpdateWorkItemRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        type:
+          $ref: "#/components/schemas/WorkItemType"
+        priority:
+          $ref: "#/components/schemas/WorkItemPriority"
+        assigneeId:
+          type: [string, "null"]
+          format: uuid
+        labelIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        milestoneId:
+          type: [string, "null"]
+          format: uuid
+        dueDate:
+          type: [string, "null"]
+          format: date
+        estimatePoints:
+          type: [number, "null"]
+    TransitionWorkItemRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: "#/components/schemas/WorkItemStatus"
+    MoveWorkItemOnBoardRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: "#/components/schemas/WorkItemStatus"
+        beforeWorkItemId:
+          type: [string, "null"]
+          format: uuid
+        afterWorkItemId:
+          type: [string, "null"]
+          format: uuid
+    Comment:
+      type: object
+      required: [id, workspaceId, projectId, workItemId, author, body, isEdited, isDeleted, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        workItemId:
+          type: string
+          format: uuid
+        author:
+          $ref: "#/components/schemas/Member"
+        body:
+          type: string
+        isEdited:
+          type: boolean
+        isDeleted:
+          type: boolean
+        editedAt:
+          type: [string, "null"]
+          format: date-time
+        deletedAt:
+          type: [string, "null"]
+          format: date-time
+        deletedBy:
+          anyOf:
+            - $ref: "#/components/schemas/Member"
+            - type: "null"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateCommentRequest:
+      type: object
+      required: [body]
+      properties:
+        body:
+          type: string
+    UpdateCommentRequest:
+      type: object
+      required: [body]
+      properties:
+        body:
+          type: string
+    ActivityEvent:
+      type: object
+      required: [id, workspaceId, projectId, actor, eventType, summary, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        workItemId:
+          type: [string, "null"]
+          format: uuid
+        actor:
+          $ref: "#/components/schemas/Member"
+        eventType:
+          type: string
+        summary:
+          type: string
+        previousValue:
+          type: [object, "null"]
+          additionalProperties: true
+        newValue:
+          type: [object, "null"]
+          additionalProperties: true
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+    MyWorkDashboard:
+      type: object
+      required: [actor, summaryCounts, assignedToMe, dueSoonOrOverdue, blockedRelevant, recentlyUpdated]
+      properties:
+        actor:
+          $ref: "#/components/schemas/Member"
+        summaryCounts:
+          type: array
+          items:
+            type: object
+            required: [key, label, count, query]
+            properties:
+              key:
+                type: string
+              label:
+                type: string
+              count:
+                type: integer
+              query:
+                $ref: "#/components/schemas/WorkItemQuery"
+        assignedToMe:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceWorkItemListItem"
+        dueSoonOrOverdue:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceWorkItemListItem"
+        blockedRelevant:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceWorkItemListItem"
+        recentlyUpdated:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkspaceWorkItemListItem"
+    SavedWorkView:
+      type: object
+      required: [id, workspaceId, owner, name, visibility, query, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        owner:
+          $ref: "#/components/schemas/Member"
+        name:
+          type: string
+        visibility:
+          const: personal
+        query:
+          $ref: "#/components/schemas/WorkItemQuery"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateSavedWorkViewRequest:
+      type: object
+      required: [name, query]
+      properties:
+        name:
+          type: string
+        query:
+          $ref: "#/components/schemas/WorkItemQuery"
+    UpdateSavedWorkViewRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        query:
+          $ref: "#/components/schemas/WorkItemQuery"

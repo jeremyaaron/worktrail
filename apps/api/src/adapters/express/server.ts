@@ -1,5 +1,7 @@
 import cors from 'cors';
 import express, { type Express } from 'express';
+import { existsSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 
 import {
   listProjectActivityHandler,
@@ -11,7 +13,7 @@ import {
   listCommentsHandler,
   updateCommentHandler
 } from '../../endpoints/comments.js';
-import { healthHandler } from '../../endpoints/health.js';
+import { healthHandler, livenessHandler, readinessHandler } from '../../endpoints/health.js';
 import {
   archiveLabelHandler,
   createLabelHandler,
@@ -69,13 +71,22 @@ import {
 import type { WorktrailDb } from '../../db/client.js';
 import type { EndpointHandler } from '../../http/app-request.js';
 import type { Repositories } from '../../repositories/index.js';
+import { HealthCheckService, type HealthCheckPool } from '../../services/health-check-service.js';
 import { adaptEndpoint } from './handler-adapter.js';
 import { requestLogger } from './request-logging.js';
 
 export interface CreateExpressAppOptions {
   repositories?: Repositories;
   db?: WorktrailDb;
+  healthCheckPool?: HealthCheckPool;
+  corsOrigin?: string | false;
+  staticAssets?: StaticAssetOptions;
   testRoutes?: Record<string, EndpointHandler>;
+}
+
+export interface StaticAssetOptions {
+  directory: string;
+  indexFile?: string;
 }
 
 export function createExpressApp(options: CreateExpressAppOptions = {}): Express {
@@ -83,13 +94,21 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
 
   app.use(
     cors({
-      origin: process.env.CORS_ORIGIN ?? 'http://localhost:4200'
+      origin: options.corsOrigin ?? 'http://localhost:4200'
     })
   );
   app.use(express.json());
   app.use(requestLogger);
 
   app.get('/api/health', adaptEndpoint(healthHandler));
+  app.get('/api/health/live', adaptEndpoint(livenessHandler));
+
+  if (options.healthCheckPool !== undefined) {
+    app.get(
+      '/api/health/ready',
+      adaptEndpoint(readinessHandler({ healthChecks: new HealthCheckService(options.healthCheckPool) }))
+    );
+  }
 
   if (options.repositories !== undefined) {
     const adapterOptions = { repositories: options.repositories };
@@ -353,5 +372,52 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
     app.all(path, adaptEndpoint(handler, { repositories: options.repositories }));
   }
 
+  if (options.staticAssets !== undefined) {
+    configureStaticAssets(app, options.staticAssets);
+  }
+
   return app;
+}
+
+function configureStaticAssets(app: Express, options: StaticAssetOptions): void {
+  const indexFile = options.indexFile ?? 'index.html';
+  const indexPath = join(options.directory, indexFile);
+
+  assertStaticAssetPath(options.directory, 'Static assets directory', 'directory');
+  assertStaticAssetPath(indexPath, 'Static assets index file', 'file');
+
+  app.use(
+    express.static(options.directory, {
+      index: false
+    })
+  );
+
+  app.use((request, response, next) => {
+    if (request.method !== 'GET' || request.path === '/api' || request.path.startsWith('/api/')) {
+      next();
+      return;
+    }
+
+    response.sendFile(indexPath, (error) => {
+      if (error !== undefined) {
+        next(error);
+      }
+    });
+  });
+}
+
+function assertStaticAssetPath(path: string, label: string, expectedType: 'directory' | 'file'): void {
+  if (!existsSync(path)) {
+    throw new Error(`${label} does not exist: ${path}`);
+  }
+
+  const stats = statSync(path);
+
+  if (expectedType === 'directory' && !stats.isDirectory()) {
+    throw new Error(`${label} is not a directory: ${path}`);
+  }
+
+  if (expectedType === 'file' && !stats.isFile()) {
+    throw new Error(`${label} is not a file: ${path}`);
+  }
 }

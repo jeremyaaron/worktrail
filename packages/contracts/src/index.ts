@@ -1,6 +1,26 @@
 export interface ApiHealthResponse {
   status: 'ok';
   service: 'worktrail-api';
+  checkedAt: string;
+}
+
+export interface ApiReadinessResponse {
+  status: 'ready';
+  service: 'worktrail-api';
+  checks: {
+    database: 'ok';
+  };
+  checkedAt: string;
+}
+
+export interface ApiReadinessFailureResponse {
+  error: {
+    code: 'READINESS_FAILED';
+    message: string;
+    checks: {
+      database: 'failed';
+    };
+  };
 }
 
 export type MemberRole = 'owner' | 'maintainer' | 'contributor';

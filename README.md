@@ -1,6 +1,6 @@
 # Worktrail
 
-Worktrail is a project management reference app. The v0.0.5 release is a local-first Angular + TypeScript API + Postgres application that focuses on daily team workflow: My Work, cross-project discovery, personal saved views, quick work capture, project navigation summaries, workspace governance, planning, durable boards, comments, and activity.
+Worktrail is a project management reference app. The v0.0.6 release is a local-first Angular + TypeScript API + Postgres application that focuses on daily team workflow and operational credibility: My Work, cross-project discovery, saved views, quick work capture, workspace governance, planning, durable boards, comments, activity, production-like preview, health/readiness checks, and checked-in API documentation.
 
 The app is intentionally built as a credible product surface before extracting broader framework patterns. It runs locally today, while preserving a path toward an S3/CloudFront Angular frontend with API Gateway/Lambda-style endpoint handlers and managed Postgres.
 
@@ -18,6 +18,8 @@ docs/
   v0.0.3/  Planning sprint PRD, technical design, implementation plan, and extraction notes
   v0.0.4/  Governance sprint PRD, technical design, implementation plan, and extraction notes
   v0.0.5/  Daily workflow PRD, technical design, implementation plan, and extraction notes
+  v0.0.6/  Operations sprint PRD, technical design, implementation plan, runbook, and extraction notes
+  api/     OpenAPI reference
 site/       Static GitHub Pages product site
 e2e/        Playwright smoke tests
 ```
@@ -73,8 +75,43 @@ Local services:
 
 - Web: <http://localhost:4200>
 - API: <http://localhost:3000>
-- API health: <http://localhost:3000/api/health>
+- API liveness: <http://localhost:3000/api/health/live>
+- API readiness: <http://localhost:3000/api/health/ready>
 - Postgres: `localhost:5432`
+
+## Production Preview
+
+v0.0.6 adds a production-like local preview. It builds contracts, the API, and the Angular app, then runs compiled API code while Express serves the built Angular assets and `/api/*` routes from one origin.
+
+After migrations and seed data are in place:
+
+```sh
+DATABASE_URL=postgres://worktrail:worktrail@localhost:5432/worktrail npm run preview
+```
+
+Equivalent explicit sequence:
+
+```sh
+npm run build
+DATABASE_URL=postgres://worktrail:worktrail@localhost:5432/worktrail npm run start:prod
+```
+
+Production preview requires an explicit `DATABASE_URL`. It is useful for local operational inspection, but it is not a secure internet-facing deployment and does not add production authentication.
+
+Preview checks:
+
+```sh
+curl http://localhost:3000/api/health/live
+curl http://localhost:3000/api/health/ready
+curl -I http://localhost:3000/my-work
+curl -I http://localhost:3000/work-items/new
+```
+
+The detailed operator guide is in [docs/v0.0.6/operations-runbook.md](docs/v0.0.6/operations-runbook.md).
+
+## API Reference
+
+The checked-in OpenAPI reference lives at [docs/api/openapi.yaml](docs/api/openapi.yaml). It documents the implemented route surface, representative DTOs, development-only local actor headers, readiness behavior, and the common structured error shape.
 
 ## Verification
 
@@ -117,7 +154,7 @@ Seeded data includes:
 
 Use the `Acting as` selector in the top bar to switch the local placeholder actor. The selector only shows active members. This is intentionally local-only behavior and is not production authentication; the API derives the actor role and active state from the selected member record instead of trusting a client-supplied role.
 
-Suggested v0.0.5 walkthrough:
+Suggested v0.0.6 walkthrough:
 
 1. Open My Work and review the selected actor's assigned open, due soon, overdue, blocked, stale, and reported work counts.
 2. Click a My Work summary count to open the cross-project Work Items page with URL-backed filters applied.
@@ -140,7 +177,7 @@ Suggested v0.0.5 walkthrough:
 19. Open the work item detail page, update fields, change milestone assignment, add and edit a comment, delete a comment, and review activity.
 20. Open the archived project to confirm read-only project, milestone, work item, label, comment, and transition behavior.
 
-## v0.0.5 Capabilities
+## v0.0.6 Capabilities
 
 - My Work dashboard for the selected active actor.
 - Dashboard summary counts linked to filtered cross-project discovery.
@@ -166,16 +203,24 @@ Suggested v0.0.5 walkthrough:
 - Comment add/edit/delete with role-aware UI affordances and deleted-comment tombstones.
 - Workspace, project, milestone, label, work item, board movement, saved view, and comment lifecycle coverage through tests and activity where applicable.
 - Archived projects remain readable and block project, milestone, work item, label, comment, and transition writes.
+- Runtime configuration validation with development defaults and production-mode requirements.
+- Production preview from built Angular and compiled API artifacts.
+- Express static serving with SPA deep-link fallback that does not swallow `/api/*` routes.
+- Liveness and database readiness endpoints at `/api/health/live` and `/api/health/ready`.
+- OpenAPI reference under `docs/api/openapi.yaml`.
+- Operations runbook for runtime modes, environment variables, migrations, seed/reset flow, preview, health checks, troubleshooting, and future cloud mapping.
 
-## v0.0.5 Limitations
+## v0.0.6 Limitations
 
 - Authentication is represented by local request headers and the top-bar actor selector.
 - Permissions are enforced against local member records and are useful for exercising policy paths, but they are not production authentication.
-- Saved views are personal only in v0.0.5; workspace-visible shared saved views are deferred.
+- Production preview is not a secure public deployment and should not be exposed as an authenticated product.
+- Saved views are personal only in v0.0.6; workspace-visible shared saved views are deferred.
 - Custom workflows, file attachments, notifications, imports, and production auth are intentionally out of scope.
 - Invitations, multi-workspace switching, custom roles, project-specific membership, pinned projects, recent projects, and audit export are intentionally out of scope.
-- The local Express adapter is the only runtime adapter in v0.0.5, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
+- The local Express adapter is the only runtime adapter in v0.0.6, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
 - AWS deployment assets are not included yet; the Angular static build and transport-neutral handlers preserve that path.
+- Readiness checks database connectivity only; migration drift detection, metrics, tracing, and managed deployment runbooks are deferred.
 
 ## Database Status
 

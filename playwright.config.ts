@@ -19,7 +19,7 @@ export default defineConfig({
   webServer: [
     {
       command: `API_PORT=${apiPort} npm run dev:api`,
-      url: `http://${host}:${apiPort}/api/health`,
+      url: `http://${host}:${apiPort}/api/health/ready`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000
     },
