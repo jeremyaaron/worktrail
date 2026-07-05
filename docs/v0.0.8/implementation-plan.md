@@ -732,7 +732,33 @@ npm run typecheck
 git diff --check
 ```
 
-Status: Not started.
+Status:
+
+- Completed on 2026-07-05.
+- Extended My Work service with:
+  - dependency-blocked assigned summary count;
+  - `dependencyBlockedAssigned` list populated from the existing workspace dependency filter;
+  - summary link query params for `dependency=dependency_blocked`.
+- Extended My Work UI with:
+  - dependency-blocked summary card support;
+  - dependency-blocked assigned work section;
+  - dependency count pills on dashboard rows.
+- Extended planning service with:
+  - `dependencyBlockedWork`;
+  - `blockingOpenWork`;
+  - open-work filtering for both dependency risk lists.
+- Extended planning UI with:
+  - dependency-blocked and blocking-open-work metric links;
+  - dependency risk sections near the existing blocked/due-date risk sections;
+  - filtered list links for both dependency states.
+- Added API tests for dependency-blocked My Work counts, query params, list content, and planning dependency risk lists.
+- Added web tests for My Work dependency rendering, Planning dependency sections, and Planning filtered dependency links.
+- Adjusted responsive summary/metric grids so the added cards remain readable.
+- Verified `npm test --workspace @worktrail/api -- my-work planning`.
+- Verified `npm test --workspace @worktrail/web`.
+- Verified `npm run typecheck`.
+- Verified `git diff --check`.
+- Note: the suggested filtered web test command is not supported by the current Angular CLI script because the extra arguments are forwarded to `ng test`; the full web suite was run instead.
 
 ## Phase 9: OpenAPI And E2E Coverage
 

@@ -35,6 +35,7 @@ async function cleanupWorkspace(workspaceId: string) {
   await pool.query('delete from workspace_activity_events where workspace_id = $1', [workspaceId]);
   await pool.query('delete from activity_events where workspace_id = $1', [workspaceId]);
   await pool.query('delete from comments where workspace_id = $1', [workspaceId]);
+  await pool.query('delete from work_item_relationships where workspace_id = $1', [workspaceId]);
   await pool.query(
     'delete from work_item_labels where work_item_id in (select id from work_items where workspace_id = $1)',
     [workspaceId]
@@ -168,6 +169,24 @@ async function createWorkItem(
   });
 }
 
+async function createBlockingRelationship(
+  fixture: Awaited<ReturnType<typeof createFixture>>,
+  input: {
+    sourceWorkItemId: string;
+    targetWorkItemId: string;
+  }
+) {
+  return repositories.workItemRelationships.create({
+    id: randomUUID(),
+    workspaceId: fixture.workspaceId,
+    relationshipType: 'blocks',
+    sourceWorkItemId: input.sourceWorkItemId,
+    targetWorkItemId: input.targetWorkItemId,
+    createdById: fixture.actorId,
+    createdAt: now()
+  });
+}
+
 beforeAll(() => {
   pool = createPool();
   db = createDb(pool);
@@ -223,6 +242,22 @@ describe('My Work dashboard', () => {
       reporterId: fixture.actorId,
       updatedAt: new Date('2026-07-02T12:00:00.000Z')
     });
+    const dependencyBlocker = await createWorkItem(fixture, {
+      title: 'Upstream dependency',
+      status: 'in_progress',
+      assigneeId: fixture.otherMemberId,
+      updatedAt: new Date('2026-07-01T13:00:00.000Z')
+    });
+    const dependencyBlockedAssigned = await createWorkItem(fixture, {
+      title: 'Assigned dependency blocked',
+      status: 'ready',
+      priority: 'high',
+      updatedAt: new Date('2026-07-01T12:00:00.000Z')
+    });
+    await createBlockingRelationship(fixture, {
+      sourceWorkItemId: dependencyBlocker.id,
+      targetWorkItemId: dependencyBlockedAssigned.id
+    });
     await createWorkItem(fixture, {
       title: 'Done assigned work',
       status: 'done',
@@ -251,7 +286,7 @@ describe('My Work dashboard', () => {
       {
         key: 'assigned_open',
         label: 'Assigned open',
-        count: 3,
+        count: 4,
         query: {
           archivedProjects: 'exclude',
           assigneeId: fixture.actorId,
@@ -292,6 +327,18 @@ describe('My Work dashboard', () => {
         }
       },
       {
+        key: 'dependency_blocked',
+        label: 'Dependency blocked',
+        count: 1,
+        query: {
+          archivedProjects: 'exclude',
+          assigneeId: fixture.actorId,
+          workState: 'open',
+          dependency: 'dependency_blocked',
+          sort: 'priority_desc'
+        }
+      },
+      {
         key: 'stale_assigned',
         label: 'Stale assigned',
         count: 2,
@@ -316,6 +363,7 @@ describe('My Work dashboard', () => {
     ]);
     expect(dashboard.assignedToMe.map((item) => item.id)).toEqual([
       assignedDueSoon.id,
+      dependencyBlockedAssigned.id,
       assignedOverdueStale.id,
       assignedBlockedStale.id
     ]);
@@ -328,10 +376,18 @@ describe('My Work dashboard', () => {
       assignedBlockedStale.id,
       reportedBlocked.id
     ]);
+    expect(dashboard.dependencyBlockedAssigned.map((item) => item.id)).toEqual([
+      dependencyBlockedAssigned.id
+    ]);
+    expect(dashboard.dependencyBlockedAssigned[0]).toMatchObject({
+      dependencyBlocked: true,
+      openBlockerCount: 1
+    });
     expect(dashboard.recentlyUpdated.map((item) => item.id)).toEqual([
       reportedBlocked.id,
       assignedDueSoon.id,
       reportedReady.id,
+      dependencyBlockedAssigned.id,
       assignedOverdueStale.id,
       assignedBlockedStale.id
     ]);
@@ -347,10 +403,11 @@ describe('My Work dashboard', () => {
       clock: now
     }).getDashboard();
 
-    expect(dashboard.summaryCounts.map((count) => count.count)).toEqual([0, 0, 0, 0, 0, 0]);
+    expect(dashboard.summaryCounts.map((count) => count.count)).toEqual([0, 0, 0, 0, 0, 0, 0]);
     expect(dashboard.assignedToMe).toEqual([]);
     expect(dashboard.dueSoonOrOverdue).toEqual([]);
     expect(dashboard.blockedRelevant).toEqual([]);
+    expect(dashboard.dependencyBlockedAssigned).toEqual([]);
     expect(dashboard.recentlyUpdated).toEqual([]);
   });
 

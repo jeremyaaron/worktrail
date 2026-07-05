@@ -84,6 +84,18 @@ const workItem: WorkspaceWorkItemListItemDto = {
   }
 };
 
+const dependencyBlockedWorkItem: WorkspaceWorkItemListItemDto = {
+  ...workItem,
+  id: '10000000-0000-4000-8000-000000000402',
+  itemNumber: 2,
+  displayKey: 'WT-2',
+  title: 'Wait for import adapter',
+  status: 'ready',
+  dependencyBlocked: true,
+  openBlockerCount: 2,
+  openBlockedWorkCount: 0
+};
+
 function dashboard(input: Partial<MyWorkDashboardDto> = {}): MyWorkDashboardDto {
   return {
     actor: owner,
@@ -99,6 +111,12 @@ function dashboard(input: Partial<MyWorkDashboardDto> = {}): MyWorkDashboardDto 
         label: 'Blocked',
         count: 1,
         query: { blocked: true, workState: 'open' }
+      },
+      {
+        key: 'dependency_blocked',
+        label: 'Dependency blocked',
+        count: 1,
+        query: { assigneeId: owner.id, workState: 'open', dependency: 'dependency_blocked' }
       }
     ],
     assignedToMe: [workItem],
@@ -145,7 +163,11 @@ describe('MyWorkPageComponent', () => {
     const { fixture, http } = setup();
     const request = http.expectOne('/api/my-work');
     expect(request.request.headers.get('x-worktrail-member-id')).toBe(owner.id);
-    request.flush(dashboard());
+    request.flush(
+      dashboard({
+        dependencyBlockedAssigned: [dependencyBlockedWorkItem]
+      })
+    );
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
@@ -155,7 +177,11 @@ describe('MyWorkPageComponent', () => {
     expect(compiled.textContent).toContain('Avery Owner');
     expect(compiled.textContent).toContain('Owner');
     expect(compiled.textContent).toContain('Assigned open');
+    expect(compiled.textContent).toContain('Dependency blocked');
     expect(compiled.textContent).toContain('Shape the default dashboard');
+    expect(compiled.textContent).toContain('Dependency blocked assigned work');
+    expect(compiled.textContent).toContain('Wait for import adapter');
+    expect(compiled.textContent).toContain('Blocked by 2');
     expect(compiled.textContent).toContain('WT-1');
     expect(compiled.textContent).toContain('Story · In progress · High');
     expect(compiled.textContent).toContain('v0.0.5');
@@ -163,6 +189,7 @@ describe('MyWorkPageComponent', () => {
     expect(summaryLinks[0].getAttribute('href')).toContain('/work-items?assigneeId=');
     expect(summaryLinks[0].getAttribute('href')).toContain('workState=open');
     expect(summaryLinks[1].getAttribute('href')).toContain('blocked=true');
+    expect(summaryLinks[2].getAttribute('href')).toContain('dependency=dependency_blocked');
     expect(workRows[0].getAttribute('href')).toBe(`/work-items/${workItem.id}`);
   });
 
@@ -174,6 +201,7 @@ describe('MyWorkPageComponent', () => {
         assignedToMe: [],
         dueSoonOrOverdue: [],
         blockedRelevant: [],
+        dependencyBlockedAssigned: [],
         recentlyUpdated: []
       })
     );
@@ -183,6 +211,7 @@ describe('MyWorkPageComponent', () => {
     expect(text).toContain('No assigned work');
     expect(text).toContain('No urgent due dates');
     expect(text).toContain('No relevant blockers');
+    expect(text).toContain('No assigned dependency blockers');
     expect(text).toContain('No recent work');
   });
 

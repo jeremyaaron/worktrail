@@ -272,7 +272,7 @@ interface PlanningRiskSection {
           <div class="panel-heading">
             <div>
               <h2 id="planning-summary-heading">Planning dashboard</h2>
-              <p>Review progress, due dates, ownership gaps, and stale active work.</p>
+              <p>Review progress, due dates, dependencies, ownership gaps, and stale active work.</p>
             </div>
             @if (planningSummary(); as summary) {
               <span>{{ totalRiskCount(summary) }} risks</span>
@@ -346,6 +346,20 @@ interface PlanningRiskSection {
               >
                 <span>Due soon</span>
                 <strong>{{ summary.dueSoonWork.length }}</strong>
+              </a>
+              <a
+                [routerLink]="['/projects', projectId(), 'work-items']"
+                [queryParams]="{ dependency: 'dependency_blocked', sort: 'priority_desc' }"
+              >
+                <span>Dep blocked</span>
+                <strong>{{ summary.dependencyBlockedWork.length }}</strong>
+              </a>
+              <a
+                [routerLink]="['/projects', projectId(), 'work-items']"
+                [queryParams]="{ dependency: 'blocking_open_work', sort: 'priority_desc' }"
+              >
+                <span>Blocking</span>
+                <strong>{{ summary.blockingOpenWork.length }}</strong>
               </a>
               <a
                 [routerLink]="['/projects', projectId(), 'work-items']"
@@ -758,6 +772,22 @@ export class ProjectPlanningPageComponent implements OnInit {
         queryParams: { dueDateState: 'due_soon', sort: 'due_date_asc' }
       },
       {
+        title: 'Dependency blocked work',
+        description: 'Open items blocked by upstream work that is not done.',
+        items: summary.dependencyBlockedWork,
+        emptyTitle: 'No dependency-blocked work',
+        emptyMessage: 'No open work is waiting on upstream dependencies.',
+        queryParams: { dependency: 'dependency_blocked', sort: 'priority_desc' }
+      },
+      {
+        title: 'Blocking open work',
+        description: 'Open items currently blocking downstream work.',
+        items: summary.blockingOpenWork,
+        emptyTitle: 'No work blocking dependencies',
+        emptyMessage: 'No open work is blocking other open items.',
+        queryParams: { dependency: 'blocking_open_work', sort: 'priority_desc' }
+      },
+      {
         title: 'Unassigned active work',
         description: 'Ready or in-progress items without an owner.',
         items: summary.unassignedActiveWork,
@@ -971,6 +1001,8 @@ export class ProjectPlanningPageComponent implements OnInit {
       summary.blockedWork.length +
       summary.overdueWork.length +
       summary.dueSoonWork.length +
+      summary.dependencyBlockedWork.length +
+      summary.blockingOpenWork.length +
       summary.unassignedActiveWork.length +
       summary.staleInProgressWork.length
     );

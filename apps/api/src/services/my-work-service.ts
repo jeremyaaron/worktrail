@@ -55,15 +55,28 @@ export class MyWorkService {
       blocked: true,
       sort: 'priority_desc'
     });
+    const dependencyBlockedAssignedQuery = this.withDefaults({
+      assigneeId: this.context.actor.memberId,
+      workState: 'open',
+      dependency: 'dependency_blocked',
+      sort: 'priority_desc'
+    });
     const recentlyUpdatedQuery = this.withDefaults({
       workState: 'open',
       sort: 'updated_desc'
     });
 
-    const [assignedOpen, reportedOpen, blockedWork, recentlyUpdatedOpen] = await Promise.all([
+    const [
+      assignedOpen,
+      reportedOpen,
+      blockedWork,
+      dependencyBlockedAssigned,
+      recentlyUpdatedOpen
+    ] = await Promise.all([
       this.workItems.listWorkspaceWorkItems(assignedOpenQuery),
       this.workItems.listWorkspaceWorkItems(reportedOpenQuery),
       this.workItems.listWorkspaceWorkItems(blockedQuery),
+      this.workItems.listWorkspaceWorkItems(dependencyBlockedAssignedQuery),
       this.workItems.listWorkspaceWorkItems(recentlyUpdatedQuery)
     ]);
 
@@ -99,6 +112,12 @@ export class MyWorkService {
         ),
         this.toSummaryCount('blocked', 'Blocked', blockedRelevant.length, blockedQuery),
         this.toSummaryCount(
+          'dependency_blocked',
+          'Dependency blocked',
+          dependencyBlockedAssigned.length,
+          dependencyBlockedAssignedQuery
+        ),
+        this.toSummaryCount(
           'stale_assigned',
           'Stale assigned',
           staleAssigned.length,
@@ -115,7 +134,7 @@ export class MyWorkService {
         .sort(compareByDueDateThenUpdated)
         .slice(0, dashboardLimit),
       blockedRelevant: blockedRelevant.slice(0, dashboardLimit),
-      dependencyBlockedAssigned: [],
+      dependencyBlockedAssigned: dependencyBlockedAssigned.slice(0, dashboardLimit),
       recentlyUpdated: recentlyUpdated.slice(0, dashboardLimit)
     };
   }
