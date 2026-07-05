@@ -245,7 +245,30 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-05.
+- Added `apps/api/src/services/delivery-health-service.ts`.
+- Implemented pure service-side derivation for:
+  - milestone health;
+  - project delivery health;
+  - delivery-health reasons;
+  - reason `WorkItemQuery` links where supported;
+  - planning review sections for needs attention, upcoming, and recently changed.
+- Kept the derivation service independent from repositories and endpoint handlers.
+- Kept UTC date-string handling deterministic for a supplied `now`.
+- Added unit coverage in `apps/api/tests/delivery-health-service.test.ts` for:
+  - empty active project health;
+  - empty active milestone risk;
+  - complete and inactive milestone states;
+  - completed milestones with reopened/open work;
+  - target-date, manual-blocked, and dependency-blocked milestone blocking;
+  - due-soon, unassigned, and stale in-progress at-risk signals;
+  - unmilestoned project risk;
+  - archived project inactivity;
+  - deterministic planning review sections.
+- Verified `npm test --workspace @worktrail/api -- delivery-health-service`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `git diff --check`.
 
 ## Phase 3: Planning Summary Backend Integration
 
