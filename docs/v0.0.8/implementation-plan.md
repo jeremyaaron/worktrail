@@ -341,7 +341,55 @@ npm run typecheck --workspace @worktrail/api
 git diff --check
 ```
 
-Status: Not started.
+Status:
+
+- Completed on 2026-07-05.
+- Added `apps/api/src/services/work-item-relationship-service.ts`.
+- Added relationship DTO mapping in the relationship service and extended shared DTO helpers with dependency count inputs.
+- Implemented relationship summary grouping:
+  - `blockedBy`;
+  - `blocks`;
+  - `related`;
+  - `dependencyBlocked`;
+  - `openBlockerCount`;
+  - `openBlockedWorkCount`.
+- Implemented relationship creation with:
+  - actor workspace scoping;
+  - self-relationship rejection;
+  - `relates_to` canonicalization;
+  - duplicate rejection;
+  - `blocks` cycle rejection;
+  - archived-project write protection for source and target projects;
+  - existing work item edit policy enforcement;
+  - project/work item activity creation.
+- Implemented relationship deletion with:
+  - context work item membership validation;
+  - archived-project write protection;
+  - existing work item edit policy enforcement;
+  - context-aware activity creation;
+  - relationship deletion.
+- Extended `WorkItemService` list DTO construction with batched dependency counts.
+- Extended `WorkItemService` detail DTO construction with full relationship summaries.
+- Added `apps/api/tests/work-item-relationships.test.ts` covering:
+  - create `blocks`;
+  - create `relates_to`;
+  - inbound/outbound/related grouping;
+  - self rejection;
+  - duplicate rejection;
+  - reverse duplicate rejection for `relates_to`;
+  - direct and multi-hop cycle rejection;
+  - cross-project relationship inside workspace;
+  - cross-workspace rejection;
+  - archived-project write rejection;
+  - contributor edit policy;
+  - delete relationship;
+  - dependency count enrichment;
+  - relationship activity.
+- Verified `npm test --workspace @worktrail/api -- work-item-relationships`.
+- Verified `npm test --workspace @worktrail/api -- work-items`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `git diff --check`.
 
 ## Phase 4: API Endpoints And Route Wiring
 
