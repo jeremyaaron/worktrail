@@ -837,6 +837,34 @@ npm test
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-05.
+- Added a v0.1.1 Playwright smoke path covering:
+  - seeded Inbox unread state;
+  - work item detail watcher state and watch/unwatch actions;
+  - comment creation with a selected mention;
+  - rendered mention chips on the created comment;
+  - actor switch to the mentioned member;
+  - unread mention notification in Inbox;
+  - marking the notification read;
+  - read-state visibility from the All Inbox view.
+- Updated `docs/api/openapi.yaml` to document:
+  - notification paths and DTOs;
+  - notification read-state request/response payloads;
+  - work item watcher state endpoints;
+  - watcher state DTOs;
+  - comment mention request/response fields.
+- Updated the OpenAPI reference test to guard the v0.1.1 notification, watcher, and mention additions.
+- Verified the Playwright database reset/migrate/seed and post-run restore path through the full e2e run.
+- Verified:
+  - `ruby -e "require 'yaml'; YAML.load_file('docs/api/openapi.yaml'); puts 'YAML parsed'"`
+  - `npm test --workspace @worktrail/api -- openapi`
+  - `npm run test:e2e -- --grep "v0.1.1 inbox mention"`
+  - `npm run test:e2e`
+  - `npm test`
+  - `git diff --check`
+
 ## Phase 11: Documentation, Site, Release Notes, And Final Verification
 
 Goal: finish v0.1.1 with complete docs, public site updates, and full verification.
