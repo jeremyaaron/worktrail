@@ -407,6 +407,22 @@ npm run typecheck
 git diff --check
 ```
 
+Status: Completed on 2026-07-04.
+
+Notes:
+
+- Added `docs/api/openapi.yaml`.
+- Documented health/readiness, workspace, capabilities, members, projects, project navigation summaries, labels, milestones, work items, comments, activity, My Work, and saved work views.
+- Documented development-only local actor headers and the seed actor fallback behavior.
+- Documented the common structured error response shape.
+- Added representative request and response schemas for implemented API resources without attempting exhaustive DTO duplication.
+- Added a lightweight OpenAPI guard test for required path keys, local actor headers, and error documentation.
+- Verified `npm test --workspace @worktrail/api -- openapi`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `npm run typecheck`.
+- Verified `git diff --check`.
+
 ## Phase 6: Operations Runbook
 
 Goal: document how to run and inspect Worktrail like an operator.
