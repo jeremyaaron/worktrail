@@ -100,6 +100,9 @@ const defaultFilterValues: WorkItemFilterFormValue = {
           Settings
         </a>
         @if (!isArchivedProject()) {
+          <a class="secondary-header-action" [routerLink]="['/projects', projectId(), 'work-items', 'import']">
+            Import CSV
+          </a>
           <a class="primary-action" [routerLink]="['/projects', projectId(), 'work-items', 'new']">
             Create work item
           </a>

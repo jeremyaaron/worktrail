@@ -39,6 +39,14 @@ export const routes: Routes = [
     title: 'Create Work Item | Worktrail'
   },
   {
+    path: 'projects/:projectId/work-items/import',
+    loadComponent: () =>
+      import('./features/work-items/work-item-import-page.component').then(
+        (module) => module.WorkItemImportPageComponent
+      ),
+    title: 'Import Work Items | Worktrail'
+  },
+  {
     path: 'projects/:projectId/work-items',
     loadComponent: () =>
       import('./features/work-items/work-item-list-page.component').then(

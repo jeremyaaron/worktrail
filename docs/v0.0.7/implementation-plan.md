@@ -682,7 +682,40 @@ npm run build --workspace @worktrail/web
 git diff --check
 ```
 
-Status: Not started.
+Status:
+
+- Completed on 2026-07-05.
+- Added lazy route `projects/:projectId/work-items/import`.
+- Added `apps/web/src/app/features/work-items/work-item-import-page.component.ts`.
+- Import page now:
+  - loads project context;
+  - shows archived project read-only state;
+  - accepts `.csv` file selection;
+  - reads selected files with `File.text()`;
+  - calls import preview endpoint;
+  - renders summary counts;
+  - renders file-level and row-level errors;
+  - renders warnings when present;
+  - renders normalized preview rows;
+  - disables apply while invalid, empty, archived, loading, or missing preview;
+  - calls import apply endpoint with the same CSV text;
+  - renders success summary with created work item links, project list link, and board link.
+- Added active-project `Import CSV` entry point from the project work item list header.
+- Added route test coverage to guard the import route registration and ordering.
+- Added component test coverage for:
+  - initial project context loading;
+  - initial disabled apply state;
+  - file preview request path/body;
+  - valid preview rendering and apply enablement;
+  - validation error rendering and apply disablement;
+  - apply request path/body;
+  - apply success links;
+  - archived project notice;
+  - archived project preview/apply blocking.
+- Verified `npm test --workspace @worktrail/web -- --include src/app/app.routes.spec.ts --include src/app/features/work-items/work-items-page.component.spec.ts`.
+- Verified `npm run typecheck --workspace @worktrail/web`.
+- Verified `npm test --workspace @worktrail/web`.
+- Verified `npm run build --workspace @worktrail/web`.
 
 ## Phase 8: Export UI Controls
 
