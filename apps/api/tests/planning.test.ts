@@ -298,30 +298,72 @@ describe('planning summary', () => {
     const summary = await service.getProjectPlanningSummary(fixture.projectId);
 
     expect(summary.project.id).toBe(fixture.projectId);
-    expect(summary.deliveryHealth).toEqual({
-      health: 'healthy',
-      activeMilestoneCount: 0,
-      healthyMilestoneCount: 0,
-      atRiskMilestoneCount: 0,
-      blockedMilestoneCount: 0,
-      completeMilestoneCount: 0,
-      inactiveMilestoneCount: 0,
-      openWorkCount: 0,
-      blockedWorkCount: 0,
-      dependencyBlockedWorkCount: 0,
-      blockingOpenWorkCount: 0,
-      overdueWorkCount: 0,
-      dueSoonWorkCount: 0,
-      unassignedActiveWorkCount: 0,
-      staleInProgressWorkCount: 0,
-      unmilestonedActiveRiskCount: 0,
-      reasons: []
+    expect(summary.deliveryHealth).toMatchObject({
+      health: 'blocked',
+      activeMilestoneCount: 2,
+      atRiskMilestoneCount: 1,
+      blockedMilestoneCount: 1,
+      completeMilestoneCount: 1,
+      inactiveMilestoneCount: 1,
+      openWorkCount: 5,
+      blockedWorkCount: 1,
+      dependencyBlockedWorkCount: 1,
+      blockingOpenWorkCount: 1,
+      overdueWorkCount: 1,
+      dueSoonWorkCount: 1,
+      unassignedActiveWorkCount: 1,
+      staleInProgressWorkCount: 1,
+      unmilestonedActiveRiskCount: 2
     });
-    expect(summary.planningReview).toEqual({
-      needsAttention: [],
-      upcoming: [],
-      recentlyChanged: []
-    });
+    expect(summary.deliveryHealth.reasons).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        key: 'blocked_work',
+        severity: 'critical',
+        query: { status: 'blocked', sort: 'priority_desc' }
+      }),
+      expect.objectContaining({
+        key: 'dependency_blocked',
+        severity: 'critical',
+        query: { dependency: 'dependency_blocked', sort: 'priority_desc' }
+      }),
+      expect.objectContaining({
+        key: 'unmilestoned_risk',
+        query: null
+      })
+    ]));
+    expect(summary.planningReview.needsAttention).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        workItemId: blocked.id,
+        title: 'Blocked overdue work',
+        severity: 'critical'
+      }),
+      expect.objectContaining({
+        workItemId: dependencyBlocked.id,
+        title: 'Dependency-blocked delivery work',
+        severity: 'critical'
+      }),
+      expect.objectContaining({
+        milestoneId: activeMilestone.id,
+        title: 'v0.0.3',
+        severity: 'critical'
+      }),
+      expect.objectContaining({
+        milestoneId: plannedMilestone.id,
+        title: 'v0.0.4',
+        severity: 'warning'
+      })
+    ]));
+    expect(summary.planningReview.upcoming).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        workItemId: dueSoon.id,
+        title: 'Due soon unassigned work'
+      }),
+      expect.objectContaining({
+        milestoneId: activeMilestone.id,
+        title: 'v0.0.3'
+      })
+    ]));
+    expect(summary.planningReview.recentlyChanged.length).toBeGreaterThan(0);
     expect(summary.milestoneProgress).toEqual([
       {
         milestone: expect.objectContaining({ id: activeMilestone.id, name: 'v0.0.3' }),
@@ -331,11 +373,28 @@ describe('planning summary', () => {
         blockedCount: 1,
         dependencyBlockedCount: 0,
         overdueCount: 1,
-        dueSoonCount: 0,
-        unassignedActiveCount: 0,
+        dueSoonCount: 1,
+        unassignedActiveCount: 1,
         staleInProgressCount: 0,
-        health: 'healthy',
-        reasons: []
+        health: 'blocked',
+        reasons: expect.arrayContaining([
+          expect.objectContaining({
+            key: 'blocked_work',
+            query: {
+              milestoneId: activeMilestone.id,
+              status: 'blocked',
+              sort: 'priority_desc'
+            }
+          }),
+          expect.objectContaining({
+            key: 'due_soon',
+            query: {
+              milestoneId: activeMilestone.id,
+              dueDateState: 'due_soon',
+              sort: 'due_date_asc'
+            }
+          })
+        ])
       },
       {
         milestone: expect.objectContaining({ id: plannedMilestone.id, name: 'v0.0.4' }),
@@ -347,9 +406,54 @@ describe('planning summary', () => {
         overdueCount: 0,
         dueSoonCount: 0,
         unassignedActiveCount: 0,
+        staleInProgressCount: 1,
+        health: 'at_risk',
+        reasons: [
+          expect.objectContaining({
+            key: 'stale_in_progress',
+            query: {
+              milestoneId: plannedMilestone.id,
+              status: 'in_progress',
+              sort: 'updated_asc'
+            }
+          })
+        ]
+      },
+      {
+        milestone: expect.objectContaining({ name: 'completed target' }),
+        totalCount: 0,
+        doneCount: 0,
+        openCount: 0,
+        blockedCount: 0,
+        dependencyBlockedCount: 0,
+        overdueCount: 0,
+        dueSoonCount: 0,
+        unassignedActiveCount: 0,
         staleInProgressCount: 0,
-        health: 'healthy',
-        reasons: []
+        health: 'complete',
+        reasons: [
+          expect.objectContaining({
+            key: 'all_work_done'
+          })
+        ]
+      },
+      {
+        milestone: expect.objectContaining({ name: 'archived target' }),
+        totalCount: 0,
+        doneCount: 0,
+        openCount: 0,
+        blockedCount: 0,
+        dependencyBlockedCount: 0,
+        overdueCount: 0,
+        dueSoonCount: 0,
+        unassignedActiveCount: 0,
+        staleInProgressCount: 0,
+        health: 'inactive',
+        reasons: [
+          expect.objectContaining({
+            key: 'inactive_milestone'
+          })
+        ]
       }
     ]);
     expect(summary.blockedWork.map((item) => item.id)).toEqual([blocked.id]);
@@ -392,6 +496,9 @@ describe('planning summary', () => {
         expect(body.project).toMatchObject({
           id: fixture.projectId,
           status: 'archived'
+        });
+        expect(body.deliveryHealth).toMatchObject({
+          health: 'inactive'
         });
         expect(body.milestoneProgress).toEqual([
           expect.objectContaining({

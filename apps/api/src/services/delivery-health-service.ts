@@ -422,6 +422,7 @@ function getMilestoneReasons(input: {
 
   if (input.health === 'inactive') {
     reasons.push(createReason('inactive_milestone', 'info', 'Milestone is inactive.', 1, null));
+    return reasons;
   }
 
   if (input.health === 'complete') {

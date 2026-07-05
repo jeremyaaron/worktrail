@@ -310,7 +310,25 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-05.
+- Updated `PlanningService.getProjectPlanningSummary` to call `DeliveryHealthService`.
+- Passed the existing planning summary inputs into delivery-health derivation:
+  - project;
+  - project work items;
+  - dependency-blocked work items;
+  - blocking-open-work items;
+  - milestones including archived milestones;
+  - a single injected clock value.
+- Returned real `deliveryHealth`, enriched `milestoneProgress`, and `planningReview` values from the planning summary endpoint.
+- Preserved existing planning risk list fields and sorting.
+- Removed the old local placeholder milestone progress derivation from `PlanningService`.
+- Tightened inactive milestone reason generation so inactive milestones do not also emit empty-active milestone reasons.
+- Updated planning service tests to assert derived project health, milestone health, reason links, planning review sections, and archived project read behavior.
+- Verified `npm test --workspace @worktrail/api -- planning`.
+- Verified `npm test --workspace @worktrail/api -- delivery-health-service`.
+- Verified `npm test --workspace @worktrail/api`.
+- Verified `npm run typecheck --workspace @worktrail/api`.
+- Verified `git diff --check`.
 
 ## Phase 4: Project Summary Backend Integration
 
