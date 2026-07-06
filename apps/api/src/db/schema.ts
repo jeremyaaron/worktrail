@@ -271,11 +271,13 @@ export const savedWorkViews = pgTable(
       table.ownerMemberId,
       table.updatedAt.desc()
     ),
-    uniqueIndex('saved_work_views_workspace_owner_name_unique').on(
+    uniqueIndex('saved_work_views_personal_name_unique')
+      .on(table.workspaceId, table.ownerMemberId, sql`lower(${table.name})`)
+      .where(sql`${table.visibility} = 'personal'`),
+    uniqueIndex('saved_work_views_workspace_name_unique').on(
       table.workspaceId,
-      table.ownerMemberId,
       sql`lower(${table.name})`
-    )
+    ).where(sql`${table.visibility} = 'workspace'`)
   ]
 );
 

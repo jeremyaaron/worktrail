@@ -168,13 +168,16 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
     }
 
     <app-saved-views-toolbar
-      [savedViews]="savedViews()"
+      [personalViews]="personalSavedViews()"
+      [workspaceViews]="workspaceSavedViews()"
+      [canManageWorkspaceViews]="canManageWorkspaceSavedViews()"
       [draftNames]="savedViewDraftNames()"
       [isLoading]="isSavedViewLoading()"
       [isSaving]="isSavingView()"
       [loadError]="savedViewLoadError()"
       [mutationError]="savedViewMutationError()"
-      (save)="saveCurrentViewName($event)"
+      (savePersonal)="saveCurrentViewName($event)"
+      (saveWorkspace)="saveWorkspaceViewName($event)"
       (open)="openSavedView($event)"
       (rename)="renameSavedView($event)"
       (updateQuery)="updateSavedViewQuery($event)"
@@ -810,6 +813,16 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
 
   readonly projectSummaries = signal<ProjectNavigationSummaryDto[]>([]);
   readonly savedViews = signal<SavedWorkViewDto[]>([]);
+  readonly personalSavedViews = computed<SavedWorkViewDto[]>(() =>
+    this.sortSavedViews(this.savedViews().filter((savedView) => savedView.visibility === 'personal'))
+  );
+  readonly workspaceSavedViews = computed<SavedWorkViewDto[]>(() =>
+    this.sortSavedViews(this.savedViews().filter((savedView) => savedView.visibility === 'workspace'))
+  );
+  readonly canManageWorkspaceSavedViews = computed(() => {
+    const role = this.currentUser.selectedMember()?.role;
+    return role === 'owner' || role === 'maintainer';
+  });
   readonly savedViewDraftNames = signal<Record<string, string>>({});
   readonly labels = signal<LabelDto[]>([]);
   readonly milestones = signal<MilestoneDto[]>([]);
@@ -1049,6 +1062,14 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   workItemPriorityLabel = workItemPriorityLabel;
 
   saveCurrentView(): void {
+    this.createSavedView('personal');
+  }
+
+  saveWorkspaceView(): void {
+    this.createSavedView('workspace');
+  }
+
+  private createSavedView(visibility: SavedWorkViewDto['visibility']): void {
     const name = this.savedViewForm.controls.name.value.trim();
 
     if (name === '') {
@@ -1056,28 +1077,44 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       return;
     }
 
+    if (visibility === 'workspace' && !this.canManageWorkspaceSavedViews()) {
+      this.savedViewMutationError.set('Only owners and maintainers can manage shared saved views.');
+      return;
+    }
+
     this.isSavingView.set(true);
     this.savedViewMutationError.set(null);
 
-    this.api.createSavedWorkView({ name, query: this.appliedQuery() }).subscribe({
-      next: (savedView) => {
-        this.savedViews.set(this.sortSavedViews([...this.savedViews(), savedView]));
-        this.syncSavedViewDraftNames(this.savedViews());
-        this.savedViewForm.reset({ name: '' });
-        this.isSavingView.set(false);
-      },
-      error: (error: HttpErrorResponse) => {
-        this.savedViewMutationError.set(
-          this.toErrorMessage(error, 'Saved view could not be created.')
-        );
-        this.isSavingView.set(false);
-      }
-    });
+    this.api
+      .createSavedWorkView({
+        name,
+        query: this.appliedQuery(),
+        ...(visibility === 'workspace' ? { visibility } : {})
+      })
+      .subscribe({
+        next: (savedView) => {
+          this.savedViews.set(this.sortSavedViews([...this.savedViews(), savedView]));
+          this.syncSavedViewDraftNames(this.savedViews());
+          this.savedViewForm.reset({ name: '' });
+          this.isSavingView.set(false);
+        },
+        error: (error: HttpErrorResponse) => {
+          this.savedViewMutationError.set(
+            this.toErrorMessage(error, 'Saved view could not be created.')
+          );
+          this.isSavingView.set(false);
+        }
+      });
   }
 
   saveCurrentViewName(name: string): void {
     this.savedViewForm.controls.name.setValue(name);
     this.saveCurrentView();
+  }
+
+  saveWorkspaceViewName(name: string): void {
+    this.savedViewForm.controls.name.setValue(name);
+    this.saveWorkspaceView();
   }
 
   openSavedView(savedView: SavedWorkViewDto): void {
@@ -1088,6 +1125,10 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   renameSavedView(savedView: SavedWorkViewDto): void {
+    if (!this.canMutateSavedView(savedView)) {
+      return;
+    }
+
     const name = this.savedViewDraftName(savedView.id).trim();
 
     if (name === '') {
@@ -1110,6 +1151,10 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   updateSavedViewQuery(savedView: SavedWorkViewDto): void {
+    if (!this.canMutateSavedView(savedView)) {
+      return;
+    }
+
     this.savedViewMutationError.set(null);
 
     this.api.updateSavedWorkView(savedView.id, { query: this.appliedQuery() }).subscribe({
@@ -1125,6 +1170,10 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   deleteSavedView(savedView: SavedWorkViewDto): void {
+    if (!this.canMutateSavedView(savedView)) {
+      return;
+    }
+
     this.savedViewMutationError.set(null);
 
     this.api.deleteSavedWorkView(savedView.id).subscribe({
@@ -1139,6 +1188,15 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
         );
       }
     });
+  }
+
+  canMutateSavedView(savedView: SavedWorkViewDto): boolean {
+    if (savedView.visibility === 'personal' || this.canManageWorkspaceSavedViews()) {
+      return true;
+    }
+
+    this.savedViewMutationError.set('Only owners and maintainers can manage shared saved views.');
+    return false;
   }
 
   savedViewDraftName(savedViewId: string): string {

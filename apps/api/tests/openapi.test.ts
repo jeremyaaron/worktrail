@@ -97,6 +97,13 @@ describe('OpenAPI reference', () => {
     expect(openApi).toContain('PlanningReview:');
     expect(openApi).toContain('deliveryHealth:');
     expect(openApi).toContain('planningReview:');
+    expect(openApi).toContain('SavedWorkViewVisibility:');
+    expect(openApi).toContain('enum: [personal, workspace]');
+    expect(openApi).toContain("Returns the current actor's personal saved views plus workspace-shared saved views.");
+    expect(openApi).toContain('Creating a workspace-shared saved view requires owner or maintainer role.');
+    expect(openApi).toContain('Shared view mutation requires owner or maintainer role.');
+    expect(openApi).toContain('saved_view.created');
+    expect(openApi).toContain('saved_view.updated');
     expect(openApi).toContain('unmilestoned_risk');
     expect(openApi).toContain('target_date_past');
     expect(openApi).toContain('dependency_blocked');

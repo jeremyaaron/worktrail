@@ -1,0 +1,7 @@
+ALTER TABLE "saved_work_views" DROP CONSTRAINT "saved_work_views_visibility_check";--> statement-breakpoint
+ALTER TABLE "workspace_activity_events" DROP CONSTRAINT "workspace_activity_events_event_type_check";--> statement-breakpoint
+DROP INDEX "saved_work_views_workspace_owner_name_unique";--> statement-breakpoint
+CREATE UNIQUE INDEX "saved_work_views_personal_name_unique" ON "saved_work_views" USING btree ("workspace_id","owner_member_id",lower("name")) WHERE "saved_work_views"."visibility" = 'personal';--> statement-breakpoint
+CREATE UNIQUE INDEX "saved_work_views_workspace_name_unique" ON "saved_work_views" USING btree ("workspace_id",lower("name")) WHERE "saved_work_views"."visibility" = 'workspace';--> statement-breakpoint
+ALTER TABLE "saved_work_views" ADD CONSTRAINT "saved_work_views_visibility_check" CHECK (visibility in ('personal', 'workspace'));--> statement-breakpoint
+ALTER TABLE "workspace_activity_events" ADD CONSTRAINT "workspace_activity_events_event_type_check" CHECK (event_type in ('member.created', 'member.name_changed', 'member.email_changed', 'member.role_changed', 'member.deactivated', 'member.reactivated', 'workspace.name_changed', 'project.created', 'saved_view.created', 'saved_view.name_changed', 'saved_view.query_changed', 'saved_view.updated', 'saved_view.deleted'));

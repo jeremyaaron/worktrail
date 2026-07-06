@@ -146,6 +146,18 @@ const savedView: SavedWorkViewDto = {
   updatedAt: '2026-07-04T12:00:00.000Z'
 };
 
+const sharedSavedView: SavedWorkViewDto = {
+  ...savedView,
+  id: '10000000-0000-4000-8000-000000000702',
+  owner,
+  name: 'Dependency risks',
+  visibility: 'workspace',
+  query: {
+    dependency: 'dependency_blocked',
+    sort: 'priority_desc'
+  }
+};
+
 class ActivatedRouteStub {
   private readonly queryParamMapSubject = new BehaviorSubject(convertToParamMap({}));
   readonly queryParamMap = this.queryParamMapSubject.asObservable();
@@ -161,10 +173,10 @@ class ActivatedRouteStub {
 let route: ActivatedRouteStub;
 let clipboard: jasmine.SpyObj<ClipboardService>;
 
-function seedCurrentUser(): void {
+function seedCurrentUser(member: MemberDto = owner): void {
   const currentUser = TestBed.inject(CurrentUserService);
   currentUser.members.set([owner, contributor]);
-  currentUser.selectMember(owner.id);
+  currentUser.selectMember(member.id);
 }
 
 function spyOnCsvDownload(): void {
@@ -172,11 +184,14 @@ function spyOnCsvDownload(): void {
   spyOn(URL, 'revokeObjectURL');
 }
 
-function setup(query: Record<string, string> = {}): {
+function setup(
+  query: Record<string, string> = {},
+  actor: MemberDto = owner
+): {
   fixture: ComponentFixture<WorkspaceWorkItemListPageComponent>;
   http: HttpTestingController;
 } {
-  seedCurrentUser();
+  seedCurrentUser(actor);
   route.setQuery(query);
   const fixture = TestBed.createComponent(WorkspaceWorkItemListPageComponent);
   const http = TestBed.inject(HttpTestingController);
@@ -582,6 +597,126 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     remove.flush(null);
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('My open owner work');
+  });
+
+  it('separates shared and personal views and manages shared views for owners', () => {
+    const { fixture, http } = setup({
+      status: 'blocked',
+      search: 'risk',
+      dependency: 'blocking_open_work',
+      archivedProjects: 'include'
+    });
+    flushProjectSummaries(http);
+    flushSavedViews(http, [savedView, sharedSavedView]);
+    http.expectOne((candidate) => candidate.url === '/api/work-items').flush([]);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.personalSavedViews().map((view) => view.id)).toEqual([
+      savedView.id
+    ]);
+    expect(fixture.componentInstance.workspaceSavedViews().map((view) => view.id)).toEqual([
+      sharedSavedView.id
+    ]);
+    expect(fixture.componentInstance.canManageWorkspaceSavedViews()).toBeTrue();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('1 shared · 1 personal');
+    expect(text.indexOf('Dependency risks')).toBeLessThan(text.indexOf('Open owner work'));
+
+    fixture.componentInstance.saveWorkspaceViewName('Shared blocked risks');
+    const create = http.expectOne('/api/saved-work-views');
+    expect(create.request.method).toBe('POST');
+    expect(create.request.body).toEqual({
+      name: 'Shared blocked risks',
+      visibility: 'workspace',
+      query: {
+        search: 'risk',
+        status: 'blocked',
+        archivedProjects: 'include',
+        dependency: 'blocking_open_work'
+      }
+    });
+    const createdView: SavedWorkViewDto = {
+      ...sharedSavedView,
+      id: '10000000-0000-4000-8000-000000000703',
+      name: 'Shared blocked risks',
+      query: create.request.body.query
+    };
+    create.flush(createdView);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.workspaceSavedViews().map((view) => view.name)).toEqual([
+      'Dependency risks',
+      'Shared blocked risks'
+    ]);
+
+    fixture.componentInstance.setSavedViewDraftName(sharedSavedView.id, 'Shared dependency risks');
+    fixture.componentInstance.renameSavedView(sharedSavedView);
+    const rename = http.expectOne(`/api/saved-work-views/${sharedSavedView.id}`);
+    expect(rename.request.method).toBe('PATCH');
+    expect(rename.request.body).toEqual({ name: 'Shared dependency risks' });
+    const renamedView: SavedWorkViewDto = {
+      ...sharedSavedView,
+      name: 'Shared dependency risks'
+    };
+    rename.flush(renamedView);
+
+    fixture.componentInstance.updateSavedViewQuery(renamedView);
+    const update = http.expectOne(`/api/saved-work-views/${sharedSavedView.id}`);
+    expect(update.request.method).toBe('PATCH');
+    expect(update.request.body.query).toEqual(
+      jasmine.objectContaining({
+        search: 'risk',
+        status: 'blocked',
+        dependency: 'blocking_open_work',
+        archivedProjects: 'include'
+      })
+    );
+    update.flush({ ...renamedView, query: update.request.body.query });
+
+    fixture.componentInstance.deleteSavedView(renamedView);
+    const remove = http.expectOne(`/api/saved-work-views/${sharedSavedView.id}`);
+    expect(remove.request.method).toBe('DELETE');
+    remove.flush(null);
+  });
+
+  it('lets contributors open shared views without sending shared mutation requests', () => {
+    const { fixture, http } = setup({}, contributor);
+    flushProjectSummaries(http);
+    flushSavedViews(http, [sharedSavedView]);
+    http.expectOne('/api/work-items').flush([]);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.workspaceSavedViews().map((view) => view.id)).toEqual([
+      sharedSavedView.id
+    ]);
+    expect(fixture.componentInstance.canManageWorkspaceSavedViews()).toBeFalse();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Owners and maintainers manage shared saved views.'
+    );
+
+    const router = TestBed.inject(Router);
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    fixture.componentInstance.openSavedView(sharedSavedView);
+    expect(navigate).toHaveBeenCalledWith(
+      [],
+      jasmine.objectContaining({
+        queryParams: jasmine.objectContaining({
+          dependency: 'dependency_blocked',
+          sort: 'priority_desc'
+        })
+      })
+    );
+
+    fixture.componentInstance.saveWorkspaceViewName('Contributor shared view');
+    fixture.componentInstance.renameSavedView(sharedSavedView);
+    fixture.componentInstance.updateSavedViewQuery(sharedSavedView);
+    fixture.componentInstance.deleteSavedView(sharedSavedView);
+
+    http.expectNone('/api/saved-work-views');
+    http.expectNone(`/api/saved-work-views/${sharedSavedView.id}`);
+    expect(fixture.componentInstance.savedViewMutationError()).toBe(
+      'Only owners and maintainers can manage shared saved views.'
+    );
   });
 
   it('shows saved view validation and duplicate-name errors inline', () => {

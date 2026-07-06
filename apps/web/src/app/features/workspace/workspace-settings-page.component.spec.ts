@@ -108,6 +108,24 @@ const workspaceActivity: WorkspaceActivityEventDto = {
   createdAt: '2026-07-03T12:00:00.000Z'
 };
 
+const sharedSavedViewActivity: WorkspaceActivityEventDto = {
+  id: '10000000-0000-4000-8000-000000000706',
+  workspaceId,
+  actor: owner,
+  eventType: 'saved_view.created',
+  summary: 'Avery Owner created shared view Dependency risks.',
+  previousValue: null,
+  newValue: {
+    savedViewId: '10000000-0000-4000-8000-000000000814',
+    name: 'Dependency risks',
+    visibility: 'workspace'
+  },
+  metadata: {
+    savedViewId: '10000000-0000-4000-8000-000000000814'
+  },
+  createdAt: '2026-07-03T12:00:00.000Z'
+};
+
 function seedCurrentUser(member: MemberDto = owner) {
   const currentUser = TestBed.inject(CurrentUserService);
   currentUser.members.set([owner, maintainer, contributor]);
@@ -161,6 +179,15 @@ describe('WorkspaceSettingsPageComponent', () => {
     expect(rowInputValues).toContain('Riley Former');
     expect(compiled.textContent).toContain('Inactive');
     expect(compiled.textContent).toContain('Workspace renamed.');
+  });
+
+  it('renders shared saved-view activity with a readable event label', () => {
+    const { fixture } = setupWorkspacePage({ activity: [sharedSavedViewActivity] });
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Avery Owner created shared view Dependency risks.');
+    expect(compiled.textContent).toContain('Shared saved view created');
+    expect(compiled.textContent).not.toContain('saved_view.created');
   });
 
   it('saves workspace name changes for owners', () => {

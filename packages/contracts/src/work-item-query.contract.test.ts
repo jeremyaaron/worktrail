@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import type {
+  CreateSavedWorkViewRequest,
   DeliveryHealthReasonDto,
   ProjectPlanningSummaryDto,
   SavedWorkViewDto,
@@ -55,11 +56,16 @@ describe('work item query contracts', () => {
         updatedAt: '2026-07-05T00:00:00.000Z'
       },
       name: 'Open design work',
-      visibility: 'personal',
+      visibility: 'workspace',
       query,
       createdAt: '2026-07-05T00:00:00.000Z',
       updatedAt: '2026-07-05T00:00:00.000Z'
     } satisfies SavedWorkViewDto;
+    const createRequest = {
+      name: 'Open design work',
+      visibility: 'workspace',
+      query
+    } satisfies CreateSavedWorkViewRequest;
 
     const healthReason = {
       key: 'dependency_blocked',
@@ -70,6 +76,7 @@ describe('work item query contracts', () => {
     } satisfies DeliveryHealthReasonDto;
 
     expect(savedView.query).toBe(query);
+    expect(createRequest.visibility).toBe('workspace');
     expect(healthReason.query).toBe(query);
     expectTypeOf(savedView.query).toMatchTypeOf<WorkItemQuery>();
   });
