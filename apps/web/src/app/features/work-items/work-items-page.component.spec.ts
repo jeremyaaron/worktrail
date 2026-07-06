@@ -147,6 +147,7 @@ const personalProjectSavedView: SavedWorkViewDto = {
   name: 'My project work',
   scope: 'project',
   visibility: 'personal',
+  isPinned: false,
   query: {
     assigneeId: contributorId,
     sort: 'updated_desc'

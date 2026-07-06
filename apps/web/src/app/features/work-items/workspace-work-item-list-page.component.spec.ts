@@ -139,6 +139,7 @@ const savedView: SavedWorkViewDto = {
   name: 'Open owner work',
   scope: 'workspace',
   visibility: 'personal',
+  isPinned: false,
   query: {
     assigneeId: owner.id,
     workState: 'open',

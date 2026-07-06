@@ -265,6 +265,7 @@ export const savedWorkViews = pgTable(
     name: text('name').notNull(),
     scope: text('scope').$type<SavedWorkViewScope>().notNull().default('workspace'),
     visibility: text('visibility').$type<SavedWorkViewVisibility>().notNull(),
+    isPinned: boolean('is_pinned').notNull().default(false),
     query: jsonb('query').$type<Record<string, unknown>>().notNull(),
     ...timestamps
   },

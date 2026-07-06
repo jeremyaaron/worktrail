@@ -160,6 +160,42 @@ npm run typecheck --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-06.
+- Updated shared saved-view contracts:
+  - added `isPinned: boolean` to `SavedWorkViewDto`;
+  - added optional `isPinned` to `UpdateSavedWorkViewRequest`;
+  - kept `CreateSavedWorkViewRequest` unchanged for pinned state.
+- Updated contract coverage for pinned saved-view DTOs and update requests.
+- Updated Drizzle schema:
+  - added `saved_work_views.is_pinned boolean not null default false`.
+- Generated migration and snapshot:
+  - `apps/api/drizzle/0009_smart_tana_nile.sql`;
+  - `apps/api/drizzle/meta/0009_snapshot.json`.
+- Updated saved-view DTO mapping to include `isPinned`.
+- Updated seeded saved views:
+  - workspace `Dependency risks`: `isPinned: true`;
+  - workspace `Ready for pickup`: `isPinned: true`;
+  - app project `Release blockers`: `isPinned: true`;
+  - app project `Ready for QA`: `isPinned: true`.
+- Updated saved-view seed upsert behavior so `isPinned` is refreshed idempotently.
+- Updated current web test fixtures for the required DTO field.
+- Verified seeded data after reset/migrate/seed:
+  - 4 pinned shared saved views;
+  - 21 unpinned saved views.
+- Verified repeated seed execution keeps the same pinned counts.
+- Verified:
+  - `npm test --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run db:reset`;
+  - `npm run db:migrate`;
+  - `npm run db:seed`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm test --workspace @worktrail/api -- saved-work-views.test.ts`;
+  - `git diff --check`.
+
 ## Phase 2: API Pin And Unpin Service Behavior
 
 Goal: implement pin and unpin mutations through the saved-view service with correct permissions and activity behavior.

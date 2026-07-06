@@ -1,0 +1,1 @@
+ALTER TABLE "saved_work_views" ADD COLUMN "is_pinned" boolean DEFAULT false NOT NULL;
