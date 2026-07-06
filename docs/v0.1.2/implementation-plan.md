@@ -379,6 +379,26 @@ npm run typecheck --workspace @worktrail/web
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-05.
+- Refactored `WorkItemListPageComponent` to delegate canonical project query behavior to the Phase 2 helpers for:
+  - route query params to form values;
+  - form values to compact `WorkItemQuery`;
+  - query-to-router params;
+  - detail return URL construction.
+- Changed project list loading to use applied query state rather than current form control state.
+- Kept filter application driven by pending form state while preserving applied state for:
+  - active filter chips;
+  - CSV export;
+  - detail return URLs.
+- Removed component-owned duplicate project query serialization and return URL construction.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/features/work-items/work-items-page.component.spec.ts'`
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/features/work-items/query/*.spec.ts'`
+  - `npm run typecheck --workspace @worktrail/web`
+  - `git diff --check`
+
 ## Phase 5: Dashboard, Health, Planning, And Return URLs
 
 Goal: route dashboard, delivery-health, planning, and detail return links through canonical query helpers.
