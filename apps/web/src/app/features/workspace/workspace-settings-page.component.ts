@@ -4,6 +4,7 @@ import type {
   MemberDto,
   MemberRole,
   WorkspaceActivityEventDto,
+  WorkspaceActivityEventType,
   WorkspaceCapabilitiesDto,
   WorkspaceDto
 } from '@worktrail/contracts';
@@ -15,6 +16,22 @@ import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
 
 type LifecycleAction = 'deactivate' | 'reactivate';
+
+const workspaceActivityEventLabels: Record<WorkspaceActivityEventType, string> = {
+  'member.created': 'Member created',
+  'member.name_changed': 'Member name changed',
+  'member.email_changed': 'Member email changed',
+  'member.role_changed': 'Member role changed',
+  'member.deactivated': 'Member deactivated',
+  'member.reactivated': 'Member reactivated',
+  'workspace.name_changed': 'Workspace renamed',
+  'project.created': 'Project created',
+  'saved_view.created': 'Shared saved view created',
+  'saved_view.name_changed': 'Shared saved view renamed',
+  'saved_view.query_changed': 'Shared saved view filters updated',
+  'saved_view.updated': 'Shared saved view updated',
+  'saved_view.deleted': 'Shared saved view deleted'
+};
 
 @Component({
   selector: 'app-workspace-settings-page',
@@ -855,7 +872,7 @@ export class WorkspaceSettingsPageComponent implements OnInit {
   }
 
   formatEventType(event: WorkspaceActivityEventDto): string {
-    return event.eventType.replaceAll('.', ' ').replaceAll('_', ' ');
+    return workspaceActivityEventLabels[event.eventType];
   }
 
   formatDateTime(value: string): string {

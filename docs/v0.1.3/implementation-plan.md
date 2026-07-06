@@ -345,6 +345,30 @@ npm run typecheck
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-06.
+- Added deterministic IDs and seeded workspace-shared saved views for:
+  - `Blocked work`;
+  - `Dependency risks`;
+  - `Due soon`;
+  - `Unassigned open work`;
+  - `Ready for pickup`.
+- Used canonical `WorkItemQuery` payloads with explicit archive and sort defaults.
+- Preserved seed upsert behavior for `visibility: 'workspace'`.
+- Verified through the API adapter that seeded shared views are visible to owner, maintainer, and contributor actors.
+- Replaced raw workspace activity token formatting with explicit readable labels, including shared saved-view lifecycle events.
+- Added workspace settings component coverage for shared saved-view activity display.
+- Verified:
+  - `npm run db:reset`
+  - `npm run db:migrate`
+  - `npm run db:seed`
+  - API seeded shared-view visibility check for owner, maintainer, and contributor actors
+  - `npm test --workspace @worktrail/api -- saved-work-views.test.ts`
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/features/workspace/*.spec.ts'`
+  - `npm run typecheck`
+  - `git diff --check`
+
 ## Phase 5: Saved Views Toolbar UI
 
 Goal: update the reusable saved-view toolbar to distinguish personal and workspace views.
