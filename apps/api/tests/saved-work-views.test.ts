@@ -128,6 +128,8 @@ describe('saved work view API', () => {
           workState: 'open',
           dependency: 'dependency_blocked',
           search: '   ',
+          status: '',
+          unexpectedFilter: 'not persisted',
           blocked: false
         }
       })
@@ -148,6 +150,11 @@ describe('saved work view API', () => {
       }
     });
     expect(createResponse.body.query.search).toBeUndefined();
+    expect(createResponse.body.query.status).toBeUndefined();
+    expect(createResponse.body.query.unexpectedFilter).toBeUndefined();
+
+    const persisted = await repositories.savedWorkViews.findById(createResponse.body.id);
+    expect(persisted?.query).toEqual(createResponse.body.query);
 
     await request(app)
       .get('/api/saved-work-views')
@@ -179,6 +186,8 @@ describe('saved work view API', () => {
       .send({
         name: 'Urgent work',
         query: {
+          assigneeId: '',
+          unknownFilter: 'not persisted',
           priority: 'urgent',
           workState: 'open',
           dependency: 'blocking_open_work'
@@ -197,6 +206,8 @@ describe('saved work view API', () => {
             sort: 'updated_desc'
           }
         });
+        expect(body.query.assigneeId).toBeUndefined();
+        expect(body.query.unknownFilter).toBeUndefined();
       });
 
     await request(app)
@@ -305,6 +316,16 @@ describe('saved work view API', () => {
 
   it('rejects invalid saved query payloads but allows stale references', async () => {
     const fixture = await createFixture();
+    const savedView = await repositories.savedWorkViews.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      ownerMemberId: fixture.actorId,
+      name: 'Existing saved view',
+      visibility: 'personal',
+      query: { archivedProjects: 'exclude', sort: 'updated_desc' },
+      createdAt: now(),
+      updatedAt: now()
+    });
 
     await request(app)
       .post('/api/saved-work-views')
@@ -321,6 +342,23 @@ describe('saved work view API', () => {
         expect(body.error).toEqual({
           code: 'VALIDATION_ERROR',
           message: 'Blocked work item queries cannot specify another status.'
+        });
+      });
+
+    await request(app)
+      .patch(`/api/saved-work-views/${savedView.id}`)
+      .set(fixture.headers)
+      .send({
+        query: {
+          status: 'ready',
+          workState: 'open'
+        }
+      })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.error).toEqual({
+          code: 'VALIDATION_ERROR',
+          message: 'Work item queries cannot specify both status and work state.'
         });
       });
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import type { WorkItemQuery } from '@worktrail/contracts';
 import { ValidationError } from '../src/errors/app-error.js';
 import {
   normalizeWorkItemQuery,
@@ -9,6 +10,9 @@ import {
 } from '../src/validation/work-item-query.js';
 
 describe('work item query validation', () => {
+  const memberId = '0f8fad5b-d9cb-469f-a165-70867728950e';
+  const projectId = '1f8fad5b-d9cb-469f-a165-70867728950e';
+
   it('normalizes empty values and applies defaults', () => {
     expect(
       parseWorkItemQuery({
@@ -28,26 +32,30 @@ describe('work item query validation', () => {
     expect(
       parseProjectWorkItemQuery({
         archivedProjects: 'only',
-        projectId: '0f8fad5b-d9cb-469f-a165-70867728950e',
+        projectId,
         blocked: 'true',
+        assigneeState: 'assigned',
+        workState: 'open',
         sort: 'priority_desc'
       })
     ).toEqual({
+      assigneeState: 'assigned',
       blocked: true,
-      sort: 'priority_desc'
+      sort: 'priority_desc',
+      workState: 'open'
     });
   });
 
   it('parses workspace work item queries with workspace scope fields', () => {
     expect(
       parseWorkspaceWorkItemQuery({
-        projectId: '0f8fad5b-d9cb-469f-a165-70867728950e',
+        projectId,
         archivedProjects: 'only',
         workState: 'terminal'
       })
     ).toEqual({
       archivedProjects: 'only',
-      projectId: '0f8fad5b-d9cb-469f-a165-70867728950e',
+      projectId,
       sort: 'updated_desc',
       workState: 'terminal'
     });
@@ -69,14 +77,37 @@ describe('work item query validation', () => {
   it('normalizes saved-view query input', () => {
     expect(
       normalizeWorkItemQuery({
+        assigneeId: memberId,
+        milestoneId: '',
+        projectId: '',
         search: '  api gateway  ',
+        unexpected: 'ignored',
         workState: 'open'
-      })
+      } as unknown as WorkItemQuery)
     ).toEqual({
+      assigneeId: memberId,
       archivedProjects: 'exclude',
       search: 'api gateway',
       sort: 'updated_desc',
       workState: 'open'
+    });
+  });
+
+  it('normalizes unknown and empty saved-view query fields without preserving them', () => {
+    expect(
+      normalizeWorkItemQuery({
+        archivedProjects: '',
+        assigneeId: '',
+        blocked: false,
+        search: '',
+        sort: '',
+        status: '',
+        unknownFilter: 'not persisted'
+      } as unknown as WorkItemQuery)
+    ).toEqual({
+      archivedProjects: 'exclude',
+      blocked: false,
+      sort: 'updated_desc'
     });
   });
 
@@ -93,7 +124,7 @@ describe('work item query validation', () => {
   it('rejects unassigned queries with an assignee id', () => {
     expect(() =>
       parseWorkItemQuery({
-        assigneeId: '0f8fad5b-d9cb-469f-a165-70867728950e',
+        assigneeId: memberId,
         assigneeState: 'unassigned'
       })
     ).toThrow(ValidationError);

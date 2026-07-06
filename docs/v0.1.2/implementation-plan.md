@@ -154,6 +154,35 @@ npm run typecheck --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-05.
+- Reviewed `apps/api/src/validation/work-item-query.ts` and preserved it as the API-side query authority.
+- Tightened API query normalization so parsed and normalized `WorkItemQuery` objects strip explicit `undefined` fields before returning.
+- Tightened saved-view normalization so blank string fields in query JSON are treated as omitted values before validation.
+- Added focused work item query tests covering:
+  - empty value normalization;
+  - default sort behavior;
+  - default archived-project behavior;
+  - project-scoped stripping of `projectId` and `archivedProjects`;
+  - supported common project filters such as `workState`, `blocked`, and `assigneeState`;
+  - workspace-scope fields;
+  - unknown saved-view query field stripping;
+  - contradictory query validation.
+- Added saved-view API coverage for:
+  - create-time query normalization and persistence;
+  - update-time query normalization;
+  - unknown field stripping;
+  - invalid update query combinations;
+  - existing actor scoping.
+- Updated OpenAPI so project work item list/export endpoints document the already-supported `workState`, `assigneeState`, and `blocked` query parameters.
+- Verified:
+  - `npm test --workspace @worktrail/api -- work-item-query saved-work-views`
+  - `npm run typecheck --workspace @worktrail/api`
+  - `npm test --workspace @worktrail/api -- openapi`
+  - `npm test --workspace @worktrail/api -- work-items`
+  - `git diff --check`
+
 ## Phase 2: Frontend Query Helpers And Round-Trip Tests
 
 Goal: consolidate frontend query conversion behind pure helper functions with broad round-trip tests.
