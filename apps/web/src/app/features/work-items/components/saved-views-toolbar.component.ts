@@ -3,6 +3,7 @@ import type { SavedWorkViewDto } from '@worktrail/contracts';
 
 import { EmptyStateComponent } from '../../../shared/ui/empty-state.component';
 import { LoadingIndicatorComponent } from '../../../shared/ui/loading-indicator.component';
+import { meaningfulWorkItemQueryFieldCount } from '../query/work-item-query-serialization';
 
 @Component({
   selector: 'app-saved-views-toolbar',
@@ -266,10 +267,10 @@ export class SavedViewsToolbarComponent {
   }
 
   savedViewQueryLabel(savedView: SavedWorkViewDto): string {
-    const count = Object.values(savedView.query).filter(
-      (value) => value !== undefined && value !== null && String(value).trim() !== ''
-    ).length;
+    const count = meaningfulWorkItemQueryFieldCount(savedView.query, 'workspace');
 
-    return count === 0 ? 'Default workspace view' : `${count} applied filters`;
+    return count === 0
+      ? 'Default workspace view'
+      : `${count} applied ${count === 1 ? 'filter' : 'filters'}`;
   }
 }

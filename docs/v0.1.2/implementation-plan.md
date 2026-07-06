@@ -556,6 +556,22 @@ npm run typecheck --workspace @worktrail/web
 git diff --check
 ```
 
+Status: Completed on 2026-07-05.
+
+- Aligned project CSV export with the canonical work item HTTP query serializer used by workspace exports.
+- Added accessible export button titles/labels that clarify CSV exports use applied filters.
+- Updated saved-view summary labels to use meaningful workspace query counts instead of raw query keys, including default-only query noise suppression and singular/plural copy.
+- Added tests for default-only saved-view summaries and export affordance labels while keeping existing applied-query export and stale saved-view coverage passing.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/core/worktrail-api.service.spec.ts'`
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/features/work-items/components/saved-views-toolbar.component.spec.ts'`
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/features/work-items/workspace-work-item-list-page.component.spec.ts'`
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/features/work-items/work-items-page.component.spec.ts'`
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/features/work-items/*.spec.ts'`
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/features/work-items/components/*.spec.ts'`
+  - `npm run typecheck --workspace @worktrail/web`
+  - `git diff --check`
+
 ## Phase 8: E2E Smoke And QA Pass
 
 Goal: verify the core filtered-view workflow through the running app.

@@ -268,6 +268,11 @@ describe('WorkspaceWorkItemListPageComponent', () => {
 
     expect(compiled.textContent).toContain('Design workspace discovery');
     expect(compiled.textContent).toContain('Export CSV');
+    expect(
+      compiled
+        .querySelector<HTMLButtonElement>('button[aria-label="Export applied workspace filters as CSV"]')
+        ?.getAttribute('title')
+    ).toBe('Export the applied workspace filters as CSV');
     expect(compiled.textContent).toContain('WT-12');
     expect(compiled.textContent).toContain('Worktrail App');
     expect(compiled.textContent).toContain('Story · In progress · High');

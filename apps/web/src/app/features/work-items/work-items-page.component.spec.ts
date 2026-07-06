@@ -260,6 +260,11 @@ describe('WorkItemListPageComponent', () => {
     expect(compiled.textContent).toContain('Blocked by 2');
     expect(compiled.textContent).toContain('Blocks 1');
     expect(compiled.textContent).toContain('Export CSV');
+    expect(
+      compiled
+        .querySelector<HTMLButtonElement>('button[aria-label="Export applied project filters as CSV"]')
+        ?.getAttribute('title')
+    ).toBe('Export the applied project filters as CSV');
     expect(compiled.querySelector<HTMLAnchorElement>(`a[href="/projects/${projectId}/work-items/import"]`)).not.toBeNull();
   });
 

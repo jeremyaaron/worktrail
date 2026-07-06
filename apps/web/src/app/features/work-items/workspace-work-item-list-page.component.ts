@@ -146,7 +146,14 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
         <button type="button" class="secondary-action" [disabled]="isCopyingViewLink()" (click)="copyViewLink()">
           {{ isCopyingViewLink() ? 'Copying...' : 'Copy link' }}
         </button>
-        <button type="button" class="secondary-action" [disabled]="isExporting()" (click)="exportCsv()">
+        <button
+          type="button"
+          class="secondary-action"
+          title="Export the applied workspace filters as CSV"
+          aria-label="Export applied workspace filters as CSV"
+          [disabled]="isExporting()"
+          (click)="exportCsv()"
+        >
           {{ isExporting() ? 'Exporting...' : 'Export CSV' }}
         </button>
         <a class="primary-action" routerLink="/work-items/new">Create work item</a>
@@ -1148,7 +1155,9 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   savedViewQueryLabel(savedView: SavedWorkViewDto): string {
     const count = meaningfulWorkItemQueryFieldCount(savedView.query, 'workspace');
 
-    return count === 0 ? 'Default workspace view' : `${count} applied filters`;
+    return count === 0
+      ? 'Default workspace view'
+      : `${count} applied ${count === 1 ? 'filter' : 'filters'}`;
   }
 
   formatToken(value: string): string {

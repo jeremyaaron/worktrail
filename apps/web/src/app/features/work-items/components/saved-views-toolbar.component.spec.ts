@@ -62,4 +62,33 @@ describe('SavedViewsToolbarComponent', () => {
     compiled.querySelector<HTMLButtonElement>('.saved-view-actions button')?.click();
     expect(opened).toEqual([savedView]);
   });
+
+  it('summarizes saved view queries without default-only filter noise', () => {
+    fixture.componentInstance.savedViews = [
+      {
+        ...savedView,
+        id: 'saved-view-default',
+        name: 'Default view',
+        query: {
+          archivedProjects: 'exclude',
+          search: ' ',
+          sort: 'updated_desc'
+        }
+      },
+      {
+        ...savedView,
+        id: 'saved-view-ready',
+        name: 'Ready view',
+        query: {
+          sort: 'updated_desc',
+          status: 'ready'
+        }
+      }
+    ];
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Default workspace view');
+    expect(text).toContain('1 applied filter');
+  });
 });

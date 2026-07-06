@@ -120,7 +120,14 @@ const defaultFilterValues: WorkItemFilterFormValue = {
         <button type="button" class="secondary-header-action" [disabled]="isCopyingViewLink()" (click)="copyViewLink()">
           {{ isCopyingViewLink() ? 'Copying...' : 'Copy link' }}
         </button>
-        <button type="button" class="secondary-header-action" [disabled]="isExporting()" (click)="exportCsv()">
+        <button
+          type="button"
+          class="secondary-header-action"
+          title="Export the applied project filters as CSV"
+          aria-label="Export applied project filters as CSV"
+          [disabled]="isExporting()"
+          (click)="exportCsv()"
+        >
           {{ isExporting() ? 'Exporting...' : 'Export CSV' }}
         </button>
         @if (!isArchivedProject()) {
