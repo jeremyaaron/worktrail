@@ -115,7 +115,15 @@ const ids = {
     workspaceDependencyRisks: '10000000-0000-4000-8000-000000000814',
     workspaceDueSoon: '10000000-0000-4000-8000-000000000815',
     workspaceUnassignedOpen: '10000000-0000-4000-8000-000000000816',
-    workspaceReadyForPickup: '10000000-0000-4000-8000-000000000817'
+    workspaceReadyForPickup: '10000000-0000-4000-8000-000000000817',
+    appReleaseBlockers: '10000000-0000-4000-8000-000000000818',
+    appReadyForQa: '10000000-0000-4000-8000-000000000819',
+    appUnassignedProjectWork: '10000000-0000-4000-8000-000000000820',
+    appCurrentMilestoneRisk: '10000000-0000-4000-8000-000000000821',
+    appOpenDependencyRisks: '10000000-0000-4000-8000-000000000822',
+    ownerAppOpenWork: '10000000-0000-4000-8000-000000000823',
+    platformReleaseBlockers: '10000000-0000-4000-8000-000000000824',
+    platformReadyForQa: '10000000-0000-4000-8000-000000000825'
   },
   notifications: {
     ownerWatchedStatus: '10000000-0000-4000-8000-000000000901',
@@ -128,6 +136,10 @@ const ids = {
 const now = new Date('2026-07-03T12:00:00.000Z');
 const earlier = new Date('2026-07-02T12:00:00.000Z');
 const stale = new Date('2026-06-20T12:00:00.000Z');
+const workspaceSavedViewDefaults = {
+  projectId: null,
+  scope: 'workspace'
+} as const;
 
 const pool = createPool();
 const db = createDb(pool);
@@ -1155,6 +1167,7 @@ try {
           id: ids.savedWorkViews.ownerMyOpen,
           workspaceId: ids.workspace,
           ownerMemberId: ids.members.owner,
+          ...workspaceSavedViewDefaults,
           name: 'My open work',
           visibility: 'personal',
           query: { assigneeId: ids.members.owner, archivedProjects: 'exclude', sort: 'updated_desc' },
@@ -1165,6 +1178,7 @@ try {
           id: ids.savedWorkViews.ownerBlocked,
           workspaceId: ids.workspace,
           ownerMemberId: ids.members.owner,
+          ...workspaceSavedViewDefaults,
           name: 'Blocked work',
           visibility: 'personal',
           query: { blocked: true, archivedProjects: 'exclude', sort: 'priority_desc' },
@@ -1175,6 +1189,7 @@ try {
           id: ids.savedWorkViews.ownerDueSoon,
           workspaceId: ids.workspace,
           ownerMemberId: ids.members.owner,
+          ...workspaceSavedViewDefaults,
           name: 'Due soon',
           visibility: 'personal',
           query: { dueDateState: 'due_soon', archivedProjects: 'exclude', sort: 'due_date_asc' },
@@ -1185,6 +1200,7 @@ try {
           id: ids.savedWorkViews.ownerUnassigned,
           workspaceId: ids.workspace,
           ownerMemberId: ids.members.owner,
+          ...workspaceSavedViewDefaults,
           name: 'Unassigned work',
           visibility: 'personal',
           query: { assigneeState: 'unassigned', archivedProjects: 'exclude', sort: 'updated_desc' },
@@ -1195,6 +1211,7 @@ try {
           id: ids.savedWorkViews.maintainerMyOpen,
           workspaceId: ids.workspace,
           ownerMemberId: ids.members.maintainer,
+          ...workspaceSavedViewDefaults,
           name: 'My open work',
           visibility: 'personal',
           query: {
@@ -1209,6 +1226,7 @@ try {
           id: ids.savedWorkViews.maintainerBlocked,
           workspaceId: ids.workspace,
           ownerMemberId: ids.members.maintainer,
+          ...workspaceSavedViewDefaults,
           name: 'Blocked work',
           visibility: 'personal',
           query: { blocked: true, archivedProjects: 'exclude', sort: 'priority_desc' },
@@ -1219,6 +1237,7 @@ try {
           id: ids.savedWorkViews.maintainerDueSoon,
           workspaceId: ids.workspace,
           ownerMemberId: ids.members.maintainer,
+          ...workspaceSavedViewDefaults,
           name: 'Due soon',
           visibility: 'personal',
           query: { dueDateState: 'due_soon', archivedProjects: 'exclude', sort: 'due_date_asc' },
@@ -1229,6 +1248,7 @@ try {
           id: ids.savedWorkViews.maintainerUnassigned,
           workspaceId: ids.workspace,
           ownerMemberId: ids.members.maintainer,
+          ...workspaceSavedViewDefaults,
           name: 'Unassigned work',
           visibility: 'personal',
           query: { assigneeState: 'unassigned', archivedProjects: 'exclude', sort: 'updated_desc' },
@@ -1239,6 +1259,7 @@ try {
           id: ids.savedWorkViews.contributorMyOpen,
           workspaceId: ids.workspace,
           ownerMemberId: ids.members.contributor,
+          ...workspaceSavedViewDefaults,
           name: 'My open work',
           visibility: 'personal',
           query: {
@@ -1253,6 +1274,7 @@ try {
           id: ids.savedWorkViews.contributorBlocked,
           workspaceId: ids.workspace,
           ownerMemberId: ids.members.contributor,
+          ...workspaceSavedViewDefaults,
           name: 'Blocked work',
           visibility: 'personal',
           query: { blocked: true, archivedProjects: 'exclude', sort: 'priority_desc' },
@@ -1263,6 +1285,7 @@ try {
           id: ids.savedWorkViews.contributorDueSoon,
           workspaceId: ids.workspace,
           ownerMemberId: ids.members.contributor,
+          ...workspaceSavedViewDefaults,
           name: 'Due soon',
           visibility: 'personal',
           query: { dueDateState: 'due_soon', archivedProjects: 'exclude', sort: 'due_date_asc' },
@@ -1273,6 +1296,7 @@ try {
           id: ids.savedWorkViews.contributorUnassigned,
           workspaceId: ids.workspace,
           ownerMemberId: ids.members.contributor,
+          ...workspaceSavedViewDefaults,
           name: 'Unassigned work',
           visibility: 'personal',
           query: { assigneeState: 'unassigned', archivedProjects: 'exclude', sort: 'updated_desc' },
@@ -1283,6 +1307,7 @@ try {
           id: ids.savedWorkViews.workspaceBlocked,
           workspaceId: ids.workspace,
           ownerMemberId: ids.members.owner,
+          ...workspaceSavedViewDefaults,
           name: 'Blocked work',
           visibility: 'workspace',
           query: { blocked: true, archivedProjects: 'exclude', sort: 'priority_desc' },
@@ -1293,6 +1318,7 @@ try {
           id: ids.savedWorkViews.workspaceDependencyRisks,
           workspaceId: ids.workspace,
           ownerMemberId: ids.members.owner,
+          ...workspaceSavedViewDefaults,
           name: 'Dependency risks',
           visibility: 'workspace',
           query: {
@@ -1307,6 +1333,7 @@ try {
           id: ids.savedWorkViews.workspaceDueSoon,
           workspaceId: ids.workspace,
           ownerMemberId: ids.members.owner,
+          ...workspaceSavedViewDefaults,
           name: 'Due soon',
           visibility: 'workspace',
           query: {
@@ -1322,6 +1349,7 @@ try {
           id: ids.savedWorkViews.workspaceUnassignedOpen,
           workspaceId: ids.workspace,
           ownerMemberId: ids.members.owner,
+          ...workspaceSavedViewDefaults,
           name: 'Unassigned open work',
           visibility: 'workspace',
           query: {
@@ -1337,6 +1365,7 @@ try {
           id: ids.savedWorkViews.workspaceReadyForPickup,
           workspaceId: ids.workspace,
           ownerMemberId: ids.members.owner,
+          ...workspaceSavedViewDefaults,
           name: 'Ready for pickup',
           visibility: 'workspace',
           query: {
@@ -1347,12 +1376,138 @@ try {
           },
           createdAt: earlier,
           updatedAt: now
+        },
+        {
+          id: ids.savedWorkViews.appReleaseBlockers,
+          workspaceId: ids.workspace,
+          ownerMemberId: ids.members.owner,
+          projectId: ids.projects.app,
+          scope: 'project',
+          name: 'Release blockers',
+          visibility: 'workspace',
+          query: {
+            blocked: true,
+            sort: 'priority_desc'
+          },
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.savedWorkViews.appReadyForQa,
+          workspaceId: ids.workspace,
+          ownerMemberId: ids.members.owner,
+          projectId: ids.projects.app,
+          scope: 'project',
+          name: 'Ready for QA',
+          visibility: 'workspace',
+          query: {
+            status: 'ready',
+            sort: 'board_order'
+          },
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.savedWorkViews.appUnassignedProjectWork,
+          workspaceId: ids.workspace,
+          ownerMemberId: ids.members.owner,
+          projectId: ids.projects.app,
+          scope: 'project',
+          name: 'Unassigned project work',
+          visibility: 'workspace',
+          query: {
+            assigneeState: 'unassigned',
+            workState: 'open',
+            sort: 'updated_desc'
+          },
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.savedWorkViews.appCurrentMilestoneRisk,
+          workspaceId: ids.workspace,
+          ownerMemberId: ids.members.owner,
+          projectId: ids.projects.app,
+          scope: 'project',
+          name: 'Current milestone risk',
+          visibility: 'workspace',
+          query: {
+            milestoneId: ids.milestones.atRisk,
+            workState: 'open',
+            sort: 'due_date_asc'
+          },
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.savedWorkViews.appOpenDependencyRisks,
+          workspaceId: ids.workspace,
+          ownerMemberId: ids.members.owner,
+          projectId: ids.projects.app,
+          scope: 'project',
+          name: 'Open dependency risks',
+          visibility: 'workspace',
+          query: {
+            dependency: 'dependency_blocked',
+            workState: 'open',
+            sort: 'priority_desc'
+          },
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.savedWorkViews.ownerAppOpenWork,
+          workspaceId: ids.workspace,
+          ownerMemberId: ids.members.owner,
+          projectId: ids.projects.app,
+          scope: 'project',
+          name: 'My app work',
+          visibility: 'personal',
+          query: {
+            assigneeId: ids.members.owner,
+            workState: 'open',
+            sort: 'updated_desc'
+          },
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.savedWorkViews.platformReleaseBlockers,
+          workspaceId: ids.workspace,
+          ownerMemberId: ids.members.owner,
+          projectId: ids.projects.platform,
+          scope: 'project',
+          name: 'Release blockers',
+          visibility: 'workspace',
+          query: {
+            blocked: true,
+            sort: 'priority_desc'
+          },
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.savedWorkViews.platformReadyForQa,
+          workspaceId: ids.workspace,
+          ownerMemberId: ids.members.owner,
+          projectId: ids.projects.platform,
+          scope: 'project',
+          name: 'Ready for QA',
+          visibility: 'workspace',
+          query: {
+            status: 'ready',
+            sort: 'board_order'
+          },
+          createdAt: earlier,
+          updatedAt: now
         }
       ])
       .onConflictDoUpdate({
         target: savedWorkViews.id,
         set: {
+          projectId: sql`excluded.project_id`,
           name: sql`excluded.name`,
+          scope: sql`excluded.scope`,
           visibility: sql`excluded.visibility`,
           query: sql`excluded.query`,
           updatedAt: now

@@ -9,6 +9,14 @@ import { WorktrailApiService } from '../../core/worktrail-api.service';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
 
+const projectActivityEventLabels: Partial<Record<ActivityEventDto['eventType'], string>> = {
+  'saved_view.created': 'Shared project view created',
+  'saved_view.name_changed': 'Shared project view renamed',
+  'saved_view.query_changed': 'Shared project view filters updated',
+  'saved_view.updated': 'Shared project view updated',
+  'saved_view.deleted': 'Shared project view deleted'
+};
+
 @Component({
   selector: 'app-project-settings-page',
   imports: [ErrorPanelComponent, LoadingIndicatorComponent, ReactiveFormsModule, RouterLink],
@@ -266,7 +274,7 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
         <section class="panel activity-panel" aria-labelledby="activity-heading">
           <div>
             <h2 id="activity-heading">Project activity</h2>
-            <p>Project and label lifecycle changes appear here.</p>
+            <p>Project, label, milestone, and shared saved-view changes appear here.</p>
           </div>
 
           @if (activityLoadError()) {
@@ -274,7 +282,7 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
           } @else if (activity().length === 0) {
             <section class="empty-labels">
               <h3>No project activity yet</h3>
-              <p>Settings and label changes will appear here.</p>
+              <p>Settings, labels, milestones, and shared saved views will appear here.</p>
             </section>
           } @else {
             <ol class="activity-list">
@@ -967,7 +975,7 @@ export class ProjectSettingsPageComponent implements OnInit {
   }
 
   formatEventType(event: ActivityEventDto): string {
-    return this.formatToken(event.eventType.replace('.', ' '));
+    return projectActivityEventLabels[event.eventType] ?? this.formatToken(event.eventType.replace('.', ' '));
   }
 
   formatDateTime(value: string): string {

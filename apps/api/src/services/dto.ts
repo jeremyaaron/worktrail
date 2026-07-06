@@ -243,8 +243,10 @@ export function toSavedWorkViewDto(savedView: SavedWorkView, owner: Member): Sav
   return {
     id: savedView.id,
     workspaceId: savedView.workspaceId,
+    projectId: savedView.projectId,
     owner: toMemberDto(owner),
     name: savedView.name,
+    scope: savedView.scope,
     visibility: savedView.visibility,
     query: savedView.query as WorkItemQuery,
     createdAt: savedView.createdAt.toISOString(),

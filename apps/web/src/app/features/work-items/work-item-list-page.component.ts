@@ -9,6 +9,7 @@ import type {
   MemberDto,
   MilestoneDto,
   ProjectDto,
+  SavedWorkViewDto,
   WorkItemListItemDto,
   WorkItemPriority,
   WorkItemQuery,
@@ -24,6 +25,7 @@ import { ClipboardService } from '../../shared/clipboard.service';
 import { downloadBlob, fileNameFromContentDisposition } from '../../shared/download-file';
 import { dependencyFilterLabel } from '../../shared/work-items/work-item-display';
 import { ActiveFilterChipsComponent } from './components/active-filter-chips.component';
+import { SavedViewsToolbarComponent } from './components/saved-views-toolbar.component';
 import { WorkItemFilterPanelComponent } from './components/work-item-filter-panel.component';
 import { WorkItemResultListComponent } from './components/work-item-result-list.component';
 import {
@@ -96,6 +98,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
     ActiveFilterChipsComponent,
     ReactiveFormsModule,
     RouterLink,
+    SavedViewsToolbarComponent,
     WorkItemFilterPanelComponent,
     WorkItemResultListComponent
   ],
@@ -154,6 +157,34 @@ const defaultFilterValues: WorkItemFilterFormValue = {
         <p>Project work is read-only until it is reactivated in settings.</p>
       </section>
     }
+
+    <app-saved-views-toolbar
+      [personalViews]="personalSavedViews()"
+      [sharedViews]="sharedSavedViews()"
+      [canManagePersonalViews]="canManageProjectSavedViews()"
+      [canManageSharedViews]="canManageSharedProjectSavedViews()"
+      [draftNames]="savedViewDraftNames()"
+      [isLoading]="isSavedViewLoading()"
+      [isSaving]="isSavingView()"
+      [loadError]="savedViewLoadError()"
+      [mutationError]="savedViewMutationError()"
+      querySummaryScope="project"
+      emptyMessage="Save the current filters to reuse this project view."
+      sharedHelper="Owners and maintainers manage shared project views."
+      readOnlyHelper="Archived project saved views are read-only."
+      sharedSectionLabel="Shared project views"
+      personalSectionLabel="Personal project views"
+      sharedEmptyMessage="No shared project views saved."
+      personalEmptyMessage="No personal project views saved."
+      newViewPlaceholder="Release blockers"
+      (savePersonal)="savePersonalProjectView($event)"
+      (saveShared)="saveSharedProjectView($event)"
+      (open)="openSavedView($event)"
+      (rename)="renameSavedView($event)"
+      (updateQuery)="updateSavedViewQuery($event)"
+      (delete)="deleteSavedView($event)"
+      (draftNameChange)="setSavedViewDraftName($event.savedViewId, $event.name)"
+    />
 
     <app-work-item-filter-panel [formGroup]="filterForm" (apply)="applyFilters()">
       <label filterCore>
@@ -720,6 +751,23 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   readonly isExporting = signal(false);
   readonly exportError = signal<string | null>(null);
   readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
+  readonly savedViews = signal<SavedWorkViewDto[]>([]);
+  readonly personalSavedViews = computed<SavedWorkViewDto[]>(() =>
+    this.sortSavedViews(this.savedViews().filter((savedView) => savedView.visibility === 'personal'))
+  );
+  readonly sharedSavedViews = computed<SavedWorkViewDto[]>(() =>
+    this.sortSavedViews(this.savedViews().filter((savedView) => savedView.visibility === 'workspace'))
+  );
+  readonly canManageProjectSavedViews = computed(() => !this.isArchivedProject());
+  readonly canManageSharedProjectSavedViews = computed(() => {
+    const role = this.currentUser.selectedMember()?.role;
+    return this.canManageProjectSavedViews() && (role === 'owner' || role === 'maintainer');
+  });
+  readonly savedViewDraftNames = signal<Record<string, string>>({});
+  readonly isSavedViewLoading = signal(false);
+  readonly savedViewLoadError = signal<string | null>(null);
+  readonly isSavingView = signal(false);
+  readonly savedViewMutationError = signal<string | null>(null);
 
   readonly filterForm = this.formBuilder.nonNullable.group({
     search: [''],
@@ -742,6 +790,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
 
     this.loadProject();
     this.loadMilestones();
+    this.loadSavedViews();
     this.watchFilterChanges();
 
     this.subscriptions.add(
@@ -862,6 +911,25 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     });
   }
 
+  loadSavedViews(): void {
+    this.isSavedViewLoading.set(true);
+    this.savedViewLoadError.set(null);
+
+    this.api.listSavedWorkViews({ scope: 'project', projectId: this.projectId() }).subscribe({
+      next: (savedViews) => {
+        this.savedViews.set(this.sortSavedViews(savedViews));
+        this.syncSavedViewDraftNames(this.savedViews());
+        this.isSavedViewLoading.set(false);
+      },
+      error: () => {
+        this.savedViews.set([]);
+        this.savedViewDraftNames.set({});
+        this.savedViewLoadError.set('Saved views could not be loaded from the API.');
+        this.isSavedViewLoading.set(false);
+      }
+    });
+  }
+
   formatToken(value: string): string {
     return value.replaceAll('_', ' ');
   }
@@ -883,6 +951,98 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
 
   activeFilterLabels(): string[] {
     return this.getActiveFilterLabels();
+  }
+
+  savePersonalProjectView(name: string): void {
+    this.createSavedView('personal', name);
+  }
+
+  saveSharedProjectView(name: string): void {
+    this.createSavedView('workspace', name);
+  }
+
+  openSavedView(savedView: SavedWorkViewDto): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: projectRouterQueryParamsFromQuery(savedView.query)
+    });
+  }
+
+  renameSavedView(savedView: SavedWorkViewDto): void {
+    if (!this.canMutateSavedView(savedView)) {
+      return;
+    }
+
+    const name = this.savedViewDraftName(savedView.id).trim();
+
+    if (name === '') {
+      this.savedViewMutationError.set('Saved view name is required.');
+      return;
+    }
+
+    this.savedViewMutationError.set(null);
+
+    this.api.updateSavedWorkView(savedView.id, { name }).subscribe({
+      next: (updated) => {
+        this.replaceSavedView(updated);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.savedViewMutationError.set(
+          this.toErrorMessage(error, 'Saved view could not be renamed.')
+        );
+      }
+    });
+  }
+
+  updateSavedViewQuery(savedView: SavedWorkViewDto): void {
+    if (!this.canMutateSavedView(savedView)) {
+      return;
+    }
+
+    this.savedViewMutationError.set(null);
+
+    this.api.updateSavedWorkView(savedView.id, { query: this.appliedQuery() }).subscribe({
+      next: (updated) => {
+        this.replaceSavedView(updated);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.savedViewMutationError.set(
+          this.toErrorMessage(error, 'Saved view query could not be updated.')
+        );
+      }
+    });
+  }
+
+  deleteSavedView(savedView: SavedWorkViewDto): void {
+    if (!this.canMutateSavedView(savedView)) {
+      return;
+    }
+
+    this.savedViewMutationError.set(null);
+
+    this.api.deleteSavedWorkView(savedView.id).subscribe({
+      next: () => {
+        this.savedViews.set(this.savedViews().filter((view) => view.id !== savedView.id));
+        const { [savedView.id]: _removed, ...remainingDraftNames } = this.savedViewDraftNames();
+        this.savedViewDraftNames.set(remainingDraftNames);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.savedViewMutationError.set(
+          this.toErrorMessage(error, 'Saved view could not be deleted.')
+        );
+      }
+    });
+  }
+
+  savedViewDraftName(savedViewId: string): string {
+    return this.savedViewDraftNames()[savedViewId] ?? '';
+  }
+
+  setSavedViewDraftName(savedViewId: string, name: string): void {
+    this.savedViewDraftNames.set({
+      ...this.savedViewDraftNames(),
+      [savedViewId]: name
+    });
   }
 
   detailReturnUrl(): string {
@@ -931,6 +1091,64 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
 
   private appliedQuery(): WorkItemQuery {
     return projectQueryFromFormValue(this.appliedFilterValues());
+  }
+
+  private createSavedView(visibility: SavedWorkViewDto['visibility'], name: string): void {
+    const trimmedName = name.trim();
+
+    if (trimmedName === '') {
+      this.savedViewMutationError.set('Saved view name is required.');
+      return;
+    }
+
+    if (!this.canManageProjectSavedViews()) {
+      this.savedViewMutationError.set('Archived projects are read-only.');
+      return;
+    }
+
+    if (visibility === 'workspace' && !this.canManageSharedProjectSavedViews()) {
+      this.savedViewMutationError.set('Only owners and maintainers can manage shared saved views.');
+      return;
+    }
+
+    this.isSavingView.set(true);
+    this.savedViewMutationError.set(null);
+
+    this.api
+      .createSavedWorkView({
+        name: trimmedName,
+        scope: 'project',
+        projectId: this.projectId(),
+        query: this.appliedQuery(),
+        ...(visibility === 'workspace' ? { visibility } : {})
+      })
+      .subscribe({
+        next: (savedView) => {
+          this.savedViews.set(this.sortSavedViews([...this.savedViews(), savedView]));
+          this.syncSavedViewDraftNames(this.savedViews());
+          this.isSavingView.set(false);
+        },
+        error: (error: HttpErrorResponse) => {
+          this.savedViewMutationError.set(
+            this.toErrorMessage(error, 'Saved view could not be created.')
+          );
+          this.isSavingView.set(false);
+        }
+      });
+  }
+
+  private canMutateSavedView(savedView: SavedWorkViewDto): boolean {
+    if (!this.canManageProjectSavedViews()) {
+      this.savedViewMutationError.set('Archived projects are read-only.');
+      return false;
+    }
+
+    if (savedView.visibility === 'personal' || this.canManageSharedProjectSavedViews()) {
+      return true;
+    }
+
+    this.savedViewMutationError.set('Only owners and maintainers can manage shared saved views.');
+    return false;
   }
 
   private currentFilteredViewUrl(): string {
@@ -985,6 +1203,25 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     }
 
     this.labels.set([...labelsById.values()].sort((left, right) => left.name.localeCompare(right.name)));
+  }
+
+  private sortSavedViews(savedViews: SavedWorkViewDto[]): SavedWorkViewDto[] {
+    return [...savedViews].sort((left, right) => left.name.localeCompare(right.name));
+  }
+
+  private replaceSavedView(savedView: SavedWorkViewDto): void {
+    this.savedViews.set(
+      this.sortSavedViews(
+        this.savedViews().map((current) => (current.id === savedView.id ? savedView : current))
+      )
+    );
+    this.syncSavedViewDraftNames(this.savedViews());
+  }
+
+  private syncSavedViewDraftNames(savedViews: SavedWorkViewDto[]): void {
+    this.savedViewDraftNames.set(
+      Object.fromEntries(savedViews.map((savedView) => [savedView.id, savedView.name]))
+    );
   }
 
   private sortMilestones(milestones: MilestoneDto[]): MilestoneDto[] {
@@ -1093,6 +1330,12 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     return dependencyOptions.some((option) => option.value === value)
       ? dependencyFilterLabel(value as DependencyFilter)
       : value;
+  }
+
+  private toErrorMessage(error: HttpErrorResponse, fallback: string): string {
+    const message = (error.error as { error?: { message?: unknown } } | null)?.error?.message;
+
+    return typeof message === 'string' ? message : fallback;
   }
 
   private toExportErrorMessage(error: HttpErrorResponse): string {

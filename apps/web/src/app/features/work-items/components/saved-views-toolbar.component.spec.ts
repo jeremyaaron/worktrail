@@ -18,8 +18,10 @@ const owner: MemberDto = {
 const savedView: SavedWorkViewDto = {
   id: 'saved-view-1',
   workspaceId: 'workspace-1',
+  projectId: null,
   owner,
   name: 'Open owner work',
+  scope: 'workspace',
   visibility: 'personal',
   query: {
     assigneeId: owner.id,
@@ -161,5 +163,93 @@ describe('SavedViewsToolbarComponent', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Default workspace view');
     expect(text).toContain('1 applied filter');
+  });
+
+  it('renders project-specific empty and helper copy without route context', () => {
+    fixture.componentInstance.personalViews = [];
+    fixture.componentInstance.sharedViews = [sharedView];
+    fixture.componentInstance.querySummaryScope = 'project';
+    fixture.componentInstance.emptyMessage = 'Save the current filters to reuse this project view.';
+    fixture.componentInstance.sharedHelper = 'Owners and maintainers manage shared project views.';
+    fixture.componentInstance.sharedSectionLabel = 'Shared project views';
+    fixture.componentInstance.personalSectionLabel = 'Personal project views';
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Owners and maintainers manage shared project views.');
+    expect(compiled.textContent).toContain('Shared project views');
+    expect(compiled.textContent).toContain('Personal project views');
+
+    fixture.componentInstance.sharedViews = [];
+    fixture.detectChanges();
+    expect(compiled.textContent).toContain('Save the current filters to reuse this project view.');
+  });
+
+  it('counts project saved-view query fields with project semantics', () => {
+    fixture.componentInstance.querySummaryScope = 'project';
+    fixture.componentInstance.personalViews = [
+      {
+        ...savedView,
+        id: 'saved-view-project-default',
+        name: 'Default project view',
+        scope: 'project',
+        projectId: 'project-1',
+        query: {
+          archivedProjects: 'include',
+          projectId: 'project-1',
+          sort: 'updated_desc'
+        }
+      },
+      {
+        ...savedView,
+        id: 'saved-view-project-risk',
+        name: 'Project risk view',
+        scope: 'project',
+        projectId: 'project-1',
+        query: {
+          archivedProjects: 'include',
+          projectId: 'project-1',
+          priority: 'urgent'
+        }
+      }
+    ];
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Default project view');
+    expect(text).toContain('1 applied filter');
+    expect(text).not.toContain('3 applied filters');
+  });
+
+  it('keeps personal view management available when shared management is read-only', () => {
+    const renamed: SavedWorkViewDto[] = [];
+    fixture.componentInstance.personalViews = [savedView];
+    fixture.componentInstance.sharedViews = [sharedView];
+    fixture.componentInstance.canManageSharedViews = false;
+    fixture.componentInstance.rename.subscribe((view) => renamed.push(view));
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    compiled.querySelector<HTMLDetailsElement>('details')?.setAttribute('open', '');
+    fixture.detectChanges();
+
+    const sections = [...compiled.querySelectorAll<HTMLElement>('.saved-view-section')];
+    const sharedButtons = [
+      ...sections[0]!.querySelectorAll<HTMLButtonElement>('.saved-view-actions button')
+    ];
+    const personalButtons = [
+      ...sections[1]!.querySelectorAll<HTMLButtonElement>('.saved-view-actions button')
+    ];
+
+    expect(sharedButtons.map((button) => button.textContent?.trim())).toEqual(['Open']);
+    expect(personalButtons.map((button) => button.textContent?.trim())).toEqual([
+      'Open',
+      'Rename',
+      'Update query',
+      'Delete'
+    ]);
+
+    personalButtons[1]?.click();
+    expect(renamed).toEqual([savedView]);
   });
 });

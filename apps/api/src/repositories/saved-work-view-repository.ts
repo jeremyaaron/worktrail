@@ -1,4 +1,5 @@
-import { and, desc, eq, or, sql } from 'drizzle-orm';
+import type { SavedWorkViewScope } from '@worktrail/contracts';
+import { and, desc, eq, isNull, or, sql } from 'drizzle-orm';
 
 import type { WorktrailDb } from '../db/client.js';
 import { savedWorkViews } from '../db/schema.js';
@@ -8,6 +9,19 @@ export interface UpdateSavedWorkViewInput {
   name?: string;
   query?: Record<string, unknown>;
   updatedAt: Date;
+}
+
+export interface SavedWorkViewScopeInput {
+  workspaceId: string;
+  ownerMemberId?: string;
+  scope: SavedWorkViewScope;
+  projectId?: string;
+}
+
+function scopeConditions(input: Omit<SavedWorkViewScopeInput, 'ownerMemberId'>) {
+  return input.scope === 'project'
+    ? and(eq(savedWorkViews.scope, 'project'), eq(savedWorkViews.projectId, input.projectId ?? ''))
+    : and(eq(savedWorkViews.scope, 'workspace'), isNull(savedWorkViews.projectId));
 }
 
 export function createSavedWorkViewRepository(db: WorktrailDb) {
@@ -33,6 +47,8 @@ export function createSavedWorkViewRepository(db: WorktrailDb) {
         .where(
           and(
             eq(savedWorkViews.workspaceId, workspaceId),
+            eq(savedWorkViews.scope, 'workspace'),
+            isNull(savedWorkViews.projectId),
             eq(savedWorkViews.ownerMemberId, ownerMemberId),
             eq(savedWorkViews.visibility, 'personal')
           )
@@ -40,16 +56,29 @@ export function createSavedWorkViewRepository(db: WorktrailDb) {
         .orderBy(desc(savedWorkViews.updatedAt));
     },
 
-    async listVisible(workspaceId: string, ownerMemberId: string) {
+    async listVisible(
+      inputOrWorkspaceId: SavedWorkViewScopeInput | string,
+      maybeOwnerMemberId?: string
+    ): Promise<SavedWorkView[]> {
+      const input =
+        typeof inputOrWorkspaceId === 'string'
+          ? {
+              workspaceId: inputOrWorkspaceId,
+              ownerMemberId: maybeOwnerMemberId ?? '',
+              scope: 'workspace' as const
+            }
+          : inputOrWorkspaceId;
+
       return db
         .select()
         .from(savedWorkViews)
         .where(
           and(
-            eq(savedWorkViews.workspaceId, workspaceId),
+            eq(savedWorkViews.workspaceId, input.workspaceId),
+            scopeConditions(input),
             or(
               and(
-                eq(savedWorkViews.ownerMemberId, ownerMemberId),
+                eq(savedWorkViews.ownerMemberId, input.ownerMemberId ?? ''),
                 eq(savedWorkViews.visibility, 'personal')
               ),
               eq(savedWorkViews.visibility, 'workspace')
@@ -59,16 +88,60 @@ export function createSavedWorkViewRepository(db: WorktrailDb) {
         .orderBy(desc(savedWorkViews.updatedAt));
     },
 
-    async findPersonalByOwnerAndName(workspaceId: string, ownerMemberId: string, name: string) {
+    async findPersonalByOwnerAndName(
+      inputOrWorkspaceId:
+        | {
+            workspaceId: string;
+            ownerMemberId: string;
+            scope: SavedWorkViewScope;
+            projectId?: string;
+            name: string;
+          }
+        | string,
+      maybeOwnerMemberId?: string,
+      maybeName?: string
+    ): Promise<SavedWorkView | null> {
+      const input =
+        typeof inputOrWorkspaceId === 'string'
+          ? {
+              workspaceId: inputOrWorkspaceId,
+              ownerMemberId: maybeOwnerMemberId ?? '',
+              scope: 'workspace' as const,
+              name: maybeName ?? ''
+            }
+          : inputOrWorkspaceId;
+
       const [savedView] = await db
         .select()
         .from(savedWorkViews)
         .where(
           and(
-            eq(savedWorkViews.workspaceId, workspaceId),
-            eq(savedWorkViews.ownerMemberId, ownerMemberId),
+            eq(savedWorkViews.workspaceId, input.workspaceId),
+            scopeConditions(input),
+            eq(savedWorkViews.ownerMemberId, input.ownerMemberId),
             eq(savedWorkViews.visibility, 'personal'),
-            sql`lower(${savedWorkViews.name}) = ${name.toLowerCase()}`
+            sql`lower(${savedWorkViews.name}) = ${input.name.toLowerCase()}`
+          )
+        )
+        .limit(1);
+      return savedView ?? null;
+    },
+
+    async findSharedByName(input: {
+      workspaceId: string;
+      scope: SavedWorkViewScope;
+      projectId?: string;
+      name: string;
+    }) {
+      const [savedView] = await db
+        .select()
+        .from(savedWorkViews)
+        .where(
+          and(
+            eq(savedWorkViews.workspaceId, input.workspaceId),
+            scopeConditions(input),
+            eq(savedWorkViews.visibility, 'workspace'),
+            sql`lower(${savedWorkViews.name}) = ${input.name.toLowerCase()}`
           )
         )
         .limit(1);
@@ -76,18 +149,7 @@ export function createSavedWorkViewRepository(db: WorktrailDb) {
     },
 
     async findWorkspaceByName(workspaceId: string, name: string) {
-      const [savedView] = await db
-        .select()
-        .from(savedWorkViews)
-        .where(
-          and(
-            eq(savedWorkViews.workspaceId, workspaceId),
-            eq(savedWorkViews.visibility, 'workspace'),
-            sql`lower(${savedWorkViews.name}) = ${name.toLowerCase()}`
-          )
-        )
-        .limit(1);
-      return savedView ?? null;
+      return this.findSharedByName({ workspaceId, scope: 'workspace', name });
     },
 
     async findByOwnerAndName(workspaceId: string, ownerMemberId: string, name: string) {

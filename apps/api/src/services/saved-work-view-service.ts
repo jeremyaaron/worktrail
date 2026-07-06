@@ -1,6 +1,9 @@
 import type {
+  ActivityEventType,
   CreateSavedWorkViewRequest,
+  ListSavedWorkViewsQuery,
   SavedWorkViewDto,
+  SavedWorkViewScope,
   SavedWorkViewVisibility,
   UpdateSavedWorkViewRequest,
   WorkItemQuery,
@@ -12,7 +15,7 @@ import type { ActorContext } from '../domain/actor.js';
 import { canManageProject } from '../domain/permissions.js';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../errors/app-error.js';
 import type { Repositories } from '../repositories/index.js';
-import type { Member, SavedWorkView } from '../repositories/types.js';
+import type { Member, Project, SavedWorkView } from '../repositories/types.js';
 import { normalizeWorkItemQuery } from '../validation/work-item-query.js';
 import { toSavedWorkViewDto } from './dto.js';
 
@@ -21,6 +24,11 @@ export interface SavedWorkViewServiceContext {
   repositories: Repositories;
   clock?: () => Date;
   idGenerator?: () => string;
+}
+
+interface ResolvedSavedViewScope {
+  scope: SavedWorkViewScope;
+  project: Project | null;
 }
 
 export class SavedWorkViewService {
@@ -32,14 +40,15 @@ export class SavedWorkViewService {
     this.idGenerator = context.idGenerator ?? randomUUID;
   }
 
-  async listSavedViews(): Promise<SavedWorkViewDto[]> {
-    const [actor, savedViews] = await Promise.all([
-      this.requireActorMember(),
-      this.context.repositories.savedWorkViews.listVisible(
-        this.context.actor.workspaceId,
-        this.context.actor.memberId
-      )
-    ]);
+  async listSavedViews(input: ListSavedWorkViewsQuery = {}): Promise<SavedWorkViewDto[]> {
+    const actor = await this.requireActorMember();
+    const scope = await this.resolveScope(input);
+    const savedViews = await this.context.repositories.savedWorkViews.listVisible({
+      workspaceId: this.context.actor.workspaceId,
+      ownerMemberId: this.context.actor.memberId,
+      scope: scope.scope,
+      ...(scope.project === null ? {} : { projectId: scope.project.id })
+    });
     const owners = await this.hydrateOwners(savedViews, actor);
 
     return savedViews.map((savedView) => {
@@ -57,17 +66,29 @@ export class SavedWorkViewService {
     const owner = await this.requireActorMember();
     const name = this.normalizeName(input.name);
     const visibility = input.visibility ?? 'personal';
+    const scope = await this.resolveScope({
+      scope: input.scope,
+      projectId: input.projectId,
+      requireMutableProject: input.scope === 'project'
+    });
 
     this.assertCanCreateVisibility(visibility);
-    await this.assertNameAvailable(name, visibility);
+    await this.assertNameAvailable({
+      name,
+      visibility,
+      scope: scope.scope,
+      ...(scope.project === null ? {} : { projectId: scope.project.id })
+    });
 
     const timestamp = this.clock();
-    const query = normalizeWorkItemQuery(input.query);
+    const query = this.normalizeSavedViewQueryForScope(input.query, scope.scope);
     const savedView = await this.context.repositories.savedWorkViews.create({
       id: this.idGenerator(),
       workspaceId: this.context.actor.workspaceId,
       ownerMemberId: this.context.actor.memberId,
+      projectId: scope.project?.id ?? null,
       name,
+      scope: scope.scope,
       visibility,
       query: query as Record<string, unknown>,
       createdAt: timestamp,
@@ -75,11 +96,11 @@ export class SavedWorkViewService {
     });
 
     if (savedView.visibility === 'workspace') {
-      await this.recordWorkspaceSavedViewActivity({
+      await this.recordSharedSavedViewActivity({
         eventType: 'saved_view.created',
         savedView,
         actor: owner,
-        summary: `${owner.name} created shared view ${savedView.name}.`,
+        summary: this.sharedSavedViewCreateSummary(owner, savedView),
         previousValue: null,
         newValue: this.savedViewActivityValue(savedView),
         timestamp
@@ -106,14 +127,20 @@ export class SavedWorkViewService {
       const name = this.normalizeName(input.name);
 
       if (name.toLowerCase() !== current.name.toLowerCase()) {
-        await this.assertNameAvailable(name, current.visibility, current.id);
+        await this.assertNameAvailable({
+          name,
+          visibility: current.visibility,
+          scope: current.scope,
+          ...(current.projectId === null ? {} : { projectId: current.projectId }),
+          currentSavedViewId: current.id
+        });
       }
 
       patch.name = name;
     }
 
     if (input.query !== undefined) {
-      normalizedQuery = normalizeWorkItemQuery(input.query);
+      normalizedQuery = this.normalizeSavedViewQueryForScope(input.query, current.scope);
       patch.query = normalizedQuery;
     }
 
@@ -128,7 +155,7 @@ export class SavedWorkViewService {
     }
 
     if (updated.visibility === 'workspace') {
-      await this.recordWorkspaceSavedViewUpdateActivity({
+      await this.recordSharedSavedViewUpdateActivity({
         current,
         updated,
         actor,
@@ -154,11 +181,11 @@ export class SavedWorkViewService {
     }
 
     if (deleted.visibility === 'workspace') {
-      await this.recordWorkspaceSavedViewActivity({
+      await this.recordSharedSavedViewActivity({
         eventType: 'saved_view.deleted',
         savedView: deleted,
         actor,
-        summary: `${actor.name} deleted shared view ${deleted.name}.`,
+        summary: this.sharedSavedViewDeleteSummary(actor, deleted),
         previousValue: this.savedViewActivityValue(deleted),
         newValue: null,
         timestamp: this.clock()
@@ -191,6 +218,22 @@ export class SavedWorkViewService {
       throw new ForbiddenError('Only owners and maintainers can manage shared saved views.');
     }
 
+    if (savedView.scope === 'project') {
+      if (savedView.projectId === null) {
+        throw new NotFoundError('Project not found.');
+      }
+
+      const project = await this.context.repositories.projects.findById(savedView.projectId);
+
+      if (project === null || project.workspaceId !== this.context.actor.workspaceId) {
+        throw new NotFoundError('Project not found.');
+      }
+
+      if (project.status === 'archived') {
+        throw new ForbiddenError('Archived projects do not allow saved view changes.');
+      }
+    }
+
     return savedView;
   }
 
@@ -210,24 +253,30 @@ export class SavedWorkViewService {
     }
   }
 
-  private async assertNameAvailable(
-    name: string,
-    visibility: SavedWorkViewVisibility,
-    currentSavedViewId?: string
-  ): Promise<void> {
+  private async assertNameAvailable(input: {
+    name: string;
+    visibility: SavedWorkViewVisibility;
+    scope: SavedWorkViewScope;
+    projectId?: string;
+    currentSavedViewId?: string;
+  }): Promise<void> {
     const existing =
-      visibility === 'workspace'
-        ? await this.context.repositories.savedWorkViews.findWorkspaceByName(
-            this.context.actor.workspaceId,
-            name
-          )
-        : await this.context.repositories.savedWorkViews.findPersonalByOwnerAndName(
-            this.context.actor.workspaceId,
-            this.context.actor.memberId,
-            name
-          );
+      input.visibility === 'workspace'
+        ? await this.context.repositories.savedWorkViews.findSharedByName({
+            workspaceId: this.context.actor.workspaceId,
+            scope: input.scope,
+            projectId: input.projectId,
+            name: input.name
+          })
+        : await this.context.repositories.savedWorkViews.findPersonalByOwnerAndName({
+            workspaceId: this.context.actor.workspaceId,
+            ownerMemberId: this.context.actor.memberId,
+            scope: input.scope,
+            projectId: input.projectId,
+            name: input.name
+          });
 
-    if (existing !== null && existing.id !== currentSavedViewId) {
+    if (existing !== null && existing.id !== input.currentSavedViewId) {
       throw new ConflictError('A saved view with this name already exists.');
     }
   }
@@ -261,7 +310,50 @@ export class SavedWorkViewService {
     return owner;
   }
 
-  private async recordWorkspaceSavedViewUpdateActivity(input: {
+  private async resolveScope(input: ListSavedWorkViewsQuery & { requireMutableProject?: boolean }): Promise<ResolvedSavedViewScope> {
+    const scope = input.scope ?? 'workspace';
+
+    if (scope === 'workspace') {
+      if (input.projectId !== undefined) {
+        throw new ValidationError('Workspace saved views do not accept a project id.');
+      }
+
+      return { scope, project: null };
+    }
+
+    if (input.projectId === undefined) {
+      throw new ValidationError('Project saved views require a project id.');
+    }
+
+    const project = await this.context.repositories.projects.findById(input.projectId);
+
+    if (project === null || project.workspaceId !== this.context.actor.workspaceId) {
+      throw new NotFoundError('Project not found.');
+    }
+
+    if (input.requireMutableProject === true && project.status === 'archived') {
+      throw new ForbiddenError('Archived projects do not allow saved view changes.');
+    }
+
+    return { scope, project };
+  }
+
+  private normalizeSavedViewQueryForScope(
+    query: WorkItemQuery,
+    scope: SavedWorkViewScope
+  ): WorkItemQuery {
+    const normalized = normalizeWorkItemQuery(query);
+
+    if (scope === 'workspace') {
+      return normalized;
+    }
+
+    const { projectId: _projectId, archivedProjects: _archivedProjects, ...projectQuery } = normalized;
+
+    return projectQuery;
+  }
+
+  private async recordSharedSavedViewUpdateActivity(input: {
     current: SavedWorkView;
     updated: SavedWorkView;
     actor: Member;
@@ -278,18 +370,18 @@ export class SavedWorkViewService {
       return;
     }
 
-    const eventType: WorkspaceActivityEventType =
+    const eventType =
       nameChanged && queryChanged
         ? 'saved_view.updated'
         : nameChanged
           ? 'saved_view.name_changed'
           : 'saved_view.query_changed';
 
-    await this.recordWorkspaceSavedViewActivity({
+    await this.recordSharedSavedViewActivity({
       eventType,
       savedView: input.updated,
       actor: input.actor,
-      summary: this.workspaceSavedViewUpdateSummary({
+      summary: this.sharedSavedViewUpdateSummary({
         actor: input.actor,
         current: input.current,
         updated: input.updated,
@@ -302,26 +394,40 @@ export class SavedWorkViewService {
     });
   }
 
-  private workspaceSavedViewUpdateSummary(input: {
+  private sharedSavedViewUpdateSummary(input: {
     actor: Member;
     current: SavedWorkView;
     updated: SavedWorkView;
     nameChanged: boolean;
     queryChanged: boolean;
   }): string {
+    const label = input.updated.scope === 'project' ? 'shared project view' : 'shared view';
+
     if (input.nameChanged && input.queryChanged) {
-      return `${input.actor.name} updated shared view ${input.updated.name}.`;
+      return `${input.actor.name} updated ${label} ${input.updated.name}.`;
     }
 
     if (input.nameChanged) {
-      return `${input.actor.name} renamed shared view ${input.current.name} to ${input.updated.name}.`;
+      return `${input.actor.name} renamed ${label} ${input.current.name} to ${input.updated.name}.`;
     }
 
-    return `${input.actor.name} updated shared view ${input.updated.name} filters.`;
+    return `${input.actor.name} updated ${label} ${input.updated.name} filters.`;
   }
 
-  private async recordWorkspaceSavedViewActivity(input: {
-    eventType: WorkspaceActivityEventType;
+  private sharedSavedViewCreateSummary(actor: Member, savedView: SavedWorkView): string {
+    const label = savedView.scope === 'project' ? 'shared project view' : 'shared view';
+
+    return `${actor.name} created ${label} ${savedView.name}.`;
+  }
+
+  private sharedSavedViewDeleteSummary(actor: Member, savedView: SavedWorkView): string {
+    const label = savedView.scope === 'project' ? 'shared project view' : 'shared view';
+
+    return `${actor.name} deleted ${label} ${savedView.name}.`;
+  }
+
+  private async recordSharedSavedViewActivity(input: {
+    eventType: WorkspaceActivityEventType | ActivityEventType;
     savedView: SavedWorkView;
     actor: Member;
     summary: string;
@@ -329,11 +435,19 @@ export class SavedWorkViewService {
     newValue: Record<string, unknown> | null;
     timestamp: Date;
   }): Promise<void> {
+    if (input.savedView.scope === 'project') {
+      await this.recordProjectSavedViewActivity({
+        ...input,
+        eventType: input.eventType as ActivityEventType
+      });
+      return;
+    }
+
     await this.context.repositories.workspaceActivityEvents.create({
       id: this.idGenerator(),
       workspaceId: input.savedView.workspaceId,
       actorId: input.actor.id,
-      eventType: input.eventType,
+      eventType: input.eventType as WorkspaceActivityEventType,
       summary: input.summary,
       previousValue: input.previousValue,
       newValue: input.newValue,
@@ -342,10 +456,44 @@ export class SavedWorkViewService {
     });
   }
 
+  private async recordProjectSavedViewActivity(input: {
+    eventType: ActivityEventType;
+    savedView: SavedWorkView;
+    actor: Member;
+    summary: string;
+    previousValue: Record<string, unknown> | null;
+    newValue: Record<string, unknown> | null;
+    timestamp: Date;
+  }): Promise<void> {
+    if (input.savedView.projectId === null) {
+      throw new NotFoundError('Project not found.');
+    }
+
+    await this.context.repositories.activityEvents.create({
+      id: this.idGenerator(),
+      workspaceId: input.savedView.workspaceId,
+      projectId: input.savedView.projectId,
+      workItemId: null,
+      actorId: input.actor.id,
+      eventType: input.eventType,
+      summary: input.summary,
+      previousValue: input.previousValue,
+      newValue: input.newValue,
+      metadata: {
+        savedViewId: input.savedView.id,
+        scope: input.savedView.scope,
+        visibility: input.savedView.visibility
+      },
+      createdAt: input.timestamp
+    });
+  }
+
   private savedViewActivityValue(savedView: SavedWorkView): Record<string, unknown> {
     return {
       savedViewId: savedView.id,
       name: savedView.name,
+      scope: savedView.scope,
+      projectId: savedView.projectId,
       visibility: savedView.visibility,
       query: savedView.query
     };

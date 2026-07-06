@@ -1,12 +1,13 @@
 import type {
   CreateSavedWorkViewRequest,
+  ListSavedWorkViewsQuery,
   SavedWorkViewDto,
   UpdateSavedWorkViewRequest,
   WorkItemQuery
 } from '@worktrail/contracts';
 import { z } from 'zod';
 
-import { savedWorkViewVisibilities } from '../domain/constants.js';
+import { savedWorkViewScopes, savedWorkViewVisibilities } from '../domain/constants.js';
 import type { EndpointHandler } from '../http/app-request.js';
 import type { Repositories } from '../repositories/index.js';
 import { SavedWorkViewService } from '../services/saved-work-view-service.js';
@@ -18,9 +19,16 @@ const savedViewIdParamSchema = z.object({
 
 const queryPayloadSchema = z.record(z.string(), z.unknown());
 
+const listSavedWorkViewsQuerySchema = z.object({
+  scope: z.enum(savedWorkViewScopes).optional(),
+  projectId: z.string().uuid().optional()
+});
+
 const createSavedWorkViewSchema = z.object({
   name: z.string().trim().min(1),
   query: queryPayloadSchema,
+  scope: z.enum(savedWorkViewScopes).optional(),
+  projectId: z.string().uuid().optional(),
   visibility: z.enum(savedWorkViewVisibilities).optional()
 });
 
@@ -41,6 +49,7 @@ export function listSavedWorkViewsHandler(
   options: SavedWorkViewHandlerOptions
 ): EndpointHandler<SavedWorkViewDto[]> {
   return async (request) => {
+    const query = toListQuery(parseWithSchema(listSavedWorkViewsQuerySchema, request.query));
     const service = new SavedWorkViewService({
       actor: request.actor,
       repositories: options.repositories
@@ -48,7 +57,7 @@ export function listSavedWorkViewsHandler(
 
     return {
       status: 200,
-      body: await service.listSavedViews()
+      body: await service.listSavedViews(query)
     };
   };
 }
@@ -91,12 +100,26 @@ export function updateSavedWorkViewHandler(
 function toCreateRequest(input: {
   name: string;
   query: Record<string, unknown>;
+  scope?: CreateSavedWorkViewRequest['scope'];
+  projectId?: string;
   visibility?: CreateSavedWorkViewRequest['visibility'];
 }): CreateSavedWorkViewRequest {
   return {
     name: input.name,
     query: input.query as WorkItemQuery,
+    ...(input.scope === undefined ? {} : { scope: input.scope }),
+    ...(input.projectId === undefined ? {} : { projectId: input.projectId }),
     ...(input.visibility === undefined ? {} : { visibility: input.visibility })
+  };
+}
+
+function toListQuery(input: {
+  scope?: ListSavedWorkViewsQuery['scope'];
+  projectId?: string;
+}): ListSavedWorkViewsQuery {
+  return {
+    ...(input.scope === undefined ? {} : { scope: input.scope }),
+    ...(input.projectId === undefined ? {} : { projectId: input.projectId })
   };
 }
 

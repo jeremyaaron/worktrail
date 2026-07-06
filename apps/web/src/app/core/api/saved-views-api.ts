@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import type {
   CreateSavedWorkViewRequest,
+  ListSavedWorkViewsQuery,
   SavedWorkViewDto,
   UpdateSavedWorkViewRequest
 } from '@worktrail/contracts';
@@ -12,8 +13,13 @@ import { ApiClient } from './api-client';
 export class SavedViewsApi {
   private readonly api = inject(ApiClient);
 
-  listSavedWorkViews(): Observable<SavedWorkViewDto[]> {
-    return this.api.get<SavedWorkViewDto[]>('/saved-work-views');
+  listSavedWorkViews(query: ListSavedWorkViewsQuery = {}): Observable<SavedWorkViewDto[]> {
+    return this.api.get<SavedWorkViewDto[]>('/saved-work-views', {
+      params: {
+        scope: query.scope,
+        projectId: query.projectId
+      }
+    });
   }
 
   createSavedWorkView(input: CreateSavedWorkViewRequest): Observable<SavedWorkViewDto> {
