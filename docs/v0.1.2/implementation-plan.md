@@ -680,6 +680,30 @@ git status --short --branch
 git diff --check
 ```
 
+Status: Completed on 2026-07-05.
+
+- Updated `README.md` with v0.1.2 reliable filtered view behavior:
+  - reloadable/shareable filtered URLs;
+  - copy filtered view links;
+  - saved-view query semantics;
+  - applied-filter CSV export behavior.
+- Updated `site/index.html` to present v0.1.2 as the current baseline and highlight reliable URL-backed work discovery.
+- Added `docs/v0.1.2/release-notes.md`.
+- Added `docs/v0.1.2/jawstack-extraction-notes.md`.
+- Preserved `docs/v0.1.2/0006-query-contracts-url-state.md` as the source opportunity note.
+- Confirmed no generated build, test-result, or Playwright artifact files were included.
+- Verified:
+  - `npm run lint`
+  - `npm run typecheck`
+  - `npm run db:reset`
+  - `npm run db:migrate`
+  - `npm run db:seed`
+  - `npm test`
+  - `npm run build`
+  - `npm run test:e2e`
+  - `git status --short --branch`
+  - `git diff --check`
+
 ## Verification Cadence
 
 Use this cadence unless a phase requires broader checks:

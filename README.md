@@ -1,8 +1,8 @@
 # Worktrail
 
-Worktrail is a project management reference app. The v0.1.1 baseline is a local-first Angular + TypeScript API + Postgres application focused on daily team workflow, collaboration updates, cross-project work discovery, dependency-aware planning, workspace governance, data portability, and production-shaped application boundaries.
+Worktrail is a project management reference app. The v0.1.2 baseline is a local-first Angular + TypeScript API + Postgres application focused on daily team workflow, collaboration updates, reliable filtered work views, cross-project discovery, dependency-aware planning, workspace governance, data portability, and production-shaped application boundaries.
 
-The app includes My Work, Action Inbox, top-level Work Items discovery, saved views, quick work capture, persistent project workspaces, planning review, milestone management, durable boards, work item relationships, dependency-blocked signals, project delivery health, comments, mentions, work item watchers, activity, CSV import/export, production-like preview, health/readiness checks, checked-in API documentation, CI, lint, and responsive work item scanning.
+The app includes My Work, Action Inbox, top-level Work Items discovery, URL-backed filters, copyable filtered-view links, saved views, quick work capture, persistent project workspaces, planning review, milestone management, durable boards, work item relationships, dependency-blocked signals, project delivery health, comments, mentions, work item watchers, activity, CSV import/export, production-like preview, health/readiness checks, checked-in API documentation, CI, lint, and responsive work item scanning.
 
 The app is intentionally built as a credible product surface before extracting broader framework patterns. It runs locally today, while preserving a path toward an S3/CloudFront Angular frontend with API Gateway/Lambda-style endpoint handlers and managed Postgres.
 
@@ -18,6 +18,7 @@ docs/
   v0.0.X/  Archived v0.0.1-v0.0.9 sprint docs
   v0.1.0/  Consolidation PRD, technical design, implementation plan, audits, and extraction notes
   v0.1.1/  Action Inbox PRD, technical design, implementation plan, release notes, and extraction notes
+  v0.1.2/  Reliable filtered views PRD, technical design, implementation plan, release notes, and extraction notes
   api/     OpenAPI reference
 site/       Static GitHub Pages product site
 e2e/        Playwright smoke tests
@@ -112,9 +113,24 @@ The detailed operator guide is in [docs/v0.0.6/operations-runbook.md](docs/v0.0.
 
 The checked-in OpenAPI reference lives at [docs/api/openapi.yaml](docs/api/openapi.yaml). It documents the implemented route surface, representative DTOs, development-only local actor headers, readiness behavior, and the common structured error shape.
 
+## Reliable Filtered Views
+
+v0.1.2 treats work item query state as a product contract. Project work item lists, workspace discovery, active filter chips, saved views, dashboard links, delivery-health links, detail return URLs, copy-link actions, and CSV export all use the same applied `WorkItemQuery` semantics.
+
+Key behavior:
+
+- Filtered workspace and project work item URLs are shareable and reloadable.
+- Active filter chips describe the applied query, not pending form edits.
+- Dropdown filter changes apply immediately; search updates after a short debounce.
+- "Copy link" copies the current applied filtered view with canonical query parameters.
+- Personal saved views store normalized query state and open through canonical URL parameters.
+- Saved-view summaries count meaningful filters only; default sort and default archived-project mode stay quiet.
+- CSV export uses the currently applied filters, so exports match the visible filtered result set rather than draft form values.
+- Dashboard, planning, and delivery-health reason links route into filtered work item lists using the same query conversion rules.
+
 ## CSV Import And Export
 
-v0.0.7 added project-scoped CSV work item import and CSV export for both project lists and workspace discovery.
+v0.0.7 added project-scoped CSV work item import and CSV export for both project lists and workspace discovery. v0.1.2 tightened export trust by routing export requests through applied canonical query state.
 
 Import is a two-step flow:
 
@@ -217,32 +233,34 @@ Suggested walkthrough:
 2. Click a My Work summary count to open the cross-project Work Items page with URL-backed filters applied.
 3. Change cross-project filters for project, assignee, reporter, status, type, label, milestone, priority, due date, blocked state, archived projects, and sort.
 4. Save a useful cross-project filter as a personal saved view, reload the page, and reopen it.
-5. Use the global Create work item route, select a project, choose project-dependent labels or milestones, create work, and open the created item.
-6. Open Projects, search by project name or key, and review project summary signals for open, blocked, overdue, status, and last updated state.
-7. Open Workspace Settings and review role summaries, members, and workspace activity.
-8. As Avery Owner, create a contributor, promote the member to maintainer, deactivate the member, and reactivate the member.
-9. Confirm the actor selector updates when active members are created, changed, deactivated, and reactivated.
-10. Switch to a maintainer and confirm project creation is available, then create a project with an explicit key.
-11. Switch to a contributor and confirm member administration is unavailable with clear helper copy.
-12. Open the Worktrail App project.
-13. Review the project key, status counts, recently updated work, and activity.
-14. Open Planning and review milestone progress, overdue/due-soon work, blocked work, unassigned work, and stale work.
-15. Review dependency-blocked and blocking-open-work planning sections, then follow a dependency list link into filtered project work.
-16. Create a milestone, then create a work item assigned to that milestone.
-17. Use the project work item list search and filters. Dropdown filters apply immediately, while search applies after a short debounce.
-18. Filter by dependency state to find dependency-blocked work or work blocking downstream items.
-19. Save a dependency-filtered view, reload, and reopen it.
-20. Export the currently filtered project work item list to CSV.
-21. Import a small CSV through the project import page, review dry-run validation, apply it, and confirm created work appears in the project list and board.
-22. Export a filtered cross-project workspace discovery view to CSV.
-23. Open Inbox and review unread notifications for the selected actor.
-24. Mark an individual notification read, switch to All, and mark it unread again.
-25. Open the board, drag cards within a column to set planning order, reload, and confirm the order persists.
-26. Move a card through valid workflow columns with drag/drop or the status menu.
-27. Open the work item detail page, update fields, change milestone assignment, watch or unwatch the item, mention an active member in a new comment, add and edit another comment, delete a comment, and review activity.
-28. Switch to the mentioned actor and confirm the mention appears as an unread Inbox notification linking back to the work item.
-29. Add a blocking relationship, confirm the downstream dependency signal appears, move the blocker to done, and confirm the dependency signal clears.
-30. Open the archived project to confirm read-only project, milestone, work item, label, comment, relationship, import, and transition behavior.
+5. Copy the filtered workspace view link, open it in another tab, and confirm the same applied chips and results appear.
+6. Use the global Create work item route, select a project, choose project-dependent labels or milestones, create work, and open the created item.
+7. Open Projects, search by project name or key, and review project summary signals for open, blocked, overdue, status, and last updated state.
+8. Open Workspace Settings and review role summaries, members, and workspace activity.
+9. As Avery Owner, create a contributor, promote the member to maintainer, deactivate the member, and reactivate the member.
+10. Confirm the actor selector updates when active members are created, changed, deactivated, and reactivated.
+11. Switch to a maintainer and confirm project creation is available, then create a project with an explicit key.
+12. Switch to a contributor and confirm member administration is unavailable with clear helper copy.
+13. Open the Worktrail App project.
+14. Review the project key, status counts, recently updated work, and activity.
+15. Open Planning and review milestone progress, overdue/due-soon work, blocked work, unassigned work, and stale work.
+16. Review dependency-blocked and blocking-open-work planning sections, then follow a dependency list link into filtered project work.
+17. Create a milestone, then create a work item assigned to that milestone.
+18. Use the project work item list search and filters. Dropdown filters apply immediately, while search applies after a short debounce.
+19. Filter by dependency state to find dependency-blocked work or work blocking downstream items.
+20. Copy the filtered project work item list link and reload it to confirm the same applied view.
+21. Save a dependency-filtered view, reload, and reopen it.
+22. Export the currently filtered project work item list to CSV.
+23. Import a small CSV through the project import page, review dry-run validation, apply it, and confirm created work appears in the project list and board.
+24. Export a filtered cross-project workspace discovery view to CSV.
+25. Open Inbox and review unread notifications for the selected actor.
+26. Mark an individual notification read, switch to All, and mark it unread again.
+27. Open the board, drag cards within a column to set planning order, reload, and confirm the order persists.
+28. Move a card through valid workflow columns with drag/drop or the status menu.
+29. Open the work item detail page, update fields, change milestone assignment, watch or unwatch the item, mention an active member in a new comment, add and edit another comment, delete a comment, and review activity.
+30. Switch to the mentioned actor and confirm the mention appears as an unread Inbox notification linking back to the work item.
+31. Add a blocking relationship, confirm the downstream dependency signal appears, move the blocker to done, and confirm the dependency signal clears.
+32. Open the archived project to confirm read-only project, milestone, work item, label, comment, relationship, import, and transition behavior.
 
 Suggested delivery-health checks:
 
@@ -252,7 +270,7 @@ Suggested delivery-health checks:
 4. Review Needs attention, Upcoming, and Recently changed planning review sections.
 5. Confirm blocked and dependency-blocked seed items affect project health, while the healthy milestone remains on track.
 
-## v0.1.1 Baseline Capabilities
+## v0.1.2 Baseline Capabilities
 
 - My Work dashboard for the selected active actor.
 - Prioritized My Work daily queue for assigned, due-soon, overdue, blocked, dependency-blocked, stale, reported, and recently updated work.
@@ -262,8 +280,12 @@ Suggested delivery-health checks:
 - Top-level Work Items destination for cross-project discovery.
 - Dashboard summary counts linked to filtered cross-project discovery.
 - Cross-project work item discovery with URL-backed search, filters, sorts, project identity, archived-project modes, and active filter pills.
+- Canonical work item query helpers for form state, route params, saved views, return URLs, dashboard links, delivery-health links, and exports.
+- Copy-link actions for workspace and project filtered work item views.
+- Reloadable filtered URLs whose active chips and result set survive browser refresh.
 - Compact mobile work item cards for readable work scanning on narrow screens.
 - Personal saved work views with create, open, rename, update, delete, duplicate-name validation, and stale-query tolerance.
+- Saved-view summaries that suppress default query noise and count meaningful applied filters.
 - Global quick work capture at `/work-items/new` with active project selection and project-dependent labels and milestones.
 - Project-scoped work item creation still works with the project preselected and the same success actions.
 - Persistent project shell with project identity, status, delivery health, and consistent Overview, Work, Board, Planning, and Settings navigation.
@@ -282,7 +304,7 @@ Suggested delivery-health checks:
 - Review-first planning with Planning Review and Milestones views.
 - Project work item list search and filters for status, type, priority, assignee, reporter, label, milestone, due date, dependency state, and sort.
 - Project-scoped CSV import with dry-run preview, normalized rows, row-level validation errors, and transactional apply.
-- Project and workspace CSV export that serializes the currently applied filters.
+- Project and workspace CSV export that serializes the currently applied filters through canonical query params.
 - CSV import/export guide under `docs/v0.0.7/csv-import-export.md`.
 - Work item relationships with directional `blocks` and symmetric `relates_to` semantics.
 - Cross-project relationships inside the same workspace with project identity shown in relationship rows.
@@ -318,7 +340,7 @@ Suggested delivery-health checks:
 - ESLint guardrails for API, web, and contracts workspaces.
 - GitHub Actions CI for lint, typecheck, tests with a Postgres service, and production build.
 
-## v0.1.1 Limitations
+## v0.1.2 Limitations
 
 - Authentication is represented by local request headers and the top-bar actor selector.
 - Permissions are enforced against local member records and are useful for exercising policy paths, but they are not production authentication.
@@ -327,7 +349,8 @@ Suggested delivery-health checks:
 - Notifications are in-app only. Email, push, WebSockets, digests, notification preferences, deletion/archive controls, and background delivery workers are deferred.
 - Comment mentions are selected through an active-member picker. Rich-text editing and free-text `@name` parsing are deferred.
 - Watchers are work-item scoped only. Project-level and workspace-level watching are deferred.
-- Saved views are personal only in v0.1.1; workspace-visible shared saved views are deferred.
+- Saved views are personal only in v0.1.2; workspace-visible shared saved views are deferred.
+- Copy-link support uses browser clipboard APIs and a textarea fallback. Native share sheets, short links, and permission customization are deferred.
 - CSV import is project-scoped and limited to 1 MiB and 250 data rows per file.
 - CSV import supports Worktrail's current columns only; third-party tracker migration mappings are deferred.
 - CSV export is a direct file download; export history, scheduled exports, and alternate formats are deferred.
@@ -336,7 +359,7 @@ Suggested delivery-health checks:
 - Relationship activity is recorded on the command context item only to avoid noisy cross-project activity.
 - Custom workflows, file attachments, and production auth are intentionally out of scope.
 - Invitations, multi-workspace switching, custom roles, project-specific membership, pinned projects, recent projects, and audit export are intentionally out of scope.
-- The local Express adapter is the only runtime adapter in v0.1.1, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
+- The local Express adapter is the only runtime adapter in v0.1.2, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
 - AWS deployment assets are not included yet; the Angular static build and transport-neutral handlers preserve that path.
 - Readiness checks database connectivity only; migration drift detection, metrics, tracing, and managed deployment runbooks are deferred.
 
