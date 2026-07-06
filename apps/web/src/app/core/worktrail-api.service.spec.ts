@@ -305,6 +305,22 @@ describe('WorktrailApiService', () => {
     expect(create.request.body).toEqual({ name: 'Open bugs', query: { type: 'bug', workState: 'open' } });
     create.flush(savedView);
 
+    api
+      .createSavedWorkView({
+        name: 'Shared open bugs',
+        visibility: 'workspace',
+        query: { type: 'bug', workState: 'open' }
+      })
+      .subscribe();
+    const createShared = http.expectOne('/api/saved-work-views');
+    expect(createShared.request.method).toBe('POST');
+    expect(createShared.request.body).toEqual({
+      name: 'Shared open bugs',
+      visibility: 'workspace',
+      query: { type: 'bug', workState: 'open' }
+    });
+    createShared.flush({ ...savedView, visibility: 'workspace', name: 'Shared open bugs' });
+
     api.updateSavedWorkView(savedView.id, { name: 'Open work' }).subscribe();
     const update = http.expectOne(`/api/saved-work-views/${savedView.id}`);
     expect(update.request.method).toBe('PATCH');

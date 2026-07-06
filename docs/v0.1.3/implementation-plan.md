@@ -476,6 +476,26 @@ npm run typecheck --workspace @worktrail/web
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-06.
+- Split workspace Work Items saved-view state into computed personal and workspace-shared view groups.
+- Added `canManageWorkspaceSavedViews` from the selected actor role.
+- Wired the toolbar's personal save action to the existing personal saved-view create flow.
+- Wired the toolbar's shared save action to create saved views with `visibility: 'workspace'`.
+- Preserved the existing `saveCurrentView` behavior for personal saved views.
+- Allowed owners and maintainers to create, rename, update, and delete shared saved views from workspace Work Items.
+- Prevented contributors from sending shared saved-view create/update/delete requests from the UI while still allowing shared views to be opened.
+- Kept personal and workspace saved-view groups sorted alphabetically.
+- Preserved canonical workspace query params when opening shared views.
+- Updated `workspace-work-item-list-page.component.spec.ts` for manager shared-view CRUD and contributor read-only behavior.
+- Updated `worktrail-api.service.spec.ts` to cover create-request `visibility` passthrough.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/features/work-items/workspace-work-item-list-page.component.spec.ts'`
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/core/worktrail-api.service.spec.ts'`
+  - `npm run typecheck --workspace @worktrail/web`
+  - `git diff --check`
+
 ## Phase 7: E2E Smoke And QA Pass
 
 Goal: verify a user-visible shared-view path through the running app.
