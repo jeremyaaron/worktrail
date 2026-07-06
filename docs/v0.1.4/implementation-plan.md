@@ -254,6 +254,42 @@ npm run typecheck --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-06.
+- Extended the saved-view repository with scope-aware methods:
+  - visible list queries by workspace/project scope;
+  - personal name lookup by scope;
+  - shared name lookup by scope.
+- Preserved compatibility wrappers for existing workspace saved-view repository call sites.
+- Updated `SavedWorkViewService` to:
+  - default list/create behavior to workspace scope;
+  - resolve workspace/project saved-view scope;
+  - validate project ownership by workspace;
+  - reject project-scoped saved-view create/update/delete on archived projects;
+  - preserve personal owner-only mutation behavior;
+  - preserve owner/maintainer shared-view management behavior;
+  - allow contributors to manage their own personal project views;
+  - reject contributor shared project-view mutations;
+  - normalize saved-view queries by scope.
+- Added scope-aware query shaping:
+  - workspace saved views preserve workspace-supported query fields;
+  - project saved views strip `projectId` and `archivedProjects`.
+- Added shared project-view activity emission through project activity events.
+- Preserved workspace activity emission for workspace-scoped shared views.
+- Added focused service-level coverage in `apps/api/tests/saved-work-views.test.ts` for:
+  - project-scoped shared and personal saved views;
+  - workspace/project scope isolation;
+  - contributor permissions;
+  - project activity for shared project-view changes;
+  - archived-project mutation rejection.
+- Verified:
+  - `npm test --workspace @worktrail/api -- saved-work-views.test.ts`
+  - `npm test --workspace @worktrail/api -- comments-activity.test.ts`
+  - `npm run typecheck --workspace @worktrail/api`
+  - `npm run lint --workspace @worktrail/api`
+  - `git diff --check`
+
 ## Phase 3: Endpoint Validation, API Tests, And OpenAPI
 
 Goal: expose scope-aware saved-view behavior through the existing endpoint surface and document it.
