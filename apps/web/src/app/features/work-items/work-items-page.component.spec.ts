@@ -1,6 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { TestBed, fakeAsync, flushMicrotasks, tick } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import type {
   LabelDto,
@@ -15,6 +15,7 @@ import type {
 import { BehaviorSubject } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
+import { ClipboardService } from '../../shared/clipboard.service';
 import { WorkItemImportPageComponent } from './work-item-import-page.component';
 import { WorkItemCreatePageComponent } from './work-item-create-page.component';
 import { WorkItemListPageComponent } from './work-item-list-page.component';
@@ -150,6 +151,8 @@ const readOnlyCapabilities: WorkspaceCapabilitiesDto = {
   canCreateWorkItems: false
 };
 
+let clipboard: jasmine.SpyObj<ClipboardService>;
+
 function routeStub(query: Record<string, string> = {}, inputProjectId: string = projectId) {
   return {
     snapshot: {
@@ -187,6 +190,9 @@ function flushCreateContext(
 
 describe('WorkItemListPageComponent', () => {
   beforeEach(async () => {
+    clipboard = jasmine.createSpyObj<ClipboardService>('ClipboardService', ['copyText']);
+    clipboard.copyText.and.resolveTo();
+
     await TestBed.configureTestingModule({
       imports: [WorkItemListPageComponent],
       providers: [
@@ -205,6 +211,10 @@ describe('WorkItemListPageComponent', () => {
             search: 'api',
             sort: 'due_date_asc'
           })
+        },
+        {
+          provide: ClipboardService,
+          useValue: clipboard
         }
       ]
     }).compileComponents();
@@ -321,6 +331,65 @@ describe('WorkItemListPageComponent', () => {
     );
     expect(fixture.componentInstance.isExporting()).toBeFalse();
   });
+
+  it('copies the applied project filtered view link', fakeAsync(() => {
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
+    fixture.componentInstance.filterForm.patchValue(
+      {
+        search: 'draft search',
+        priority: 'urgent'
+      },
+      { emitEvent: false }
+    );
+    fixture.detectChanges();
+
+    fixture.componentInstance.copyViewLink();
+    flushMicrotasks();
+    fixture.detectChanges();
+
+    const copiedUrl = new URL(clipboard.copyText.calls.mostRecent().args[0]);
+    expect(copiedUrl.pathname).toBe(`/projects/${projectId}/work-items`);
+    expect(copiedUrl.searchParams.get('search')).toBe('api');
+    expect(copiedUrl.searchParams.get('status')).toBe('in_progress');
+    expect(copiedUrl.searchParams.get('assigneeId')).toBe(contributorId);
+    expect(copiedUrl.searchParams.get('dependency')).toBe('dependency_blocked');
+    expect(copiedUrl.searchParams.get('sort')).toBe('due_date_asc');
+    expect(copiedUrl.searchParams.get('priority')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Link copied');
+
+    tick(2500);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Link copied');
+  }));
+
+  it('shows copy link failures inline', fakeAsync(() => {
+    clipboard.copyText.and.rejectWith(new Error('denied'));
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
+    fixture.detectChanges();
+
+    fixture.componentInstance.copyViewLink();
+    flushMicrotasks();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Link could not be copied'
+    );
+
+    tick(2500);
+  }));
 
   it('resolves inactive member names from filter state without making them default choices', () => {
     const fixture = TestBed.createComponent(WorkItemListPageComponent);

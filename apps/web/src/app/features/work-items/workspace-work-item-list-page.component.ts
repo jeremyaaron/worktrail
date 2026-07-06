@@ -23,6 +23,7 @@ import { Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorktrailApiService } from '../../core/worktrail-api.service';
+import { ClipboardService } from '../../shared/clipboard.service';
 import { downloadBlob, fileNameFromContentDisposition } from '../../shared/download-file';
 import {
   dependencyFilterLabel,
@@ -142,10 +143,16 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
       </div>
 
       <div class="header-actions">
+        <button type="button" class="secondary-action" [disabled]="isCopyingViewLink()" (click)="copyViewLink()">
+          {{ isCopyingViewLink() ? 'Copying...' : 'Copy link' }}
+        </button>
         <button type="button" class="secondary-action" [disabled]="isExporting()" (click)="exportCsv()">
           {{ isExporting() ? 'Exporting...' : 'Export CSV' }}
         </button>
         <a class="primary-action" routerLink="/work-items/new">Create work item</a>
+        @if (copyLinkStatus()) {
+          <span class="copy-link-status" aria-live="polite">{{ copyLinkStatus() }}</span>
+        }
       </div>
     </section>
 
@@ -347,6 +354,7 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
     .header-actions {
       display: flex;
       flex-wrap: wrap;
+      justify-content: flex-end;
       gap: 8px;
     }
 
@@ -420,6 +428,14 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
 
     .export-error {
       margin-bottom: 18px;
+    }
+
+    .copy-link-status {
+      align-self: center;
+      color: #475569;
+      font-size: 0.8125rem;
+      font-weight: 800;
+      line-height: 1.4;
     }
 
     .saved-views,
@@ -757,12 +773,14 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
 })
 export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   private readonly api = inject(WorktrailApiService);
+  private readonly clipboard = inject(ClipboardService);
   private readonly currentUser = inject(CurrentUserService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly subscriptions = new Subscription();
   private loadedProjectFilterId: string | null = null;
+  private copyLinkStatusTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly statuses = statuses;
   readonly workStates = workStates;
@@ -792,6 +810,8 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   readonly appliedFilterValues = signal<WorkspaceFilterFormValue>({ ...defaultFilterValues });
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
+  readonly isCopyingViewLink = signal(false);
+  readonly copyLinkStatus = signal<string | null>(null);
   readonly isExporting = signal(false);
   readonly exportError = signal<string | null>(null);
   readonly isSavedViewLoading = signal(false);
@@ -843,6 +863,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
 
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
+    this.clearCopyLinkStatusTimer();
   }
 
   applyFilters(): void {
@@ -900,6 +921,29 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
         this.isExporting.set(false);
       }
     });
+  }
+
+  copyViewLink(): void {
+    if (this.isCopyingViewLink()) {
+      return;
+    }
+
+    this.clearCopyLinkStatusTimer();
+    this.isCopyingViewLink.set(true);
+    this.copyLinkStatus.set(null);
+
+    this.clipboard
+      .copyText(this.currentFilteredViewUrl())
+      .then(() => {
+        this.copyLinkStatus.set('Link copied');
+      })
+      .catch(() => {
+        this.copyLinkStatus.set('Link could not be copied');
+      })
+      .finally(() => {
+        this.isCopyingViewLink.set(false);
+        this.scheduleCopyLinkStatusReset();
+      });
   }
 
   loadProjectSummaries(): void {
@@ -1128,6 +1172,13 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
 
   private appliedQuery(): WorkItemQuery {
     return workspaceQueryFromFormValue(this.appliedFilterValues());
+  }
+
+  private currentFilteredViewUrl(): string {
+    return new URL(
+      returnUrlFromWorkItemQuery('/work-items', this.appliedQuery(), 'workspace'),
+      window.location.origin
+    ).toString();
   }
 
   private queryParamsFromForm(): Record<string, string | null> {
@@ -1366,6 +1417,20 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     this.savedViewDraftNames.set(
       Object.fromEntries(savedViews.map((savedView) => [savedView.id, savedView.name]))
     );
+  }
+
+  private scheduleCopyLinkStatusReset(): void {
+    this.copyLinkStatusTimer = setTimeout(() => {
+      this.copyLinkStatus.set(null);
+      this.copyLinkStatusTimer = null;
+    }, 2500);
+  }
+
+  private clearCopyLinkStatusTimer(): void {
+    if (this.copyLinkStatusTimer !== null) {
+      clearTimeout(this.copyLinkStatusTimer);
+      this.copyLinkStatusTimer = null;
+    }
   }
 
   private toErrorMessage(error: HttpErrorResponse, fallback: string): string {

@@ -20,6 +20,7 @@ import { Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorktrailApiService } from '../../core/worktrail-api.service';
+import { ClipboardService } from '../../shared/clipboard.service';
 import { downloadBlob, fileNameFromContentDisposition } from '../../shared/download-file';
 import { dependencyFilterLabel } from '../../shared/work-items/work-item-display';
 import { ActiveFilterChipsComponent } from './components/active-filter-chips.component';
@@ -116,6 +117,9 @@ const defaultFilterValues: WorkItemFilterFormValue = {
         <a class="secondary-header-action" [routerLink]="['/projects', projectId(), 'settings']">
           Settings
         </a>
+        <button type="button" class="secondary-header-action" [disabled]="isCopyingViewLink()" (click)="copyViewLink()">
+          {{ isCopyingViewLink() ? 'Copying...' : 'Copy link' }}
+        </button>
         <button type="button" class="secondary-header-action" [disabled]="isExporting()" (click)="exportCsv()">
           {{ isExporting() ? 'Exporting...' : 'Export CSV' }}
         </button>
@@ -126,6 +130,9 @@ const defaultFilterValues: WorkItemFilterFormValue = {
           <a class="primary-action" [routerLink]="['/projects', projectId(), 'work-items', 'new']">
             Create work item
           </a>
+        }
+        @if (copyLinkStatus()) {
+          <span class="copy-link-status" aria-live="polite">{{ copyLinkStatus() }}</span>
         }
       </nav>
     </section>
@@ -349,6 +356,14 @@ const defaultFilterValues: WorkItemFilterFormValue = {
       font-size: 0.875rem;
       font-weight: 700;
       line-height: 1.5;
+    }
+
+    .copy-link-status {
+      align-self: center;
+      color: #475569;
+      font-size: 0.8125rem;
+      font-weight: 800;
+      line-height: 1.4;
     }
 
     .filters,
@@ -662,11 +677,13 @@ const defaultFilterValues: WorkItemFilterFormValue = {
 })
 export class WorkItemListPageComponent implements OnDestroy, OnInit {
   private readonly api = inject(WorktrailApiService);
+  private readonly clipboard = inject(ClipboardService);
   private readonly currentUser = inject(CurrentUserService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly subscriptions = new Subscription();
+  private copyLinkStatusTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly statuses = statuses;
   readonly types = types;
@@ -691,6 +708,8 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   readonly appliedFilterValues = signal<WorkItemFilterFormValue>({ ...defaultFilterValues });
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
+  readonly isCopyingViewLink = signal(false);
+  readonly copyLinkStatus = signal<string | null>(null);
   readonly isExporting = signal(false);
   readonly exportError = signal<string | null>(null);
   readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
@@ -731,6 +750,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
 
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
+    this.clearCopyLinkStatusTimer();
   }
 
   applyFilters(): void {
@@ -788,6 +808,29 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
         this.isExporting.set(false);
       }
     });
+  }
+
+  copyViewLink(): void {
+    if (this.isCopyingViewLink()) {
+      return;
+    }
+
+    this.clearCopyLinkStatusTimer();
+    this.isCopyingViewLink.set(true);
+    this.copyLinkStatus.set(null);
+
+    this.clipboard
+      .copyText(this.currentFilteredViewUrl())
+      .then(() => {
+        this.copyLinkStatus.set('Link copied');
+      })
+      .catch(() => {
+        this.copyLinkStatus.set('Link could not be copied');
+      })
+      .finally(() => {
+        this.isCopyingViewLink.set(false);
+        this.scheduleCopyLinkStatusReset();
+      });
   }
 
   loadProject(): void {
@@ -883,6 +926,17 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     return projectQueryFromFormValue(this.appliedFilterValues());
   }
 
+  private currentFilteredViewUrl(): string {
+    return new URL(
+      returnUrlFromWorkItemQuery(
+        `/projects/${this.projectId()}/work-items`,
+        this.appliedQuery(),
+        'project'
+      ),
+      window.location.origin
+    ).toString();
+  }
+
   private queryParamsFromForm(): Record<string, string | null> {
     return projectRouterQueryParamsFromQuery(projectQueryFromFormValue(this.filterForm.getRawValue()));
   }
@@ -934,6 +988,20 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
 
       return left.name.localeCompare(right.name);
     });
+  }
+
+  private scheduleCopyLinkStatusReset(): void {
+    this.copyLinkStatusTimer = setTimeout(() => {
+      this.copyLinkStatus.set(null);
+      this.copyLinkStatusTimer = null;
+    }, 2500);
+  }
+
+  private clearCopyLinkStatusTimer(): void {
+    if (this.copyLinkStatusTimer !== null) {
+      clearTimeout(this.copyLinkStatusTimer);
+      this.copyLinkStatusTimer = null;
+    }
   }
 
   private getActiveFilterLabels(): string[] {

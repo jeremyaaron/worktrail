@@ -504,6 +504,20 @@ npm run typecheck --workspace @worktrail/web
 git diff --check
 ```
 
+Status: Completed on 2026-07-05.
+
+- Added an app-local clipboard service with native Clipboard API support, textarea fallback, and explicit failure behavior when copy support is unavailable.
+- Added compact "Copy link" actions to workspace and project work item lists.
+- Built copied URLs from the current origin, current list path, and canonical applied query params so pending draft filter edits are not copied before Apply.
+- Added success and failure inline states for copy actions.
+- Covered clipboard success/fallback/failure and workspace/project filtered link copy behavior with focused tests.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/shared/clipboard.service.spec.ts'`
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/features/work-items/workspace-work-item-list-page.component.spec.ts'`
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/features/work-items/work-items-page.component.spec.ts'`
+  - `npm run typecheck --workspace @worktrail/web`
+  - `git diff --check`
+
 ## Phase 7: Export Trust And Saved-View Reliability Polish
 
 Goal: finish product-facing reliability around exports and saved views after helper integration.
