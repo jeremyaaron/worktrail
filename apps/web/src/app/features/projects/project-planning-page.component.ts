@@ -1688,7 +1688,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
   }
 
   reasonQueryParams(reason: DeliveryHealthReasonDto): Record<string, string> | null {
-    return deliveryHealthReasonQueryParams(reason);
+    return deliveryHealthReasonQueryParams(reason, 'project');
   }
 
   reviewWorkItemLink(item: PlanningReviewItemDto): string[] | null {
@@ -1700,7 +1700,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
   }
 
   reviewQueryParams(item: PlanningReviewItemDto): Record<string, string> | null {
-    return workItemQueryToRouterQueryParams(item.query);
+    return workItemQueryToRouterQueryParams(item.query, 'project');
   }
 
   reviewItemMeta(item: PlanningReviewItemDto): string {

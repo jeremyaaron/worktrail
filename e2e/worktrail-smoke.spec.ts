@@ -414,6 +414,41 @@ test('completes the v0.0.5 daily workspace workflow', async ({ page }) => {
   await expect(page.getByRole('row', { name: new RegExp(title) })).toBeVisible();
 });
 
+test('persists v0.1.2 workspace filters through URL reloads', async ({ page, request }) => {
+  test.setTimeout(60_000);
+
+  const runId = Date.now();
+  const title = `E2E filtered URL ${runId}`;
+
+  await createProjectWorkItem(request, {
+    title,
+    description: 'Created by the v0.1.2 filtered URL Playwright smoke test.',
+    status: 'ready',
+    priority: 'high'
+  });
+
+  await page.goto('/work-items');
+  await expect(page.getByRole('heading', { name: 'Work items', exact: true })).toBeVisible();
+
+  await page.locator('form.filters').getByLabel('Search').fill(title);
+  await expect(page).toHaveURL(/search=/);
+  await expect(page.getByText(`Search: ${title}`)).toBeVisible();
+
+  await page.locator('form.filters').getByLabel('Status').selectOption('ready');
+  await expect(page).toHaveURL(/status=ready/);
+  await expect(page.getByText('Status: Ready')).toBeVisible();
+  await expect(page.getByRole('row', { name: new RegExp(title) })).toBeVisible();
+
+  const filteredUrl = page.url();
+
+  await page.reload();
+  await expect(page).toHaveURL(filteredUrl);
+  await expect(page.getByRole('heading', { name: 'Work items', exact: true })).toBeVisible();
+  await expect(page.getByText(`Search: ${title}`)).toBeVisible();
+  await expect(page.getByText('Status: Ready')).toBeVisible();
+  await expect(page.getByRole('row', { name: new RegExp(title) })).toBeVisible();
+});
+
 test('validates the v0.0.8 dependency workflow', async ({ page, request }) => {
   test.setTimeout(90_000);
 
@@ -631,7 +666,7 @@ test('imports project work items from CSV and exports filtered results', async (
   await expect(page.getByRole('row', { name: new RegExp(firstTitle) })).toBeVisible();
 
   const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Export CSV' }).click();
+  await page.getByRole('button', { name: 'Export applied project filters as CSV' }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe('worktrail-wt-work-items.csv');
   expect(await downloadText(download)).toContain(firstTitle);

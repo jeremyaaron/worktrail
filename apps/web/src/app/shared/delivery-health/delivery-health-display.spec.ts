@@ -67,26 +67,48 @@ describe('delivery health display helpers', () => {
     expect(deliveryHealthReasonQueryParams(reason)).toEqual({
       milestoneId: '10000000-0000-4000-8000-000000000351',
       status: 'blocked',
-      blocked: 'true',
       sort: 'priority_desc'
     });
   });
 
-  it('omits empty work item query values and returns null when no params remain', () => {
+  it('uses project-scoped query params by default', () => {
     const query: WorkItemQuery = {
       status: 'blocked',
+      projectId: '10000000-0000-4000-8000-000000000201',
+      archivedProjects: 'include',
       search: '',
       assigneeId: undefined,
       blocked: false,
+      workState: 'open',
       sort: 'priority_desc'
     };
 
     expect(workItemQueryToRouterQueryParams(query)).toEqual({
       status: 'blocked',
-      blocked: 'false',
       sort: 'priority_desc'
     });
     expect(workItemQueryToRouterQueryParams(null)).toBeNull();
     expect(workItemQueryToRouterQueryParams({ search: '' })).toBeNull();
+  });
+
+  it('can preserve workspace-scoped query params when requested', () => {
+    expect(
+      workItemQueryToRouterQueryParams(
+        {
+          projectId: '10000000-0000-4000-8000-000000000201',
+          archivedProjects: 'include',
+          blocked: false,
+          search: '',
+          sort: 'updated_desc',
+          workState: 'open'
+        },
+        'workspace'
+      )
+    ).toEqual({
+      projectId: '10000000-0000-4000-8000-000000000201',
+      archivedProjects: 'include',
+      blocked: 'false',
+      workState: 'open'
+    });
   });
 });

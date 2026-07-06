@@ -78,7 +78,7 @@ export function parseWorkspaceWorkItemQuery(
 
   validateWorkItemQuery(parsed);
 
-  return parsed;
+  return stripUndefinedValues(parsed);
 }
 
 export function parseProjectWorkItemQuery(
@@ -105,16 +105,28 @@ export function parseProjectWorkItemQuery(
   const { archivedProjects, projectId, ...projectQuery } = parsed;
   void archivedProjects;
   void projectId;
-  return projectQuery;
+  return stripUndefinedValues(projectQuery);
 }
 
 export function normalizeWorkItemQuery(input: WorkItemQuery): WorkItemQuery {
-  const parsed = parseWithSchema(workItemQuerySchema, {
-    ...input,
-    search: input.search?.trim() === '' ? undefined : input.search?.trim()
-  });
+  const parsed = parseWithSchema(workItemQuerySchema, emptyStringsToUndefined(input));
   validateWorkItemQuery(parsed);
-  return parsed;
+  return stripUndefinedValues(parsed);
+}
+
+function emptyStringsToUndefined(input: WorkItemQuery): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(input).map(([key, value]) => [
+      key,
+      typeof value === 'string' && value.trim() === '' ? undefined : value
+    ])
+  );
+}
+
+function stripUndefinedValues(query: WorkItemQuery): WorkItemQuery {
+  return Object.fromEntries(
+    Object.entries(query).filter(([, value]) => value !== undefined)
+  ) as WorkItemQuery;
 }
 
 function validateWorkItemQuery(query: WorkItemQuery): void {

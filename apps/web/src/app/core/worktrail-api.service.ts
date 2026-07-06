@@ -263,7 +263,7 @@ export class WorktrailApiService {
 
   exportProjectWorkItems(
     projectId: string,
-    filters: WorkItemListFilters = {}
+    filters: WorkItemQuery = {}
   ): Observable<HttpResponse<Blob>> {
     return this.workItems.exportProjectWorkItems(projectId, filters);
   }

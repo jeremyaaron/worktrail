@@ -104,10 +104,10 @@ export class WorkItemsApi {
 
   exportProjectWorkItems(
     projectId: string,
-    filters: WorkItemListFilters = {}
+    filters: WorkItemQuery = {}
   ): Observable<HttpResponse<Blob>> {
     return this.api.getBlob(`/projects/${projectId}/work-items/export`, {
-      params: queryToHttpParams(filters)
+      params: workItemQueryToHttpParams(filters)
     });
   }
 

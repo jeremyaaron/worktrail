@@ -1,6 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, flushMicrotasks, tick } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import type {
   LabelDto,
@@ -13,6 +13,7 @@ import type {
 import { BehaviorSubject } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
+import { ClipboardService } from '../../shared/clipboard.service';
 import { WorkspaceWorkItemListPageComponent } from './workspace-work-item-list-page.component';
 
 const workspaceId = '10000000-0000-4000-8000-000000000001';
@@ -158,6 +159,7 @@ class ActivatedRouteStub {
 }
 
 let route: ActivatedRouteStub;
+let clipboard: jasmine.SpyObj<ClipboardService>;
 
 function seedCurrentUser(): void {
   const currentUser = TestBed.inject(CurrentUserService);
@@ -197,6 +199,8 @@ describe('WorkspaceWorkItemListPageComponent', () => {
   beforeEach(async () => {
     localStorage.clear();
     route = new ActivatedRouteStub();
+    clipboard = jasmine.createSpyObj<ClipboardService>('ClipboardService', ['copyText']);
+    clipboard.copyText.and.resolveTo();
 
     await TestBed.configureTestingModule({
       imports: [WorkspaceWorkItemListPageComponent],
@@ -207,6 +211,10 @@ describe('WorkspaceWorkItemListPageComponent', () => {
         {
           provide: ActivatedRoute,
           useValue: route
+        },
+        {
+          provide: ClipboardService,
+          useValue: clipboard
         }
       ]
     }).compileComponents();
@@ -260,6 +268,11 @@ describe('WorkspaceWorkItemListPageComponent', () => {
 
     expect(compiled.textContent).toContain('Design workspace discovery');
     expect(compiled.textContent).toContain('Export CSV');
+    expect(
+      compiled
+        .querySelector<HTMLButtonElement>('button[aria-label="Export applied workspace filters as CSV"]')
+        ?.getAttribute('title')
+    ).toBe('Export the applied workspace filters as CSV');
     expect(compiled.textContent).toContain('WT-12');
     expect(compiled.textContent).toContain('Worktrail App');
     expect(compiled.textContent).toContain('Story · In progress · High');
@@ -330,6 +343,46 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:worktrail-workspace-export');
     expect(fixture.componentInstance.isExporting()).toBeFalse();
   });
+
+  it('copies the applied workspace filtered view link', fakeAsync(() => {
+    const { fixture, http } = setup({
+      status: 'in_progress',
+      dependency: 'blocking_open_work',
+      archivedProjects: 'include',
+      search: 'workspace',
+      sort: 'due_date_asc'
+    });
+    flushProjectSummaries(http);
+    flushSavedViews(http);
+    http.expectOne((candidate) => candidate.url === '/api/work-items').flush([workItem]);
+    fixture.componentInstance.filterForm.patchValue(
+      {
+        search: 'draft search',
+        priority: 'urgent'
+      },
+      { emitEvent: false }
+    );
+    fixture.detectChanges();
+
+    fixture.componentInstance.copyViewLink();
+    flushMicrotasks();
+    fixture.detectChanges();
+
+    const copiedUrl = new URL(clipboard.copyText.calls.mostRecent().args[0]);
+    expect(copiedUrl.pathname).toBe('/work-items');
+    expect(copiedUrl.searchParams.get('search')).toBe('workspace');
+    expect(copiedUrl.searchParams.get('status')).toBe('in_progress');
+    expect(copiedUrl.searchParams.get('dependency')).toBe('blocking_open_work');
+    expect(copiedUrl.searchParams.get('archivedProjects')).toBe('include');
+    expect(copiedUrl.searchParams.get('sort')).toBe('due_date_asc');
+    expect(copiedUrl.searchParams.get('priority')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Link copied');
+
+    tick(2500);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Link copied');
+  }));
 
   it('shows workspace export failures inline', () => {
     const { fixture, http } = setup();
@@ -467,20 +520,8 @@ describe('WorkspaceWorkItemListPageComponent', () => {
       query: {
         search: 'risk',
         status: 'blocked',
-        assigneeId: undefined,
-        assigneeState: undefined,
         archivedProjects: 'include',
-        blocked: undefined,
-        dependency: 'blocking_open_work',
-        dueDateState: undefined,
-        labelId: undefined,
-        milestoneId: undefined,
-        priority: undefined,
-        projectId: undefined,
-        reporterId: undefined,
-        sort: undefined,
-        type: undefined,
-        workState: undefined
+        dependency: 'blocking_open_work'
       }
     });
     const createdView: SavedWorkViewDto = {
