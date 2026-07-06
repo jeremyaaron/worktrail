@@ -1094,7 +1094,10 @@ paths:
     get:
       tags: [Saved Work Views]
       summary: List saved work views for the current actor.
-      description: Returns the current actor's personal saved views plus workspace-shared saved views.
+      description: Returns the current actor's personal saved views plus shared saved views. Workspace-scoped views are returned by default. Use `scope=project` with `projectId` to list views saved for one active or archived project.
+      parameters:
+        - $ref: "#/components/parameters/SavedViewScopeQuery"
+        - $ref: "#/components/parameters/SavedViewProjectIdQuery"
       responses:
         "200":
           description: Saved work views.
@@ -1109,7 +1112,7 @@ paths:
     post:
       tags: [Saved Work Views]
       summary: Create a saved work view.
-      description: Creates a personal saved view by default. Creating a workspace-shared saved view requires owner or maintainer role.
+      description: Creates a personal workspace saved view by default. Creating a shared saved view requires owner or maintainer role. Project-scoped saved views require `scope=project` and `projectId`, strip workspace-only query fields, and cannot be created for archived projects.
       requestBody:
         required: true
         content:
@@ -1129,7 +1132,7 @@ paths:
     patch:
       tags: [Saved Work Views]
       summary: Update a saved work view.
-      description: Personal saved views can only be updated by their owner. Workspace-shared saved views require owner or maintainer role.
+      description: Personal saved views can only be updated by their owner. Shared saved views require owner or maintainer role. Archived project-scoped saved views cannot be mutated.
       parameters:
         - $ref: "#/components/parameters/SavedViewId"
       requestBody:
@@ -1150,7 +1153,7 @@ paths:
     delete:
       tags: [Saved Work Views]
       summary: Delete a saved work view.
-      description: Personal saved views can only be deleted by their owner. Workspace-shared saved views require owner or maintainer role.
+      description: Personal saved views can only be deleted by their owner. Shared saved views require owner or maintainer role. Archived project-scoped saved views cannot be mutated.
       parameters:
         - $ref: "#/components/parameters/SavedViewId"
       responses:
@@ -1223,6 +1226,19 @@ components:
       schema:
         type: string
         format: uuid
+    SavedViewScopeQuery:
+      name: scope
+      in: query
+      schema:
+        $ref: "#/components/schemas/SavedWorkViewScope"
+      description: Omit or use `workspace` for workspace-scoped saved views. Use `project` with `projectId` for project-scoped saved views.
+    SavedViewProjectIdQuery:
+      name: projectId
+      in: query
+      schema:
+        type: string
+        format: uuid
+      description: Required when `scope=project`; invalid when listing workspace-scoped saved views.
     WorkItemStatusQuery:
       name: status
       in: query
@@ -1412,6 +1428,9 @@ components:
     SavedWorkViewVisibility:
       type: string
       enum: [personal, workspace]
+    SavedWorkViewScope:
+      type: string
+      enum: [workspace, project]
     WorkItemRelationshipType:
       type: string
       enum: [blocks, relates_to]
@@ -2764,7 +2783,7 @@ components:
             $ref: "#/components/schemas/WorkspaceWorkItemListItem"
     SavedWorkView:
       type: object
-      required: [id, workspaceId, owner, name, visibility, query, createdAt, updatedAt]
+      required: [id, workspaceId, projectId, scope, owner, name, visibility, query, createdAt, updatedAt]
       properties:
         id:
           type: string
@@ -2772,6 +2791,13 @@ components:
         workspaceId:
           type: string
           format: uuid
+        projectId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Project id for project-scoped saved views; null for workspace-scoped saved views.
+        scope:
+          $ref: "#/components/schemas/SavedWorkViewScope"
         owner:
           $ref: "#/components/schemas/Member"
         name:
@@ -2792,6 +2818,14 @@ components:
       properties:
         name:
           type: string
+        scope:
+          $ref: "#/components/schemas/SavedWorkViewScope"
+          default: workspace
+          description: Use `project` with `projectId` to save filters for a project board/list context.
+        projectId:
+          type: string
+          format: uuid
+          description: Required when `scope` is `project`; not allowed for workspace-scoped saved views.
         visibility:
           $ref: "#/components/schemas/SavedWorkViewVisibility"
           default: personal

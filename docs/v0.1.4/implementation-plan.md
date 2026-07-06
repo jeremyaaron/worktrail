@@ -349,6 +349,20 @@ npm run typecheck --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed.
+- Implemented scope-aware saved-view endpoint parsing for list and create requests.
+- Preserved update requests as `name`/`query` only.
+- Added HTTP coverage for workspace default listing, project listing, project query validation, project create/update/delete permissions, duplicate scoping, project-query normalization, archived-project behavior, and project activity logging.
+- Updated OpenAPI with saved-view scope, list query parameters, DTO fields, create fields, and project mutation notes.
+- Verified:
+  - `npm test --workspace @worktrail/api -- saved-work-views.test.ts`
+  - `npm test --workspace @worktrail/api -- openapi.test.ts`
+  - `npm run typecheck --workspace @worktrail/api`
+  - `npm run lint --workspace @worktrail/api`
+  - `git diff --check`
+
 ## Phase 4: Seed Data And Project Activity Display
 
 Goal: make project saved views visible in deterministic local data and readable in activity surfaces.
