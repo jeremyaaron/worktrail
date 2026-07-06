@@ -57,6 +57,13 @@
       "when": 1783303027541,
       "tag": "0007_panoramic_chimera",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1783307679945,
+      "tag": "0008_careless_silver_fox",
+      "breakpoints": true
     }
   ]
 }

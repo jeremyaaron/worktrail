@@ -18,8 +18,10 @@ const owner: MemberDto = {
 const savedView: SavedWorkViewDto = {
   id: 'saved-view-1',
   workspaceId: 'workspace-1',
+  projectId: null,
   owner,
   name: 'Open owner work',
+  scope: 'workspace',
   visibility: 'personal',
   query: {
     assigneeId: owner.id,

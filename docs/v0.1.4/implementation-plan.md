@@ -166,6 +166,41 @@ npm run typecheck --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-06.
+- Updated shared contracts:
+  - added `SavedWorkViewScope = 'workspace' | 'project'`;
+  - added `projectId` and `scope` to `SavedWorkViewDto`;
+  - added `ListSavedWorkViewsQuery`;
+  - added optional `scope` and `projectId` to `CreateSavedWorkViewRequest`.
+- Updated contract tests for workspace-scoped and project-scoped saved-view request/DTO shapes.
+- Updated existing web saved-view test fixtures for the new required DTO fields.
+- Added saved-view management event types to project activity contracts/constants.
+- Added API domain constants for saved-view scopes.
+- Updated Drizzle schema:
+  - added `saved_work_views.scope` with default `workspace`;
+  - added nullable `saved_work_views.project_id`;
+  - added scope and scope/project consistency checks;
+  - replaced v0.1.3 saved-view unique indexes with scope-aware personal/shared indexes;
+  - added workspace/project scope read indexes.
+- Generated `apps/api/drizzle/0008_careless_silver_fox.sql` and snapshot metadata.
+- Updated API saved-view DTO mapping for `scope` and `projectId`.
+- Verified existing seeded saved views remain workspace-scoped after reset/migrate/seed:
+  - 12 personal workspace-scoped views;
+  - 5 shared workspace-scoped views;
+  - all with `project_id` null.
+- Verified:
+  - `npm test --workspace @worktrail/contracts`
+  - `npm run typecheck --workspace @worktrail/contracts`
+  - `npm run db:reset`
+  - `npm run db:migrate`
+  - `npm run db:seed`
+  - `npm run typecheck --workspace @worktrail/api`
+  - `npm test --workspace @worktrail/api -- saved-work-views.test.ts`
+  - `npm run typecheck --workspace @worktrail/web`
+  - `git diff --check`
+
 ## Phase 2: Repository And Service Scope Behavior
 
 Goal: implement saved-view scope, project authorization, query shaping, and activity behavior behind the service layer.

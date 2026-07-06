@@ -134,8 +134,10 @@ const workItem: WorkspaceWorkItemListItemDto = {
 const savedView: SavedWorkViewDto = {
   id: '10000000-0000-4000-8000-000000000701',
   workspaceId,
+  projectId: null,
   owner,
   name: 'Open owner work',
+  scope: 'workspace',
   visibility: 'personal',
   query: {
     assigneeId: owner.id,

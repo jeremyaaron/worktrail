@@ -3,6 +3,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import type {
   CreateSavedWorkViewRequest,
   DeliveryHealthReasonDto,
+  ListSavedWorkViewsQuery,
   ProjectPlanningSummaryDto,
   SavedWorkViewDto,
   WorkItemQuery
@@ -44,6 +45,7 @@ describe('work item query contracts', () => {
     const savedView = {
       id: 'view-id',
       workspaceId: 'workspace-id',
+      projectId: null,
       owner: {
         id: 'member-id',
         workspaceId: 'workspace-id',
@@ -56,6 +58,7 @@ describe('work item query contracts', () => {
         updatedAt: '2026-07-05T00:00:00.000Z'
       },
       name: 'Open design work',
+      scope: 'workspace',
       visibility: 'workspace',
       query,
       createdAt: '2026-07-05T00:00:00.000Z',
@@ -63,9 +66,24 @@ describe('work item query contracts', () => {
     } satisfies SavedWorkViewDto;
     const createRequest = {
       name: 'Open design work',
+      scope: 'workspace',
       visibility: 'workspace',
       query
     } satisfies CreateSavedWorkViewRequest;
+    const projectCreateRequest = {
+      name: 'Ready for QA',
+      scope: 'project',
+      projectId: 'f7c0c5aa-6d66-48a3-af01-3be972c22dc6',
+      visibility: 'workspace',
+      query: {
+        status: 'ready',
+        sort: 'board_order'
+      }
+    } satisfies CreateSavedWorkViewRequest;
+    const listRequest = {
+      scope: 'project',
+      projectId: 'f7c0c5aa-6d66-48a3-af01-3be972c22dc6'
+    } satisfies ListSavedWorkViewsQuery;
 
     const healthReason = {
       key: 'dependency_blocked',
@@ -76,7 +94,10 @@ describe('work item query contracts', () => {
     } satisfies DeliveryHealthReasonDto;
 
     expect(savedView.query).toBe(query);
+    expect(savedView.scope).toBe('workspace');
     expect(createRequest.visibility).toBe('workspace');
+    expect(projectCreateRequest.scope).toBe('project');
+    expect(listRequest.projectId).toBe(projectCreateRequest.projectId);
     expect(healthReason.query).toBe(query);
     expectTypeOf(savedView.query).toMatchTypeOf<WorkItemQuery>();
   });

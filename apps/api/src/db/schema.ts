@@ -20,6 +20,7 @@ import {
   type MilestoneStatus,
   type NotificationType,
   type ProjectStatus,
+  type SavedWorkViewScope,
   type SavedWorkViewVisibility,
   type WorkItemPriority,
   type WorkItemRelationshipType,
@@ -31,6 +32,7 @@ import {
   milestoneStatuses,
   notificationTypes,
   projectStatuses,
+  savedWorkViewScopes,
   savedWorkViewVisibilities,
   workItemPriorities,
   workItemRelationshipTypes,
@@ -259,25 +261,45 @@ export const savedWorkViews = pgTable(
     ownerMemberId: uuid('owner_member_id')
       .notNull()
       .references(() => members.id),
+    projectId: uuid('project_id').references(() => projects.id),
     name: text('name').notNull(),
+    scope: text('scope').$type<SavedWorkViewScope>().notNull().default('workspace'),
     visibility: text('visibility').$type<SavedWorkViewVisibility>().notNull(),
     query: jsonb('query').$type<Record<string, unknown>>().notNull(),
     ...timestamps
   },
   (table) => [
+    check('saved_work_views_scope_check', enumCheckSql('scope', savedWorkViewScopes)),
     check('saved_work_views_visibility_check', enumCheckSql('visibility', savedWorkViewVisibilities)),
+    check(
+      'saved_work_views_scope_project_check',
+      sql`((${table.scope} = 'workspace' and ${table.projectId} is null) or (${table.scope} = 'project' and ${table.projectId} is not null))`
+    ),
     index('saved_work_views_workspace_owner_updated_idx').on(
       table.workspaceId,
       table.ownerMemberId,
       table.updatedAt.desc()
     ),
-    uniqueIndex('saved_work_views_personal_name_unique')
-      .on(table.workspaceId, table.ownerMemberId, sql`lower(${table.name})`)
-      .where(sql`${table.visibility} = 'personal'`),
-    uniqueIndex('saved_work_views_workspace_name_unique').on(
+    index('saved_work_views_workspace_scope_updated_idx').on(
       table.workspaceId,
-      sql`lower(${table.name})`
-    ).where(sql`${table.visibility} = 'workspace'`)
+      table.scope,
+      table.updatedAt.desc()
+    ),
+    index('saved_work_views_project_scope_updated_idx')
+      .on(table.workspaceId, table.projectId, table.scope, table.updatedAt.desc())
+      .where(sql`${table.scope} = 'project'`),
+    uniqueIndex('saved_work_views_workspace_personal_name_unique')
+      .on(table.workspaceId, table.ownerMemberId, sql`lower(${table.name})`)
+      .where(sql`${table.scope} = 'workspace' and ${table.visibility} = 'personal'`),
+    uniqueIndex('saved_work_views_workspace_shared_name_unique')
+      .on(table.workspaceId, sql`lower(${table.name})`)
+      .where(sql`${table.scope} = 'workspace' and ${table.visibility} = 'workspace'`),
+    uniqueIndex('saved_work_views_project_personal_name_unique')
+      .on(table.workspaceId, table.projectId, table.ownerMemberId, sql`lower(${table.name})`)
+      .where(sql`${table.scope} = 'project' and ${table.visibility} = 'personal'`),
+    uniqueIndex('saved_work_views_project_shared_name_unique')
+      .on(table.workspaceId, table.projectId, sql`lower(${table.name})`)
+      .where(sql`${table.scope} = 'project' and ${table.visibility} = 'workspace'`)
   ]
 );
 

@@ -274,6 +274,7 @@ describe('WorktrailApiService', () => {
     const savedView: SavedWorkViewDto = {
       id: '10000000-0000-4000-8000-000000000201',
       workspaceId: '10000000-0000-4000-8000-000000000001',
+      projectId: null,
       owner: {
         id: '10000000-0000-4000-8000-000000000101',
         workspaceId: '10000000-0000-4000-8000-000000000001',
@@ -286,6 +287,7 @@ describe('WorktrailApiService', () => {
         updatedAt: '2026-07-03T12:00:00.000Z'
       },
       name: 'Open bugs',
+      scope: 'workspace',
       visibility: 'personal',
       query: { type: 'bug', workState: 'open' },
       createdAt: '2026-07-04T12:00:00.000Z',
