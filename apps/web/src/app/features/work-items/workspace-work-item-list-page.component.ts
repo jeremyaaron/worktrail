@@ -176,6 +176,9 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
       [isSaving]="isSavingView()"
       [loadError]="savedViewLoadError()"
       [mutationError]="savedViewMutationError()"
+      querySummaryScope="workspace"
+      emptyMessage="Save the current filters to reuse this workspace view."
+      sharedHelper="Owners and maintainers manage shared saved views."
       (savePersonal)="saveCurrentViewName($event)"
       (saveWorkspace)="saveWorkspaceViewName($event)"
       (open)="openSavedView($event)"
@@ -814,10 +817,18 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   readonly projectSummaries = signal<ProjectNavigationSummaryDto[]>([]);
   readonly savedViews = signal<SavedWorkViewDto[]>([]);
   readonly personalSavedViews = computed<SavedWorkViewDto[]>(() =>
-    this.sortSavedViews(this.savedViews().filter((savedView) => savedView.visibility === 'personal'))
+    this.sortSavedViews(
+      this.savedViews().filter(
+        (savedView) => savedView.scope === 'workspace' && savedView.visibility === 'personal'
+      )
+    )
   );
   readonly workspaceSavedViews = computed<SavedWorkViewDto[]>(() =>
-    this.sortSavedViews(this.savedViews().filter((savedView) => savedView.visibility === 'workspace'))
+    this.sortSavedViews(
+      this.savedViews().filter(
+        (savedView) => savedView.scope === 'workspace' && savedView.visibility === 'workspace'
+      )
+    )
   );
   readonly canManageWorkspaceSavedViews = computed(() => {
     const role = this.currentUser.selectedMember()?.role;
@@ -981,7 +992,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     this.isSavedViewLoading.set(true);
     this.savedViewLoadError.set(null);
 
-    this.api.listSavedWorkViews().subscribe({
+    this.api.listSavedWorkViews({ scope: 'workspace' }).subscribe({
       next: (savedViews) => {
         this.savedViews.set(this.sortSavedViews(savedViews));
         this.syncSavedViewDraftNames(this.savedViews());
@@ -1088,6 +1099,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     this.api
       .createSavedWorkView({
         name,
+        scope: 'workspace',
         query: this.appliedQuery(),
         ...(visibility === 'workspace' ? { visibility } : {})
       })

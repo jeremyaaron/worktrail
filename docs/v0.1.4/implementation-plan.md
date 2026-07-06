@@ -642,6 +642,13 @@ npm run typecheck
 git diff --check
 ```
 
+Status:
+
+- Completed.
+- Workspace saved views now list and create with explicit `scope=workspace`.
+- Workspace grouping ignores project-scoped saved views defensively.
+- Verified workspace/project saved-view compatibility with targeted web/API tests, lint, full typecheck, and diff whitespace checks.
+
 ## Phase 8: Playwright Smoke And Manual QA Pass
 
 Goal: verify the user-visible project saved-view workflow in a browser and preserve existing smoke coverage.

@@ -160,6 +160,19 @@ const sharedSavedView: SavedWorkViewDto = {
   }
 };
 
+const projectScopedSavedView: SavedWorkViewDto = {
+  ...savedView,
+  id: '10000000-0000-4000-8000-000000000703',
+  projectId,
+  name: 'Project-only view',
+  scope: 'project',
+  visibility: 'workspace',
+  query: {
+    status: 'ready',
+    sort: 'board_order'
+  }
+};
+
 class ActivatedRouteStub {
   private readonly queryParamMapSubject = new BehaviorSubject(convertToParamMap({}));
   readonly queryParamMap = this.queryParamMapSubject.asObservable();
@@ -209,7 +222,11 @@ function flushProjectSummaries(http: HttpTestingController): void {
 }
 
 function flushSavedViews(http: HttpTestingController, views: SavedWorkViewDto[] = []): void {
-  http.expectOne('/api/saved-work-views').flush(views);
+  const request = http.expectOne((candidate) => candidate.url === '/api/saved-work-views');
+  expect(request.request.method).toBe('GET');
+  expect(request.request.params.get('scope')).toBe('workspace');
+  expect(request.request.params.has('projectId')).toBeFalse();
+  request.flush(views);
 }
 
 describe('WorkspaceWorkItemListPageComponent', () => {
@@ -534,6 +551,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect(create.request.method).toBe('POST');
     expect(create.request.body).toEqual({
       name: 'Blocked risks',
+      scope: 'workspace',
       query: {
         search: 'risk',
         status: 'blocked',
@@ -630,6 +648,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect(create.request.method).toBe('POST');
     expect(create.request.body).toEqual({
       name: 'Shared blocked risks',
+      scope: 'workspace',
       visibility: 'workspace',
       query: {
         search: 'risk',
@@ -679,6 +698,26 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     const remove = http.expectOne(`/api/saved-work-views/${sharedSavedView.id}`);
     expect(remove.request.method).toBe('DELETE');
     remove.flush(null);
+  });
+
+  it('excludes project-scoped saved views from workspace saved view groups', () => {
+    const { fixture, http } = setup();
+    flushProjectSummaries(http);
+    flushSavedViews(http, [savedView, sharedSavedView, projectScopedSavedView]);
+    http.expectOne('/api/work-items').flush([]);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.personalSavedViews().map((view) => view.id)).toEqual([
+      savedView.id
+    ]);
+    expect(fixture.componentInstance.workspaceSavedViews().map((view) => view.id)).toEqual([
+      sharedSavedView.id
+    ]);
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Open owner work');
+    expect(text).toContain('Dependency risks');
+    expect(text).not.toContain('Project-only view');
   });
 
   it('lets contributors open shared views without sending shared mutation requests', () => {
