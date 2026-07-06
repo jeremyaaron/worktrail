@@ -339,6 +339,30 @@ npm run lint --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-06.
+- Expanded API regression coverage for pinned saved views:
+  - workspace list responses include `isPinned`;
+  - project list responses include `isPinned`;
+  - update can pin and unpin personal workspace views;
+  - update can pin and unpin personal project views;
+  - shared workspace/project pin permissions remain covered;
+  - contributor and archived-project rejection paths remain covered.
+- Updated `docs/api/openapi.yaml`:
+  - `SavedWorkView.required` includes `isPinned`;
+  - `SavedWorkView.properties.isPinned` is boolean;
+  - `UpdateSavedWorkViewRequest.properties.isPinned` is boolean;
+  - create route notes state new saved views are created unpinned;
+  - update route notes state the route handles rename, query update, pin, and unpin;
+  - workspace and project activity examples include `saved_view.pinned` and `saved_view.unpinned`.
+- Updated OpenAPI reference test assertions for pinned saved-view fields and activity examples.
+- Verified:
+  - `npm test --workspace @worktrail/api -- saved-work-views.test.ts openapi.test.ts`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `git diff --check`.
+
 ## Phase 4: Pinned Shortcuts Component
 
 Goal: add a reusable Angular component for rendering pinned saved-view shortcuts without coupling it to route state.

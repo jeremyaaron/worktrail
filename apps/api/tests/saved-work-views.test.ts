@@ -205,6 +205,7 @@ describe('saved work view API', () => {
       ownerMemberId: fixture.otherMemberId,
       name: 'Shared blocked work',
       visibility: 'workspace',
+      isPinned: true,
       query: { blocked: true, archivedProjects: 'exclude', sort: 'priority_desc' },
       createdAt: now(),
       updatedAt: new Date('2026-07-04T12:04:00.000Z')
@@ -223,12 +224,14 @@ describe('saved work view API', () => {
           expect.objectContaining({
             id: workspaceView.id,
             owner: expect.objectContaining({ id: fixture.otherMemberId }),
-            visibility: 'workspace'
+            visibility: 'workspace',
+            isPinned: true
           }),
           expect.objectContaining({
             id: actorPersonal.id,
             owner: expect.objectContaining({ id: fixture.actorId }),
-            visibility: 'personal'
+            visibility: 'personal',
+            isPinned: false
           })
         ]);
         expect(body).not.toEqual(
@@ -441,6 +444,18 @@ describe('saved work view API', () => {
       createdAt: now(),
       updatedAt: now()
     });
+    const projectSavedView = await repositories.savedWorkViews.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      ownerMemberId: fixture.actorId,
+      projectId: fixture.projectId,
+      scope: 'project',
+      name: 'My pinned project work',
+      visibility: 'personal',
+      query: { workState: 'open', sort: 'updated_desc' },
+      createdAt: now(),
+      updatedAt: now()
+    });
 
     await request(app)
       .patch(`/api/saved-work-views/${savedView.id}`)
@@ -467,6 +482,32 @@ describe('saved work view API', () => {
       .expect(({ body }) => {
         expect(body).toMatchObject({
           id: savedView.id,
+          isPinned: false
+        });
+      });
+
+    await request(app)
+      .patch(`/api/saved-work-views/${projectSavedView.id}`)
+      .set(fixture.headers)
+      .send({ isPinned: true })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          id: projectSavedView.id,
+          scope: 'project',
+          projectId: fixture.projectId,
+          isPinned: true
+        });
+      });
+
+    await request(app)
+      .patch(`/api/saved-work-views/${projectSavedView.id}`)
+      .set(fixture.headers)
+      .send({ isPinned: false })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          id: projectSavedView.id,
           isPinned: false
         });
       });
@@ -835,6 +876,7 @@ describe('saved work view API', () => {
       visibility: 'workspace',
       scope: 'project',
       projectId: fixture.projectId,
+      isPinned: true,
       query: { status: 'ready', sort: 'board_order' },
       createdAt: now(),
       updatedAt: new Date('2026-07-04T12:05:00.000Z')
@@ -849,7 +891,8 @@ describe('saved work view API', () => {
           expect.objectContaining({
             id: workspaceView.id,
             scope: 'workspace',
-            projectId: null
+            projectId: null,
+            isPinned: false
           })
         ]);
       });
@@ -868,13 +911,15 @@ describe('saved work view API', () => {
             id: sharedProjectView.id,
             scope: 'project',
             projectId: fixture.projectId,
-            visibility: 'workspace'
+            visibility: 'workspace',
+            isPinned: true
           }),
           expect.objectContaining({
             id: actorProjectPersonal.id,
             scope: 'project',
             projectId: fixture.projectId,
-            visibility: 'personal'
+            visibility: 'personal',
+            isPinned: false
           })
         ]);
         expect(body).not.toEqual(
