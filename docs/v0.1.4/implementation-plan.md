@@ -691,6 +691,14 @@ npm run test:e2e
 git diff --check
 ```
 
+Status:
+
+- Completed.
+- Added browser smoke coverage for opening seeded shared project views, saving/reopening a personal project view, and verifying contributor shared-view read-only behavior.
+- Preserved the workspace shared-view smoke and updated its section locator to match the current workspace toolbar copy.
+- Manual QA observation: contributors can still save/manage personal project views; shared project view creation and mutation controls remain unavailable.
+- Verified focused project saved-view smoke, full Playwright smoke, deterministic DB restore, and diff whitespace checks.
+
 ## Phase 9: Documentation, Site, Release Notes, Extraction Notes, And Final Verification
 
 Goal: finish v0.1.4 with complete docs, public-site updates as appropriate, release notes, extraction notes, and full verification.
@@ -746,6 +754,26 @@ npm run test:e2e
 git status --short --branch
 git diff --check
 ```
+
+Status:
+
+- Completed.
+- Updated `README.md` with project saved views, explicit workspace/project scope, personal/shared visibility, owner/maintainer/contributor behavior, archived-project behavior, and URL/copy-link/CSV-export alignment.
+- Updated `site/index.html` to present v0.1.4 as the current public baseline.
+- Added `docs/v0.1.4/release-notes.md`.
+- Added `docs/v0.1.4/jawstack-extraction-notes.md` and preserved v0.1.2/v0.1.3 query-artifact notes as source material.
+- Confirmed `docs/api/openapi.yaml` already documents saved-view `scope`, `projectId`, project-scoped list/create behavior, and archived project-scoped mutation restrictions.
+- Confirmed generated build/test artifacts are ignored and not included in repository status.
+- Full verification passed:
+  - `npm run lint`;
+  - `npm run typecheck`;
+  - `npm run db:reset`;
+  - `npm run db:migrate`;
+  - `npm run db:seed`;
+  - `npm test`;
+  - `npm run build`;
+  - `npm run test:e2e`;
+  - `git diff --check`.
 
 ## Verification Cadence
 

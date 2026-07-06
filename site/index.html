@@ -6,12 +6,12 @@
     <title>Worktrail | Project management reference app</title>
     <meta
       name="description"
-      content="Worktrail is a local-first project-management reference app for daily work, reliable filtered views, shared team views, collaboration updates, dependency-aware planning, and production-shaped TypeScript architecture."
+      content="Worktrail is a local-first project-management reference app for daily work, reliable filtered views, workspace and project saved views, collaboration updates, dependency-aware planning, and production-shaped TypeScript architecture."
     >
     <meta property="og:title" content="Worktrail">
     <meta
       property="og:description"
-      content="A local-first project-management reference app for daily work, reliable filtered views, shared team views, collaboration updates, dependency-aware planning, and production-shaped TypeScript architecture."
+      content="A local-first project-management reference app for daily work, reliable filtered views, workspace and project saved views, collaboration updates, dependency-aware planning, and production-shaped TypeScript architecture."
     >
     <meta property="og:type" content="website">
     <meta name="theme-color" content="#f6f8fb">
@@ -46,8 +46,9 @@
           <p class="eyebrow">Project management reference app</p>
           <h1 id="hero-title">Worktrail</h1>
           <p class="hero-copy">
-            A local-first project-management reference app for daily work, reliable filtered and shared views,
-            collaboration updates, dependency-aware planning, and production-shaped TypeScript architecture.
+            A local-first project-management reference app for daily work, reliable filtered views,
+            workspace and project saved views, collaboration updates, dependency-aware planning,
+            and production-shaped TypeScript architecture.
           </p>
           <div class="hero-actions" aria-label="Primary actions">
             <a class="button button-primary" href="https://github.com/jeremyaaron/worktrail">
@@ -61,7 +62,7 @@
       <section class="signal-band" aria-label="Project signals">
         <div class="signal">
           <span class="signal-value">Reliable views</span>
-          <span class="signal-label">URL-backed filters, personal and shared saved views, copy links, and exports</span>
+          <span class="signal-label">URL-backed filters, workspace/project saved views, copy links, and exports</span>
         </div>
         <div class="signal">
           <span class="signal-value">Planning</span>
@@ -84,8 +85,8 @@
           <p>
             Worktrail is intentionally small, but the workflows are real. v0.1.0 consolidates
             the app around daily execution, v0.1.1 adds the attention loop, v0.1.2 hardens
-            filtered work views, and v0.1.3 turns saved views into team operating lenses owners
-            and maintainers can publish for the workspace.
+            filtered work views, v0.1.3 turns saved views into workspace operating lenses,
+            and v0.1.4 brings the same pattern into project workspaces.
           </p>
         </div>
         <div class="feature-grid">
@@ -114,8 +115,8 @@
             <ul>
               <li>Top-level Work Items with URL-backed filters and active chips.</li>
               <li>Copyable filtered-view links that reload to the same applied work set.</li>
-              <li>Personal and workspace-shared saved views with compact management controls.</li>
-              <li>Contributor read access to shared views with owner/maintainer management rules.</li>
+              <li>Personal, workspace-shared, and project-scoped saved views with compact controls.</li>
+              <li>Contributor read access to shared workspace/project views with owner/maintainer management rules.</li>
               <li>Filtered CSV export for project and workspace result sets using applied filters.</li>
             </ul>
           </article>
@@ -160,20 +161,21 @@
 
       <section class="section" id="capabilities" aria-labelledby="capabilities-title">
         <div class="section-heading">
-          <p class="eyebrow">v0.1.3 baseline</p>
+          <p class="eyebrow">v0.1.4 baseline</p>
           <h2 id="capabilities-title">Product polish, reliable views, and reference-app discipline.</h2>
           <p>
             The v0.1.0 release turned accumulated capability into a clearer baseline.
             v0.1.1 adds an actor-scoped collaboration layer. v0.1.2 turns filtered work views
             into a trustworthy product contract. v0.1.3 builds on that foundation with
-            workspace-shared saved views that use the same applied query-state model as URLs,
-            chips, copy links, dashboard links, delivery-health links, return URLs, and CSV exports.
+            workspace-shared saved views. v0.1.4 adds project-scoped saved views that use
+            the same applied query-state model as URLs, chips, copy links, delivery-health
+            links, return URLs, and CSV exports.
           </p>
         </div>
         <div class="baseline-grid">
           <div>
             <strong>For product users</strong>
-            <span>Lower scan cost, clearer navigation, visible collaboration updates, shared team views, shareable filtered links, and readable mobile work lists.</span>
+            <span>Lower scan cost, clearer navigation, visible collaboration updates, workspace/project operating views, shareable filtered links, and readable mobile work lists.</span>
           </div>
           <div>
             <strong>For builders</strong>
@@ -257,8 +259,8 @@
           <p class="eyebrow">Current scope</p>
           <h2 id="mvp-title">Local-first, cloud-shaped, still honest about limits.</h2>
           <p>
-            Worktrail v0.1.3 is still a local reference app. Production authentication,
-            invitations, project-scoped saved views, pinned saved views, pinned projects, custom roles, custom
+            Worktrail v0.1.4 is still a local reference app. Production authentication,
+            invitations, pinned saved views, pinned projects, custom roles, custom
             workflows, email or push delivery, notification preferences, attachments, third-party
             migration mappings, graph visualization, dependency automation, custom health formulas,
             forecasting, critical path analysis,
@@ -289,8 +291,8 @@ DATABASE_URL=postgres://worktrail:worktrail@localhost:5432/worktrail npm run pre
     <footer class="footer">
       <span>Worktrail</span>
       <a href="https://github.com/jeremyaaron/worktrail">GitHub</a>
-      <a href="https://github.com/jeremyaaron/worktrail/tree/main/docs/v0.1.3">v0.1.3 docs</a>
-      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.1.3/jawstack-extraction-notes.md">Extraction notes</a>
+      <a href="https://github.com/jeremyaaron/worktrail/tree/main/docs/v0.1.4">v0.1.4 docs</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.1.4/jawstack-extraction-notes.md">Extraction notes</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.0.7/csv-import-export.md">CSV guide</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/api/openapi.yaml">OpenAPI</a>
     </footer>

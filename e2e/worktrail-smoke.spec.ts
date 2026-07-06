@@ -463,7 +463,7 @@ test('opens v0.1.3 shared views as owner and contributor', async ({ page }) => {
 
   await openSavedViewManager(page);
   const ownerSharedViewRow = page
-    .getByLabel('Shared saved views')
+    .getByLabel('Shared views')
     .locator('article.saved-view-row')
     .filter({ hasText: 'Dependency risks' });
   await expect(ownerSharedViewRow).toBeVisible();
@@ -485,7 +485,7 @@ test('opens v0.1.3 shared views as owner and contributor', async ({ page }) => {
 
   await openSavedViewManager(page);
   const contributorSharedViewRow = page
-    .getByLabel('Shared saved views')
+    .getByLabel('Shared views')
     .locator('article.saved-view-row')
     .filter({ hasText: 'Dependency risks' });
   await expect(contributorSharedViewRow).toBeVisible();
@@ -497,6 +497,87 @@ test('opens v0.1.3 shared views as owner and contributor', async ({ page }) => {
   await contributorSharedViewRow.getByRole('button', { name: 'Open' }).click();
   await expect(page).toHaveURL(/dependency=dependency_blocked/);
   await expect(page.getByText('Dependency: Blocked by open work')).toBeVisible();
+  await expect(page.getByRole('row', { name: /Add filter controls to work item list/ })).toBeVisible();
+});
+
+test('opens and saves v0.1.4 project saved views as owner and contributor', async ({ page }) => {
+  test.setTimeout(60_000);
+
+  const runId = Date.now();
+  const personalViewName = `E2E project ready ${runId}`;
+
+  await page.goto(`/projects/${demoProjectId}/work-items`);
+  await expect(projectShellHeading(page, 'Worktrail App')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Project work items' })).toBeVisible();
+  await page.locator('#current-member').selectOption({ label: 'Avery Owner · owner' });
+
+  const savedViewsRegion = page.getByRole('region', { name: 'Saved views' });
+  await expect(savedViewsRegion).toContainText(/5 shared · \d+ personal/);
+  await expect(page.getByRole('button', { name: 'Save shared view' })).toBeVisible();
+
+  await openSavedViewManager(page);
+  const ownerReadyForQaRow = page
+    .getByLabel('Shared project views')
+    .locator('article.saved-view-row')
+    .filter({ hasText: 'Ready for QA' });
+  await expect(ownerReadyForQaRow).toBeVisible();
+  await expect(ownerReadyForQaRow).toContainText('2 applied filters');
+  await expect(ownerReadyForQaRow.getByRole('button', { name: 'Rename' })).toBeVisible();
+  await expect(ownerReadyForQaRow.getByRole('button', { name: 'Update query' })).toBeVisible();
+  await expect(ownerReadyForQaRow.getByRole('button', { name: 'Delete' })).toBeVisible();
+
+  await ownerReadyForQaRow.getByRole('button', { name: 'Open' }).click();
+  await expect(page).toHaveURL(/\/projects\/10000000-0000-4000-8000-000000000201\/work-items\?/);
+  await expect(page).toHaveURL(/status=ready/);
+  await expect(page.getByText('Status: ready')).toBeVisible();
+  await expect(page.getByRole('row', { name: /Add filter controls to work item list/ })).toBeVisible();
+
+  await page.locator('form.saved-view-form').getByLabel('Name').fill(personalViewName);
+  await page.getByRole('button', { name: 'Save personal view' }).click();
+  await expect(savedViewsRegion).toContainText(/5 shared · \d+ personal/);
+
+  const personalSavedViewRow = page
+    .getByLabel('Personal project views')
+    .locator('article.saved-view-row')
+    .filter({ hasText: personalViewName });
+  await expect(personalSavedViewRow).toBeVisible();
+  await expect(personalSavedViewRow).toContainText('2 applied filters');
+
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Project work items' })).toBeVisible();
+  await openSavedViewManager(page);
+  const reloadedPersonalSavedViewRow = page
+    .getByLabel('Personal project views')
+    .locator('article.saved-view-row')
+    .filter({ hasText: personalViewName });
+  await expect(reloadedPersonalSavedViewRow).toBeVisible();
+  await reloadedPersonalSavedViewRow.getByRole('button', { name: 'Open' }).click();
+  await expect(page).toHaveURL(/status=ready/);
+  await expect(page.getByText('Status: ready')).toBeVisible();
+  await expect(page.getByRole('row', { name: /Add filter controls to work item list/ })).toBeVisible();
+
+  await page.locator('#current-member').selectOption({ label: 'Casey Contributor · contributor' });
+  await page.goto(`/projects/${demoProjectId}/work-items`);
+  await expect(page.getByRole('heading', { name: 'Project work items' })).toBeVisible();
+  await expect(savedViewsRegion).toContainText('5 shared');
+  await expect(page.getByText('Owners and maintainers manage shared project views.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save shared view' })).toHaveCount(0);
+  await openSavedViewManager(page);
+
+  const contributorReadyForQaRow = page
+    .getByLabel('Shared project views')
+    .locator('article.saved-view-row')
+    .filter({ hasText: 'Ready for QA' });
+  await expect(contributorReadyForQaRow).toBeVisible();
+  await expect(contributorReadyForQaRow.getByText('Shared by Avery Owner')).toBeVisible();
+  await expect(contributorReadyForQaRow.getByRole('button', { name: 'Open' })).toBeVisible();
+  await expect(contributorReadyForQaRow.getByRole('button', { name: 'Rename' })).toHaveCount(0);
+  await expect(contributorReadyForQaRow.getByRole('button', { name: 'Update query' })).toHaveCount(0);
+  await expect(contributorReadyForQaRow.getByRole('button', { name: 'Delete' })).toHaveCount(0);
+
+  await contributorReadyForQaRow.getByRole('button', { name: 'Open' }).click();
+  await expect(page).toHaveURL(/status=ready/);
+  await expect(page.getByText('Status: ready')).toBeVisible();
   await expect(page.getByRole('row', { name: /Add filter controls to work item list/ })).toBeVisible();
 });
 
