@@ -227,6 +227,14 @@ const labelActivity: ActivityEventDto = {
   createdAt: '2026-07-03T12:00:00.000Z'
 };
 
+const sharedProjectSavedViewActivity: ActivityEventDto = {
+  ...labelActivity,
+  id: '10000000-0000-4000-8000-000000000702',
+  eventType: 'saved_view.created',
+  summary: 'Avery Owner created shared project view Release blockers.',
+  metadata: { savedViewId: '10000000-0000-4000-8000-000000000818' }
+};
+
 const ownerCapabilities: WorkspaceCapabilitiesDto = {
   actor: owner,
   canManageWorkspace: true,
@@ -634,6 +642,20 @@ describe('ProjectSettingsPageComponent', () => {
     expect(compiled.textContent).toContain('Renamed Worktrail App');
     expect(compiled.textContent).toContain('Project settings saved.');
     expect(compiled.textContent).toContain('Label created.');
+  });
+
+  it('renders shared project saved-view activity with a readable event label', () => {
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/labels?includeArchived=true`).flush([]);
+    http.expectOne(`/api/projects/${projectId}/activity`).flush([sharedProjectSavedViewActivity]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Avery Owner created shared project view Release blockers.');
+    expect(compiled.textContent).toContain('Shared project view created');
+    expect(compiled.textContent).not.toContain('saved_view.created');
   });
 
   it('archives and reactivates projects without a page refresh', () => {

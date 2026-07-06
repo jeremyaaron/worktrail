@@ -411,6 +411,32 @@ npm run typecheck
 git diff --check
 ```
 
+Status:
+
+- Completed.
+- Added deterministic project-scoped saved-view ids and seed rows for active projects.
+- Seeded shared project views for:
+  - `Release blockers`;
+  - `Ready for QA`;
+  - `Unassigned project work`;
+  - `Current milestone risk`;
+  - `Open dependency risks`.
+- Seeded a personal project view for the owner in the app project.
+- Kept seeded project saved-view queries limited to project-supported fields.
+- Updated saved-view seed upserts to persist `projectId`, `scope`, `visibility`, `query`, and timestamps idempotently.
+- Added readable project activity labels for shared project saved-view events.
+- Added a project settings component test for shared project saved-view activity labels.
+- Verified:
+  - `npm run db:seed`
+  - `npm run db:seed`
+  - `npm test --workspace @worktrail/api -- saved-work-views.test.ts`
+  - `npm test --workspace @worktrail/web -- --include "**/projects-page.component.spec.ts"`
+  - `npm run typecheck`
+  - `npm run lint`
+  - project saved-view seed readback returned 8 project-scoped views and 0 workspace saved-view activity rows
+  - app project shared-view result readback returned visible work items for all five seeded shared project views
+  - `git diff --check`
+
 ## Phase 5: Saved-View Toolbar Scope-Aware UI
 
 Goal: make the existing saved-view toolbar reusable for workspace and project saved-view surfaces.
