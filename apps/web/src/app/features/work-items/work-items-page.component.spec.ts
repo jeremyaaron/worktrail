@@ -7,6 +7,7 @@ import type {
   MemberDto,
   MilestoneDto,
   ProjectDto,
+  SavedWorkViewDto,
   WorkspaceCapabilitiesDto,
   WorkItemDetailDto,
   WorkItemListItemDto,
@@ -47,6 +48,14 @@ const inactiveMember: MemberDto = {
   deactivatedAt: '2026-06-28T12:00:00.000Z',
   createdAt: '2026-07-02T12:00:00.000Z',
   updatedAt: '2026-07-03T12:00:00.000Z'
+};
+
+const ownerMember: MemberDto = {
+  ...member,
+  id: '10000000-0000-4000-8000-000000000101',
+  name: 'Avery Owner',
+  email: 'avery.owner@example.com',
+  role: 'owner'
 };
 
 const emptyRelationships: WorkItemRelationshipSummaryDto = {
@@ -130,6 +139,34 @@ const archivedLabel = {
   archivedAt: '2026-07-03T12:00:00.000Z'
 };
 
+const personalProjectSavedView: SavedWorkViewDto = {
+  id: '10000000-0000-4000-8000-000000000801',
+  workspaceId: member.workspaceId,
+  projectId,
+  owner: member,
+  name: 'My project work',
+  scope: 'project',
+  visibility: 'personal',
+  query: {
+    assigneeId: contributorId,
+    sort: 'updated_desc'
+  },
+  createdAt: '2026-07-03T12:00:00.000Z',
+  updatedAt: '2026-07-03T12:00:00.000Z'
+};
+
+const sharedProjectSavedView: SavedWorkViewDto = {
+  ...personalProjectSavedView,
+  id: '10000000-0000-4000-8000-000000000802',
+  owner: ownerMember,
+  name: 'Ready for QA',
+  visibility: 'workspace',
+  query: {
+    status: 'ready',
+    sort: 'board_order'
+  }
+};
+
 const ownerCapabilities: WorkspaceCapabilitiesDto = {
   actor: member,
   canManageWorkspace: true,
@@ -162,10 +199,14 @@ function routeStub(query: Record<string, string> = {}, inputProjectId: string = 
   };
 }
 
-function seedCurrentUser() {
+function seedCurrentUser(actor: MemberDto = member) {
   const currentUser = TestBed.inject(CurrentUserService);
-  currentUser.members.set([member, inactiveMember]);
-  currentUser.selectMember(member.id);
+  currentUser.members.set(
+    [actor, member, ownerMember, inactiveMember].filter(
+      (item, index, members) => members.findIndex((member) => member.id === item.id) === index
+    )
+  );
+  currentUser.selectMember(actor.id);
 }
 
 function spyOnCsvDownload(): void {
@@ -186,6 +227,17 @@ function flushCreateContext(
   http.expectOne(`/api/projects/${projectId}`).flush(input.project ?? activeProject);
   http.expectOne(`/api/projects/${projectId}/milestones`).flush(input.milestones ?? [activeMilestone]);
   http.expectOne(`/api/projects/${projectId}/labels`).flush(input.labels ?? [backendLabel]);
+}
+
+function flushProjectSavedViews(
+  http: HttpTestingController,
+  savedViews: SavedWorkViewDto[] = []
+): void {
+  const request = http.expectOne((candidate) => candidate.url === '/api/saved-work-views');
+  expect(request.request.method).toBe('GET');
+  expect(request.request.params.get('scope')).toBe('project');
+  expect(request.request.params.get('projectId')).toBe(projectId);
+  request.flush(savedViews);
 }
 
 describe('WorkItemListPageComponent', () => {
@@ -232,6 +284,7 @@ describe('WorkItemListPageComponent', () => {
     fixture.detectChanges();
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http);
 
     const request = http.expectOne((candidate) => {
       return (
@@ -268,6 +321,184 @@ describe('WorkItemListPageComponent', () => {
     expect(compiled.querySelector<HTMLAnchorElement>(`a[href="/projects/${projectId}/work-items/import"]`)).not.toBeNull();
   });
 
+  it('creates personal project saved views from the applied query and opens canonical params', () => {
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    const router = TestBed.inject(Router);
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http, [personalProjectSavedView, sharedProjectSavedView]);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Shared project views');
+    expect(compiled.textContent).toContain('Ready for QA');
+    expect(compiled.textContent).toContain('Personal project views');
+    expect(compiled.textContent).toContain('My project work');
+
+    fixture.componentInstance.savePersonalProjectView('  My filtered work  ');
+    const create = http.expectOne('/api/saved-work-views');
+    expect(create.request.method).toBe('POST');
+    expect(create.request.body).toEqual({
+      name: 'My filtered work',
+      scope: 'project',
+      projectId,
+      query: {
+        search: 'api',
+        status: 'in_progress',
+        assigneeId: contributorId,
+        reporterId: contributorId,
+        milestoneId: activeMilestone.id,
+        dueDateState: 'due_soon',
+        dependency: 'dependency_blocked',
+        sort: 'due_date_asc'
+      }
+    });
+    create.flush({
+      ...personalProjectSavedView,
+      id: '10000000-0000-4000-8000-000000000803',
+      name: 'My filtered work'
+    });
+
+    fixture.componentInstance.openSavedView(sharedProjectSavedView);
+    expect(navigate).toHaveBeenCalledWith([], {
+      relativeTo: TestBed.inject(ActivatedRoute),
+      queryParams: jasmine.objectContaining({
+        status: 'ready',
+        sort: 'board_order'
+      })
+    });
+  });
+
+  it('lets owners create and manage shared project saved views', () => {
+    seedCurrentUser(ownerMember);
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http, [sharedProjectSavedView]);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
+    fixture.detectChanges();
+
+    fixture.componentInstance.saveSharedProjectView('Shared filtered work');
+    const create = http.expectOne('/api/saved-work-views');
+    expect(create.request.method).toBe('POST');
+    expect(create.request.body).toEqual({
+      name: 'Shared filtered work',
+      scope: 'project',
+      projectId,
+      visibility: 'workspace',
+      query: {
+        search: 'api',
+        status: 'in_progress',
+        assigneeId: contributorId,
+        reporterId: contributorId,
+        milestoneId: activeMilestone.id,
+        dueDateState: 'due_soon',
+        dependency: 'dependency_blocked',
+        sort: 'due_date_asc'
+      }
+    });
+    create.flush({
+      ...sharedProjectSavedView,
+      id: '10000000-0000-4000-8000-000000000804',
+      name: 'Shared filtered work'
+    });
+
+    fixture.componentInstance.setSavedViewDraftName(sharedProjectSavedView.id, 'Ready for review');
+    fixture.componentInstance.renameSavedView(sharedProjectSavedView);
+    const rename = http.expectOne(`/api/saved-work-views/${sharedProjectSavedView.id}`);
+    expect(rename.request.method).toBe('PATCH');
+    expect(rename.request.body).toEqual({ name: 'Ready for review' });
+    rename.flush({ ...sharedProjectSavedView, name: 'Ready for review' });
+
+    fixture.componentInstance.updateSavedViewQuery(sharedProjectSavedView);
+    const updateQuery = http.expectOne(`/api/saved-work-views/${sharedProjectSavedView.id}`);
+    expect(updateQuery.request.method).toBe('PATCH');
+    expect(updateQuery.request.body).toEqual({
+      query: {
+        search: 'api',
+        status: 'in_progress',
+        assigneeId: contributorId,
+        reporterId: contributorId,
+        milestoneId: activeMilestone.id,
+        dueDateState: 'due_soon',
+        dependency: 'dependency_blocked',
+        sort: 'due_date_asc'
+      }
+    });
+    updateQuery.flush(sharedProjectSavedView);
+
+    fixture.componentInstance.deleteSavedView(sharedProjectSavedView);
+    const remove = http.expectOne(`/api/saved-work-views/${sharedProjectSavedView.id}`);
+    expect(remove.request.method).toBe('DELETE');
+    remove.flush(null);
+  });
+
+  it('keeps shared project saved views read-only for contributors', () => {
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http, [sharedProjectSavedView, personalProjectSavedView]);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Owners and maintainers manage shared project views.');
+    expect(compiled.textContent).not.toContain('Save shared view');
+
+    fixture.componentInstance.renameSavedView(sharedProjectSavedView);
+    fixture.detectChanges();
+    expect(compiled.textContent).toContain('Only owners and maintainers can manage shared saved views.');
+    http.expectNone(`/api/saved-work-views/${sharedProjectSavedView.id}`);
+
+    fixture.componentInstance.setSavedViewDraftName(personalProjectSavedView.id, 'My renamed work');
+    fixture.componentInstance.renameSavedView(personalProjectSavedView);
+    const renamePersonal = http.expectOne(`/api/saved-work-views/${personalProjectSavedView.id}`);
+    expect(renamePersonal.request.method).toBe('PATCH');
+    expect(renamePersonal.request.body).toEqual({ name: 'My renamed work' });
+    renamePersonal.flush({ ...personalProjectSavedView, name: 'My renamed work' });
+  });
+
+  it('renders archived project saved views as open-only and blocks mutations', () => {
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}`).flush(archivedProject);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http, [sharedProjectSavedView, personalProjectSavedView]);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Archived project saved views are read-only.');
+    expect(compiled.textContent).not.toContain('Save personal view');
+    expect(compiled.textContent).not.toContain('Save shared view');
+    expect(compiled.textContent).not.toContain('Manage saved views');
+    expect([...compiled.querySelectorAll<HTMLButtonElement>('.saved-view-actions button')].map((button) => button.textContent?.trim())).toEqual([
+      'Open',
+      'Open'
+    ]);
+
+    fixture.componentInstance.savePersonalProjectView('Archived view');
+    fixture.componentInstance.renameSavedView(personalProjectSavedView);
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain('Archived projects are read-only.');
+    http.expectNone('/api/saved-work-views');
+    http.expectNone(`/api/saved-work-views/${personalProjectSavedView.id}`);
+  });
+
   it('exports CSV with applied filters instead of pending draft form values', () => {
     spyOnCsvDownload();
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
@@ -276,6 +507,7 @@ describe('WorkItemListPageComponent', () => {
 
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http);
     http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
     fixture.componentInstance.filterForm.patchValue(
       {
@@ -322,6 +554,7 @@ describe('WorkItemListPageComponent', () => {
 
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http);
     http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
 
     fixture.componentInstance.exportCsv();
@@ -344,6 +577,7 @@ describe('WorkItemListPageComponent', () => {
 
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http);
     http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
     fixture.componentInstance.filterForm.patchValue(
       {
@@ -382,6 +616,7 @@ describe('WorkItemListPageComponent', () => {
 
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http);
     http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
     fixture.detectChanges();
 
@@ -402,6 +637,7 @@ describe('WorkItemListPageComponent', () => {
     fixture.detectChanges();
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http);
     http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
       {
         ...workItem,
@@ -434,6 +670,7 @@ describe('WorkItemListPageComponent', () => {
 
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http);
     http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([]);
 
     fixture.componentInstance.filterForm.patchValue({
@@ -478,6 +715,7 @@ describe('WorkItemListPageComponent', () => {
 
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http);
     http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
     fixture.detectChanges();
 
@@ -496,6 +734,7 @@ describe('WorkItemListPageComponent', () => {
 
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http);
     http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
 
     fixture.componentInstance.filterForm.controls.priority.setValue('urgent');
@@ -517,6 +756,7 @@ describe('WorkItemListPageComponent', () => {
 
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http);
     http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
 
     fixture.componentInstance.filterForm.controls.search.setValue('client query');

@@ -81,6 +81,26 @@ describe('WorktrailApiService', () => {
     request.flush([]);
   });
 
+  it('sends saved work view list scope params and skips blank params', () => {
+    const projectId = '10000000-0000-4000-8000-000000000201';
+
+    api.listSavedWorkViews({ scope: 'project', projectId }).subscribe();
+
+    const projectRequest = http.expectOne((candidate) => candidate.url === '/api/saved-work-views');
+    expect(projectRequest.request.method).toBe('GET');
+    expect(projectRequest.request.params.get('scope')).toBe('project');
+    expect(projectRequest.request.params.get('projectId')).toBe(projectId);
+    projectRequest.flush([]);
+
+    api.listSavedWorkViews({ scope: 'workspace' }).subscribe();
+
+    const workspaceRequest = http.expectOne((candidate) => candidate.url === '/api/saved-work-views');
+    expect(workspaceRequest.request.method).toBe('GET');
+    expect(workspaceRequest.request.params.get('scope')).toBe('workspace');
+    expect(workspaceRequest.request.params.has('projectId')).toBeFalse();
+    workspaceRequest.flush([]);
+  });
+
   it('previews and applies work item CSV imports', () => {
     const projectId = '10000000-0000-4000-8000-000000000201';
     const csv = 'title,type,priority\nImported task,task,medium\n';

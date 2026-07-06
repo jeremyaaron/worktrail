@@ -27,33 +27,37 @@ import {
         <p class="inline-error">{{ loadError }}</p>
       }
 
-      <form class="saved-view-form" (submit)="saveRequested('personal'); $event.preventDefault()">
-        <label>
-          <span>Name</span>
-          <input
-            type="text"
-            name="savedViewName"
-            [value]="newViewName"
-            [placeholder]="newViewPlaceholder"
-            (input)="newViewName = $any($event.target).value"
-          />
-        </label>
-        <div class="save-actions">
-          <button type="submit" [disabled]="isSaving">
-            {{ isSaving ? 'Saving...' : savePersonalButtonLabel }}
-          </button>
-          @if (canManageSharedViews) {
-            <button
-              type="button"
-              class="secondary-action"
-              [disabled]="isSaving"
-              (click)="saveRequested('workspace')"
-            >
-              {{ isSaving ? 'Saving...' : saveSharedButtonLabel }}
-            </button>
-          }
-        </div>
-      </form>
+      @if (canManagePersonalViews || canManageSharedViews) {
+        <form class="saved-view-form" (submit)="saveRequested('personal'); $event.preventDefault()">
+          <label>
+            <span>Name</span>
+            <input
+              type="text"
+              name="savedViewName"
+              [value]="newViewName"
+              [placeholder]="newViewPlaceholder"
+              (input)="newViewName = $any($event.target).value"
+            />
+          </label>
+          <div class="save-actions">
+            @if (canManagePersonalViews) {
+              <button type="submit" [disabled]="isSaving">
+                {{ isSaving ? 'Saving...' : savePersonalButtonLabel }}
+              </button>
+            }
+            @if (canManageSharedViews) {
+              <button
+                type="button"
+                class="secondary-action"
+                [disabled]="isSaving"
+                (click)="saveRequested('workspace')"
+              >
+                {{ isSaving ? 'Saving...' : saveSharedButtonLabel }}
+              </button>
+            }
+          </div>
+        </form>
+      }
 
       @if (mutationError !== null) {
         <p class="inline-error">{{ mutationError }}</p>
@@ -63,12 +67,16 @@ import {
         <p class="shared-helper">{{ sharedHelper }}</p>
       }
 
+      @if (!canManagePersonalViews && !canManageSharedViews) {
+        <p class="shared-helper">{{ readOnlyHelper }}</p>
+      }
+
       @if (sharedViews.length === 0 && personalViews.length === 0) {
         <app-empty-state
           [title]="emptyTitle"
           [message]="emptyMessage"
         />
-      } @else {
+      } @else if (canManagePersonalViews || canManageSharedViews) {
         <details class="saved-view-manager">
           <summary>Manage saved views</summary>
 
@@ -139,28 +147,34 @@ import {
                       <small>{{ savedViewQueryLabel(view) }}</small>
                     </div>
 
-                    <label>
-                      <span>Rename</span>
-                      <input
-                        type="text"
-                        [value]="draftNames[view.id] ?? view.name"
-                        (input)="draftNameChange.emit({ savedViewId: view.id, name: $any($event.target).value })"
-                      />
-                    </label>
+                    @if (canManagePersonalViews) {
+                      <label>
+                        <span>Rename</span>
+                        <input
+                          type="text"
+                          [value]="draftNames[view.id] ?? view.name"
+                          (input)="draftNameChange.emit({ savedViewId: view.id, name: $any($event.target).value })"
+                        />
+                      </label>
+                    } @else {
+                      <p class="saved-view-owner">Personal view</p>
+                    }
 
                     <div class="saved-view-actions">
                       <button type="button" class="secondary-action" (click)="open.emit(view)">
                         Open
                       </button>
-                      <button type="button" class="secondary-action" (click)="rename.emit(view)">
-                        Rename
-                      </button>
-                      <button type="button" class="secondary-action" (click)="updateQuery.emit(view)">
-                        Update query
-                      </button>
-                      <button type="button" class="danger-action" (click)="delete.emit(view)">
-                        Delete
-                      </button>
+                      @if (canManagePersonalViews) {
+                        <button type="button" class="secondary-action" (click)="rename.emit(view)">
+                          Rename
+                        </button>
+                        <button type="button" class="secondary-action" (click)="updateQuery.emit(view)">
+                          Update query
+                        </button>
+                        <button type="button" class="danger-action" (click)="delete.emit(view)">
+                          Delete
+                        </button>
+                      }
                     </div>
                   </article>
                 }
@@ -168,6 +182,54 @@ import {
             </section>
           </div>
         </details>
+      } @else {
+        <div class="saved-view-list">
+          @if (sharedViews.length > 0) {
+            <section class="saved-view-section" [attr.aria-label]="sharedSectionLabel">
+              <div class="saved-view-section__heading">
+                <strong>{{ sharedSectionLabel }}</strong>
+                <span>{{ sharedViews.length }}</span>
+              </div>
+              @for (view of sharedViews; track view.id) {
+                <article class="saved-view-row saved-view-row--shared">
+                  <div>
+                    <strong>{{ view.name }}</strong>
+                    <small>{{ savedViewQueryLabel(view) }}</small>
+                  </div>
+                  <p class="saved-view-owner">Shared by {{ view.owner.name }}</p>
+                  <div class="saved-view-actions">
+                    <button type="button" class="secondary-action" (click)="open.emit(view)">
+                      Open
+                    </button>
+                  </div>
+                </article>
+              }
+            </section>
+          }
+
+          @if (personalViews.length > 0) {
+            <section class="saved-view-section" [attr.aria-label]="personalSectionLabel">
+              <div class="saved-view-section__heading">
+                <strong>{{ personalSectionLabel }}</strong>
+                <span>{{ personalViews.length }}</span>
+              </div>
+              @for (view of personalViews; track view.id) {
+                <article class="saved-view-row">
+                  <div>
+                    <strong>{{ view.name }}</strong>
+                    <small>{{ savedViewQueryLabel(view) }}</small>
+                  </div>
+                  <p class="saved-view-owner">Personal view</p>
+                  <div class="saved-view-actions">
+                    <button type="button" class="secondary-action" (click)="open.emit(view)">
+                      Open
+                    </button>
+                  </div>
+                </article>
+              }
+            </section>
+          }
+        </div>
       }
     </section>
   `,
@@ -385,6 +447,7 @@ import {
 export class SavedViewsToolbarComponent {
   @Input() personalViews: SavedWorkViewDto[] = [];
   @Input() sharedViews: SavedWorkViewDto[] = [];
+  @Input() canManagePersonalViews = true;
   @Input() canManageSharedViews = false;
   @Input({ required: true }) draftNames: Partial<Record<string, string>> = {};
   @Input() querySummaryScope: WorkItemQueryScope = 'workspace';
@@ -395,6 +458,7 @@ export class SavedViewsToolbarComponent {
   @Input() personalSectionLabel = 'Personal views';
   @Input() sharedEmptyMessage = 'No shared views saved.';
   @Input() personalEmptyMessage = 'No personal views saved.';
+  @Input() readOnlyHelper = 'Saved views are read-only.';
   @Input() newViewPlaceholder = 'Open owner work';
   @Input() savePersonalButtonLabel = 'Save personal view';
   @Input() saveSharedButtonLabel = 'Save shared view';

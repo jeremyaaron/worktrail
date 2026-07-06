@@ -569,6 +569,39 @@ npm run typecheck --workspace @worktrail/web
 git diff --check
 ```
 
+Status:
+
+- Completed.
+- Updated the web saved-view API client and `WorktrailApiService` forwarding method to accept `ListSavedWorkViewsQuery` and serialize non-empty `scope`/`projectId` params.
+- Added project-scoped saved-view state to `WorkItemListPageComponent`:
+  - saved views;
+  - personal/shared computed groups;
+  - draft names;
+  - loading and mutation errors;
+  - saving state.
+- Loaded project saved views with `scope=project` and the current project id.
+- Rendered `SavedViewsToolbarComponent` on the project Work page with project-specific copy and project query summaries.
+- Created personal and shared project saved views from the applied project query.
+- Opened saved views through canonical project route params.
+- Added rename, update-query, and delete behavior for project saved views.
+- Blocked shared project-view mutation controls for contributors.
+- Blocked saved-view create/update/delete controls on archived projects while preserving open-only access.
+- Extended the toolbar with `canManagePersonalViews` and read-only rendering so archived project saved views can remain visible without mutation controls.
+- Added tests for:
+  - scoped saved-view list query params;
+  - personal project saved-view create/open behavior;
+  - shared project saved-view create/rename/update/delete behavior;
+  - contributor read-only shared project saved views;
+  - archived project open-only saved views;
+  - applied query usage for save/update.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include "**/work-items-page.component.spec.ts"`
+  - `npm test --workspace @worktrail/web -- --include "**/worktrail-api.service.spec.ts"`
+  - `npm test --workspace @worktrail/web -- --include "**/saved-views-toolbar.component.spec.ts"`
+  - `npm run typecheck --workspace @worktrail/web`
+  - `npm run lint --workspace @worktrail/web`
+  - `git diff --check`
+
 ## Phase 7: Workspace Compatibility And Regression Hardening
 
 Goal: ensure workspace saved views still behave exactly as v0.1.3 after scope-aware changes.

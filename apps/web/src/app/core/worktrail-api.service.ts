@@ -25,6 +25,7 @@ import type {
   ProjectNavigationSummaryDto,
   ProjectPlanningSummaryDto,
   ProjectSummaryDto,
+  ListSavedWorkViewsQuery,
   SavedWorkViewDto,
   TransitionWorkItemRequest,
   UpdateCommentRequest,
@@ -227,8 +228,8 @@ export class WorktrailApiService {
     return this.workItems.exportWorkspaceWorkItems(filters);
   }
 
-  listSavedWorkViews(): Observable<SavedWorkViewDto[]> {
-    return this.savedViews.listSavedWorkViews();
+  listSavedWorkViews(query: ListSavedWorkViewsQuery = {}): Observable<SavedWorkViewDto[]> {
+    return this.savedViews.listSavedWorkViews(query);
   }
 
   createSavedWorkView(input: CreateSavedWorkViewRequest): Observable<SavedWorkViewDto> {
