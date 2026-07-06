@@ -438,6 +438,25 @@ npm run typecheck --workspace @worktrail/web
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-05.
+- Refactored `apps/web/src/app/shared/delivery-health/delivery-health-display.ts` so delivery-health query conversion delegates to the canonical work item query serialization helper.
+- Made delivery-health query conversion project-scoped by default because current dashboard and planning links target project work item lists.
+- Updated project home delivery-health links to pass project scope explicitly.
+- Updated project planning delivery-health and planning-review query links to pass project scope explicitly.
+- Added delivery-health helper tests covering:
+  - project-scoped default conversion;
+  - workspace-only/default field stripping from project links;
+  - workspace-scoped conversion when explicitly requested.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/shared/delivery-health/*.spec.ts'`
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/features/projects/*.spec.ts'`
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/features/work-items/components/*.spec.ts'`
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/features/work-items/query/*.spec.ts'`
+  - `npm run typecheck --workspace @worktrail/web`
+  - `git diff --check`
+
 ## Phase 6: Copy Filtered View Link UX
 
 Goal: add copy-link actions for project and workspace filtered views using applied query state.

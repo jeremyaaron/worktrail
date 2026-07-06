@@ -5,6 +5,11 @@ import type {
   WorkItemQuery
 } from '@worktrail/contracts';
 
+import {
+  routerLinkQueryParamsFromWorkItemQuery,
+  type WorkItemQueryScope
+} from '../../features/work-items/query/work-item-query-serialization';
+
 export type DeliveryHealthTone = 'positive' | 'warning' | 'critical' | 'neutral' | 'info';
 
 const healthLabels: Record<DeliveryHealthState, string> = {
@@ -56,25 +61,15 @@ export function deliveryHealthReasonLabel(reason: DeliveryHealthReasonDto): stri
 }
 
 export function deliveryHealthReasonQueryParams(
-  reason: DeliveryHealthReasonDto
+  reason: DeliveryHealthReasonDto,
+  scope: WorkItemQueryScope = 'project'
 ): Record<string, string> | null {
-  return workItemQueryToRouterQueryParams(reason.query);
+  return workItemQueryToRouterQueryParams(reason.query, scope);
 }
 
 export function workItemQueryToRouterQueryParams(
-  query: WorkItemQuery | null
+  query: WorkItemQuery | null,
+  scope: WorkItemQueryScope = 'project'
 ): Record<string, string> | null {
-  if (query === null) {
-    return null;
-  }
-
-  const params: Record<string, string> = {};
-
-  for (const [key, value] of Object.entries(query)) {
-    if (value !== undefined && value !== null && String(value).trim() !== '') {
-      params[key] = String(value);
-    }
-  }
-
-  return Object.keys(params).length === 0 ? null : params;
+  return routerLinkQueryParamsFromWorkItemQuery(query, scope);
 }

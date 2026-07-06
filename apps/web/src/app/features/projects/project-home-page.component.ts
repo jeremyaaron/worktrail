@@ -724,7 +724,7 @@ export class ProjectHomePageComponent implements OnInit {
   }
 
   reasonQueryParams(reason: DeliveryHealthReasonDto): Record<string, string> | null {
-    return deliveryHealthReasonQueryParams(reason);
+    return deliveryHealthReasonQueryParams(reason, 'project');
   }
 
   formatDate(value: string): string {
