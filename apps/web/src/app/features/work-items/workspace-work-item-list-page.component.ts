@@ -169,8 +169,8 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
 
     <app-saved-views-toolbar
       [personalViews]="personalSavedViews()"
-      [workspaceViews]="workspaceSavedViews()"
-      [canManageWorkspaceViews]="canManageWorkspaceSavedViews()"
+      [sharedViews]="workspaceSavedViews()"
+      [canManageSharedViews]="canManageWorkspaceSavedViews()"
       [draftNames]="savedViewDraftNames()"
       [isLoading]="isSavedViewLoading()"
       [isSaving]="isSavingView()"

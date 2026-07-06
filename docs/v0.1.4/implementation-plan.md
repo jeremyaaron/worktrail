@@ -481,6 +481,37 @@ npm run typecheck --workspace @worktrail/web
 git diff --check
 ```
 
+Status:
+
+- Completed.
+- Added scope-aware toolbar inputs for:
+  - query summary scope;
+  - empty state title/message;
+  - shared helper copy;
+  - shared/personal section labels and empty messages;
+  - shared-management capability;
+  - save button labels and placeholder copy.
+- Renamed the primary toolbar inputs to shared-view language:
+  - `sharedViews`;
+  - `canManageSharedViews`.
+- Preserved compatibility aliases for:
+  - `workspaceViews`;
+  - `canManageWorkspaceViews`.
+- Added a neutral `saveShared` output while preserving `saveWorkspace`.
+- Updated workspace Work Items toolbar binding to the shared-view input names.
+- Updated query summaries to call `meaningfulWorkItemQueryFieldCount` with the configured `workspace` or `project` scope.
+- Added component coverage for:
+  - existing workspace behavior;
+  - project-specific helper/empty/section copy;
+  - project summary count behavior;
+  - read-only shared controls for contributors;
+  - personal controls remaining available.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include "**/saved-views-toolbar.component.spec.ts"`
+  - `npm run typecheck --workspace @worktrail/web`
+  - `npm run lint --workspace @worktrail/web`
+  - `git diff --check`
+
 ## Phase 6: Project Work Page Integration
 
 Goal: add saved-view loading, saving, opening, mutation, and permission-aware UI to project Work pages.

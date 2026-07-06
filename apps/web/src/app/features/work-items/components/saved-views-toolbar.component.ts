@@ -3,7 +3,10 @@ import type { SavedWorkViewDto, SavedWorkViewVisibility } from '@worktrail/contr
 
 import { EmptyStateComponent } from '../../../shared/ui/empty-state.component';
 import { LoadingIndicatorComponent } from '../../../shared/ui/loading-indicator.component';
-import { meaningfulWorkItemQueryFieldCount } from '../query/work-item-query-serialization';
+import {
+  meaningfulWorkItemQueryFieldCount,
+  type WorkItemQueryScope
+} from '../query/work-item-query-serialization';
 
 @Component({
   selector: 'app-saved-views-toolbar',
@@ -13,7 +16,7 @@ import { meaningfulWorkItemQueryFieldCount } from '../query/work-item-query-seri
       <div class="saved-views__heading">
         <div>
           <h2 id="saved-views-heading">Saved views</h2>
-          <p>{{ workspaceViews.length }} shared · {{ personalViews.length }} personal</p>
+          <p>{{ sharedViews.length }} shared · {{ personalViews.length }} personal</p>
         </div>
         @if (isLoading) {
           <app-loading-indicator label="Loading saved views" />
@@ -31,22 +34,22 @@ import { meaningfulWorkItemQueryFieldCount } from '../query/work-item-query-seri
             type="text"
             name="savedViewName"
             [value]="newViewName"
-            placeholder="Open owner work"
+            [placeholder]="newViewPlaceholder"
             (input)="newViewName = $any($event.target).value"
           />
         </label>
         <div class="save-actions">
           <button type="submit" [disabled]="isSaving">
-            {{ isSaving ? 'Saving...' : 'Save personal view' }}
+            {{ isSaving ? 'Saving...' : savePersonalButtonLabel }}
           </button>
-          @if (canManageWorkspaceViews) {
+          @if (canManageSharedViews) {
             <button
               type="button"
               class="secondary-action"
               [disabled]="isSaving"
               (click)="saveRequested('workspace')"
             >
-              {{ isSaving ? 'Saving...' : 'Save shared view' }}
+              {{ isSaving ? 'Saving...' : saveSharedButtonLabel }}
             </button>
           }
         </div>
@@ -56,37 +59,37 @@ import { meaningfulWorkItemQueryFieldCount } from '../query/work-item-query-seri
         <p class="inline-error">{{ mutationError }}</p>
       }
 
-      @if (!canManageWorkspaceViews && workspaceViews.length > 0) {
-        <p class="shared-helper">Owners and maintainers manage shared saved views.</p>
+      @if (!canManageSharedViews && sharedViews.length > 0) {
+        <p class="shared-helper">{{ sharedHelper }}</p>
       }
 
-      @if (workspaceViews.length === 0 && personalViews.length === 0) {
+      @if (sharedViews.length === 0 && personalViews.length === 0) {
         <app-empty-state
-          title="No saved views"
-          message="Save the current filters to reuse this workspace view."
+          [title]="emptyTitle"
+          [message]="emptyMessage"
         />
       } @else {
         <details class="saved-view-manager">
           <summary>Manage saved views</summary>
 
           <div class="saved-view-list">
-            <section class="saved-view-section" aria-label="Shared saved views">
+            <section class="saved-view-section" [attr.aria-label]="sharedSectionLabel">
               <div class="saved-view-section__heading">
-                <strong>Shared views</strong>
-                <span>{{ workspaceViews.length }}</span>
+                <strong>{{ sharedSectionLabel }}</strong>
+                <span>{{ sharedViews.length }}</span>
               </div>
 
-              @if (workspaceViews.length === 0) {
-                <p class="saved-view-section__empty">No shared views saved.</p>
+              @if (sharedViews.length === 0) {
+                <p class="saved-view-section__empty">{{ sharedEmptyMessage }}</p>
               } @else {
-                @for (view of workspaceViews; track view.id) {
+                @for (view of sharedViews; track view.id) {
                   <article class="saved-view-row saved-view-row--shared">
                     <div>
                       <strong>{{ view.name }}</strong>
                       <small>{{ savedViewQueryLabel(view) }}</small>
                     </div>
 
-                    @if (canManageWorkspaceViews) {
+                    @if (canManageSharedViews) {
                       <label>
                         <span>Rename</span>
                         <input
@@ -103,7 +106,7 @@ import { meaningfulWorkItemQueryFieldCount } from '../query/work-item-query-seri
                       <button type="button" class="secondary-action" (click)="open.emit(view)">
                         Open
                       </button>
-                      @if (canManageWorkspaceViews) {
+                      @if (canManageSharedViews) {
                         <button type="button" class="secondary-action" (click)="rename.emit(view)">
                           Rename
                         </button>
@@ -120,14 +123,14 @@ import { meaningfulWorkItemQueryFieldCount } from '../query/work-item-query-seri
               }
             </section>
 
-            <section class="saved-view-section" aria-label="Personal saved views">
+            <section class="saved-view-section" [attr.aria-label]="personalSectionLabel">
               <div class="saved-view-section__heading">
-                <strong>Personal views</strong>
+                <strong>{{ personalSectionLabel }}</strong>
                 <span>{{ personalViews.length }}</span>
               </div>
 
               @if (personalViews.length === 0) {
-                <p class="saved-view-section__empty">No personal views saved.</p>
+                <p class="saved-view-section__empty">{{ personalEmptyMessage }}</p>
               } @else {
                 @for (view of personalViews; track view.id) {
                   <article class="saved-view-row">
@@ -381,15 +384,27 @@ import { meaningfulWorkItemQueryFieldCount } from '../query/work-item-query-seri
 })
 export class SavedViewsToolbarComponent {
   @Input() personalViews: SavedWorkViewDto[] = [];
-  @Input() workspaceViews: SavedWorkViewDto[] = [];
-  @Input() canManageWorkspaceViews = false;
+  @Input() sharedViews: SavedWorkViewDto[] = [];
+  @Input() canManageSharedViews = false;
   @Input({ required: true }) draftNames: Partial<Record<string, string>> = {};
+  @Input() querySummaryScope: WorkItemQueryScope = 'workspace';
+  @Input() emptyTitle = 'No saved views';
+  @Input() emptyMessage = 'Save the current filters to reuse this workspace view.';
+  @Input() sharedHelper = 'Owners and maintainers manage shared saved views.';
+  @Input() sharedSectionLabel = 'Shared views';
+  @Input() personalSectionLabel = 'Personal views';
+  @Input() sharedEmptyMessage = 'No shared views saved.';
+  @Input() personalEmptyMessage = 'No personal views saved.';
+  @Input() newViewPlaceholder = 'Open owner work';
+  @Input() savePersonalButtonLabel = 'Save personal view';
+  @Input() saveSharedButtonLabel = 'Save shared view';
   @Input() isLoading = false;
   @Input() isSaving = false;
   @Input() loadError: string | null = null;
   @Input() mutationError: string | null = null;
   @Output() readonly savePersonal = new EventEmitter<string>();
   @Output() readonly saveWorkspace = new EventEmitter<string>();
+  @Output() readonly saveShared = new EventEmitter<string>();
   @Output() readonly save = new EventEmitter<string>();
   @Output() readonly open = new EventEmitter<SavedWorkViewDto>();
   @Output() readonly rename = new EventEmitter<SavedWorkViewDto>();
@@ -402,12 +417,23 @@ export class SavedViewsToolbarComponent {
   @Input()
   set savedViews(savedViews: SavedWorkViewDto[]) {
     this.personalViews = savedViews.filter((savedView) => savedView.visibility === 'personal');
-    this.workspaceViews = savedViews.filter((savedView) => savedView.visibility === 'workspace');
+    this.sharedViews = savedViews.filter((savedView) => savedView.visibility === 'workspace');
+  }
+
+  @Input()
+  set workspaceViews(workspaceViews: SavedWorkViewDto[]) {
+    this.sharedViews = workspaceViews;
+  }
+
+  @Input()
+  set canManageWorkspaceViews(canManageWorkspaceViews: boolean) {
+    this.canManageSharedViews = canManageWorkspaceViews;
   }
 
   saveRequested(visibility: SavedWorkViewVisibility): void {
     if (visibility === 'workspace') {
       this.saveWorkspace.emit(this.newViewName);
+      this.saveShared.emit(this.newViewName);
     } else {
       this.savePersonal.emit(this.newViewName);
       this.save.emit(this.newViewName);
@@ -417,10 +443,10 @@ export class SavedViewsToolbarComponent {
   }
 
   savedViewQueryLabel(savedView: SavedWorkViewDto): string {
-    const count = meaningfulWorkItemQueryFieldCount(savedView.query, 'workspace');
+    const count = meaningfulWorkItemQueryFieldCount(savedView.query, this.querySummaryScope);
 
     return count === 0
-      ? 'Default workspace view'
+      ? `Default ${this.querySummaryScope} view`
       : `${count} applied ${count === 1 ? 'filter' : 'filters'}`;
   }
 }
