@@ -35,7 +35,8 @@ const createSavedWorkViewSchema = z.object({
 const updateSavedWorkViewSchema = z
   .object({
     name: z.string().trim().min(1).optional(),
-    query: queryPayloadSchema.optional()
+    query: queryPayloadSchema.optional(),
+    isPinned: z.boolean().optional()
   })
   .refine((value) => Object.keys(value).length > 0, {
     message: 'At least one saved view field must be provided.'
@@ -126,10 +127,12 @@ function toListQuery(input: {
 function toUpdateRequest(input: {
   name?: string;
   query?: Record<string, unknown>;
+  isPinned?: boolean;
 }): UpdateSavedWorkViewRequest {
   return {
     ...(input.name === undefined ? {} : { name: input.name }),
-    ...(input.query === undefined ? {} : { query: input.query as WorkItemQuery })
+    ...(input.query === undefined ? {} : { query: input.query as WorkItemQuery }),
+    ...(input.isPinned === undefined ? {} : { isPinned: input.isPinned })
   };
 }
 

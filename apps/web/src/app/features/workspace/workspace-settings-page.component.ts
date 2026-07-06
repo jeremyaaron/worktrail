@@ -30,6 +30,8 @@ const workspaceActivityEventLabels: Record<WorkspaceActivityEventType, string> =
   'saved_view.name_changed': 'Shared saved view renamed',
   'saved_view.query_changed': 'Shared saved view filters updated',
   'saved_view.updated': 'Shared saved view updated',
+  'saved_view.pinned': 'Shared saved view pinned',
+  'saved_view.unpinned': 'Shared saved view unpinned',
   'saved_view.deleted': 'Shared saved view deleted'
 };
 

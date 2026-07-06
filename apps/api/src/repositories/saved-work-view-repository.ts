@@ -8,6 +8,7 @@ import type { NewSavedWorkView, SavedWorkView } from './types.js';
 export interface UpdateSavedWorkViewInput {
   name?: string;
   query?: Record<string, unknown>;
+  isPinned?: boolean;
   updatedAt: Date;
 }
 

@@ -429,6 +429,253 @@ describe('saved work view API', () => {
     expect(await repositories.savedWorkViews.findById(savedView.id)).toBeNull();
   });
 
+  it('pins and unpins personal saved views without activity', async () => {
+    const fixture = await createFixture();
+    const savedView = await repositories.savedWorkViews.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      ownerMemberId: fixture.actorId,
+      name: 'My pinned work',
+      visibility: 'personal',
+      query: { workState: 'open', archivedProjects: 'exclude', sort: 'updated_desc' },
+      createdAt: now(),
+      updatedAt: now()
+    });
+
+    await request(app)
+      .patch(`/api/saved-work-views/${savedView.id}`)
+      .set(fixture.headers)
+      .send({ isPinned: true })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          id: savedView.id,
+          isPinned: true
+        });
+      });
+
+    expect(await repositories.savedWorkViews.findById(savedView.id)).toMatchObject({
+      id: savedView.id,
+      isPinned: true
+    });
+
+    await request(app)
+      .patch(`/api/saved-work-views/${savedView.id}`)
+      .set(fixture.headers)
+      .send({ isPinned: false })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          id: savedView.id,
+          isPinned: false
+        });
+      });
+
+    await expect(repositories.workspaceActivityEvents.findByWorkspace(fixture.workspaceId)).resolves.toEqual([]);
+    await expect(repositories.activityEvents.findByProject(fixture.projectId)).resolves.toEqual([]);
+  });
+
+  it('records shared saved view pin activity with correct permissions', async () => {
+    const fixture = await createFixture();
+    const sharedWorkspaceView = await repositories.savedWorkViews.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      ownerMemberId: fixture.actorId,
+      name: 'Workspace dependency risks',
+      visibility: 'workspace',
+      query: { dependency: 'dependency_blocked', archivedProjects: 'exclude', sort: 'priority_desc' },
+      createdAt: now(),
+      updatedAt: now()
+    });
+    const sharedProjectView = await repositories.savedWorkViews.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      ownerMemberId: fixture.actorId,
+      projectId: fixture.projectId,
+      scope: 'project',
+      name: 'Project release blockers',
+      visibility: 'workspace',
+      query: { blocked: true, sort: 'priority_desc' },
+      createdAt: now(),
+      updatedAt: now()
+    });
+    const archivedProjectView = await repositories.savedWorkViews.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      ownerMemberId: fixture.actorId,
+      projectId: fixture.archivedProjectId,
+      scope: 'project',
+      name: 'Archived release blockers',
+      visibility: 'workspace',
+      query: { blocked: true, sort: 'priority_desc' },
+      createdAt: now(),
+      updatedAt: now()
+    });
+
+    await request(app)
+      .patch(`/api/saved-work-views/${sharedWorkspaceView.id}`)
+      .set(fixture.otherHeaders)
+      .send({ isPinned: true })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          id: sharedWorkspaceView.id,
+          isPinned: true
+        });
+      });
+
+    await request(app)
+      .patch(`/api/saved-work-views/${sharedWorkspaceView.id}`)
+      .set(fixture.otherHeaders)
+      .send({ isPinned: true })
+      .expect(200);
+
+    await request(app)
+      .patch(`/api/saved-work-views/${sharedWorkspaceView.id}`)
+      .set(fixture.contributorHeaders)
+      .send({ isPinned: false })
+      .expect(403)
+      .expect(({ body }) => {
+        expect(body.error).toEqual({
+          code: 'FORBIDDEN',
+          message: 'Only owners and maintainers can manage shared saved views.'
+        });
+      });
+
+    await request(app)
+      .patch(`/api/saved-work-views/${sharedWorkspaceView.id}`)
+      .set(fixture.headers)
+      .send({ isPinned: false })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          id: sharedWorkspaceView.id,
+          isPinned: false
+        });
+      });
+
+    await request(app)
+      .patch(`/api/saved-work-views/${sharedProjectView.id}`)
+      .set(fixture.otherHeaders)
+      .send({ isPinned: true })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          id: sharedProjectView.id,
+          scope: 'project',
+          projectId: fixture.projectId,
+          isPinned: true
+        });
+      });
+
+    await request(app)
+      .patch(`/api/saved-work-views/${sharedProjectView.id}`)
+      .set(fixture.headers)
+      .send({
+        name: 'Project release risk',
+        isPinned: false
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          id: sharedProjectView.id,
+          name: 'Project release risk',
+          isPinned: false
+        });
+      });
+
+    await request(app)
+      .patch(`/api/saved-work-views/${archivedProjectView.id}`)
+      .set(fixture.headers)
+      .send({ isPinned: true })
+      .expect(403)
+      .expect(({ body }) => {
+        expect(body.error).toEqual({
+          code: 'FORBIDDEN',
+          message: 'Archived projects do not allow saved view changes.'
+        });
+      });
+
+    const workspaceActivity = await repositories.workspaceActivityEvents.findByWorkspace(fixture.workspaceId);
+    expect(workspaceActivity).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          actorId: fixture.otherMemberId,
+          eventType: 'saved_view.pinned',
+          summary: 'Saved Views Other Actor pinned shared view Workspace dependency risks.',
+          previousValue: expect.objectContaining({
+            savedViewId: sharedWorkspaceView.id,
+            isPinned: false
+          }),
+          newValue: expect.objectContaining({
+            savedViewId: sharedWorkspaceView.id,
+            isPinned: true
+          }),
+          metadata: { savedViewId: sharedWorkspaceView.id }
+        }),
+        expect.objectContaining({
+          actorId: fixture.actorId,
+          eventType: 'saved_view.unpinned',
+          summary: 'Saved Views Actor unpinned shared view Workspace dependency risks.',
+          previousValue: expect.objectContaining({
+            savedViewId: sharedWorkspaceView.id,
+            isPinned: true
+          }),
+          newValue: expect.objectContaining({
+            savedViewId: sharedWorkspaceView.id,
+            isPinned: false
+          }),
+          metadata: { savedViewId: sharedWorkspaceView.id }
+        })
+      ])
+    );
+    expect(workspaceActivity.filter((event) => event.metadata.savedViewId === sharedWorkspaceView.id)).toHaveLength(2);
+
+    const projectActivity = await repositories.activityEvents.findByProject(fixture.projectId);
+    expect(projectActivity).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          actorId: fixture.otherMemberId,
+          eventType: 'saved_view.pinned',
+          summary: 'Saved Views Other Actor pinned shared project view Project release blockers.',
+          previousValue: expect.objectContaining({
+            savedViewId: sharedProjectView.id,
+            isPinned: false
+          }),
+          newValue: expect.objectContaining({
+            savedViewId: sharedProjectView.id,
+            isPinned: true
+          }),
+          metadata: {
+            savedViewId: sharedProjectView.id,
+            scope: 'project',
+            visibility: 'workspace'
+          }
+        }),
+        expect.objectContaining({
+          actorId: fixture.actorId,
+          eventType: 'saved_view.updated',
+          summary: 'Saved Views Actor updated shared project view Project release risk.',
+          previousValue: expect.objectContaining({
+            savedViewId: sharedProjectView.id,
+            name: 'Project release blockers',
+            isPinned: true
+          }),
+          newValue: expect.objectContaining({
+            savedViewId: sharedProjectView.id,
+            name: 'Project release risk',
+            isPinned: false
+          }),
+          metadata: {
+            savedViewId: sharedProjectView.id,
+            scope: 'project',
+            visibility: 'workspace'
+          }
+        })
+      ])
+    );
+  });
+
   it('rejects duplicate names for the same actor only', async () => {
     const fixture = await createFixture();
     const firstSavedView = await repositories.savedWorkViews.create({

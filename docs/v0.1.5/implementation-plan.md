@@ -248,6 +248,51 @@ npm run lint --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-06.
+- Updated saved-view update endpoint validation:
+  - accepts optional `isPinned`;
+  - still requires at least one update field;
+  - passes `isPinned` into `UpdateSavedWorkViewRequest`.
+- Extended saved-view repository update input with optional `isPinned`.
+- Updated `SavedWorkViewService.updateSavedView` to:
+  - persist pin state only when provided;
+  - preserve existing name/query update behavior;
+  - reuse existing personal/shared mutation authorization;
+  - preserve archived project mutation rejection;
+  - suppress activity for no-op pin updates.
+- Added shared activity event types:
+  - `saved_view.pinned`;
+  - `saved_view.unpinned`.
+- Updated database activity event check constraints through:
+  - `apps/api/drizzle/0010_free_quasar.sql`;
+  - `apps/api/drizzle/meta/0010_snapshot.json`.
+- Updated shared activity value payloads to include `isPinned`.
+- Added shared workspace and project activity summaries for pin/unpin events.
+- Updated workspace and project activity UI labels for new event types.
+- Added API coverage for:
+  - personal pin/unpin without activity;
+  - shared workspace pin/unpin activity;
+  - shared project pin activity;
+  - mixed rename/unpin event precedence as `saved_view.updated`;
+  - contributor rejection for shared pin mutation;
+  - archived project rejection for pin mutation;
+  - no-op pin activity suppression.
+- Verified activity constraints include both new event types after migration.
+- Verified:
+  - `npm test --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `npm run db:reset`;
+  - `npm run db:migrate`;
+  - `npm run db:seed`;
+  - `npm test --workspace @worktrail/api -- saved-work-views.test.ts comments-activity.test.ts`;
+  - `git diff --check`.
+
 ## Phase 3: API Regression And OpenAPI
 
 Goal: harden the public API contract for pinned saved views and document the implemented route surface.

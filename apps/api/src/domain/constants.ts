@@ -56,6 +56,8 @@ export const activityEventTypes = [
   'saved_view.name_changed',
   'saved_view.query_changed',
   'saved_view.updated',
+  'saved_view.pinned',
+  'saved_view.unpinned',
   'saved_view.deleted',
   'comment.added',
   'comment.edited',
@@ -74,6 +76,8 @@ export const workspaceActivityEventTypes = [
   'saved_view.name_changed',
   'saved_view.query_changed',
   'saved_view.updated',
+  'saved_view.pinned',
+  'saved_view.unpinned',
   'saved_view.deleted'
 ] as const;
 
