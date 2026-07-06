@@ -1094,6 +1094,7 @@ paths:
     get:
       tags: [Saved Work Views]
       summary: List saved work views for the current actor.
+      description: Returns the current actor's personal saved views plus workspace-shared saved views.
       responses:
         "200":
           description: Saved work views.
@@ -1108,6 +1109,7 @@ paths:
     post:
       tags: [Saved Work Views]
       summary: Create a saved work view.
+      description: Creates a personal saved view by default. Creating a workspace-shared saved view requires owner or maintainer role.
       requestBody:
         required: true
         content:
@@ -1127,6 +1129,7 @@ paths:
     patch:
       tags: [Saved Work Views]
       summary: Update a saved work view.
+      description: Personal saved views can only be updated by their owner. Workspace-shared saved views require owner or maintainer role.
       parameters:
         - $ref: "#/components/parameters/SavedViewId"
       requestBody:
@@ -1147,6 +1150,7 @@ paths:
     delete:
       tags: [Saved Work Views]
       summary: Delete a saved work view.
+      description: Personal saved views can only be deleted by their owner. Workspace-shared saved views require owner or maintainer role.
       parameters:
         - $ref: "#/components/parameters/SavedViewId"
       responses:
@@ -1405,6 +1409,9 @@ components:
     MilestoneStatus:
       type: string
       enum: [planned, active, completed, canceled]
+    SavedWorkViewVisibility:
+      type: string
+      enum: [personal, workspace]
     WorkItemRelationshipType:
       type: string
       enum: [blocks, relates_to]
@@ -1593,7 +1600,7 @@ components:
           $ref: "#/components/schemas/Member"
         eventType:
           type: string
-          examples: [work_item.relationship_added, work_item.relationship_removed]
+          examples: [workspace.name_changed, project.created, saved_view.created, saved_view.updated]
         summary:
           type: string
         previousValue:
@@ -2692,6 +2699,7 @@ components:
           $ref: "#/components/schemas/Member"
         eventType:
           type: string
+          examples: [work_item.relationship_added, work_item.relationship_removed]
         summary:
           type: string
         previousValue:
@@ -2769,7 +2777,7 @@ components:
         name:
           type: string
         visibility:
-          const: personal
+          $ref: "#/components/schemas/SavedWorkViewVisibility"
         query:
           $ref: "#/components/schemas/WorkItemQuery"
         createdAt:
@@ -2784,6 +2792,10 @@ components:
       properties:
         name:
           type: string
+        visibility:
+          $ref: "#/components/schemas/SavedWorkViewVisibility"
+          default: personal
+          description: Use `workspace` to create a shared view visible to all workspace members. Shared view mutation requires owner or maintainer role.
         query:
           $ref: "#/components/schemas/WorkItemQuery"
     UpdateSavedWorkViewRequest:

@@ -58,6 +58,7 @@ async function createFixture() {
   const workspaceId = randomUUID();
   const actorId = randomUUID();
   const otherMemberId = randomUUID();
+  const contributorId = randomUUID();
   workspaceIds.add(workspaceId);
 
   await repositories.workspaces.create({
@@ -89,12 +90,29 @@ async function createFixture() {
     updatedAt: timestamp
   });
 
+  await repositories.members.create({
+    id: contributorId,
+    workspaceId,
+    name: 'Saved Views Contributor',
+    email: `${contributorId}@example.com`,
+    role: 'contributor',
+    isActive: true,
+    createdAt: timestamp,
+    updatedAt: timestamp
+  });
+
   return {
     workspaceId,
     actorId,
     otherMemberId,
+    contributorId,
     headers: actorHeaders({ workspaceId, memberId: actorId, role: 'owner' }),
-    otherHeaders: actorHeaders({ workspaceId, memberId: otherMemberId, role: 'maintainer' })
+    otherHeaders: actorHeaders({ workspaceId, memberId: otherMemberId, role: 'maintainer' }),
+    contributorHeaders: actorHeaders({
+      workspaceId,
+      memberId: contributorId,
+      role: 'contributor'
+    })
   };
 }
 
@@ -115,6 +133,66 @@ afterAll(async () => {
 });
 
 describe('saved work view API', () => {
+  it('lists actor personal views and workspace views while hiding other personal views', async () => {
+    const fixture = await createFixture();
+    const actorPersonal = await repositories.savedWorkViews.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      ownerMemberId: fixture.actorId,
+      name: 'My open work',
+      visibility: 'personal',
+      query: { assigneeId: fixture.actorId, workState: 'open' },
+      createdAt: now(),
+      updatedAt: new Date('2026-07-04T12:02:00.000Z')
+    });
+    const otherPersonal = await repositories.savedWorkViews.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      ownerMemberId: fixture.otherMemberId,
+      name: 'Other private view',
+      visibility: 'personal',
+      query: { assigneeId: fixture.otherMemberId, workState: 'open' },
+      createdAt: now(),
+      updatedAt: new Date('2026-07-04T12:03:00.000Z')
+    });
+    const workspaceView = await repositories.savedWorkViews.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      ownerMemberId: fixture.otherMemberId,
+      name: 'Shared blocked work',
+      visibility: 'workspace',
+      query: { blocked: true, archivedProjects: 'exclude', sort: 'priority_desc' },
+      createdAt: now(),
+      updatedAt: new Date('2026-07-04T12:04:00.000Z')
+    });
+
+    await request(app)
+      .get('/api/saved-work-views')
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.map((savedView: { id: string }) => savedView.id)).toEqual([
+          workspaceView.id,
+          actorPersonal.id
+        ]);
+        expect(body).toEqual([
+          expect.objectContaining({
+            id: workspaceView.id,
+            owner: expect.objectContaining({ id: fixture.otherMemberId }),
+            visibility: 'workspace'
+          }),
+          expect.objectContaining({
+            id: actorPersonal.id,
+            owner: expect.objectContaining({ id: fixture.actorId }),
+            visibility: 'personal'
+          })
+        ]);
+        expect(body).not.toEqual(
+          expect.arrayContaining([expect.objectContaining({ id: otherPersonal.id })])
+        );
+      });
+  });
+
   it('creates, normalizes, and lists personal saved views for the current actor', async () => {
     const fixture = await createFixture();
 
@@ -165,6 +243,95 @@ describe('saved work view API', () => {
       });
 
     await request(app).get('/api/saved-work-views').set(fixture.otherHeaders).expect(200, []);
+  });
+
+  it('allows owners and maintainers to create normalized workspace saved views', async () => {
+    const fixture = await createFixture();
+
+    const ownerResponse = await request(app)
+      .post('/api/saved-work-views')
+      .set(fixture.headers)
+      .send({
+        name: 'Shared design work',
+        visibility: 'workspace',
+        query: {
+          labelId: randomUUID(),
+          workState: 'open',
+          search: '  ',
+          unexpectedFilter: 'not persisted'
+        }
+      })
+      .expect(201);
+
+    expect(ownerResponse.body).toMatchObject({
+      workspaceId: fixture.workspaceId,
+      owner: { id: fixture.actorId },
+      name: 'Shared design work',
+      visibility: 'workspace',
+      query: {
+        workState: 'open',
+        archivedProjects: 'exclude',
+        sort: 'updated_desc'
+      }
+    });
+    expect(ownerResponse.body.query.search).toBeUndefined();
+    expect(ownerResponse.body.query.unexpectedFilter).toBeUndefined();
+
+    const maintainerResponse = await request(app)
+      .post('/api/saved-work-views')
+      .set(fixture.otherHeaders)
+      .send({
+        name: 'Shared urgent work',
+        visibility: 'workspace',
+        query: { priority: 'urgent' }
+      })
+      .expect(201);
+
+    expect(maintainerResponse.body).toMatchObject({
+      owner: { id: fixture.otherMemberId },
+      visibility: 'workspace',
+      query: {
+        priority: 'urgent',
+        archivedProjects: 'exclude',
+        sort: 'updated_desc'
+      }
+    });
+
+    await request(app)
+      .post('/api/saved-work-views')
+      .set(fixture.contributorHeaders)
+      .send({
+        name: 'Contributor shared view',
+        visibility: 'workspace',
+        query: { workState: 'open' }
+      })
+      .expect(403)
+      .expect(({ body }) => {
+        expect(body.error).toEqual({
+          code: 'FORBIDDEN',
+          message: 'Only owners and maintainers can create shared saved views.'
+        });
+      });
+
+    const activity = await repositories.workspaceActivityEvents.findByWorkspace(fixture.workspaceId);
+    expect(activity).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          actorId: fixture.actorId,
+          eventType: 'saved_view.created',
+          metadata: { savedViewId: ownerResponse.body.id },
+          newValue: expect.objectContaining({
+            name: 'Shared design work',
+            visibility: 'workspace'
+          })
+        }),
+        expect.objectContaining({
+          actorId: fixture.otherMemberId,
+          eventType: 'saved_view.created',
+          metadata: { savedViewId: maintainerResponse.body.id }
+        })
+      ])
+    );
   });
 
   it('updates and deletes owned saved views', async () => {
@@ -276,6 +443,166 @@ describe('saved work view API', () => {
         query: { blocked: true }
       })
       .expect(201);
+  });
+
+  it('scopes workspace duplicate names to the workspace and separately from personal names', async () => {
+    const fixture = await createFixture();
+    const otherFixture = await createFixture();
+
+    await request(app)
+      .post('/api/saved-work-views')
+      .set(fixture.headers)
+      .send({
+        name: 'Team triage',
+        visibility: 'workspace',
+        query: { workState: 'open' }
+      })
+      .expect(201);
+
+    await request(app)
+      .post('/api/saved-work-views')
+      .set(fixture.otherHeaders)
+      .send({
+        name: 'team TRIAGE',
+        visibility: 'workspace',
+        query: { blocked: true }
+      })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error).toEqual({
+          code: 'CONFLICT',
+          message: 'A saved view with this name already exists.'
+        });
+      });
+
+    await request(app)
+      .post('/api/saved-work-views')
+      .set(fixture.headers)
+      .send({
+        name: 'Team triage',
+        query: { assigneeId: fixture.actorId }
+      })
+      .expect(201)
+      .expect(({ body }) => {
+        expect(body.visibility).toBe('personal');
+      });
+
+    await request(app)
+      .post('/api/saved-work-views')
+      .set(otherFixture.headers)
+      .send({
+        name: 'Team triage',
+        visibility: 'workspace',
+        query: { workState: 'open' }
+      })
+      .expect(201);
+  });
+
+  it('allows owners and maintainers to update and delete workspace views but blocks contributors', async () => {
+    const fixture = await createFixture();
+
+    const createResponse = await request(app)
+      .post('/api/saved-work-views')
+      .set(fixture.headers)
+      .send({
+        name: 'Shared blockers',
+        visibility: 'workspace',
+        query: { blocked: true }
+      })
+      .expect(201);
+
+    await request(app)
+      .get('/api/saved-work-views')
+      .set(fixture.contributorHeaders)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual([
+          expect.objectContaining({
+            id: createResponse.body.id,
+            visibility: 'workspace'
+          })
+        ]);
+      });
+
+    await request(app)
+      .patch(`/api/saved-work-views/${createResponse.body.id}`)
+      .set(fixture.otherHeaders)
+      .send({
+        name: 'Shared urgent blockers',
+        query: {
+          priority: 'urgent',
+          dependency: 'dependency_blocked',
+          unexpectedFilter: 'not persisted'
+        }
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          id: createResponse.body.id,
+          owner: { id: fixture.actorId },
+          name: 'Shared urgent blockers',
+          visibility: 'workspace',
+          query: {
+            priority: 'urgent',
+            dependency: 'dependency_blocked',
+            archivedProjects: 'exclude',
+            sort: 'updated_desc'
+          }
+        });
+        expect(body.query.unexpectedFilter).toBeUndefined();
+      });
+
+    await request(app)
+      .patch(`/api/saved-work-views/${createResponse.body.id}`)
+      .set(fixture.contributorHeaders)
+      .send({ name: 'Contributor rename' })
+      .expect(403)
+      .expect(({ body }) => {
+        expect(body.error).toEqual({
+          code: 'FORBIDDEN',
+          message: 'Only owners and maintainers can manage shared saved views.'
+        });
+      });
+
+    await request(app)
+      .delete(`/api/saved-work-views/${createResponse.body.id}`)
+      .set(fixture.contributorHeaders)
+      .expect(403);
+
+    await request(app)
+      .delete(`/api/saved-work-views/${createResponse.body.id}`)
+      .set(fixture.headers)
+      .expect(204);
+
+    expect(await repositories.savedWorkViews.findById(createResponse.body.id)).toBeNull();
+
+    const activity = await repositories.workspaceActivityEvents.findByWorkspace(fixture.workspaceId);
+    expect(activity).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          actorId: fixture.actorId,
+          eventType: 'saved_view.created',
+          metadata: { savedViewId: createResponse.body.id }
+        }),
+        expect.objectContaining({
+          actorId: fixture.otherMemberId,
+          eventType: 'saved_view.updated',
+          previousValue: expect.objectContaining({ name: 'Shared blockers' }),
+          newValue: expect.objectContaining({ name: 'Shared urgent blockers' }),
+          metadata: { savedViewId: createResponse.body.id }
+        }),
+        expect.objectContaining({
+          actorId: fixture.actorId,
+          eventType: 'saved_view.deleted',
+          previousValue: expect.objectContaining({
+            name: 'Shared urgent blockers',
+            visibility: 'workspace'
+          }),
+          newValue: null,
+          metadata: { savedViewId: createResponse.body.id }
+        })
+      ])
+    );
   });
 
   it('hides saved views from other actors on update and delete', async () => {

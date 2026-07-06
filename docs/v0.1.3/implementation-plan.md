@@ -279,6 +279,29 @@ npm run typecheck --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-06.
+- Expanded `apps/api/tests/saved-work-views.test.ts` to cover:
+  - actor personal plus workspace-shared list behavior;
+  - exclusion of other actors' personal saved views;
+  - owner and maintainer shared-view creation;
+  - contributor create/update/delete rejection for shared views;
+  - contributor list access for shared views;
+  - maintainer update and owner delete of shared views;
+  - personal owner-only update/delete compatibility;
+  - personal and workspace duplicate-name scoping;
+  - workspace-view query normalization;
+  - workspace activity events for shared-view management.
+- Updated `docs/api/openapi.yaml` with `SavedWorkViewVisibility`, create-request `visibility`, list behavior notes, and shared-view permission notes.
+- Updated OpenAPI reference tests to guard the saved-view visibility and shared-view activity contract.
+- Verified:
+  - `npm test --workspace @worktrail/api -- saved-work-views.test.ts`
+  - `npm test --workspace @worktrail/api -- openapi.test.ts server.test.ts`
+  - `ruby -e "require 'yaml'; YAML.load_file('docs/api/openapi.yaml'); puts 'YAML parsed'"`
+  - `npm run typecheck --workspace @worktrail/api`
+  - `git diff --check`
+
 ## Phase 4: Seeded Shared Views And Activity Surface
 
 Goal: add deterministic workspace-shared views and ensure existing workspace activity display can render shared-view events.
