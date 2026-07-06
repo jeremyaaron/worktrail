@@ -610,6 +610,23 @@ npm run test:e2e
 git diff --check
 ```
 
+Status: Completed on 2026-07-05.
+
+- Added a Playwright smoke for the v0.1.2 filtered workspace list URL contract:
+  - creates a unique work item through the API;
+  - applies workspace search and status filters through the UI;
+  - confirms URL params, active chips, and filtered results;
+  - reloads the filtered URL and confirms the same view is restored.
+- Updated the CSV export smoke to use the explicit applied-filter export button accessible name.
+- Verified:
+  - `npm run db:reset`
+  - `npm run db:migrate`
+  - `npm run db:seed`
+  - `npx playwright test -g "persists v0.1.2 workspace filters through URL reloads"`
+  - `npx playwright test -g "imports project work items from CSV and exports filtered results"`
+  - `npm run test:e2e`
+  - `git diff --check`
+
 ## Phase 9: Documentation, Site, Release Notes, And Final Verification
 
 Goal: finish v0.1.2 with complete docs, public-site updates as appropriate, release notes, extraction notes, and full verification.
