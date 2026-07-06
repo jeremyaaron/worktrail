@@ -212,6 +212,24 @@ npm run typecheck --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-06.
+- Extended the saved-view repository with actor-visible list queries and separate personal/workspace name lookups.
+- Updated `SavedWorkViewService` so list returns actor personal views plus workspace-shared views with distinct owner hydration.
+- Added optional `visibility` handling to saved-view creation while preserving personal as the default.
+- Enforced shared-view mutation rules:
+  - personal saved views remain owner-only and hidden across actors;
+  - workspace saved views can be listed by all actors;
+  - workspace saved-view create/update/delete requires owner or maintainer role.
+- Added workspace activity events for shared-view create, rename/query update, combined update, and delete operations.
+- Accepted `visibility` in the existing saved-view API create payload.
+- Verified:
+  - `npm test --workspace @worktrail/api -- saved-work-views.test.ts`
+  - `npm test --workspace @worktrail/api -- workspace.test.ts`
+  - `npm run typecheck --workspace @worktrail/api`
+  - `git diff --check`
+
 ## Phase 3: API Coverage And OpenAPI Shape
 
 Goal: complete backend verification and document the API contract before frontend integration.

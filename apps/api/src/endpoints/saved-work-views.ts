@@ -6,6 +6,7 @@ import type {
 } from '@worktrail/contracts';
 import { z } from 'zod';
 
+import { savedWorkViewVisibilities } from '../domain/constants.js';
 import type { EndpointHandler } from '../http/app-request.js';
 import type { Repositories } from '../repositories/index.js';
 import { SavedWorkViewService } from '../services/saved-work-view-service.js';
@@ -19,7 +20,8 @@ const queryPayloadSchema = z.record(z.string(), z.unknown());
 
 const createSavedWorkViewSchema = z.object({
   name: z.string().trim().min(1),
-  query: queryPayloadSchema
+  query: queryPayloadSchema,
+  visibility: z.enum(savedWorkViewVisibilities).optional()
 });
 
 const updateSavedWorkViewSchema = z
@@ -86,10 +88,15 @@ export function updateSavedWorkViewHandler(
   };
 }
 
-function toCreateRequest(input: { name: string; query: Record<string, unknown> }): CreateSavedWorkViewRequest {
+function toCreateRequest(input: {
+  name: string;
+  query: Record<string, unknown>;
+  visibility?: CreateSavedWorkViewRequest['visibility'];
+}): CreateSavedWorkViewRequest {
   return {
     name: input.name,
-    query: input.query as WorkItemQuery
+    query: input.query as WorkItemQuery,
+    ...(input.visibility === undefined ? {} : { visibility: input.visibility })
   };
 }
 
