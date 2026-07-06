@@ -4,7 +4,6 @@ import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type {
   ArchivedProjectMode,
-  AssigneeState,
   DependencyFilter,
   DueDateState,
   LabelDto,
@@ -38,8 +37,14 @@ import { ActiveFilterChipsComponent } from './components/active-filter-chips.com
 import { SavedViewsToolbarComponent } from './components/saved-views-toolbar.component';
 import { WorkItemFilterPanelComponent } from './components/work-item-filter-panel.component';
 import { WorkItemResultListComponent } from './components/work-item-result-list.component';
-
-const unassignedAssigneeValue = '__unassigned';
+import { unassignedAssigneeValue } from './query/work-item-filter-options';
+import {
+  meaningfulWorkItemQueryFieldCount,
+  returnUrlFromWorkItemQuery,
+  workspaceFormValueFromQueryParams,
+  workspaceQueryFromFormValue,
+  workspaceRouterQueryParamsFromQuery
+} from './query/work-item-query-serialization';
 const statuses: WorkItemStatus[] = [
   'backlog',
   'ready',
@@ -856,7 +861,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     this.isLoading.set(true);
     this.error.set(null);
 
-    this.api.listWorkspaceWorkItems(this.queryFromForm()).subscribe({
+    this.api.listWorkspaceWorkItems(this.appliedQuery()).subscribe({
       next: (workItems) => {
         this.workItems.set(workItems);
         this.mergeResultLabels(workItems);
@@ -932,7 +937,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   detailReturnUrl(): string {
-    return this.toReturnUrl('/work-items', this.queryParamsFromQuery(this.appliedQuery()));
+    return returnUrlFromWorkItemQuery('/work-items', this.appliedQuery(), 'workspace');
   }
 
   removeActiveFilter(label: string): void {
@@ -1027,7 +1032,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   openSavedView(savedView: SavedWorkViewDto): void {
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: this.queryParamsFromQuery(savedView.query)
+      queryParams: workspaceRouterQueryParamsFromQuery(savedView.query)
     });
   }
 
@@ -1097,8 +1102,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   savedViewQueryLabel(savedView: SavedWorkViewDto): string {
-    const params = this.queryParamsFromQuery(savedView.query);
-    const count = Object.values(params).filter((value) => value !== null).length;
+    const count = meaningfulWorkItemQueryFieldCount(savedView.query, 'workspace');
 
     return count === 0 ? 'Default workspace view' : `${count} applied filters`;
   }
@@ -1122,135 +1126,20 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     }).format(new Date(value));
   }
 
-  private queryFromForm(): WorkItemQuery {
-    return this.toQuery(this.filterForm.getRawValue());
-  }
-
   private appliedQuery(): WorkItemQuery {
-    return this.toQuery(this.appliedFilterValues());
-  }
-
-  private toQuery(formValue: WorkspaceFilterFormValue): WorkItemQuery {
-    const assigneeId = this.optional(formValue.assigneeId);
-    const blocked = this.optional(formValue.blocked);
-    const archivedProjects = this.optional(formValue.archivedProjects);
-    const sort = this.optional(formValue.sort);
-
-    return {
-      search: this.optional(formValue.search),
-      projectId: this.optional(formValue.projectId),
-      status: this.optional(formValue.status) as WorkItemStatus | undefined,
-      workState: this.optional(formValue.workState) as WorkItemState | undefined,
-      assigneeId: assigneeId === unassignedAssigneeValue ? undefined : assigneeId,
-      assigneeState:
-        assigneeId === unassignedAssigneeValue ? ('unassigned' satisfies AssigneeState) : undefined,
-      reporterId: this.optional(formValue.reporterId),
-      type: this.optional(formValue.type) as WorkItemType | undefined,
-      labelId: this.optional(formValue.labelId),
-      milestoneId: this.optional(formValue.milestoneId),
-      priority: this.optional(formValue.priority) as WorkItemPriority | undefined,
-      dueDateState: this.optional(formValue.dueDateState) as DueDateState | undefined,
-      blocked: blocked === undefined ? undefined : blocked === 'true',
-      dependency: this.optional(formValue.dependency) as DependencyFilter | undefined,
-      archivedProjects:
-        archivedProjects === undefined || archivedProjects === 'exclude'
-          ? undefined
-          : (archivedProjects as ArchivedProjectMode),
-      sort: sort === undefined || sort === 'updated_desc' ? undefined : (sort as WorkItemSort)
-    };
+    return workspaceQueryFromFormValue(this.appliedFilterValues());
   }
 
   private queryParamsFromForm(): Record<string, string | null> {
-    return this.queryParamsFromFormValue(this.filterForm.getRawValue());
-  }
-
-  private toReturnUrl(path: string, queryParams: Record<string, string | null>): string {
-    const searchParams = new URLSearchParams();
-
-    for (const [key, value] of Object.entries(queryParams)) {
-      if (value !== null) {
-        searchParams.set(key, value);
-      }
-    }
-
-    const queryString = searchParams.toString();
-    return queryString === '' ? path : `${path}?${queryString}`;
-  }
-
-  private queryParamsFromQuery(query: WorkItemQuery): Record<string, string | null> {
-    return this.queryParamsFromFormValue(this.formValueFromQuery(query));
-  }
-
-  private queryParamsFromFormValue(formValue: WorkspaceFilterFormValue): Record<string, string | null> {
-    const assigneeId = this.optional(formValue.assigneeId);
-    const sort = this.optional(formValue.sort) ?? 'updated_desc';
-    const archivedProjects = this.optional(formValue.archivedProjects) ?? 'exclude';
-
-    return {
-      search: this.optional(formValue.search) ?? null,
-      projectId: this.optional(formValue.projectId) ?? null,
-      status: this.optional(formValue.status) ?? null,
-      workState: this.optional(formValue.workState) ?? null,
-      assigneeId: assigneeId === unassignedAssigneeValue ? null : assigneeId ?? null,
-      assigneeState: assigneeId === unassignedAssigneeValue ? 'unassigned' : null,
-      reporterId: this.optional(formValue.reporterId) ?? null,
-      type: this.optional(formValue.type) ?? null,
-      labelId: this.optional(formValue.labelId) ?? null,
-      milestoneId: this.optional(formValue.milestoneId) ?? null,
-      priority: this.optional(formValue.priority) ?? null,
-      dueDateState: this.optional(formValue.dueDateState) ?? null,
-      blocked: this.optional(formValue.blocked) ?? null,
-      dependency: this.optional(formValue.dependency) ?? null,
-      archivedProjects: archivedProjects === 'exclude' ? null : archivedProjects,
-      sort: sort === 'updated_desc' ? null : sort
-    };
-  }
-
-  private formValueFromQuery(query: WorkItemQuery): WorkspaceFilterFormValue {
-    return {
-      search: query.search ?? '',
-      projectId: query.projectId ?? '',
-      status: query.status ?? '',
-      workState: query.status === undefined ? query.workState ?? '' : '',
-      assigneeId:
-        query.assigneeId ?? (query.assigneeState === 'unassigned' ? unassignedAssigneeValue : ''),
-      reporterId: query.reporterId ?? '',
-      type: query.type ?? '',
-      labelId: query.labelId ?? '',
-      milestoneId: query.milestoneId ?? '',
-      priority: query.priority ?? '',
-      dueDateState: query.dueDateState ?? '',
-      blocked: query.blocked === undefined ? '' : String(query.blocked),
-      dependency: query.dependency ?? '',
-      archivedProjects: query.archivedProjects ?? 'exclude',
-      sort: query.sort ?? 'updated_desc'
-    };
+    return workspaceRouterQueryParamsFromQuery(
+      workspaceQueryFromFormValue(this.filterForm.getRawValue())
+    );
   }
 
   private filtersFromQueryParams(params: {
     get(name: string): string | null;
   }): WorkspaceFilterFormValue {
-    const status = params.get('status') ?? '';
-    const assigneeId = params.get('assigneeId') ?? '';
-    const assigneeState = params.get('assigneeState') ?? '';
-
-    return {
-      search: params.get('search') ?? '',
-      projectId: params.get('projectId') ?? '',
-      status,
-      workState: status === '' ? params.get('workState') ?? '' : '',
-      assigneeId: assigneeId !== '' ? assigneeId : assigneeState === 'unassigned' ? unassignedAssigneeValue : '',
-      reporterId: params.get('reporterId') ?? '',
-      type: params.get('type') ?? '',
-      labelId: params.get('labelId') ?? '',
-      milestoneId: params.get('milestoneId') ?? '',
-      priority: params.get('priority') ?? '',
-      dueDateState: params.get('dueDateState') ?? '',
-      blocked: params.get('blocked') ?? '',
-      dependency: params.get('dependency') ?? '',
-      archivedProjects: params.get('archivedProjects') ?? 'exclude',
-      sort: params.get('sort') ?? 'updated_desc'
-    };
+    return workspaceFormValueFromQueryParams(params);
   }
 
   private watchFilterChanges(): void {
@@ -1493,11 +1382,6 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
 
       return left.name.localeCompare(right.name);
     });
-  }
-
-  private optional(value: string): string | undefined {
-    const trimmed = value.trim();
-    return trimmed === '' ? undefined : trimmed;
   }
 
   private formatDateOnly(value: string): string {

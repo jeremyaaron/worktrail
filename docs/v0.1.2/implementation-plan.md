@@ -236,6 +236,39 @@ npm run typecheck --workspace @worktrail/web
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-05.
+- Expanded `apps/web/src/app/features/work-items/query/work-item-query-serialization.ts` with app-local canonical query helpers for:
+  - project form values to compact `WorkItemQuery`;
+  - workspace form values to compact `WorkItemQuery`;
+  - project query to router query params;
+  - workspace query to router query params;
+  - project query to form values;
+  - router-link query params from scoped `WorkItemQuery`;
+  - return URL construction from scoped applied query;
+  - meaningful query field counts.
+- Preserved existing exported helper names as compatibility wrappers where useful for later component integration.
+- Updated workspace query serialization so route params are generated from canonical query state:
+  - default sort is omitted;
+  - default archived-project mode is omitted;
+  - `workState` is omitted when `status` is present;
+  - explicit `blocked: false` is preserved.
+- Expanded `work-item-query-serialization.spec.ts` with round-trip coverage for:
+  - project form/query/route params;
+  - workspace form/query/route params;
+  - unassigned workspace queries;
+  - `blocked: false`;
+  - status versus work-state precedence;
+  - saved-view query hydration;
+  - default-only router-link params;
+  - return URL construction;
+  - meaningful filter counts.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/features/work-items/query/*.spec.ts'`
+  - `npm run typecheck --workspace @worktrail/web`
+  - `git diff --check`
+
 ## Phase 3: Workspace List Integration
 
 Goal: make the workspace work item list use canonical query helpers for applied list state.
@@ -282,6 +315,28 @@ npm test --workspace @worktrail/web -- --watch=false --include 'src/app/features
 npm run typecheck --workspace @worktrail/web
 git diff --check
 ```
+
+Status:
+
+- Completed on 2026-07-05.
+- Refactored `WorkspaceWorkItemListPageComponent` to delegate canonical query behavior to the Phase 2 helpers for:
+  - form-to-query conversion;
+  - route query params to form values;
+  - query-to-router params;
+  - detail return URL construction;
+  - saved-view meaningful filter counts.
+- Changed workspace list loading to use applied query state rather than current form control state.
+- Kept filter application driven by pending form state while preserving applied state for:
+  - active filter chips;
+  - saved-view create/update;
+  - CSV export;
+  - detail return URLs.
+- Updated workspace list saved-view test expectations for compact canonical query payloads without explicit `undefined` fields.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/features/work-items/workspace-work-item-list-page.component.spec.ts'`
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/features/work-items/query/*.spec.ts'`
+  - `npm run typecheck --workspace @worktrail/web`
+  - `git diff --check`
 
 ## Phase 4: Project List Integration
 

@@ -467,20 +467,8 @@ describe('WorkspaceWorkItemListPageComponent', () => {
       query: {
         search: 'risk',
         status: 'blocked',
-        assigneeId: undefined,
-        assigneeState: undefined,
         archivedProjects: 'include',
-        blocked: undefined,
-        dependency: 'blocking_open_work',
-        dueDateState: undefined,
-        labelId: undefined,
-        milestoneId: undefined,
-        priority: undefined,
-        projectId: undefined,
-        reporterId: undefined,
-        sort: undefined,
-        type: undefined,
-        workState: undefined
+        dependency: 'blocking_open_work'
       }
     });
     const createdView: SavedWorkViewDto = {

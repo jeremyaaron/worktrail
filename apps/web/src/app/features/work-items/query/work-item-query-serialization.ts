@@ -31,6 +31,10 @@ export interface ProjectWorkItemFilters {
   sort?: WorkItemSort;
 }
 
+export type WorkItemQueryScope = 'project' | 'workspace';
+export type RouterQueryParams = Record<string, string | null>;
+export type RouterLinkQueryParams = Record<string, string>;
+
 export interface QueryParamReader {
   get(name: string): string | null;
 }
@@ -43,7 +47,11 @@ export function optionalFilterValue(value: string): string | undefined {
 export function projectFiltersFromFormValue(
   formValue: ProjectWorkItemFilterFormValue
 ): ProjectWorkItemFilters {
-  return {
+  return projectQueryFromFormValue(formValue) as ProjectWorkItemFilters;
+}
+
+export function projectQueryFromFormValue(formValue: ProjectWorkItemFilterFormValue): WorkItemQuery {
+  return compactWorkItemQuery({
     search: optionalFilterValue(formValue.search),
     status: optionalFilterValue(formValue.status) as WorkItemStatus | undefined,
     assigneeId: optionalFilterValue(formValue.assigneeId),
@@ -55,25 +63,29 @@ export function projectFiltersFromFormValue(
     dueDateState: optionalFilterValue(formValue.dueDateState) as DueDateState | undefined,
     dependency: optionalFilterValue(formValue.dependency) as DependencyFilter | undefined,
     sort: formValue.sort as WorkItemSort
-  };
+  });
 }
 
 export function projectQueryParamsFromFilters(
   filters: ProjectWorkItemFilters
-): Record<string, string | null> {
-  const sort = filters.sort ?? 'updated_desc';
+): RouterQueryParams {
+  return projectRouterQueryParamsFromQuery(filters);
+}
+
+export function projectRouterQueryParamsFromQuery(query: WorkItemQuery): RouterQueryParams {
+  const sort = query.sort ?? 'updated_desc';
 
   return {
-    search: filters.search ?? null,
-    status: filters.status ?? null,
-    assigneeId: filters.assigneeId ?? null,
-    reporterId: filters.reporterId ?? null,
-    type: filters.type ?? null,
-    labelId: filters.labelId ?? null,
-    milestoneId: filters.milestoneId ?? null,
-    priority: filters.priority ?? null,
-    dueDateState: filters.dueDateState ?? null,
-    dependency: filters.dependency ?? null,
+    search: nonEmptyString(query.search) ?? null,
+    status: query.status ?? null,
+    assigneeId: nonEmptyString(query.assigneeId) ?? null,
+    reporterId: nonEmptyString(query.reporterId) ?? null,
+    type: query.type ?? null,
+    labelId: nonEmptyString(query.labelId) ?? null,
+    milestoneId: nonEmptyString(query.milestoneId) ?? null,
+    priority: query.priority ?? null,
+    dueDateState: query.dueDateState ?? null,
+    dependency: query.dependency ?? null,
     sort: sort === 'updated_desc' ? null : sort
   };
 }
@@ -96,6 +108,22 @@ export function projectFormValueFromQueryParams(
   };
 }
 
+export function projectFormValueFromQuery(query: WorkItemQuery): ProjectWorkItemFilterFormValue {
+  return {
+    search: query.search ?? '',
+    status: query.status ?? '',
+    assigneeId: query.assigneeId ?? '',
+    reporterId: query.reporterId ?? '',
+    type: query.type ?? '',
+    labelId: query.labelId ?? '',
+    milestoneId: query.milestoneId ?? '',
+    priority: query.priority ?? '',
+    dueDateState: query.dueDateState ?? '',
+    dependency: query.dependency ?? '',
+    sort: query.sort ?? 'updated_desc'
+  };
+}
+
 export function workspaceQueryFromFormValue(
   formValue: WorkspaceWorkItemFilterFormValue
 ): WorkItemQuery {
@@ -104,7 +132,7 @@ export function workspaceQueryFromFormValue(
   const archivedProjects = optionalFilterValue(formValue.archivedProjects);
   const sort = optionalFilterValue(formValue.sort);
 
-  return {
+  return compactWorkItemQuery({
     search: optionalFilterValue(formValue.search),
     projectId: optionalFilterValue(formValue.projectId),
     status: optionalFilterValue(formValue.status) as WorkItemStatus | undefined,
@@ -127,31 +155,36 @@ export function workspaceQueryFromFormValue(
         ? undefined
         : (archivedProjects as ArchivedProjectMode),
     sort: sort === undefined || sort === 'updated_desc' ? undefined : (sort as WorkItemSort)
-  };
+  });
 }
 
 export function workspaceQueryParamsFromFormValue(
   formValue: WorkspaceWorkItemFilterFormValue
-): Record<string, string | null> {
+): RouterQueryParams {
+  return workspaceRouterQueryParamsFromQuery(workspaceQueryFromFormValue(formValue));
+}
+
+export function workspaceRouterQueryParamsFromQuery(query: WorkItemQuery): RouterQueryParams {
+  const formValue = workspaceFormValueFromQuery(query);
   const assigneeId = optionalFilterValue(formValue.assigneeId);
   const sort = optionalFilterValue(formValue.sort) ?? 'updated_desc';
   const archivedProjects = optionalFilterValue(formValue.archivedProjects) ?? 'exclude';
 
   return {
-    search: optionalFilterValue(formValue.search) ?? null,
-    projectId: optionalFilterValue(formValue.projectId) ?? null,
-    status: optionalFilterValue(formValue.status) ?? null,
-    workState: optionalFilterValue(formValue.workState) ?? null,
+    search: nonEmptyString(query.search) ?? null,
+    projectId: nonEmptyString(query.projectId) ?? null,
+    status: query.status ?? null,
+    workState: query.status === undefined ? (query.workState ?? null) : null,
     assigneeId: assigneeId === unassignedAssigneeValue ? null : assigneeId ?? null,
     assigneeState: assigneeId === unassignedAssigneeValue ? 'unassigned' : null,
-    reporterId: optionalFilterValue(formValue.reporterId) ?? null,
-    type: optionalFilterValue(formValue.type) ?? null,
-    labelId: optionalFilterValue(formValue.labelId) ?? null,
-    milestoneId: optionalFilterValue(formValue.milestoneId) ?? null,
-    priority: optionalFilterValue(formValue.priority) ?? null,
-    dueDateState: optionalFilterValue(formValue.dueDateState) ?? null,
-    blocked: optionalFilterValue(formValue.blocked) ?? null,
-    dependency: optionalFilterValue(formValue.dependency) ?? null,
+    reporterId: nonEmptyString(query.reporterId) ?? null,
+    type: query.type ?? null,
+    labelId: nonEmptyString(query.labelId) ?? null,
+    milestoneId: nonEmptyString(query.milestoneId) ?? null,
+    priority: query.priority ?? null,
+    dueDateState: query.dueDateState ?? null,
+    blocked: query.blocked === undefined ? null : String(query.blocked),
+    dependency: query.dependency ?? null,
     archivedProjects: archivedProjects === 'exclude' ? null : archivedProjects,
     sort: sort === 'updated_desc' ? null : sort
   };
@@ -203,4 +236,56 @@ export function workspaceFormValueFromQueryParams(
     archivedProjects: params.get('archivedProjects') ?? 'exclude',
     sort: params.get('sort') ?? 'updated_desc'
   };
+}
+
+export function routerLinkQueryParamsFromWorkItemQuery(
+  query: WorkItemQuery | null,
+  scope: WorkItemQueryScope
+): RouterLinkQueryParams | null {
+  if (query === null) {
+    return null;
+  }
+
+  const routerParams =
+    scope === 'project'
+      ? projectRouterQueryParamsFromQuery(query)
+      : workspaceRouterQueryParamsFromQuery(query);
+  const linkParams = Object.fromEntries(
+    Object.entries(routerParams).filter(([, value]) => value !== null)
+  ) as RouterLinkQueryParams;
+
+  return Object.keys(linkParams).length === 0 ? null : linkParams;
+}
+
+export function returnUrlFromWorkItemQuery(
+  path: string,
+  query: WorkItemQuery,
+  scope: WorkItemQueryScope
+): string {
+  const queryParams = routerLinkQueryParamsFromWorkItemQuery(query, scope);
+
+  if (queryParams === null) {
+    return path;
+  }
+
+  const searchParams = new URLSearchParams(queryParams);
+  const queryString = searchParams.toString();
+  return queryString === '' ? path : `${path}?${queryString}`;
+}
+
+export function meaningfulWorkItemQueryFieldCount(
+  query: WorkItemQuery,
+  scope: WorkItemQueryScope
+): number {
+  return Object.keys(routerLinkQueryParamsFromWorkItemQuery(query, scope) ?? {}).length;
+}
+
+function compactWorkItemQuery(query: WorkItemQuery): WorkItemQuery {
+  return Object.fromEntries(
+    Object.entries(query).filter(([, value]) => value !== undefined)
+  ) as WorkItemQuery;
+}
+
+function nonEmptyString(value: string | undefined): string | undefined {
+  return value === undefined || value.trim() === '' ? undefined : value;
 }
