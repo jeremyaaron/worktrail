@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import type { SavedWorkViewDto } from '@worktrail/contracts';
+import type { SavedWorkViewDto, SavedWorkViewVisibility } from '@worktrail/contracts';
 
 import { EmptyStateComponent } from '../../../shared/ui/empty-state.component';
 import { LoadingIndicatorComponent } from '../../../shared/ui/loading-indicator.component';
@@ -13,7 +13,7 @@ import { meaningfulWorkItemQueryFieldCount } from '../query/work-item-query-seri
       <div class="saved-views__heading">
         <div>
           <h2 id="saved-views-heading">Saved views</h2>
-          <p>{{ savedViews.length }} personal views</p>
+          <p>{{ workspaceViews.length }} shared · {{ personalViews.length }} personal</p>
         </div>
         @if (isLoading) {
           <app-loading-indicator label="Loading saved views" />
@@ -24,7 +24,7 @@ import { meaningfulWorkItemQueryFieldCount } from '../query/work-item-query-seri
         <p class="inline-error">{{ loadError }}</p>
       }
 
-      <form class="saved-view-form" (submit)="saveRequested(); $event.preventDefault()">
+      <form class="saved-view-form" (submit)="saveRequested('personal'); $event.preventDefault()">
         <label>
           <span>Name</span>
           <input
@@ -35,16 +35,32 @@ import { meaningfulWorkItemQueryFieldCount } from '../query/work-item-query-seri
             (input)="newViewName = $any($event.target).value"
           />
         </label>
-        <button type="submit" [disabled]="isSaving">
-          {{ isSaving ? 'Saving...' : 'Save current view' }}
-        </button>
+        <div class="save-actions">
+          <button type="submit" [disabled]="isSaving">
+            {{ isSaving ? 'Saving...' : 'Save personal view' }}
+          </button>
+          @if (canManageWorkspaceViews) {
+            <button
+              type="button"
+              class="secondary-action"
+              [disabled]="isSaving"
+              (click)="saveRequested('workspace')"
+            >
+              {{ isSaving ? 'Saving...' : 'Save shared view' }}
+            </button>
+          }
+        </div>
       </form>
 
       @if (mutationError !== null) {
         <p class="inline-error">{{ mutationError }}</p>
       }
 
-      @if (savedViews.length === 0) {
+      @if (!canManageWorkspaceViews && workspaceViews.length > 0) {
+        <p class="shared-helper">Owners and maintainers manage shared saved views.</p>
+      }
+
+      @if (workspaceViews.length === 0 && personalViews.length === 0) {
         <app-empty-state
           title="No saved views"
           message="Save the current filters to reuse this workspace view."
@@ -54,38 +70,99 @@ import { meaningfulWorkItemQueryFieldCount } from '../query/work-item-query-seri
           <summary>Manage saved views</summary>
 
           <div class="saved-view-list">
-            @for (view of savedViews; track view.id) {
-              <article class="saved-view-row">
-                <div>
-                  <strong>{{ view.name }}</strong>
-                  <small>{{ savedViewQueryLabel(view) }}</small>
-                </div>
+            <section class="saved-view-section" aria-label="Shared saved views">
+              <div class="saved-view-section__heading">
+                <strong>Shared views</strong>
+                <span>{{ workspaceViews.length }}</span>
+              </div>
 
-                <label>
-                  <span>Rename</span>
-                  <input
-                    type="text"
-                    [value]="draftNames[view.id] ?? view.name"
-                    (input)="draftNameChange.emit({ savedViewId: view.id, name: $any($event.target).value })"
-                  />
-                </label>
+              @if (workspaceViews.length === 0) {
+                <p class="saved-view-section__empty">No shared views saved.</p>
+              } @else {
+                @for (view of workspaceViews; track view.id) {
+                  <article class="saved-view-row saved-view-row--shared">
+                    <div>
+                      <strong>{{ view.name }}</strong>
+                      <small>{{ savedViewQueryLabel(view) }}</small>
+                    </div>
 
-                <div class="saved-view-actions">
-                  <button type="button" class="secondary-action" (click)="open.emit(view)">
-                    Open
-                  </button>
-                  <button type="button" class="secondary-action" (click)="rename.emit(view)">
-                    Rename
-                  </button>
-                  <button type="button" class="secondary-action" (click)="updateQuery.emit(view)">
-                    Update query
-                  </button>
-                  <button type="button" class="danger-action" (click)="delete.emit(view)">
-                    Delete
-                  </button>
-                </div>
-              </article>
-            }
+                    @if (canManageWorkspaceViews) {
+                      <label>
+                        <span>Rename</span>
+                        <input
+                          type="text"
+                          [value]="draftNames[view.id] ?? view.name"
+                          (input)="draftNameChange.emit({ savedViewId: view.id, name: $any($event.target).value })"
+                        />
+                      </label>
+                    } @else {
+                      <p class="saved-view-owner">Shared by {{ view.owner.name }}</p>
+                    }
+
+                    <div class="saved-view-actions">
+                      <button type="button" class="secondary-action" (click)="open.emit(view)">
+                        Open
+                      </button>
+                      @if (canManageWorkspaceViews) {
+                        <button type="button" class="secondary-action" (click)="rename.emit(view)">
+                          Rename
+                        </button>
+                        <button type="button" class="secondary-action" (click)="updateQuery.emit(view)">
+                          Update query
+                        </button>
+                        <button type="button" class="danger-action" (click)="delete.emit(view)">
+                          Delete
+                        </button>
+                      }
+                    </div>
+                  </article>
+                }
+              }
+            </section>
+
+            <section class="saved-view-section" aria-label="Personal saved views">
+              <div class="saved-view-section__heading">
+                <strong>Personal views</strong>
+                <span>{{ personalViews.length }}</span>
+              </div>
+
+              @if (personalViews.length === 0) {
+                <p class="saved-view-section__empty">No personal views saved.</p>
+              } @else {
+                @for (view of personalViews; track view.id) {
+                  <article class="saved-view-row">
+                    <div>
+                      <strong>{{ view.name }}</strong>
+                      <small>{{ savedViewQueryLabel(view) }}</small>
+                    </div>
+
+                    <label>
+                      <span>Rename</span>
+                      <input
+                        type="text"
+                        [value]="draftNames[view.id] ?? view.name"
+                        (input)="draftNameChange.emit({ savedViewId: view.id, name: $any($event.target).value })"
+                      />
+                    </label>
+
+                    <div class="saved-view-actions">
+                      <button type="button" class="secondary-action" (click)="open.emit(view)">
+                        Open
+                      </button>
+                      <button type="button" class="secondary-action" (click)="rename.emit(view)">
+                        Rename
+                      </button>
+                      <button type="button" class="secondary-action" (click)="updateQuery.emit(view)">
+                        Update query
+                      </button>
+                      <button type="button" class="danger-action" (click)="delete.emit(view)">
+                        Delete
+                      </button>
+                    </div>
+                  </article>
+                }
+              }
+            </section>
           </div>
         </details>
       }
@@ -128,6 +205,12 @@ import { meaningfulWorkItemQueryFieldCount } from '../query/work-item-query-seri
       line-height: 1.4;
     }
 
+    .shared-helper {
+      color: #475569;
+      font-size: 0.8125rem;
+      font-weight: 700;
+    }
+
     .saved-view-form label {
       display: grid;
       flex: 1;
@@ -151,6 +234,13 @@ import { meaningfulWorkItemQueryFieldCount } from '../query/work-item-query-seri
       color: #111827;
       font: inherit;
       font-size: 0.875rem;
+    }
+
+    .save-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
     }
 
     button {
@@ -203,6 +293,45 @@ import { meaningfulWorkItemQueryFieldCount } from '../query/work-item-query-seri
       margin-top: 12px;
     }
 
+    .saved-view-section {
+      display: grid;
+      gap: 10px;
+    }
+
+    .saved-view-section + .saved-view-section {
+      border-top: 1px solid #e5e7eb;
+      padding-top: 12px;
+    }
+
+    .saved-view-section__heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .saved-view-section__heading strong {
+      color: #111827;
+      font-size: 0.875rem;
+    }
+
+    .saved-view-section__heading span {
+      min-width: 28px;
+      border-radius: 999px;
+      padding: 3px 8px;
+      background: #e8eef8;
+      color: #334155;
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .saved-view-section__empty,
+    .saved-view-owner {
+      color: #64748b;
+      font-size: 0.8125rem;
+    }
+
     .saved-view-row {
       display: grid;
       grid-template-columns: minmax(180px, 1fr) minmax(180px, 0.8fr) auto;
@@ -210,6 +339,10 @@ import { meaningfulWorkItemQueryFieldCount } from '../query/work-item-query-seri
       align-items: end;
       border-top: 1px solid #eef2f7;
       padding-top: 12px;
+    }
+
+    .saved-view-row--shared {
+      background: #f8fafc;
     }
 
     .saved-view-row strong {
@@ -234,6 +367,7 @@ import { meaningfulWorkItemQueryFieldCount } from '../query/work-item-query-seri
     @media (max-width: 760px) {
       .saved-views__heading,
       .saved-view-form,
+      .save-actions,
       .saved-view-row {
         display: grid;
         grid-template-columns: 1fr;
@@ -246,12 +380,16 @@ import { meaningfulWorkItemQueryFieldCount } from '../query/work-item-query-seri
   `
 })
 export class SavedViewsToolbarComponent {
-  @Input({ required: true }) savedViews: SavedWorkViewDto[] = [];
+  @Input() personalViews: SavedWorkViewDto[] = [];
+  @Input() workspaceViews: SavedWorkViewDto[] = [];
+  @Input() canManageWorkspaceViews = false;
   @Input({ required: true }) draftNames: Partial<Record<string, string>> = {};
   @Input() isLoading = false;
   @Input() isSaving = false;
   @Input() loadError: string | null = null;
   @Input() mutationError: string | null = null;
+  @Output() readonly savePersonal = new EventEmitter<string>();
+  @Output() readonly saveWorkspace = new EventEmitter<string>();
   @Output() readonly save = new EventEmitter<string>();
   @Output() readonly open = new EventEmitter<SavedWorkViewDto>();
   @Output() readonly rename = new EventEmitter<SavedWorkViewDto>();
@@ -261,8 +399,20 @@ export class SavedViewsToolbarComponent {
 
   newViewName = '';
 
-  saveRequested(): void {
-    this.save.emit(this.newViewName);
+  @Input()
+  set savedViews(savedViews: SavedWorkViewDto[]) {
+    this.personalViews = savedViews.filter((savedView) => savedView.visibility === 'personal');
+    this.workspaceViews = savedViews.filter((savedView) => savedView.visibility === 'workspace');
+  }
+
+  saveRequested(visibility: SavedWorkViewVisibility): void {
+    if (visibility === 'workspace') {
+      this.saveWorkspace.emit(this.newViewName);
+    } else {
+      this.savePersonal.emit(this.newViewName);
+      this.save.emit(this.newViewName);
+    }
+
     this.newViewName = '';
   }
 

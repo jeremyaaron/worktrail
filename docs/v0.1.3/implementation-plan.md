@@ -413,6 +413,26 @@ npm run typecheck --workspace @worktrail/web
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-06.
+- Updated `SavedViewsToolbarComponent` with explicit `personalViews` and `workspaceViews` inputs.
+- Added `savePersonal` and `saveWorkspace` outputs while preserving the existing `savedViews` and `save` bindings as a compatibility bridge until page-level integration.
+- Split the toolbar into shared and personal sections with shared views rendered first.
+- Added shared and personal counts in the toolbar heading and section headers.
+- Added separate save actions:
+  - `Save personal view`;
+  - `Save shared view` when workspace saved-view management is allowed.
+- Gated shared rename/update/delete controls behind `canManageWorkspaceViews`.
+- Preserved opening shared views for all users and retained personal saved-view management behavior.
+- Added contributor helper copy for shared view management.
+- Preserved query summary labels and compact `<details>` management behavior.
+- Updated `saved-views-toolbar.component.spec.ts` for manager and contributor shared-view behavior.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --watch=false --include 'src/app/features/work-items/components/saved-views-toolbar.component.spec.ts'`
+  - `npm run typecheck --workspace @worktrail/web`
+  - `git diff --check`
+
 ## Phase 6: Workspace Work Items Integration
 
 Goal: wire shared saved views into the workspace Work Items page.
