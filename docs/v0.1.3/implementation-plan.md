@@ -611,6 +611,37 @@ git status --short --branch
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-06.
+- Updated `README.md` for the v0.1.3 baseline:
+  - personal versus workspace-shared saved views;
+  - owner/maintainer shared-view management;
+  - contributor read/open behavior;
+  - relationship to canonical filtered URLs, copy links, and CSV export;
+  - seeded shared views and walkthrough coverage;
+  - current limitations and database status.
+- Updated `site/index.html` to present shared team views as part of the public v0.1.3 product surface.
+- Added `docs/v0.1.3/release-notes.md`.
+- Added `docs/v0.1.3/jawstack-extraction-notes.md`.
+- Confirmed `docs/api/openapi.yaml` documents:
+  - `personal | workspace` saved-view visibility;
+  - create request visibility;
+  - list behavior for actor personal plus workspace-shared views;
+  - owner/maintainer mutation rules for shared views.
+- Preserved v0.1.2 query-contract notes as source material.
+- Verified:
+  - `npm run lint`
+  - `npm run typecheck`
+  - `npm run db:reset`
+  - `npm run db:migrate`
+  - `npm run db:seed`
+  - `npm test`
+  - `npm run build`
+  - `npm run test:e2e`
+  - `git diff --check`
+- Confirmed repository status before handoff.
+
 ## Verification Cadence
 
 Use this cadence unless a phase requires broader checks:
