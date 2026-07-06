@@ -360,8 +360,10 @@ test('completes the v0.0.5 daily workspace workflow', async ({ page }) => {
   const savedViewNameInput = page.locator('form.saved-view-form').getByLabel('Name');
   await savedViewNameInput.fill(savedViewName);
   await expectFocused(savedViewNameInput);
-  await page.getByRole('button', { name: 'Save current view' }).click();
-  await expect(page.getByLabel('Saved views')).toContainText('5 personal views');
+  await page.getByRole('button', { name: 'Save personal view' }).click();
+  await expect(page.getByRole('region', { name: 'Saved views' })).toContainText(
+    /5 shared · \d+ personal/
+  );
 
   await openSavedViewManager(page);
   const savedViewRow = page.locator('article.saved-view-row').filter({ hasText: savedViewName });
@@ -449,6 +451,55 @@ test('persists v0.1.2 workspace filters through URL reloads', async ({ page, req
   await expect(page.getByRole('row', { name: new RegExp(title) })).toBeVisible();
 });
 
+test('opens v0.1.3 shared views as owner and contributor', async ({ page }) => {
+  test.setTimeout(60_000);
+
+  await page.goto('/work-items');
+  await expect(page.getByRole('heading', { name: 'Work items', exact: true })).toBeVisible();
+  await page.locator('#current-member').selectOption({ label: 'Avery Owner · owner' });
+  const savedViewsRegion = page.getByRole('region', { name: 'Saved views' });
+  await expect(savedViewsRegion).toContainText('5 shared');
+  await expect(page.getByRole('button', { name: 'Save shared view' })).toBeVisible();
+
+  await openSavedViewManager(page);
+  const ownerSharedViewRow = page
+    .getByLabel('Shared saved views')
+    .locator('article.saved-view-row')
+    .filter({ hasText: 'Dependency risks' });
+  await expect(ownerSharedViewRow).toBeVisible();
+  await expect(ownerSharedViewRow.getByRole('button', { name: 'Rename' })).toBeVisible();
+  await expect(ownerSharedViewRow.getByRole('button', { name: 'Update query' })).toBeVisible();
+  await expect(ownerSharedViewRow.getByRole('button', { name: 'Delete' })).toBeVisible();
+
+  await ownerSharedViewRow.getByRole('button', { name: 'Open' }).click();
+  await expect(page).toHaveURL(/dependency=dependency_blocked/);
+  await expect(page.getByText('Dependency: Blocked by open work')).toBeVisible();
+  await expect(page.getByRole('row', { name: /Add filter controls to work item list/ })).toBeVisible();
+
+  await page.locator('#current-member').selectOption({ label: 'Casey Contributor · contributor' });
+  await page.goto('/work-items');
+  await expect(page.getByRole('heading', { name: 'Work items', exact: true })).toBeVisible();
+  await expect(savedViewsRegion).toContainText('5 shared');
+  await expect(page.getByText('Owners and maintainers manage shared saved views.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save shared view' })).toHaveCount(0);
+
+  await openSavedViewManager(page);
+  const contributorSharedViewRow = page
+    .getByLabel('Shared saved views')
+    .locator('article.saved-view-row')
+    .filter({ hasText: 'Dependency risks' });
+  await expect(contributorSharedViewRow).toBeVisible();
+  await expect(contributorSharedViewRow.getByRole('button', { name: 'Open' })).toBeVisible();
+  await expect(contributorSharedViewRow.getByRole('button', { name: 'Rename' })).toHaveCount(0);
+  await expect(contributorSharedViewRow.getByRole('button', { name: 'Update query' })).toHaveCount(0);
+  await expect(contributorSharedViewRow.getByRole('button', { name: 'Delete' })).toHaveCount(0);
+
+  await contributorSharedViewRow.getByRole('button', { name: 'Open' }).click();
+  await expect(page).toHaveURL(/dependency=dependency_blocked/);
+  await expect(page.getByText('Dependency: Blocked by open work')).toBeVisible();
+  await expect(page.getByRole('row', { name: /Add filter controls to work item list/ })).toBeVisible();
+});
+
 test('validates the v0.0.8 dependency workflow', async ({ page, request }) => {
   test.setTimeout(90_000);
 
@@ -499,8 +550,10 @@ test('validates the v0.0.8 dependency workflow', async ({ page, request }) => {
   await expect(dependencyRow).toContainText('Blocked by 1');
 
   await page.locator('form.saved-view-form').getByLabel('Name').fill(savedViewName);
-  await page.getByRole('button', { name: 'Save current view' }).click();
-  await expect(page.getByLabel('Saved views')).toContainText('5 personal views');
+  await page.getByRole('button', { name: 'Save personal view' }).click();
+  await expect(page.getByRole('region', { name: 'Saved views' })).toContainText(
+    /5 shared · \d+ personal/
+  );
 
   await openSavedViewManager(page);
   const savedViewRow = page.locator('article.saved-view-row').filter({ hasText: savedViewName });

@@ -536,6 +536,27 @@ npm run test:e2e
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-06.
+- Added a Playwright smoke test for the v0.1.3 shared saved-view path:
+  - opens workspace Work Items as Avery Owner;
+  - opens the seeded `Dependency risks` shared view;
+  - confirms canonical dependency query state and matching results;
+  - switches to Casey Contributor;
+  - confirms the shared view remains visible and openable;
+  - confirms shared management controls are unavailable for contributor.
+- Updated existing saved-view E2E steps for the new toolbar copy:
+  - `Save personal view`;
+  - shared/personal saved-view count heading.
+- Verified:
+  - `npm run db:reset`
+  - `npm run db:migrate`
+  - `npm run db:seed`
+  - `npx playwright test -g "shared view"`
+  - `npm run test:e2e`
+  - `git diff --check`
+
 ## Phase 8: Documentation, Site, Release Notes, Extraction Notes, And Final Verification
 
 Goal: finish v0.1.3 with complete docs, public-site updates as appropriate, release notes, extraction notes, and full verification.
