@@ -11,7 +11,7 @@ export const workItemStatuses = [
 ] as const;
 export const workItemPriorities = ['low', 'medium', 'high', 'urgent'] as const;
 export const milestoneStatuses = ['planned', 'active', 'completed', 'canceled'] as const;
-export const savedWorkViewVisibilities = ['personal'] as const;
+export const savedWorkViewVisibilities = ['personal', 'workspace'] as const;
 export const workItemRelationshipTypes = ['blocks', 'relates_to'] as const;
 export const notificationTypes = [
   'assignment',
@@ -63,7 +63,12 @@ export const workspaceActivityEventTypes = [
   'member.deactivated',
   'member.reactivated',
   'workspace.name_changed',
-  'project.created'
+  'project.created',
+  'saved_view.created',
+  'saved_view.name_changed',
+  'saved_view.query_changed',
+  'saved_view.updated',
+  'saved_view.deleted'
 ] as const;
 
 export type MemberRole = (typeof memberRoles)[number];

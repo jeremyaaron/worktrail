@@ -147,6 +147,26 @@ npm run typecheck --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-05.
+- Updated shared contracts:
+  - `SavedWorkViewVisibility` now supports `personal | workspace`;
+  - `CreateSavedWorkViewRequest` accepts optional `visibility`;
+  - `WorkspaceActivityEventType` includes shared saved-view management events.
+- Updated API constants for saved-view visibility and workspace activity event types.
+- Updated Drizzle schema to model personal and workspace saved-view uniqueness with partial unique indexes.
+- Generated `apps/api/drizzle/0007_panoramic_chimera.sql` and snapshot metadata.
+- Verified clean migration path from reset through seed.
+- Verified:
+  - `npm test --workspace @worktrail/contracts`
+  - `npm run typecheck --workspace @worktrail/contracts`
+  - `npm run typecheck --workspace @worktrail/api`
+  - `npm run db:reset`
+  - `npm run db:migrate`
+  - `npm run db:seed`
+  - `git diff --check`
+
 ## Phase 2: Repository And Service Authorization
 
 Goal: implement workspace-shared saved-view API behavior behind the existing route surface.

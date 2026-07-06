@@ -40,7 +40,12 @@ export type WorkspaceActivityEventType =
   | 'member.deactivated'
   | 'member.reactivated'
   | 'workspace.name_changed'
-  | 'project.created';
+  | 'project.created'
+  | 'saved_view.created'
+  | 'saved_view.name_changed'
+  | 'saved_view.query_changed'
+  | 'saved_view.updated'
+  | 'saved_view.deleted';
 
 export interface WorkspaceActivityEventDto {
   id: string;
