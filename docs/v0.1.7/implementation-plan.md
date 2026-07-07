@@ -523,7 +523,22 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed:
+  - expanded `ProjectMilestoneReviewPageComponent` from shell to full review surface;
+  - rendered milestone identity, project name/key, status, target date, archived marker, and read-only notice;
+  - added progress summary metrics with completion percentage;
+  - rendered milestone health using shared delivery-health labels, tones, and reason chips;
+  - rendered scope breakdown for status, priority, ownership, due dates, and dependencies;
+  - rendered API-provided risk sections with capped item previews, empty states, and project Work links generated from each section query;
+  - rendered recently changed work rows linking to detail pages with return URLs back to the milestone review;
+  - added responsive layout rules and overflow handling for long work item titles;
+  - extended component tests for scoped work links, risk query links, empty sections, archived indicators, and detail return URLs.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include src/app/features/projects/project-milestone-review-page.component.spec.ts`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `npm run build --workspace @worktrail/web`;
+  - `git diff --check`.
 
 ## Phase 7: Project Work `workRisk` Integration
 
