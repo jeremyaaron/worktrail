@@ -32,6 +32,8 @@ export type ActivityEventType =
   | 'saved_view.name_changed'
   | 'saved_view.query_changed'
   | 'saved_view.updated'
+  | 'saved_view.pinned'
+  | 'saved_view.unpinned'
   | 'saved_view.deleted'
   | 'comment.added'
   | 'comment.edited'
@@ -50,6 +52,8 @@ export type WorkspaceActivityEventType =
   | 'saved_view.name_changed'
   | 'saved_view.query_changed'
   | 'saved_view.updated'
+  | 'saved_view.pinned'
+  | 'saved_view.unpinned'
   | 'saved_view.deleted';
 
 export interface WorkspaceActivityEventDto {

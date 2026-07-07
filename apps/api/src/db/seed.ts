@@ -138,7 +138,8 @@ const earlier = new Date('2026-07-02T12:00:00.000Z');
 const stale = new Date('2026-06-20T12:00:00.000Z');
 const workspaceSavedViewDefaults = {
   projectId: null,
-  scope: 'workspace'
+  scope: 'workspace',
+  isPinned: false
 } as const;
 
 const pool = createPool();
@@ -1321,6 +1322,7 @@ try {
           ...workspaceSavedViewDefaults,
           name: 'Dependency risks',
           visibility: 'workspace',
+          isPinned: true,
           query: {
             dependency: 'dependency_blocked',
             archivedProjects: 'exclude',
@@ -1368,6 +1370,7 @@ try {
           ...workspaceSavedViewDefaults,
           name: 'Ready for pickup',
           visibility: 'workspace',
+          isPinned: true,
           query: {
             status: 'ready',
             assigneeState: 'unassigned',
@@ -1385,6 +1388,7 @@ try {
           scope: 'project',
           name: 'Release blockers',
           visibility: 'workspace',
+          isPinned: true,
           query: {
             blocked: true,
             sort: 'priority_desc'
@@ -1400,6 +1404,7 @@ try {
           scope: 'project',
           name: 'Ready for QA',
           visibility: 'workspace',
+          isPinned: true,
           query: {
             status: 'ready',
             sort: 'board_order'
@@ -1505,10 +1510,12 @@ try {
       .onConflictDoUpdate({
         target: savedWorkViews.id,
         set: {
+          ownerMemberId: sql`excluded.owner_member_id`,
           projectId: sql`excluded.project_id`,
           name: sql`excluded.name`,
           scope: sql`excluded.scope`,
           visibility: sql`excluded.visibility`,
+          isPinned: sql`excluded.is_pinned`,
           query: sql`excluded.query`,
           updatedAt: now
         }

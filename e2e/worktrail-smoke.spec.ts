@@ -581,6 +581,118 @@ test('opens and saves v0.1.4 project saved views as owner and contributor', asyn
   await expect(page.getByRole('row', { name: /Add filter controls to work item list/ })).toBeVisible();
 });
 
+test('opens seeded v0.1.5 pinned workspace and project saved views', async ({ page }) => {
+  test.setTimeout(60_000);
+
+  await page.goto('/work-items');
+  await expect(page.getByRole('heading', { name: 'Work items', exact: true })).toBeVisible();
+  await page.locator('#current-member').selectOption({ label: 'Avery Owner · owner' });
+
+  await expect(page.getByRole('heading', { name: 'Pinned views' })).toBeVisible();
+  await expect(page.getByLabel('Pinned saved view shortcuts')).toContainText('Dependency risks');
+  await expect(page.getByLabel('Pinned saved view shortcuts')).toContainText('Ready for pickup');
+
+  await page.getByRole('button', { name: 'Open pinned shared view Dependency risks' }).click();
+  await expect(page).toHaveURL(/dependency=dependency_blocked/);
+  await expect(page.getByText('Dependency: Blocked by open work')).toBeVisible();
+  await expect(page.getByRole('row', { name: /Add filter controls to work item list/ })).toBeVisible();
+
+  await page.locator('#current-member').selectOption({ label: 'Casey Contributor · contributor' });
+  await page.goto('/work-items');
+  await expect(page.getByRole('heading', { name: 'Work items', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open pinned shared view Dependency risks' })).toBeVisible();
+  await openSavedViewManager(page);
+
+  const contributorWorkspacePinnedRow = page
+    .getByLabel('Shared views')
+    .locator('article.saved-view-row')
+    .filter({ hasText: 'Dependency risks' });
+  await expect(contributorWorkspacePinnedRow).toBeVisible();
+  await expect(contributorWorkspacePinnedRow.getByRole('button', { name: 'Open' })).toBeVisible();
+  await expect(contributorWorkspacePinnedRow.getByRole('button', { name: 'Pin' })).toHaveCount(0);
+  await expect(contributorWorkspacePinnedRow.getByRole('button', { name: 'Unpin' })).toHaveCount(0);
+
+  await page.locator('#current-member').selectOption({ label: 'Avery Owner · owner' });
+  await page.goto(`/projects/${demoProjectId}/work-items`);
+  await expect(projectShellHeading(page, 'Worktrail App')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Project work items' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Project pinned views' })).toBeVisible();
+  await expect(page.getByLabel('Pinned saved view shortcuts')).toContainText('Ready for QA');
+  await expect(page.getByLabel('Pinned saved view shortcuts')).toContainText('Release blockers');
+
+  await page.getByRole('button', { name: 'Open pinned shared view Ready for QA' }).click();
+  await expect(page).toHaveURL(/\/projects\/10000000-0000-4000-8000-000000000201\/work-items\?/);
+  await expect(page).toHaveURL(/status=ready/);
+  await expect(page.getByText('Status: ready')).toBeVisible();
+  await expect(page.getByRole('row', { name: /Add filter controls to work item list/ })).toBeVisible();
+
+  await page.locator('#current-member').selectOption({ label: 'Casey Contributor · contributor' });
+  await page.goto(`/projects/${demoProjectId}/work-items`);
+  await expect(page.getByRole('heading', { name: 'Project work items' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open pinned shared view Ready for QA' })).toBeVisible();
+  await openSavedViewManager(page);
+
+  const contributorProjectPinnedRow = page
+    .getByLabel('Shared project views')
+    .locator('article.saved-view-row')
+    .filter({ hasText: 'Ready for QA' });
+  await expect(contributorProjectPinnedRow).toBeVisible();
+  await expect(contributorProjectPinnedRow.getByRole('button', { name: 'Open' })).toBeVisible();
+  await expect(contributorProjectPinnedRow.getByRole('button', { name: 'Pin' })).toHaveCount(0);
+  await expect(contributorProjectPinnedRow.getByRole('button', { name: 'Unpin' })).toHaveCount(0);
+});
+
+test('creates and opens a v0.1.5 pinned personal workspace saved view shortcut', async ({ page }) => {
+  test.setTimeout(60_000);
+
+  const savedViewName = `E2E pinned personal ${Date.now()}`;
+
+  await page.goto('/work-items');
+  await expect(page.getByRole('heading', { name: 'Work items', exact: true })).toBeVisible();
+  await page.locator('#current-member').selectOption({ label: 'Avery Owner · owner' });
+  await page.getByText('Advanced filters').click();
+  await page.locator('form.filters').getByLabel('Assignee').selectOption({ label: 'Avery Owner' });
+  await expect(page).toHaveURL(/assigneeId=10000000-0000-4000-8000-000000000101/);
+  await expect(page.getByText('Assignee: Avery Owner')).toBeVisible();
+
+  await openSavedViewManager(page);
+  const seededSavedViewRow = page
+    .getByLabel('Personal views')
+    .locator('article.saved-view-row')
+    .filter({ hasText: 'My open work' });
+  await expect(seededSavedViewRow).toBeVisible();
+  await seededSavedViewRow.getByRole('button', { name: 'Pin' }).click();
+  await expect(page.getByRole('button', { name: 'Open pinned personal view My open work' })).toBeVisible();
+
+  await page.locator('form.saved-view-form').getByLabel('Name').fill(savedViewName);
+  await page.getByRole('button', { name: 'Save personal view' }).click();
+  await expect(page.getByRole('region', { name: 'Saved views' })).toContainText(
+    /5 shared · \d+ personal/
+  );
+
+  await openSavedViewManager(page);
+  const savedViewRow = page
+    .getByLabel('Personal views')
+    .locator('article.saved-view-row')
+    .filter({ hasText: savedViewName });
+  await expect(savedViewRow).toBeVisible();
+  await savedViewRow.getByRole('button', { name: 'Pin' }).click();
+
+  await expect(
+    page.getByRole('button', { name: `Open pinned personal view ${savedViewName}` })
+  ).toBeVisible();
+  await page.goto('/work-items');
+  await expect(page.getByRole('heading', { name: 'Work items', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: `Open pinned personal view ${savedViewName}` })
+  ).toBeVisible();
+
+  await page.getByRole('button', { name: `Open pinned personal view ${savedViewName}` }).click();
+  await expect(page).toHaveURL(/assigneeId=10000000-0000-4000-8000-000000000101/);
+  await expect(page.getByText('Assignee: Avery Owner')).toBeVisible();
+  await expect(page.getByRole('row', { name: /Document future S3 and API Gateway deployment path/ })).toBeVisible();
+});
+
 test('validates the v0.0.8 dependency workflow', async ({ page, request }) => {
   test.setTimeout(90_000);
 

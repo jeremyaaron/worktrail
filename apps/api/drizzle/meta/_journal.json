@@ -64,6 +64,20 @@
       "when": 1783307679945,
       "tag": "0008_careless_silver_fox",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1783380599272,
+      "tag": "0009_smart_tana_nile",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1783381168612,
+      "tag": "0010_free_quasar",
+      "breakpoints": true
     }
   ]
 }

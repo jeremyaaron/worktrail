@@ -14,6 +14,8 @@ const projectActivityEventLabels: Partial<Record<ActivityEventDto['eventType'], 
   'saved_view.name_changed': 'Shared project view renamed',
   'saved_view.query_changed': 'Shared project view filters updated',
   'saved_view.updated': 'Shared project view updated',
+  'saved_view.pinned': 'Shared project view pinned',
+  'saved_view.unpinned': 'Shared project view unpinned',
   'saved_view.deleted': 'Shared project view deleted'
 };
 

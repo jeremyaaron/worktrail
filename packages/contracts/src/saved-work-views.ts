@@ -12,6 +12,7 @@ export interface SavedWorkViewDto {
   name: string;
   scope: SavedWorkViewScope;
   visibility: SavedWorkViewVisibility;
+  isPinned: boolean;
   query: WorkItemQuery;
   createdAt: string;
   updatedAt: string;
@@ -33,4 +34,5 @@ export interface CreateSavedWorkViewRequest {
 export interface UpdateSavedWorkViewRequest {
   name?: string;
   query?: WorkItemQuery;
+  isPinned?: boolean;
 }

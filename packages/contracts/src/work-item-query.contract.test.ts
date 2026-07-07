@@ -6,6 +6,7 @@ import type {
   ListSavedWorkViewsQuery,
   ProjectPlanningSummaryDto,
   SavedWorkViewDto,
+  UpdateSavedWorkViewRequest,
   WorkItemQuery
 } from './index.js';
 
@@ -60,6 +61,7 @@ describe('work item query contracts', () => {
       name: 'Open design work',
       scope: 'workspace',
       visibility: 'workspace',
+      isPinned: true,
       query,
       createdAt: '2026-07-05T00:00:00.000Z',
       updatedAt: '2026-07-05T00:00:00.000Z'
@@ -84,6 +86,9 @@ describe('work item query contracts', () => {
       scope: 'project',
       projectId: 'f7c0c5aa-6d66-48a3-af01-3be972c22dc6'
     } satisfies ListSavedWorkViewsQuery;
+    const updateRequest = {
+      isPinned: false
+    } satisfies UpdateSavedWorkViewRequest;
 
     const healthReason = {
       key: 'dependency_blocked',
@@ -98,6 +103,7 @@ describe('work item query contracts', () => {
     expect(createRequest.visibility).toBe('workspace');
     expect(projectCreateRequest.scope).toBe('project');
     expect(listRequest.projectId).toBe(projectCreateRequest.projectId);
+    expect(updateRequest.isPinned).toBe(false);
     expect(healthReason.query).toBe(query);
     expectTypeOf(savedView.query).toMatchTypeOf<WorkItemQuery>();
   });

@@ -248,6 +248,7 @@ export function toSavedWorkViewDto(savedView: SavedWorkView, owner: Member): Sav
     name: savedView.name,
     scope: savedView.scope,
     visibility: savedView.visibility,
+    isPinned: savedView.isPinned,
     query: savedView.query as WorkItemQuery,
     createdAt: savedView.createdAt.toISOString(),
     updatedAt: savedView.updatedAt.toISOString()

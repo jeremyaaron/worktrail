@@ -25,6 +25,7 @@ import { ClipboardService } from '../../shared/clipboard.service';
 import { downloadBlob, fileNameFromContentDisposition } from '../../shared/download-file';
 import { dependencyFilterLabel } from '../../shared/work-items/work-item-display';
 import { ActiveFilterChipsComponent } from './components/active-filter-chips.component';
+import { PinnedSavedViewsComponent } from './components/pinned-saved-views.component';
 import { SavedViewsToolbarComponent } from './components/saved-views-toolbar.component';
 import { WorkItemFilterPanelComponent } from './components/work-item-filter-panel.component';
 import { WorkItemResultListComponent } from './components/work-item-result-list.component';
@@ -96,6 +97,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
   selector: 'app-work-item-list-page',
   imports: [
     ActiveFilterChipsComponent,
+    PinnedSavedViewsComponent,
     ReactiveFormsModule,
     RouterLink,
     SavedViewsToolbarComponent,
@@ -158,6 +160,13 @@ const defaultFilterValues: WorkItemFilterFormValue = {
       </section>
     }
 
+    <app-pinned-saved-views
+      heading="Project pinned views"
+      [sharedViews]="pinnedSharedSavedViews()"
+      [personalViews]="pinnedPersonalSavedViews()"
+      (open)="openSavedView($event)"
+    />
+
     <app-saved-views-toolbar
       [personalViews]="personalSavedViews()"
       [sharedViews]="sharedSavedViews()"
@@ -182,6 +191,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
       (open)="openSavedView($event)"
       (rename)="renameSavedView($event)"
       (updateQuery)="updateSavedViewQuery($event)"
+      (pinChange)="setSavedViewPinned($event.savedView, $event.isPinned)"
       (delete)="deleteSavedView($event)"
       (draftNameChange)="setSavedViewDraftName($event.savedViewId, $event.name)"
     />
@@ -758,6 +768,12 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   readonly sharedSavedViews = computed<SavedWorkViewDto[]>(() =>
     this.sortSavedViews(this.savedViews().filter((savedView) => savedView.visibility === 'workspace'))
   );
+  readonly pinnedPersonalSavedViews = computed<SavedWorkViewDto[]>(() =>
+    this.personalSavedViews().filter((savedView) => savedView.isPinned)
+  );
+  readonly pinnedSharedSavedViews = computed<SavedWorkViewDto[]>(() =>
+    this.sharedSavedViews().filter((savedView) => savedView.isPinned)
+  );
   readonly canManageProjectSavedViews = computed(() => !this.isArchivedProject());
   readonly canManageSharedProjectSavedViews = computed(() => {
     const role = this.currentUser.selectedMember()?.role;
@@ -1008,6 +1024,25 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
       error: (error: HttpErrorResponse) => {
         this.savedViewMutationError.set(
           this.toErrorMessage(error, 'Saved view query could not be updated.')
+        );
+      }
+    });
+  }
+
+  setSavedViewPinned(savedView: SavedWorkViewDto, isPinned: boolean): void {
+    if (!this.canMutateSavedView(savedView)) {
+      return;
+    }
+
+    this.savedViewMutationError.set(null);
+
+    this.api.updateSavedWorkView(savedView.id, { isPinned }).subscribe({
+      next: (updated) => {
+        this.replaceSavedView(updated);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.savedViewMutationError.set(
+          this.toErrorMessage(error, 'Saved view pin state could not be updated.')
         );
       }
     });

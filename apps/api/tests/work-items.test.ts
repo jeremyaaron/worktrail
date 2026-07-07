@@ -1242,13 +1242,20 @@ describe('work item API', () => {
   it('searches and filters by milestone, reporter, due date state, and board order', async () => {
     const fixture = await createFixture('owner');
     const milestone = await createMilestone(fixture);
+    const {
+      rows: [dates]
+    } = await pool.query<{ dueSoon: string; overdue: string }>(
+      `select
+        (current_date + interval '1 day')::date::text as "dueSoon",
+        (current_date - interval '1 day')::date::text as "overdue"`
+    );
     const dueSoon = await createWorkItem(fixture, {
       title: 'Launch checklist',
       description: 'Contains a planning keyword.',
       status: 'ready',
       reporterId: fixture.actorId,
       milestoneId: milestone.id,
-      dueDate: '2026-07-06',
+      dueDate: dates.dueSoon,
       boardPosition: 2048
     });
     const overdue = await createWorkItem(fixture, {
@@ -1257,7 +1264,7 @@ describe('work item API', () => {
       status: 'ready',
       reporterId: fixture.actorId,
       milestoneId: null,
-      dueDate: '2026-07-03',
+      dueDate: dates.overdue,
       boardPosition: 1024
     });
 
@@ -1277,7 +1284,7 @@ describe('work item API', () => {
         expect(body[0]).toMatchObject({
           id: dueSoon.id,
           milestone: { id: milestone.id },
-          dueDate: '2026-07-06'
+          dueDate: dates.dueSoon
         });
       });
 

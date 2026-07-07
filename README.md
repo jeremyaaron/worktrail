@@ -1,8 +1,8 @@
 # Worktrail
 
-Worktrail is a project management reference app. The v0.1.4 baseline is a local-first Angular + TypeScript API + Postgres application focused on daily team workflow, collaboration updates, reliable filtered work views, project and workspace operating lenses, cross-project discovery, dependency-aware planning, workspace governance, data portability, and production-shaped application boundaries.
+Worktrail is a project management reference app. The v0.1.5 baseline is a local-first Angular + TypeScript API + Postgres application focused on daily team workflow, collaboration updates, reliable filtered work views, pinned workspace and project operating lenses, cross-project discovery, dependency-aware planning, workspace governance, data portability, and production-shaped application boundaries.
 
-The app includes My Work, Action Inbox, top-level Work Items discovery, URL-backed filters, copyable filtered-view links, personal saved views, workspace-shared saved views, project-scoped personal and shared saved views, quick work capture, persistent project workspaces, planning review, milestone management, durable boards, work item relationships, dependency-blocked signals, project delivery health, comments, mentions, work item watchers, activity, CSV import/export, production-like preview, health/readiness checks, checked-in API documentation, CI, lint, and responsive work item scanning.
+The app includes My Work, Action Inbox, top-level Work Items discovery, URL-backed filters, copyable filtered-view links, personal saved views, workspace-shared saved views, project-scoped personal and shared saved views, pinned saved-view shortcuts, quick work capture, persistent project workspaces, planning review, milestone management, durable boards, work item relationships, dependency-blocked signals, project delivery health, comments, mentions, work item watchers, activity, CSV import/export, production-like preview, health/readiness checks, checked-in API documentation, CI, lint, and responsive work item scanning.
 
 The app is intentionally built as a credible product surface before extracting broader framework patterns. It runs locally today, while preserving a path toward an S3/CloudFront Angular frontend with API Gateway/Lambda-style endpoint handlers and managed Postgres.
 
@@ -21,6 +21,7 @@ docs/
   v0.1.2/  Reliable filtered views PRD, technical design, implementation plan, release notes, and extraction notes
   v0.1.3/  Team Work Views PRD, technical design, implementation plan, release notes, and extraction notes
   v0.1.4/  Project Work Views PRD, technical design, implementation plan, release notes, and extraction notes
+  v0.1.5/  Pinned Operating Views PRD, technical design, implementation plan, release notes, and pattern notes
   api/     OpenAPI reference
 site/       Static GitHub Pages product site
 e2e/        Playwright smoke tests
@@ -117,7 +118,7 @@ The checked-in OpenAPI reference lives at [docs/api/openapi.yaml](docs/api/opena
 
 ## Reliable Filtered Views And Saved Work Views
 
-v0.1.2 treats work item query state as a product contract. v0.1.3 extends that contract into team-shared workspace saved views. v0.1.4 adds project-scoped saved views for reusable project operating lenses. Project work item lists, workspace discovery, active filter chips, personal saved views, workspace-shared saved views, project personal/shared saved views, dashboard links, delivery-health links, detail return URLs, copy-link actions, and CSV export all use the same applied `WorkItemQuery` semantics.
+v0.1.2 treats work item query state as a product contract. v0.1.3 extends that contract into team-shared workspace saved views. v0.1.4 adds project-scoped saved views for reusable project operating lenses. v0.1.5 promotes important saved views into pinned shortcuts on the relevant workspace or project Work page. Project work item lists, workspace discovery, active filter chips, personal saved views, workspace-shared saved views, project personal/shared saved views, pinned shortcuts, dashboard links, delivery-health links, detail return URLs, copy-link actions, and CSV export all use the same applied `WorkItemQuery` semantics.
 
 Key behavior:
 
@@ -128,9 +129,16 @@ Key behavior:
 - Personal saved views store normalized query state and remain private to the selected actor within their scope.
 - Workspace-shared saved views store normalized cross-project discovery queries and are visible to all active workspace members.
 - Project-scoped saved views store normalized project Work page queries and are isolated from workspace discovery views and other projects.
+- Pinned saved views are compact shortcuts for existing saved views; pinning does not change the saved query, scope, visibility, or canonical route behavior.
+- Workspace pinned views appear on top-level Work Items, while project pinned views appear on the owning project Work page.
+- Shared pinned views appear before personal pinned views, with each group sorted alphabetically by saved-view name.
 - Owners and maintainers can create, rename, update, and delete workspace-shared saved views and shared project saved views.
+- Owners and maintainers can pin and unpin shared workspace and shared project saved views.
 - Contributors can create personal project views and open shared workspace/project views, but cannot manage shared views.
+- Contributors can open shared pinned views, but shared pin/unpin controls are hidden from contributor paths.
+- Personal saved views can be pinned or unpinned only by their owner.
 - Project saved views remain openable for archived projects, but archived projects block project-scoped saved-view create, update, and delete operations.
+- Archived projects still show existing pinned project shortcuts, but archived project saved views cannot be pinned or unpinned.
 - Personal and shared saved views open through canonical URL parameters, so copy links and CSV exports stay aligned with the applied query.
 - Saved-view summaries count meaningful filters only; default sort and default archived-project mode stay quiet.
 - CSV export uses the currently applied filters, so exports match the visible filtered result set rather than draft form values.
@@ -267,20 +275,22 @@ Suggested walkthrough:
 21. Use the project work item list search and filters. Dropdown filters apply immediately, while search applies after a short debounce.
 22. Filter by dependency state to find dependency-blocked work or work blocking downstream items.
 23. Copy the filtered project work item list link and reload it to confirm the same applied view.
-24. Open a seeded project shared view such as `Ready for QA`, confirm the project URL, active chips, and rows match the saved query, then copy the filtered project link.
-25. Save a dependency-filtered project view, reload, and reopen it.
-26. Switch to a contributor, open a shared project view, and confirm shared project management controls are unavailable while personal project views remain available.
-27. Export the currently filtered project work item list to CSV.
-28. Import a small CSV through the project import page, review dry-run validation, apply it, and confirm created work appears in the project list and board.
-29. Export a filtered cross-project workspace discovery view to CSV.
-30. Open Inbox and review unread notifications for the selected actor.
-31. Mark an individual notification read, switch to All, and mark it unread again.
-32. Open the board, drag cards within a column to set planning order, reload, and confirm the order persists.
-33. Move a card through valid workflow columns with drag/drop or the status menu.
-34. Open the work item detail page, update fields, change milestone assignment, watch or unwatch the item, mention an active member in a new comment, add and edit another comment, delete a comment, and review activity.
-35. Switch to the mentioned actor and confirm the mention appears as an unread Inbox notification linking back to the work item.
-36. Add a blocking relationship, confirm the downstream dependency signal appears, move the blocker to done, and confirm the dependency signal clears.
-37. Open the archived project to confirm read-only project, milestone, work item, label, comment, relationship, import, and transition behavior.
+24. Open a seeded pinned workspace view such as `Dependency risks` directly from the pinned shortcuts area.
+25. Open a seeded project shared view such as `Ready for QA`, confirm the project URL, active chips, and rows match the saved query, then copy the filtered project link.
+26. Pin a personal saved view from the saved-view manager, navigate away, and reopen it from the pinned shortcuts area.
+27. Switch to a contributor, open a shared pinned project view, and confirm shared project management controls are unavailable while personal project views remain available.
+28. Save a dependency-filtered project view, reload, and reopen it.
+29. Export the currently filtered project work item list to CSV.
+30. Import a small CSV through the project import page, review dry-run validation, apply it, and confirm created work appears in the project list and board.
+31. Export a filtered cross-project workspace discovery view to CSV.
+32. Open Inbox and review unread notifications for the selected actor.
+33. Mark an individual notification read, switch to All, and mark it unread again.
+34. Open the board, drag cards within a column to set planning order, reload, and confirm the order persists.
+35. Move a card through valid workflow columns with drag/drop or the status menu.
+36. Open the work item detail page, update fields, change milestone assignment, watch or unwatch the item, mention an active member in a new comment, add and edit another comment, delete a comment, and review activity.
+37. Switch to the mentioned actor and confirm the mention appears as an unread Inbox notification linking back to the work item.
+38. Add a blocking relationship, confirm the downstream dependency signal appears, move the blocker to done, and confirm the dependency signal clears.
+39. Open the archived project to confirm read-only project, milestone, work item, label, comment, relationship, import, transition, and saved-view mutation behavior.
 
 Suggested delivery-health checks:
 
@@ -290,7 +300,7 @@ Suggested delivery-health checks:
 4. Review Needs attention, Upcoming, and Recently changed planning review sections.
 5. Confirm blocked and dependency-blocked seed items affect project health, while the healthy milestone remains on track.
 
-## v0.1.4 Baseline Capabilities
+## v0.1.5 Baseline Capabilities
 
 - My Work dashboard for the selected active actor.
 - Prioritized My Work daily queue for assigned, due-soon, overdue, blocked, dependency-blocked, stale, reported, and recently updated work.
@@ -310,6 +320,12 @@ Suggested delivery-health checks:
 - Contributor read-only access to workspace-shared saved views with role-aware UI copy.
 - Project-scoped saved work views on project Work pages, split into shared project views and personal project views.
 - Seeded shared project views for release blockers, ready-for-QA queues, unassigned project work, current milestone risk, and open dependency risks.
+- Pinned saved-view shortcuts on workspace Work Items and project Work pages.
+- Pinned shared workspace views for seeded operating lenses such as dependency risks and ready-for-pickup queues.
+- Pinned shared project views for seeded project lenses such as release blockers and ready-for-QA queues.
+- Pinned personal views visible only to the owning actor.
+- Pin and unpin controls in the saved-view manager for mutable saved views.
+- Shared pinned-view activity for workspace and project operating-surface changes.
 - Owner and maintainer management for shared project views, with contributor read access and personal project-view creation.
 - Archived projects keep project saved views openable while blocking project-scoped saved-view mutations.
 - Saved-view summaries that suppress default query noise and count meaningful applied filters.
@@ -367,7 +383,7 @@ Suggested delivery-health checks:
 - ESLint guardrails for API, web, and contracts workspaces.
 - GitHub Actions CI for lint, typecheck, tests with a Postgres service, and production build.
 
-## v0.1.4 Limitations
+## v0.1.5 Limitations
 
 - Authentication is represented by local request headers and the top-bar actor selector.
 - Permissions are enforced against local member records and are useful for exercising policy paths, but they are not production authentication.
@@ -376,7 +392,7 @@ Suggested delivery-health checks:
 - Notifications are in-app only. Email, push, WebSockets, digests, notification preferences, deletion/archive controls, and background delivery workers are deferred.
 - Comment mentions are selected through an active-member picker. Rich-text editing and free-text `@name` parsing are deferred.
 - Watchers are work-item scoped only. Project-level and workspace-level watching are deferred.
-- Saved views support workspace and project scopes with personal/shared visibility. Pinned views, saved-view folders, ordering, icons, colors, descriptions, ownership transfer, custom permissions, short links, and analytics are deferred.
+- Saved views support workspace and project scopes with personal/shared visibility and pinned shortcuts. Custom pinned ordering, saved-view folders, icons, colors, descriptions, ownership transfer, custom permissions, short links, and analytics are deferred.
 - Copy-link support uses browser clipboard APIs and a textarea fallback. Native share sheets, short links, and permission customization are deferred.
 - CSV import is project-scoped and limited to 1 MiB and 250 data rows per file.
 - CSV import supports Worktrail's current columns only; third-party tracker migration mappings are deferred.
@@ -386,13 +402,13 @@ Suggested delivery-health checks:
 - Relationship activity is recorded on the command context item only to avoid noisy cross-project activity.
 - Custom workflows, file attachments, and production auth are intentionally out of scope.
 - Invitations, multi-workspace switching, custom roles, project-specific membership, pinned projects, recent projects, and audit export are intentionally out of scope.
-- The local Express adapter is the only runtime adapter in v0.1.4, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
+- The local Express adapter is the only runtime adapter in v0.1.5, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
 - AWS deployment assets are not included yet; the Angular static build and transport-neutral handlers preserve that path.
 - Readiness checks database connectivity only; migration drift detection, metrics, tracing, and managed deployment runbooks are deferred.
 
 ## Database Status
 
-The current schema includes workspace activity, member lifecycle metadata, project keys, scoped work item display keys, labels, milestones, comments, comment mentions, project activity, due dates, durable board positions, work item relationships, work item watchers, notifications, workspace-scoped saved work views, and project-scoped saved work views.
+The current schema includes workspace activity, member lifecycle metadata, project keys, scoped work item display keys, labels, milestones, comments, comment mentions, project activity, due dates, durable board positions, work item relationships, work item watchers, notifications, workspace-scoped saved work views, project-scoped saved work views, and saved-view pinned state.
 
 Useful database commands:
 

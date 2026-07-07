@@ -309,6 +309,7 @@ describe('WorktrailApiService', () => {
       name: 'Open bugs',
       scope: 'workspace',
       visibility: 'personal',
+      isPinned: false,
       query: { type: 'bug', workState: 'open' },
       createdAt: '2026-07-04T12:00:00.000Z',
       updatedAt: '2026-07-04T12:00:00.000Z'

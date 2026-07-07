@@ -118,7 +118,7 @@ export class SavedWorkViewService {
       this.requireActorMember(),
       this.requireMutableSavedView(savedViewId)
     ]);
-    const patch: { name?: string; query?: WorkItemQuery; updatedAt: Date } = {
+    const patch: { name?: string; query?: WorkItemQuery; isPinned?: boolean; updatedAt: Date } = {
       updatedAt: this.clock()
     };
     let normalizedQuery: WorkItemQuery | undefined;
@@ -144,9 +144,14 @@ export class SavedWorkViewService {
       patch.query = normalizedQuery;
     }
 
+    if (input.isPinned !== undefined) {
+      patch.isPinned = input.isPinned;
+    }
+
     const updated = await this.context.repositories.savedWorkViews.update(current.id, {
       ...(patch.name === undefined ? {} : { name: patch.name }),
       ...(patch.query === undefined ? {} : { query: patch.query as Record<string, unknown> }),
+      ...(patch.isPinned === undefined ? {} : { isPinned: patch.isPinned }),
       updatedAt: patch.updatedAt
     });
 
@@ -160,6 +165,7 @@ export class SavedWorkViewService {
         updated,
         actor,
         normalizedQuery,
+        requestedIsPinned: input.isPinned,
         timestamp: patch.updatedAt
       });
     }
@@ -358,6 +364,7 @@ export class SavedWorkViewService {
     updated: SavedWorkView;
     actor: Member;
     normalizedQuery?: WorkItemQuery;
+    requestedIsPinned?: boolean;
     timestamp: Date;
   }): Promise<void> {
     const nameChanged = input.current.name !== input.updated.name;
@@ -365,17 +372,19 @@ export class SavedWorkViewService {
       input.normalizedQuery !== undefined &&
       this.stringifyComparableJson(input.current.query) !==
         this.stringifyComparableJson(input.normalizedQuery);
+    const pinChanged =
+      input.requestedIsPinned !== undefined && input.current.isPinned !== input.updated.isPinned;
 
-    if (!nameChanged && !queryChanged) {
+    if (!nameChanged && !queryChanged && !pinChanged) {
       return;
     }
 
-    const eventType =
-      nameChanged && queryChanged
-        ? 'saved_view.updated'
-        : nameChanged
-          ? 'saved_view.name_changed'
-          : 'saved_view.query_changed';
+    const eventType = this.sharedSavedViewUpdateEventType({
+      nameChanged,
+      queryChanged,
+      pinChanged,
+      isPinned: input.updated.isPinned
+    });
 
     await this.recordSharedSavedViewActivity({
       eventType,
@@ -386,7 +395,8 @@ export class SavedWorkViewService {
         current: input.current,
         updated: input.updated,
         nameChanged,
-        queryChanged
+        queryChanged,
+        pinChanged
       }),
       previousValue: this.savedViewActivityValue(input.current),
       newValue: this.savedViewActivityValue(input.updated),
@@ -400,8 +410,13 @@ export class SavedWorkViewService {
     updated: SavedWorkView;
     nameChanged: boolean;
     queryChanged: boolean;
+    pinChanged: boolean;
   }): string {
     const label = input.updated.scope === 'project' ? 'shared project view' : 'shared view';
+
+    if ((input.nameChanged || input.queryChanged) && input.pinChanged) {
+      return `${input.actor.name} updated ${label} ${input.updated.name}.`;
+    }
 
     if (input.nameChanged && input.queryChanged) {
       return `${input.actor.name} updated ${label} ${input.updated.name}.`;
@@ -411,7 +426,40 @@ export class SavedWorkViewService {
       return `${input.actor.name} renamed ${label} ${input.current.name} to ${input.updated.name}.`;
     }
 
-    return `${input.actor.name} updated ${label} ${input.updated.name} filters.`;
+    if (input.queryChanged) {
+      return `${input.actor.name} updated ${label} ${input.updated.name} filters.`;
+    }
+
+    if (input.updated.isPinned) {
+      return `${input.actor.name} pinned ${label} ${input.updated.name}.`;
+    }
+
+    return `${input.actor.name} unpinned ${label} ${input.updated.name}.`;
+  }
+
+  private sharedSavedViewUpdateEventType(input: {
+    nameChanged: boolean;
+    queryChanged: boolean;
+    pinChanged: boolean;
+    isPinned: boolean;
+  }): WorkspaceActivityEventType | ActivityEventType {
+    if ((input.nameChanged || input.queryChanged) && input.pinChanged) {
+      return 'saved_view.updated';
+    }
+
+    if (input.nameChanged && input.queryChanged) {
+      return 'saved_view.updated';
+    }
+
+    if (input.nameChanged) {
+      return 'saved_view.name_changed';
+    }
+
+    if (input.queryChanged) {
+      return 'saved_view.query_changed';
+    }
+
+    return input.isPinned ? 'saved_view.pinned' : 'saved_view.unpinned';
   }
 
   private sharedSavedViewCreateSummary(actor: Member, savedView: SavedWorkView): string {
@@ -495,6 +543,7 @@ export class SavedWorkViewService {
       scope: savedView.scope,
       projectId: savedView.projectId,
       visibility: savedView.visibility,
+      isPinned: savedView.isPinned,
       query: savedView.query
     };
   }

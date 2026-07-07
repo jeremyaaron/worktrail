@@ -1112,7 +1112,7 @@ paths:
     post:
       tags: [Saved Work Views]
       summary: Create a saved work view.
-      description: Creates a personal workspace saved view by default. Creating a shared saved view requires owner or maintainer role. Project-scoped saved views require `scope=project` and `projectId`, strip workspace-only query fields, and cannot be created for archived projects.
+      description: Creates a personal workspace saved view by default. New saved views are created unpinned. Creating a shared saved view requires owner or maintainer role. Project-scoped saved views require `scope=project` and `projectId`, strip workspace-only query fields, and cannot be created for archived projects.
       requestBody:
         required: true
         content:
@@ -1132,7 +1132,7 @@ paths:
     patch:
       tags: [Saved Work Views]
       summary: Update a saved work view.
-      description: Personal saved views can only be updated by their owner. Shared saved views require owner or maintainer role. Archived project-scoped saved views cannot be mutated.
+      description: Personal saved views can only be updated by their owner. Shared saved views require owner or maintainer role. The same update route handles rename, query updates, pin, and unpin. Archived project-scoped saved views cannot be mutated.
       parameters:
         - $ref: "#/components/parameters/SavedViewId"
       requestBody:
@@ -1619,7 +1619,7 @@ components:
           $ref: "#/components/schemas/Member"
         eventType:
           type: string
-          examples: [workspace.name_changed, project.created, saved_view.created, saved_view.updated]
+          examples: [workspace.name_changed, project.created, saved_view.created, saved_view.updated, saved_view.pinned, saved_view.unpinned]
         summary:
           type: string
         previousValue:
@@ -2718,7 +2718,7 @@ components:
           $ref: "#/components/schemas/Member"
         eventType:
           type: string
-          examples: [work_item.relationship_added, work_item.relationship_removed]
+          examples: [work_item.relationship_added, work_item.relationship_removed, saved_view.pinned, saved_view.unpinned]
         summary:
           type: string
         previousValue:
@@ -2783,7 +2783,7 @@ components:
             $ref: "#/components/schemas/WorkspaceWorkItemListItem"
     SavedWorkView:
       type: object
-      required: [id, workspaceId, projectId, scope, owner, name, visibility, query, createdAt, updatedAt]
+      required: [id, workspaceId, projectId, scope, owner, name, visibility, isPinned, query, createdAt, updatedAt]
       properties:
         id:
           type: string
@@ -2804,6 +2804,9 @@ components:
           type: string
         visibility:
           $ref: "#/components/schemas/SavedWorkViewVisibility"
+        isPinned:
+          type: boolean
+          description: Whether the saved view is promoted into the pinned shortcuts area for its workspace or project scope.
         query:
           $ref: "#/components/schemas/WorkItemQuery"
         createdAt:
@@ -2839,3 +2842,6 @@ components:
           type: string
         query:
           $ref: "#/components/schemas/WorkItemQuery"
+        isPinned:
+          type: boolean
+          description: Pin or unpin the saved view without changing its name, query, scope, project, or visibility.

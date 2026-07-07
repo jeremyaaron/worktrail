@@ -104,10 +104,15 @@ describe('OpenAPI reference', () => {
     expect(openApi).toContain('SavedViewScopeQuery:');
     expect(openApi).toContain('SavedViewProjectIdQuery:');
     expect(openApi).toContain('Use `scope=project` with `projectId` to list views saved for one active or archived project.');
+    expect(openApi).toContain('New saved views are created unpinned.');
     expect(openApi).toContain('Creating a shared saved view requires owner or maintainer role.');
+    expect(openApi).toContain('isPinned:');
+    expect(openApi).toContain('Pin or unpin the saved view without changing its name, query, scope, project, or visibility.');
     expect(openApi).toContain('Archived project-scoped saved views cannot be mutated.');
     expect(openApi).toContain('saved_view.created');
     expect(openApi).toContain('saved_view.updated');
+    expect(openApi).toContain('saved_view.pinned');
+    expect(openApi).toContain('saved_view.unpinned');
     expect(openApi).toContain('unmilestoned_risk');
     expect(openApi).toContain('target_date_past');
     expect(openApi).toContain('dependency_blocked');
