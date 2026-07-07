@@ -18,6 +18,7 @@ export type ArchivedProjectMode = 'exclude' | 'include' | 'only';
 export type AssigneeState = 'assigned' | 'unassigned';
 export type WorkItemState = 'open' | 'terminal';
 export type DependencyFilter = 'dependency_blocked' | 'blocking_open_work';
+export type WorkItemRiskFilter = 'unassigned_active' | 'stale_in_progress';
 export type WorkItemSort =
   | 'updated_desc'
   | 'updated_asc'
@@ -41,6 +42,7 @@ export interface WorkItemQuery {
   dueDateState?: DueDateState;
   blocked?: boolean;
   dependency?: DependencyFilter;
+  workRisk?: WorkItemRiskFilter;
   archivedProjects?: ArchivedProjectMode;
   search?: string;
   sort?: WorkItemSort;

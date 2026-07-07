@@ -5,6 +5,14 @@ import type { WorkItemPriority, WorkItemQuery, WorkItemStatus } from './work-ite
 
 export type MilestoneStatus = 'planned' | 'active' | 'completed' | 'canceled';
 export type PlanningReviewItemKind = 'work_item' | 'milestone' | 'activity';
+export type MilestoneReviewRiskType =
+  | 'blocked'
+  | 'dependency_blocked'
+  | 'overdue'
+  | 'due_soon'
+  | 'unassigned_active'
+  | 'stale_in_progress'
+  | 'blocking_open_work';
 
 export interface MilestoneDto {
   id: string;
@@ -93,4 +101,40 @@ export interface ProjectPlanningSummaryDto {
   staleInProgressWork: PlanningRiskItemDto[];
   dependencyBlockedWork: PlanningRiskItemDto[];
   blockingOpenWork: PlanningRiskItemDto[];
+}
+
+export interface MilestoneReviewScopeBreakdownDto {
+  statusCounts: Record<WorkItemStatus, number>;
+  priorityCounts: Record<WorkItemPriority, number>;
+  assignedCount: number;
+  unassignedCount: number;
+  dueDate: {
+    overdueCount: number;
+    dueSoonCount: number;
+    laterCount: number;
+    noneCount: number;
+  };
+  dependency: {
+    dependencyBlockedCount: number;
+    blockingOpenWorkCount: number;
+  };
+}
+
+export interface MilestoneReviewRiskSectionDto {
+  type: MilestoneReviewRiskType;
+  title: string;
+  description: string;
+  count: number;
+  query: WorkItemQuery;
+  items: PlanningRiskItemDto[];
+}
+
+export interface MilestoneReviewDto {
+  project: ProjectDto;
+  milestone: MilestoneDto;
+  progress: MilestoneProgressDto;
+  scopedWorkQuery: WorkItemQuery;
+  scopeBreakdown: MilestoneReviewScopeBreakdownDto;
+  riskSections: MilestoneReviewRiskSectionDto[];
+  recentlyChangedWork: PlanningRiskItemDto[];
 }

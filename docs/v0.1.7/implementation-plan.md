@@ -155,7 +155,28 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-07.
+- Updated `packages/contracts/src/work-items.ts`:
+  - added `WorkItemRiskFilter`;
+  - added optional `workRisk?: WorkItemRiskFilter` to `WorkItemQuery`.
+- Updated `packages/contracts/src/planning.ts`:
+  - added `MilestoneReviewRiskType`;
+  - added `MilestoneReviewScopeBreakdownDto`;
+  - added `MilestoneReviewRiskSectionDto`;
+  - added `MilestoneReviewDto`.
+- Updated `packages/contracts/src/work-item-query.contract.test.ts` to prove canonical query state can carry `workRisk`.
+- Added `packages/contracts/src/milestone-review.contract.test.ts` covering:
+  - milestone review response shape;
+  - scope breakdown counts;
+  - risk section DTOs;
+  - recent movement rows;
+  - milestone review risk types;
+  - `WorkItemRiskFilter` query values.
+- Verified:
+  - `npm test --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/contracts`;
+  - `npm run lint --workspace @worktrail/contracts`;
+  - `git diff --check`.
 
 ## Phase 2: API Query Parsing And Repository Filtering
 

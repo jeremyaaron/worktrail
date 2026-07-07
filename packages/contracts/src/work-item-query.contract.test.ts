@@ -18,6 +18,7 @@ describe('work item query contracts', () => {
       assigneeState: 'assigned',
       dueDateState: 'due_soon',
       dependency: 'dependency_blocked',
+      workRisk: 'stale_in_progress',
       archivedProjects: 'exclude',
       search: 'api',
       sort: 'priority_desc'
@@ -29,6 +30,7 @@ describe('work item query contracts', () => {
       assigneeState: 'assigned',
       dueDateState: 'due_soon',
       dependency: 'dependency_blocked',
+      workRisk: 'stale_in_progress',
       archivedProjects: 'exclude',
       search: 'api',
       sort: 'priority_desc'
