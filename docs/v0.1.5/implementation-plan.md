@@ -803,6 +803,44 @@ git status --short --branch
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-06.
+- Updated `README.md` for v0.1.5:
+  - current baseline language;
+  - pinned workspace and project operating lenses;
+  - personal versus shared pinned saved views;
+  - workspace versus project pinned shortcut placement;
+  - owner/maintainer/contributor pin behavior;
+  - archived project saved-view read-only behavior;
+  - seeded walkthrough steps for pinned shortcuts;
+  - v0.1.5 capability and limitation lists.
+- Updated `site/index.html` for v0.1.5:
+  - pinned operating views in metadata, hero copy, signals, product copy, and baseline copy;
+  - removed pinned saved views from the public out-of-scope list;
+  - linked the footer to v0.1.5 docs and destination-neutral pattern notes.
+- Added `docs/v0.1.5/release-notes.md`.
+- Added `docs/v0.1.5/pattern-extraction-notes.md` with destination-neutral promoted-query-artifact notes.
+- Updated `docs/v0.1.5/technical-design.md` to record the seed ownership repair for deterministic saved-view upserts.
+- Confirmed `docs/api/openapi.yaml` already documents:
+  - `isPinned`;
+  - update-route pin/unpin behavior;
+  - archived project mutation restrictions;
+  - pinned/unpinned activity examples.
+- Confirmed no generated build or test artifacts are unintentionally included; generated `dist/`, `node_modules/`, and `test-results/` paths are ignored.
+- Confirmed new v0.1.5 docs, README, and site do not contain discontinued framework references.
+- Verified:
+  - `npm run lint`;
+  - `npm run typecheck`;
+  - `npm run db:reset`;
+  - `npm run db:migrate`;
+  - `npm run db:seed`;
+  - `npm test`;
+  - `npm run build`;
+  - `npm run test:e2e`;
+  - `git status --short --branch`;
+  - `git diff --check`.
+
 ## Verification Cadence
 
 Use focused verification during implementation and full verification during finalization:

@@ -353,9 +353,10 @@ Recommended pinned shared project views for Worktrail App:
 
 All other saved views can rely on default `false` or set `isPinned: false` where explicitness improves fixture clarity.
 
-Seed upsert should update `isPinned`:
+Seed upsert should update pinned state and ownership for deterministic saved-view rows:
 
 ```ts
+ownerMemberId: sql`excluded.owner_member_id`,
 isPinned: sql`excluded.is_pinned`
 ```
 
