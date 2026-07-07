@@ -371,7 +371,34 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-07.
+- Extended `apps/api/tests/planning.test.ts` for:
+  - empty milestone review with deterministic zero-count scope breakdowns and risk sections;
+  - recent movement ordering and the 8-item cap;
+  - project-from-other-workspace not-found behavior.
+- Confirmed earlier Phase 3 tests already cover:
+  - active and risky milestone review derivation;
+  - archived project readability;
+  - archived milestone readability;
+  - milestone from another project rejection;
+  - risk section query payloads.
+- Updated `docs/api/openapi.yaml`:
+  - bumped API reference version to `0.1.7`;
+  - added `/api/projects/{projectId}/milestones/{milestoneId}/review`;
+  - added `MilestoneReview`;
+  - added `MilestoneReviewScopeBreakdown`;
+  - added `MilestoneReviewRiskSection`;
+  - added `MilestoneReviewRiskType`;
+  - added `WorkItemRiskFilter`;
+  - added `workRisk` to `WorkItemQuery`.
+- Updated `apps/api/tests/openapi.test.ts` to assert the new path and schemas.
+- Verified:
+  - `npm test --workspace @worktrail/api -- tests/planning.test.ts tests/openapi.test.ts tests/server.test.ts`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/api`;
+  - `git diff --check`.
+- Note: the first full `npm test --workspace @worktrail/api` run hit an unrelated saved-work-views 404; `tests/saved-work-views.test.ts` passed in isolation and the full API suite passed on rerun.
 
 ## Phase 5: Angular API Client, Route, And Page Shell
 

@@ -782,4 +782,113 @@ describe('planning summary', () => {
       'Milestone not found.'
     );
   });
+
+  it('returns an empty milestone review with deterministic zero-count sections', async () => {
+    const fixture = await createFixture();
+    const milestone = await createMilestone(fixture, {
+      name: 'empty review milestone',
+      status: 'active',
+      targetDate: '2026-07-18'
+    });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/milestones/${milestone.id}/review`)
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.progress).toMatchObject({
+          totalCount: 0,
+          doneCount: 0,
+          openCount: 0
+        });
+        expect(body.scopeBreakdown).toMatchObject({
+          statusCounts: {
+            backlog: 0,
+            ready: 0,
+            in_progress: 0,
+            blocked: 0,
+            done: 0,
+            canceled: 0
+          },
+          priorityCounts: {
+            low: 0,
+            medium: 0,
+            high: 0,
+            urgent: 0
+          },
+          assignedCount: 0,
+          unassignedCount: 0,
+          dueDate: {
+            overdueCount: 0,
+            dueSoonCount: 0,
+            laterCount: 0,
+            noneCount: 0
+          },
+          dependency: {
+            dependencyBlockedCount: 0,
+            blockingOpenWorkCount: 0
+          }
+        });
+        expect(body.riskSections).toHaveLength(7);
+        expect(body.riskSections.every((section: { count: number; items: unknown[] }) =>
+          section.count === 0 && section.items.length === 0
+        )).toBe(true);
+        expect(body.recentlyChangedWork).toEqual([]);
+      });
+  });
+
+  it('caps milestone review recent movement at the eight most recently updated items', async () => {
+    const fixture = await createFixture();
+    const milestone = await createMilestone(fixture, {
+      name: 'recent movement review',
+      status: 'active'
+    });
+    const created = [];
+
+    for (let index = 0; index < 10; index += 1) {
+      const day = String(index + 1).padStart(2, '0');
+      created.push(
+        await createWorkItem(fixture, {
+          title: `Recent movement ${index + 1}`,
+          status: 'ready',
+          milestoneId: milestone.id,
+          updatedAt: new Date(`2026-07-${day}T12:00:00.000Z`)
+        })
+      );
+    }
+
+    const service = new MilestoneReviewService({
+      actor: fixture.actor,
+      repositories,
+      clock: now
+    });
+    const review = await service.getMilestoneReview(fixture.projectId, milestone.id);
+
+    expect(review.recentlyChangedWork.map((item) => item.id)).toEqual(
+      created
+        .slice(2)
+        .reverse()
+        .map((item) => item.id)
+    );
+  });
+
+  it('hides milestone review projects from other workspaces', async () => {
+    const visibleFixture = await createFixture();
+    const hiddenFixture = await createFixture();
+    const hiddenMilestone = await createMilestone(hiddenFixture, {
+      name: 'hidden milestone',
+      status: 'active'
+    });
+
+    await request(app)
+      .get(`/api/projects/${hiddenFixture.projectId}/milestones/${hiddenMilestone.id}/review`)
+      .set(visibleFixture.headers)
+      .expect(404)
+      .expect(({ body }) => {
+        expect(body.error).toEqual({
+          code: 'NOT_FOUND',
+          message: 'Project not found.'
+        });
+      });
+  });
 });

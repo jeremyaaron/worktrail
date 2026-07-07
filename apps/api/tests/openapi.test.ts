@@ -29,6 +29,7 @@ describe('OpenAPI reference', () => {
       '/api/projects/{projectId}',
       '/api/projects/{projectId}/summary',
       '/api/projects/{projectId}/planning-summary',
+      '/api/projects/{projectId}/milestones/{milestoneId}/review',
       '/api/projects/{projectId}/activity',
       '/api/projects/{projectId}/archive',
       '/api/projects/{projectId}/reactivate',
@@ -104,6 +105,12 @@ describe('OpenAPI reference', () => {
     expect(openApi).toContain('PlanningReviewItemKind:');
     expect(openApi).toContain('PlanningReviewItem:');
     expect(openApi).toContain('PlanningReview:');
+    expect(openApi).toContain('MilestoneReviewRiskType:');
+    expect(openApi).toContain('MilestoneReviewScopeBreakdown:');
+    expect(openApi).toContain('MilestoneReviewRiskSection:');
+    expect(openApi).toContain('MilestoneReview:');
+    expect(openApi).toContain('WorkItemRiskFilter:');
+    expect(openApi).toContain('workRisk:');
     expect(openApi).toContain('deliveryHealth:');
     expect(openApi).toContain('planningReview:');
     expect(openApi).toContain('SavedWorkViewVisibility:');

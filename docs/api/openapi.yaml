@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Worktrail API
-  version: 0.1.6
+  version: 0.1.7
   summary: HTTP API reference for the Worktrail local-first project management app.
   description: |
     This document describes the implemented Worktrail API routes. It is intentionally
@@ -396,6 +396,23 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProjectPlanningSummary"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/projects/{projectId}/milestones/{milestoneId}/review:
+    get:
+      tags: [Milestones]
+      summary: Get milestone review.
+      description: Derived, read-only milestone review with progress, health, scoped risk sections, recent movement, and project Work query links. The response is computed at read time and does not create a persisted snapshot.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/MilestoneId"
+      responses:
+        "200":
+          description: Milestone review.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MilestoneReview"
         default:
           $ref: "#/components/responses/Error"
   /api/projects/{projectId}/activity:
@@ -1459,6 +1476,10 @@ components:
     DependencyFilter:
       type: string
       enum: [dependency_blocked, blocking_open_work]
+    WorkItemRiskFilter:
+      type: string
+      enum: [unassigned_active, stale_in_progress]
+      description: URL-backed risk filter used by milestone review action links and project Work queries.
     DeliveryHealthState:
       type: string
       enum: [healthy, at_risk, blocked, complete, inactive]
@@ -1524,6 +1545,8 @@ components:
           type: boolean
         dependency:
           $ref: "#/components/schemas/DependencyFilter"
+        workRisk:
+          $ref: "#/components/schemas/WorkItemRiskFilter"
         archivedProjects:
           type: string
           enum: [exclude, include, only]
@@ -1803,6 +1826,119 @@ components:
           items:
             $ref: "#/components/schemas/PlanningRiskItem"
         blockingOpenWork:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanningRiskItem"
+    MilestoneReviewRiskType:
+      type: string
+      enum:
+        - blocked
+        - dependency_blocked
+        - overdue
+        - due_soon
+        - unassigned_active
+        - stale_in_progress
+        - blocking_open_work
+    MilestoneReviewScopeBreakdown:
+      type: object
+      required:
+        - statusCounts
+        - priorityCounts
+        - assignedCount
+        - unassignedCount
+        - dueDate
+        - dependency
+      properties:
+        statusCounts:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 0
+          description: Complete count map keyed by WorkItemStatus.
+        priorityCounts:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 0
+          description: Complete count map keyed by WorkItemPriority.
+        assignedCount:
+          type: integer
+          minimum: 0
+        unassignedCount:
+          type: integer
+          minimum: 0
+        dueDate:
+          type: object
+          required: [overdueCount, dueSoonCount, laterCount, noneCount]
+          properties:
+            overdueCount:
+              type: integer
+              minimum: 0
+            dueSoonCount:
+              type: integer
+              minimum: 0
+            laterCount:
+              type: integer
+              minimum: 0
+            noneCount:
+              type: integer
+              minimum: 0
+        dependency:
+          type: object
+          required: [dependencyBlockedCount, blockingOpenWorkCount]
+          properties:
+            dependencyBlockedCount:
+              type: integer
+              minimum: 0
+            blockingOpenWorkCount:
+              type: integer
+              minimum: 0
+    MilestoneReviewRiskSection:
+      type: object
+      required: [type, title, description, count, query, items]
+      properties:
+        type:
+          $ref: "#/components/schemas/MilestoneReviewRiskType"
+        title:
+          type: string
+        description:
+          type: string
+        count:
+          type: integer
+          minimum: 0
+        query:
+          $ref: "#/components/schemas/WorkItemQuery"
+        items:
+          type: array
+          description: Preview rows capped by the API; use the query to open the complete filtered project Work list.
+          items:
+            $ref: "#/components/schemas/PlanningRiskItem"
+    MilestoneReview:
+      type: object
+      required:
+        - project
+        - milestone
+        - progress
+        - scopedWorkQuery
+        - scopeBreakdown
+        - riskSections
+        - recentlyChangedWork
+      properties:
+        project:
+          $ref: "#/components/schemas/Project"
+        milestone:
+          $ref: "#/components/schemas/Milestone"
+        progress:
+          $ref: "#/components/schemas/MilestoneProgress"
+        scopedWorkQuery:
+          $ref: "#/components/schemas/WorkItemQuery"
+        scopeBreakdown:
+          $ref: "#/components/schemas/MilestoneReviewScopeBreakdown"
+        riskSections:
+          type: array
+          items:
+            $ref: "#/components/schemas/MilestoneReviewRiskSection"
+        recentlyChangedWork:
           type: array
           items:
             $ref: "#/components/schemas/PlanningRiskItem"
