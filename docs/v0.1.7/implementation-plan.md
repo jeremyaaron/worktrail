@@ -645,7 +645,18 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed:
+  - linked milestone progress names to `/projects/:projectId/milestones/:milestoneId`;
+  - added a compact `Open work` action beside milestone progress names to preserve the existing filtered Work path;
+  - linked milestone-type planning review rows to milestone review pages;
+  - left delivery-health reason chips and risk section list links pointed at filtered Project Work;
+  - updated Planning tests to assert the new milestone review links and the retained filtered Work links.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include src/app/features/projects/project-planning-page.component.spec.ts --include src/app/features/projects/project-milestone-review-page.component.spec.ts`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `npm run build --workspace @worktrail/web`;
+  - `git diff --check`.
 
 ## Phase 9: Seed Review, Playwright Smoke, And Responsive Polish
 

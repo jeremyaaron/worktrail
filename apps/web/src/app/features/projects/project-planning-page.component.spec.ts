@@ -381,6 +381,7 @@ describe('ProjectPlanningPageComponent', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     const progressLink = compiled.querySelector<HTMLAnchorElement>('.progress-row__heading-link');
+    const progressWorkLink = compiled.querySelector<HTMLAnchorElement>('.progress-row__work-link');
     const riskLinks = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('.risk-row')).map(
       (link) => ({
         text: link.textContent ?? '',
@@ -416,6 +417,10 @@ describe('ProjectPlanningPageComponent', () => {
     expect(compiled.textContent).toContain('Blocking open work');
     expect(compiled.textContent).toContain('Finish shared dependency package');
     expect(progressLink?.getAttribute('href')).toBe(
+      `/projects/${projectId}/milestones/${activeMilestone.id}`
+    );
+    expect(progressWorkLink?.textContent?.trim()).toBe('Open work');
+    expect(progressWorkLink?.getAttribute('href')).toBe(
       `/projects/${projectId}/work-items?milestoneId=${activeMilestone.id}&sort=due_date_asc`
     );
     expect(riskLinks).toContain(jasmine.objectContaining({
@@ -440,7 +445,7 @@ describe('ProjectPlanningPageComponent', () => {
     }));
     expect(reviewLinks).toContain(jasmine.objectContaining({
       text: jasmine.stringContaining('v0.0.3'),
-      href: `/projects/${projectId}/work-items?milestoneId=${activeMilestone.id}&sort=due_date_asc`
+      href: `/projects/${projectId}/milestones/${activeMilestone.id}`
     }));
     expect(reviewLinks).toContain(jasmine.objectContaining({
       text: jasmine.stringContaining('WT-4'),
