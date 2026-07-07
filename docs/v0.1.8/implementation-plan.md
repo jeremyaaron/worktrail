@@ -170,7 +170,30 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-07.
+- Updated `packages/contracts/src/projects.ts` with:
+  - `ProjectStatusReportCountSnapshotDto`;
+  - `ProjectStatusReportMilestoneSnapshotDto`;
+  - `ProjectStatusReportLinkType`;
+  - `ProjectStatusReportLinkDto`;
+  - `ProjectStatusReportRiskType`;
+  - `ProjectStatusReportRiskSnapshotDto`;
+  - `ProjectStatusReportSnapshotDto`;
+  - `ProjectStatusReportSummaryDto`;
+  - `ProjectStatusReportDetailDto`;
+  - `ProjectStatusReportDraftDto`;
+  - `CreateProjectStatusReportRequest`.
+- Updated `packages/contracts/src/activity.ts` with `status_report.published`.
+- Added `packages/contracts/src/project-status-reports.contract.test.ts` covering:
+  - snapshot version and nested snapshot shape;
+  - generated draft, create request, summary, and detail shapes;
+  - risk snapshots carrying `workRisk`;
+  - semantic report links;
+  - `status_report.published` activity type.
+- Verified:
+  - `npm test --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/contracts`;
+  - `npm run lint --workspace @worktrail/contracts`.
 
 ## Phase 2: Schema, Migration, And Repository
 
