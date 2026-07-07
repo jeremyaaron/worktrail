@@ -66,7 +66,7 @@ Scope:
 - Confirm `docs/v0.1.8/implementation-plan.md` exists.
 - Confirm active branch and repository status.
 - Confirm no unresolved technical choice blocks Phase 1.
-- Confirm sprint docs avoid discontinued extraction-target references.
+- Confirm sprint docs use destination-neutral pattern extraction language.
 - Confirm no runtime files have been changed for v0.1.8 yet.
 - Confirm whether a `v0.1.8` branch should be checked out before runtime work begins.
 
@@ -90,13 +90,30 @@ Suggested commands:
 ```sh
 find docs/v0.1.8 -maxdepth 1 -type f | sort
 git status --short --branch
-rg -n "jawstack|TODO|TBD" docs/v0.1.8
 git diff --check
 ```
 
 Status:
 
-- Not started.
+- Completed on 2026-07-07.
+- Confirmed v0.1.8 planning inputs exist:
+  - `docs/v0.1.8/prd.md`;
+  - `docs/v0.1.8/technical-design.md`;
+  - `docs/v0.1.8/implementation-plan.md`.
+- Confirmed active branch is `v0.1.8` tracking `origin/v0.1.8`; no branch checkout is needed before runtime work begins.
+- Confirmed the worktree has no runtime changes for v0.1.8 yet.
+- Confirmed implementation decisions:
+  - add project-shell status routes at `/projects/:projectId/status`, `/projects/:projectId/status/new`, and `/projects/:projectId/status/:reportId`;
+  - add project status report API routes under `/api/projects/:projectId/status-reports`;
+  - add one persisted `project_status_reports` table;
+  - store immutable status report snapshots as contract-owned JSONB with `snapshotVersion: 1`;
+  - add `status_report.published` project activity;
+  - keep list/detail readable for contributors and archived projects;
+  - keep draft/publish owner/maintainer-only and active-project-only;
+  - defer edits, deletes, exports, scheduled delivery, approvals, comments, workspace rollups, forecasting, roadmaps, and production auth.
+- Confirmed sprint docs use destination-neutral pattern extraction language.
+- Verified `git diff --check`.
+- No unresolved technical choice blocks Phase 1.
 
 ## Phase 1: Contracts And Activity Type
 
@@ -703,7 +720,7 @@ Scope:
   - live links from historical reports;
   - report permissions and archive behavior;
   - criteria for deferring generic reporting infrastructure.
-- Confirm documentation avoids discontinued extraction-target references.
+- Confirm documentation uses destination-neutral pattern extraction language.
 - Confirm OpenAPI is current.
 - Run final verification.
 - Record final verification results in the implementation plan.
