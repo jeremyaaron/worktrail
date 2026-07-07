@@ -23,6 +23,7 @@ import type {
   WorkItemQuery,
   WorkItemRelationshipDto,
   WorkItemRelationshipSummaryDto,
+  WorkItemRiskFilter,
   WorkItemSort,
   WorkItemStatus,
   WorkItemType,
@@ -47,6 +48,7 @@ export interface WorkItemListFilters {
   priority?: WorkItemPriority;
   dueDateState?: DueDateState;
   dependency?: DependencyFilter;
+  workRisk?: WorkItemRiskFilter;
   search?: string;
   sort?: WorkItemSort;
 }

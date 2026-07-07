@@ -5,6 +5,7 @@ import type {
   DueDateState,
   WorkItemPriority,
   WorkItemQuery,
+  WorkItemRiskFilter,
   WorkItemSort,
   WorkItemState,
   WorkItemStatus,
@@ -27,6 +28,7 @@ export interface ProjectWorkItemFilters {
   priority?: WorkItemPriority;
   dueDateState?: DueDateState;
   dependency?: DependencyFilter;
+  workRisk?: WorkItemRiskFilter;
   search?: string;
   sort?: WorkItemSort;
 }
@@ -62,6 +64,7 @@ export function projectQueryFromFormValue(formValue: ProjectWorkItemFilterFormVa
     priority: optionalFilterValue(formValue.priority) as WorkItemPriority | undefined,
     dueDateState: optionalFilterValue(formValue.dueDateState) as DueDateState | undefined,
     dependency: optionalFilterValue(formValue.dependency) as DependencyFilter | undefined,
+    workRisk: optionalFilterValue(formValue.workRisk) as WorkItemRiskFilter | undefined,
     sort: formValue.sort as WorkItemSort
   });
 }
@@ -86,6 +89,7 @@ export function projectRouterQueryParamsFromQuery(query: WorkItemQuery): RouterQ
     priority: query.priority ?? null,
     dueDateState: query.dueDateState ?? null,
     dependency: query.dependency ?? null,
+    workRisk: query.workRisk ?? null,
     sort: sort === 'updated_desc' ? null : sort
   };
 }
@@ -104,6 +108,7 @@ export function projectFormValueFromQueryParams(
     priority: params.get('priority') ?? '',
     dueDateState: params.get('dueDateState') ?? '',
     dependency: params.get('dependency') ?? '',
+    workRisk: params.get('workRisk') ?? '',
     sort: params.get('sort') ?? 'updated_desc'
   };
 }
@@ -120,6 +125,7 @@ export function projectFormValueFromQuery(query: WorkItemQuery): ProjectWorkItem
     priority: query.priority ?? '',
     dueDateState: query.dueDateState ?? '',
     dependency: query.dependency ?? '',
+    workRisk: query.workRisk ?? '',
     sort: query.sort ?? 'updated_desc'
   };
 }
@@ -206,6 +212,7 @@ export function workspaceFormValueFromQuery(query: WorkItemQuery): WorkspaceWork
     dueDateState: query.dueDateState ?? '',
     blocked: query.blocked === undefined ? '' : String(query.blocked),
     dependency: query.dependency ?? '',
+    workRisk: '',
     archivedProjects: query.archivedProjects ?? 'exclude',
     sort: query.sort ?? 'updated_desc'
   };
@@ -233,6 +240,7 @@ export function workspaceFormValueFromQueryParams(
     dueDateState: params.get('dueDateState') ?? '',
     blocked: params.get('blocked') ?? '',
     dependency: params.get('dependency') ?? '',
+    workRisk: '',
     archivedProjects: params.get('archivedProjects') ?? 'exclude',
     sort: params.get('sort') ?? 'updated_desc'
   };

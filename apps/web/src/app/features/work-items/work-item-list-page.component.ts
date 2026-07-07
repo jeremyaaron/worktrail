@@ -103,6 +103,7 @@ interface WorkItemFilterFormValue {
   priority: string;
   dueDateState: string;
   dependency: string;
+  workRisk: string;
   sort: string;
 }
 
@@ -117,6 +118,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
   priority: '',
   dueDateState: '',
   dependency: '',
+  workRisk: '',
   sort: 'updated_desc'
 };
 
@@ -1215,6 +1217,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     priority: [''],
     dueDateState: [''],
     dependency: [''],
+    workRisk: [''],
     sort: ['updated_desc']
   });
 
@@ -1666,6 +1669,8 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
       updates.dueDateState = '';
     } else if (filterName === 'Dependency') {
       updates.dependency = '';
+    } else if (filterName === 'Risk') {
+      updates.workRisk = '';
     } else if (filterName === 'Sort') {
       updates.sort = 'updated_desc';
     }
@@ -1772,6 +1777,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
       this.filterForm.controls.priority,
       this.filterForm.controls.dueDateState,
       this.filterForm.controls.dependency,
+      this.filterForm.controls.workRisk,
       this.filterForm.controls.sort
     ];
 
@@ -1935,6 +1941,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     this.pushLookupLabel(labels, 'Dependency', formValue.dependency, (value) =>
       this.dependencyLabel(value)
     );
+    this.pushLookupLabel(labels, 'Risk', formValue.workRisk, (value) => this.workRiskLabel(value));
 
     if (formValue.sort !== 'updated_desc') {
       labels.push(`Sort: ${this.sortLabel(formValue.sort)}`);
@@ -1998,6 +2005,18 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     return dependencyOptions.some((option) => option.value === value)
       ? dependencyFilterLabel(value as DependencyFilter)
       : value;
+  }
+
+  private workRiskLabel(value: string): string {
+    if (value === 'unassigned_active') {
+      return 'Unassigned active';
+    }
+
+    if (value === 'stale_in_progress') {
+      return 'Stale in progress';
+    }
+
+    return value;
   }
 
   private toErrorMessage(error: HttpErrorResponse, fallback: string): string {

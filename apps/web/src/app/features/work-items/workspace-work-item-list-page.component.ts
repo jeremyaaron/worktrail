@@ -103,6 +103,7 @@ interface WorkspaceFilterFormValue {
   dueDateState: string;
   blocked: string;
   dependency: string;
+  workRisk: string;
   archivedProjects: string;
   sort: string;
 }
@@ -121,6 +122,7 @@ const defaultFilterValues: WorkspaceFilterFormValue = {
   dueDateState: '',
   blocked: '',
   dependency: '',
+  workRisk: '',
   archivedProjects: 'exclude',
   sort: 'updated_desc'
 };
@@ -879,6 +881,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     dueDateState: [''],
     blocked: [''],
     dependency: [''],
+    workRisk: [''],
     archivedProjects: ['exclude'],
     sort: ['updated_desc']
   });

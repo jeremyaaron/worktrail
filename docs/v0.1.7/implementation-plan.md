@@ -587,7 +587,19 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed:
+  - added hidden `workRisk` support to project Work filter state and route serialization;
+  - preserved `workRisk` through project filter apply, saved-view query opening, copied links, detail return URLs, and CSV export;
+  - added visible active chips for `Risk: Unassigned active` and `Risk: Stale in progress`;
+  - added active-chip removal behavior that clears hidden risk query state;
+  - added `workRisk` to the project Work API filter type and shared WorkItemQuery HTTP params;
+  - kept workspace Work from exposing a visible risk filter while aligning its local form state with the shared query helper contract.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include src/app/features/work-items/query/work-item-query-serialization.spec.ts --include src/app/features/work-items/query/work-item-filter-labels.spec.ts --include src/app/features/work-items/work-items-page.component.spec.ts`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `npm run build --workspace @worktrail/web`;
+  - `git diff --check`.
 
 ## Phase 8: Planning Integration And Web Regression Tests
 

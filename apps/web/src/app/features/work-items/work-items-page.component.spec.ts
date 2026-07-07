@@ -1272,10 +1272,99 @@ describe('WorkItemListPageComponent', () => {
         priority: 'high',
         dueDateState: 'overdue',
         dependency: 'blocking_open_work',
+        workRisk: null,
         sort: 'created_desc'
       }
     });
   });
+
+  it('preserves hidden work risk filters through visible filter changes and chip removal', () => {
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    const router = TestBed.inject(Router);
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
+
+    fixture.componentInstance.appliedFilterValues.set({
+      ...fixture.componentInstance.appliedFilterValues(),
+      workRisk: 'stale_in_progress'
+    });
+    fixture.componentInstance.filterForm.patchValue(
+      {
+        ...fixture.componentInstance.filterForm.getRawValue(),
+        workRisk: 'stale_in_progress'
+      },
+      { emitEvent: false }
+    );
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Risk: Stale in progress'
+    );
+
+    fixture.componentInstance.filterForm.controls.priority.setValue('urgent');
+
+    expect(navigate).toHaveBeenCalledWith([], {
+      relativeTo: TestBed.inject(ActivatedRoute),
+      queryParams: jasmine.objectContaining({
+        priority: 'urgent',
+        workRisk: 'stale_in_progress'
+      })
+    });
+
+    fixture.componentInstance.removeActiveFilter('Risk: Stale in progress');
+
+    expect(navigate).toHaveBeenCalledWith([], {
+      relativeTo: TestBed.inject(ActivatedRoute),
+      queryParams: jasmine.objectContaining({
+        workRisk: null
+      })
+    });
+  });
+
+  it('uses hidden work risk filters for project export and copied links', fakeAsync(() => {
+    spyOnCsvDownload();
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
+
+    fixture.componentInstance.appliedFilterValues.set({
+      ...fixture.componentInstance.appliedFilterValues(),
+      workRisk: 'unassigned_active'
+    });
+    fixture.detectChanges();
+
+    fixture.componentInstance.exportCsv();
+    const exportRequest = http.expectOne((candidate) => {
+      return (
+        candidate.url === `/api/projects/${projectId}/work-items/export` &&
+        candidate.params.get('workRisk') === 'unassigned_active' &&
+        candidate.params.get('status') === 'in_progress'
+      );
+    });
+    expect(exportRequest.request.method).toBe('GET');
+    exportRequest.flush(new Blob(['displayKey,title\nWT-3,Implement work item API client\n'], {
+      type: 'text/csv'
+    }));
+
+    fixture.componentInstance.copyViewLink();
+    flushMicrotasks();
+
+    const copiedUrl = new URL(clipboard.copyText.calls.mostRecent().args[0]);
+    expect(copiedUrl.searchParams.get('workRisk')).toBe('unassigned_active');
+
+    tick(2500);
+  }));
 
   it('does not show active filter pills for unapplied pending form values', () => {
     const fixture = TestBed.createComponent(WorkItemListPageComponent);

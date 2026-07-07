@@ -9,6 +9,7 @@ export interface ProjectWorkItemFilterFormValue {
   priority: string;
   dueDateState: string;
   dependency: string;
+  workRisk: string;
   sort: string;
 }
 
@@ -30,6 +31,7 @@ export const defaultProjectWorkItemFilterValues: ProjectWorkItemFilterFormValue 
   priority: '',
   dueDateState: '',
   dependency: '',
+  workRisk: '',
   sort: 'updated_desc'
 };
 
