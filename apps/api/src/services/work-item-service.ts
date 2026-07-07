@@ -1,5 +1,7 @@
 import type {
   ActivityEventDto,
+  BulkUpdateWorkItemsRequest,
+  BulkUpdateWorkItemsResponseDto,
   CommentDto,
   CreateWorkItemRequest,
   MoveWorkItemOnBoardRequest,
@@ -118,6 +120,13 @@ export class WorkItemService {
     return this.withWriteRepositories(async (repositories) => {
       return this.createWorkItemWithRepositories(projectId, input, repositories);
     });
+  }
+
+  async bulkUpdateWorkItems(
+    _projectId: string,
+    _input: BulkUpdateWorkItemsRequest
+  ): Promise<BulkUpdateWorkItemsResponseDto> {
+    throw new ValidationError('Bulk work item updates are not implemented yet.');
   }
 
   async createWorkItemWithRepositories(

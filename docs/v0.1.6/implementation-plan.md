@@ -226,7 +226,30 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-07.
+- Updated `apps/api/src/endpoints/work-items.ts`:
+  - imported `BulkUpdateWorkItemsRequest`;
+  - imported `BulkUpdateWorkItemsResponseDto`;
+  - added a duplicate-id validation helper;
+  - added `bulkUpdateWorkItemsSchema`;
+  - added `bulkUpdateWorkItemsHandler`.
+- Added endpoint validation for:
+  - route project id;
+  - `workItemIds` length 1 to 50;
+  - duplicate work item ids;
+  - discriminated action payloads;
+  - label id length 1 to 20 for label actions;
+  - duplicate label ids;
+  - due date format.
+- Updated `apps/api/src/adapters/express/routes/work-item-routes.ts`:
+  - registered `POST /api/projects/:projectId/work-items/bulk-update`;
+  - placed the route before the generic project work item create route.
+- Added a temporary `WorkItemService.bulkUpdateWorkItems` fail-fast method so the new endpoint boundary compiles before Phase 3 command behavior.
+- Updated `apps/api/src/domain/constants.ts` with `work_item.due_date_changed` so API activity event typing matches the shared contract.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/api -- work-items`;
+  - `git diff --check`.
 
 ## Phase 3: Service Command Core
 

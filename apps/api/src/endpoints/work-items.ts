@@ -1,4 +1,6 @@
 import type {
+  BulkUpdateWorkItemsRequest,
+  BulkUpdateWorkItemsResponseDto,
   CreateWorkItemRequest,
   CreateWorkItemRelationshipRequest,
   MoveWorkItemOnBoardRequest,
@@ -54,6 +56,23 @@ const nullableUuidSchema = z.string().uuid().nullable();
 const nullableDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable();
 const nullableEstimateSchema = z.number().int().nonnegative().nullable();
 
+function requireUniqueIds(values: string[], context: z.RefinementCtx): void {
+  const seen = new Set<string>();
+
+  for (const [index, value] of values.entries()) {
+    if (seen.has(value)) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Duplicate ids are not allowed.',
+        path: [index]
+      });
+      continue;
+    }
+
+    seen.add(value);
+  }
+}
+
 const createWorkItemSchema = z.object({
   title: z.string().trim().min(1),
   description: z.string().trim().optional(),
@@ -100,6 +119,49 @@ const moveWorkItemOnBoardSchema = z.object({
   beforeWorkItemId: nullableUuidSchema.optional(),
   afterWorkItemId: nullableUuidSchema.optional()
 }) satisfies z.ZodType<MoveWorkItemOnBoardRequest>;
+
+const bulkUpdateWorkItemsSchema = z.object({
+  workItemIds: z.array(z.string().uuid()).min(1).max(50).superRefine(requireUniqueIds),
+  action: z.discriminatedUnion('type', [
+    z.object({
+      type: z.literal('set_assignee'),
+      assigneeId: z.string().uuid()
+    }),
+    z.object({
+      type: z.literal('clear_assignee')
+    }),
+    z.object({
+      type: z.literal('set_priority'),
+      priority: z.enum(workItemPriorities)
+    }),
+    z.object({
+      type: z.literal('set_milestone'),
+      milestoneId: z.string().uuid()
+    }),
+    z.object({
+      type: z.literal('clear_milestone')
+    }),
+    z.object({
+      type: z.literal('set_due_date'),
+      dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+    }),
+    z.object({
+      type: z.literal('clear_due_date')
+    }),
+    z.object({
+      type: z.literal('add_labels'),
+      labelIds: z.array(z.string().uuid()).min(1).max(20).superRefine(requireUniqueIds)
+    }),
+    z.object({
+      type: z.literal('remove_labels'),
+      labelIds: z.array(z.string().uuid()).min(1).max(20).superRefine(requireUniqueIds)
+    }),
+    z.object({
+      type: z.literal('transition_status'),
+      status: z.enum(workItemStatuses)
+    })
+  ])
+}) satisfies z.ZodType<BulkUpdateWorkItemsRequest>;
 
 const createWorkItemRelationshipSchema = z.object({
   relationshipType: z.enum(workItemRelationshipTypes),
@@ -156,6 +218,25 @@ export function createWorkItemHandler(input: {
     return {
       status: 201,
       body: await service.createWorkItem(projectId, body)
+    };
+  };
+}
+
+export function bulkUpdateWorkItemsHandler(input: {
+  repositories: Repositories;
+  db?: WorktrailDb;
+}): EndpointHandler<BulkUpdateWorkItemsResponseDto> {
+  return async (request) => {
+    const { projectId } = parseWithSchema(projectIdParamSchema, request.params);
+    const body = parseWithSchema(bulkUpdateWorkItemsSchema, request.body);
+    const service = new WorkItemService({
+      actor: request.actor,
+      repositories: input.repositories,
+      db: input.db
+    });
+    return {
+      status: 200,
+      body: await service.bulkUpdateWorkItems(projectId, body)
     };
   };
 }

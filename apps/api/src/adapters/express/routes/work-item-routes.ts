@@ -9,6 +9,7 @@ import {
 } from '../../../endpoints/comments.js';
 import {
   applyWorkItemCsvImportHandler,
+  bulkUpdateWorkItemsHandler,
   createWorkItemHandler,
   createWorkItemRelationshipHandler,
   deleteWorkItemRelationshipHandler,
@@ -64,6 +65,10 @@ export function registerWorkItemRoutes(app: Express, context: ExpressRouteContex
       applyWorkItemCsvImportHandler({ repositories: context.repositories, db: context.db }),
       options
     )
+  );
+  app.post(
+    '/api/projects/:projectId/work-items/bulk-update',
+    adaptEndpoint(bulkUpdateWorkItemsHandler({ repositories: context.repositories, db: context.db }), options)
   );
   app.post(
     '/api/projects/:projectId/work-items',
