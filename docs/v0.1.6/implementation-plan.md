@@ -406,7 +406,29 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-07.
+- Added `work_item.due_date_changed` persistence support:
+  - generated `apps/api/drizzle/0011_bouncy_zaladane.sql`;
+  - generated `apps/api/drizzle/meta/0011_snapshot.json`;
+  - updated Drizzle journal metadata.
+- Updated `WorkItemService.recordUpdateActivity`:
+  - added due-date activity recording;
+  - kept assignee, priority, milestone, label, and status activity behavior intact.
+- Fixed async item-level error handling in `applyBulkActionToWorkItem` so workflow failures keep the project-local display key when safe.
+- Added API coverage for:
+  - due-date activity on bulk due-date updates;
+  - unchanged rows avoiding timestamp, activity, and notification churn;
+  - assignment notifications for changed bulk rows only;
+  - contributor request-level rejection;
+  - archived project request-level rejection;
+  - invalid assignee request-level rejection before item updates;
+  - item-level workflow transition failure with partial success.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run db:migrate --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/api -- work-items`;
+  - `npm test --workspace @worktrail/api -- work-items notifications activity`;
+  - `git diff --check`.
 
 ## Phase 5: API Regression And OpenAPI
 

@@ -542,10 +542,10 @@ export class WorkItemService {
 
     try {
       if (input.action.type === 'transition_status') {
-        return this.transitionBulkWorkItem(current, input.action.status, input.repositories);
+        return await this.transitionBulkWorkItem(current, input.action.status, input.repositories);
       }
 
-      return this.updateBulkWorkItem(current, input.action, input.repositories);
+      return await this.updateBulkWorkItem(current, input.action, input.repositories);
     } catch (error) {
       if (error instanceof AppError) {
         return this.toBulkFailure({
@@ -1233,6 +1233,7 @@ export class WorkItemService {
       'assigneeId',
       'work_item.assignee_changed'
     );
+    await this.recordDueDateActivity(input);
     await this.recordMilestoneActivity(input);
 
     const currentLabelIds = new Set(input.currentLabels.map((label) => label.id));
@@ -1305,6 +1306,31 @@ export class WorkItemService {
       summary: `${field} changed.`,
       previousValue: { [field]: input.current[field] },
       newValue: { [field]: input.updated[field] },
+      metadata: {},
+      createdAt: input.timestamp
+    });
+  }
+
+  private async recordDueDateActivity(input: {
+    current: WorkItem;
+    updated: WorkItem;
+    repositories: Repositories;
+    timestamp: Date;
+  }): Promise<void> {
+    if (input.current.dueDate === input.updated.dueDate) {
+      return;
+    }
+
+    await input.repositories.activityEvents.create({
+      id: this.idGenerator(),
+      workspaceId: input.updated.workspaceId,
+      projectId: input.updated.projectId,
+      workItemId: input.updated.id,
+      actorId: this.context.actor.memberId,
+      eventType: 'work_item.due_date_changed',
+      summary: 'Due date changed.',
+      previousValue: { dueDate: input.current.dueDate },
+      newValue: { dueDate: input.updated.dueDate },
       metadata: {},
       createdAt: input.timestamp
     });
