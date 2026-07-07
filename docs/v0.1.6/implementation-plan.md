@@ -736,7 +736,36 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-06.
+- Added a project Work bulk action bar that appears when owner/maintainer users have selected rows.
+- Added supported action controls for:
+  - assign to member;
+  - clear assignee;
+  - set priority;
+  - set milestone;
+  - clear milestone;
+  - set due date;
+  - clear due date;
+  - add labels;
+  - remove labels;
+  - transition status.
+- Added action validation so Apply stays disabled until the selected action has required values.
+- Added multi-item status transition confirmation.
+- Submitted `BulkUpdateWorkItemsRequest` through `bulkUpdateProjectWorkItems`.
+- Added loading, request error, and result summary states.
+- Reloaded the current project Work list after bulk completion.
+- Cleared successful/unchanged selections and retained failed selections when they remain visible after reload.
+- Rendered updated, unchanged, and failed counts plus failed-row messages.
+- Added focused web tests covering:
+  - disabled Apply states;
+  - request serialization for every supported action;
+  - multi-item status transition confirmation;
+  - partial failure summary and failed-row reselection.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include src/app/features/work-items/work-items-page.component.spec.ts`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `git diff --check`.
 
 ## Phase 9: Responsive Polish And Web Tests
 
