@@ -718,6 +718,31 @@ npm run test:e2e
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-06.
+- Extended `e2e/worktrail-smoke.spec.ts` with pinned saved-view browser smoke coverage.
+- Added a seeded shared pinned-view smoke path that verifies:
+  - workspace Work Items shows pinned shared shortcuts for `Dependency risks` and `Ready for pickup`;
+  - opening `Dependency risks` applies the canonical dependency filter and visible results;
+  - contributors can open shared workspace pins but do not see shared pin/unpin controls;
+  - project Work shows pinned shared shortcuts for `Ready for QA` and `Release blockers`;
+  - opening `Ready for QA` applies the canonical project status filter and visible results;
+  - contributors can open shared project pins but do not see shared pin/unpin controls.
+- Added a personal pinned-view smoke path that verifies:
+  - a user can create a personal workspace saved view from applied filters;
+  - the personal saved view can be pinned from the manager;
+  - the pinned personal shortcut appears immediately and survives navigation;
+  - opening the pinned personal shortcut restores canonical URL params and visible results.
+- Preserved the existing saved-view smoke coverage by keeping the v0.1.3 and v0.1.4 flows intact.
+- Confirmed the Playwright after-all restore resets, migrates, and seeds the database after the suite.
+- Manual QA observation:
+  - the personal path should drive filter selection through the UI rather than constructing an assignee URL manually, because this better matches lookup hydration and avoids brittle id-label timing.
+- Verified:
+  - `npx playwright test -g "pinned"`;
+  - `npm run test:e2e`;
+  - `git diff --check`.
+
 ## Phase 9: Documentation, Site, Release Notes, Pattern Notes, And Final Verification
 
 Goal: finish v0.1.5 with complete docs, public-site updates as appropriate, release notes, destination-neutral pattern notes, and full verification.
