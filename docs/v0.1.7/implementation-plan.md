@@ -297,7 +297,30 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-07.
+- Added `apps/api/src/services/milestone-review-service.ts`.
+- Implemented `MilestoneReviewService.getMilestoneReview(projectId, milestoneId)`:
+  - validates project membership in the actor workspace;
+  - validates the milestone belongs to the route project;
+  - loads project work, project milestones including archived milestones, dependency-blocked work, blocking-open work, and workspace members;
+  - reuses `DeliveryHealthService.derive` for milestone progress, health, and reasons;
+  - derives `scopedWorkQuery`;
+  - derives complete status, priority, assignment, due-date, and dependency scope breakdowns;
+  - derives deterministic risk sections with capped preview items and query payloads;
+  - derives capped recent movement from milestone-scoped work items.
+- Added `getMilestoneReviewHandler` in `apps/api/src/endpoints/planning.ts`.
+- Registered `GET /api/projects/:projectId/milestones/:milestoneId/review` in `apps/api/src/adapters/express/routes/planning-routes.ts`.
+- Updated `apps/api/tests/server.test.ts` route inventory coverage.
+- Updated `apps/api/tests/planning.test.ts` for:
+  - deterministic milestone review derivation;
+  - archived project and archived milestone endpoint readability;
+  - cross-project milestone rejection.
+- Verified:
+  - `npm test --workspace @worktrail/api -- tests/planning.test.ts tests/server.test.ts`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `git diff --check`.
 
 ## Phase 4: API Tests And OpenAPI
 

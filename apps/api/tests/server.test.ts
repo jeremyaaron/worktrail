@@ -112,6 +112,7 @@ describe('Express API foundation', () => {
       'POST /api/labels/:labelId/reactivate',
       'POST /api/milestones/:milestoneId/reactivate',
       'GET /api/projects/:projectId/planning-summary',
+      'GET /api/projects/:projectId/milestones/:milestoneId/review',
       'GET /api/saved-work-views',
       'POST /api/saved-work-views',
       'PATCH /api/saved-work-views/:savedViewId',

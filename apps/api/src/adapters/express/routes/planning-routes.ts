@@ -1,6 +1,9 @@
 import type { Express } from 'express';
 
-import { getProjectPlanningSummaryHandler } from '../../../endpoints/planning.js';
+import {
+  getMilestoneReviewHandler,
+  getProjectPlanningSummaryHandler
+} from '../../../endpoints/planning.js';
 import { adaptEndpoint } from '../handler-adapter.js';
 import { adapterOptions, type ExpressRouteContext } from './context.js';
 
@@ -10,5 +13,9 @@ export function registerPlanningRoutes(app: Express, context: ExpressRouteContex
   app.get(
     '/api/projects/:projectId/planning-summary',
     adaptEndpoint(getProjectPlanningSummaryHandler({ repositories: context.repositories }), options)
+  );
+  app.get(
+    '/api/projects/:projectId/milestones/:milestoneId/review',
+    adaptEndpoint(getMilestoneReviewHandler({ repositories: context.repositories }), options)
   );
 }
