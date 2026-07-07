@@ -582,7 +582,22 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-07.
+- Updated `apps/web/src/app/core/api/work-items-api.ts`:
+  - imported `BulkUpdateWorkItemsRequest`;
+  - imported `BulkUpdateWorkItemsResponseDto`;
+  - added `bulkUpdateProjectWorkItems`.
+- Updated `apps/web/src/app/core/worktrail-api.service.ts`:
+  - exposed `bulkUpdateProjectWorkItems`.
+- Updated `apps/web/src/app/core/worktrail-api.service.spec.ts`:
+  - verified the bulk update URL;
+  - verified POST method;
+  - verified request body;
+  - verified actor headers.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include src/app/core/worktrail-api.service.spec.ts`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `git diff --check`.
 
 ## Phase 7: Project Work Selection State
 

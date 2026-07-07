@@ -2,6 +2,8 @@ import type { HttpResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import type {
   ActivityEventDto,
+  BulkUpdateWorkItemsRequest,
+  BulkUpdateWorkItemsResponseDto,
   CommentDto,
   CreateCommentRequest,
   CreateLabelRequest,
@@ -249,6 +251,13 @@ export class WorktrailApiService {
 
   createWorkItem(projectId: string, input: CreateWorkItemRequest): Observable<WorkItemDetailDto> {
     return this.workItems.createWorkItem(projectId, input);
+  }
+
+  bulkUpdateProjectWorkItems(
+    projectId: string,
+    input: BulkUpdateWorkItemsRequest
+  ): Observable<BulkUpdateWorkItemsResponseDto> {
+    return this.workItems.bulkUpdateProjectWorkItems(projectId, input);
   }
 
   previewWorkItemCsvImport(
