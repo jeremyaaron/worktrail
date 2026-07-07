@@ -158,7 +158,25 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-07.
+- Updated `packages/contracts/src/work-items.ts`:
+  - added `BulkUpdateWorkItemsAction`;
+  - added `BulkUpdateWorkItemsRequest`;
+  - added `BulkUpdateWorkItemsResultStatus`;
+  - added `BulkUpdateWorkItemsErrorCode`;
+  - added `BulkUpdateWorkItemsErrorDto`;
+  - added `BulkUpdateWorkItemsResultDto`;
+  - added `BulkUpdateWorkItemsResponseDto`.
+- Updated `packages/contracts/src/activity.ts`:
+  - added `work_item.due_date_changed` to `ActivityEventType`.
+- Added `packages/contracts/src/work-item-bulk-update.contract.test.ts` covering:
+  - every explicit bulk update action shape;
+  - updated, unchanged, and failed response rows;
+  - due-date activity event typing.
+- Verified:
+  - `npm test --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/contracts`;
+  - `git diff --check`.
 
 ## Phase 2: Endpoint Validation And Route Wiring
 
