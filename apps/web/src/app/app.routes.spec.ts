@@ -44,6 +44,7 @@ describe('routes', () => {
       'work-items',
       'board',
       'planning',
+      'milestones/:milestoneId',
       'settings'
     ]);
     expect(childPaths?.indexOf('work-items/import')).toBeLessThan(

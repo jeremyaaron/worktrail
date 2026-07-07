@@ -780,4 +780,36 @@ git status --short --branch
 
 Status:
 
-- Not started.
+- Completed on 2026-07-07.
+- Updated `README.md` for:
+  - v0.1.7 baseline language;
+  - milestone review capability;
+  - query-backed milestone/risk links;
+  - visible `workRisk` chips on project Work;
+  - limitations around forecasts, roadmaps, sign-off, and persisted review snapshots;
+  - demo walkthrough and baseline capability coverage.
+- Updated `site/index.html` so the public static site presents v0.1.7 as the current baseline and includes milestone review in product, planning, architecture, and current-scope copy.
+- Added `docs/v0.1.7/release-notes.md`.
+- Added `docs/v0.1.7/pattern-extraction-notes.md` covering:
+  - derived review surfaces;
+  - query-backed action links;
+  - read-only operating pages;
+  - aggregation of existing health/risk rules;
+  - criteria for deferring persisted snapshots.
+- Confirmed active release docs and public site avoid discontinued extraction-target references.
+- Confirmed OpenAPI is current for:
+  - `GET /api/projects/{projectId}/milestones/{milestoneId}/review`;
+  - `workRisk`;
+  - milestone review schemas.
+- Fixed a stale web route inventory test so it includes the `milestones/:milestoneId` lazy project-shell child route.
+- Verification:
+  - `npm run lint`;
+  - `npm run typecheck`;
+  - `npm run db:reset`;
+  - `npm run db:migrate`;
+  - `npm run db:seed`;
+  - `npm test` initially exposed the stale route inventory expectation, then passed after the test update;
+  - `npm run build`;
+  - `npm run test:e2e`;
+  - `git diff --check`;
+  - `git status --short --branch`.
