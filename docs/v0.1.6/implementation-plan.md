@@ -312,7 +312,44 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-07.
+- Replaced the temporary `WorkItemService.bulkUpdateWorkItems` stub with the core bulk command.
+- Added owner/maintainer bulk permission enforcement.
+- Added route project lookup and archived project rejection.
+- Added action-level reference validation for:
+  - assignee;
+  - milestone;
+  - labels.
+- Added per-item request-order processing with item transactions.
+- Added per-item result handling for:
+  - `updated`;
+  - `unchanged`;
+  - `failed`.
+- Added aggregate response counts:
+  - `requestedCount`;
+  - `succeededCount`;
+  - `unchangedCount`;
+  - `failedCount`.
+- Implemented core actions:
+  - set/clear assignee;
+  - set priority;
+  - set/clear milestone;
+  - set/clear due date;
+  - add/remove labels;
+  - transition status.
+- Added safe item failure handling:
+  - missing or cross-workspace ids return `NOT_FOUND`;
+  - cross-project ids return `NOT_IN_PROJECT` without leaking display keys;
+  - workflow failures return item-level failure rows.
+- Returned updated list-item DTOs for successful and unchanged rows.
+- Preserved existing assignee and status notification paths for changed rows.
+- Added focused API coverage for:
+  - successful multi-item bulk priority update;
+  - partial success when one selected id belongs to a different project.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/api -- work-items`;
+  - `git diff --check`.
 
 ## Phase 4: Service Side Effects, Unchanged Handling, And Edge Cases
 

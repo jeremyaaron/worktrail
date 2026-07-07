@@ -1179,6 +1179,118 @@ describe('work item API', () => {
       });
   });
 
+  it('bulk updates selected project work items', async () => {
+    const fixture = await createFixture('maintainer');
+    const first = await createWorkItem(fixture, {
+      title: 'First bulk priority item',
+      priority: 'medium'
+    });
+    const second = await createWorkItem(fixture, {
+      title: 'Second bulk priority item',
+      priority: 'low'
+    });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
+      .set(fixture.headers)
+      .send({
+        workItemIds: [first.id, second.id],
+        action: {
+          type: 'set_priority',
+          priority: 'urgent'
+        }
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          requestedCount: 2,
+          succeededCount: 2,
+          unchangedCount: 0,
+          failedCount: 0
+        });
+        expect(body.results).toEqual([
+          expect.objectContaining({
+            workItemId: first.id,
+            displayKey: first.displayKey,
+            status: 'updated',
+            workItem: expect.objectContaining({ id: first.id, priority: 'urgent' }),
+            error: null
+          }),
+          expect.objectContaining({
+            workItemId: second.id,
+            displayKey: second.displayKey,
+            status: 'updated',
+            workItem: expect.objectContaining({ id: second.id, priority: 'urgent' }),
+            error: null
+          })
+        ]);
+      });
+
+    await expect(repositories.workItems.findById(first.id)).resolves.toMatchObject({ priority: 'urgent' });
+    await expect(repositories.workItems.findById(second.id)).resolves.toMatchObject({ priority: 'urgent' });
+  });
+
+  it('returns per-item failures for bulk updates with work outside the route project', async () => {
+    const fixture = await createFixture('owner');
+    const routeProjectItem = await createWorkItem(fixture, {
+      title: 'Route project bulk item',
+      priority: 'medium'
+    });
+    const otherProject = await createProject(fixture);
+    const otherProjectItem = await createWorkItem(fixture, {
+      projectId: otherProject.id,
+      displayKey: 'OPS-1',
+      itemNumber: 1,
+      title: 'Other project bulk item',
+      priority: 'medium'
+    });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
+      .set(fixture.headers)
+      .send({
+        workItemIds: [routeProjectItem.id, otherProjectItem.id],
+        action: {
+          type: 'set_priority',
+          priority: 'high'
+        }
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          requestedCount: 2,
+          succeededCount: 1,
+          unchangedCount: 0,
+          failedCount: 1
+        });
+        expect(body.results).toEqual([
+          expect.objectContaining({
+            workItemId: routeProjectItem.id,
+            displayKey: routeProjectItem.displayKey,
+            status: 'updated',
+            error: null
+          }),
+          expect.objectContaining({
+            workItemId: otherProjectItem.id,
+            displayKey: null,
+            status: 'failed',
+            workItem: null,
+            error: {
+              code: 'NOT_IN_PROJECT',
+              message: 'Work item is not part of this project.'
+            }
+          })
+        ]);
+      });
+
+    await expect(repositories.workItems.findById(routeProjectItem.id)).resolves.toMatchObject({
+      priority: 'high'
+    });
+    await expect(repositories.workItems.findById(otherProjectItem.id)).resolves.toMatchObject({
+      priority: 'medium'
+    });
+  });
+
   it('supports project dependency filters', async () => {
     const fixture = await createFixture('owner');
     const openBlocker = await createWorkItem(fixture, {
