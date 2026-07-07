@@ -168,6 +168,20 @@ const sharedProjectSavedView: SavedWorkViewDto = {
   }
 };
 
+const pinnedPersonalProjectSavedView: SavedWorkViewDto = {
+  ...personalProjectSavedView,
+  id: '10000000-0000-4000-8000-000000000805',
+  name: 'Pinned personal project work',
+  isPinned: true
+};
+
+const pinnedSharedProjectSavedView: SavedWorkViewDto = {
+  ...sharedProjectSavedView,
+  id: '10000000-0000-4000-8000-000000000806',
+  name: 'Pinned ready for QA',
+  isPinned: true
+};
+
 const ownerCapabilities: WorkspaceCapabilitiesDto = {
   actor: member,
   canManageWorkspace: true,
@@ -436,6 +450,23 @@ describe('WorkItemListPageComponent', () => {
     });
     updateQuery.flush(sharedProjectSavedView);
 
+    fixture.componentInstance.setSavedViewPinned(sharedProjectSavedView, true);
+    const pin = http.expectOne(`/api/saved-work-views/${sharedProjectSavedView.id}`);
+    expect(pin.request.method).toBe('PATCH');
+    expect(pin.request.body).toEqual({ isPinned: true });
+    const pinnedView: SavedWorkViewDto = { ...sharedProjectSavedView, isPinned: true };
+    pin.flush(pinnedView);
+    expect(fixture.componentInstance.pinnedSharedSavedViews().map((view) => view.id)).toEqual([
+      sharedProjectSavedView.id
+    ]);
+
+    fixture.componentInstance.setSavedViewPinned(pinnedView, false);
+    const unpin = http.expectOne(`/api/saved-work-views/${sharedProjectSavedView.id}`);
+    expect(unpin.request.method).toBe('PATCH');
+    expect(unpin.request.body).toEqual({ isPinned: false });
+    unpin.flush({ ...pinnedView, isPinned: false });
+    expect(fixture.componentInstance.pinnedSharedSavedViews()).toEqual([]);
+
     fixture.componentInstance.deleteSavedView(sharedProjectSavedView);
     const remove = http.expectOne(`/api/saved-work-views/${sharedProjectSavedView.id}`);
     expect(remove.request.method).toBe('DELETE');
@@ -458,6 +489,7 @@ describe('WorkItemListPageComponent', () => {
     expect(compiled.textContent).not.toContain('Save shared view');
 
     fixture.componentInstance.renameSavedView(sharedProjectSavedView);
+    fixture.componentInstance.setSavedViewPinned(sharedProjectSavedView, true);
     fixture.detectChanges();
     expect(compiled.textContent).toContain('Only owners and maintainers can manage shared saved views.');
     http.expectNone(`/api/saved-work-views/${sharedProjectSavedView.id}`);
@@ -470,6 +502,79 @@ describe('WorkItemListPageComponent', () => {
     renamePersonal.flush({ ...personalProjectSavedView, name: 'My renamed work' });
   });
 
+  it('renders pinned project shortcuts and opens them through canonical query params', () => {
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    const router = TestBed.inject(Router);
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http, [
+      pinnedSharedProjectSavedView,
+      pinnedPersonalProjectSavedView,
+      sharedProjectSavedView,
+      personalProjectSavedView
+    ]);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.pinnedSharedSavedViews().map((view) => view.id)).toEqual([
+      pinnedSharedProjectSavedView.id
+    ]);
+    expect(fixture.componentInstance.pinnedPersonalSavedViews().map((view) => view.id)).toEqual([
+      pinnedPersonalProjectSavedView.id
+    ]);
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Project pinned views');
+    expect(compiled.textContent).toContain('Pinned ready for QA');
+    expect(compiled.textContent).toContain('Pinned personal project work');
+    expect(compiled.textContent).toContain('1 shared · 1 personal');
+
+    compiled
+      .querySelector<HTMLButtonElement>('button[aria-label="Open pinned shared view Pinned ready for QA"]')
+      ?.click();
+
+    expect(navigate).toHaveBeenCalledWith([], {
+      relativeTo: TestBed.inject(ActivatedRoute),
+      queryParams: jasmine.objectContaining({
+        status: 'ready',
+        sort: 'board_order'
+      })
+    });
+  });
+
+  it('shows project pin mutation errors without corrupting saved-view state', () => {
+    seedCurrentUser(ownerMember);
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http, [sharedProjectSavedView]);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
+    fixture.detectChanges();
+
+    fixture.componentInstance.setSavedViewPinned(sharedProjectSavedView, true);
+    const pin = http.expectOne(`/api/saved-work-views/${sharedProjectSavedView.id}`);
+    pin.flush(
+      {
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Project pin update failed.'
+        }
+      },
+      { status: 500, statusText: 'Server Error' }
+    );
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.pinnedSharedSavedViews()).toEqual([]);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Project pin update failed.');
+  });
+
   it('renders archived project saved views as open-only and blocks mutations', () => {
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
@@ -477,11 +582,14 @@ describe('WorkItemListPageComponent', () => {
 
     http.expectOne(`/api/projects/${projectId}`).flush(archivedProject);
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
-    flushProjectSavedViews(http, [sharedProjectSavedView, personalProjectSavedView]);
+    flushProjectSavedViews(http, [pinnedSharedProjectSavedView, pinnedPersonalProjectSavedView]);
     http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Project pinned views');
+    expect(compiled.textContent).toContain('Pinned ready for QA');
+    expect(compiled.textContent).toContain('Pinned personal project work');
     expect(compiled.textContent).toContain('Archived project saved views are read-only.');
     expect(compiled.textContent).not.toContain('Save personal view');
     expect(compiled.textContent).not.toContain('Save shared view');
@@ -492,12 +600,13 @@ describe('WorkItemListPageComponent', () => {
     ]);
 
     fixture.componentInstance.savePersonalProjectView('Archived view');
-    fixture.componentInstance.renameSavedView(personalProjectSavedView);
+    fixture.componentInstance.renameSavedView(pinnedPersonalProjectSavedView);
+    fixture.componentInstance.setSavedViewPinned(pinnedPersonalProjectSavedView, false);
     fixture.detectChanges();
 
     expect(compiled.textContent).toContain('Archived projects are read-only.');
     http.expectNone('/api/saved-work-views');
-    http.expectNone(`/api/saved-work-views/${personalProjectSavedView.id}`);
+    http.expectNone(`/api/saved-work-views/${pinnedPersonalProjectSavedView.id}`);
   });
 
   it('exports CSV with applied filters instead of pending draft form values', () => {

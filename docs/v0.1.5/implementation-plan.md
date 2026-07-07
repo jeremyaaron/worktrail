@@ -645,6 +645,38 @@ npm run lint --workspace @worktrail/web
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-06.
+- Wired `PinnedSavedViewsComponent` into the project Work page above the saved-view manager.
+- Added project pinned-view computed groups:
+  - `pinnedSharedSavedViews`;
+  - `pinnedPersonalSavedViews`.
+- Opened pinned project shortcuts through the existing canonical `openSavedView` route-query behavior.
+- Wired saved-view manager `pinChange` to project page mutation handling.
+- Added `setSavedViewPinned` for project saved views:
+  - reuses existing saved-view mutation permission checks;
+  - calls `updateSavedWorkView(savedView.id, { isPinned })`;
+  - replaces local saved-view state on success;
+  - surfaces API errors without mutating local pinned state.
+- Preserved existing project filter chips, copy links, CSV export, pagination, detail return URLs, and saved-view CRUD behavior.
+- Preserved archived project read-only behavior while still rendering existing pinned shortcuts.
+- Added project page coverage for:
+  - pinned shared project shortcuts render;
+  - pinned personal project shortcuts render;
+  - opening a pinned shared shortcut updates canonical query params;
+  - owner can pin and unpin shared project views;
+  - pin API errors do not corrupt local state;
+  - contributors cannot send shared pin mutation requests;
+  - archived projects show existing pins but block saved-view mutation requests.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include "**/work-items-page.component.spec.ts"`;
+  - `npm test --workspace @worktrail/web -- --include "**/saved-views-toolbar.component.spec.ts"`;
+  - `npm test --workspace @worktrail/web -- --include "**/pinned-saved-views.component.spec.ts"`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `git diff --check`.
+
 ## Phase 8: Seeded Browser Smoke
 
 Goal: verify the user-visible pinned saved-view workflow in a browser using deterministic local data.
