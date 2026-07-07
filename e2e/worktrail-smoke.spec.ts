@@ -655,6 +655,15 @@ test('creates and opens a v0.1.5 pinned personal workspace saved view shortcut',
   await expect(page).toHaveURL(/assigneeId=10000000-0000-4000-8000-000000000101/);
   await expect(page.getByText('Assignee: Avery Owner')).toBeVisible();
 
+  await openSavedViewManager(page);
+  const seededSavedViewRow = page
+    .getByLabel('Personal views')
+    .locator('article.saved-view-row')
+    .filter({ hasText: 'My open work' });
+  await expect(seededSavedViewRow).toBeVisible();
+  await seededSavedViewRow.getByRole('button', { name: 'Pin' }).click();
+  await expect(page.getByRole('button', { name: 'Open pinned personal view My open work' })).toBeVisible();
+
   await page.locator('form.saved-view-form').getByLabel('Name').fill(savedViewName);
   await page.getByRole('button', { name: 'Save personal view' }).click();
   await expect(page.getByRole('region', { name: 'Saved views' })).toContainText(

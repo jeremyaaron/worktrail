@@ -730,15 +730,19 @@ Status:
   - opening `Ready for QA` applies the canonical project status filter and visible results;
   - contributors can open shared project pins but do not see shared pin/unpin controls.
 - Added a personal pinned-view smoke path that verifies:
+  - a seeded personal workspace saved view can be pinned from the manager;
   - a user can create a personal workspace saved view from applied filters;
   - the personal saved view can be pinned from the manager;
   - the pinned personal shortcut appears immediately and survives navigation;
   - opening the pinned personal shortcut restores canonical URL params and visible results.
+- Repaired saved-view seed upserts so deterministic seeded rows refresh `ownerMemberId` on reruns, preventing long-lived local databases from retaining stale seeded personal ownership.
 - Preserved the existing saved-view smoke coverage by keeping the v0.1.3 and v0.1.4 flows intact.
 - Confirmed the Playwright after-all restore resets, migrates, and seeds the database after the suite.
 - Manual QA observation:
   - the personal path should drive filter selection through the UI rather than constructing an assignee URL manually, because this better matches lookup hydration and avoids brittle id-label timing.
 - Verified:
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
   - `npx playwright test -g "pinned"`;
   - `npm run test:e2e`;
   - `git diff --check`.

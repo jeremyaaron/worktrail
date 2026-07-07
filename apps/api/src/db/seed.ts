@@ -1510,6 +1510,7 @@ try {
       .onConflictDoUpdate({
         target: savedWorkViews.id,
         set: {
+          ownerMemberId: sql`excluded.owner_member_id`,
           projectId: sql`excluded.project_id`,
           name: sql`excluded.name`,
           scope: sql`excluded.scope`,
