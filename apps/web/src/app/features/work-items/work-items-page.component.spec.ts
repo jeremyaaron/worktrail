@@ -131,6 +131,16 @@ const workItem: WorkItemListItemDto = {
 
 const backendLabel = workItem.labels[0];
 
+const readyWorkItem: WorkItemListItemDto = {
+  ...workItem,
+  id: '10000000-0000-4000-8000-000000000404',
+  itemNumber: 4,
+  displayKey: 'WT-4',
+  title: 'Prepare bulk triage feedback',
+  status: 'ready',
+  boardPosition: 2048
+};
+
 const archivedLabel = {
   id: '10000000-0000-4000-8000-000000000399',
   name: 'legacy',
@@ -334,6 +344,108 @@ describe('WorkItemListPageComponent', () => {
         ?.getAttribute('title')
     ).toBe('Export the applied project filters as CSV');
     expect(compiled.querySelector<HTMLAnchorElement>(`a[href="/projects/${projectId}/work-items/import"]`)).not.toBeNull();
+  });
+
+  it('lets owners select visible project work items locally', () => {
+    seedCurrentUser(ownerMember);
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
+      workItem,
+      readyWorkItem
+    ]);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.canSelectWorkItems()).toBeTrue();
+    expect((fixture.nativeElement as HTMLElement).querySelector('input[aria-label="Select WT-3"]')).not.toBeNull();
+
+    fixture.componentInstance.toggleWorkItemSelection(workItem.id);
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([workItem.id]);
+    expect(fixture.componentInstance.selectedVisibleCount()).toBe(1);
+    expect(fixture.componentInstance.isAllVisibleSelected()).toBeFalse();
+
+    fixture.componentInstance.toggleAllVisibleSelection();
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([workItem.id, readyWorkItem.id]);
+    expect(fixture.componentInstance.selectedVisibleCount()).toBe(2);
+    expect(fixture.componentInstance.isAllVisibleSelected()).toBeTrue();
+
+    fixture.componentInstance.toggleAllVisibleSelection();
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([]);
+  });
+
+  it('hides selection for contributors and archived projects', () => {
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne(`/api/projects/${projectId}`).flush(archivedProject);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.canSelectWorkItems()).toBeFalse();
+    expect((fixture.nativeElement as HTMLElement).querySelector('input[aria-label="Select WT-3"]')).toBeNull();
+
+    fixture.componentInstance.toggleWorkItemSelection(workItem.id);
+    fixture.componentInstance.toggleAllVisibleSelection();
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([]);
+  });
+
+  it('prunes selection to visible rows after a project work reload', () => {
+    seedCurrentUser(ownerMember);
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
+      workItem,
+      readyWorkItem
+    ]);
+    fixture.detectChanges();
+
+    fixture.componentInstance.toggleAllVisibleSelection();
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([workItem.id, readyWorkItem.id]);
+
+    fixture.componentInstance.loadWorkItems();
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([readyWorkItem]);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([readyWorkItem.id]);
+    expect(fixture.componentInstance.selectedVisibleCount()).toBe(1);
+    expect(fixture.componentInstance.isAllVisibleSelected()).toBeTrue();
+  });
+
+  it('clears selection when opening a saved project view', () => {
+    seedCurrentUser(ownerMember);
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    const router = TestBed.inject(Router);
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    fixture.detectChanges();
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http, [sharedProjectSavedView]);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
+
+    fixture.componentInstance.toggleWorkItemSelection(workItem.id);
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([workItem.id]);
+
+    fixture.componentInstance.openSavedView(sharedProjectSavedView);
+
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([]);
+    expect(navigate).toHaveBeenCalledWith([], {
+      relativeTo: TestBed.inject(ActivatedRoute),
+      queryParams: jasmine.objectContaining({
+        status: 'ready',
+        sort: 'board_order'
+      })
+    });
   });
 
   it('creates personal project saved views from the applied query and opens canonical params', () => {

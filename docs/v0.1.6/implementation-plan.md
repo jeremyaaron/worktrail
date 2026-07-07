@@ -652,7 +652,37 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-06.
+- Updated `WorkItemResultListComponent` to support optional selection controls:
+  - select-all-visible checkbox;
+  - per-row and per-card checkboxes;
+  - selected row/card styling;
+  - explicit title links that preserve detail return URLs.
+- Updated `WorkItemListPageComponent` local selection state:
+  - selected work item ids;
+  - selected id set;
+  - selected visible rows and count;
+  - all-visible selected state;
+  - owner/maintainer-only selection capability.
+- Added selection behavior:
+  - toggle one visible work item;
+  - toggle all visible work items;
+  - clear selection;
+  - prune selection after work item reloads;
+  - clear selection when filters/query state or saved views change.
+- Kept contributors and archived projects read-only by hiding selection controls and ignoring selection toggles.
+- Updated focused web tests for:
+  - shared result list detail links after row/card markup changes;
+  - selection checkbox rendering and emitted events;
+  - project Work owner selection;
+  - contributor/archived project selection hiding;
+  - selection pruning after reload;
+  - clearing selection when opening a saved view.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm test --workspace @worktrail/web -- --include src/app/features/work-items/components/work-item-result-list.component.spec.ts --include src/app/features/work-items/work-items-page.component.spec.ts`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `git diff --check`.
 
 ## Phase 8: Bulk Action Bar And Result Feedback
 

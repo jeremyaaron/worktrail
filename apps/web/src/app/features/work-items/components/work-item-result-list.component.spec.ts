@@ -104,12 +104,37 @@ describe('WorkItemResultListComponent', () => {
   it('keeps detail links wired with the return URL on table rows and mobile cards', () => {
     fixture.detectChanges();
 
-    const row = fixture.nativeElement.querySelector('.work-item-row') as HTMLAnchorElement | null;
-    const card = fixture.nativeElement.querySelector('.work-item-card') as HTMLAnchorElement | null;
+    const rowLink = fixture.nativeElement.querySelector('.work-item-title-link') as HTMLAnchorElement | null;
+    const cardLink = fixture.nativeElement.querySelector('.work-item-card__title-link') as HTMLAnchorElement | null;
 
-    expect(row?.getAttribute('href')).toContain('/work-items/work-item-1');
-    expect(row?.getAttribute('href')).toContain('returnUrl=');
-    expect(card?.getAttribute('href')).toContain('/work-items/work-item-1');
-    expect(card?.getAttribute('href')).toContain('returnUrl=');
+    expect(rowLink?.getAttribute('href')).toContain('/work-items/work-item-1');
+    expect(rowLink?.getAttribute('href')).toContain('returnUrl=');
+    expect(cardLink?.getAttribute('href')).toContain('/work-items/work-item-1');
+    expect(cardLink?.getAttribute('href')).toContain('returnUrl=');
+  });
+
+  it('renders selection controls and emits item and visible-toggle events', () => {
+    const toggleSelection = spyOn(fixture.componentInstance.toggleSelection, 'emit');
+    const toggleAllVisibleSelection = spyOn(fixture.componentInstance.toggleAllVisibleSelection, 'emit');
+    fixture.componentInstance.selectionEnabled = true;
+    fixture.componentInstance.selectedItemIds = [workspaceWorkItem.id];
+    fixture.componentInstance.allVisibleSelected = true;
+    fixture.detectChanges();
+
+    const selectAll = fixture.nativeElement.querySelector(
+      'input[aria-label="Select all visible work items"]'
+    ) as HTMLInputElement | null;
+    const rowSelection = fixture.nativeElement.querySelector(
+      'input[aria-label="Select WT-42"]'
+    ) as HTMLInputElement | null;
+
+    expect(selectAll?.checked).toBeTrue();
+    expect(rowSelection?.checked).toBeTrue();
+
+    selectAll?.dispatchEvent(new Event('change'));
+    rowSelection?.dispatchEvent(new Event('change'));
+
+    expect(toggleAllVisibleSelection).toHaveBeenCalled();
+    expect(toggleSelection).toHaveBeenCalledWith(workspaceWorkItem.id);
   });
 });

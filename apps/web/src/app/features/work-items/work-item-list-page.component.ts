@@ -313,12 +313,17 @@ const defaultFilterValues: WorkItemFilterFormValue = {
       mode="project"
       [isLoading]="isLoading()"
       [error]="error()"
+      [selectionEnabled]="canSelectWorkItems()"
+      [selectedItemIds]="selectedWorkItemIds()"
+      [allVisibleSelected]="isAllVisibleSelected()"
       loadingLabel="Loading work items"
       ariaLabel="Work items"
       [emptyTitle]="activeFilterLabels().length > 0 ? 'No work items match these filters' : 'No work items yet'"
       [emptyMessage]="activeFilterLabels().length > 0 ? 'Clear filters or adjust the criteria to broaden the list.' : 'Create the first work item for this project.'"
       [returnUrl]="detailReturnUrl()"
       (retry)="loadWorkItems()"
+      (toggleSelection)="toggleWorkItemSelection($event)"
+      (toggleAllVisibleSelection)="toggleAllVisibleSelection()"
     />
   `,
   styles: `
@@ -751,6 +756,18 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
 
   readonly project = signal<ProjectDto | null>(null);
   readonly workItems = signal<WorkItemListItemDto[]>([]);
+  readonly selectedWorkItemIds = signal<string[]>([]);
+  readonly selectedWorkItemIdSet = computed(() => new Set(this.selectedWorkItemIds()));
+  readonly selectedWorkItems = computed<WorkItemListItemDto[]>(() =>
+    this.workItems().filter((workItem) => this.selectedWorkItemIdSet().has(workItem.id))
+  );
+  readonly selectedVisibleCount = computed(() => this.selectedWorkItems().length);
+  readonly isAllVisibleSelected = computed(() => {
+    const workItems = this.workItems();
+    const selectedIds = this.selectedWorkItemIdSet();
+
+    return workItems.length > 0 && workItems.every((workItem) => selectedIds.has(workItem.id));
+  });
   readonly labels = signal<LabelDto[]>([]);
   readonly milestones = signal<MilestoneDto[]>([]);
   readonly appliedFilterValues = signal<WorkItemFilterFormValue>({ ...defaultFilterValues });
@@ -778,6 +795,10 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   readonly canManageSharedProjectSavedViews = computed(() => {
     const role = this.currentUser.selectedMember()?.role;
     return this.canManageProjectSavedViews() && (role === 'owner' || role === 'maintainer');
+  });
+  readonly canSelectWorkItems = computed(() => {
+    const role = this.currentUser.selectedMember()?.role;
+    return !this.isArchivedProject() && (role === 'owner' || role === 'maintainer');
   });
   readonly savedViewDraftNames = signal<Record<string, string>>({});
   readonly isSavedViewLoading = signal(false);
@@ -813,6 +834,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
       this.route.queryParamMap.subscribe((params) => {
         const nextFilters = projectFormValueFromQueryParams(params);
 
+        this.clearSelection();
         this.appliedFilterValues.set(nextFilters);
         this.filterForm.patchValue(nextFilters, { emitEvent: false });
         this.loadWorkItems();
@@ -826,6 +848,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   applyFilters(): void {
+    this.clearSelection();
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: this.queryParamsFromForm()
@@ -844,6 +867,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     this.api.listWorkItems(this.projectId(), this.appliedQuery()).subscribe({
       next: (workItems) => {
         this.workItems.set(workItems);
+        this.pruneSelectionToVisibleRows();
         this.mergeLabels(workItems);
         this.isLoading.set(false);
       },
@@ -909,6 +933,9 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     this.api.getProject(this.projectId()).subscribe({
       next: (project) => {
         this.project.set(project);
+        if (project.status === 'archived') {
+          this.clearSelection();
+        }
       },
       error: () => {
         this.project.set(null);
@@ -978,10 +1005,51 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   openSavedView(savedView: SavedWorkViewDto): void {
+    this.clearSelection();
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: projectRouterQueryParamsFromQuery(savedView.query)
     });
+  }
+
+  toggleWorkItemSelection(workItemId: string): void {
+    if (!this.canSelectWorkItems()) {
+      return;
+    }
+
+    const selectedIds = new Set(this.selectedWorkItemIds());
+
+    if (selectedIds.has(workItemId)) {
+      selectedIds.delete(workItemId);
+    } else {
+      selectedIds.add(workItemId);
+    }
+
+    this.selectedWorkItemIds.set([...selectedIds]);
+  }
+
+  toggleAllVisibleSelection(): void {
+    if (!this.canSelectWorkItems()) {
+      return;
+    }
+
+    const visibleIds = new Set(this.workItems().map((workItem) => workItem.id));
+
+    if (visibleIds.size === 0) {
+      this.clearSelection();
+      return;
+    }
+
+    if (this.isAllVisibleSelected()) {
+      this.selectedWorkItemIds.set(this.selectedWorkItemIds().filter((workItemId) => !visibleIds.has(workItemId)));
+      return;
+    }
+
+    this.selectedWorkItemIds.set([...new Set([...this.selectedWorkItemIds(), ...visibleIds])]);
+  }
+
+  clearSelection(): void {
+    this.selectedWorkItemIds.set([]);
   }
 
   renameSavedView(savedView: SavedWorkViewDto): void {
@@ -1226,6 +1294,11 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
         control.valueChanges.pipe(distinctUntilChanged()).subscribe(() => this.applyFilters())
       );
     }
+  }
+
+  private pruneSelectionToVisibleRows(): void {
+    const visibleIds = new Set(this.workItems().map((workItem) => workItem.id));
+    this.selectedWorkItemIds.set(this.selectedWorkItemIds().filter((workItemId) => visibleIds.has(workItemId)));
   }
 
   private mergeLabels(workItems: WorkItemListItemDto[]): void {

@@ -23,7 +23,7 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
   selector: 'app-work-item-result-list',
   imports: [EmptyStateComponent, ErrorPanelComponent, LoadingIndicatorComponent, RouterLink],
   template: `
-    <section class="list-panel" [attr.data-mode]="mode">
+    <section class="list-panel" [attr.data-mode]="mode" [attr.data-selection]="selectionEnabled ? 'true' : 'false'">
       <div class="list-heading">
         <h2>{{ items.length }} work items</h2>
       </div>
@@ -37,6 +37,17 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
       } @else {
         <div class="work-item-table" role="table" [attr.aria-label]="ariaLabel">
           <div class="work-item-table__head" role="row">
+            @if (selectionEnabled) {
+              <span class="selection-cell">
+                <input
+                  type="checkbox"
+                  class="selection-checkbox"
+                  aria-label="Select all visible work items"
+                  [checked]="allVisibleSelected"
+                  (change)="toggleAllVisibleSelection.emit()"
+                />
+              </span>
+            }
             <span>Title</span>
             @if (mode === 'workspace') {
               <span>Project</span>
@@ -49,14 +60,30 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
           </div>
 
           @for (item of items; track item.id) {
-            <a
+            <div
               class="work-item-row"
               role="row"
-              [routerLink]="['/work-items', item.id]"
-              [queryParams]="detailQueryParams()"
+              [class.work-item-row--selected]="isSelected(item.id)"
             >
+              @if (selectionEnabled) {
+                <span class="selection-cell">
+                  <input
+                    type="checkbox"
+                    class="selection-checkbox"
+                    [attr.aria-label]="selectionLabel(item)"
+                    [checked]="isSelected(item.id)"
+                    (change)="toggleSelection.emit(item.id)"
+                  />
+                </span>
+              }
               <span class="work-item-row__title">
-                <strong>{{ item.title }}</strong>
+                <a
+                  class="work-item-title-link"
+                  [routerLink]="['/work-items', item.id]"
+                  [queryParams]="detailQueryParams()"
+                >
+                  {{ item.title }}
+                </a>
                 <small class="row-meta">
                   <span class="key-pill">{{ item.displayKey }}</span>
                   <span class="type-pill">{{ formatToken(item.type) }}</span>
@@ -120,30 +147,46 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
               </span>
 
               <span>{{ formatDate(item.updatedAt) }}</span>
-            </a>
+            </div>
           }
         </div>
 
         <div class="work-item-cards" [attr.aria-label]="ariaLabel + ' cards'">
           @for (item of items; track item.id) {
-            <a
+            <article
               class="work-item-card"
-              [routerLink]="['/work-items', item.id]"
-              [queryParams]="detailQueryParams()"
+              [class.work-item-card--selected]="isSelected(item.id)"
             >
-              <span class="work-item-card__heading">
-                <strong>{{ item.title }}</strong>
-                <span class="work-item-card__meta">
-                  <span class="key-pill">{{ item.displayKey }}</span>
-                  <span class="type-pill">{{ formatToken(item.type) }}</span>
-                  @if (workspaceItem(item); as workspaceItem) {
-                    <span
-                      class="project-pill"
-                      [class.project-pill--archived]="workspaceItem.project.status === 'archived'"
-                    >
-                      {{ projectBadge(workspaceItem.project) }}
-                    </span>
-                  }
+              <span class="work-item-card__top">
+                @if (selectionEnabled) {
+                  <input
+                    type="checkbox"
+                    class="selection-checkbox"
+                    [attr.aria-label]="selectionLabel(item)"
+                    [checked]="isSelected(item.id)"
+                    (change)="toggleSelection.emit(item.id)"
+                  />
+                }
+                <span class="work-item-card__heading">
+                  <a
+                    class="work-item-card__title-link"
+                    [routerLink]="['/work-items', item.id]"
+                    [queryParams]="detailQueryParams()"
+                  >
+                    {{ item.title }}
+                  </a>
+                  <span class="work-item-card__meta">
+                    <span class="key-pill">{{ item.displayKey }}</span>
+                    <span class="type-pill">{{ formatToken(item.type) }}</span>
+                    @if (workspaceItem(item); as workspaceItem) {
+                      <span
+                        class="project-pill"
+                        [class.project-pill--archived]="workspaceItem.project.status === 'archived'"
+                      >
+                        {{ projectBadge(workspaceItem.project) }}
+                      </span>
+                    }
+                  </span>
                 </span>
               </span>
 
@@ -192,7 +235,7 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
                   }
                 }
               </span>
-            </a>
+            </article>
           }
         </div>
       }
@@ -243,6 +286,16 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
       --result-min-width: 980px;
     }
 
+    .list-panel[data-selection='true'][data-mode='workspace'] {
+      --result-columns: minmax(38px, 38px) minmax(280px, 2fr) minmax(170px, 1fr) minmax(120px, 0.7fr) minmax(150px, 0.9fr) minmax(150px, 1fr) minmax(110px, 0.7fr) minmax(110px, 0.7fr);
+      --result-min-width: 1212px;
+    }
+
+    .list-panel[data-selection='true'][data-mode='project'] {
+      --result-columns: minmax(38px, 38px) minmax(280px, 2fr) minmax(110px, 0.8fr) minmax(140px, 1fr) minmax(150px, 1fr) minmax(100px, 0.7fr) minmax(120px, 0.8fr);
+      --result-min-width: 1032px;
+    }
+
     .work-item-table__head {
       border-bottom: 1px solid #e5e7eb;
       padding: 0 10px 10px;
@@ -260,8 +313,25 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
       text-decoration: none;
     }
 
-    .work-item-row:hover {
+    .work-item-row:hover,
+    .work-item-row--selected,
+    .work-item-card--selected {
       background: #f8fafc;
+    }
+
+    .selection-cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 0;
+    }
+
+    .selection-checkbox {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      accent-color: #1f4f99;
+      cursor: pointer;
     }
 
     .work-item-row__title,
@@ -273,10 +343,18 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
       align-content: center;
     }
 
-    .work-item-row strong,
-    .work-item-card strong {
+    .work-item-title-link,
+    .work-item-card__title-link {
       color: #111827;
+      font-weight: 800;
       line-height: 1.35;
+      text-decoration: none;
+    }
+
+    .work-item-title-link:hover,
+    .work-item-card__title-link:hover {
+      color: #1d4ed8;
+      text-decoration: underline;
     }
 
     .work-item-row small,
@@ -448,11 +526,21 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
       background: #ffffff;
       color: #334155;
       font-size: 0.875rem;
-      text-decoration: none;
     }
 
     .work-item-card:hover {
       background: #f8fafc;
+    }
+
+    .work-item-card__top {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+    }
+
+    .list-panel[data-selection='false'] .work-item-card__top {
+      grid-template-columns: minmax(0, 1fr);
     }
 
     .work-item-card__facts {
@@ -514,7 +602,12 @@ export class WorkItemResultListComponent {
   @Input() emptyTitle = 'No work items found';
   @Input() emptyMessage = 'Work items will appear here.';
   @Input() ariaLabel = 'Work items';
+  @Input() selectionEnabled = false;
+  @Input() selectedItemIds: string[] = [];
+  @Input() allVisibleSelected = false;
   @Output() readonly retry = new EventEmitter<void>();
+  @Output() readonly toggleSelection = new EventEmitter<string>();
+  @Output() readonly toggleAllVisibleSelection = new EventEmitter<void>();
 
   formatToken(value: string): string {
     return formatToken(value);
@@ -528,6 +621,14 @@ export class WorkItemResultListComponent {
 
   detailQueryParams(): { returnUrl: string } | null {
     return this.returnUrl === null ? null : { returnUrl: this.returnUrl };
+  }
+
+  isSelected(itemId: string): boolean {
+    return this.selectedItemIds.includes(itemId);
+  }
+
+  selectionLabel(item: ResultItem): string {
+    return `Select ${item.displayKey}`;
   }
 
   workspaceItem(item: ResultItem): WorkspaceWorkItemListItemDto | null {
