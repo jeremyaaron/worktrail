@@ -12,9 +12,11 @@ import {
 
 import { projects, workItemLabels, workItemRelationships, workItems } from '../db/schema.js';
 import {
+  activeUnassignedWorkItemStatuses,
   dueSoonWindowDays,
   riskOpenWorkItemStatuses,
-  riskTerminalWorkItemStatuses
+  riskTerminalWorkItemStatuses,
+  staleInProgressDays
 } from '../domain/work-risk-policy.js';
 
 export type ProjectWorkItemQuery = Pick<
@@ -31,6 +33,7 @@ export type ProjectWorkItemQuery = Pick<
   | 'dueDateState'
   | 'blocked'
   | 'dependency'
+  | 'workRisk'
   | 'search'
   | 'sort'
 >;
@@ -122,6 +125,7 @@ function buildCommonWorkItemConditions(filters: ProjectWorkItemQuery): SQL[] {
 
   conditions.push(...dueDateConditions(filters.dueDateState));
   conditions.push(...dependencyConditions(filters.dependency));
+  conditions.push(...workRiskConditions(filters.workRisk));
 
   if (filters.search !== undefined && filters.search.trim() !== '') {
     const search = `%${filters.search.trim()}%`;
@@ -135,6 +139,24 @@ function buildCommonWorkItemConditions(filters: ProjectWorkItemQuery): SQL[] {
   }
 
   return conditions;
+}
+
+function workRiskConditions(workRisk: WorkItemQuery['workRisk']): SQL[] {
+  if (workRisk === 'unassigned_active') {
+    return [
+      sql`${workItems.assigneeId} is null`,
+      inArray(workItems.status, [...activeUnassignedWorkItemStatuses])
+    ];
+  }
+
+  if (workRisk === 'stale_in_progress') {
+    return [
+      eq(workItems.status, 'in_progress'),
+      sql`${workItems.updatedAt} < now() - (${staleInProgressDays} * interval '1 day')`
+    ];
+  }
+
+  return [];
 }
 
 function labelCondition(labelId: string): SQL {

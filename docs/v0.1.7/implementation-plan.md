@@ -215,14 +215,36 @@ Acceptance criteria:
 Suggested commands:
 
 ```sh
-npm test --workspace @worktrail/api -- --runInBand
+npm test --workspace @worktrail/api
 npm run typecheck --workspace @worktrail/api
 git diff --check
 ```
 
 Status:
 
-- Not started.
+- Completed on 2026-07-07.
+- Updated `apps/api/src/validation/work-item-query.ts`:
+  - parses `workRisk=unassigned_active`;
+  - parses `workRisk=stale_in_progress`;
+  - rejects unsupported `workRisk` values through existing validation errors;
+  - supports `workRisk` in project and workspace query parsing.
+- Updated `apps/api/src/repositories/work-item-query-builder.ts`:
+  - included `workRisk` in `ProjectWorkItemQuery`;
+  - added `unassigned_active` conditions using `activeUnassignedWorkItemStatuses`;
+  - added `stale_in_progress` conditions using `staleInProgressDays`;
+  - kept `workRisk` composable with milestone, status, due date, dependency, search, and sort filters.
+- Updated `apps/api/src/services/work-item-service.ts` so project list filters use the repository-owned `ProjectWorkItemQuery` type.
+- Updated `apps/api/tests/work-item-query.test.ts` for `workRisk` parsing and invalid-value validation.
+- Updated `apps/api/tests/work-items.test.ts` for milestone-scoped project Work filtering with:
+  - `workRisk=unassigned_active`;
+  - `workRisk=stale_in_progress`.
+- Corrected v0.1.7 API suggested commands to remove the unsupported Vitest `--runInBand` flag.
+- Verified:
+  - `npm test --workspace @worktrail/api -- tests/work-item-query.test.ts tests/work-items.test.ts`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `git diff --check`.
 
 ## Phase 3: Milestone Review Service And Endpoint
 
@@ -268,7 +290,7 @@ Acceptance criteria:
 Suggested commands:
 
 ```sh
-npm test --workspace @worktrail/api -- --runInBand
+npm test --workspace @worktrail/api
 npm run typecheck --workspace @worktrail/api
 git diff --check
 ```

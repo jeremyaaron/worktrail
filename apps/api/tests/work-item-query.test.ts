@@ -35,6 +35,7 @@ describe('work item query validation', () => {
         projectId,
         blocked: 'true',
         assigneeState: 'assigned',
+        workRisk: 'stale_in_progress',
         workState: 'open',
         sort: 'priority_desc'
       })
@@ -42,6 +43,7 @@ describe('work item query validation', () => {
       assigneeState: 'assigned',
       blocked: true,
       sort: 'priority_desc',
+      workRisk: 'stale_in_progress',
       workState: 'open'
     });
   });
@@ -51,12 +53,14 @@ describe('work item query validation', () => {
       parseWorkspaceWorkItemQuery({
         projectId,
         archivedProjects: 'only',
+        workRisk: 'unassigned_active',
         workState: 'terminal'
       })
     ).toEqual({
       archivedProjects: 'only',
       projectId,
       sort: 'updated_desc',
+      workRisk: 'unassigned_active',
       workState: 'terminal'
     });
   });
@@ -128,5 +132,9 @@ describe('work item query validation', () => {
         assigneeState: 'unassigned'
       })
     ).toThrow(ValidationError);
+  });
+
+  it('rejects unsupported work risk filters', () => {
+    expect(() => parseWorkItemQuery({ workRisk: 'unowned' })).toThrow(ValidationError);
   });
 });
