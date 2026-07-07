@@ -564,6 +564,36 @@ npm run lint --workspace @worktrail/web
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-06.
+- Wired `PinnedSavedViewsComponent` into the workspace Work Items page above the saved-view manager.
+- Added workspace pinned-view computed groups:
+  - `pinnedWorkspaceSavedViews`;
+  - `pinnedPersonalSavedViews`.
+- Opened pinned workspace shortcuts through the existing canonical `openSavedView` route-query behavior.
+- Wired saved-view manager `pinChange` to workspace page mutation handling.
+- Added `setSavedViewPinned` for workspace saved views:
+  - reuses existing saved-view mutation permission checks;
+  - calls `updateSavedWorkView(savedView.id, { isPinned })`;
+  - replaces local saved-view state on success;
+  - surfaces API errors without mutating local pinned state.
+- Preserved existing workspace filter chips, copy links, CSV export, pagination, detail return URLs, and saved-view CRUD behavior.
+- Added workspace page coverage for:
+  - pinned shared workspace shortcuts render;
+  - pinned personal workspace shortcuts render;
+  - opening a pinned shared shortcut updates canonical query params;
+  - owner can pin and unpin shared workspace views;
+  - pin API errors do not corrupt local state;
+  - contributors cannot send shared pin mutation requests.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include "**/workspace-work-item-list-page.component.spec.ts"`;
+  - `npm test --workspace @worktrail/web -- --include "**/saved-views-toolbar.component.spec.ts"`;
+  - `npm test --workspace @worktrail/web -- --include "**/worktrail-api.service.spec.ts"`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `git diff --check`.
+
 ## Phase 7: Project Work Page Integration
 
 Goal: wire pinned saved views into project Work pages with project-specific permission and archived-state behavior.

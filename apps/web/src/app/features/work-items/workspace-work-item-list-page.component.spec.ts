@@ -161,6 +161,20 @@ const sharedSavedView: SavedWorkViewDto = {
   }
 };
 
+const pinnedPersonalSavedView: SavedWorkViewDto = {
+  ...savedView,
+  id: '10000000-0000-4000-8000-000000000704',
+  name: 'Pinned owner work',
+  isPinned: true
+};
+
+const pinnedSharedSavedView: SavedWorkViewDto = {
+  ...sharedSavedView,
+  id: '10000000-0000-4000-8000-000000000705',
+  name: 'Pinned dependency risks',
+  isPinned: true
+};
+
 const projectScopedSavedView: SavedWorkViewDto = {
   ...savedView,
   id: '10000000-0000-4000-8000-000000000703',
@@ -701,6 +715,96 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     remove.flush(null);
   });
 
+  it('renders pinned workspace shortcuts and opens them through canonical query params', () => {
+    const { fixture, http } = setup();
+    flushProjectSummaries(http);
+    flushSavedViews(http, [pinnedPersonalSavedView, pinnedSharedSavedView, savedView, sharedSavedView]);
+    http.expectOne('/api/work-items').flush([]);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.pinnedPersonalSavedViews().map((view) => view.id)).toEqual([
+      pinnedPersonalSavedView.id
+    ]);
+    expect(fixture.componentInstance.pinnedWorkspaceSavedViews().map((view) => view.id)).toEqual([
+      pinnedSharedSavedView.id
+    ]);
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Pinned views');
+    expect(compiled.textContent).toContain('Pinned dependency risks');
+    expect(compiled.textContent).toContain('Pinned owner work');
+    expect(compiled.textContent).toContain('1 shared · 1 personal');
+
+    const router = TestBed.inject(Router);
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    compiled
+      .querySelector<HTMLButtonElement>('button[aria-label="Open pinned shared view Pinned dependency risks"]')
+      ?.click();
+
+    expect(navigate).toHaveBeenCalledWith(
+      [],
+      jasmine.objectContaining({
+        queryParams: jasmine.objectContaining({
+          dependency: 'dependency_blocked',
+          sort: 'priority_desc'
+        })
+      })
+    );
+  });
+
+  it('updates workspace saved-view pinned state for mutable saved views', () => {
+    const { fixture, http } = setup();
+    flushProjectSummaries(http);
+    flushSavedViews(http, [savedView, sharedSavedView]);
+    http.expectOne('/api/work-items').flush([]);
+    fixture.detectChanges();
+
+    fixture.componentInstance.setSavedViewPinned(sharedSavedView, true);
+    const pin = http.expectOne(`/api/saved-work-views/${sharedSavedView.id}`);
+    expect(pin.request.method).toBe('PATCH');
+    expect(pin.request.body).toEqual({ isPinned: true });
+    const pinnedView: SavedWorkViewDto = { ...sharedSavedView, isPinned: true };
+    pin.flush(pinnedView);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.pinnedWorkspaceSavedViews().map((view) => view.id)).toEqual([
+      sharedSavedView.id
+    ]);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Dependency risks');
+
+    fixture.componentInstance.setSavedViewPinned(pinnedView, false);
+    const unpin = http.expectOne(`/api/saved-work-views/${sharedSavedView.id}`);
+    expect(unpin.request.method).toBe('PATCH');
+    expect(unpin.request.body).toEqual({ isPinned: false });
+    unpin.flush({ ...pinnedView, isPinned: false });
+
+    expect(fixture.componentInstance.pinnedWorkspaceSavedViews()).toEqual([]);
+  });
+
+  it('shows pin mutation errors without corrupting saved-view state', () => {
+    const { fixture, http } = setup();
+    flushProjectSummaries(http);
+    flushSavedViews(http, [sharedSavedView]);
+    http.expectOne('/api/work-items').flush([]);
+    fixture.detectChanges();
+
+    fixture.componentInstance.setSavedViewPinned(sharedSavedView, true);
+    const pin = http.expectOne(`/api/saved-work-views/${sharedSavedView.id}`);
+    pin.flush(
+      {
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Pin update failed.'
+        }
+      },
+      { status: 500, statusText: 'Server Error' }
+    );
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.pinnedWorkspaceSavedViews()).toEqual([]);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Pin update failed.');
+  });
+
   it('excludes project-scoped saved views from workspace saved view groups', () => {
     const { fixture, http } = setup();
     flushProjectSummaries(http);
@@ -752,6 +856,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     fixture.componentInstance.saveWorkspaceViewName('Contributor shared view');
     fixture.componentInstance.renameSavedView(sharedSavedView);
     fixture.componentInstance.updateSavedViewQuery(sharedSavedView);
+    fixture.componentInstance.setSavedViewPinned(sharedSavedView, true);
     fixture.componentInstance.deleteSavedView(sharedSavedView);
 
     http.expectNone('/api/saved-work-views');
