@@ -81,6 +81,7 @@ describe('work item filter labels', () => {
           priority: 'high',
           dueDateState: 'due_soon',
           dependency: 'blocking_open_work',
+          workRisk: 'stale_in_progress',
           sort: 'priority_desc'
         },
         {
@@ -100,6 +101,7 @@ describe('work item filter labels', () => {
       'Priority: High',
       'Due date: Due soon',
       'Dependency: Blocking open work',
+      'Risk: Stale in progress',
       'Sort: Priority high to low'
     ]);
   });
@@ -121,6 +123,7 @@ describe('work item filter labels', () => {
           dueDateState: '',
           blocked: 'true',
           dependency: '',
+          workRisk: '',
           archivedProjects: 'only',
           sort: 'updated_desc'
         },

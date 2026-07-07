@@ -6,6 +6,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createExpressApp } from '../src/adapters/express/server.js';
 import { createDb, createPool } from '../src/db/client.js';
 import { createRepositories, type Repositories } from '../src/repositories/index.js';
+import { MilestoneReviewService } from '../src/services/milestone-review-service.js';
 import { PlanningService } from '../src/services/planning-service.js';
 
 const workspaceIds = new Set<string>();
@@ -515,6 +516,379 @@ describe('planning summary', () => {
             title: 'Archived project readable item'
           })
         ]);
+      });
+  });
+
+  it('derives milestone review scope, risk sections, and recent movement', async () => {
+    const fixture = await createFixture();
+    const milestone = await createMilestone(fixture, {
+      name: 'release review',
+      status: 'active',
+      targetDate: '2026-07-18'
+    });
+    const otherMilestone = await createMilestone(fixture, {
+      name: 'future review',
+      status: 'planned',
+      targetDate: '2026-08-01'
+    });
+    const blocked = await createWorkItem(fixture, {
+      title: 'Blocked overdue milestone work',
+      status: 'blocked',
+      priority: 'high',
+      milestoneId: milestone.id,
+      dueDate: '2026-07-09',
+      updatedAt: new Date('2026-07-09T12:00:00.000Z')
+    });
+    const dependencyBlocked = await createWorkItem(fixture, {
+      title: 'Dependency-blocked milestone work',
+      status: 'in_progress',
+      priority: 'urgent',
+      milestoneId: milestone.id,
+      updatedAt: staleUpdatedAt()
+    });
+    const openBlocker = await createWorkItem(fixture, {
+      title: 'Milestone blocker for other work',
+      status: 'ready',
+      priority: 'high',
+      milestoneId: milestone.id,
+      updatedAt: new Date('2026-07-08T12:00:00.000Z')
+    });
+    const dueSoonUnassigned = await createWorkItem(fixture, {
+      title: 'Due soon unassigned milestone work',
+      status: 'ready',
+      priority: 'medium',
+      assigneeId: null,
+      milestoneId: milestone.id,
+      dueDate: '2026-07-14',
+      updatedAt: new Date('2026-07-07T12:00:00.000Z')
+    });
+    const done = await createWorkItem(fixture, {
+      title: 'Done milestone work',
+      status: 'done',
+      priority: 'low',
+      milestoneId: milestone.id,
+      dueDate: '2026-08-01',
+      updatedAt: new Date('2026-07-06T12:00:00.000Z')
+    });
+    const externalBlocker = await createWorkItem(fixture, {
+      title: 'External blocker',
+      status: 'ready',
+      priority: 'high',
+      milestoneId: otherMilestone.id
+    });
+    const externalBlocked = await createWorkItem(fixture, {
+      title: 'External blocked work',
+      status: 'ready',
+      priority: 'medium',
+      milestoneId: otherMilestone.id
+    });
+    await createBlockingRelationship(fixture, {
+      sourceWorkItemId: externalBlocker.id,
+      targetWorkItemId: dependencyBlocked.id
+    });
+    await createBlockingRelationship(fixture, {
+      sourceWorkItemId: openBlocker.id,
+      targetWorkItemId: externalBlocked.id
+    });
+
+    const service = new MilestoneReviewService({
+      actor: fixture.actor,
+      repositories,
+      clock: now
+    });
+    const review = await service.getMilestoneReview(fixture.projectId, milestone.id);
+
+    expect(review.project.id).toBe(fixture.projectId);
+    expect(review.milestone.id).toBe(milestone.id);
+    expect(review.scopedWorkQuery).toEqual({
+      milestoneId: milestone.id,
+      sort: 'priority_desc'
+    });
+    expect(review.progress).toMatchObject({
+      totalCount: 5,
+      doneCount: 1,
+      openCount: 4,
+      blockedCount: 1,
+      dependencyBlockedCount: 1,
+      overdueCount: 1,
+      dueSoonCount: 1,
+      unassignedActiveCount: 1,
+      staleInProgressCount: 1,
+      health: 'blocked'
+    });
+    expect(review.scopeBreakdown).toMatchObject({
+      statusCounts: {
+        backlog: 0,
+        ready: 2,
+        in_progress: 1,
+        blocked: 1,
+        done: 1,
+        canceled: 0
+      },
+      priorityCounts: {
+        low: 1,
+        medium: 1,
+        high: 2,
+        urgent: 1
+      },
+      assignedCount: 4,
+      unassignedCount: 1,
+      dueDate: {
+        overdueCount: 1,
+        dueSoonCount: 1,
+        laterCount: 1,
+        noneCount: 2
+      },
+      dependency: {
+        dependencyBlockedCount: 1,
+        blockingOpenWorkCount: 1
+      }
+    });
+    expect(review.riskSections.map((section) => section.type)).toEqual([
+      'blocked',
+      'dependency_blocked',
+      'overdue',
+      'due_soon',
+      'unassigned_active',
+      'stale_in_progress',
+      'blocking_open_work'
+    ]);
+    expect(review.riskSections).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: 'blocked',
+        count: 1,
+        query: {
+          milestoneId: milestone.id,
+          status: 'blocked',
+          sort: 'priority_desc'
+        },
+        items: [expect.objectContaining({ id: blocked.id, milestone: expect.objectContaining({ id: milestone.id }) })]
+      }),
+      expect.objectContaining({
+        type: 'dependency_blocked',
+        count: 1,
+        query: {
+          milestoneId: milestone.id,
+          dependency: 'dependency_blocked',
+          sort: 'priority_desc'
+        },
+        items: [expect.objectContaining({ id: dependencyBlocked.id })]
+      }),
+      expect.objectContaining({
+        type: 'unassigned_active',
+        count: 1,
+        query: {
+          milestoneId: milestone.id,
+          workRisk: 'unassigned_active',
+          sort: 'priority_desc'
+        },
+        items: [expect.objectContaining({ id: dueSoonUnassigned.id, assignee: null })]
+      }),
+      expect.objectContaining({
+        type: 'stale_in_progress',
+        count: 1,
+        query: {
+          milestoneId: milestone.id,
+          workRisk: 'stale_in_progress',
+          sort: 'updated_asc'
+        },
+        items: [expect.objectContaining({ id: dependencyBlocked.id })]
+      }),
+      expect.objectContaining({
+        type: 'blocking_open_work',
+        count: 1,
+        items: [expect.objectContaining({ id: openBlocker.id })]
+      })
+    ]));
+    expect(review.recentlyChangedWork.map((item) => item.id)).toEqual([
+      blocked.id,
+      openBlocker.id,
+      dueSoonUnassigned.id,
+      done.id,
+      dependencyBlocked.id
+    ]);
+  });
+
+  it('serves milestone review responses from the planning endpoint', async () => {
+    const fixture = await createFixture({ projectStatus: 'archived' });
+    const milestone = await createMilestone(fixture, {
+      name: 'archived review',
+      status: 'active',
+      targetDate: '2026-07-18',
+      archived: true
+    });
+    await createWorkItem(fixture, {
+      title: 'Archived project review work',
+      status: 'blocked',
+      milestoneId: milestone.id
+    });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/milestones/${milestone.id}/review`)
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.project).toMatchObject({
+          id: fixture.projectId,
+          status: 'archived'
+        });
+        expect(body.milestone).toMatchObject({
+          id: milestone.id,
+          isArchived: true
+        });
+        expect(body.progress).toMatchObject({
+          totalCount: 1,
+          blockedCount: 1
+        });
+        expect(body.riskSections).toHaveLength(7);
+      });
+  });
+
+  it('rejects milestone review for milestones outside the route project', async () => {
+    const fixture = await createFixture();
+    const otherProjectId = randomUUID();
+
+    await repositories.projects.create({
+      id: otherProjectId,
+      workspaceId: fixture.workspaceId,
+      key: 'OTHER',
+      nextWorkItemNumber: 1,
+      name: 'Other Planning Project',
+      description: '',
+      status: 'active',
+      createdAt: now(),
+      updatedAt: now()
+    });
+    const otherMilestone = await repositories.milestones.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      projectId: otherProjectId,
+      name: 'Other milestone',
+      description: '',
+      status: 'active',
+      targetDate: null,
+      archivedAt: null,
+      archivedById: null,
+      createdAt: now(),
+      updatedAt: now()
+    });
+    const service = new MilestoneReviewService({
+      actor: fixture.actor,
+      repositories,
+      clock: now
+    });
+
+    await expect(service.getMilestoneReview(fixture.projectId, otherMilestone.id)).rejects.toThrow(
+      'Milestone not found.'
+    );
+  });
+
+  it('returns an empty milestone review with deterministic zero-count sections', async () => {
+    const fixture = await createFixture();
+    const milestone = await createMilestone(fixture, {
+      name: 'empty review milestone',
+      status: 'active',
+      targetDate: '2026-07-18'
+    });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/milestones/${milestone.id}/review`)
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.progress).toMatchObject({
+          totalCount: 0,
+          doneCount: 0,
+          openCount: 0
+        });
+        expect(body.scopeBreakdown).toMatchObject({
+          statusCounts: {
+            backlog: 0,
+            ready: 0,
+            in_progress: 0,
+            blocked: 0,
+            done: 0,
+            canceled: 0
+          },
+          priorityCounts: {
+            low: 0,
+            medium: 0,
+            high: 0,
+            urgent: 0
+          },
+          assignedCount: 0,
+          unassignedCount: 0,
+          dueDate: {
+            overdueCount: 0,
+            dueSoonCount: 0,
+            laterCount: 0,
+            noneCount: 0
+          },
+          dependency: {
+            dependencyBlockedCount: 0,
+            blockingOpenWorkCount: 0
+          }
+        });
+        expect(body.riskSections).toHaveLength(7);
+        expect(body.riskSections.every((section: { count: number; items: unknown[] }) =>
+          section.count === 0 && section.items.length === 0
+        )).toBe(true);
+        expect(body.recentlyChangedWork).toEqual([]);
+      });
+  });
+
+  it('caps milestone review recent movement at the eight most recently updated items', async () => {
+    const fixture = await createFixture();
+    const milestone = await createMilestone(fixture, {
+      name: 'recent movement review',
+      status: 'active'
+    });
+    const created = [];
+
+    for (let index = 0; index < 10; index += 1) {
+      const day = String(index + 1).padStart(2, '0');
+      created.push(
+        await createWorkItem(fixture, {
+          title: `Recent movement ${index + 1}`,
+          status: 'ready',
+          milestoneId: milestone.id,
+          updatedAt: new Date(`2026-07-${day}T12:00:00.000Z`)
+        })
+      );
+    }
+
+    const service = new MilestoneReviewService({
+      actor: fixture.actor,
+      repositories,
+      clock: now
+    });
+    const review = await service.getMilestoneReview(fixture.projectId, milestone.id);
+
+    expect(review.recentlyChangedWork.map((item) => item.id)).toEqual(
+      created
+        .slice(2)
+        .reverse()
+        .map((item) => item.id)
+    );
+  });
+
+  it('hides milestone review projects from other workspaces', async () => {
+    const visibleFixture = await createFixture();
+    const hiddenFixture = await createFixture();
+    const hiddenMilestone = await createMilestone(hiddenFixture, {
+      name: 'hidden milestone',
+      status: 'active'
+    });
+
+    await request(app)
+      .get(`/api/projects/${hiddenFixture.projectId}/milestones/${hiddenMilestone.id}/review`)
+      .set(visibleFixture.headers)
+      .expect(404)
+      .expect(({ body }) => {
+        expect(body.error).toEqual({
+          code: 'NOT_FOUND',
+          message: 'Project not found.'
+        });
       });
   });
 });

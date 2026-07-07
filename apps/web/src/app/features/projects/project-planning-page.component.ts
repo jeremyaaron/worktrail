@@ -417,10 +417,16 @@ interface PlanningReviewSection {
                       <span class="progress-row__heading">
                         <a
                           class="progress-row__heading-link"
+                          [routerLink]="['/projects', projectId(), 'milestones', progress.milestone.id]"
+                        >
+                          {{ progress.milestone.name }}
+                        </a>
+                        <a
+                          class="progress-row__work-link reason-chip"
                           [routerLink]="['/projects', projectId(), 'work-items']"
                           [queryParams]="{ milestoneId: progress.milestone.id, sort: 'due_date_asc' }"
                         >
-                          {{ progress.milestone.name }}
+                          Open work
                         </a>
                         <span class="health-pill" [attr.data-tone]="healthTone(progress.health)">
                           {{ healthLabel(progress.health) }}
@@ -534,6 +540,18 @@ interface PlanningReviewSection {
                           >
                             <span>
                               <strong>{{ item.displayKey === null ? item.title : item.displayKey + ' · ' + item.title }}</strong>
+                              <small>{{ item.detail }}</small>
+                            </span>
+                            <small>{{ reviewItemMeta(item) }}</small>
+                          </a>
+                        } @else if (reviewMilestoneLink(item); as milestoneLink) {
+                          <a
+                            class="review-row"
+                            [attr.data-tone]="severityTone(item.severity)"
+                            [routerLink]="milestoneLink"
+                          >
+                            <span>
+                              <strong>{{ item.title }}</strong>
                               <small>{{ item.detail }}</small>
                             </span>
                             <small>{{ reviewItemMeta(item) }}</small>
@@ -1693,6 +1711,12 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
 
   reviewWorkItemLink(item: PlanningReviewItemDto): string[] | null {
     return item.workItemId === null ? null : ['/work-items', item.workItemId];
+  }
+
+  reviewMilestoneLink(item: PlanningReviewItemDto): string[] | null {
+    return item.kind === 'milestone' && item.milestoneId !== null
+      ? ['/projects', this.projectId(), 'milestones', item.milestoneId]
+      : null;
   }
 
   detailQueryParams(): { returnUrl: string } {

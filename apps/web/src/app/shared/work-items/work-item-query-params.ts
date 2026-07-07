@@ -30,6 +30,7 @@ export function workItemQueryToHttpParams(query: WorkItemQuery): HttpParams {
     dueDateState: query.dueDateState,
     blocked: query.blocked,
     dependency: query.dependency,
+    workRisk: query.workRisk,
     archivedProjects: query.archivedProjects,
     search: query.search,
     sort: query.sort

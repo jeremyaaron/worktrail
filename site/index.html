@@ -6,12 +6,12 @@
     <title>Worktrail | Project management reference app</title>
     <meta
       name="description"
-      content="Worktrail is a local-first project-management reference app for daily work, reliable filtered views, pinned workspace and project operating lenses, project batch triage, collaboration updates, dependency-aware planning, and production-shaped TypeScript architecture."
+      content="Worktrail is a local-first project-management reference app for daily work, reliable filtered views, pinned workspace and project operating lenses, project batch triage, milestone review, collaboration updates, dependency-aware planning, and production-shaped TypeScript architecture."
     >
     <meta property="og:title" content="Worktrail">
     <meta
       property="og:description"
-      content="A local-first project-management reference app for daily work, reliable filtered views, pinned workspace and project operating lenses, project batch triage, collaboration updates, dependency-aware planning, and production-shaped TypeScript architecture."
+      content="A local-first project-management reference app for daily work, reliable filtered views, pinned workspace and project operating lenses, project batch triage, milestone review, collaboration updates, dependency-aware planning, and production-shaped TypeScript architecture."
     >
     <meta property="og:type" content="website">
     <meta name="theme-color" content="#f6f8fb">
@@ -47,8 +47,8 @@
           <h1 id="hero-title">Worktrail</h1>
           <p class="hero-copy">
             A local-first project-management reference app for daily work, reliable filtered views,
-            pinned workspace and project operating lenses, project batch triage, collaboration updates,
-            dependency-aware planning, and production-shaped TypeScript architecture.
+            pinned workspace and project operating lenses, project batch triage, milestone review,
+            collaboration updates, dependency-aware planning, and production-shaped TypeScript architecture.
           </p>
           <div class="hero-actions" aria-label="Primary actions">
             <a class="button button-primary" href="https://github.com/jeremyaaron/worktrail">
@@ -66,7 +66,7 @@
         </div>
         <div class="signal">
           <span class="signal-value">Planning</span>
-          <span class="signal-label">milestones, boards, dependencies, and delivery health</span>
+          <span class="signal-label">milestones, review pages, boards, dependencies, and delivery health</span>
         </div>
         <div class="signal">
           <span class="signal-value">Reference</span>
@@ -87,8 +87,8 @@
             the app around daily execution, v0.1.1 adds the attention loop, v0.1.2 hardens
             filtered work views, v0.1.3 turns saved views into workspace operating lenses,
             v0.1.4 brings the same pattern into project workspaces, and v0.1.5 promotes
-            the most important saved views into pinned shortcuts. v0.1.6 adds project batch
-            triage for selected project work.
+            the most important saved views into pinned shortcuts, v0.1.6 adds project batch
+            triage for selected project work, and v0.1.7 adds focused milestone review pages.
           </p>
         </div>
         <div class="feature-grid">
@@ -139,7 +139,9 @@
             <ul>
               <li>Planning Review with needs attention, upcoming, and recent changes.</li>
               <li>Milestone progress with explainable health reasons.</li>
+              <li>Milestone review pages with scope, risk, and recent movement.</li>
               <li>Risk sections for overdue, blocked, stale, and unassigned work.</li>
+              <li>Query-backed risk links into filtered project Work.</li>
             </ul>
           </article>
           <article class="feature">
@@ -165,7 +167,7 @@
 
       <section class="section" id="capabilities" aria-labelledby="capabilities-title">
         <div class="section-heading">
-          <p class="eyebrow">v0.1.6 baseline</p>
+          <p class="eyebrow">v0.1.7 baseline</p>
           <h2 id="capabilities-title">Product polish, reliable views, and reference-app discipline.</h2>
           <p>
             The v0.1.0 release turned accumulated capability into a clearer baseline.
@@ -175,17 +177,18 @@
             the same applied query-state model as URLs, chips, copy links, delivery-health
             links, return URLs, and CSV exports. v0.1.5 makes important saved views visible
             as pinned shortcuts without changing their underlying query contracts. v0.1.6
-            adds explicit project batch commands with partial-success feedback.
+            adds explicit project batch commands with partial-success feedback. v0.1.7
+            adds derived milestone review pages and query-backed risk links into project Work.
           </p>
         </div>
         <div class="baseline-grid">
           <div>
             <strong>For product users</strong>
-            <span>Lower scan cost, clearer navigation, visible collaboration updates, pinned workspace/project operating views, shareable filtered links, batch project triage, and readable mobile work lists.</span>
+            <span>Lower scan cost, clearer navigation, visible collaboration updates, pinned workspace/project operating views, shareable filtered links, milestone review, batch project triage, and readable mobile work lists.</span>
           </div>
           <div>
             <strong>For builders</strong>
-            <span>Domain contracts, canonical query helpers, pinned query artifacts, batch command envelopes, notification fan-out, route-level code splitting, shared risk policy, endpoint handlers, and API client boundaries.</span>
+            <span>Domain contracts, canonical query helpers, pinned query artifacts, derived review read models, batch command envelopes, notification fan-out, route-level code splitting, shared risk policy, endpoint handlers, and API client boundaries.</span>
           </div>
           <div>
             <strong>For operators</strong>
@@ -247,6 +250,7 @@
             <div><strong>Lazy routes</strong><span>route chunks keep initial production bundles below warning budgets</span></div>
             <div><strong>Query contracts</strong><span>one applied work item query model for URLs, saved views, exports, and links</span></div>
             <div><strong>Batch commands</strong><span>explicit project bulk actions with per-row result envelopes</span></div>
+            <div><strong>Review read models</strong><span>derived milestone views that aggregate existing health and risk policy</span></div>
             <div><strong>Endpoint handlers</strong><span>transport-neutral request and response shape</span></div>
             <div><strong>Relationship services</strong><span>edge validation, cycle checks, and derived dependency state</span></div>
             <div><strong>Notification services</strong><span>actor-scoped read state, watcher fan-out, mention metadata, and dedupe</span></div>
@@ -266,11 +270,11 @@
           <p class="eyebrow">Current scope</p>
           <h2 id="mvp-title">Local-first, cloud-shaped, still honest about limits.</h2>
           <p>
-            Worktrail v0.1.6 is still a local reference app. Production authentication,
+            Worktrail v0.1.7 is still a local reference app. Production authentication,
             invitations, pinned projects, custom roles, custom
             workflows, cross-project bulk edit, email or push delivery, notification preferences, attachments, third-party
             migration mappings, graph visualization, dependency automation, custom health formulas,
-            forecasting, critical path analysis,
+            forecasting, roadmap views, critical path analysis, milestone sign-off,
             saved review snapshots, and hosted infrastructure are intentionally out of scope. Production
             preview is not an internet-safe authenticated deployment. The value today is a working
             product surface and operational boundary that can accumulate evidence before patterns are
@@ -298,8 +302,8 @@ DATABASE_URL=postgres://worktrail:worktrail@localhost:5432/worktrail npm run pre
     <footer class="footer">
       <span>Worktrail</span>
       <a href="https://github.com/jeremyaaron/worktrail">GitHub</a>
-      <a href="https://github.com/jeremyaaron/worktrail/tree/main/docs/v0.1.6">v0.1.6 docs</a>
-      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.1.6/pattern-extraction-notes.md">Pattern notes</a>
+      <a href="https://github.com/jeremyaaron/worktrail/tree/main/docs/v0.1.7">v0.1.7 docs</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.1.7/pattern-extraction-notes.md">Pattern notes</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.0.7/csv-import-export.md">CSV guide</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/api/openapi.yaml">OpenAPI</a>
     </footer>

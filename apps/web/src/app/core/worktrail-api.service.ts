@@ -16,6 +16,7 @@ import type {
   LabelDto,
   MemberDto,
   MilestoneDto,
+  MilestoneReviewDto,
   MilestoneStatus,
   MoveWorkItemOnBoardRequest,
   MyWorkDashboardDto,
@@ -162,6 +163,13 @@ export class WorktrailApiService {
 
   getProjectPlanningSummary(projectId: string): Observable<ProjectPlanningSummaryDto> {
     return this.planning.getProjectPlanningSummary(projectId);
+  }
+
+  getMilestoneReview(
+    projectId: string,
+    milestoneId: string
+  ): Observable<MilestoneReviewDto> {
+    return this.planning.getMilestoneReview(projectId, milestoneId);
   }
 
   listProjectActivity(projectId: string): Observable<ActivityEventDto[]> {

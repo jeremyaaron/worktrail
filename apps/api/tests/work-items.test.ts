@@ -1179,6 +1179,82 @@ describe('work item API', () => {
       });
   });
 
+  it('filters project work items by milestone-scoped work risk', async () => {
+    const fixture = await createFixture('owner');
+    const milestone = await createMilestone(fixture);
+    const otherMilestone = await createMilestone(fixture, {
+      name: 'Later milestone'
+    });
+    const unassignedActive = await createWorkItem(fixture, {
+      title: 'Unassigned active milestone work',
+      status: 'ready',
+      assigneeId: null,
+      milestoneId: milestone.id,
+      updatedAt: new Date('2026-07-02T12:00:00.000Z')
+    });
+    const staleInProgress = await createWorkItem(fixture, {
+      title: 'Stale in-progress milestone work',
+      status: 'in_progress',
+      milestoneId: milestone.id,
+      updatedAt: new Date('2026-06-20T12:00:00.000Z')
+    });
+    await createWorkItem(fixture, {
+      title: 'Unassigned backlog is not active',
+      status: 'backlog',
+      assigneeId: null,
+      milestoneId: milestone.id,
+      updatedAt: new Date('2026-07-02T12:00:00.000Z')
+    });
+    await createWorkItem(fixture, {
+      title: 'Unassigned active work in another milestone',
+      status: 'ready',
+      assigneeId: null,
+      milestoneId: otherMilestone.id,
+      updatedAt: new Date('2026-07-02T12:00:00.000Z')
+    });
+    await createWorkItem(fixture, {
+      title: 'Recent in-progress milestone work',
+      status: 'in_progress',
+      milestoneId: milestone.id,
+      updatedAt: new Date('2026-07-03T12:00:00.000Z')
+    });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items`)
+      .query({
+        milestoneId: milestone.id,
+        workRisk: 'unassigned_active',
+        sort: 'priority_desc'
+      })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.map((item: { id: string }) => item.id)).toEqual([unassignedActive.id]);
+        expect(body[0]).toMatchObject({
+          assignee: null,
+          milestone: { id: milestone.id },
+          status: 'ready'
+        });
+      });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items`)
+      .query({
+        milestoneId: milestone.id,
+        workRisk: 'stale_in_progress',
+        sort: 'updated_asc'
+      })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.map((item: { id: string }) => item.id)).toEqual([staleInProgress.id]);
+        expect(body[0]).toMatchObject({
+          milestone: { id: milestone.id },
+          status: 'in_progress'
+        });
+      });
+  });
+
   it('bulk updates selected project work items', async () => {
     const fixture = await createFixture('maintainer');
     const first = await createWorkItem(fixture, {

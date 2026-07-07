@@ -27,6 +27,7 @@ const workItemQuerySchema = z.object({
   dueDateState: z.enum(['overdue', 'due_soon', 'none']).optional(),
   blocked: queryBooleanSchema,
   dependency: z.enum(['dependency_blocked', 'blocking_open_work']).optional(),
+  workRisk: z.enum(['unassigned_active', 'stale_in_progress']).optional(),
   archivedProjects: z.enum(['exclude', 'include', 'only']).default('exclude'),
   search: z.string().trim().max(120).optional(),
   sort: z
@@ -71,6 +72,7 @@ export function parseWorkspaceWorkItemQuery(
     dueDateState: emptyToUndefined(firstQueryValue(query.dueDateState)),
     blocked: emptyToUndefined(firstQueryValue(query.blocked)),
     dependency: emptyToUndefined(firstQueryValue(query.dependency)),
+    workRisk: emptyToUndefined(firstQueryValue(query.workRisk)),
     archivedProjects: emptyToUndefined(firstQueryValue(query.archivedProjects)),
     search: emptyToUndefined(firstQueryValue(query.search)),
     sort: emptyToUndefined(firstQueryValue(query.sort))
@@ -97,6 +99,7 @@ export function parseProjectWorkItemQuery(
     dueDateState: emptyToUndefined(firstQueryValue(query.dueDateState)),
     blocked: emptyToUndefined(firstQueryValue(query.blocked)),
     dependency: emptyToUndefined(firstQueryValue(query.dependency)),
+    workRisk: emptyToUndefined(firstQueryValue(query.workRisk)),
     search: emptyToUndefined(firstQueryValue(query.search)),
     sort: emptyToUndefined(firstQueryValue(query.sort))
   });

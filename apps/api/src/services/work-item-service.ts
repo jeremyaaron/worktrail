@@ -13,7 +13,6 @@ import type {
   WorkItemQuery,
   WorkItemDetailDto,
   WorkItemListItemDto,
-  WorkItemSort,
   WorkspaceWorkItemListItemDto
 } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
@@ -34,6 +33,7 @@ import {
   type Repositories,
   withRepositoriesTransaction
 } from '../repositories/index.js';
+import type { ProjectWorkItemQuery } from '../repositories/work-item-query-builder.js';
 import type {
   ActivityEvent,
   Comment,
@@ -55,18 +55,7 @@ import { WorkItemRelationshipService } from './work-item-relationship-service.js
 
 const boardPositionStep = 1024;
 
-export interface WorkItemListFilters {
-  status?: WorkItemStatus;
-  assigneeId?: string;
-  reporterId?: string;
-  type?: WorkItem['type'];
-  labelId?: string;
-  milestoneId?: string;
-  priority?: WorkItem['priority'];
-  dueDateState?: 'overdue' | 'due_soon' | 'none';
-  search?: string;
-  sort?: WorkItemSort;
-}
+export type WorkItemListFilters = ProjectWorkItemQuery;
 
 export interface WorkItemServiceContext {
   actor: ActorContext;

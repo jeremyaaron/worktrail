@@ -34,6 +34,7 @@ describe('work item query serialization', () => {
     priority: 'urgent',
     dueDateState: 'overdue',
     dependency: 'dependency_blocked',
+    workRisk: 'stale_in_progress',
     sort: 'priority_desc'
   };
 
@@ -57,6 +58,7 @@ describe('work item query serialization', () => {
       priority: 'urgent',
       dueDateState: 'overdue',
       dependency: 'dependency_blocked',
+      workRisk: 'stale_in_progress',
       sort: 'priority_desc'
     });
     expect(projectFiltersFromFormValue(projectFormValue)).toEqual(projectQueryFromFormValue(projectFormValue));
@@ -74,6 +76,7 @@ describe('work item query serialization', () => {
       priority: null,
       dueDateState: null,
       dependency: null,
+      workRisk: null,
       sort: null
     });
   });
@@ -90,6 +93,7 @@ describe('work item query serialization', () => {
     expect(
       projectFormValueFromQuery({
         priority: 'high',
+        workRisk: 'unassigned_active',
         search: 'client',
         sort: 'created_desc'
       })
@@ -104,6 +108,7 @@ describe('work item query serialization', () => {
       priority: 'high',
       dueDateState: '',
       dependency: '',
+      workRisk: 'unassigned_active',
       sort: 'created_desc'
     });
   });
@@ -117,12 +122,14 @@ describe('work item query serialization', () => {
           projectId: 'project-1',
           search: 'api',
           sort: 'priority_desc',
+          workRisk: 'stale_in_progress',
           workState: 'open'
         },
         'project'
       )
     ).toEqual({
       search: 'api',
+      workRisk: 'stale_in_progress',
       sort: 'priority_desc'
     });
   });
@@ -232,6 +239,7 @@ describe('work item query serialization', () => {
       dueDateState: '',
       blocked: 'true',
       dependency: '',
+      workRisk: '',
       archivedProjects: 'exclude',
       sort: 'updated_desc'
     });

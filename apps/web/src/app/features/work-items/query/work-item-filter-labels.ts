@@ -28,6 +28,11 @@ import type {
   WorkspaceWorkItemFilterFormValue
 } from './work-item-filter-state';
 
+const workRiskLabels: Record<string, string> = {
+  unassigned_active: 'Unassigned active',
+  stale_in_progress: 'Stale in progress'
+};
+
 export interface ProjectFilterLabelLookups {
   members: MemberDto[];
   labels: LabelDto[];
@@ -62,6 +67,7 @@ export function projectWorkItemFilterLabels(
   );
   pushFilterLabel(labels, 'Due date', optionLabel(dueDateStateOptions, formValue.dueDateState));
   pushFilterLabel(labels, 'Dependency', optionLabel(dependencyFilterOptions, formValue.dependency));
+  pushFilterLabel(labels, 'Risk', workRiskLabels[formValue.workRisk] ?? formValue.workRisk);
   pushFilterLabel(
     labels,
     'Sort',
