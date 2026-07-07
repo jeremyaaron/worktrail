@@ -496,7 +496,49 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-07.
+- Added API regression coverage for bulk endpoint validation:
+  - empty work item ids;
+  - too many work item ids;
+  - duplicate work item ids;
+  - invalid action type;
+  - invalid action value;
+  - duplicate label ids;
+  - invalid due date format.
+- Added API coverage for remaining supported action types:
+  - clear assignee;
+  - set milestone;
+  - clear milestone;
+  - clear due date;
+  - add labels;
+  - remove labels.
+- Expanded request-level invalid reference coverage:
+  - inactive assignee;
+  - invalid milestone;
+  - invalid labels.
+- Confirmed existing coverage now covers:
+  - set assignee;
+  - set priority;
+  - set due date;
+  - transition status;
+  - contributor forbidden;
+  - archived project rejection;
+  - cross-project partial failure;
+  - workflow partial failure;
+  - unchanged rows;
+  - activity and notification side effects.
+- Updated `docs/api/openapi.yaml`:
+  - bumped API reference version to `0.1.6`;
+  - added `POST /api/projects/{projectId}/work-items/bulk-update`;
+  - added bulk update action, request, response, result, and error schemas;
+  - documented per-item partial results and request-level error behavior;
+  - added `work_item.due_date_changed` to activity examples.
+- Updated `apps/api/tests/openapi.test.ts` to guard the new path and schemas.
+- Verified:
+  - `npm test --workspace @worktrail/api -- work-items.test.ts openapi.test.ts`;
+  - `ruby -e "require 'yaml'; YAML.load_file('docs/api/openapi.yaml'); puts 'YAML parsed'"`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `git diff --check`.
 
 ## Phase 6: Angular API Client And Request Serialization
 

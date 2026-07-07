@@ -1230,6 +1230,203 @@ describe('work item API', () => {
     await expect(repositories.workItems.findById(second.id)).resolves.toMatchObject({ priority: 'urgent' });
   });
 
+  it('rejects invalid bulk update request shapes', async () => {
+    const fixture = await createFixture('owner');
+    const workItem = await createWorkItem(fixture);
+    const validUuid = randomUUID();
+
+    const invalidRequests = [
+      {
+        name: 'empty work item ids',
+        body: {
+          workItemIds: [],
+          action: { type: 'set_priority', priority: 'high' }
+        }
+      },
+      {
+        name: 'too many work item ids',
+        body: {
+          workItemIds: Array.from({ length: 51 }, () => randomUUID()),
+          action: { type: 'set_priority', priority: 'high' }
+        }
+      },
+      {
+        name: 'duplicate work item ids',
+        body: {
+          workItemIds: [workItem.id, workItem.id],
+          action: { type: 'set_priority', priority: 'high' }
+        }
+      },
+      {
+        name: 'invalid action type',
+        body: {
+          workItemIds: [workItem.id],
+          action: { type: 'replace_everything' }
+        }
+      },
+      {
+        name: 'invalid action value',
+        body: {
+          workItemIds: [workItem.id],
+          action: { type: 'set_priority', priority: 'highest' }
+        }
+      },
+      {
+        name: 'duplicate label ids',
+        body: {
+          workItemIds: [workItem.id],
+          action: { type: 'add_labels', labelIds: [validUuid, validUuid] }
+        }
+      },
+      {
+        name: 'invalid due date',
+        body: {
+          workItemIds: [workItem.id],
+          action: { type: 'set_due_date', dueDate: '07/19/2026' }
+        }
+      }
+    ];
+
+    for (const invalidRequest of invalidRequests) {
+      await request(app)
+        .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
+        .set(fixture.headers)
+        .send(invalidRequest.body)
+        .expect(400)
+        .expect(({ body }) => {
+          expect(body.error.code, invalidRequest.name).toBe('VALIDATION_ERROR');
+          expect(body.error.message, invalidRequest.name).toBe('Request validation failed.');
+        });
+    }
+  });
+
+  it('supports clear assignee, milestone, label, and clear due date bulk actions', async () => {
+    const fixture = await createFixture('owner');
+    const milestone = await createMilestone(fixture);
+    const assigneeItem = await createWorkItem(fixture, {
+      assigneeId: fixture.contributorId
+    });
+    const milestoneItem = await createWorkItem(fixture, {
+      milestoneId: null
+    });
+    const dueDateItem = await createWorkItem(fixture, {
+      dueDate: '2026-07-19'
+    });
+    const labelItem = await createWorkItem(fixture);
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
+      .set(fixture.headers)
+      .send({
+        workItemIds: [assigneeItem.id],
+        action: { type: 'clear_assignee' }
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.results[0]).toMatchObject({
+          status: 'updated',
+          workItem: { id: assigneeItem.id, assignee: null }
+        });
+      });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
+      .set(fixture.headers)
+      .send({
+        workItemIds: [milestoneItem.id],
+        action: { type: 'set_milestone', milestoneId: milestone.id }
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.results[0]).toMatchObject({
+          status: 'updated',
+          workItem: { id: milestoneItem.id, milestone: { id: milestone.id } }
+        });
+      });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
+      .set(fixture.headers)
+      .send({
+        workItemIds: [milestoneItem.id],
+        action: { type: 'clear_milestone' }
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.results[0]).toMatchObject({
+          status: 'updated',
+          workItem: { id: milestoneItem.id, milestone: null }
+        });
+      });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
+      .set(fixture.headers)
+      .send({
+        workItemIds: [dueDateItem.id],
+        action: { type: 'clear_due_date' }
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.results[0]).toMatchObject({
+          status: 'updated',
+          workItem: { id: dueDateItem.id, dueDate: null }
+        });
+      });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
+      .set(fixture.headers)
+      .send({
+        workItemIds: [labelItem.id],
+        action: { type: 'add_labels', labelIds: [fixture.frontendLabelId, fixture.backendLabelId] }
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.results[0]).toMatchObject({
+          status: 'updated',
+          workItem: {
+            id: labelItem.id,
+            labels: expect.arrayContaining([
+              expect.objectContaining({ id: fixture.frontendLabelId }),
+              expect.objectContaining({ id: fixture.backendLabelId })
+            ])
+          }
+        });
+      });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
+      .set(fixture.headers)
+      .send({
+        workItemIds: [labelItem.id],
+        action: { type: 'remove_labels', labelIds: [fixture.frontendLabelId] }
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.results[0]).toMatchObject({
+          status: 'updated',
+          workItem: {
+            id: labelItem.id,
+            labels: [expect.objectContaining({ id: fixture.backendLabelId })]
+          }
+        });
+      });
+
+    await expect(repositories.workItems.findById(assigneeItem.id)).resolves.toMatchObject({
+      assigneeId: null
+    });
+    await expect(repositories.workItems.findById(milestoneItem.id)).resolves.toMatchObject({
+      milestoneId: null
+    });
+    await expect(repositories.workItems.findById(dueDateItem.id)).resolves.toMatchObject({
+      dueDate: null
+    });
+    await expect(repositories.labels.listByWorkItem(labelItem.id)).resolves.toEqual([
+      expect.objectContaining({ id: fixture.backendLabelId })
+    ]);
+  });
+
   it('records due date activity for bulk updates', async () => {
     const fixture = await createFixture('owner');
     const workItem = await createWorkItem(fixture, {
@@ -1487,23 +1684,46 @@ describe('work item API', () => {
       priority: 'medium'
     });
 
-    await request(app)
-      .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
-      .set(fixture.headers)
-      .send({
-        workItemIds: [workItem.id],
+    const invalidRequests = [
+      {
         action: {
           type: 'set_assignee',
           assigneeId: fixture.inactiveMemberId
-        }
-      })
-      .expect(400)
-      .expect(({ body }) => {
-        expect(body.error).toMatchObject({
-          code: 'VALIDATION_ERROR',
-          message: 'Assignee must be an active workspace member.'
+        },
+        message: 'Assignee must be an active workspace member.'
+      },
+      {
+        action: {
+          type: 'set_milestone',
+          milestoneId: randomUUID()
+        },
+        message: 'Milestone is invalid for this project.'
+      },
+      {
+        action: {
+          type: 'add_labels',
+          labelIds: [randomUUID()]
+        },
+        message: 'One or more labels are invalid for this project.'
+      }
+    ];
+
+    for (const invalidRequest of invalidRequests) {
+      await request(app)
+        .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
+        .set(fixture.headers)
+        .send({
+          workItemIds: [workItem.id],
+          action: invalidRequest.action
+        })
+        .expect(400)
+        .expect(({ body }) => {
+          expect(body.error).toMatchObject({
+            code: 'VALIDATION_ERROR',
+            message: invalidRequest.message
+          });
         });
-      });
+    }
 
     await expect(repositories.workItems.findById(workItem.id)).resolves.toMatchObject({
       priority: 'medium'

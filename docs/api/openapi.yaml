@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Worktrail API
-  version: 0.1.1
+  version: 0.1.6
   summary: HTTP API reference for the Worktrail local-first project management app.
   description: |
     This document describes the implemented Worktrail API routes. It is intentionally
@@ -738,6 +738,28 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/WorkItemDetail"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/projects/{projectId}/work-items/bulk-update:
+    post:
+      tags: [Work Items]
+      summary: Bulk update selected project work items.
+      description: Applies one explicit project-scoped bulk action to up to 50 selected work items. Owners and maintainers can use this endpoint. Archived projects reject bulk updates. Invalid action references fail the request; item-specific failures are returned in per-item result rows.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkUpdateWorkItemsRequest"
+      responses:
+        "200":
+          description: Bulk update result with per-item success, unchanged, and failure rows.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkUpdateWorkItemsResponse"
         default:
           $ref: "#/components/responses/Error"
   /api/projects/{projectId}/work-items/imports/preview:
@@ -2520,6 +2542,165 @@ components:
         afterWorkItemId:
           type: [string, "null"]
           format: uuid
+    BulkUpdateWorkItemsAction:
+      oneOf:
+        - type: object
+          required: [type, assigneeId]
+          properties:
+            type:
+              const: set_assignee
+            assigneeId:
+              type: string
+              format: uuid
+        - type: object
+          required: [type]
+          properties:
+            type:
+              const: clear_assignee
+        - type: object
+          required: [type, priority]
+          properties:
+            type:
+              const: set_priority
+            priority:
+              $ref: "#/components/schemas/WorkItemPriority"
+        - type: object
+          required: [type, milestoneId]
+          properties:
+            type:
+              const: set_milestone
+            milestoneId:
+              type: string
+              format: uuid
+        - type: object
+          required: [type]
+          properties:
+            type:
+              const: clear_milestone
+        - type: object
+          required: [type, dueDate]
+          properties:
+            type:
+              const: set_due_date
+            dueDate:
+              type: string
+              format: date
+        - type: object
+          required: [type]
+          properties:
+            type:
+              const: clear_due_date
+        - type: object
+          required: [type, labelIds]
+          properties:
+            type:
+              const: add_labels
+            labelIds:
+              type: array
+              minItems: 1
+              maxItems: 20
+              uniqueItems: true
+              items:
+                type: string
+                format: uuid
+        - type: object
+          required: [type, labelIds]
+          properties:
+            type:
+              const: remove_labels
+            labelIds:
+              type: array
+              minItems: 1
+              maxItems: 20
+              uniqueItems: true
+              items:
+                type: string
+                format: uuid
+        - type: object
+          required: [type, status]
+          properties:
+            type:
+              const: transition_status
+            status:
+              $ref: "#/components/schemas/WorkItemStatus"
+      discriminator:
+        propertyName: type
+    BulkUpdateWorkItemsRequest:
+      type: object
+      required: [workItemIds, action]
+      properties:
+        workItemIds:
+          type: array
+          minItems: 1
+          maxItems: 50
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+        action:
+          $ref: "#/components/schemas/BulkUpdateWorkItemsAction"
+    BulkUpdateWorkItemsResultStatus:
+      type: string
+      enum: [updated, unchanged, failed]
+    BulkUpdateWorkItemsErrorCode:
+      type: string
+      enum:
+        - NOT_FOUND
+        - NOT_IN_PROJECT
+        - PROJECT_ARCHIVED
+        - FORBIDDEN
+        - INVALID_REFERENCE
+        - WORKFLOW_TRANSITION_ERROR
+        - VALIDATION_ERROR
+    BulkUpdateWorkItemsError:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          $ref: "#/components/schemas/BulkUpdateWorkItemsErrorCode"
+        message:
+          type: string
+    BulkUpdateWorkItemsResult:
+      type: object
+      required: [workItemId, displayKey, status, workItem, error]
+      properties:
+        workItemId:
+          type: string
+          format: uuid
+        displayKey:
+          type: [string, "null"]
+          description: Null for missing, cross-workspace, or cross-project ids when revealing a key would leak data.
+        status:
+          $ref: "#/components/schemas/BulkUpdateWorkItemsResultStatus"
+        workItem:
+          anyOf:
+            - $ref: "#/components/schemas/WorkItemListItem"
+            - type: "null"
+        error:
+          anyOf:
+            - $ref: "#/components/schemas/BulkUpdateWorkItemsError"
+            - type: "null"
+    BulkUpdateWorkItemsResponse:
+      type: object
+      required: [requestedCount, succeededCount, unchangedCount, failedCount, results]
+      properties:
+        requestedCount:
+          type: integer
+          minimum: 0
+        succeededCount:
+          type: integer
+          minimum: 0
+          description: Count of updated and unchanged rows.
+        unchangedCount:
+          type: integer
+          minimum: 0
+        failedCount:
+          type: integer
+          minimum: 0
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/BulkUpdateWorkItemsResult"
     WorkItemWatcher:
       type: object
       required: [id, member, watchedAt]
@@ -2718,7 +2899,7 @@ components:
           $ref: "#/components/schemas/Member"
         eventType:
           type: string
-          examples: [work_item.relationship_added, work_item.relationship_removed, saved_view.pinned, saved_view.unpinned]
+          examples: [work_item.due_date_changed, work_item.relationship_added, work_item.relationship_removed, saved_view.pinned, saved_view.unpinned]
         summary:
           type: string
         previousValue:

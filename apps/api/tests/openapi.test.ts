@@ -43,6 +43,7 @@ describe('OpenAPI reference', () => {
       '/api/work-items',
       '/api/work-items/export',
       '/api/projects/{projectId}/work-items',
+      '/api/projects/{projectId}/work-items/bulk-update',
       '/api/projects/{projectId}/work-items/imports/preview',
       '/api/projects/{projectId}/work-items/imports',
       '/api/projects/{projectId}/work-items/export',
@@ -84,6 +85,14 @@ describe('OpenAPI reference', () => {
     expect(openApi).toContain('UpdateNotificationReadStateRequest:');
     expect(openApi).toContain('WorkItemWatcher:');
     expect(openApi).toContain('WorkItemWatchState:');
+    expect(openApi).toContain('BulkUpdateWorkItemsAction:');
+    expect(openApi).toContain('BulkUpdateWorkItemsRequest:');
+    expect(openApi).toContain('BulkUpdateWorkItemsResponse:');
+    expect(openApi).toContain('BulkUpdateWorkItemsResult:');
+    expect(openApi).toContain('BulkUpdateWorkItemsErrorCode:');
+    expect(openApi).toContain('transition_status');
+    expect(openApi).toContain('NOT_IN_PROJECT');
+    expect(openApi).toContain('work_item.due_date_changed');
     expect(openApi).toContain('mentionMemberIds:');
     expect(openApi).toContain('mentions:');
     expect(openApi).toContain('DeliveryHealthState:');
