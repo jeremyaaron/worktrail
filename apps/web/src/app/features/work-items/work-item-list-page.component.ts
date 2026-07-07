@@ -335,128 +335,137 @@ const defaultFilterValues: WorkItemFilterFormValue = {
 
     <app-active-filter-chips [labels]="activeFilterLabels()" (remove)="removeActiveFilter($event)" />
 
-    @if (hasBulkSelection()) {
+    @if (showBulkActionBar()) {
       <section class="bulk-action-bar" aria-label="Bulk work item actions">
         <div class="bulk-action-bar__summary">
-          <strong>{{ selectedVisibleCount() }} selected</strong>
-          <span>Apply one update to visible project work items.</span>
+          @if (hasBulkSelection()) {
+            <strong>{{ selectedVisibleCount() }} selected</strong>
+            <span>Apply one update to visible project work items.</span>
+          } @else {
+            <strong>Bulk update complete</strong>
+            <span>Review the result, then select more work items to continue.</span>
+          }
         </div>
 
-        <form class="bulk-action-form" [formGroup]="bulkActionForm" (ngSubmit)="applyBulkAction()">
-          <label>
-            <span>Action</span>
-            <select formControlName="actionType">
-              <option value="">Choose action</option>
-              @for (action of bulkActionOptions; track action.value) {
-                <option [value]="action.value">{{ action.label }}</option>
+        @if (hasBulkSelection()) {
+          <form class="bulk-action-form" [formGroup]="bulkActionForm" (ngSubmit)="applyBulkAction()">
+            <label>
+              <span>Action</span>
+              <select formControlName="actionType">
+                <option value="">Choose action</option>
+                @for (action of bulkActionOptions; track action.value) {
+                  <option [value]="action.value">{{ action.label }}</option>
+                }
+              </select>
+            </label>
+
+            @switch (bulkActionForm.controls.actionType.value) {
+              @case ('set_assignee') {
+                <label>
+                  <span>Assignee</span>
+                  <select formControlName="assigneeId">
+                    <option value="">Choose member</option>
+                    @for (member of activeMembers(); track member.id) {
+                      <option [value]="member.id">{{ memberDisplayName(member) }}</option>
+                    }
+                  </select>
+                </label>
               }
-            </select>
-          </label>
+              @case ('set_priority') {
+                <label>
+                  <span>Priority</span>
+                  <select formControlName="priority">
+                    <option value="">Choose priority</option>
+                    @for (priority of priorities; track priority) {
+                      <option [value]="priority">{{ formatToken(priority) }}</option>
+                    }
+                  </select>
+                </label>
+              }
+              @case ('set_milestone') {
+                <label>
+                  <span>Milestone</span>
+                  <select formControlName="milestoneId">
+                    <option value="">Choose milestone</option>
+                    @for (milestone of activeMilestones(); track milestone.id) {
+                      <option [value]="milestone.id">{{ milestone.name }}</option>
+                    }
+                  </select>
+                </label>
+              }
+              @case ('set_due_date') {
+                <label>
+                  <span>Due date</span>
+                  <input type="date" formControlName="dueDate" />
+                </label>
+              }
+              @case ('add_labels') {
+                <fieldset class="bulk-labels">
+                  <legend>Labels</legend>
+                  @if (labels().length === 0) {
+                    <p>No labels available in the current project work view.</p>
+                  } @else {
+                    @for (label of labels(); track label.id) {
+                      <label>
+                        <input
+                          type="checkbox"
+                          [attr.aria-label]="bulkLabelSelectionLabel(label)"
+                          [checked]="isBulkLabelSelected(label.id)"
+                          (change)="toggleBulkLabel(label.id)"
+                        />
+                        <span class="label-pill" [style.border-color]="label.color ?? '#cbd5e1'">
+                          {{ label.name }}
+                        </span>
+                      </label>
+                    }
+                  }
+                </fieldset>
+              }
+              @case ('remove_labels') {
+                <fieldset class="bulk-labels">
+                  <legend>Labels</legend>
+                  @if (labels().length === 0) {
+                    <p>No labels available in the current project work view.</p>
+                  } @else {
+                    @for (label of labels(); track label.id) {
+                      <label>
+                        <input
+                          type="checkbox"
+                          [attr.aria-label]="bulkLabelSelectionLabel(label)"
+                          [checked]="isBulkLabelSelected(label.id)"
+                          (change)="toggleBulkLabel(label.id)"
+                        />
+                        <span class="label-pill" [style.border-color]="label.color ?? '#cbd5e1'">
+                          {{ label.name }}
+                        </span>
+                      </label>
+                    }
+                  }
+                </fieldset>
+              }
+              @case ('transition_status') {
+                <label>
+                  <span>Status</span>
+                  <select formControlName="status">
+                    <option value="">Choose status</option>
+                    @for (status of statuses; track status) {
+                      <option [value]="status">{{ formatToken(status) }}</option>
+                    }
+                  </select>
+                </label>
+              }
+            }
 
-          @switch (bulkActionForm.controls.actionType.value) {
-            @case ('set_assignee') {
-              <label>
-                <span>Assignee</span>
-                <select formControlName="assigneeId">
-                  <option value="">Choose member</option>
-                  @for (member of activeMembers(); track member.id) {
-                    <option [value]="member.id">{{ memberDisplayName(member) }}</option>
-                  }
-                </select>
-              </label>
-            }
-            @case ('set_priority') {
-              <label>
-                <span>Priority</span>
-                <select formControlName="priority">
-                  <option value="">Choose priority</option>
-                  @for (priority of priorities; track priority) {
-                    <option [value]="priority">{{ formatToken(priority) }}</option>
-                  }
-                </select>
-              </label>
-            }
-            @case ('set_milestone') {
-              <label>
-                <span>Milestone</span>
-                <select formControlName="milestoneId">
-                  <option value="">Choose milestone</option>
-                  @for (milestone of activeMilestones(); track milestone.id) {
-                    <option [value]="milestone.id">{{ milestone.name }}</option>
-                  }
-                </select>
-              </label>
-            }
-            @case ('set_due_date') {
-              <label>
-                <span>Due date</span>
-                <input type="date" formControlName="dueDate" />
-              </label>
-            }
-            @case ('add_labels') {
-              <fieldset class="bulk-labels">
-                <legend>Labels</legend>
-                @if (labels().length === 0) {
-                  <p>No labels available in the current project work view.</p>
-                } @else {
-                  @for (label of labels(); track label.id) {
-                    <label>
-                      <input
-                        type="checkbox"
-                        [checked]="isBulkLabelSelected(label.id)"
-                        (change)="toggleBulkLabel(label.id)"
-                      />
-                      <span class="label-pill" [style.border-color]="label.color ?? '#cbd5e1'">
-                        {{ label.name }}
-                      </span>
-                    </label>
-                  }
-                }
-              </fieldset>
-            }
-            @case ('remove_labels') {
-              <fieldset class="bulk-labels">
-                <legend>Labels</legend>
-                @if (labels().length === 0) {
-                  <p>No labels available in the current project work view.</p>
-                } @else {
-                  @for (label of labels(); track label.id) {
-                    <label>
-                      <input
-                        type="checkbox"
-                        [checked]="isBulkLabelSelected(label.id)"
-                        (change)="toggleBulkLabel(label.id)"
-                      />
-                      <span class="label-pill" [style.border-color]="label.color ?? '#cbd5e1'">
-                        {{ label.name }}
-                      </span>
-                    </label>
-                  }
-                }
-              </fieldset>
-            }
-            @case ('transition_status') {
-              <label>
-                <span>Status</span>
-                <select formControlName="status">
-                  <option value="">Choose status</option>
-                  @for (status of statuses; track status) {
-                    <option [value]="status">{{ formatToken(status) }}</option>
-                  }
-                </select>
-              </label>
-            }
-          }
-
-          <div class="bulk-action-form__actions">
-            <button type="submit" [disabled]="!canApplyBulkAction()">
-              {{ isBulkUpdating() ? 'Applying...' : 'Apply' }}
-            </button>
-            <button type="button" class="secondary-action" [disabled]="isBulkUpdating()" (click)="clearSelection()">
-              Clear selection
-            </button>
-          </div>
-        </form>
+            <div class="bulk-action-form__actions">
+              <button type="submit" [disabled]="!canApplyBulkAction()">
+                {{ isBulkUpdating() ? 'Applying...' : 'Apply' }}
+              </button>
+              <button type="button" class="secondary-action" [disabled]="isBulkUpdating()" (click)="clearSelection()">
+                Clear selection
+              </button>
+            </div>
+          </form>
+        }
 
         @if (bulkActionError()) {
           <p class="inline-error">{{ bulkActionError() }}</p>
@@ -464,11 +473,22 @@ const defaultFilterValues: WorkItemFilterFormValue = {
 
         @if (bulkActionResult(); as result) {
           <section class="bulk-result" aria-live="polite">
-            <strong>
-              {{ result.succeededCount }} updated · {{ result.unchangedCount }} unchanged ·
-              {{ result.failedCount }} failed
-            </strong>
+            <dl class="bulk-result__stats" aria-label="Bulk update result counts">
+              <div>
+                <dt>Updated</dt>
+                <dd>{{ result.succeededCount }}</dd>
+              </div>
+              <div>
+                <dt>Unchanged</dt>
+                <dd>{{ result.unchangedCount }}</dd>
+              </div>
+              <div>
+                <dt>Failed</dt>
+                <dd>{{ result.failedCount }}</dd>
+              </div>
+            </dl>
             @if (result.failedCount > 0) {
+              <strong>Failed work items</strong>
               <ul>
                 @for (failure of failedBulkResults(); track failure.workItemId) {
                   <li>
@@ -662,11 +682,17 @@ const defaultFilterValues: WorkItemFilterFormValue = {
       align-items: end;
     }
 
+    .bulk-action-form > label,
+    .bulk-action-form > fieldset {
+      min-width: 0;
+    }
+
     .bulk-action-form__actions {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
       align-items: center;
+      justify-content: flex-end;
     }
 
     .bulk-labels {
@@ -692,6 +718,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
       grid-template-columns: none;
       gap: 6px;
       align-items: center;
+      max-width: 100%;
       width: fit-content;
     }
 
@@ -711,6 +738,13 @@ const defaultFilterValues: WorkItemFilterFormValue = {
       font-weight: 700;
     }
 
+    .bulk-labels .label-pill {
+      max-width: min(100%, 220px);
+      text-transform: none;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+
     .bulk-result {
       display: grid;
       gap: 8px;
@@ -719,8 +753,38 @@ const defaultFilterValues: WorkItemFilterFormValue = {
       color: #1f2937;
     }
 
-    .bulk-result strong {
-      font-size: 0.875rem;
+    .bulk-result__stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(90px, 1fr));
+      gap: 8px;
+      margin: 0;
+    }
+
+    .bulk-result__stats div {
+      display: grid;
+      gap: 2px;
+      border: 1px solid #dbeafe;
+      border-radius: 6px;
+      padding: 8px 10px;
+      background: #ffffff;
+    }
+
+    .bulk-result__stats dt {
+      color: #475569;
+      font-size: 0.7rem;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .bulk-result__stats dd {
+      margin: 0;
+      color: #111827;
+      font-size: 1rem;
+      font-weight: 900;
+    }
+
+    .bulk-result > strong {
+      font-size: 0.8125rem;
     }
 
     .bulk-result ul {
@@ -1009,6 +1073,29 @@ const defaultFilterValues: WorkItemFilterFormValue = {
       }
 
       .bulk-action-form {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      }
+
+      .bulk-action-form__actions {
+        grid-column: 1 / -1;
+        justify-content: flex-start;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .bulk-action-form {
+        grid-template-columns: 1fr;
+      }
+
+      .bulk-action-form__actions {
+        grid-column: auto;
+      }
+
+      .bulk-action-form__actions button {
+        width: 100%;
+      }
+
+      .bulk-result__stats {
         grid-template-columns: 1fr;
       }
     }
@@ -1060,6 +1147,9 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   );
   readonly selectedVisibleCount = computed(() => this.selectedWorkItems().length);
   readonly hasBulkSelection = computed(() => this.canSelectWorkItems() && this.selectedVisibleCount() > 0);
+  readonly showBulkActionBar = computed(
+    () => this.hasBulkSelection() || this.bulkActionResult() !== null || this.bulkActionError() !== null
+  );
   readonly isAllVisibleSelected = computed(() => {
     const workItems = this.workItems();
     const selectedIds = this.selectedWorkItemIdSet();
@@ -1388,6 +1478,16 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
 
     this.selectedBulkLabelIds.set([...selectedIds]);
     this.bulkActionError.set(null);
+  }
+
+  bulkLabelSelectionLabel(label: LabelDto): string {
+    const actionType = this.bulkActionForm.controls.actionType.value;
+
+    if (actionType === 'remove_labels') {
+      return `Remove label ${label.name}`;
+    }
+
+    return `Add label ${label.name}`;
   }
 
   canApplyBulkAction(): boolean {

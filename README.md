@@ -1,8 +1,8 @@
 # Worktrail
 
-Worktrail is a project management reference app. The v0.1.5 baseline is a local-first Angular + TypeScript API + Postgres application focused on daily team workflow, collaboration updates, reliable filtered work views, pinned workspace and project operating lenses, cross-project discovery, dependency-aware planning, workspace governance, data portability, and production-shaped application boundaries.
+Worktrail is a project management reference app. The v0.1.6 baseline is a local-first Angular + TypeScript API + Postgres application focused on daily team workflow, collaboration updates, reliable filtered work views, pinned workspace and project operating lenses, project batch triage, cross-project discovery, dependency-aware planning, workspace governance, data portability, and production-shaped application boundaries.
 
-The app includes My Work, Action Inbox, top-level Work Items discovery, URL-backed filters, copyable filtered-view links, personal saved views, workspace-shared saved views, project-scoped personal and shared saved views, pinned saved-view shortcuts, quick work capture, persistent project workspaces, planning review, milestone management, durable boards, work item relationships, dependency-blocked signals, project delivery health, comments, mentions, work item watchers, activity, CSV import/export, production-like preview, health/readiness checks, checked-in API documentation, CI, lint, and responsive work item scanning.
+The app includes My Work, Action Inbox, top-level Work Items discovery, URL-backed filters, copyable filtered-view links, personal saved views, workspace-shared saved views, project-scoped personal and shared saved views, pinned saved-view shortcuts, project-scoped bulk updates, quick work capture, persistent project workspaces, planning review, milestone management, durable boards, work item relationships, dependency-blocked signals, project delivery health, comments, mentions, work item watchers, activity, CSV import/export, production-like preview, health/readiness checks, checked-in API documentation, CI, lint, and responsive work item scanning.
 
 The app is intentionally built as a credible product surface before extracting broader framework patterns. It runs locally today, while preserving a path toward an S3/CloudFront Angular frontend with API Gateway/Lambda-style endpoint handlers and managed Postgres.
 
@@ -22,6 +22,7 @@ docs/
   v0.1.3/  Team Work Views PRD, technical design, implementation plan, release notes, and extraction notes
   v0.1.4/  Project Work Views PRD, technical design, implementation plan, release notes, and extraction notes
   v0.1.5/  Pinned Operating Views PRD, technical design, implementation plan, release notes, and pattern notes
+  v0.1.6/  Project Batch Triage PRD, technical design, implementation plan, release notes, and pattern notes
   api/     OpenAPI reference
 site/       Static GitHub Pages product site
 e2e/        Playwright smoke tests
@@ -150,6 +151,27 @@ Saved-view scopes are explicit:
 - `project` scope belongs to one project Work page. It strips workspace-only fields and uses that project's route, copy-link, return-URL, and CSV-export behavior.
 - `personal` visibility means the saved view is listed and mutable only for the owner.
 - `workspace` visibility means the saved view is shared with active workspace members in the current scope. For project scope, that means a shared project operating lens.
+
+## Project Batch Triage
+
+v0.1.6 adds project-scoped batch triage on the project Work page. Owners and maintainers can select visible project work items, apply one explicit update, and review updated, unchanged, and failed result counts without opening each item.
+
+Supported project batch actions:
+
+- assign to member;
+- clear assignee;
+- set priority;
+- set milestone;
+- clear milestone;
+- set due date;
+- clear due date;
+- add labels;
+- remove labels;
+- transition status.
+
+Batch triage is intentionally project-only in v0.1.6. It does not operate across workspace discovery results, board columns, archived projects, or custom query-wide selection sets. Contributors can still open project work and shared project views, but selection and bulk mutation controls are hidden. Archived projects remain readable and keep existing project views openable, but project bulk mutation is blocked in both the UI and API.
+
+The bulk API uses `POST /api/projects/{projectId}/work-items/bulk-update` with an explicit action request. One request can include up to 50 work item ids. Invalid request shape, invalid action references, archived projects, and missing permission reject the request. Item-specific failures return per-row results, so successful and unchanged rows can clear while failed rows remain recoverable in the current visible list.
 
 ## CSV Import And Export
 
@@ -280,17 +302,19 @@ Suggested walkthrough:
 26. Pin a personal saved view from the saved-view manager, navigate away, and reopen it from the pinned shortcuts area.
 27. Switch to a contributor, open a shared pinned project view, and confirm shared project management controls are unavailable while personal project views remain available.
 28. Save a dependency-filtered project view, reload, and reopen it.
-29. Export the currently filtered project work item list to CSV.
-30. Import a small CSV through the project import page, review dry-run validation, apply it, and confirm created work appears in the project list and board.
-31. Export a filtered cross-project workspace discovery view to CSV.
-32. Open Inbox and review unread notifications for the selected actor.
-33. Mark an individual notification read, switch to All, and mark it unread again.
-34. Open the board, drag cards within a column to set planning order, reload, and confirm the order persists.
-35. Move a card through valid workflow columns with drag/drop or the status menu.
-36. Open the work item detail page, update fields, change milestone assignment, watch or unwatch the item, mention an active member in a new comment, add and edit another comment, delete a comment, and review activity.
-37. Switch to the mentioned actor and confirm the mention appears as an unread Inbox notification linking back to the work item.
-38. Add a blocking relationship, confirm the downstream dependency signal appears, move the blocker to done, and confirm the dependency signal clears.
-39. Open the archived project to confirm read-only project, milestone, work item, label, comment, relationship, import, transition, and saved-view mutation behavior.
+29. As an owner or maintainer, select visible project work items, apply a project batch triage action such as adding a label, and review updated, unchanged, and failed result counts.
+30. Switch to a contributor and confirm project batch mutation controls are unavailable.
+31. Export the currently filtered project work item list to CSV.
+32. Import a small CSV through the project import page, review dry-run validation, apply it, and confirm created work appears in the project list and board.
+33. Export a filtered cross-project workspace discovery view to CSV.
+34. Open Inbox and review unread notifications for the selected actor.
+35. Mark an individual notification read, switch to All, and mark it unread again.
+36. Open the board, drag cards within a column to set planning order, reload, and confirm the order persists.
+37. Move a card through valid workflow columns with drag/drop or the status menu.
+38. Open the work item detail page, update fields, change milestone assignment, watch or unwatch the item, mention an active member in a new comment, add and edit another comment, delete a comment, and review activity.
+39. Switch to the mentioned actor and confirm the mention appears as an unread Inbox notification linking back to the work item.
+40. Add a blocking relationship, confirm the downstream dependency signal appears, move the blocker to done, and confirm the dependency signal clears.
+41. Open the archived project to confirm read-only project, milestone, work item, label, comment, relationship, import, transition, saved-view mutation, and batch triage behavior.
 
 Suggested delivery-health checks:
 
@@ -300,7 +324,7 @@ Suggested delivery-health checks:
 4. Review Needs attention, Upcoming, and Recently changed planning review sections.
 5. Confirm blocked and dependency-blocked seed items affect project health, while the healthy milestone remains on track.
 
-## v0.1.5 Baseline Capabilities
+## v0.1.6 Baseline Capabilities
 
 - My Work dashboard for the selected active actor.
 - Prioritized My Work daily queue for assigned, due-soon, overdue, blocked, dependency-blocked, stale, reported, and recently updated work.
@@ -328,6 +352,11 @@ Suggested delivery-health checks:
 - Shared pinned-view activity for workspace and project operating-surface changes.
 - Owner and maintainer management for shared project views, with contributor read access and personal project-view creation.
 - Archived projects keep project saved views openable while blocking project-scoped saved-view mutations.
+- Project Work page multi-select for owners and maintainers.
+- Project-scoped bulk updates for assignee, priority, milestone, due date, labels, and status transitions.
+- Bulk update result summaries for updated, unchanged, and failed rows.
+- Partial-success handling that clears successful and unchanged selections while retaining failed visible rows.
+- Contributor and archived-project absence paths for project bulk mutation controls.
 - Saved-view summaries that suppress default query noise and count meaningful applied filters.
 - Global quick work capture at `/work-items/new` with active project selection and project-dependent labels and milestones.
 - Project-scoped work item creation still works with the project preselected and the same success actions.
@@ -383,7 +412,7 @@ Suggested delivery-health checks:
 - ESLint guardrails for API, web, and contracts workspaces.
 - GitHub Actions CI for lint, typecheck, tests with a Postgres service, and production build.
 
-## v0.1.5 Limitations
+## v0.1.6 Limitations
 
 - Authentication is represented by local request headers and the top-bar actor selector.
 - Permissions are enforced against local member records and are useful for exercising policy paths, but they are not production authentication.
@@ -393,6 +422,7 @@ Suggested delivery-health checks:
 - Comment mentions are selected through an active-member picker. Rich-text editing and free-text `@name` parsing are deferred.
 - Watchers are work-item scoped only. Project-level and workspace-level watching are deferred.
 - Saved views support workspace and project scopes with personal/shared visibility and pinned shortcuts. Custom pinned ordering, saved-view folders, icons, colors, descriptions, ownership transfer, custom permissions, short links, and analytics are deferred.
+- Batch triage is project-scoped and works on explicit visible selections only. Cross-project bulk edit, board bulk actions, bulk delete, bulk comments, query-wide durable selection sets, background jobs, and custom bulk permissions are deferred.
 - Copy-link support uses browser clipboard APIs and a textarea fallback. Native share sheets, short links, and permission customization are deferred.
 - CSV import is project-scoped and limited to 1 MiB and 250 data rows per file.
 - CSV import supports Worktrail's current columns only; third-party tracker migration mappings are deferred.
@@ -402,7 +432,7 @@ Suggested delivery-health checks:
 - Relationship activity is recorded on the command context item only to avoid noisy cross-project activity.
 - Custom workflows, file attachments, and production auth are intentionally out of scope.
 - Invitations, multi-workspace switching, custom roles, project-specific membership, pinned projects, recent projects, and audit export are intentionally out of scope.
-- The local Express adapter is the only runtime adapter in v0.1.5, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
+- The local Express adapter is the only runtime adapter in v0.1.6, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
 - AWS deployment assets are not included yet; the Angular static build and transport-neutral handlers preserve that path.
 - Readiness checks database connectivity only; migration drift detection, metrics, tracing, and managed deployment runbooks are deferred.
 

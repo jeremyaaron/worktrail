@@ -324,12 +324,17 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
       align-items: center;
       justify-content: center;
       min-width: 0;
+      min-height: 22px;
     }
 
     .selection-checkbox {
+      flex: 0 0 16px;
       width: 16px;
+      min-width: 16px;
       height: 16px;
+      min-height: 16px;
       margin: 0;
+      padding: 0;
       accent-color: #1f4f99;
       cursor: pointer;
     }
@@ -537,6 +542,10 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
       grid-template-columns: auto minmax(0, 1fr);
       gap: 10px;
       align-items: start;
+    }
+
+    .work-item-card__top > .selection-checkbox {
+      margin-top: 2px;
     }
 
     .list-panel[data-selection='false'] .work-item-card__top {

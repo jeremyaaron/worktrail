@@ -307,6 +307,12 @@ function bulkSuccessResponse(
   };
 }
 
+function bulkResultCounts(compiled: HTMLElement): string[] {
+  return [...compiled.querySelectorAll<HTMLElement>('.bulk-result__stats dd')].map((item) =>
+    item.textContent?.trim() ?? ''
+  );
+}
+
 describe('WorkItemListPageComponent', () => {
   beforeEach(async () => {
     clipboard = jasmine.createSpyObj<ClipboardService>('ClipboardService', ['copyText']);
@@ -402,8 +408,10 @@ describe('WorkItemListPageComponent', () => {
     ]);
     fixture.detectChanges();
 
+    const compiled = fixture.nativeElement as HTMLElement;
     expect(fixture.componentInstance.canSelectWorkItems()).toBeTrue();
-    expect((fixture.nativeElement as HTMLElement).querySelector('input[aria-label="Select WT-3"]')).not.toBeNull();
+    expect(compiled.querySelector('input[aria-label="Select all visible work items"]')).not.toBeNull();
+    expect(compiled.querySelector('input[aria-label="Select WT-3"]')).not.toBeNull();
 
     fixture.componentInstance.toggleWorkItemSelection(workItem.id);
     expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([workItem.id]);
@@ -515,6 +523,26 @@ describe('WorkItemListPageComponent', () => {
     fixture.componentInstance.bulkActionForm.patchValue({ priority: 'urgent' });
     fixture.detectChanges();
     expect(applyButton()?.disabled).toBeFalse();
+  });
+
+  it('gives bulk label controls explicit accessible names', () => {
+    seedCurrentUser(ownerMember);
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    flushProjectWorkPage(http, [workItem]);
+
+    fixture.componentInstance.toggleWorkItemSelection(workItem.id);
+    fixture.componentInstance.bulkActionForm.patchValue({ actionType: 'add_labels' });
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector<HTMLInputElement>('input[aria-label="Add label backend"]')).not.toBeNull();
+
+    fixture.componentInstance.bulkActionForm.patchValue({ actionType: 'remove_labels' });
+    fixture.detectChanges();
+
+    expect(compiled.querySelector<HTMLInputElement>('input[aria-label="Remove label backend"]')).not.toBeNull();
   });
 
   it('serializes each supported project bulk action and reloads after success', () => {
@@ -658,6 +686,62 @@ describe('WorkItemListPageComponent', () => {
     ]);
   });
 
+  it('keeps successful bulk result feedback visible after clearing successful selection', () => {
+    seedCurrentUser(ownerMember);
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    flushProjectWorkPage(http, [workItem]);
+
+    fixture.componentInstance.toggleWorkItemSelection(workItem.id);
+    fixture.componentInstance.bulkActionForm.patchValue({
+      actionType: 'set_priority',
+      priority: 'urgent'
+    });
+    fixture.componentInstance.applyBulkAction();
+
+    const request = http.expectOne(`/api/projects/${projectId}/work-items/bulk-update`);
+    request.flush(bulkSuccessResponse(workItem));
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([]);
+    expect(compiled.textContent).toContain('Bulk update complete');
+    expect(compiled.querySelector('.bulk-action-form')).toBeNull();
+    expect(bulkResultCounts(compiled)).toEqual(['1', '0', '0']);
+  });
+
+  it('clears bulk feedback when applying filters', () => {
+    seedCurrentUser(ownerMember);
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    const router = TestBed.inject(Router);
+    spyOn(router, 'navigate').and.resolveTo(true);
+    fixture.detectChanges();
+    flushProjectWorkPage(http, [workItem]);
+
+    fixture.componentInstance.toggleWorkItemSelection(workItem.id);
+    fixture.componentInstance.bulkActionForm.patchValue({
+      actionType: 'set_priority',
+      priority: 'urgent'
+    });
+    fixture.componentInstance.applyBulkAction();
+    http.expectOne(`/api/projects/${projectId}/work-items/bulk-update`).flush(bulkSuccessResponse(workItem));
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Bulk update complete');
+
+    fixture.componentInstance.filterForm.controls.search.setValue('next search');
+    fixture.componentInstance.applyFilters();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([]);
+    expect(fixture.componentInstance.bulkActionResult()).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Bulk update complete');
+  });
+
   it('keeps failed bulk rows selected and reports failed rows after reload', () => {
     seedCurrentUser(ownerMember);
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
@@ -704,11 +788,11 @@ describe('WorkItemListPageComponent', () => {
     ]);
     fixture.detectChanges();
 
+    const compiled = fixture.nativeElement as HTMLElement;
     expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([readyWorkItem.id]);
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
-      '1 updated · 0 unchanged · 1 failed'
-    );
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+    expect(bulkResultCounts(compiled)).toEqual(['1', '0', '1']);
+    expect(compiled.textContent).toContain('Failed work items');
+    expect(compiled.textContent).toContain(
       'WT-4 cannot be updated while blocked by workflow policy.'
     );
   });

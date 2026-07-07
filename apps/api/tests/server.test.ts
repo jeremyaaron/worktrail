@@ -126,6 +126,7 @@ describe('Express API foundation', () => {
       'GET /api/projects/:projectId/work-items/export',
       'POST /api/projects/:projectId/work-items/imports/preview',
       'POST /api/projects/:projectId/work-items/imports',
+      'POST /api/projects/:projectId/work-items/bulk-update',
       'POST /api/projects/:projectId/work-items',
       'GET /api/work-items/:workItemId/comments',
       'POST /api/work-items/:workItemId/comments',

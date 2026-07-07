@@ -642,6 +642,57 @@ test('opens seeded v0.1.5 pinned workspace and project saved views', async ({ pa
   await expect(contributorProjectPinnedRow.getByRole('button', { name: 'Unpin' })).toHaveCount(0);
 });
 
+test('bulk triages seeded project work and hides controls for contributors', async ({ page }) => {
+  test.setTimeout(60_000);
+
+  await page.goto(`/projects/${demoProjectId}/work-items`);
+  await expect(projectShellHeading(page, 'Worktrail App')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Project work items' })).toBeVisible();
+  await page.locator('#current-member').selectOption({ label: 'Avery Owner · owner' });
+
+  const wt2Row = page.getByRole('row', { name: /Add filter controls to work item list/ });
+  const wt3Row = page.getByRole('row', {
+    name: /Implement transport-neutral API handler contract/
+  });
+  await expect(wt2Row).toBeVisible();
+  await expect(wt3Row).toBeVisible();
+  await expect(wt2Row).not.toContainText('design');
+  await expect(wt3Row).not.toContainText('design');
+
+  const workItemTable = page.locator('.work-item-table');
+  await workItemTable.getByLabel('Select WT-2').check();
+  await workItemTable.getByLabel('Select WT-3').check();
+  const bulkActions = page.getByLabel('Bulk work item actions');
+  await expect(bulkActions).toContainText('2 selected');
+
+  await bulkActions.locator('select[formcontrolname="actionType"]').selectOption('add_labels');
+  await bulkActions.getByLabel('Add label design').check();
+  await bulkActions.getByRole('button', { name: 'Apply' }).click();
+
+  const resultCounts = page.getByLabel('Bulk update result counts');
+  await expect(page.getByText('Bulk update complete')).toBeVisible();
+  await expect(resultCounts).toContainText('Updated');
+  await expect(resultCounts).toContainText('2');
+  await expect(resultCounts).toContainText('Unchanged');
+  await expect(resultCounts).toContainText('0');
+  await expect(resultCounts).toContainText('Failed');
+  await expect(resultCounts).toContainText('0');
+
+  await expect(page.getByRole('row', { name: /Add filter controls to work item list/ })).toContainText(
+    'design'
+  );
+  await expect(
+    page.getByRole('row', { name: /Implement transport-neutral API handler contract/ })
+  ).toContainText('design');
+
+  await page.locator('#current-member').selectOption({ label: 'Casey Contributor · contributor' });
+  await page.goto(`/projects/${demoProjectId}/work-items`);
+  await expect(page.getByRole('heading', { name: 'Project work items' })).toBeVisible();
+  await expect(page.getByLabel('Select WT-2')).toHaveCount(0);
+  await expect(page.getByLabel('Select all visible work items')).toHaveCount(0);
+  await expect(page.getByLabel('Bulk work item actions')).toHaveCount(0);
+});
+
 test('creates and opens a v0.1.5 pinned personal workspace saved view shortcut', async ({ page }) => {
   test.setTimeout(60_000);
 

@@ -659,7 +659,7 @@ npm run db:migrate
 npm run db:seed
 npm test
 npm run build
-npm run e2e
+npm run test:e2e
 ```
 
 If the repo uses a combined verify script during implementation, run that as the final gate instead of duplicating slower subcommands.

@@ -811,7 +811,26 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-06.
+- Polished project Work selection and bulk triage UI:
+  - stabilized shared result-list checkbox sizing and card alignment;
+  - made the bulk action bar wrap as two columns on medium widths and one column on narrow widths;
+  - constrained bulk label pills to prevent overlap with long label names;
+  - added explicit accessible names for bulk label checkboxes;
+  - kept successful result feedback visible after fully successful commands clear selection.
+- Reworked bulk result feedback as structured counts for updated, unchanged, and failed rows instead of relying on color or inline separator text.
+- Extended focused web tests for:
+  - select-all-visible and row checkbox accessible names;
+  - bulk label checkbox accessible names;
+  - successful result summary after selection clears;
+  - clearing bulk feedback on filter changes;
+  - partial failure structured counts and failed-row messaging.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include src/app/features/work-items/components/work-item-result-list.component.spec.ts --include src/app/features/work-items/work-items-page.component.spec.ts`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run build --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `git diff --check`.
 
 ## Phase 10: Seed Data And Playwright Smoke
 
@@ -853,13 +872,28 @@ Suggested commands:
 npm run db:reset
 npm run db:migrate
 npm run db:seed
-npm run e2e
+npm run test:e2e
 git diff --check
 ```
 
 Status:
 
-- Not started.
+- Completed on 2026-07-06.
+- Reviewed existing seed data and confirmed no seed changes were needed:
+  - seeded Worktrail App project has multiple selectable project rows;
+  - seeded owner and contributor roles support mutation and absence-path checks;
+  - seeded `design` label can be applied to deterministic `WT-2` and `WT-3` rows.
+- Added Playwright smoke coverage for:
+  - owner opening the seeded project Work page;
+  - selecting two visible seeded project rows;
+  - applying a low-risk `add_labels` bulk action;
+  - verifying updated, unchanged, and failed result counts;
+  - verifying the updated rows render the applied label after reload;
+  - switching to contributor and verifying selection/bulk mutation controls are absent.
+- Verified:
+  - `npx playwright test e2e/worktrail-smoke.spec.ts --grep "bulk triages seeded project work"`;
+  - `npm run test:e2e`;
+  - `git diff --check`.
 
 ## Phase 11: Documentation, Site, Release Notes, Pattern Notes, And Final Verification
 
@@ -908,11 +942,33 @@ npm run db:migrate
 npm run db:seed
 npm test
 npm run build
-npm run e2e
+npm run test:e2e
 git diff --check
 git status --short --branch
 ```
 
 Status:
 
-- Not started.
+- Completed on 2026-07-06.
+- Updated README coverage for:
+  - the v0.1.6 baseline;
+  - project batch triage scope;
+  - supported bulk actions;
+  - owner/maintainer permission behavior;
+  - contributor and archived-project absence paths;
+  - local walkthrough steps and current limitations.
+- Updated the public static site to present project batch triage as part of the current Worktrail capability set.
+- Added `docs/v0.1.6/release-notes.md`.
+- Added destination-neutral `docs/v0.1.6/pattern-extraction-notes.md` covering temporary selection state, explicit batch command contracts, partial-success result envelopes, permission/lifecycle gates, option scope, and extraction pressure.
+- Confirmed OpenAPI already documents `POST /api/projects/{projectId}/work-items/bulk-update`, request/response schemas, and batch-related activity values.
+- Fixed stale final-verification tests uncovered by the full suite:
+  - added the bulk-update route to the Express route snapshot;
+  - updated the workspace work item list return-url assertion to target the title link after the row selection refactor.
+- Verified:
+  - `npm run lint`;
+  - `npm run typecheck`;
+  - `npm run db:reset && npm run db:migrate && npm run db:seed`;
+  - `npm test`;
+  - `npm run build`;
+  - `npm run test:e2e`;
+  - `git diff --check`.
