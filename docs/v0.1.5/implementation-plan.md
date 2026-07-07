@@ -411,6 +411,35 @@ npm run lint --workspace @worktrail/web
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-06.
+- Added `PinnedSavedViewsComponent`:
+  - accepts shared and personal pinned saved-view inputs;
+  - renders shared shortcuts before personal shortcuts;
+  - sorts each group alphabetically by saved-view name;
+  - hides itself when both groups are empty;
+  - emits the selected saved view through an `open` output;
+  - keeps routing, API calls, permission decisions, and mutation behavior in parent pages;
+  - supports custom heading copy for workspace/project contexts.
+- Added compact shortcut styling:
+  - wrapping button layout;
+  - stable badge labels for `Shared` and `Personal`;
+  - keyboard focus styling;
+  - accessible button names that distinguish shared and personal shortcuts.
+- Added focused component coverage for:
+  - empty hidden state;
+  - shared-before-personal rendering;
+  - alphabetical ordering inside each group;
+  - open event emission;
+  - accessible names;
+  - heading customization without route context.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include "**/pinned-saved-views.component.spec.ts"`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `git diff --check`.
+
 ## Phase 5: Saved-View Toolbar Pin Controls
 
 Goal: add pin and unpin controls to the saved-view manager while preserving existing save, open, rename, update, and delete behavior.
