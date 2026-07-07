@@ -447,7 +447,18 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed:
+  - added `PlanningApi.getMilestoneReview(projectId, milestoneId)`;
+  - exposed `WorktrailApiService.getMilestoneReview(projectId, milestoneId)`;
+  - added the lazy-loaded project child route at `milestones/:milestoneId`;
+  - added `ProjectMilestoneReviewPageComponent` with loading, error/retry, loaded summary, scoped work link, and archived read-only states;
+  - added focused component tests for successful load, archived read-only rendering, and error retry.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include src/app/features/projects/project-milestone-review-page.component.spec.ts`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `npm run build --workspace @worktrail/web`;
+  - `git diff --check`.
 
 ## Phase 6: Milestone Review Rendering And Links
 

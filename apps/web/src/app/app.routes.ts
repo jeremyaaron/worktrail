@@ -92,6 +92,14 @@ export const routes: Routes = [
         title: 'Planning | Worktrail'
       },
       {
+        path: 'milestones/:milestoneId',
+        loadComponent: () =>
+          import('./features/projects/project-milestone-review-page.component').then(
+            (module) => module.ProjectMilestoneReviewPageComponent
+          ),
+        title: 'Milestone Review | Worktrail'
+      },
+      {
         path: 'settings',
         loadComponent: () =>
           import('./features/projects/project-settings-page.component').then(
