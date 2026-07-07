@@ -43,6 +43,13 @@ const sharedView: SavedWorkViewDto = {
   }
 };
 
+const pinnedSavedView: SavedWorkViewDto = {
+  ...savedView,
+  id: 'saved-view-pinned',
+  name: 'Pinned owner work',
+  isPinned: true
+};
+
 describe('SavedViewsToolbarComponent', () => {
   let fixture: ComponentFixture<SavedViewsToolbarComponent>;
 
@@ -82,6 +89,7 @@ describe('SavedViewsToolbarComponent', () => {
     const sharedSaves: string[] = [];
     const opened: SavedWorkViewDto[] = [];
     const renamed: SavedWorkViewDto[] = [];
+    const pinChanges: Array<{ savedView: SavedWorkViewDto; isPinned: boolean }> = [];
     fixture.componentInstance.workspaceViews = [sharedView];
     fixture.componentInstance.canManageWorkspaceViews = true;
     fixture.componentInstance.draftNames = {
@@ -91,6 +99,7 @@ describe('SavedViewsToolbarComponent', () => {
     fixture.componentInstance.saveWorkspace.subscribe((name) => sharedSaves.push(name));
     fixture.componentInstance.open.subscribe((view) => opened.push(view));
     fixture.componentInstance.rename.subscribe((view) => renamed.push(view));
+    fixture.componentInstance.pinChange.subscribe((change) => pinChanges.push(change));
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
@@ -110,8 +119,10 @@ describe('SavedViewsToolbarComponent', () => {
     const actionButtons = [...compiled.querySelectorAll<HTMLButtonElement>('.saved-view-actions button')];
     actionButtons[0]?.click();
     actionButtons[1]?.click();
+    actionButtons[3]?.click();
     expect(opened).toEqual([sharedView]);
     expect(renamed).toEqual([sharedView]);
+    expect(pinChanges).toEqual([{ savedView: sharedView, isPinned: true }]);
   });
 
   it('lets contributors open shared views without showing shared management actions', () => {
@@ -247,10 +258,72 @@ describe('SavedViewsToolbarComponent', () => {
       'Open',
       'Rename',
       'Update query',
+      'Pin',
       'Delete'
     ]);
 
     personalButtons[1]?.click();
     expect(renamed).toEqual([savedView]);
+  });
+
+  it('emits personal pin and unpin actions for mutable personal views', () => {
+    const pinChanges: Array<{ savedView: SavedWorkViewDto; isPinned: boolean }> = [];
+    fixture.componentInstance.personalViews = [savedView, pinnedSavedView];
+    fixture.componentInstance.draftNames = {
+      [savedView.id]: savedView.name,
+      [pinnedSavedView.id]: pinnedSavedView.name
+    };
+    fixture.componentInstance.pinChange.subscribe((change) => pinChanges.push(change));
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    compiled.querySelector<HTMLDetailsElement>('details')?.setAttribute('open', '');
+    fixture.detectChanges();
+
+    const personalRows = [...compiled.querySelectorAll<HTMLElement>('.saved-view-row')];
+    const unpinnedButtons = [
+      ...personalRows[0]!.querySelectorAll<HTMLButtonElement>('.saved-view-actions button')
+    ];
+    const pinnedButtons = [
+      ...personalRows[1]!.querySelectorAll<HTMLButtonElement>('.saved-view-actions button')
+    ];
+
+    expect(unpinnedButtons.map((button) => button.textContent?.trim())).toEqual([
+      'Open',
+      'Rename',
+      'Update query',
+      'Pin',
+      'Delete'
+    ]);
+    expect(pinnedButtons.map((button) => button.textContent?.trim())).toEqual([
+      'Open',
+      'Rename',
+      'Update query',
+      'Unpin',
+      'Delete'
+    ]);
+
+    unpinnedButtons[3]?.click();
+    pinnedButtons[3]?.click();
+
+    expect(pinChanges).toEqual([
+      { savedView, isPinned: true },
+      { savedView: pinnedSavedView, isPinned: false }
+    ]);
+  });
+
+  it('does not render pin controls when all saved views are read-only', () => {
+    fixture.componentInstance.personalViews = [savedView];
+    fixture.componentInstance.sharedViews = [sharedView];
+    fixture.componentInstance.canManagePersonalViews = false;
+    fixture.componentInstance.canManageSharedViews = false;
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const buttons = [...compiled.querySelectorAll<HTMLButtonElement>('.saved-view-actions button')];
+
+    expect(buttons.map((button) => button.textContent?.trim())).toEqual(['Open', 'Open']);
+    expect(compiled.textContent).not.toContain('Pin');
+    expect(compiled.textContent).not.toContain('Unpin');
   });
 });

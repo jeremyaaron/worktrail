@@ -121,6 +121,13 @@ import {
                         <button type="button" class="secondary-action" (click)="updateQuery.emit(view)">
                           Update query
                         </button>
+                        <button
+                          type="button"
+                          class="secondary-action"
+                          (click)="pinChange.emit({ savedView: view, isPinned: !view.isPinned })"
+                        >
+                          {{ view.isPinned ? 'Unpin' : 'Pin' }}
+                        </button>
                         <button type="button" class="danger-action" (click)="delete.emit(view)">
                           Delete
                         </button>
@@ -170,6 +177,13 @@ import {
                         </button>
                         <button type="button" class="secondary-action" (click)="updateQuery.emit(view)">
                           Update query
+                        </button>
+                        <button
+                          type="button"
+                          class="secondary-action"
+                          (click)="pinChange.emit({ savedView: view, isPinned: !view.isPinned })"
+                        >
+                          {{ view.isPinned ? 'Unpin' : 'Pin' }}
                         </button>
                         <button type="button" class="danger-action" (click)="delete.emit(view)">
                           Delete
@@ -473,6 +487,7 @@ export class SavedViewsToolbarComponent {
   @Output() readonly open = new EventEmitter<SavedWorkViewDto>();
   @Output() readonly rename = new EventEmitter<SavedWorkViewDto>();
   @Output() readonly updateQuery = new EventEmitter<SavedWorkViewDto>();
+  @Output() readonly pinChange = new EventEmitter<{ savedView: SavedWorkViewDto; isPinned: boolean }>();
   @Output() readonly delete = new EventEmitter<SavedWorkViewDto>();
   @Output() readonly draftNameChange = new EventEmitter<{ savedViewId: string; name: string }>();
 

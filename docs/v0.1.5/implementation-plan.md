@@ -485,6 +485,37 @@ npm run lint --workspace @worktrail/web
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-06.
+- Updated `SavedViewsToolbarComponent` to expose pin/unpin intent through:
+  - `pinChange: EventEmitter<{ savedView: SavedWorkViewDto; isPinned: boolean }>`;
+  - `Pin` controls for mutable unpinned saved views;
+  - `Unpin` controls for mutable pinned saved views.
+- Preserved existing toolbar ownership boundaries:
+  - shared pin controls render only when `canManageSharedViews` is true;
+  - personal pin controls render only when `canManagePersonalViews` is true;
+  - read-only shared rows remain open-only;
+  - fully read-only saved-view lists remain open-only.
+- Kept the existing row action order stable:
+  - `Open`;
+  - `Rename`;
+  - `Update query`;
+  - `Pin` or `Unpin`;
+  - `Delete`.
+- Added component coverage for:
+  - shared manager pin action emits `true`;
+  - personal pin action emits `true`;
+  - personal unpin action emits `false`;
+  - shared contributor/read-only rows do not render pin controls;
+  - archived-style fully read-only lists do not render pin controls;
+  - existing save/open/rename behavior remains intact.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include "**/saved-views-toolbar.component.spec.ts"`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `git diff --check`.
+
 ## Phase 6: Workspace Work Items Integration
 
 Goal: wire pinned saved views into the workspace Work Items page.
