@@ -85,6 +85,13 @@
       "when": 1783391852692,
       "tag": "0011_bouncy_zaladane",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1783428382363,
+      "tag": "0012_oval_deathstrike",
+      "breakpoints": true
     }
   ]
 }

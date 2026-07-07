@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import type { ProjectStatusReportSnapshotDto } from '@worktrail/contracts';
 import {
   boolean,
   check,
@@ -301,6 +302,39 @@ export const savedWorkViews = pgTable(
     uniqueIndex('saved_work_views_project_shared_name_unique')
       .on(table.workspaceId, table.projectId, sql`lower(${table.name})`)
       .where(sql`${table.scope} = 'project' and ${table.visibility} = 'workspace'`)
+  ]
+);
+
+export const projectStatusReports = pgTable(
+  'project_status_reports',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id),
+    authorMemberId: uuid('author_member_id')
+      .notNull()
+      .references(() => members.id),
+    title: text('title').notNull(),
+    statusDate: date('status_date', { mode: 'string' }).notNull(),
+    summary: text('summary').notNull(),
+    highlights: text('highlights').notNull().default(''),
+    risks: text('risks').notNull().default(''),
+    nextSteps: text('next_steps').notNull().default(''),
+    snapshot: jsonb('snapshot').$type<ProjectStatusReportSnapshotDto>().notNull(),
+    publishedAt: timestamp('published_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull()
+  },
+  (table) => [
+    index('project_status_reports_project_published_idx').on(
+      table.projectId,
+      table.publishedAt.desc()
+    ),
+    index('project_status_reports_workspace_project_idx').on(table.workspaceId, table.projectId),
+    index('project_status_reports_author_idx').on(table.authorMemberId)
   ]
 );
 

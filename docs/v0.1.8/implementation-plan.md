@@ -247,7 +247,34 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-07.
+- Updated `apps/api/src/domain/constants.ts`:
+  - added `status_report.published` to `activityEventTypes`.
+- Updated `apps/api/src/db/schema.ts`:
+  - added `projectStatusReports`;
+  - added JSONB `snapshot` typed to `ProjectStatusReportSnapshotDto`;
+  - added project/published, workspace/project, and author indexes.
+- Generated and committed Drizzle migration artifacts:
+  - `apps/api/drizzle/0012_oval_deathstrike.sql`;
+  - `apps/api/drizzle/meta/0012_snapshot.json`;
+  - updated `apps/api/drizzle/meta/_journal.json`.
+- Updated `apps/api/src/repositories/types.ts`:
+  - added `ProjectStatusReport`;
+  - added `NewProjectStatusReport`.
+- Added `apps/api/src/repositories/project-status-report-repository.ts` with:
+  - `create`;
+  - `findById`;
+  - `listByProject`;
+  - `findLatestByProject`.
+- Registered `projectStatusReports` in `apps/api/src/repositories/index.ts`.
+- Verified:
+  - `npm run db:generate --workspace @worktrail/api`;
+  - `npm run db:reset`;
+  - `npm run db:migrate`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/api`;
+  - `npm run db:seed`.
 
 ## Phase 3: Status Report Service And Snapshot Generation
 
