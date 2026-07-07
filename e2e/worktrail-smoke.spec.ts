@@ -85,6 +85,12 @@ function projectShellHeading(page: Page, name: string): Locator {
   return page.locator('.project-shell__header').getByRole('heading', { name });
 }
 
+function milestoneRiskSection(page: Page, name: string): Locator {
+  return page.locator('section.risk-section').filter({
+    has: page.getByRole('heading', { name, exact: true })
+  });
+}
+
 async function openSavedViewManager(page: Page): Promise<void> {
   const manager = page.locator('details.saved-view-manager');
 
@@ -861,6 +867,70 @@ test('surfaces v0.0.9 delivery health on project overview and planning', async (
   await expect(
     page.getByRole('row', { name: /Choose status transition copy.*WT-4/ })
   ).toBeVisible();
+});
+
+test('reviews seeded milestone delivery risks and preserves permission-sensitive work links', async ({ page }) => {
+  test.setTimeout(60_000);
+
+  const planningMilestoneId = '10000000-0000-4000-8000-000000000351';
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`/projects/${demoProjectId}/planning`);
+  await page.locator('#current-member').selectOption({ label: 'Avery Owner · owner' });
+  await expect(projectShellHeading(page, 'Worktrail App')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Planning dashboard' })).toBeVisible();
+
+  await page
+    .locator('.progress-list')
+    .getByRole('link', { name: 'v0.0.3 Planning', exact: true })
+    .click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${demoProjectId}/milestones/${planningMilestoneId}$`));
+  await expect(page.getByRole('heading', { name: 'v0.0.3 Planning' })).toBeVisible();
+  await expect(page.getByText('Planning target for milestones, board ordering, discovery, and dashboard work.')).toBeVisible();
+  await expect(page.getByLabel('Milestone progress summary')).toContainText('Open');
+  await expect(page.getByRole('heading', { name: 'Breakdown' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Blocked work' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Unassigned active work' })).toBeVisible();
+  await expect(
+    milestoneRiskSection(page, 'Unassigned active work').getByRole('link', {
+      name: /WT-7 .*Triage unassigned onboarding feedback/
+    })
+  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Recently changed work' })).toBeVisible();
+  await expectNoPageOverflow(page);
+
+  await page.setViewportSize({ width: 390, height: 900 });
+  await expectNoPageOverflow(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  await milestoneRiskSection(page, 'Unassigned active work')
+    .getByRole('link', { name: 'Open work' })
+    .click();
+  await expect(page).toHaveURL(/workRisk=unassigned_active/);
+  await expect(page).toHaveURL(new RegExp(`milestoneId=${planningMilestoneId}`));
+  await expect(page.getByRole('heading', { name: 'Project work items' })).toBeVisible();
+  await expect(page.getByText('Milestone: v0.0.3 Planning')).toBeVisible();
+  await expect(page.getByText('Risk: Unassigned active')).toBeVisible();
+  await expect(
+    page.getByRole('row', { name: /Triage unassigned onboarding feedback.*WT-7/ })
+  ).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: 'Select WT-7' }).first()).toBeVisible();
+
+  await page.locator('#current-member').selectOption({ label: 'Casey Contributor · contributor' });
+  await page.goto(`/projects/${demoProjectId}/milestones/${planningMilestoneId}`);
+  await expect(page.getByRole('heading', { name: 'v0.0.3 Planning' })).toBeVisible();
+  await expect(milestoneRiskSection(page, 'Blocked work')).toContainText('Choose status transition copy');
+  await expect(page.getByLabel('Bulk work item actions')).toHaveCount(0);
+
+  await milestoneRiskSection(page, 'Blocked work')
+    .getByRole('link', { name: 'Open work' })
+    .click();
+  await expect(page).toHaveURL(/status=blocked/);
+  await expect(page.getByRole('heading', { name: 'Project work items' })).toBeVisible();
+  await expect(page.getByText('Milestone: v0.0.3 Planning')).toBeVisible();
+  await expect(page.getByText('Status: Blocked')).toBeVisible();
+  await expect(page.getByLabel('Select WT-4')).toHaveCount(0);
+  await expect(page.getByLabel('Bulk work item actions')).toHaveCount(0);
 });
 
 test('completes the v0.1.1 inbox mention workflow', async ({ page }) => {

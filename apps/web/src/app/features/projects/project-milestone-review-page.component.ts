@@ -369,6 +369,7 @@ interface BreakdownMetric {
     h1 {
       font-size: clamp(1.6rem, 2vw, 2.25rem);
       line-height: 1.1;
+      overflow-wrap: anywhere;
     }
 
     h2 {
@@ -501,6 +502,7 @@ interface BreakdownMetric {
       color: #111827;
       font-size: 1.6rem;
       line-height: 1;
+      overflow-wrap: anywhere;
     }
 
     .panel-heading,

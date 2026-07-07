@@ -709,7 +709,22 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed:
+  - reviewed seeded milestone data and confirmed `v0.0.3 Planning` supports active scoped work, risk sections, recently changed work, and owner/contributor permission paths without seed changes;
+  - added Playwright milestone review coverage from Planning to `/projects/:projectId/milestones/:milestoneId`;
+  - verified review identity, progress, breakdown, risk sections, recent movement, and desktop/mobile overflow checks;
+  - verified risk links land on Project Work with milestone and risk/status chips;
+  - verified owner batch selection controls are present on risk-filtered Project Work;
+  - verified contributor can read review and filtered Project Work without batch mutation controls;
+  - hardened milestone review heading and metric wrapping for narrow layouts.
+- Verified:
+  - `npm run db:reset`;
+  - `npm run db:migrate`;
+  - `npm run db:seed`;
+  - `npx playwright test e2e/worktrail-smoke.spec.ts --grep "reviews seeded milestone"`;
+  - `npm run test:e2e`;
+  - `npm run build --workspace @worktrail/web`;
+  - `git diff --check`.
 
 ## Phase 10: Documentation, Site, Release Notes, Pattern Notes, And Final Verification
 
