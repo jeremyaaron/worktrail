@@ -1,5 +1,10 @@
 import type {
   ActivityEventDto,
+  BulkUpdateWorkItemsAction,
+  BulkUpdateWorkItemsErrorCode,
+  BulkUpdateWorkItemsRequest,
+  BulkUpdateWorkItemsResponseDto,
+  BulkUpdateWorkItemsResultDto,
   CommentDto,
   CreateWorkItemRequest,
   MoveWorkItemOnBoardRequest,
@@ -18,7 +23,9 @@ import type { ActorContext } from '../domain/actor.js';
 import type { WorkItemStatus } from '../domain/constants.js';
 import { canTransitionWorkItem } from '../domain/workflow.js';
 import {
+  AppError,
   ConflictError,
+  ForbiddenError,
   NotFoundError,
   ValidationError,
   WorkflowTransitionError
@@ -118,6 +125,60 @@ export class WorkItemService {
     return this.withWriteRepositories(async (repositories) => {
       return this.createWorkItemWithRepositories(projectId, input, repositories);
     });
+  }
+
+  async bulkUpdateWorkItems(
+    projectId: string,
+    input: BulkUpdateWorkItemsRequest
+  ): Promise<BulkUpdateWorkItemsResponseDto> {
+    const project = await this.requireProject(projectId);
+    this.assertProjectWritable(project);
+    this.assertCanBulkUpdateWorkItems();
+    await this.validateBulkActionReferences(projectId, input.action, this.context.repositories);
+
+    const results: BulkUpdateWorkItemsResultDto[] = [];
+
+    for (const workItemId of input.workItemIds) {
+      try {
+        results.push(
+          await this.withWriteRepositories(async (repositories) =>
+            this.applyBulkActionToWorkItem({
+              projectId,
+              workItemId,
+              action: input.action,
+              repositories
+            })
+          )
+        );
+      } catch (error) {
+        if (error instanceof AppError) {
+          results.push({
+            workItemId,
+            displayKey: null,
+            status: 'failed',
+            workItem: null,
+            error: {
+              code: this.toBulkErrorCode(error),
+              message: error.message
+            }
+          });
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    const unchangedCount = results.filter((result) => result.status === 'unchanged').length;
+    const failedCount = results.filter((result) => result.status === 'failed').length;
+
+    return {
+      requestedCount: input.workItemIds.length,
+      succeededCount: results.length - failedCount,
+      unchangedCount,
+      failedCount,
+      results
+    };
   }
 
   async createWorkItemWithRepositories(
@@ -425,6 +486,319 @@ export class WorkItemService {
       clock: this.clock,
       idGenerator: this.idGenerator
     });
+  }
+
+  private assertCanBulkUpdateWorkItems(): void {
+    if (this.context.actor.role !== 'owner' && this.context.actor.role !== 'maintainer') {
+      throw new ForbiddenError('Only owners and maintainers can bulk update work items.');
+    }
+  }
+
+  private async validateBulkActionReferences(
+    projectId: string,
+    action: BulkUpdateWorkItemsAction,
+    repositories: Repositories
+  ): Promise<void> {
+    if (action.type === 'set_assignee') {
+      await this.validateAssignee(action.assigneeId, repositories);
+      return;
+    }
+
+    if (action.type === 'set_milestone') {
+      await this.validateMilestone(projectId, action.milestoneId, repositories);
+      return;
+    }
+
+    if (action.type === 'add_labels' || action.type === 'remove_labels') {
+      await this.validateLabels(projectId, action.labelIds, repositories);
+    }
+  }
+
+  private async applyBulkActionToWorkItem(input: {
+    projectId: string;
+    workItemId: string;
+    action: BulkUpdateWorkItemsAction;
+    repositories: Repositories;
+  }): Promise<BulkUpdateWorkItemsResultDto> {
+    const current = await input.repositories.workItems.findById(input.workItemId);
+
+    if (current === null || current.workspaceId !== this.context.actor.workspaceId) {
+      return this.toBulkFailure({
+        workItemId: input.workItemId,
+        displayKey: null,
+        code: 'NOT_FOUND',
+        message: 'Work item not found.'
+      });
+    }
+
+    if (current.projectId !== input.projectId) {
+      return this.toBulkFailure({
+        workItemId: input.workItemId,
+        displayKey: null,
+        code: 'NOT_IN_PROJECT',
+        message: 'Work item is not part of this project.'
+      });
+    }
+
+    try {
+      if (input.action.type === 'transition_status') {
+        return await this.transitionBulkWorkItem(current, input.action.status, input.repositories);
+      }
+
+      return await this.updateBulkWorkItem(current, input.action, input.repositories);
+    } catch (error) {
+      if (error instanceof AppError) {
+        return this.toBulkFailure({
+          workItemId: current.id,
+          displayKey: current.displayKey,
+          code: this.toBulkErrorCode(error),
+          message: error.message
+        });
+      }
+
+      throw error;
+    }
+  }
+
+  private async updateBulkWorkItem(
+    current: WorkItem,
+    action: Exclude<BulkUpdateWorkItemsAction, { type: 'transition_status' }>,
+    repositories: Repositories
+  ): Promise<BulkUpdateWorkItemsResultDto> {
+    const currentLabels = await repositories.labels.listByWorkItem(current.id);
+    const nextUpdate = this.toBulkWorkItemUpdate(current, currentLabels, action);
+
+    if (nextUpdate === null) {
+      return this.toBulkSuccess(current, 'unchanged', repositories);
+    }
+
+    if (nextUpdate.labelIds !== undefined) {
+      await this.validateLabels(current.projectId, nextUpdate.labelIds, repositories, {
+        existingArchivedLabelIds: new Set(
+          currentLabels.filter((label) => label.archivedAt !== null).map((label) => label.id)
+        )
+      });
+    }
+
+    if (nextUpdate.patch.milestoneId !== undefined) {
+      await this.validateMilestone(current.projectId, nextUpdate.patch.milestoneId, repositories, {
+        currentMilestoneId: current.milestoneId
+      });
+    }
+
+    if (nextUpdate.patch.assigneeId !== undefined) {
+      await this.validateAssignee(nextUpdate.patch.assigneeId, repositories, {
+        currentAssigneeId: current.assigneeId
+      });
+    }
+
+    const timestamp = this.clock();
+    const updated = await repositories.workItems.update(current.id, {
+      ...nextUpdate.patch,
+      updatedAt: timestamp
+    });
+
+    if (updated === null) {
+      throw new NotFoundError('Work item not found.');
+    }
+
+    if (nextUpdate.labelIds !== undefined) {
+      await repositories.labels.replaceForWorkItem(current.id, nextUpdate.labelIds);
+    }
+
+    const updateActivity = await this.recordUpdateActivity({
+      current,
+      updated,
+      currentLabels,
+      nextLabels:
+        nextUpdate.labelIds === undefined ? currentLabels : await repositories.labels.listByWorkItem(current.id),
+      repositories,
+      timestamp
+    });
+
+    if (current.assigneeId !== updated.assigneeId) {
+      await this.notificationService(repositories).recordWorkItemAssigneeChanged({
+        repositories,
+        workItem: updated,
+        previousAssigneeId: current.assigneeId,
+        activityEventId: updateActivity.assigneeActivityEventId,
+        timestamp
+      });
+    }
+
+    return this.toBulkSuccess(updated, 'updated', repositories);
+  }
+
+  private toBulkWorkItemUpdate(
+    current: WorkItem,
+    currentLabels: Label[],
+    action: Exclude<BulkUpdateWorkItemsAction, { type: 'transition_status' }>
+  ): {
+    patch: Partial<
+      Pick<WorkItem, 'assigneeId' | 'priority' | 'milestoneId' | 'dueDate'>
+    >;
+    labelIds?: string[];
+  } | null {
+    if (action.type === 'set_assignee') {
+      return current.assigneeId === action.assigneeId ? null : { patch: { assigneeId: action.assigneeId } };
+    }
+
+    if (action.type === 'clear_assignee') {
+      return current.assigneeId === null ? null : { patch: { assigneeId: null } };
+    }
+
+    if (action.type === 'set_priority') {
+      return current.priority === action.priority ? null : { patch: { priority: action.priority } };
+    }
+
+    if (action.type === 'set_milestone') {
+      return current.milestoneId === action.milestoneId ? null : { patch: { milestoneId: action.milestoneId } };
+    }
+
+    if (action.type === 'clear_milestone') {
+      return current.milestoneId === null ? null : { patch: { milestoneId: null } };
+    }
+
+    if (action.type === 'set_due_date') {
+      return current.dueDate === action.dueDate ? null : { patch: { dueDate: action.dueDate } };
+    }
+
+    if (action.type === 'clear_due_date') {
+      return current.dueDate === null ? null : { patch: { dueDate: null } };
+    }
+
+    const currentLabelIds = currentLabels.map((label) => label.id);
+
+    if (action.type === 'add_labels') {
+      const nextLabelIds = [...new Set([...currentLabelIds, ...action.labelIds])];
+      return this.haveSameIds(currentLabelIds, nextLabelIds) ? null : { patch: {}, labelIds: nextLabelIds };
+    }
+
+    const removedLabelIds = new Set(action.labelIds);
+    const nextLabelIds = currentLabelIds.filter((labelId) => !removedLabelIds.has(labelId));
+    return this.haveSameIds(currentLabelIds, nextLabelIds) ? null : { patch: {}, labelIds: nextLabelIds };
+  }
+
+  private async transitionBulkWorkItem(
+    current: WorkItem,
+    status: WorkItemStatus,
+    repositories: Repositories
+  ): Promise<BulkUpdateWorkItemsResultDto> {
+    if (current.status === status) {
+      return this.toBulkSuccess(current, 'unchanged', repositories);
+    }
+
+    if (
+      !canTransitionWorkItem({
+        from: current.status,
+        to: status,
+        actorRole: this.context.actor.role
+      })
+    ) {
+      throw new WorkflowTransitionError('The requested status transition is not allowed.', {
+        from: current.status,
+        to: status
+      });
+    }
+
+    const timestamp = this.clock();
+    const boardPosition = await this.getTopInsertionPosition(current.projectId, status, repositories);
+    const updated = await repositories.workItems.updateStatus(current.id, status, timestamp, boardPosition);
+
+    if (updated === null) {
+      throw new NotFoundError('Work item not found.');
+    }
+
+    const activityEvent = await repositories.activityEvents.create({
+      id: this.idGenerator(),
+      workspaceId: updated.workspaceId,
+      projectId: updated.projectId,
+      workItemId: updated.id,
+      actorId: this.context.actor.memberId,
+      eventType: 'work_item.status_changed',
+      summary: `Status changed from ${current.status} to ${updated.status}.`,
+      previousValue: { status: current.status },
+      newValue: { status: updated.status },
+      metadata: {},
+      createdAt: timestamp
+    });
+
+    await this.notificationService(repositories).recordWorkItemStatusChanged({
+      repositories,
+      workItem: updated,
+      previousStatus: current.status,
+      activityEventId: activityEvent.id,
+      timestamp
+    });
+
+    return this.toBulkSuccess(updated, 'updated', repositories);
+  }
+
+  private async toBulkSuccess(
+    workItem: WorkItem,
+    status: Extract<BulkUpdateWorkItemsResultDto['status'], 'updated' | 'unchanged'>,
+    repositories: Repositories
+  ): Promise<BulkUpdateWorkItemsResultDto> {
+    const [workItemDto] = await this.toListDtos([workItem], repositories);
+
+    if (workItemDto === undefined) {
+      throw new NotFoundError('Work item not found.');
+    }
+
+    return {
+      workItemId: workItem.id,
+      displayKey: workItem.displayKey,
+      status,
+      workItem: workItemDto,
+      error: null
+    };
+  }
+
+  private toBulkFailure(input: {
+    workItemId: string;
+    displayKey: string | null;
+    code: BulkUpdateWorkItemsErrorCode;
+    message: string;
+  }): BulkUpdateWorkItemsResultDto {
+    return {
+      workItemId: input.workItemId,
+      displayKey: input.displayKey,
+      status: 'failed',
+      workItem: null,
+      error: {
+        code: input.code,
+        message: input.message
+      }
+    };
+  }
+
+  private toBulkErrorCode(error: AppError): BulkUpdateWorkItemsErrorCode {
+    if (error.code === 'WORKFLOW_TRANSITION_ERROR') {
+      return 'WORKFLOW_TRANSITION_ERROR';
+    }
+
+    if (error.code === 'FORBIDDEN') {
+      return 'FORBIDDEN';
+    }
+
+    if (error.code === 'NOT_FOUND') {
+      return 'NOT_FOUND';
+    }
+
+    if (error.code === 'VALIDATION_ERROR') {
+      return 'VALIDATION_ERROR';
+    }
+
+    return 'VALIDATION_ERROR';
+  }
+
+  private haveSameIds(left: string[], right: string[]): boolean {
+    if (left.length !== right.length) {
+      return false;
+    }
+
+    const rightIds = new Set(right);
+    return left.every((value) => rightIds.has(value));
   }
 
   private async requireProject(projectId: string): Promise<Project> {
@@ -859,6 +1233,7 @@ export class WorkItemService {
       'assigneeId',
       'work_item.assignee_changed'
     );
+    await this.recordDueDateActivity(input);
     await this.recordMilestoneActivity(input);
 
     const currentLabelIds = new Set(input.currentLabels.map((label) => label.id));
@@ -931,6 +1306,31 @@ export class WorkItemService {
       summary: `${field} changed.`,
       previousValue: { [field]: input.current[field] },
       newValue: { [field]: input.updated[field] },
+      metadata: {},
+      createdAt: input.timestamp
+    });
+  }
+
+  private async recordDueDateActivity(input: {
+    current: WorkItem;
+    updated: WorkItem;
+    repositories: Repositories;
+    timestamp: Date;
+  }): Promise<void> {
+    if (input.current.dueDate === input.updated.dueDate) {
+      return;
+    }
+
+    await input.repositories.activityEvents.create({
+      id: this.idGenerator(),
+      workspaceId: input.updated.workspaceId,
+      projectId: input.updated.projectId,
+      workItemId: input.updated.id,
+      actorId: this.context.actor.memberId,
+      eventType: 'work_item.due_date_changed',
+      summary: 'Due date changed.',
+      previousValue: { dueDate: input.current.dueDate },
+      newValue: { dueDate: input.updated.dueDate },
       metadata: {},
       createdAt: input.timestamp
     });

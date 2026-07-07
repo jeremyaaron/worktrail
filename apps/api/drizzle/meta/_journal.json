@@ -78,6 +78,13 @@
       "when": 1783381168612,
       "tag": "0010_free_quasar",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1783391852692,
+      "tag": "0011_bouncy_zaladane",
+      "breakpoints": true
     }
   ]
 }

@@ -131,6 +131,16 @@ const workItem: WorkItemListItemDto = {
 
 const backendLabel = workItem.labels[0];
 
+const readyWorkItem: WorkItemListItemDto = {
+  ...workItem,
+  id: '10000000-0000-4000-8000-000000000404',
+  itemNumber: 4,
+  displayKey: 'WT-4',
+  title: 'Prepare bulk triage feedback',
+  status: 'ready',
+  boardPosition: 2048
+};
+
 const archivedLabel = {
   id: '10000000-0000-4000-8000-000000000399',
   name: 'legacy',
@@ -255,6 +265,54 @@ function flushProjectSavedViews(
   request.flush(savedViews);
 }
 
+function flushProjectWorkPage(
+  http: HttpTestingController,
+  workItems: WorkItemListItemDto[] = [workItem]
+): void {
+  http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+  http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+  flushProjectSavedViews(http);
+  http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush(workItems);
+}
+
+function bulkSuccessResponse(
+  inputWorkItem: WorkItemListItemDto = workItem
+): {
+  requestedCount: number;
+  succeededCount: number;
+  unchangedCount: number;
+  failedCount: number;
+  results: Array<{
+    workItemId: string;
+    displayKey: string;
+    status: 'updated';
+    workItem: WorkItemListItemDto;
+    error: null;
+  }>;
+} {
+  return {
+    requestedCount: 1,
+    succeededCount: 1,
+    unchangedCount: 0,
+    failedCount: 0,
+    results: [
+      {
+        workItemId: inputWorkItem.id,
+        displayKey: inputWorkItem.displayKey,
+        status: 'updated',
+        workItem: inputWorkItem,
+        error: null
+      }
+    ]
+  };
+}
+
+function bulkResultCounts(compiled: HTMLElement): string[] {
+  return [...compiled.querySelectorAll<HTMLElement>('.bulk-result__stats dd')].map((item) =>
+    item.textContent?.trim() ?? ''
+  );
+}
+
 describe('WorkItemListPageComponent', () => {
   beforeEach(async () => {
     clipboard = jasmine.createSpyObj<ClipboardService>('ClipboardService', ['copyText']);
@@ -334,6 +392,409 @@ describe('WorkItemListPageComponent', () => {
         ?.getAttribute('title')
     ).toBe('Export the applied project filters as CSV');
     expect(compiled.querySelector<HTMLAnchorElement>(`a[href="/projects/${projectId}/work-items/import"]`)).not.toBeNull();
+  });
+
+  it('lets owners select visible project work items locally', () => {
+    seedCurrentUser(ownerMember);
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
+      workItem,
+      readyWorkItem
+    ]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(fixture.componentInstance.canSelectWorkItems()).toBeTrue();
+    expect(compiled.querySelector('input[aria-label="Select all visible work items"]')).not.toBeNull();
+    expect(compiled.querySelector('input[aria-label="Select WT-3"]')).not.toBeNull();
+
+    fixture.componentInstance.toggleWorkItemSelection(workItem.id);
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([workItem.id]);
+    expect(fixture.componentInstance.selectedVisibleCount()).toBe(1);
+    expect(fixture.componentInstance.isAllVisibleSelected()).toBeFalse();
+
+    fixture.componentInstance.toggleAllVisibleSelection();
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([workItem.id, readyWorkItem.id]);
+    expect(fixture.componentInstance.selectedVisibleCount()).toBe(2);
+    expect(fixture.componentInstance.isAllVisibleSelected()).toBeTrue();
+
+    fixture.componentInstance.toggleAllVisibleSelection();
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([]);
+  });
+
+  it('hides selection for contributors and archived projects', () => {
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne(`/api/projects/${projectId}`).flush(archivedProject);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.canSelectWorkItems()).toBeFalse();
+    expect((fixture.nativeElement as HTMLElement).querySelector('input[aria-label="Select WT-3"]')).toBeNull();
+
+    fixture.componentInstance.toggleWorkItemSelection(workItem.id);
+    fixture.componentInstance.toggleAllVisibleSelection();
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([]);
+  });
+
+  it('prunes selection to visible rows after a project work reload', () => {
+    seedCurrentUser(ownerMember);
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
+      workItem,
+      readyWorkItem
+    ]);
+    fixture.detectChanges();
+
+    fixture.componentInstance.toggleAllVisibleSelection();
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([workItem.id, readyWorkItem.id]);
+
+    fixture.componentInstance.loadWorkItems();
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([readyWorkItem]);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([readyWorkItem.id]);
+    expect(fixture.componentInstance.selectedVisibleCount()).toBe(1);
+    expect(fixture.componentInstance.isAllVisibleSelected()).toBeTrue();
+  });
+
+  it('clears selection when opening a saved project view', () => {
+    seedCurrentUser(ownerMember);
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    const router = TestBed.inject(Router);
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    fixture.detectChanges();
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http, [sharedProjectSavedView]);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
+
+    fixture.componentInstance.toggleWorkItemSelection(workItem.id);
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([workItem.id]);
+
+    fixture.componentInstance.openSavedView(sharedProjectSavedView);
+
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([]);
+    expect(navigate).toHaveBeenCalledWith([], {
+      relativeTo: TestBed.inject(ActivatedRoute),
+      queryParams: jasmine.objectContaining({
+        status: 'ready',
+        sort: 'board_order'
+      })
+    });
+  });
+
+  it('keeps bulk apply disabled until the selected action has required values', () => {
+    seedCurrentUser(ownerMember);
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    flushProjectWorkPage(http, [workItem]);
+    fixture.detectChanges();
+
+    fixture.componentInstance.toggleWorkItemSelection(workItem.id);
+    fixture.detectChanges();
+
+    const applyButton = () =>
+      (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+        '.bulk-action-form button[type="submit"]'
+      );
+
+    expect(applyButton()?.disabled).toBeTrue();
+
+    fixture.componentInstance.bulkActionForm.patchValue({ actionType: 'set_priority' });
+    fixture.detectChanges();
+    expect(applyButton()?.disabled).toBeTrue();
+
+    fixture.componentInstance.bulkActionForm.patchValue({ priority: 'urgent' });
+    fixture.detectChanges();
+    expect(applyButton()?.disabled).toBeFalse();
+  });
+
+  it('gives bulk label controls explicit accessible names', () => {
+    seedCurrentUser(ownerMember);
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    flushProjectWorkPage(http, [workItem]);
+
+    fixture.componentInstance.toggleWorkItemSelection(workItem.id);
+    fixture.componentInstance.bulkActionForm.patchValue({ actionType: 'add_labels' });
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector<HTMLInputElement>('input[aria-label="Add label backend"]')).not.toBeNull();
+
+    fixture.componentInstance.bulkActionForm.patchValue({ actionType: 'remove_labels' });
+    fixture.detectChanges();
+
+    expect(compiled.querySelector<HTMLInputElement>('input[aria-label="Remove label backend"]')).not.toBeNull();
+  });
+
+  it('serializes each supported project bulk action and reloads after success', () => {
+    seedCurrentUser(ownerMember);
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    flushProjectWorkPage(http, [workItem]);
+
+    const cases = [
+      {
+        form: { actionType: 'set_assignee', assigneeId: ownerMember.id },
+        labels: [],
+        action: { type: 'set_assignee', assigneeId: ownerMember.id }
+      },
+      {
+        form: { actionType: 'clear_assignee' },
+        labels: [],
+        action: { type: 'clear_assignee' }
+      },
+      {
+        form: { actionType: 'set_priority', priority: 'urgent' },
+        labels: [],
+        action: { type: 'set_priority', priority: 'urgent' }
+      },
+      {
+        form: { actionType: 'set_milestone', milestoneId: activeMilestone.id },
+        labels: [],
+        action: { type: 'set_milestone', milestoneId: activeMilestone.id }
+      },
+      {
+        form: { actionType: 'clear_milestone' },
+        labels: [],
+        action: { type: 'clear_milestone' }
+      },
+      {
+        form: { actionType: 'set_due_date', dueDate: '2026-07-22' },
+        labels: [],
+        action: { type: 'set_due_date', dueDate: '2026-07-22' }
+      },
+      {
+        form: { actionType: 'clear_due_date' },
+        labels: [],
+        action: { type: 'clear_due_date' }
+      },
+      {
+        form: { actionType: 'add_labels' },
+        labels: [backendLabel.id],
+        action: { type: 'add_labels', labelIds: [backendLabel.id] }
+      },
+      {
+        form: { actionType: 'remove_labels' },
+        labels: [backendLabel.id],
+        action: { type: 'remove_labels', labelIds: [backendLabel.id] }
+      },
+      {
+        form: { actionType: 'transition_status', status: 'ready' },
+        labels: [],
+        action: { type: 'transition_status', status: 'ready' }
+      }
+    ] as const;
+
+    for (const item of cases) {
+      fixture.componentInstance.clearSelection();
+      fixture.componentInstance.bulkActionForm.setValue({
+        actionType: '',
+        assigneeId: '',
+        priority: '',
+        milestoneId: '',
+        dueDate: '',
+        status: ''
+      });
+      fixture.componentInstance.toggleWorkItemSelection(workItem.id);
+      fixture.componentInstance.bulkActionForm.patchValue(item.form);
+      fixture.componentInstance.selectedBulkLabelIds.set([...item.labels]);
+
+      expect(fixture.componentInstance.canApplyBulkAction()).toBeTrue();
+      fixture.componentInstance.applyBulkAction();
+
+      const request = http.expectOne(`/api/projects/${projectId}/work-items/bulk-update`);
+      expect(request.request.method).toBe('POST');
+      expect(request.request.body).toEqual({
+        workItemIds: [workItem.id],
+        action: item.action
+      });
+      request.flush(bulkSuccessResponse(workItem));
+      http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
+      expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([]);
+    }
+  });
+
+  it('confirms multi-item status transitions before submitting', () => {
+    seedCurrentUser(ownerMember);
+    const confirm = spyOn(window, 'confirm').and.returnValue(true);
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    flushProjectWorkPage(http, [workItem, readyWorkItem]);
+
+    fixture.componentInstance.toggleAllVisibleSelection();
+    fixture.componentInstance.bulkActionForm.patchValue({
+      actionType: 'transition_status',
+      status: 'blocked'
+    });
+    fixture.componentInstance.applyBulkAction();
+
+    expect(confirm).toHaveBeenCalledWith('Transition 2 selected work items?');
+    const request = http.expectOne(`/api/projects/${projectId}/work-items/bulk-update`);
+    expect(request.request.body).toEqual({
+      workItemIds: [workItem.id, readyWorkItem.id],
+      action: {
+        type: 'transition_status',
+        status: 'blocked'
+      }
+    });
+    request.flush({
+      requestedCount: 2,
+      succeededCount: 2,
+      unchangedCount: 0,
+      failedCount: 0,
+      results: [
+        {
+          workItemId: workItem.id,
+          displayKey: workItem.displayKey,
+          status: 'updated',
+          workItem,
+          error: null
+        },
+        {
+          workItemId: readyWorkItem.id,
+          displayKey: readyWorkItem.displayKey,
+          status: 'updated',
+          workItem: readyWorkItem,
+          error: null
+        }
+      ]
+    });
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
+      workItem,
+      readyWorkItem
+    ]);
+  });
+
+  it('keeps successful bulk result feedback visible after clearing successful selection', () => {
+    seedCurrentUser(ownerMember);
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    flushProjectWorkPage(http, [workItem]);
+
+    fixture.componentInstance.toggleWorkItemSelection(workItem.id);
+    fixture.componentInstance.bulkActionForm.patchValue({
+      actionType: 'set_priority',
+      priority: 'urgent'
+    });
+    fixture.componentInstance.applyBulkAction();
+
+    const request = http.expectOne(`/api/projects/${projectId}/work-items/bulk-update`);
+    request.flush(bulkSuccessResponse(workItem));
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([]);
+    expect(compiled.textContent).toContain('Bulk update complete');
+    expect(compiled.querySelector('.bulk-action-form')).toBeNull();
+    expect(bulkResultCounts(compiled)).toEqual(['1', '0', '0']);
+  });
+
+  it('clears bulk feedback when applying filters', () => {
+    seedCurrentUser(ownerMember);
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    const router = TestBed.inject(Router);
+    spyOn(router, 'navigate').and.resolveTo(true);
+    fixture.detectChanges();
+    flushProjectWorkPage(http, [workItem]);
+
+    fixture.componentInstance.toggleWorkItemSelection(workItem.id);
+    fixture.componentInstance.bulkActionForm.patchValue({
+      actionType: 'set_priority',
+      priority: 'urgent'
+    });
+    fixture.componentInstance.applyBulkAction();
+    http.expectOne(`/api/projects/${projectId}/work-items/bulk-update`).flush(bulkSuccessResponse(workItem));
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Bulk update complete');
+
+    fixture.componentInstance.filterForm.controls.search.setValue('next search');
+    fixture.componentInstance.applyFilters();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([]);
+    expect(fixture.componentInstance.bulkActionResult()).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Bulk update complete');
+  });
+
+  it('keeps failed bulk rows selected and reports failed rows after reload', () => {
+    seedCurrentUser(ownerMember);
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    flushProjectWorkPage(http, [workItem, readyWorkItem]);
+
+    fixture.componentInstance.toggleAllVisibleSelection();
+    fixture.componentInstance.bulkActionForm.patchValue({
+      actionType: 'set_priority',
+      priority: 'urgent'
+    });
+    fixture.componentInstance.applyBulkAction();
+
+    const request = http.expectOne(`/api/projects/${projectId}/work-items/bulk-update`);
+    request.flush({
+      requestedCount: 2,
+      succeededCount: 1,
+      unchangedCount: 0,
+      failedCount: 1,
+      results: [
+        {
+          workItemId: workItem.id,
+          displayKey: workItem.displayKey,
+          status: 'updated',
+          workItem,
+          error: null
+        },
+        {
+          workItemId: readyWorkItem.id,
+          displayKey: readyWorkItem.displayKey,
+          status: 'failed',
+          workItem: null,
+          error: {
+            code: 'WORKFLOW_TRANSITION_ERROR',
+            message: 'WT-4 cannot be updated while blocked by workflow policy.'
+          }
+        }
+      ]
+    });
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
+      workItem,
+      readyWorkItem
+    ]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([readyWorkItem.id]);
+    expect(bulkResultCounts(compiled)).toEqual(['1', '0', '1']);
+    expect(compiled.textContent).toContain('Failed work items');
+    expect(compiled.textContent).toContain(
+      'WT-4 cannot be updated while blocked by workflow policy.'
+    );
   });
 
   it('creates personal project saved views from the applied query and opens canonical params', () => {

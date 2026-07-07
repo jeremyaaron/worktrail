@@ -205,3 +205,52 @@ export interface MoveWorkItemOnBoardRequest {
   beforeWorkItemId?: string | null;
   afterWorkItemId?: string | null;
 }
+
+export type BulkUpdateWorkItemsAction =
+  | { type: 'set_assignee'; assigneeId: string }
+  | { type: 'clear_assignee' }
+  | { type: 'set_priority'; priority: WorkItemPriority }
+  | { type: 'set_milestone'; milestoneId: string }
+  | { type: 'clear_milestone' }
+  | { type: 'set_due_date'; dueDate: string }
+  | { type: 'clear_due_date' }
+  | { type: 'add_labels'; labelIds: string[] }
+  | { type: 'remove_labels'; labelIds: string[] }
+  | { type: 'transition_status'; status: WorkItemStatus };
+
+export interface BulkUpdateWorkItemsRequest {
+  workItemIds: string[];
+  action: BulkUpdateWorkItemsAction;
+}
+
+export type BulkUpdateWorkItemsResultStatus = 'updated' | 'unchanged' | 'failed';
+
+export type BulkUpdateWorkItemsErrorCode =
+  | 'NOT_FOUND'
+  | 'NOT_IN_PROJECT'
+  | 'PROJECT_ARCHIVED'
+  | 'FORBIDDEN'
+  | 'INVALID_REFERENCE'
+  | 'WORKFLOW_TRANSITION_ERROR'
+  | 'VALIDATION_ERROR';
+
+export interface BulkUpdateWorkItemsErrorDto {
+  code: BulkUpdateWorkItemsErrorCode;
+  message: string;
+}
+
+export interface BulkUpdateWorkItemsResultDto {
+  workItemId: string;
+  displayKey: string | null;
+  status: BulkUpdateWorkItemsResultStatus;
+  workItem: WorkItemListItemDto | null;
+  error: BulkUpdateWorkItemsErrorDto | null;
+}
+
+export interface BulkUpdateWorkItemsResponseDto {
+  requestedCount: number;
+  succeededCount: number;
+  unchangedCount: number;
+  failedCount: number;
+  results: BulkUpdateWorkItemsResultDto[];
+}

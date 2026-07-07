@@ -3,6 +3,10 @@ import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type {
+  BulkUpdateWorkItemsAction,
+  BulkUpdateWorkItemsRequest,
+  BulkUpdateWorkItemsResponseDto,
+  BulkUpdateWorkItemsResultDto,
   DependencyFilter,
   DueDateState,
   LabelDto,
@@ -64,6 +68,29 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
   { label: 'Created newest', value: 'created_desc' },
   { label: 'Board order', value: 'board_order' }
 ];
+type BulkActionType = BulkUpdateWorkItemsAction['type'];
+
+const bulkActionOptions: Array<{ label: string; value: BulkActionType }> = [
+  { label: 'Assign to member', value: 'set_assignee' },
+  { label: 'Clear assignee', value: 'clear_assignee' },
+  { label: 'Set priority', value: 'set_priority' },
+  { label: 'Set milestone', value: 'set_milestone' },
+  { label: 'Clear milestone', value: 'clear_milestone' },
+  { label: 'Set due date', value: 'set_due_date' },
+  { label: 'Clear due date', value: 'clear_due_date' },
+  { label: 'Add labels', value: 'add_labels' },
+  { label: 'Remove labels', value: 'remove_labels' },
+  { label: 'Transition status', value: 'transition_status' }
+];
+
+interface BulkActionFormValue {
+  actionType: BulkActionType | '';
+  assigneeId: string;
+  priority: WorkItemPriority | '';
+  milestoneId: string;
+  dueDate: string;
+  status: WorkItemStatus | '';
+}
 
 interface WorkItemFilterFormValue {
   search: string;
@@ -308,17 +335,190 @@ const defaultFilterValues: WorkItemFilterFormValue = {
 
     <app-active-filter-chips [labels]="activeFilterLabels()" (remove)="removeActiveFilter($event)" />
 
+    @if (showBulkActionBar()) {
+      <section class="bulk-action-bar" aria-label="Bulk work item actions">
+        <div class="bulk-action-bar__summary">
+          @if (hasBulkSelection()) {
+            <strong>{{ selectedVisibleCount() }} selected</strong>
+            <span>Apply one update to visible project work items.</span>
+          } @else {
+            <strong>Bulk update complete</strong>
+            <span>Review the result, then select more work items to continue.</span>
+          }
+        </div>
+
+        @if (hasBulkSelection()) {
+          <form class="bulk-action-form" [formGroup]="bulkActionForm" (ngSubmit)="applyBulkAction()">
+            <label>
+              <span>Action</span>
+              <select formControlName="actionType">
+                <option value="">Choose action</option>
+                @for (action of bulkActionOptions; track action.value) {
+                  <option [value]="action.value">{{ action.label }}</option>
+                }
+              </select>
+            </label>
+
+            @switch (bulkActionForm.controls.actionType.value) {
+              @case ('set_assignee') {
+                <label>
+                  <span>Assignee</span>
+                  <select formControlName="assigneeId">
+                    <option value="">Choose member</option>
+                    @for (member of activeMembers(); track member.id) {
+                      <option [value]="member.id">{{ memberDisplayName(member) }}</option>
+                    }
+                  </select>
+                </label>
+              }
+              @case ('set_priority') {
+                <label>
+                  <span>Priority</span>
+                  <select formControlName="priority">
+                    <option value="">Choose priority</option>
+                    @for (priority of priorities; track priority) {
+                      <option [value]="priority">{{ formatToken(priority) }}</option>
+                    }
+                  </select>
+                </label>
+              }
+              @case ('set_milestone') {
+                <label>
+                  <span>Milestone</span>
+                  <select formControlName="milestoneId">
+                    <option value="">Choose milestone</option>
+                    @for (milestone of activeMilestones(); track milestone.id) {
+                      <option [value]="milestone.id">{{ milestone.name }}</option>
+                    }
+                  </select>
+                </label>
+              }
+              @case ('set_due_date') {
+                <label>
+                  <span>Due date</span>
+                  <input type="date" formControlName="dueDate" />
+                </label>
+              }
+              @case ('add_labels') {
+                <fieldset class="bulk-labels">
+                  <legend>Labels</legend>
+                  @if (labels().length === 0) {
+                    <p>No labels available in the current project work view.</p>
+                  } @else {
+                    @for (label of labels(); track label.id) {
+                      <label>
+                        <input
+                          type="checkbox"
+                          [attr.aria-label]="bulkLabelSelectionLabel(label)"
+                          [checked]="isBulkLabelSelected(label.id)"
+                          (change)="toggleBulkLabel(label.id)"
+                        />
+                        <span class="label-pill" [style.border-color]="label.color ?? '#cbd5e1'">
+                          {{ label.name }}
+                        </span>
+                      </label>
+                    }
+                  }
+                </fieldset>
+              }
+              @case ('remove_labels') {
+                <fieldset class="bulk-labels">
+                  <legend>Labels</legend>
+                  @if (labels().length === 0) {
+                    <p>No labels available in the current project work view.</p>
+                  } @else {
+                    @for (label of labels(); track label.id) {
+                      <label>
+                        <input
+                          type="checkbox"
+                          [attr.aria-label]="bulkLabelSelectionLabel(label)"
+                          [checked]="isBulkLabelSelected(label.id)"
+                          (change)="toggleBulkLabel(label.id)"
+                        />
+                        <span class="label-pill" [style.border-color]="label.color ?? '#cbd5e1'">
+                          {{ label.name }}
+                        </span>
+                      </label>
+                    }
+                  }
+                </fieldset>
+              }
+              @case ('transition_status') {
+                <label>
+                  <span>Status</span>
+                  <select formControlName="status">
+                    <option value="">Choose status</option>
+                    @for (status of statuses; track status) {
+                      <option [value]="status">{{ formatToken(status) }}</option>
+                    }
+                  </select>
+                </label>
+              }
+            }
+
+            <div class="bulk-action-form__actions">
+              <button type="submit" [disabled]="!canApplyBulkAction()">
+                {{ isBulkUpdating() ? 'Applying...' : 'Apply' }}
+              </button>
+              <button type="button" class="secondary-action" [disabled]="isBulkUpdating()" (click)="clearSelection()">
+                Clear selection
+              </button>
+            </div>
+          </form>
+        }
+
+        @if (bulkActionError()) {
+          <p class="inline-error">{{ bulkActionError() }}</p>
+        }
+
+        @if (bulkActionResult(); as result) {
+          <section class="bulk-result" aria-live="polite">
+            <dl class="bulk-result__stats" aria-label="Bulk update result counts">
+              <div>
+                <dt>Updated</dt>
+                <dd>{{ result.succeededCount }}</dd>
+              </div>
+              <div>
+                <dt>Unchanged</dt>
+                <dd>{{ result.unchangedCount }}</dd>
+              </div>
+              <div>
+                <dt>Failed</dt>
+                <dd>{{ result.failedCount }}</dd>
+              </div>
+            </dl>
+            @if (result.failedCount > 0) {
+              <strong>Failed work items</strong>
+              <ul>
+                @for (failure of failedBulkResults(); track failure.workItemId) {
+                  <li>
+                    <span>{{ bulkResultLabel(failure) }}</span>
+                    <small>{{ failure.error?.message ?? 'The work item could not be updated.' }}</small>
+                  </li>
+                }
+              </ul>
+            }
+          </section>
+        }
+      </section>
+    }
+
     <app-work-item-result-list
       [items]="workItems()"
       mode="project"
       [isLoading]="isLoading()"
       [error]="error()"
+      [selectionEnabled]="canSelectWorkItems()"
+      [selectedItemIds]="selectedWorkItemIds()"
+      [allVisibleSelected]="isAllVisibleSelected()"
       loadingLabel="Loading work items"
       ariaLabel="Work items"
       [emptyTitle]="activeFilterLabels().length > 0 ? 'No work items match these filters' : 'No work items yet'"
       [emptyMessage]="activeFilterLabels().length > 0 ? 'Clear filters or adjust the criteria to broaden the list.' : 'Create the first work item for this project.'"
       [returnUrl]="detailReturnUrl()"
       (retry)="loadWorkItems()"
+      (toggleSelection)="toggleWorkItemSelection($event)"
+      (toggleAllVisibleSelection)="toggleAllVisibleSelection()"
     />
   `,
   styles: `
@@ -445,6 +645,167 @@ const defaultFilterValues: WorkItemFilterFormValue = {
       color: #9a3412;
       font-size: 0.875rem;
       line-height: 1.5;
+    }
+
+    .bulk-action-bar {
+      display: grid;
+      gap: 14px;
+      margin-bottom: 16px;
+      border: 1px solid #c7d2fe;
+      border-radius: 8px;
+      padding: 14px;
+      background: #f8fbff;
+    }
+
+    .bulk-action-bar__summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: baseline;
+    }
+
+    .bulk-action-bar__summary strong {
+      color: #111827;
+      font-size: 0.95rem;
+    }
+
+    .bulk-action-bar__summary span {
+      color: #475569;
+      font-size: 0.8125rem;
+      font-weight: 700;
+    }
+
+    .bulk-action-form {
+      display: grid;
+      grid-template-columns: minmax(180px, 0.9fr) minmax(220px, 1fr) auto;
+      gap: 12px;
+      align-items: end;
+    }
+
+    .bulk-action-form > label,
+    .bulk-action-form > fieldset {
+      min-width: 0;
+    }
+
+    .bulk-action-form__actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    .bulk-labels {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-width: 0;
+      margin: 0;
+      border: 0;
+      padding: 0;
+    }
+
+    .bulk-labels legend {
+      width: 100%;
+      margin-bottom: -2px;
+      color: #334155;
+      font-size: 0.75rem;
+      font-weight: 800;
+    }
+
+    .bulk-labels label {
+      display: inline-flex;
+      grid-template-columns: none;
+      gap: 6px;
+      align-items: center;
+      max-width: 100%;
+      width: fit-content;
+    }
+
+    .bulk-labels input {
+      width: 16px;
+      min-height: 16px;
+      height: 16px;
+      margin: 0;
+      padding: 0;
+      accent-color: #1f4f99;
+    }
+
+    .bulk-labels p {
+      margin: 0;
+      color: #64748b;
+      font-size: 0.8125rem;
+      font-weight: 700;
+    }
+
+    .bulk-labels .label-pill {
+      max-width: min(100%, 220px);
+      text-transform: none;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+
+    .bulk-result {
+      display: grid;
+      gap: 8px;
+      border-top: 1px solid #dbeafe;
+      padding-top: 12px;
+      color: #1f2937;
+    }
+
+    .bulk-result__stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(90px, 1fr));
+      gap: 8px;
+      margin: 0;
+    }
+
+    .bulk-result__stats div {
+      display: grid;
+      gap: 2px;
+      border: 1px solid #dbeafe;
+      border-radius: 6px;
+      padding: 8px 10px;
+      background: #ffffff;
+    }
+
+    .bulk-result__stats dt {
+      color: #475569;
+      font-size: 0.7rem;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .bulk-result__stats dd {
+      margin: 0;
+      color: #111827;
+      font-size: 1rem;
+      font-weight: 900;
+    }
+
+    .bulk-result > strong {
+      font-size: 0.8125rem;
+    }
+
+    .bulk-result ul {
+      display: grid;
+      gap: 6px;
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .bulk-result li {
+      color: #991b1b;
+      font-size: 0.8125rem;
+      font-weight: 800;
+      line-height: 1.45;
+    }
+
+    .bulk-result small {
+      display: block;
+      color: #7f1d1d;
+      font-size: 0.78rem;
+      font-weight: 700;
     }
 
     label {
@@ -710,6 +1071,33 @@ const defaultFilterValues: WorkItemFilterFormValue = {
       .filters {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
+
+      .bulk-action-form {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      }
+
+      .bulk-action-form__actions {
+        grid-column: 1 / -1;
+        justify-content: flex-start;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .bulk-action-form {
+        grid-template-columns: 1fr;
+      }
+
+      .bulk-action-form__actions {
+        grid-column: auto;
+      }
+
+      .bulk-action-form__actions button {
+        width: 100%;
+      }
+
+      .bulk-result__stats {
+        grid-template-columns: 1fr;
+      }
     }
 
     @media (max-width: 560px) {
@@ -739,6 +1127,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   readonly dueDateStates = dueDateStates;
   readonly dependencyOptions = dependencyOptions;
   readonly sorts = sorts;
+  readonly bulkActionOptions = bulkActionOptions;
   readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
   readonly members = computed<MemberDto[]>(() => this.currentUser.members());
   readonly activeMembers = computed<MemberDto[]>(() => this.currentUser.activeMembers());
@@ -751,8 +1140,27 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
 
   readonly project = signal<ProjectDto | null>(null);
   readonly workItems = signal<WorkItemListItemDto[]>([]);
+  readonly selectedWorkItemIds = signal<string[]>([]);
+  readonly selectedWorkItemIdSet = computed(() => new Set(this.selectedWorkItemIds()));
+  readonly selectedWorkItems = computed<WorkItemListItemDto[]>(() =>
+    this.workItems().filter((workItem) => this.selectedWorkItemIdSet().has(workItem.id))
+  );
+  readonly selectedVisibleCount = computed(() => this.selectedWorkItems().length);
+  readonly hasBulkSelection = computed(() => this.canSelectWorkItems() && this.selectedVisibleCount() > 0);
+  readonly showBulkActionBar = computed(
+    () => this.hasBulkSelection() || this.bulkActionResult() !== null || this.bulkActionError() !== null
+  );
+  readonly isAllVisibleSelected = computed(() => {
+    const workItems = this.workItems();
+    const selectedIds = this.selectedWorkItemIdSet();
+
+    return workItems.length > 0 && workItems.every((workItem) => selectedIds.has(workItem.id));
+  });
   readonly labels = signal<LabelDto[]>([]);
   readonly milestones = signal<MilestoneDto[]>([]);
+  readonly activeMilestones = computed<MilestoneDto[]>(() =>
+    this.milestones().filter((milestone) => !milestone.isArchived && milestone.status !== 'completed')
+  );
   readonly appliedFilterValues = signal<WorkItemFilterFormValue>({ ...defaultFilterValues });
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
@@ -779,11 +1187,22 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     const role = this.currentUser.selectedMember()?.role;
     return this.canManageProjectSavedViews() && (role === 'owner' || role === 'maintainer');
   });
+  readonly canSelectWorkItems = computed(() => {
+    const role = this.currentUser.selectedMember()?.role;
+    return !this.isArchivedProject() && (role === 'owner' || role === 'maintainer');
+  });
   readonly savedViewDraftNames = signal<Record<string, string>>({});
   readonly isSavedViewLoading = signal(false);
   readonly savedViewLoadError = signal<string | null>(null);
   readonly isSavingView = signal(false);
   readonly savedViewMutationError = signal<string | null>(null);
+  readonly selectedBulkLabelIds = signal<string[]>([]);
+  readonly isBulkUpdating = signal(false);
+  readonly bulkActionError = signal<string | null>(null);
+  readonly bulkActionResult = signal<BulkUpdateWorkItemsResponseDto | null>(null);
+  readonly failedBulkResults = computed(() =>
+    this.bulkActionResult()?.results.filter((result) => result.status === 'failed') ?? []
+  );
 
   readonly filterForm = this.formBuilder.nonNullable.group({
     search: [''],
@@ -797,6 +1216,15 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     dueDateState: [''],
     dependency: [''],
     sort: ['updated_desc']
+  });
+
+  readonly bulkActionForm = this.formBuilder.nonNullable.group({
+    actionType: ['' as BulkActionType | ''],
+    assigneeId: [''],
+    priority: ['' as WorkItemPriority | ''],
+    milestoneId: [''],
+    dueDate: [''],
+    status: ['' as WorkItemStatus | '']
   });
 
   ngOnInit(): void {
@@ -813,6 +1241,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
       this.route.queryParamMap.subscribe((params) => {
         const nextFilters = projectFormValueFromQueryParams(params);
 
+        this.clearSelection();
         this.appliedFilterValues.set(nextFilters);
         this.filterForm.patchValue(nextFilters, { emitEvent: false });
         this.loadWorkItems();
@@ -826,6 +1255,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   applyFilters(): void {
+    this.clearSelection();
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: this.queryParamsFromForm()
@@ -844,6 +1274,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     this.api.listWorkItems(this.projectId(), this.appliedQuery()).subscribe({
       next: (workItems) => {
         this.workItems.set(workItems);
+        this.pruneSelectionToVisibleRows();
         this.mergeLabels(workItems);
         this.isLoading.set(false);
       },
@@ -909,6 +1340,9 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     this.api.getProject(this.projectId()).subscribe({
       next: (project) => {
         this.project.set(project);
+        if (project.status === 'archived') {
+          this.clearSelection();
+        }
       },
       error: () => {
         this.project.set(null);
@@ -978,10 +1412,130 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   openSavedView(savedView: SavedWorkViewDto): void {
+    this.clearSelection();
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: projectRouterQueryParamsFromQuery(savedView.query)
     });
+  }
+
+  toggleWorkItemSelection(workItemId: string): void {
+    if (!this.canSelectWorkItems()) {
+      return;
+    }
+
+    const selectedIds = new Set(this.selectedWorkItemIds());
+
+    if (selectedIds.has(workItemId)) {
+      selectedIds.delete(workItemId);
+    } else {
+      selectedIds.add(workItemId);
+    }
+
+    this.selectedWorkItemIds.set([...selectedIds]);
+    this.clearBulkFeedback();
+  }
+
+  toggleAllVisibleSelection(): void {
+    if (!this.canSelectWorkItems()) {
+      return;
+    }
+
+    const visibleIds = new Set(this.workItems().map((workItem) => workItem.id));
+
+    if (visibleIds.size === 0) {
+      this.clearSelection();
+      return;
+    }
+
+    if (this.isAllVisibleSelected()) {
+      this.selectedWorkItemIds.set(this.selectedWorkItemIds().filter((workItemId) => !visibleIds.has(workItemId)));
+      this.clearBulkFeedback();
+      return;
+    }
+
+    this.selectedWorkItemIds.set([...new Set([...this.selectedWorkItemIds(), ...visibleIds])]);
+    this.clearBulkFeedback();
+  }
+
+  clearSelection(): void {
+    this.selectedWorkItemIds.set([]);
+    this.resetBulkActionState();
+  }
+
+  isBulkLabelSelected(labelId: string): boolean {
+    return this.selectedBulkLabelIds().includes(labelId);
+  }
+
+  toggleBulkLabel(labelId: string): void {
+    const selectedIds = new Set(this.selectedBulkLabelIds());
+
+    if (selectedIds.has(labelId)) {
+      selectedIds.delete(labelId);
+    } else {
+      selectedIds.add(labelId);
+    }
+
+    this.selectedBulkLabelIds.set([...selectedIds]);
+    this.bulkActionError.set(null);
+  }
+
+  bulkLabelSelectionLabel(label: LabelDto): string {
+    const actionType = this.bulkActionForm.controls.actionType.value;
+
+    if (actionType === 'remove_labels') {
+      return `Remove label ${label.name}`;
+    }
+
+    return `Add label ${label.name}`;
+  }
+
+  canApplyBulkAction(): boolean {
+    return !this.isBulkUpdating() && this.toBulkUpdateRequest() !== null;
+  }
+
+  applyBulkAction(): void {
+    const request = this.toBulkUpdateRequest();
+
+    if (request === null) {
+      this.bulkActionError.set('Choose a bulk action and required value.');
+      return;
+    }
+
+    if (
+      request.action.type === 'transition_status' &&
+      request.workItemIds.length > 1 &&
+      !window.confirm(`Transition ${request.workItemIds.length} selected work items?`)
+    ) {
+      return;
+    }
+
+    this.isBulkUpdating.set(true);
+    this.bulkActionError.set(null);
+    this.bulkActionResult.set(null);
+
+    this.api.bulkUpdateProjectWorkItems(this.projectId(), request).subscribe({
+      next: (result) => {
+        this.bulkActionResult.set(result);
+        this.selectedWorkItemIds.set(
+          result.results
+            .filter((itemResult) => itemResult.status === 'failed')
+            .map((itemResult) => itemResult.workItemId)
+        );
+        this.isBulkUpdating.set(false);
+        this.loadWorkItems();
+      },
+      error: (error: HttpErrorResponse) => {
+        this.bulkActionError.set(
+          this.toErrorMessage(error, 'Selected work items could not be updated.')
+        );
+        this.isBulkUpdating.set(false);
+      }
+    });
+  }
+
+  bulkResultLabel(result: BulkUpdateWorkItemsResultDto): string {
+    return result.displayKey ?? `Work item ${result.workItemId}`;
   }
 
   renameSavedView(savedView: SavedWorkViewDto): void {
@@ -1226,6 +1780,85 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
         control.valueChanges.pipe(distinctUntilChanged()).subscribe(() => this.applyFilters())
       );
     }
+
+    this.subscriptions.add(
+      this.bulkActionForm.controls.actionType.valueChanges
+        .pipe(distinctUntilChanged())
+        .subscribe(() => {
+          this.selectedBulkLabelIds.set([]);
+          this.clearBulkFeedback();
+        })
+    );
+  }
+
+  private toBulkUpdateRequest(): BulkUpdateWorkItemsRequest | null {
+    if (!this.hasBulkSelection()) {
+      return null;
+    }
+
+    const action = this.toBulkAction(this.bulkActionForm.getRawValue());
+
+    if (action === null) {
+      return null;
+    }
+
+    return {
+      workItemIds: this.selectedWorkItemIds(),
+      action
+    };
+  }
+
+  private toBulkAction(formValue: BulkActionFormValue): BulkUpdateWorkItemsAction | null {
+    switch (formValue.actionType) {
+      case 'set_assignee':
+        return formValue.assigneeId === ''
+          ? null
+          : { type: 'set_assignee', assigneeId: formValue.assigneeId };
+      case 'clear_assignee':
+        return { type: 'clear_assignee' };
+      case 'set_priority':
+        return formValue.priority === ''
+          ? null
+          : { type: 'set_priority', priority: formValue.priority };
+      case 'set_milestone':
+        return formValue.milestoneId === ''
+          ? null
+          : { type: 'set_milestone', milestoneId: formValue.milestoneId };
+      case 'clear_milestone':
+        return { type: 'clear_milestone' };
+      case 'set_due_date':
+        return formValue.dueDate === '' ? null : { type: 'set_due_date', dueDate: formValue.dueDate };
+      case 'clear_due_date':
+        return { type: 'clear_due_date' };
+      case 'add_labels':
+        return this.selectedBulkLabelIds().length === 0
+          ? null
+          : { type: 'add_labels', labelIds: this.selectedBulkLabelIds() };
+      case 'remove_labels':
+        return this.selectedBulkLabelIds().length === 0
+          ? null
+          : { type: 'remove_labels', labelIds: this.selectedBulkLabelIds() };
+      case 'transition_status':
+        return formValue.status === '' ? null : { type: 'transition_status', status: formValue.status };
+      default:
+        return null;
+    }
+  }
+
+  private clearBulkFeedback(): void {
+    this.bulkActionError.set(null);
+    this.bulkActionResult.set(null);
+  }
+
+  private resetBulkActionState(): void {
+    this.selectedBulkLabelIds.set([]);
+    this.bulkActionError.set(null);
+    this.bulkActionResult.set(null);
+  }
+
+  private pruneSelectionToVisibleRows(): void {
+    const visibleIds = new Set(this.workItems().map((workItem) => workItem.id));
+    this.selectedWorkItemIds.set(this.selectedWorkItemIds().filter((workItemId) => visibleIds.has(workItemId)));
   }
 
   private mergeLabels(workItems: WorkItemListItemDto[]): void {

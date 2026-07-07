@@ -1179,6 +1179,614 @@ describe('work item API', () => {
       });
   });
 
+  it('bulk updates selected project work items', async () => {
+    const fixture = await createFixture('maintainer');
+    const first = await createWorkItem(fixture, {
+      title: 'First bulk priority item',
+      priority: 'medium'
+    });
+    const second = await createWorkItem(fixture, {
+      title: 'Second bulk priority item',
+      priority: 'low'
+    });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
+      .set(fixture.headers)
+      .send({
+        workItemIds: [first.id, second.id],
+        action: {
+          type: 'set_priority',
+          priority: 'urgent'
+        }
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          requestedCount: 2,
+          succeededCount: 2,
+          unchangedCount: 0,
+          failedCount: 0
+        });
+        expect(body.results).toEqual([
+          expect.objectContaining({
+            workItemId: first.id,
+            displayKey: first.displayKey,
+            status: 'updated',
+            workItem: expect.objectContaining({ id: first.id, priority: 'urgent' }),
+            error: null
+          }),
+          expect.objectContaining({
+            workItemId: second.id,
+            displayKey: second.displayKey,
+            status: 'updated',
+            workItem: expect.objectContaining({ id: second.id, priority: 'urgent' }),
+            error: null
+          })
+        ]);
+      });
+
+    await expect(repositories.workItems.findById(first.id)).resolves.toMatchObject({ priority: 'urgent' });
+    await expect(repositories.workItems.findById(second.id)).resolves.toMatchObject({ priority: 'urgent' });
+  });
+
+  it('rejects invalid bulk update request shapes', async () => {
+    const fixture = await createFixture('owner');
+    const workItem = await createWorkItem(fixture);
+    const validUuid = randomUUID();
+
+    const invalidRequests = [
+      {
+        name: 'empty work item ids',
+        body: {
+          workItemIds: [],
+          action: { type: 'set_priority', priority: 'high' }
+        }
+      },
+      {
+        name: 'too many work item ids',
+        body: {
+          workItemIds: Array.from({ length: 51 }, () => randomUUID()),
+          action: { type: 'set_priority', priority: 'high' }
+        }
+      },
+      {
+        name: 'duplicate work item ids',
+        body: {
+          workItemIds: [workItem.id, workItem.id],
+          action: { type: 'set_priority', priority: 'high' }
+        }
+      },
+      {
+        name: 'invalid action type',
+        body: {
+          workItemIds: [workItem.id],
+          action: { type: 'replace_everything' }
+        }
+      },
+      {
+        name: 'invalid action value',
+        body: {
+          workItemIds: [workItem.id],
+          action: { type: 'set_priority', priority: 'highest' }
+        }
+      },
+      {
+        name: 'duplicate label ids',
+        body: {
+          workItemIds: [workItem.id],
+          action: { type: 'add_labels', labelIds: [validUuid, validUuid] }
+        }
+      },
+      {
+        name: 'invalid due date',
+        body: {
+          workItemIds: [workItem.id],
+          action: { type: 'set_due_date', dueDate: '07/19/2026' }
+        }
+      }
+    ];
+
+    for (const invalidRequest of invalidRequests) {
+      await request(app)
+        .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
+        .set(fixture.headers)
+        .send(invalidRequest.body)
+        .expect(400)
+        .expect(({ body }) => {
+          expect(body.error.code, invalidRequest.name).toBe('VALIDATION_ERROR');
+          expect(body.error.message, invalidRequest.name).toBe('Request validation failed.');
+        });
+    }
+  });
+
+  it('supports clear assignee, milestone, label, and clear due date bulk actions', async () => {
+    const fixture = await createFixture('owner');
+    const milestone = await createMilestone(fixture);
+    const assigneeItem = await createWorkItem(fixture, {
+      assigneeId: fixture.contributorId
+    });
+    const milestoneItem = await createWorkItem(fixture, {
+      milestoneId: null
+    });
+    const dueDateItem = await createWorkItem(fixture, {
+      dueDate: '2026-07-19'
+    });
+    const labelItem = await createWorkItem(fixture);
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
+      .set(fixture.headers)
+      .send({
+        workItemIds: [assigneeItem.id],
+        action: { type: 'clear_assignee' }
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.results[0]).toMatchObject({
+          status: 'updated',
+          workItem: { id: assigneeItem.id, assignee: null }
+        });
+      });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
+      .set(fixture.headers)
+      .send({
+        workItemIds: [milestoneItem.id],
+        action: { type: 'set_milestone', milestoneId: milestone.id }
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.results[0]).toMatchObject({
+          status: 'updated',
+          workItem: { id: milestoneItem.id, milestone: { id: milestone.id } }
+        });
+      });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
+      .set(fixture.headers)
+      .send({
+        workItemIds: [milestoneItem.id],
+        action: { type: 'clear_milestone' }
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.results[0]).toMatchObject({
+          status: 'updated',
+          workItem: { id: milestoneItem.id, milestone: null }
+        });
+      });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
+      .set(fixture.headers)
+      .send({
+        workItemIds: [dueDateItem.id],
+        action: { type: 'clear_due_date' }
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.results[0]).toMatchObject({
+          status: 'updated',
+          workItem: { id: dueDateItem.id, dueDate: null }
+        });
+      });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
+      .set(fixture.headers)
+      .send({
+        workItemIds: [labelItem.id],
+        action: { type: 'add_labels', labelIds: [fixture.frontendLabelId, fixture.backendLabelId] }
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.results[0]).toMatchObject({
+          status: 'updated',
+          workItem: {
+            id: labelItem.id,
+            labels: expect.arrayContaining([
+              expect.objectContaining({ id: fixture.frontendLabelId }),
+              expect.objectContaining({ id: fixture.backendLabelId })
+            ])
+          }
+        });
+      });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
+      .set(fixture.headers)
+      .send({
+        workItemIds: [labelItem.id],
+        action: { type: 'remove_labels', labelIds: [fixture.frontendLabelId] }
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.results[0]).toMatchObject({
+          status: 'updated',
+          workItem: {
+            id: labelItem.id,
+            labels: [expect.objectContaining({ id: fixture.backendLabelId })]
+          }
+        });
+      });
+
+    await expect(repositories.workItems.findById(assigneeItem.id)).resolves.toMatchObject({
+      assigneeId: null
+    });
+    await expect(repositories.workItems.findById(milestoneItem.id)).resolves.toMatchObject({
+      milestoneId: null
+    });
+    await expect(repositories.workItems.findById(dueDateItem.id)).resolves.toMatchObject({
+      dueDate: null
+    });
+    await expect(repositories.labels.listByWorkItem(labelItem.id)).resolves.toEqual([
+      expect.objectContaining({ id: fixture.backendLabelId })
+    ]);
+  });
+
+  it('records due date activity for bulk updates', async () => {
+    const fixture = await createFixture('owner');
+    const workItem = await createWorkItem(fixture, {
+      dueDate: '2026-07-12'
+    });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
+      .set(fixture.headers)
+      .send({
+        workItemIds: [workItem.id],
+        action: {
+          type: 'set_due_date',
+          dueDate: '2026-07-19'
+        }
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          requestedCount: 1,
+          succeededCount: 1,
+          unchangedCount: 0,
+          failedCount: 0
+        });
+        expect(body.results[0]).toMatchObject({
+          status: 'updated',
+          workItem: {
+            id: workItem.id,
+            dueDate: '2026-07-19'
+          }
+        });
+      });
+
+    const activity = await repositories.activityEvents.findByWorkItem(workItem.id);
+    expect(activity).toEqual([
+      expect.objectContaining({
+        eventType: 'work_item.due_date_changed',
+        summary: 'Due date changed.',
+        previousValue: { dueDate: '2026-07-12' },
+        newValue: { dueDate: '2026-07-19' }
+      })
+    ]);
+  });
+
+  it('does not update timestamps, activity, or notifications for unchanged bulk rows', async () => {
+    const fixture = await createFixture('owner');
+    const updatedAt = new Date('2026-07-01T12:00:00.000Z');
+    const workItem = await createWorkItem(fixture, {
+      priority: 'high',
+      updatedAt
+    });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
+      .set(fixture.headers)
+      .send({
+        workItemIds: [workItem.id],
+        action: {
+          type: 'set_priority',
+          priority: 'high'
+        }
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          requestedCount: 1,
+          succeededCount: 1,
+          unchangedCount: 1,
+          failedCount: 0
+        });
+        expect(body.results[0]).toMatchObject({
+          workItemId: workItem.id,
+          status: 'unchanged',
+          error: null
+        });
+      });
+
+    await expect(repositories.workItems.findById(workItem.id)).resolves.toMatchObject({
+      priority: 'high',
+      updatedAt
+    });
+    await expect(repositories.activityEvents.findByWorkItem(workItem.id)).resolves.toEqual([]);
+    await expect(
+      repositories.notifications.listByRecipient({
+        workspaceId: fixture.workspaceId,
+        recipientMemberId: fixture.contributorId,
+        state: 'all'
+      })
+    ).resolves.toEqual([]);
+  });
+
+  it('records assignee notifications for changed bulk assignment rows only', async () => {
+    const fixture = await createFixture('owner');
+    const changed = await createWorkItem(fixture, {
+      title: 'Changed assignee bulk item',
+      assigneeId: null
+    });
+    const unchanged = await createWorkItem(fixture, {
+      title: 'Unchanged assignee bulk item',
+      assigneeId: fixture.maintainerId
+    });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
+      .set(fixture.headers)
+      .send({
+        workItemIds: [changed.id, unchanged.id],
+        action: {
+          type: 'set_assignee',
+          assigneeId: fixture.maintainerId
+        }
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          requestedCount: 2,
+          succeededCount: 2,
+          unchangedCount: 1,
+          failedCount: 0
+        });
+        expect(body.results.map((result: { status: string }) => result.status)).toEqual([
+          'updated',
+          'unchanged'
+        ]);
+      });
+
+    await expect(
+      repositories.notifications.listByRecipient({
+        workspaceId: fixture.workspaceId,
+        recipientMemberId: fixture.maintainerId,
+        state: 'all'
+      })
+    ).resolves.toMatchObject([
+      {
+        notificationType: 'assignment',
+        workItemId: changed.id,
+        summary: `${changed.displayKey} was assigned to you.`
+      }
+    ]);
+    await expect(repositories.activityEvents.findByWorkItem(unchanged.id)).resolves.toEqual([]);
+  });
+
+  it('returns per-item failures for bulk updates with work outside the route project', async () => {
+    const fixture = await createFixture('owner');
+    const routeProjectItem = await createWorkItem(fixture, {
+      title: 'Route project bulk item',
+      priority: 'medium'
+    });
+    const otherProject = await createProject(fixture);
+    const otherProjectItem = await createWorkItem(fixture, {
+      projectId: otherProject.id,
+      displayKey: 'OPS-1',
+      itemNumber: 1,
+      title: 'Other project bulk item',
+      priority: 'medium'
+    });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
+      .set(fixture.headers)
+      .send({
+        workItemIds: [routeProjectItem.id, otherProjectItem.id],
+        action: {
+          type: 'set_priority',
+          priority: 'high'
+        }
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          requestedCount: 2,
+          succeededCount: 1,
+          unchangedCount: 0,
+          failedCount: 1
+        });
+        expect(body.results).toEqual([
+          expect.objectContaining({
+            workItemId: routeProjectItem.id,
+            displayKey: routeProjectItem.displayKey,
+            status: 'updated',
+            error: null
+          }),
+          expect.objectContaining({
+            workItemId: otherProjectItem.id,
+            displayKey: null,
+            status: 'failed',
+            workItem: null,
+            error: {
+              code: 'NOT_IN_PROJECT',
+              message: 'Work item is not part of this project.'
+            }
+          })
+        ]);
+      });
+
+    await expect(repositories.workItems.findById(routeProjectItem.id)).resolves.toMatchObject({
+      priority: 'high'
+    });
+    await expect(repositories.workItems.findById(otherProjectItem.id)).resolves.toMatchObject({
+      priority: 'medium'
+    });
+  });
+
+  it('rejects bulk updates for contributors and archived projects', async () => {
+    const contributorFixture = await createFixture('contributor');
+    const contributorItem = await createWorkItem(contributorFixture);
+
+    await request(app)
+      .post(`/api/projects/${contributorFixture.projectId}/work-items/bulk-update`)
+      .set(contributorFixture.headers)
+      .send({
+        workItemIds: [contributorItem.id],
+        action: {
+          type: 'set_priority',
+          priority: 'high'
+        }
+      })
+      .expect(403)
+      .expect(({ body }) => {
+        expect(body.error).toMatchObject({
+          code: 'FORBIDDEN',
+          message: 'Only owners and maintainers can bulk update work items.'
+        });
+      });
+
+    const archivedFixture = await createFixture('owner');
+    const archivedItem = await createWorkItem(archivedFixture);
+    await repositories.projects.update(archivedFixture.projectId, {
+      status: 'archived',
+      updatedAt: now()
+    });
+
+    await request(app)
+      .post(`/api/projects/${archivedFixture.projectId}/work-items/bulk-update`)
+      .set(archivedFixture.headers)
+      .send({
+        workItemIds: [archivedItem.id],
+        action: {
+          type: 'set_priority',
+          priority: 'high'
+        }
+      })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error).toMatchObject({
+          code: 'CONFLICT',
+          message: 'Archived projects are read-only.'
+        });
+      });
+  });
+
+  it('rejects invalid bulk action references before item updates', async () => {
+    const fixture = await createFixture('owner');
+    const workItem = await createWorkItem(fixture, {
+      priority: 'medium'
+    });
+
+    const invalidRequests = [
+      {
+        action: {
+          type: 'set_assignee',
+          assigneeId: fixture.inactiveMemberId
+        },
+        message: 'Assignee must be an active workspace member.'
+      },
+      {
+        action: {
+          type: 'set_milestone',
+          milestoneId: randomUUID()
+        },
+        message: 'Milestone is invalid for this project.'
+      },
+      {
+        action: {
+          type: 'add_labels',
+          labelIds: [randomUUID()]
+        },
+        message: 'One or more labels are invalid for this project.'
+      }
+    ];
+
+    for (const invalidRequest of invalidRequests) {
+      await request(app)
+        .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
+        .set(fixture.headers)
+        .send({
+          workItemIds: [workItem.id],
+          action: invalidRequest.action
+        })
+        .expect(400)
+        .expect(({ body }) => {
+          expect(body.error).toMatchObject({
+            code: 'VALIDATION_ERROR',
+            message: invalidRequest.message
+          });
+        });
+    }
+
+    await expect(repositories.workItems.findById(workItem.id)).resolves.toMatchObject({
+      priority: 'medium'
+    });
+  });
+
+  it('returns item-level failures for invalid bulk status transitions', async () => {
+    const fixture = await createFixture('owner');
+    const done = await createWorkItem(fixture, {
+      status: 'done'
+    });
+    const ready = await createWorkItem(fixture, {
+      status: 'ready'
+    });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
+      .set(fixture.headers)
+      .send({
+        workItemIds: [done.id, ready.id],
+        action: {
+          type: 'transition_status',
+          status: 'blocked'
+        }
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          requestedCount: 2,
+          succeededCount: 1,
+          unchangedCount: 0,
+          failedCount: 1
+        });
+        expect(body.results).toEqual([
+          expect.objectContaining({
+            workItemId: done.id,
+            displayKey: done.displayKey,
+            status: 'failed',
+            workItem: null,
+            error: {
+              code: 'WORKFLOW_TRANSITION_ERROR',
+              message: 'The requested status transition is not allowed.'
+            }
+          }),
+          expect.objectContaining({
+            workItemId: ready.id,
+            displayKey: ready.displayKey,
+            status: 'updated',
+            workItem: expect.objectContaining({
+              id: ready.id,
+              status: 'blocked'
+            }),
+            error: null
+          })
+        ]);
+      });
+
+    await expect(repositories.workItems.findById(done.id)).resolves.toMatchObject({ status: 'done' });
+    await expect(repositories.workItems.findById(ready.id)).resolves.toMatchObject({
+      status: 'blocked'
+    });
+  });
+
   it('supports project dependency filters', async () => {
     const fixture = await createFixture('owner');
     const openBlocker = await createWorkItem(fixture, {

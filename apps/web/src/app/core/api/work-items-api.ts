@@ -2,6 +2,8 @@ import type { HttpResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import type {
   ActivityEventDto,
+  BulkUpdateWorkItemsRequest,
+  BulkUpdateWorkItemsResponseDto,
   CommentDto,
   CreateCommentRequest,
   CreateWorkItemRequest,
@@ -81,6 +83,16 @@ export class WorkItemsApi {
   createWorkItem(projectId: string, input: CreateWorkItemRequest): Observable<WorkItemDetailDto> {
     return this.api.post<WorkItemDetailDto, CreateWorkItemRequest>(
       `/projects/${projectId}/work-items`,
+      input
+    );
+  }
+
+  bulkUpdateProjectWorkItems(
+    projectId: string,
+    input: BulkUpdateWorkItemsRequest
+  ): Observable<BulkUpdateWorkItemsResponseDto> {
+    return this.api.post<BulkUpdateWorkItemsResponseDto, BulkUpdateWorkItemsRequest>(
+      `/projects/${projectId}/work-items/bulk-update`,
       input
     );
   }

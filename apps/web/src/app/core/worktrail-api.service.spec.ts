@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import type { MemberDto, SavedWorkViewDto } from '@worktrail/contracts';
+import type { BulkUpdateWorkItemsRequest, MemberDto, SavedWorkViewDto } from '@worktrail/contracts';
 
 import { CurrentUserService } from './current-user.service';
 import { WorktrailApiService } from './worktrail-api.service';
@@ -125,6 +125,41 @@ describe('WorktrailApiService', () => {
     expect(apply.request.body).toEqual({ csv });
     expect(apply.request.headers.get('x-worktrail-workspace-id')).toBe(actor.workspaceId);
     apply.flush({ createdCount: 0, workItems: [] });
+  });
+
+  it('posts project bulk work item updates', () => {
+    const projectId = '10000000-0000-4000-8000-000000000201';
+    const workItemId = '10000000-0000-4000-8000-000000000401';
+    const input: BulkUpdateWorkItemsRequest = {
+      workItemIds: [workItemId],
+      action: {
+        type: 'set_priority',
+        priority: 'urgent'
+      }
+    };
+
+    api.bulkUpdateProjectWorkItems(projectId, input).subscribe();
+
+    const request = http.expectOne(`/api/projects/${projectId}/work-items/bulk-update`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual(input);
+    expect(request.request.headers.get('x-worktrail-member-id')).toBe(actor.id);
+    expect(request.request.headers.get('x-worktrail-workspace-id')).toBe(actor.workspaceId);
+    request.flush({
+      requestedCount: 1,
+      succeededCount: 1,
+      unchangedCount: 0,
+      failedCount: 0,
+      results: [
+        {
+          workItemId,
+          displayKey: 'WT-1',
+          status: 'updated',
+          workItem: null,
+          error: null
+        }
+      ]
+    });
   });
 
   it('exports project work items with filters as a blob response', () => {
