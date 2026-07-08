@@ -693,7 +693,39 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-08.
+- Implemented `ProjectStatusReportListPageComponent` in:
+  - `apps/web/src/app/features/projects/status-reports/project-status-report-list-page.component.ts`.
+- The page now loads:
+  - project summary;
+  - project status report summaries.
+- Rendered:
+  - loading state;
+  - error state with retry;
+  - empty state;
+  - latest report card;
+  - previous reports newest-first;
+  - title, status date, health, author, and published timestamp.
+- Added detail links for latest and previous reports.
+- Added active owner/maintainer `Create report` link to `/projects/:projectId/status/new`.
+- Added contributor and archived-project absence copy when report creation is unavailable.
+- Reused delivery-health label/tone helpers.
+- Added responsive styling and long-title wrapping.
+- Added component tests in:
+  - `apps/web/src/app/features/projects/status-reports/project-status-report-list-page.component.spec.ts`.
+- Covered:
+  - loading state;
+  - error state and retry;
+  - empty state;
+  - latest and previous report rendering;
+  - create action visibility for owner/maintainer;
+  - contributor absence copy;
+  - archived-project absence copy.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include src/app/features/projects/status-reports/project-status-report-list-page.component.spec.ts --include src/app/features/projects/project-shell/project-shell.component.spec.ts`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `npm run build --workspace @worktrail/web`.
 
 ## Phase 8: Status Report Draft And Publish Page
 
