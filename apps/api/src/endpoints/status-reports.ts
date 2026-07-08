@@ -237,3 +237,26 @@ export function getProjectStatusReportHandler(
     };
   };
 }
+
+export function exportProjectStatusReportMarkdownHandler(
+  options: StatusReportHandlerOptions
+): EndpointHandler<string> {
+  return async (request) => {
+    const { projectId, reportId } = parseWithSchema(reportParamSchema, request.params);
+    const service = new ProjectStatusReportService({
+      actor: request.actor,
+      repositories: options.repositories,
+      db: options.db
+    });
+    const exportResult = await service.exportProjectStatusReportMarkdown(projectId, reportId);
+
+    return {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/markdown; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${exportResult.fileName}"`
+      },
+      body: exportResult.markdown
+    };
+  };
+}

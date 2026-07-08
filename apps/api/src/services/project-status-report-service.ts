@@ -43,6 +43,10 @@ import {
   toProjectStatusReportDetailDto,
   toProjectStatusReportSummaryDto
 } from './dto.js';
+import {
+  renderStatusReportMarkdown,
+  statusReportMarkdownFileName
+} from './status-report-markdown-renderer.js';
 
 const riskSectionPreviewLimit = 5;
 const recentWorkLimit = 8;
@@ -98,6 +102,11 @@ interface NormalizedPublishInput {
   snapshot?: ProjectStatusReportSnapshotDto;
 }
 
+export interface ProjectStatusReportMarkdownExport {
+  markdown: string;
+  fileName: string;
+}
+
 export class ProjectStatusReportService {
   private readonly clock: () => Date;
   private readonly idGenerator: () => string;
@@ -132,6 +141,18 @@ export class ProjectStatusReportService {
     const author = await this.requireReportAuthor(report, this.context.repositories);
 
     return toProjectStatusReportDetailDto(report, project, author);
+  }
+
+  async exportProjectStatusReportMarkdown(
+    projectId: string,
+    reportId: string
+  ): Promise<ProjectStatusReportMarkdownExport> {
+    const report = await this.getProjectStatusReport(projectId, reportId);
+
+    return {
+      markdown: renderStatusReportMarkdown(report),
+      fileName: statusReportMarkdownFileName(report)
+    };
   }
 
   async getProjectStatusReportDraft(projectId: string): Promise<ProjectStatusReportDraftDto> {

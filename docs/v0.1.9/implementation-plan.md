@@ -245,7 +245,28 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-08.
+- Extended `ProjectStatusReportService` with Markdown export generation that reuses published report read semantics and does not create activity.
+- Added `exportProjectStatusReportMarkdownHandler` with:
+  - `text/markdown; charset=utf-8`;
+  - deterministic `Content-Disposition` attachment filename;
+  - raw Markdown string response body.
+- Registered `GET /api/projects/:projectId/status-reports/:reportId/export.md` in the Express project routes.
+- Updated route inventory coverage for the new export route.
+- Extended status report tests for:
+  - service-level Markdown export;
+  - no export activity side effect;
+  - HTTP content type and content disposition;
+  - owner export;
+  - contributor export;
+  - archived-project export;
+  - cross-project and missing report not-found behavior;
+  - expected Markdown sections and links.
+- Verified:
+  - `npm test --workspace @worktrail/api -- tests/status-reports.test.ts tests/status-report-markdown-renderer.test.ts tests/server.test.ts`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `git diff --check`.
 
 ## Phase 3: OpenAPI
 
