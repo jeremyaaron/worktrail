@@ -44,11 +44,17 @@ describe('routes', () => {
       'work-items',
       'board',
       'planning',
+      'status',
+      'status/new',
+      'status/:reportId',
       'milestones/:milestoneId',
       'settings'
     ]);
     expect(childPaths?.indexOf('work-items/import')).toBeLessThan(
       childPaths?.indexOf('work-items') ?? -1
+    );
+    expect(childPaths?.indexOf('status/new')).toBeLessThan(
+      childPaths?.indexOf('status/:reportId') ?? -1
     );
   });
 });

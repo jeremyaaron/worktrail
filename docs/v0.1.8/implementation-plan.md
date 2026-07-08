@@ -607,7 +607,35 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-07.
+- Updated `apps/web/src/app/core/api/projects-api.ts` with:
+  - `listProjectStatusReports`;
+  - `getProjectStatusReportDraft`;
+  - `publishProjectStatusReport`;
+  - `getProjectStatusReport`.
+- Updated `apps/web/src/app/core/worktrail-api.service.ts` to expose the new status report methods.
+- Added API client coverage in `apps/web/src/app/core/worktrail-api.service.spec.ts` for:
+  - list path/method;
+  - draft path/method;
+  - publish path/method/body;
+  - detail path/method;
+  - actor headers on publish.
+- Added skeletal lazy components:
+  - `apps/web/src/app/features/projects/status-reports/project-status-report-list-page.component.ts`;
+  - `apps/web/src/app/features/projects/status-reports/project-status-report-draft-page.component.ts`;
+  - `apps/web/src/app/features/projects/status-reports/project-status-report-detail-page.component.ts`.
+- Updated `apps/web/src/app/app.routes.ts` with project child routes:
+  - `status`;
+  - `status/new`;
+  - `status/:reportId`.
+- Confirmed `status/new` is registered before `status/:reportId` in `apps/web/src/app/app.routes.spec.ts`.
+- Updated `ProjectShellComponent` project navigation to include `Status` between Planning and Settings.
+- Updated `project-shell.component.spec.ts` for the expanded nav.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include src/app/core/worktrail-api.service.spec.ts --include src/app/app.routes.spec.ts --include src/app/features/projects/project-shell/project-shell.component.spec.ts`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `npm run build --workspace @worktrail/web`.
 
 ## Phase 7: Status Report List Page
 

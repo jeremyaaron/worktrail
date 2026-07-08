@@ -54,6 +54,41 @@ describe('WorktrailApiService', () => {
     summaries.flush([]);
   });
 
+  it('supports project status report requests', () => {
+    const projectId = '10000000-0000-4000-8000-000000000201';
+    const reportId = '10000000-0000-4000-8000-000000000901';
+    const publishInput = {
+      title: 'Weekly status',
+      statusDate: '2026-07-10',
+      summary: 'Delivery remains on track.',
+      highlights: 'Planning is complete.',
+      risks: '',
+      nextSteps: 'Publish the report.'
+    };
+
+    api.listProjectStatusReports(projectId).subscribe();
+    const list = http.expectOne(`/api/projects/${projectId}/status-reports`);
+    expect(list.request.method).toBe('GET');
+    list.flush([]);
+
+    api.getProjectStatusReportDraft(projectId).subscribe();
+    const draft = http.expectOne(`/api/projects/${projectId}/status-reports/draft`);
+    expect(draft.request.method).toBe('GET');
+    draft.flush({});
+
+    api.publishProjectStatusReport(projectId, publishInput).subscribe();
+    const publish = http.expectOne(`/api/projects/${projectId}/status-reports`);
+    expect(publish.request.method).toBe('POST');
+    expect(publish.request.body).toEqual(publishInput);
+    expect(publish.request.headers.get('x-worktrail-member-id')).toBe(actor.id);
+    publish.flush({});
+
+    api.getProjectStatusReport(projectId, reportId).subscribe();
+    const detail = http.expectOne(`/api/projects/${projectId}/status-reports/${reportId}`);
+    expect(detail.request.method).toBe('GET');
+    detail.flush({});
+  });
+
   it('sends workspace work item query params and skips blank params', () => {
     api
       .listWorkspaceWorkItems({
