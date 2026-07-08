@@ -574,4 +574,31 @@ git status --short --branch
 
 Status:
 
-- Not started.
+- Completed on 2026-07-08.
+- Updated `README.md` for the v0.1.9 baseline, including:
+  - status report Markdown copy/download behavior;
+  - report print behavior;
+  - contributor and archived-project read/export behavior;
+  - deferred PDF, delivery, approval, template, subscription, public-link, and export-history scope.
+- Updated the static GitHub Pages site copy for shareable status reports and v0.1.9 docs links.
+- Added `docs/v0.1.9/release-notes.md`.
+- Added `docs/v0.1.9/pattern-extraction-notes.md` with destination-neutral notes for:
+  - immutable-record text exports;
+  - server-side rendering for non-JSON responses;
+  - relative links in portable artifacts;
+  - copy/download/print before delivery infrastructure;
+  - criteria for deferring templates, subscriptions, and PDF generation.
+- Confirmed OpenAPI documents the Markdown export route with `text/markdown` and `Content-Disposition`.
+- Confirmed current v0.1.9 docs, README, and site do not reference discontinued framework-specific extraction language.
+- Verified:
+  - `npm run lint`;
+  - `npm run typecheck`;
+  - `npm run db:reset`;
+  - `npm run db:migrate`;
+  - `npm run db:seed`;
+  - `npm test`;
+  - `npm run build`;
+  - `npm run test:e2e`;
+  - `git diff --check`;
+  - `git status --short --branch`;
+  - `rg -n "jawstack" docs/v0.1.9 README.md site || true`.

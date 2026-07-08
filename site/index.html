@@ -6,12 +6,12 @@
     <title>Worktrail | Project management reference app</title>
     <meta
       name="description"
-      content="Worktrail is a local-first project-management reference app for daily work, reliable filtered views, pinned operating lenses, project batch triage, milestone review, status reports, collaboration updates, dependency-aware planning, and production-shaped TypeScript architecture."
+      content="Worktrail is a local-first project-management reference app for daily work, reliable filtered views, pinned operating lenses, project batch triage, milestone review, shareable status reports, collaboration updates, dependency-aware planning, and production-shaped TypeScript architecture."
     >
     <meta property="og:title" content="Worktrail">
     <meta
       property="og:description"
-      content="A local-first project-management reference app for daily work, reliable filtered views, pinned operating lenses, project batch triage, milestone review, status reports, collaboration updates, dependency-aware planning, and production-shaped TypeScript architecture."
+      content="A local-first project-management reference app for daily work, reliable filtered views, pinned operating lenses, project batch triage, milestone review, shareable status reports, collaboration updates, dependency-aware planning, and production-shaped TypeScript architecture."
     >
     <meta property="og:type" content="website">
     <meta name="theme-color" content="#f6f8fb">
@@ -47,7 +47,7 @@
           <h1 id="hero-title">Worktrail</h1>
           <p class="hero-copy">
             A local-first project-management reference app for daily work, reliable filtered views,
-            pinned workspace and project operating lenses, project batch triage, milestone review, status reports,
+            pinned workspace and project operating lenses, project batch triage, milestone review, shareable status reports,
             collaboration updates, dependency-aware planning, and production-shaped TypeScript architecture.
           </p>
           <div class="hero-actions" aria-label="Primary actions">
@@ -66,7 +66,7 @@
         </div>
         <div class="signal">
           <span class="signal-value">Planning</span>
-          <span class="signal-label">milestones, review pages, status reports, boards, dependencies, and delivery health</span>
+          <span class="signal-label">milestones, review pages, Markdown status reports, boards, dependencies, and delivery health</span>
         </div>
         <div class="signal">
           <span class="signal-value">Reference</span>
@@ -89,7 +89,8 @@
             v0.1.4 brings the same pattern into project workspaces, and v0.1.5 promotes
             the most important saved views into pinned shortcuts, v0.1.6 adds project batch
             triage for selected project work, v0.1.7 adds focused milestone review pages,
-            and v0.1.8 adds project status reports with immutable published snapshots.
+            v0.1.8 adds project status reports with immutable published snapshots, and v0.1.9
+            makes those reports portable with Markdown copy, Markdown download, and print-friendly detail pages.
           </p>
         </div>
         <div class="feature-grid">
@@ -152,6 +153,7 @@
               <li>Generated drafts from health, milestone, risk, and recent-work signals.</li>
               <li>Editable narrative before publication.</li>
               <li>Immutable published snapshots with links back to current work.</li>
+              <li>Markdown copy/download and print-friendly report detail pages.</li>
               <li>Owner/maintainer publishing with contributor read access.</li>
             </ul>
           </article>
@@ -178,7 +180,7 @@
 
       <section class="section" id="capabilities" aria-labelledby="capabilities-title">
         <div class="section-heading">
-          <p class="eyebrow">v0.1.8 baseline</p>
+          <p class="eyebrow">v0.1.9 baseline</p>
           <h2 id="capabilities-title">Product polish, reliable views, and reference-app discipline.</h2>
           <p>
             The v0.1.0 release turned accumulated capability into a clearer baseline.
@@ -191,17 +193,18 @@
             adds explicit project batch commands with partial-success feedback. v0.1.7
             adds derived milestone review pages and query-backed risk links into project Work.
             v0.1.8 adds generated project status reports that preserve historical snapshots while
-            keeping links connected to current project data.
+            keeping links connected to current project data. v0.1.9 adds server-rendered Markdown
+            exports, reader-facing copy/download controls, and print-friendly report output.
           </p>
         </div>
         <div class="baseline-grid">
           <div>
             <strong>For product users</strong>
-            <span>Lower scan cost, clearer navigation, visible collaboration updates, pinned workspace/project operating views, shareable filtered links, milestone review, status reports, batch project triage, and readable mobile work lists.</span>
+            <span>Lower scan cost, clearer navigation, visible collaboration updates, pinned workspace/project operating views, shareable filtered links, milestone review, portable status reports, batch project triage, and readable mobile work lists.</span>
           </div>
           <div>
             <strong>For builders</strong>
-            <span>Domain contracts, canonical query helpers, pinned query artifacts, derived review read models, immutable report snapshots, batch command envelopes, notification fan-out, route-level code splitting, shared risk policy, endpoint handlers, and API client boundaries.</span>
+            <span>Domain contracts, canonical query helpers, pinned query artifacts, derived review read models, immutable report snapshots, non-JSON Markdown exports, batch command envelopes, notification fan-out, route-level code splitting, shared risk policy, endpoint handlers, and API client boundaries.</span>
           </div>
           <div>
             <strong>For operators</strong>
@@ -264,7 +267,7 @@
             <div><strong>Query contracts</strong><span>one applied work item query model for URLs, saved views, exports, and links</span></div>
             <div><strong>Batch commands</strong><span>explicit project bulk actions with per-row result envelopes</span></div>
             <div><strong>Review read models</strong><span>derived milestone views that aggregate existing health and risk policy</span></div>
-            <div><strong>Report snapshots</strong><span>immutable status reports with generated drafts and live links back to current data</span></div>
+            <div><strong>Report sharing</strong><span>immutable status reports with Markdown exports, print views, and live links back to current data</span></div>
             <div><strong>Endpoint handlers</strong><span>transport-neutral request and response shape</span></div>
             <div><strong>Relationship services</strong><span>edge validation, cycle checks, and derived dependency state</span></div>
             <div><strong>Notification services</strong><span>actor-scoped read state, watcher fan-out, mention metadata, and dedupe</span></div>
@@ -284,12 +287,12 @@
           <p class="eyebrow">Current scope</p>
           <h2 id="mvp-title">Local-first, cloud-shaped, still honest about limits.</h2>
           <p>
-            Worktrail v0.1.8 is still a local reference app. Production authentication,
+            Worktrail v0.1.9 is still a local reference app. Production authentication,
             invitations, pinned projects, custom roles, custom
             workflows, cross-project bulk edit, email or push delivery, notification preferences, attachments, third-party
             migration mappings, graph visualization, dependency automation, custom health formulas,
             forecasting, roadmap views, critical path analysis, milestone sign-off,
-            report delivery, report approvals, report exports, and hosted infrastructure are intentionally out of scope. Production
+            PDF reports, report delivery, report approvals, public report links, export history, and hosted infrastructure are intentionally out of scope. Production
             preview is not an internet-safe authenticated deployment. The value today is a working
             product surface and operational boundary that can accumulate evidence before patterns are
             extracted into broader framework ideas.
@@ -316,8 +319,8 @@ DATABASE_URL=postgres://worktrail:worktrail@localhost:5432/worktrail npm run pre
     <footer class="footer">
       <span>Worktrail</span>
       <a href="https://github.com/jeremyaaron/worktrail">GitHub</a>
-      <a href="https://github.com/jeremyaaron/worktrail/tree/main/docs/v0.1.8">v0.1.8 docs</a>
-      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.1.8/pattern-extraction-notes.md">Pattern notes</a>
+      <a href="https://github.com/jeremyaaron/worktrail/tree/main/docs/v0.1.9">v0.1.9 docs</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.1.9/pattern-extraction-notes.md">Pattern notes</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.0.7/csv-import-export.md">CSV guide</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/api/openapi.yaml">OpenAPI</a>
     </footer>
