@@ -1,6 +1,6 @@
 import 'dotenv/config';
 
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import { createDb, createPool } from './client.js';
 import {
@@ -12,6 +12,7 @@ import {
   milestones,
   notifications,
   projects,
+  projectStatusReports,
   savedWorkViews,
   workItemLabels,
   workItemRelationships,
@@ -20,6 +21,9 @@ import {
   workspaces,
   workspaceActivityEvents
 } from './schema.js';
+import { localSeedActor } from '../domain/actor.js';
+import { createRepositories } from '../repositories/index.js';
+import { ProjectStatusReportService } from '../services/project-status-report-service.js';
 
 const ids = {
   workspace: '10000000-0000-4000-8000-000000000001',
@@ -89,7 +93,11 @@ const ids = {
     priority: '10000000-0000-4000-8000-000000000604',
     label: '10000000-0000-4000-8000-000000000605',
     comment: '10000000-0000-4000-8000-000000000606',
-    milestone: '10000000-0000-4000-8000-000000000607'
+    milestone: '10000000-0000-4000-8000-000000000607',
+    statusReport: '10000000-0000-4000-8000-000000000608'
+  },
+  statusReports: {
+    appWeekly: '10000000-0000-4000-8000-000000000651'
   },
   workspaceActivity: {
     ownerCreated: '10000000-0000-4000-8000-000000000701',
@@ -147,6 +155,9 @@ const db = createDb(pool);
 
 try {
   await db.transaction(async (tx) => {
+    await tx.delete(projectStatusReports).where(eq(projectStatusReports.id, ids.statusReports.appWeekly));
+    await tx.delete(activityEvents).where(eq(activityEvents.id, ids.activity.statusReport));
+
     await tx
       .insert(workspaces)
       .values({
@@ -1520,6 +1531,36 @@ try {
           updatedAt: now
         }
       });
+  });
+
+  const seededReportIds = [ids.statusReports.appWeekly, ids.activity.statusReport];
+  const reportService = new ProjectStatusReportService({
+    actor: localSeedActor,
+    db,
+    repositories: createRepositories(db),
+    clock: () => now,
+    idGenerator: () => {
+      const id = seededReportIds.shift();
+
+      if (id === undefined) {
+        throw new Error('Seed status report id sequence exhausted.');
+      }
+
+      return id;
+    }
+  });
+
+  await reportService.publishProjectStatusReport(ids.projects.app, {
+    title: 'Worktrail App weekly status',
+    statusDate: '2026-07-03',
+    summary:
+      'Worktrail App is progressing through the core reference workflows, with delivery health intentionally showing blocked and overdue work so teams can inspect risk surfaces from seeded data.',
+    highlights:
+      'Planning, board, saved view, dependency, inbox, import/export, milestone review, and delivery-health workflows are available from a clean local seed.',
+    risks:
+      'Current risk remains concentrated around blocked project work, overdue assigned work, and unassigned delivery items. These are seeded intentionally to exercise status report links and planning review.',
+    nextSteps:
+      'Use the project Status area to review this seeded report, publish a fresh report, and follow risk links into current project work.'
   });
 
   console.log('Database seed data applied.');

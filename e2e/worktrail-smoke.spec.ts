@@ -933,6 +933,64 @@ test('reviews seeded milestone delivery risks and preserves permission-sensitive
   await expect(page.getByLabel('Bulk work item actions')).toHaveCount(0);
 });
 
+test('publishes and reads v0.1.8 project status reports from seeded project state', async ({ page }) => {
+  test.setTimeout(90_000);
+
+  const planningMilestoneId = '10000000-0000-4000-8000-000000000351';
+  const seededReportId = '10000000-0000-4000-8000-000000000651';
+  const reportTitle = `E2E status report ${Date.now()}`;
+  const reportSummary = 'E2E summary updated before publishing the generated report.';
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`/projects/${demoProjectId}/status`);
+  await page.locator('#current-member').selectOption({ label: 'Avery Owner · owner' });
+  await expect(projectShellHeading(page, 'Worktrail App')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Project status' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Create report' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Worktrail App weekly status' })).toBeVisible();
+
+  await page.goto(`/projects/${demoProjectId}/status/${seededReportId}`);
+  await expect(page.getByRole('heading', { level: 1, name: 'Worktrail App weekly status' })).toBeVisible();
+  await expect(page.getByLabel('Published snapshot notice')).toContainText('Links open current project data');
+  await expect(page.getByRole('heading', { name: 'Summary' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Milestones' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Risk sections' })).toBeVisible();
+  await expect(page.getByRole('link', { name: /v0\.0\.3 Planning/ })).toBeVisible();
+  await expectNoPageOverflow(page);
+
+  await page.getByRole('link', { name: /v0\.0\.3 Planning/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${demoProjectId}/milestones/${planningMilestoneId}$`));
+  await expect(page.getByRole('heading', { name: 'v0.0.3 Planning' })).toBeVisible();
+
+  await page.goto(`/projects/${demoProjectId}/status/new`);
+  await expect(page.getByRole('heading', { name: 'New status report' })).toBeVisible();
+  await expect(page.getByLabel('Generated snapshot')).toContainText('Worktrail App');
+  await expect(page.getByRole('button', { name: 'Publish report' })).toBeEnabled();
+  await page.locator('#report-title').fill(reportTitle);
+  await page.locator('#report-summary').fill(reportSummary);
+  await page.locator('#report-next-steps').fill('Continue validating the published report detail flow.');
+  await page.getByRole('button', { name: 'Publish report' }).click();
+
+  await expect(page.getByRole('heading', { level: 1, name: reportTitle })).toBeVisible();
+  await expect(page.getByText(reportSummary)).toBeVisible();
+  await expect(page.getByLabel('Published snapshot notice')).toContainText('Values reflect the report as published');
+  await expect(page).toHaveURL(new RegExp(`/projects/${demoProjectId}/status/[0-9a-f-]+$`));
+
+  await page.setViewportSize({ width: 390, height: 900 });
+  await expect(page.getByRole('heading', { level: 1, name: reportTitle })).toBeVisible();
+  await expectNoPageOverflow(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  await page.locator('#current-member').selectOption({ label: 'Casey Contributor · contributor' });
+  await page.goto(`/projects/${demoProjectId}/status`);
+  await expect(page.getByRole('heading', { name: 'Project status' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Create report' })).toHaveCount(0);
+  await expect(page.getByText('Only owners and maintainers can publish reports.')).toBeVisible();
+  await expect(page.getByRole('link', { name: reportTitle })).toBeVisible();
+  await page.getByRole('link', { name: reportTitle }).click();
+  await expect(page.getByRole('heading', { level: 1, name: reportTitle })).toBeVisible();
+});
+
 test('completes the v0.1.1 inbox mention workflow', async ({ page }) => {
   test.setTimeout(90_000);
 
@@ -1062,6 +1120,8 @@ test('keeps core pages usable at common desktop widths', async ({ page }) => {
     '/projects',
     '/workspace/settings',
     `/projects/${demoProjectId}/planning`,
+    `/projects/${demoProjectId}/status`,
+    `/projects/${demoProjectId}/status/10000000-0000-4000-8000-000000000651`,
     `/projects/${demoProjectId}/work-items`,
     `/projects/${demoProjectId}/board`,
     `/projects/${demoProjectId}/work-items/new`,

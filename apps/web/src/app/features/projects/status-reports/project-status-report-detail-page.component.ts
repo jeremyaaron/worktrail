@@ -1,36 +1,277 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import type {
+  DeliveryHealthReasonDto,
+  DeliveryHealthState,
+  ProjectStatusReportDetailDto,
+  ProjectStatusReportRiskSnapshotDto
+} from '@worktrail/contracts';
+
+import { WorktrailApiService } from '../../../core/worktrail-api.service';
+import {
+  deliveryHealthLabel,
+  deliveryHealthReasonLabel,
+  deliveryHealthSeverityTone,
+  deliveryHealthTone
+} from '../../../shared/delivery-health/delivery-health-display';
+import { formatToken } from '../../../shared/display/token-format';
+import { ErrorPanelComponent } from '../../../shared/ui/error-panel.component';
+import { LoadingIndicatorComponent } from '../../../shared/ui/loading-indicator.component';
+import { routerLinkQueryParamsFromWorkItemQuery } from '../../work-items/query/work-item-query-serialization';
 
 @Component({
   selector: 'app-project-status-report-detail-page',
-  imports: [RouterLink],
+  imports: [ErrorPanelComponent, LoadingIndicatorComponent, RouterLink],
   template: `
     <section class="status-page">
       <div class="status-page__heading">
         <div>
           <p class="status-page__eyebrow">Status reports</p>
-          <h1>Status report</h1>
+          <h1>{{ report()?.title ?? 'Status report' }}</h1>
         </div>
-        <a [routerLink]="['/projects', projectId(), 'status']">Back to status</a>
+        <a class="status-page__secondary" [routerLink]="['/projects', projectId(), 'status']">
+          Back to status
+        </a>
       </div>
 
-      <section class="status-page__panel">
-        <h2>Route ready</h2>
-        <p>
-          Report <code>{{ reportId() }}</code> detail rendering will be implemented in the
-          detail phase.
-        </p>
-      </section>
+      @if (isLoading()) {
+        <app-loading-indicator label="Loading status report" />
+      } @else if (error()) {
+        <app-error-panel
+          title="Status report unavailable"
+          [message]="error() ?? ''"
+          (retry)="loadReport()"
+        />
+      } @else if (report(); as report) {
+        <section class="snapshot-notice" aria-label="Published snapshot notice">
+          <strong>Published snapshot</strong>
+          <span>Values reflect the report as published. Links open current project data.</span>
+        </section>
+
+        <section class="report-hero">
+          <div class="report-hero__content">
+            <p class="status-page__eyebrow">{{ report.project.key }} · {{ report.project.name }}</p>
+            <h2>{{ report.title }}</h2>
+            <dl class="report-meta">
+              <div>
+                <dt>Status date</dt>
+                <dd>{{ formatDate(report.statusDate) }}</dd>
+              </div>
+              <div>
+                <dt>Published</dt>
+                <dd>{{ formatDateTime(report.publishedAt) }}</dd>
+              </div>
+              <div>
+                <dt>Author</dt>
+                <dd>{{ report.author.name }}</dd>
+              </div>
+              <div>
+                <dt>Snapshot</dt>
+                <dd>{{ formatDateTime(report.snapshot.generatedAt) }}</dd>
+              </div>
+            </dl>
+          </div>
+          <span class="health-pill" [attr.data-tone]="healthTone(report.health)">
+            {{ healthLabel(report.health) }}
+          </span>
+        </section>
+
+        <section class="report-grid">
+          <div class="report-main">
+            <section class="report-card narrative-card" aria-labelledby="report-summary-heading">
+              <h2 id="report-summary-heading">Summary</h2>
+              <p>{{ report.summary }}</p>
+            </section>
+
+            <section class="narrative-grid" aria-label="Report narrative">
+              <article class="report-card narrative-card">
+                <h2>Highlights</h2>
+                <p>{{ report.highlights.trim() === '' ? 'No highlights recorded.' : report.highlights }}</p>
+              </article>
+              <article class="report-card narrative-card">
+                <h2>Risks</h2>
+                <p>{{ report.risks.trim() === '' ? 'No risks recorded.' : report.risks }}</p>
+              </article>
+              <article class="report-card narrative-card">
+                <h2>Next steps</h2>
+                <p>{{ report.nextSteps.trim() === '' ? 'No next steps recorded.' : report.nextSteps }}</p>
+              </article>
+            </section>
+
+            <section class="report-card" aria-labelledby="report-health-heading">
+              <div class="section-heading">
+                <div>
+                  <p class="status-page__eyebrow">Snapshot health</p>
+                  <h2 id="report-health-heading">{{ healthLabel(report.snapshot.health.health) }}</h2>
+                </div>
+                <span
+                  class="health-pill"
+                  [attr.data-tone]="healthTone(report.snapshot.health.health)"
+                >
+                  {{ healthLabel(report.snapshot.health.health) }}
+                </span>
+              </div>
+
+              @if (report.snapshot.health.reasons.length === 0) {
+                <p>No delivery-health reasons captured.</p>
+              } @else {
+                <div class="reason-list">
+                  @for (reason of report.snapshot.health.reasons; track reason.key + reason.message) {
+                    <span
+                      class="reason-chip"
+                      [attr.data-tone]="reasonTone(reason)"
+                    >
+                      {{ reasonLabel(reason) }}
+                    </span>
+                  }
+                </div>
+              }
+            </section>
+
+            <section class="report-card" aria-labelledby="report-milestones-heading">
+              <div class="section-heading">
+                <h2 id="report-milestones-heading">Milestones</h2>
+              </div>
+              @if (report.snapshot.milestones.length === 0) {
+                <p>No active or planned milestones were captured.</p>
+              } @else {
+                <div class="milestone-list">
+                  @for (milestone of report.snapshot.milestones; track milestone.id) {
+                    <a
+                      class="milestone-row"
+                      [routerLink]="['/projects', projectId(), 'milestones', milestone.id]"
+                    >
+                      <span>
+                        <strong>{{ milestone.name }}</strong>
+                        <small>
+                          {{ formatToken(milestone.status) }} ·
+                          {{ milestone.targetDate === null ? 'No target date' : 'Target ' + formatDate(milestone.targetDate) }}
+                        </small>
+                      </span>
+                      <span>{{ milestone.openCount }} open</span>
+                      <span>{{ milestone.doneCount }} done</span>
+                      <span
+                        class="health-pill"
+                        [attr.data-tone]="healthTone(milestone.health)"
+                      >
+                        {{ healthLabel(milestone.health) }}
+                      </span>
+                    </a>
+                  }
+                </div>
+              }
+            </section>
+
+            <section class="report-card" aria-labelledby="report-risk-heading">
+              <div class="section-heading">
+                <h2 id="report-risk-heading">Risk sections</h2>
+              </div>
+              <div class="risk-list">
+                @for (risk of report.snapshot.risks; track risk.type) {
+                  <article class="risk-section">
+                    <div>
+                      <h3>{{ risk.title }}</h3>
+                      <p>{{ risk.count }} matching work item{{ risk.count === 1 ? '' : 's' }}</p>
+                    </div>
+                    <a
+                      [routerLink]="['/projects', projectId(), 'work-items']"
+                      [queryParams]="riskQueryParams(risk)"
+                    >
+                      Open current work
+                    </a>
+
+                    @if (risk.items.length > 0) {
+                      <div class="work-preview">
+                        @for (item of risk.items; track item.id) {
+                          <a
+                            class="work-row"
+                            [routerLink]="['/work-items', item.id]"
+                            [queryParams]="workItemQueryParams()"
+                          >
+                            <strong>{{ item.displayKey }} · {{ item.title }}</strong>
+                            <span>{{ formatToken(item.status) }} · {{ formatToken(item.priority) }}</span>
+                          </a>
+                        }
+                      </div>
+                    }
+                  </article>
+                }
+              </div>
+            </section>
+          </div>
+
+          <aside class="report-side">
+            <section class="report-card counts-card" aria-labelledby="report-counts-heading">
+              <h2 id="report-counts-heading">Counts</h2>
+              <dl class="counts-grid">
+                <div>
+                  <dt>Open</dt>
+                  <dd>{{ report.snapshot.counts.openWorkCount }}</dd>
+                </div>
+                <div>
+                  <dt>Blocked</dt>
+                  <dd>{{ report.snapshot.counts.blockedWorkCount }}</dd>
+                </div>
+                <div>
+                  <dt>Dependency blocked</dt>
+                  <dd>{{ report.snapshot.counts.dependencyBlockedWorkCount }}</dd>
+                </div>
+                <div>
+                  <dt>Overdue</dt>
+                  <dd>{{ report.snapshot.counts.overdueWorkCount }}</dd>
+                </div>
+                <div>
+                  <dt>Due soon</dt>
+                  <dd>{{ report.snapshot.counts.dueSoonWorkCount }}</dd>
+                </div>
+                <div>
+                  <dt>Unassigned</dt>
+                  <dd>{{ report.snapshot.counts.unassignedActiveWorkCount }}</dd>
+                </div>
+              </dl>
+            </section>
+
+            <section class="report-card" aria-labelledby="report-recent-heading">
+              <h2 id="report-recent-heading">Recent work</h2>
+              @if (report.snapshot.recentWork.length === 0) {
+                <p>No recent work captured.</p>
+              } @else {
+                <div class="work-preview">
+                  @for (item of report.snapshot.recentWork; track item.id) {
+                    <a
+                      class="work-row"
+                      [routerLink]="['/work-items', item.id]"
+                      [queryParams]="workItemQueryParams()"
+                    >
+                      <strong>{{ item.displayKey }} · {{ item.title }}</strong>
+                      <span>{{ formatToken(item.status) }} · Updated {{ formatDateTime(item.updatedAt) }}</span>
+                    </a>
+                  }
+                </div>
+              }
+            </section>
+          </aside>
+        </section>
+      }
     </section>
   `,
   styles: `
     .status-page,
-    .status-page__panel {
+    .report-main,
+    .report-side,
+    .report-card,
+    .risk-list,
+    .work-preview,
+    .milestone-list,
+    .narrative-grid {
       display: grid;
       gap: 14px;
     }
 
-    .status-page__heading {
+    .status-page__heading,
+    .report-hero,
+    .section-heading,
+    .milestone-row {
       display: flex;
       flex-wrap: wrap;
       gap: 12px;
@@ -41,7 +282,10 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
     .status-page__eyebrow,
     h1,
     h2,
-    p {
+    h3,
+    p,
+    dl,
+    dd {
       margin: 0;
     }
 
@@ -54,31 +298,34 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
     }
 
     h1 {
+      max-width: 44ch;
       color: #111827;
       font-size: 1.5rem;
       line-height: 1.2;
+      overflow-wrap: anywhere;
     }
 
     h2 {
       color: #111827;
-      font-size: 1rem;
+      font-size: 1.05rem;
+      line-height: 1.35;
+    }
+
+    h3 {
+      color: #111827;
+      font-size: 0.95rem;
       line-height: 1.35;
     }
 
     p {
-      color: #64748b;
+      color: #475569;
       font-size: 0.9rem;
-      line-height: 1.5;
+      line-height: 1.55;
+      white-space: pre-line;
     }
 
-    code {
-      color: #334155;
-      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-      font-size: 0.8125rem;
-      overflow-wrap: anywhere;
-    }
-
-    a {
+    .status-page__secondary,
+    .risk-section > a {
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -91,19 +338,325 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
       font-size: 0.875rem;
       font-weight: 800;
       text-decoration: none;
+      white-space: nowrap;
     }
 
-    .status-page__panel {
+    .snapshot-notice {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: 0.875rem;
+      line-height: 1.4;
+    }
+
+    .snapshot-notice strong {
+      color: #1e3a8a;
+    }
+
+    .report-hero,
+    .report-card {
       border: 1px solid #d7e0ea;
       border-radius: 8px;
       padding: 18px;
       background: #ffffff;
     }
+
+    .report-hero__content {
+      display: grid;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .report-hero h2 {
+      font-size: 1.25rem;
+      overflow-wrap: anywhere;
+    }
+
+    .report-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 18px;
+    }
+
+    .report-meta div {
+      display: grid;
+      gap: 2px;
+    }
+
+    dt {
+      color: #64748b;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    dd {
+      color: #334155;
+      font-size: 0.875rem;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    .report-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .narrative-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .health-pill,
+    .reason-chip {
+      display: inline-flex;
+      flex: 0 0 auto;
+      align-items: center;
+      min-height: 26px;
+      border: 1px solid #cbd5e1;
+      border-radius: 999px;
+      padding: 3px 9px;
+      background: #f8fafc;
+      color: #475569;
+      font-size: 0.75rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .health-pill[data-tone='positive'],
+    .reason-chip[data-tone='positive'] {
+      border-color: #86efac;
+      background: #f0fdf4;
+      color: #166534;
+    }
+
+    .health-pill[data-tone='warning'],
+    .reason-chip[data-tone='warning'] {
+      border-color: #fcd34d;
+      background: #fffbeb;
+      color: #92400e;
+    }
+
+    .health-pill[data-tone='critical'],
+    .reason-chip[data-tone='critical'] {
+      border-color: #fca5a5;
+      background: #fef2f2;
+      color: #991b1b;
+    }
+
+    .health-pill[data-tone='info'],
+    .reason-chip[data-tone='info'] {
+      border-color: #93c5fd;
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+
+    .health-pill[data-tone='neutral'],
+    .reason-chip[data-tone='neutral'] {
+      border-color: #cbd5e1;
+      background: #f8fafc;
+      color: #475569;
+    }
+
+    .reason-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .counts-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .counts-grid div {
+      border: 1px solid #e5e7eb;
+      border-radius: 7px;
+      padding: 10px;
+      background: #f8fafc;
+    }
+
+    .counts-grid dd {
+      color: #111827;
+      font-size: 1.2rem;
+      font-weight: 900;
+    }
+
+    .milestone-row,
+    .work-row {
+      min-width: 0;
+      border-top: 1px solid #e5e7eb;
+      padding-top: 10px;
+      color: #475569;
+      text-decoration: none;
+    }
+
+    .milestone-row:first-child,
+    .work-row:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .milestone-row:hover strong,
+    .work-row:hover strong,
+    .risk-section > a:hover,
+    .status-page__secondary:hover {
+      text-decoration: underline;
+    }
+
+    .milestone-row strong,
+    .work-row strong,
+    .milestone-row small,
+    .work-row span {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .milestone-row strong,
+    .work-row strong {
+      color: #0f3f8c;
+      font-size: 0.875rem;
+      line-height: 1.35;
+    }
+
+    .milestone-row small,
+    .work-row span {
+      color: #64748b;
+      font-size: 0.8rem;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    .work-row {
+      display: grid;
+      gap: 3px;
+    }
+
+    .risk-section {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      border-top: 1px solid #e5e7eb;
+      padding-top: 14px;
+      align-items: start;
+    }
+
+    .risk-section:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .risk-section .work-preview {
+      grid-column: 1 / -1;
+    }
+
+    @media (max-width: 980px) {
+      .report-grid,
+      .narrative-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .report-hero,
+      .report-card {
+        padding: 14px;
+      }
+
+      .risk-section {
+        grid-template-columns: 1fr;
+      }
+
+      .counts-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   `
 })
-export class ProjectStatusReportDetailPageComponent {
+export class ProjectStatusReportDetailPageComponent implements OnInit {
+  private readonly api = inject(WorktrailApiService);
   private readonly route = inject(ActivatedRoute);
 
+  readonly report = signal<ProjectStatusReportDetailDto | null>(null);
+  readonly isLoading = signal(false);
+  readonly error = signal<string | null>(null);
   readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
   readonly reportId = computed(() => this.route.snapshot.paramMap.get('reportId') ?? '');
+
+  ngOnInit(): void {
+    this.loadReport();
+  }
+
+  loadReport(): void {
+    this.isLoading.set(true);
+    this.error.set(null);
+
+    this.api.getProjectStatusReport(this.projectId(), this.reportId()).subscribe({
+      next: (report) => {
+        this.report.set(report);
+        this.isLoading.set(false);
+      },
+      error: () => {
+        this.report.set(null);
+        this.error.set('Status report could not be loaded from the API.');
+        this.isLoading.set(false);
+      }
+    });
+  }
+
+  riskQueryParams(risk: ProjectStatusReportRiskSnapshotDto): Record<string, string> | null {
+    return routerLinkQueryParamsFromWorkItemQuery(risk.query, 'project');
+  }
+
+  workItemQueryParams(): { returnUrl: string } {
+    return { returnUrl: `/projects/${this.projectId()}/status/${this.reportId()}` };
+  }
+
+  reasonLabel(reason: DeliveryHealthReasonDto): string {
+    return deliveryHealthReasonLabel(reason);
+  }
+
+  reasonTone(reason: DeliveryHealthReasonDto): string {
+    return deliveryHealthSeverityTone(reason.severity);
+  }
+
+  healthLabel(state: DeliveryHealthState): string {
+    return deliveryHealthLabel(state);
+  }
+
+  healthTone(state: DeliveryHealthState): string {
+    return deliveryHealthTone(state);
+  }
+
+  formatToken(value: string): string {
+    return formatToken(value);
+  }
+
+  formatDate(value: string): string {
+    return new Intl.DateTimeFormat(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: 'UTC'
+    }).format(new Date(value));
+  }
+
+  formatDateTime(value: string): string {
+    return new Intl.DateTimeFormat(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    }).format(new Date(value));
+  }
 }

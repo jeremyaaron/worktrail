@@ -884,7 +884,46 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-08.
+- Implemented `ProjectStatusReportDetailPageComponent` in:
+  - `apps/web/src/app/features/projects/status-reports/project-status-report-detail-page.component.ts`.
+- The page now loads published report details by project/report route params.
+- Rendered immutable published snapshot content for:
+  - report metadata;
+  - author;
+  - status date;
+  - published timestamp;
+  - summary;
+  - highlights;
+  - risks;
+  - next steps;
+  - delivery health and reason chips;
+  - work count summary;
+  - milestone snapshots;
+  - risk sections;
+  - recent work.
+- Added a published snapshot notice clarifying that displayed values are stored report data while links open current project data.
+- Added live links for:
+  - milestone snapshots to `/projects/:projectId/milestones/:milestoneId`;
+  - risk sections to `/projects/:projectId/work-items` with serialized query params;
+  - work item rows to `/work-items/:workItemId` with a return URL back to the report.
+- Added responsive layout and overflow handling for long report titles, milestone names, and work item names.
+- Added component tests in:
+  - `apps/web/src/app/features/projects/status-reports/project-status-report-detail-page.component.spec.ts`.
+- Covered:
+  - metadata and narrative rendering;
+  - snapshot rendering;
+  - risk query links;
+  - milestone links;
+  - work item return URLs;
+  - contributor-authored published reports;
+  - archived project report rendering from stored snapshot;
+  - API error state.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include src/app/features/projects/status-reports/project-status-report-detail-page.component.spec.ts --include src/app/features/projects/status-reports/project-status-report-draft-page.component.spec.ts`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `npm run build --workspace @worktrail/web`.
 
 ## Phase 10: Seed Data, Playwright Smoke, And Responsive Polish
 
@@ -940,7 +979,40 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-08.
+- Updated deterministic seed data in:
+  - `apps/api/src/db/seed.ts`.
+- Added one seeded published status report for the Worktrail App project:
+  - deterministic report id `10000000-0000-4000-8000-000000000651`;
+  - deterministic publish activity id `10000000-0000-4000-8000-000000000608`;
+  - deterministic status date and publish timestamp;
+  - realistic narrative, generated snapshot, milestone snapshots, risk sections, and recent work.
+- Seed generation now uses `ProjectStatusReportService.publishProjectStatusReport` with deterministic clock/id injection so the seeded snapshot follows the production report generation path.
+- Kept seed reruns idempotent by deleting the deterministic report/activity before republishing.
+- Added Playwright coverage in:
+  - `e2e/worktrail-smoke.spec.ts`.
+- Covered:
+  - opening Worktrail App project Status;
+  - verifying the seeded latest report and direct detail route;
+  - creating a new report as owner;
+  - editing narrative before publish;
+  - verifying the published detail page;
+  - following a milestone live link from the published report;
+  - switching to contributor and verifying create is unavailable while report read access remains;
+  - checking report detail at mobile width for overflow.
+- Added status report list/detail routes to the existing common desktop overflow smoke pass.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `npm run db:seed`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run build --workspace @worktrail/web`;
+  - `npx playwright test e2e/worktrail-smoke.spec.ts -g "publishes and reads v0.1.8 project status reports"`;
+  - `npm run test:e2e`;
+  - `npm run build --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/contracts`;
+  - `npm run build --workspace @worktrail/api`.
 
 ## Phase 11: Documentation, Site, Release Notes, Pattern Notes, And Final Verification
 
@@ -998,4 +1070,42 @@ git status --short --branch
 
 Status:
 
-- Not started.
+- Completed on 2026-07-08.
+- Updated `README.md` for:
+  - v0.1.8 baseline language;
+  - Project Status Reports capability;
+  - generated draft and immutable published snapshot behavior;
+  - contributor read access and archived-project read-only behavior;
+  - v0.1.8 limitations around report edits, delete/archive, scheduled delivery, exports, approvals, comments, templates, workspace rollups, forecasting, and roadmap reporting;
+  - seeded status report data and demo walkthrough steps.
+- Updated the public GitHub Pages site in:
+  - `site/index.html`.
+- Public site copy now includes status reports in:
+  - meta description and Open Graph description;
+  - hero copy;
+  - signal band;
+  - product capability cards;
+  - current baseline section;
+  - architecture stack;
+  - current scope limitations;
+  - footer docs links.
+- Added release notes:
+  - `docs/v0.1.8/release-notes.md`.
+- Added destination-neutral pattern notes:
+  - `docs/v0.1.8/pattern-extraction-notes.md`.
+- Pattern notes cover:
+  - workflow-driven snapshots;
+  - generated drafts with editable narrative;
+  - immutable report records;
+  - live links from historical reports;
+  - report permissions and archive behavior;
+  - criteria for deferring generic reporting infrastructure.
+- Confirmed v0.1.8 docs, README, and site use destination-neutral pattern language.
+- Confirmed OpenAPI contains the status report route and schema surface.
+- Final verification passed:
+  - `npm run lint`;
+  - `npm run typecheck`;
+  - `npm run db:reset && npm run db:migrate && npm run db:seed`;
+  - `npm test`;
+  - `npm run build`;
+  - `npm run test:e2e`.
