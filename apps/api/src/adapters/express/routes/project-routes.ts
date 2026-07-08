@@ -25,6 +25,12 @@ import {
   reactivateProjectHandler,
   updateProjectHandler
 } from '../../../endpoints/projects.js';
+import {
+  getProjectStatusReportDraftHandler,
+  getProjectStatusReportHandler,
+  listProjectStatusReportsHandler,
+  publishProjectStatusReportHandler
+} from '../../../endpoints/status-reports.js';
 import { adaptEndpoint } from '../handler-adapter.js';
 import { adapterOptions, type ExpressRouteContext } from './context.js';
 
@@ -63,6 +69,34 @@ export function registerProjectRoutes(app: Express, context: ExpressRouteContext
   app.post(
     '/api/projects/:projectId/milestones',
     adaptEndpoint(createMilestoneHandler({ repositories: context.repositories, db: context.db }), options)
+  );
+  app.get(
+    '/api/projects/:projectId/status-reports',
+    adaptEndpoint(
+      listProjectStatusReportsHandler({ repositories: context.repositories, db: context.db }),
+      options
+    )
+  );
+  app.get(
+    '/api/projects/:projectId/status-reports/draft',
+    adaptEndpoint(
+      getProjectStatusReportDraftHandler({ repositories: context.repositories, db: context.db }),
+      options
+    )
+  );
+  app.post(
+    '/api/projects/:projectId/status-reports',
+    adaptEndpoint(
+      publishProjectStatusReportHandler({ repositories: context.repositories, db: context.db }),
+      options
+    )
+  );
+  app.get(
+    '/api/projects/:projectId/status-reports/:reportId',
+    adaptEndpoint(
+      getProjectStatusReportHandler({ repositories: context.repositories, db: context.db }),
+      options
+    )
   );
   app.post(
     '/api/projects/:projectId/archive',

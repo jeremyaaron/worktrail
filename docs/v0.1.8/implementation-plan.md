@@ -338,7 +338,36 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-07.
+- Added `apps/api/src/services/project-status-report-service.ts` with:
+  - `listProjectStatusReports(projectId)`;
+  - `getProjectStatusReport(projectId, reportId)`;
+  - `getProjectStatusReportDraft(projectId)`;
+  - `publishProjectStatusReport(projectId, input)`.
+- Added project/report validation, owner/maintainer active-project write validation, client snapshot validation, deterministic snapshot generation, draft narrative generation, and transaction-backed publish behavior.
+- Reused `DeliveryHealthService`, `work-risk-policy`, dependency-aware work item repository queries, and existing project/member/milestone DTO conversion helpers.
+- Kept generated snapshots deterministic with:
+  - `snapshotVersion: 1`;
+  - fixed seven-section risk order;
+  - risk previews capped at 5;
+  - recent work capped at 8;
+  - active/planned milestone snapshot rows.
+- Added report summary/detail DTO conversion helpers in `apps/api/src/services/dto.ts`.
+- Added focused service tests in `apps/api/tests/status-reports.test.ts` covering:
+  - draft snapshot generation;
+  - publish/list/detail;
+  - immutable report snapshots after source work changes;
+  - `status_report.published` activity creation;
+  - contributor and archived-project report reads;
+  - contributor write rejection;
+  - archived project draft/publish rejection;
+  - wrong-project report isolation.
+- Sequenced snapshot repository reads so publish-time snapshot generation is safe inside a transaction-bound PostgreSQL client.
+- Verified:
+  - `npm test --workspace @worktrail/api -- tests/status-reports.test.ts`;
+  - `npm test --workspace @worktrail/api`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`.
 
 ## Phase 4: Endpoint Handlers, Express Routes, And API Tests
 
@@ -398,7 +427,40 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-07.
+- Added `apps/api/src/endpoints/status-reports.ts` with transport-neutral handlers:
+  - `listProjectStatusReportsHandler`;
+  - `getProjectStatusReportDraftHandler`;
+  - `publishProjectStatusReportHandler`;
+  - `getProjectStatusReportHandler`.
+- Added route param and create-body validation with Zod for:
+  - project/report UUID params;
+  - title length;
+  - ISO status date;
+  - narrative length/default trimming;
+  - optional status report snapshot structure before service-level semantic validation.
+- Registered Express routes in `apps/api/src/adapters/express/routes/project-routes.ts`:
+  - `GET /api/projects/:projectId/status-reports`;
+  - `GET /api/projects/:projectId/status-reports/draft`;
+  - `POST /api/projects/:projectId/status-reports`;
+  - `GET /api/projects/:projectId/status-reports/:reportId`.
+- Confirmed `/draft` is registered before `/:reportId`.
+- Updated `apps/api/tests/server.test.ts` route inventory.
+- Expanded `apps/api/tests/status-reports.test.ts` with HTTP coverage for:
+  - draft route shape;
+  - publish route;
+  - list newest-first;
+  - detail route;
+  - request validation;
+  - contributor publish rejection;
+  - archived project draft rejection;
+  - wrong-project report not found.
+- Verified:
+  - `npm test --workspace @worktrail/api -- tests/status-reports.test.ts tests/server.test.ts`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/api`.
+- Note: one full-suite run had transient `socket hang up` failures in unrelated saved-view/work-item tests; the immediate rerun passed all API tests.
 
 ## Phase 5: OpenAPI
 
