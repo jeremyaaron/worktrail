@@ -169,7 +169,23 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-08.
+- Added `apps/api/src/services/work-item-query-link.ts` with deterministic project-scoped Work route query serialization.
+- Added `apps/api/src/services/status-report-markdown-renderer.ts` with pure Markdown rendering from `ProjectStatusReportDetailDto` snapshots and deterministic filename generation.
+- Added `apps/api/tests/status-report-markdown-renderer.test.ts` covering:
+  - metadata and narrative sections;
+  - published snapshot notice;
+  - snapshot count table;
+  - milestone, risk, and work item links;
+  - empty optional sections;
+  - Markdown escaping for pipes, brackets, parentheses, and line breaks;
+  - filename slugging and fallback;
+  - project Work query link serialization.
+- Verified:
+  - `npm test --workspace @worktrail/api -- tests/status-report-markdown-renderer.test.ts`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `git diff --check`.
 
 ## Phase 2: Export Service, Endpoint, Route, And API Tests
 
