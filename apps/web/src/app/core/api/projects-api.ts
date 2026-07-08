@@ -1,3 +1,4 @@
+import type { HttpResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import type {
   ActivityEventDto,
@@ -87,6 +88,13 @@ export class ProjectsApi {
     return this.api.get<ProjectStatusReportDetailDto>(
       `/projects/${projectId}/status-reports/${reportId}`
     );
+  }
+
+  exportProjectStatusReportMarkdown(
+    projectId: string,
+    reportId: string
+  ): Observable<HttpResponse<Blob>> {
+    return this.api.getBlob(`/projects/${projectId}/status-reports/${reportId}/export.md`);
   }
 
   listProjectActivity(projectId: string): Observable<ActivityEventDto[]> {

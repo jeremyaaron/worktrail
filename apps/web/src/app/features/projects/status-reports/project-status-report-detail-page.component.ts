@@ -17,7 +17,9 @@ import {
 import { formatToken } from '../../../shared/display/token-format';
 import { ErrorPanelComponent } from '../../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../../shared/ui/loading-indicator.component';
+import { ClipboardService } from '../../../shared/clipboard.service';
 import { routerLinkQueryParamsFromWorkItemQuery } from '../../work-items/query/work-item-query-serialization';
+import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/download-file';
 
 @Component({
   selector: 'app-project-status-report-detail-page',
@@ -43,6 +45,33 @@ import { routerLinkQueryParamsFromWorkItemQuery } from '../../work-items/query/w
           (retry)="loadReport()"
         />
       } @else if (report(); as report) {
+        <section class="report-actions" aria-label="Status report sharing actions">
+          <div class="report-actions__buttons">
+            <button
+              type="button"
+              class="status-page__action"
+              [disabled]="isCopyingMarkdown()"
+              (click)="copyMarkdown()"
+            >
+              {{ isCopyingMarkdown() ? 'Copying...' : 'Copy Markdown' }}
+            </button>
+            <button
+              type="button"
+              class="status-page__action"
+              [disabled]="isDownloadingMarkdown()"
+              (click)="downloadMarkdown()"
+            >
+              {{ isDownloadingMarkdown() ? 'Downloading...' : 'Download Markdown' }}
+            </button>
+            <button type="button" class="status-page__action" (click)="printReport()">
+              Print
+            </button>
+          </div>
+          @if (shareStatus(); as status) {
+            <p class="share-status" [attr.data-tone]="status.tone">{{ status.message }}</p>
+          }
+        </section>
+
         <section class="snapshot-notice" aria-label="Published snapshot notice">
           <strong>Published snapshot</strong>
           <span>Values reflect the report as published. Links open current project data.</span>
@@ -325,6 +354,7 @@ import { routerLinkQueryParamsFromWorkItemQuery } from '../../work-items/query/w
     }
 
     .status-page__secondary,
+    .status-page__action,
     .risk-section > a {
       display: inline-flex;
       align-items: center;
@@ -339,6 +369,43 @@ import { routerLinkQueryParamsFromWorkItemQuery } from '../../work-items/query/w
       font-weight: 800;
       text-decoration: none;
       white-space: nowrap;
+    }
+
+    .status-page__action {
+      cursor: pointer;
+    }
+
+    .status-page__action:disabled {
+      cursor: not-allowed;
+      opacity: 0.68;
+    }
+
+    .report-actions {
+      display: grid;
+      gap: 8px;
+      justify-items: start;
+    }
+
+    .report-actions__buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .share-status {
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-weight: 800;
+    }
+
+    .share-status[data-tone='success'] {
+      background: #f0fdf4;
+      color: #166534;
+    }
+
+    .share-status[data-tone='error'] {
+      background: #fef2f2;
+      color: #991b1b;
     }
 
     .snapshot-notice {
@@ -509,7 +576,8 @@ import { routerLinkQueryParamsFromWorkItemQuery } from '../../work-items/query/w
     .milestone-row:hover strong,
     .work-row:hover strong,
     .risk-section > a:hover,
-    .status-page__secondary:hover {
+    .status-page__secondary:hover,
+    .status-page__action:hover:not(:disabled) {
       text-decoration: underline;
     }
 
@@ -584,11 +652,15 @@ import { routerLinkQueryParamsFromWorkItemQuery } from '../../work-items/query/w
 })
 export class ProjectStatusReportDetailPageComponent implements OnInit {
   private readonly api = inject(WorktrailApiService);
+  private readonly clipboard = inject(ClipboardService);
   private readonly route = inject(ActivatedRoute);
 
   readonly report = signal<ProjectStatusReportDetailDto | null>(null);
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
+  readonly isCopyingMarkdown = signal(false);
+  readonly isDownloadingMarkdown = signal(false);
+  readonly shareStatus = signal<{ tone: 'error' | 'success'; message: string } | null>(null);
   readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
   readonly reportId = computed(() => this.route.snapshot.paramMap.get('reportId') ?? '');
 
@@ -608,9 +680,75 @@ export class ProjectStatusReportDetailPageComponent implements OnInit {
       error: () => {
         this.report.set(null);
         this.error.set('Status report could not be loaded from the API.');
+        this.shareStatus.set(null);
         this.isLoading.set(false);
       }
     });
+  }
+
+  copyMarkdown(): void {
+    if (this.isCopyingMarkdown()) {
+      return;
+    }
+
+    this.isCopyingMarkdown.set(true);
+    this.shareStatus.set(null);
+
+    this.api.exportProjectStatusReportMarkdown(this.projectId(), this.reportId()).subscribe({
+      next: (response) => {
+        const blob = response.body ?? new Blob([''], { type: 'text/markdown' });
+
+        blob
+          .text()
+          .then((markdown) => this.clipboard.copyText(markdown))
+          .then(() => {
+            this.shareStatus.set({ tone: 'success', message: 'Markdown copied.' });
+          })
+          .catch(() => {
+            this.shareStatus.set({ tone: 'error', message: 'Markdown could not be copied.' });
+          })
+          .finally(() => {
+            this.isCopyingMarkdown.set(false);
+          });
+      },
+      error: () => {
+        this.shareStatus.set({ tone: 'error', message: 'Markdown could not be copied.' });
+        this.isCopyingMarkdown.set(false);
+      }
+    });
+  }
+
+  downloadMarkdown(): void {
+    if (this.isDownloadingMarkdown()) {
+      return;
+    }
+
+    this.isDownloadingMarkdown.set(true);
+    this.shareStatus.set(null);
+
+    this.api.exportProjectStatusReportMarkdown(this.projectId(), this.reportId()).subscribe({
+      next: (response) => {
+        const fileName = fileNameFromContentDisposition(
+          response.headers.get('content-disposition'),
+          'worktrail-status-report.md'
+        );
+
+        downloadBlob({
+          blob: response.body ?? new Blob([''], { type: 'text/markdown' }),
+          fileName
+        });
+        this.shareStatus.set({ tone: 'success', message: 'Markdown download started.' });
+        this.isDownloadingMarkdown.set(false);
+      },
+      error: () => {
+        this.shareStatus.set({ tone: 'error', message: 'Markdown could not be downloaded.' });
+        this.isDownloadingMarkdown.set(false);
+      }
+    });
+  }
+
+  printReport(): void {
+    window.print();
   }
 
   riskQueryParams(risk: ProjectStatusReportRiskSnapshotDto): Record<string, string> | null {

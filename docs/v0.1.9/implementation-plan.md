@@ -372,7 +372,29 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-08.
+- Added `exportProjectStatusReportMarkdown(projectId, reportId)` to the Angular project API and `WorktrailApiService`.
+- Added report detail sharing controls for:
+  - `Copy Markdown`;
+  - `Download Markdown`;
+  - `Print`.
+- Reused the existing clipboard and download helpers for copy/download behavior.
+- Added sharing request state and success/error feedback on the report detail page.
+- Kept sharing controls visible for contributor-readable published reports.
+- Extended web tests for:
+  - export endpoint path and blob response behavior;
+  - action visibility after report load;
+  - contributor report action visibility;
+  - copy success;
+  - copy failure;
+  - download behavior and `Content-Disposition` filename usage;
+  - print behavior.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include src/app/features/projects/status-reports/project-status-report-detail-page.component.spec.ts --include src/app/core/worktrail-api.service.spec.ts`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `npm run build --workspace @worktrail/web`;
+  - `git diff --check`.
 
 ## Phase 5: Print Styling And Responsive Polish
 

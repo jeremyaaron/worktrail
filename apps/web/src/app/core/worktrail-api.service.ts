@@ -191,6 +191,13 @@ export class WorktrailApiService {
     return this.projects.getProjectStatusReport(projectId, reportId);
   }
 
+  exportProjectStatusReportMarkdown(
+    projectId: string,
+    reportId: string
+  ): Observable<HttpResponse<Blob>> {
+    return this.projects.exportProjectStatusReportMarkdown(projectId, reportId);
+  }
+
   getMilestoneReview(
     projectId: string,
     milestoneId: string
