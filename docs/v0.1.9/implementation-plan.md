@@ -308,7 +308,14 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-08.
+- Documented `GET /api/projects/{projectId}/status-reports/{reportId}/export.md` in `docs/api/openapi.yaml`.
+- Added the `Status Reports` tag, project/report path parameters, `text/markdown` response content, and `Content-Disposition` attachment header documentation for the Markdown export route.
+- Confirmed existing status report JSON routes and schemas remain documented.
+- Verified:
+  - `rg -n "export.md|text/markdown|ProjectStatusReport|Status Reports" docs/api/openapi.yaml`;
+  - `npm test --workspace @worktrail/api -- tests/status-reports.test.ts tests/server.test.ts`;
+  - `git diff --check`.
 
 ## Phase 4: Angular API Client And Report Detail Sharing Controls
 

@@ -489,6 +489,28 @@ paths:
                 $ref: "#/components/schemas/ProjectStatusReportDetail"
         default:
           $ref: "#/components/responses/Error"
+  /api/projects/{projectId}/status-reports/{reportId}/export.md:
+    get:
+      tags: [Status Reports]
+      summary: Export a project status report as Markdown.
+      description: Exports an immutable published status report and its captured snapshot as Markdown. Contributors may export reports, including reports for archived projects. Links in the Markdown open current Worktrail data.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/StatusReportId"
+      responses:
+        "200":
+          description: Markdown export for the published project status report.
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: Attachment filename, currently `worktrail-{projectKey}-{statusDate}-{reportTitle}.md`.
+          content:
+            text/markdown:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Error"
   /api/projects/{projectId}/milestones/{milestoneId}/review:
     get:
       tags: [Milestones]
