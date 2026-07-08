@@ -785,7 +785,42 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-08.
+- Implemented `ProjectStatusReportDraftPageComponent` in:
+  - `apps/web/src/app/features/projects/status-reports/project-status-report-draft-page.component.ts`.
+- The page now loads a generated draft DTO from the API.
+- Added reactive form controls for:
+  - title;
+  - status date;
+  - summary;
+  - highlights;
+  - risks;
+  - next steps.
+- Rendered read-only snapshot context for:
+  - delivery health;
+  - generated timestamp;
+  - work count summary;
+  - active/planned milestone summary;
+  - top non-empty risk sections;
+  - recent work.
+- Publishes `CreateProjectStatusReportRequest` with the edited narrative fields and the reviewed snapshot.
+- Navigates to `/projects/:projectId/status/:reportId` after successful publish.
+- Added stable loading, publish-submitting, form validation, API error, forbidden, and archived-project states.
+- Added component tests in:
+  - `apps/web/src/app/features/projects/status-reports/project-status-report-draft-page.component.spec.ts`.
+- Covered:
+  - generated draft rendering;
+  - form validation and disabled publish action;
+  - publish request body including reviewed snapshot;
+  - navigation after publish;
+  - publish API error;
+  - contributor forbidden load copy;
+  - archived-project load copy.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include src/app/features/projects/status-reports/project-status-report-draft-page.component.spec.ts`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `npm run build --workspace @worktrail/web`.
 
 ## Phase 9: Status Report Detail And Snapshot Rendering
 
