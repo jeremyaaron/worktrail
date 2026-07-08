@@ -518,7 +518,43 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-07.
+- Updated `docs/api/openapi.yaml` to version `0.1.8`.
+- Added a `Status Reports` tag.
+- Added paths:
+  - `GET /api/projects/{projectId}/status-reports`;
+  - `GET /api/projects/{projectId}/status-reports/draft`;
+  - `POST /api/projects/{projectId}/status-reports`;
+  - `GET /api/projects/{projectId}/status-reports/{reportId}`.
+- Added `StatusReportId` parameter.
+- Added schemas:
+  - `ProjectStatusReportSummary`;
+  - `ProjectStatusReportDetail`;
+  - `ProjectStatusReportDraft`;
+  - `CreateProjectStatusReportRequest`;
+  - `ProjectStatusReportSnapshot`;
+  - `ProjectStatusReportCountSnapshot`;
+  - `ProjectStatusReportMilestoneSnapshot`;
+  - `ProjectStatusReportRiskSnapshot`;
+  - `ProjectStatusReportRiskType`;
+  - `ProjectStatusReportLink`;
+  - `ProjectStatusReportLinkType`.
+- Reused existing schemas for:
+  - `Project`;
+  - `Member`;
+  - `ProjectDeliveryHealth`;
+  - `DeliveryHealthReason`;
+  - `PlanningRiskItem`;
+  - `WorkItemQuery`.
+- Documented validation, forbidden, not found, and archived-project write rejection through explicit response entries and shared error responses.
+- Confirmed there are no stale `0.1.7` references in OpenAPI.
+- Verified:
+  - `rg -n "status-reports|ProjectStatusReport|Status Reports|status_report|0\\.1\\.7" docs/api/openapi.yaml`;
+  - parsed `docs/api/openapi.yaml` with PyYAML;
+  - `npm test --workspace @worktrail/api -- tests/status-reports.test.ts tests/server.test.ts`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/api`.
 
 ## Phase 6: Angular API Client, Routes, And Project Shell Nav
 
