@@ -504,7 +504,20 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-08.
+- Extended `e2e/worktrail-smoke.spec.ts` with seeded status report sharing coverage.
+- Covered:
+  - opening seeded report `10000000-0000-4000-8000-000000000651`;
+  - `Copy Markdown` success feedback using a browser clipboard stub and UI-only assertion;
+  - `Download Markdown`;
+  - downloaded Markdown title, published snapshot note, `## Snapshot Counts`, milestone link, and risk link;
+  - contributor read path with visible copy/download controls and unavailable create action;
+  - mobile-width no-overflow behavior after sharing controls were added.
+- Confirmed the full smoke suite still restores deterministic seed data after mutation-heavy tests.
+- Verified:
+  - `npx playwright test e2e/worktrail-smoke.spec.ts -g "status reports"`;
+  - `npm run test:e2e`;
+  - `git diff --check`.
 
 ## Phase 7: Documentation, Site, Release Notes, Pattern Notes, And Final Verification
 

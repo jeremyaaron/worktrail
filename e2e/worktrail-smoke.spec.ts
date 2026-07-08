@@ -991,6 +991,73 @@ test('publishes and reads v0.1.8 project status reports from seeded project stat
   await expect(page.getByRole('heading', { level: 1, name: reportTitle })).toBeVisible();
 });
 
+test('shares v0.1.9 project status reports from seeded report data', async ({ page }) => {
+  test.setTimeout(90_000);
+
+  const planningMilestoneId = '10000000-0000-4000-8000-000000000351';
+  const seededReportId = '10000000-0000-4000-8000-000000000651';
+  const seededReportPath = `/projects/${demoProjectId}/status/${seededReportId}`;
+  const seededReportTitle = 'Worktrail App weekly status';
+
+  await page.addInitScript(() => {
+    Object.defineProperty(window.navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: () => Promise.resolve()
+      }
+    });
+  });
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(seededReportPath);
+  await page.locator('#current-member').selectOption({ label: 'Avery Owner · owner' });
+  await expect(page.getByRole('heading', { level: 1, name: seededReportTitle })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Copy Markdown' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Download Markdown' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Print' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Copy Markdown' }).click();
+  await expect(page.getByText('Markdown copied.')).toBeVisible();
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download Markdown' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe(
+    'worktrail-wt-2026-07-03-worktrail-app-weekly-status.md'
+  );
+
+  const markdown = await downloadText(download);
+  expect(markdown).toContain(`# ${seededReportTitle}`);
+  expect(markdown).toContain('> Published snapshot.');
+  expect(markdown).toContain('## Snapshot Counts');
+  expect(markdown).toContain(
+    `[v0.0.3 Planning](/projects/${demoProjectId}/milestones/${planningMilestoneId})`
+  );
+  expect(markdown).toContain(
+    `[Open current work](/projects/${demoProjectId}/work-items?status=blocked&sort=priority_desc)`
+  );
+
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.goto(seededReportPath);
+  await expect(page.getByRole('heading', { level: 1, name: seededReportTitle })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Copy Markdown' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Download Markdown' })).toBeVisible();
+  await expectNoPageOverflow(page);
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.locator('#current-member').selectOption({ label: 'Casey Contributor · contributor' });
+  await page.goto(`/projects/${demoProjectId}/status`);
+  await expect(page.getByRole('heading', { name: 'Project status' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Create report' })).toHaveCount(0);
+  await expect(page.getByText('Only owners and maintainers can publish reports.')).toBeVisible();
+  await expect(page.getByRole('link', { name: seededReportTitle })).toBeVisible();
+
+  await page.goto(seededReportPath);
+  await expect(page.getByRole('heading', { level: 1, name: seededReportTitle })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Copy Markdown' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Download Markdown' })).toBeVisible();
+});
+
 test('completes the v0.1.1 inbox mention workflow', async ({ page }) => {
   test.setTimeout(90_000);
 
