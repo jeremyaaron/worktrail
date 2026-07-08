@@ -87,6 +87,15 @@ describe('WorktrailApiService', () => {
     const detail = http.expectOne(`/api/projects/${projectId}/status-reports/${reportId}`);
     expect(detail.request.method).toBe('GET');
     detail.flush({});
+
+    api.exportProjectStatusReportMarkdown(projectId, reportId).subscribe();
+    const exportRequest = http.expectOne(
+      `/api/projects/${projectId}/status-reports/${reportId}/export.md`
+    );
+    expect(exportRequest.request.method).toBe('GET');
+    expect(exportRequest.request.responseType).toBe('blob');
+    expect(exportRequest.request.headers.get('x-worktrail-member-id')).toBe(actor.id);
+    exportRequest.flush(new Blob(['# Weekly status\n'], { type: 'text/markdown' }));
   });
 
   it('sends workspace work item query params and skips blank params', () => {

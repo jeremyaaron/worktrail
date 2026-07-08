@@ -105,6 +105,7 @@ describe('Express API foundation', () => {
       'GET /api/projects/:projectId/status-reports/draft',
       'POST /api/projects/:projectId/status-reports',
       'GET /api/projects/:projectId/status-reports/:reportId',
+      'GET /api/projects/:projectId/status-reports/:reportId/export.md',
       'POST /api/projects/:projectId/archive',
       'POST /api/projects/:projectId/reactivate',
       'GET /api/projects/:projectId',

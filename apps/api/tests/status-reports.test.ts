@@ -391,6 +391,44 @@ describe('project status reports', () => {
     expect(contributorDetail.project.status).toBe('archived');
   });
 
+  it('exports immutable report snapshots as Markdown without creating activity', async () => {
+    const fixture = await createFixture();
+    const workItem = await createWorkItem(fixture, {
+      title: 'Tracked export work',
+      status: 'blocked',
+      priority: 'high',
+      dueDate: '2026-07-09'
+    });
+    const service = createService(fixture);
+    const draft = await service.getProjectStatusReportDraft(fixture.projectId);
+    const published = await service.publishProjectStatusReport(fixture.projectId, {
+      title: 'Executive weekly status',
+      statusDate: '2026-07-10',
+      summary: 'Delivery is under watch.',
+      snapshot: draft.snapshot
+    });
+    const activityBefore = await repositories.activityEvents.findByProject(fixture.projectId);
+
+    await repositories.workItems.update(workItem.id, {
+      status: 'done',
+      updatedAt: new Date('2026-07-11T12:00:00.000Z')
+    });
+
+    const exportResult = await service.exportProjectStatusReportMarkdown(
+      fixture.projectId,
+      published.id
+    );
+    const activityAfter = await repositories.activityEvents.findByProject(fixture.projectId);
+
+    expect(exportResult.fileName).toBe(
+      'worktrail-stat-2026-07-10-executive-weekly-status.md'
+    );
+    expect(exportResult.markdown).toContain('# Executive weekly status');
+    expect(exportResult.markdown).toContain('| Blocked work | 1 |');
+    expect(exportResult.markdown).toContain('[STAT-1 - Tracked export work]');
+    expect(activityAfter).toHaveLength(activityBefore.length);
+  });
+
   it('rejects draft and publish access for contributors and archived projects', async () => {
     const contributorFixture = await createFixture({ actorRole: 'contributor' });
     const contributorService = createService(contributorFixture);
@@ -552,6 +590,70 @@ describe('project status report API', () => {
       });
   });
 
+  it('exports Markdown through Express routes for readers and archived projects', async () => {
+    const fixture = await createFixture();
+    await createWorkItem(fixture, {
+      title: 'Report export API work',
+      status: 'blocked',
+      priority: 'urgent',
+      dueDate: '2026-07-09'
+    });
+    const draftResponse = await request(app)
+      .get(`/api/projects/${fixture.projectId}/status-reports/draft`)
+      .set(fixture.headers)
+      .expect(200);
+    const publishedResponse = await request(app)
+      .post(`/api/projects/${fixture.projectId}/status-reports`)
+      .set(fixture.headers)
+      .send({
+        title: 'Executive weekly status',
+        statusDate: '2026-07-10',
+        summary: 'Delivery is under watch.',
+        snapshot: draftResponse.body.snapshot
+      })
+      .expect(201);
+    const exportPath = `/api/projects/${fixture.projectId}/status-reports/${publishedResponse.body.id}/export.md`;
+
+    await request(app)
+      .get(exportPath)
+      .set(fixture.headers)
+      .expect(200)
+      .expect('Content-Type', /text\/markdown/)
+      .expect(({ headers, text }) => {
+        expect(headers['content-disposition']).toBe(
+          'attachment; filename="worktrail-stat-2026-07-10-executive-weekly-status.md"'
+        );
+        expect(text).toContain('# Executive weekly status');
+        expect(text).toContain('> Published snapshot.');
+        expect(text).toContain('| Blocked work | 1 |');
+        expect(text).toContain(
+          '[Open current work](/projects/' +
+            `${fixture.projectId}/work-items?status=blocked&sort=priority_desc)`
+        );
+        expect(text).toContain('[STAT-1 - Report export API work]');
+      });
+
+    await request(app)
+      .get(exportPath)
+      .set(
+        actorHeaders({
+          workspaceId: fixture.workspaceId,
+          memberId: fixture.assigneeId,
+          role: 'contributor'
+        })
+      )
+      .expect(200)
+      .expect('Content-Type', /text\/markdown/);
+
+    await repositories.projects.updateStatus(
+      fixture.projectId,
+      'archived',
+      new Date('2026-07-11T12:00:00.000Z')
+    );
+
+    await request(app).get(exportPath).set(fixture.headers).expect(200);
+  });
+
   it('returns validation errors before publishing invalid bodies', async () => {
     const fixture = await createFixture();
 
@@ -615,6 +717,16 @@ describe('project status report API', () => {
 
     await request(app)
       .get(`/api/projects/${otherProjectId}/status-reports/${published.body.id}`)
+      .set(ownerFixture.headers)
+      .expect(404);
+
+    await request(app)
+      .get(`/api/projects/${otherProjectId}/status-reports/${published.body.id}/export.md`)
+      .set(ownerFixture.headers)
+      .expect(404);
+
+    await request(app)
+      .get(`/api/projects/${ownerFixture.projectId}/status-reports/${randomUUID()}/export.md`)
       .set(ownerFixture.headers)
       .expect(404);
   });

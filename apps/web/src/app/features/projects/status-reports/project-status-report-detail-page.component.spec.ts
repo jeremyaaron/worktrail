@@ -1,4 +1,4 @@
-import { provideHttpClient } from '@angular/common/http';
+import { HttpResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
@@ -10,6 +10,7 @@ import type {
   ProjectStatusReportSnapshotDto
 } from '@worktrail/contracts';
 
+import { ClipboardService } from '../../../shared/clipboard.service';
 import { ProjectStatusReportDetailPageComponent } from './project-status-report-detail-page.component';
 
 const projectId = '10000000-0000-4000-8000-000000000201';
@@ -198,14 +199,22 @@ function report(input: {
 describe('ProjectStatusReportDetailPageComponent', () => {
   let fixture: ComponentFixture<ProjectStatusReportDetailPageComponent>;
   let http: HttpTestingController;
+  let clipboard: jasmine.SpyObj<ClipboardService>;
 
   beforeEach(async () => {
+    clipboard = jasmine.createSpyObj<ClipboardService>('ClipboardService', ['copyText']);
+    clipboard.copyText.and.resolveTo();
+
     await TestBed.configureTestingModule({
       imports: [ProjectStatusReportDetailPageComponent],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
+        {
+          provide: ClipboardService,
+          useValue: clipboard
+        },
         {
           provide: ActivatedRoute,
           useValue: {
@@ -233,6 +242,17 @@ describe('ProjectStatusReportDetailPageComponent', () => {
     http.expectOne(`/api/projects/${projectId}/status-reports/${reportId}`).flush(input);
     fixture.detectChanges();
     return input;
+  }
+
+  function markdownBlob(markdown: string): Blob {
+    return {
+      text: () => Promise.resolve(markdown)
+    } as Blob;
+  }
+
+  async function settleBlobText(): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await fixture.whenStable();
   }
 
   it('renders metadata, narrative, and snapshot notice from the published report', () => {
@@ -301,6 +321,131 @@ describe('ProjectStatusReportDetailPageComponent', () => {
 
     expect(compiled.textContent).toContain('Case Contributor');
     expect(compiled.textContent).toContain('Weekly delivery status');
+    expect(compiled.textContent).toContain('Copy Markdown');
+    expect(compiled.textContent).toContain('Download Markdown');
+    expect(compiled.textContent).toContain('Print');
+  });
+
+  it('copies exported Markdown to the clipboard', async () => {
+    createComponent();
+    flushReport();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const copyButton = [...compiled.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+      button.textContent?.includes('Copy Markdown')
+    );
+
+    copyButton?.click();
+    fixture.detectChanges();
+
+    const exportRequest = http.expectOne(
+      `/api/projects/${projectId}/status-reports/${reportId}/export.md`
+    );
+    expect(exportRequest.request.method).toBe('GET');
+    expect(exportRequest.request.responseType).toBe('blob');
+    exportRequest.event(new HttpResponse({ body: markdownBlob('# Weekly status\n') }));
+
+    await settleBlobText();
+    fixture.detectChanges();
+
+    expect(clipboard.copyText).toHaveBeenCalledWith('# Weekly status\n');
+    expect(fixture.componentInstance.isCopyingMarkdown()).toBeFalse();
+    expect(compiled.textContent).toContain('Markdown copied.');
+  });
+
+  it('shows copy failures when the clipboard write fails', async () => {
+    clipboard.copyText.and.rejectWith(new Error('copy failed'));
+    createComponent();
+    flushReport();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const copyButton = [...compiled.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+      button.textContent?.includes('Copy Markdown')
+    );
+
+    copyButton?.click();
+    http
+      .expectOne(`/api/projects/${projectId}/status-reports/${reportId}/export.md`)
+      .event(new HttpResponse({ body: markdownBlob('# Weekly status\n') }));
+
+    await settleBlobText();
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain('Markdown could not be copied.');
+    expect(fixture.componentInstance.isCopyingMarkdown()).toBeFalse();
+  });
+
+  it('downloads exported Markdown using the attachment filename', () => {
+    const createObjectUrl = spyOn(URL, 'createObjectURL').and.returnValue('blob:status-report');
+    const revokeObjectUrl = spyOn(URL, 'revokeObjectURL').and.stub();
+    const linkClick = spyOn(HTMLAnchorElement.prototype, 'click').and.stub();
+    const appendChild = document.body.appendChild.bind(document.body);
+    let downloadedFileName = '';
+
+    spyOn(document.body, 'appendChild').and.callFake(<T extends Node>(node: T): T => {
+      if (node instanceof HTMLAnchorElement) {
+        downloadedFileName = node.download;
+      }
+
+      return appendChild(node) as T;
+    });
+
+    createComponent();
+    flushReport();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const downloadButton = [...compiled.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent?.includes('Download Markdown')
+    );
+
+    downloadButton?.click();
+    const exportRequest = http.expectOne(
+      `/api/projects/${projectId}/status-reports/${reportId}/export.md`
+    );
+    expect(exportRequest.request.method).toBe('GET');
+    expect(exportRequest.request.responseType).toBe('blob');
+    exportRequest.flush(new Blob(['# Weekly status\n'], { type: 'text/markdown' }), {
+      headers: {
+        'Content-Disposition': 'attachment; filename="weekly-status.md"'
+      }
+    });
+    fixture.detectChanges();
+
+    expect(createObjectUrl).toHaveBeenCalled();
+    expect(linkClick).toHaveBeenCalled();
+    expect(revokeObjectUrl).toHaveBeenCalledWith('blob:status-report');
+    expect(downloadedFileName).toBe('weekly-status.md');
+    expect(fixture.componentInstance.isDownloadingMarkdown()).toBeFalse();
+    expect(compiled.textContent).toContain('Markdown download started.');
+  });
+
+  it('prints the report detail page', () => {
+    const print = spyOn(window, 'print').and.stub();
+    createComponent();
+    flushReport();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const printButton = [...compiled.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+      button.textContent?.includes('Print')
+    );
+
+    printButton?.click();
+
+    expect(print).toHaveBeenCalled();
+  });
+
+  it('keeps sharing actions grouped for wrapping and print hiding', () => {
+    createComponent();
+    flushReport();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const actions = compiled.querySelector<HTMLElement>('.report-actions');
+    const actionButtons = compiled.querySelectorAll<HTMLButtonElement>('.report-actions button');
+
+    expect(actions).not.toBeNull();
+    expect(actions?.getAttribute('aria-label')).toBe('Status report sharing actions');
+    expect(actionButtons.length).toBe(3);
+    expect([...actionButtons].every((button) => button.type === 'button')).toBeTrue();
   });
 
   it('renders archived project reports from their stored snapshot', () => {

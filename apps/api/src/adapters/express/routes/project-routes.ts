@@ -26,6 +26,7 @@ import {
   updateProjectHandler
 } from '../../../endpoints/projects.js';
 import {
+  exportProjectStatusReportMarkdownHandler,
   getProjectStatusReportDraftHandler,
   getProjectStatusReportHandler,
   listProjectStatusReportsHandler,
@@ -95,6 +96,16 @@ export function registerProjectRoutes(app: Express, context: ExpressRouteContext
     '/api/projects/:projectId/status-reports/:reportId',
     adaptEndpoint(
       getProjectStatusReportHandler({ repositories: context.repositories, db: context.db }),
+      options
+    )
+  );
+  app.get(
+    '/api/projects/:projectId/status-reports/:reportId/export.md',
+    adaptEndpoint(
+      exportProjectStatusReportMarkdownHandler({
+        repositories: context.repositories,
+        db: context.db
+      }),
       options
     )
   );
