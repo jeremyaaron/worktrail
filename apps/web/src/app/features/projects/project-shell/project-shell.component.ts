@@ -335,6 +335,7 @@ export class ProjectShellComponent implements OnInit {
     { label: 'Work', commands: ['/projects', this.projectId(), 'work-items'], exact: false },
     { label: 'Board', commands: ['/projects', this.projectId(), 'board'], exact: false },
     { label: 'Planning', commands: ['/projects', this.projectId(), 'planning'], exact: false },
+    { label: 'Status', commands: ['/projects', this.projectId(), 'status'], exact: false },
     { label: 'Settings', commands: ['/projects', this.projectId(), 'settings'], exact: false }
   ]);
 

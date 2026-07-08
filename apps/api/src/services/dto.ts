@@ -5,6 +5,8 @@ import type {
   MemberDto,
   MilestoneDto,
   ProjectDto,
+  ProjectStatusReportDetailDto,
+  ProjectStatusReportSummaryDto,
   RecentWorkItemDto,
   SavedWorkViewDto,
   WorkItemQuery,
@@ -23,6 +25,7 @@ import type {
   Member,
   Milestone,
   Project,
+  ProjectStatusReport,
   SavedWorkView,
   WorkItem,
   Workspace,
@@ -82,6 +85,39 @@ export function toProjectDto(project: Project): ProjectDto {
     status: project.status,
     createdAt: project.createdAt.toISOString(),
     updatedAt: project.updatedAt.toISOString()
+  };
+}
+
+export function toProjectStatusReportSummaryDto(
+  report: ProjectStatusReport,
+  author: Member
+): ProjectStatusReportSummaryDto {
+  return {
+    id: report.id,
+    workspaceId: report.workspaceId,
+    projectId: report.projectId,
+    title: report.title,
+    statusDate: report.statusDate,
+    health: report.snapshot.health.health,
+    author: toMemberDto(author),
+    publishedAt: report.publishedAt.toISOString(),
+    createdAt: report.createdAt.toISOString()
+  };
+}
+
+export function toProjectStatusReportDetailDto(
+  report: ProjectStatusReport,
+  project: Project,
+  author: Member
+): ProjectStatusReportDetailDto {
+  return {
+    ...toProjectStatusReportSummaryDto(report, author),
+    project: toProjectDto(project),
+    summary: report.summary,
+    highlights: report.highlights,
+    risks: report.risks,
+    nextSteps: report.nextSteps,
+    snapshot: report.snapshot
   };
 }
 

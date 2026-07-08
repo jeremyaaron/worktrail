@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Worktrail API
-  version: 0.1.7
+  version: 0.1.8
   summary: HTTP API reference for the Worktrail local-first project management app.
   description: |
     This document describes the implemented Worktrail API routes. It is intentionally
@@ -32,6 +32,7 @@ tags:
   - name: Relationships
   - name: Comments
   - name: Activity
+  - name: Status Reports
   - name: My Work
   - name: Notifications
   - name: Saved Work Views
@@ -396,6 +397,96 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProjectPlanningSummary"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/projects/{projectId}/status-reports:
+    get:
+      tags: [Status Reports]
+      summary: List project status reports.
+      description: Lists immutable, published project status reports newest first. Contributors may read reports, including reports for archived projects.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Published project status report summaries.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProjectStatusReportSummary"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Status Reports]
+      summary: Publish a project status report.
+      description: Publishes an immutable status report. Owners and maintainers can publish for active projects. When `snapshot` is omitted, the API regenerates a current snapshot at publish time.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectStatusReportRequest"
+      responses:
+        "201":
+          description: Published project status report.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectStatusReportDetail"
+        "400":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "409":
+          description: Project is archived or snapshot validation conflicts with the project.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/projects/{projectId}/status-reports/draft:
+    get:
+      tags: [Status Reports]
+      summary: Generate a project status report draft.
+      description: Generates an editable report draft from current project state. Owners and maintainers can draft reports for active projects.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Generated project status report draft.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectStatusReportDraft"
+        "403":
+          $ref: "#/components/responses/Error"
+        "409":
+          description: Project is archived and cannot produce a new draft.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/projects/{projectId}/status-reports/{reportId}:
+    get:
+      tags: [Status Reports]
+      summary: Get a project status report.
+      description: Returns an immutable published status report and its captured snapshot. Contributors may read reports, including reports for archived projects.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/StatusReportId"
+      responses:
+        "200":
+          description: Published project status report detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectStatusReportDetail"
         default:
           $ref: "#/components/responses/Error"
   /api/projects/{projectId}/milestones/{milestoneId}/review:
@@ -1265,6 +1356,13 @@ components:
       schema:
         type: string
         format: uuid
+    StatusReportId:
+      name: reportId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     SavedViewScopeQuery:
       name: scope
       in: query
@@ -1829,6 +1927,311 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PlanningRiskItem"
+    ProjectStatusReportRiskType:
+      type: string
+      enum:
+        - blocked
+        - dependency_blocked
+        - overdue
+        - due_soon
+        - unassigned_active
+        - stale_in_progress
+        - blocking_open_work
+    ProjectStatusReportLinkType:
+      type: string
+      enum:
+        - project_work
+        - milestone_review
+        - work_item
+    ProjectStatusReportLink:
+      type: object
+      required: [type, label, projectId]
+      properties:
+        type:
+          $ref: "#/components/schemas/ProjectStatusReportLinkType"
+        label:
+          type: string
+        projectId:
+          type: string
+          format: uuid
+        query:
+          $ref: "#/components/schemas/WorkItemQuery"
+        milestoneId:
+          type: string
+          format: uuid
+        workItemId:
+          type: string
+          format: uuid
+    ProjectStatusReportCountSnapshot:
+      type: object
+      required:
+        - openWorkCount
+        - blockedWorkCount
+        - dependencyBlockedWorkCount
+        - blockingOpenWorkCount
+        - overdueWorkCount
+        - dueSoonWorkCount
+        - unassignedActiveWorkCount
+        - staleInProgressWorkCount
+      properties:
+        openWorkCount:
+          type: integer
+          minimum: 0
+        blockedWorkCount:
+          type: integer
+          minimum: 0
+        dependencyBlockedWorkCount:
+          type: integer
+          minimum: 0
+        blockingOpenWorkCount:
+          type: integer
+          minimum: 0
+        overdueWorkCount:
+          type: integer
+          minimum: 0
+        dueSoonWorkCount:
+          type: integer
+          minimum: 0
+        unassignedActiveWorkCount:
+          type: integer
+          minimum: 0
+        staleInProgressWorkCount:
+          type: integer
+          minimum: 0
+    ProjectStatusReportMilestoneSnapshot:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - targetDate
+        - totalCount
+        - openCount
+        - doneCount
+        - blockedCount
+        - dependencyBlockedCount
+        - overdueCount
+        - dueSoonCount
+        - unassignedActiveCount
+        - staleInProgressCount
+        - health
+        - reasons
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          $ref: "#/components/schemas/MilestoneStatus"
+        targetDate:
+          type: [string, "null"]
+          format: date
+        totalCount:
+          type: integer
+          minimum: 0
+        openCount:
+          type: integer
+          minimum: 0
+        doneCount:
+          type: integer
+          minimum: 0
+        blockedCount:
+          type: integer
+          minimum: 0
+        dependencyBlockedCount:
+          type: integer
+          minimum: 0
+        overdueCount:
+          type: integer
+          minimum: 0
+        dueSoonCount:
+          type: integer
+          minimum: 0
+        unassignedActiveCount:
+          type: integer
+          minimum: 0
+        staleInProgressCount:
+          type: integer
+          minimum: 0
+        health:
+          $ref: "#/components/schemas/DeliveryHealthState"
+        reasons:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeliveryHealthReason"
+    ProjectStatusReportRiskSnapshot:
+      type: object
+      required: [type, title, count, query, items]
+      properties:
+        type:
+          $ref: "#/components/schemas/ProjectStatusReportRiskType"
+        title:
+          type: string
+        count:
+          type: integer
+          minimum: 0
+        query:
+          $ref: "#/components/schemas/WorkItemQuery"
+        items:
+          type: array
+          description: Preview rows capped by the API; use the query to open the complete filtered project Work list.
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/PlanningRiskItem"
+    ProjectStatusReportSnapshot:
+      type: object
+      required:
+        - snapshotVersion
+        - generatedAt
+        - project
+        - health
+        - counts
+        - milestones
+        - risks
+        - recentWork
+      properties:
+        snapshotVersion:
+          const: 1
+        generatedAt:
+          type: string
+          format: date-time
+        project:
+          type: object
+          required: [id, key, name, status]
+          properties:
+            id:
+              type: string
+              format: uuid
+            key:
+              type: string
+            name:
+              type: string
+            status:
+              $ref: "#/components/schemas/ProjectStatus"
+        health:
+          $ref: "#/components/schemas/ProjectDeliveryHealth"
+        counts:
+          $ref: "#/components/schemas/ProjectStatusReportCountSnapshot"
+        milestones:
+          type: array
+          description: Active and planned milestone summaries captured when the report snapshot was generated.
+          items:
+            $ref: "#/components/schemas/ProjectStatusReportMilestoneSnapshot"
+        risks:
+          type: array
+          description: Fixed-order risk sections captured when the report snapshot was generated.
+          items:
+            $ref: "#/components/schemas/ProjectStatusReportRiskSnapshot"
+        recentWork:
+          type: array
+          maxItems: 8
+          items:
+            $ref: "#/components/schemas/PlanningRiskItem"
+    ProjectStatusReportSummary:
+      type: object
+      required: [id, workspaceId, projectId, title, statusDate, health, author, publishedAt, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        title:
+          type: string
+          maxLength: 120
+        statusDate:
+          type: string
+          format: date
+        health:
+          $ref: "#/components/schemas/DeliveryHealthState"
+        author:
+          $ref: "#/components/schemas/Member"
+        publishedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+    ProjectStatusReportDetail:
+      allOf:
+        - $ref: "#/components/schemas/ProjectStatusReportSummary"
+        - type: object
+          required: [project, summary, highlights, risks, nextSteps, snapshot]
+          properties:
+            project:
+              $ref: "#/components/schemas/Project"
+            summary:
+              type: string
+              maxLength: 4000
+            highlights:
+              type: string
+              maxLength: 4000
+            risks:
+              type: string
+              maxLength: 4000
+            nextSteps:
+              type: string
+              maxLength: 4000
+            snapshot:
+              $ref: "#/components/schemas/ProjectStatusReportSnapshot"
+    ProjectStatusReportDraft:
+      type: object
+      required: [project, title, statusDate, summary, highlights, risks, nextSteps, snapshot]
+      properties:
+        project:
+          $ref: "#/components/schemas/Project"
+        title:
+          type: string
+          maxLength: 120
+          examples: [Status update - 2026-07-10]
+        statusDate:
+          type: string
+          format: date
+        summary:
+          type: string
+          maxLength: 4000
+        highlights:
+          type: string
+          maxLength: 4000
+        risks:
+          type: string
+          maxLength: 4000
+        nextSteps:
+          type: string
+          maxLength: 4000
+        snapshot:
+          $ref: "#/components/schemas/ProjectStatusReportSnapshot"
+    CreateProjectStatusReportRequest:
+      type: object
+      required: [title, statusDate, summary]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        statusDate:
+          type: string
+          format: date
+        summary:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        highlights:
+          type: string
+          maxLength: 4000
+        risks:
+          type: string
+          maxLength: 4000
+        nextSteps:
+          type: string
+          maxLength: 4000
+        snapshot:
+          $ref: "#/components/schemas/ProjectStatusReportSnapshot"
     MilestoneReviewRiskType:
       type: string
       enum:

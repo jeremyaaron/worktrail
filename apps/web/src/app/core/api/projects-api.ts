@@ -4,11 +4,15 @@ import type {
   CreateLabelRequest,
   CreateMilestoneRequest,
   CreateProjectRequest,
+  CreateProjectStatusReportRequest,
   LabelDto,
   MilestoneDto,
   MilestoneStatus,
   ProjectDto,
   ProjectNavigationSummaryDto,
+  ProjectStatusReportDetailDto,
+  ProjectStatusReportDraftDto,
+  ProjectStatusReportSummaryDto,
   ProjectSummaryDto,
   UpdateLabelRequest,
   UpdateMilestoneRequest,
@@ -52,6 +56,37 @@ export class ProjectsApi {
 
   getProjectSummary(projectId: string): Observable<ProjectSummaryDto> {
     return this.api.get<ProjectSummaryDto>(`/projects/${projectId}/summary`);
+  }
+
+  listProjectStatusReports(projectId: string): Observable<ProjectStatusReportSummaryDto[]> {
+    return this.api.get<ProjectStatusReportSummaryDto[]>(
+      `/projects/${projectId}/status-reports`
+    );
+  }
+
+  getProjectStatusReportDraft(projectId: string): Observable<ProjectStatusReportDraftDto> {
+    return this.api.get<ProjectStatusReportDraftDto>(
+      `/projects/${projectId}/status-reports/draft`
+    );
+  }
+
+  publishProjectStatusReport(
+    projectId: string,
+    input: CreateProjectStatusReportRequest
+  ): Observable<ProjectStatusReportDetailDto> {
+    return this.api.post<ProjectStatusReportDetailDto, CreateProjectStatusReportRequest>(
+      `/projects/${projectId}/status-reports`,
+      input
+    );
+  }
+
+  getProjectStatusReport(
+    projectId: string,
+    reportId: string
+  ): Observable<ProjectStatusReportDetailDto> {
+    return this.api.get<ProjectStatusReportDetailDto>(
+      `/projects/${projectId}/status-reports/${reportId}`
+    );
   }
 
   listProjectActivity(projectId: string): Observable<ActivityEventDto[]> {

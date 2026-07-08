@@ -413,7 +413,7 @@ Requirements:
   - immutable report records;
   - live links from historical reports;
   - report permissions and archive behavior.
-- Confirm docs avoid discontinued extraction-target references.
+- Confirm docs use destination-neutral pattern extraction language.
 - Update OpenAPI.
 
 Acceptance criteria:

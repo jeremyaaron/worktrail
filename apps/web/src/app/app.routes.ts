@@ -92,6 +92,30 @@ export const routes: Routes = [
         title: 'Planning | Worktrail'
       },
       {
+        path: 'status',
+        loadComponent: () =>
+          import('./features/projects/status-reports/project-status-report-list-page.component').then(
+            (module) => module.ProjectStatusReportListPageComponent
+          ),
+        title: 'Status Reports | Worktrail'
+      },
+      {
+        path: 'status/new',
+        loadComponent: () =>
+          import('./features/projects/status-reports/project-status-report-draft-page.component').then(
+            (module) => module.ProjectStatusReportDraftPageComponent
+          ),
+        title: 'New Status Report | Worktrail'
+      },
+      {
+        path: 'status/:reportId',
+        loadComponent: () =>
+          import('./features/projects/status-reports/project-status-report-detail-page.component').then(
+            (module) => module.ProjectStatusReportDetailPageComponent
+          ),
+        title: 'Status Report | Worktrail'
+      },
+      {
         path: 'milestones/:milestoneId',
         loadComponent: () =>
           import('./features/projects/project-milestone-review-page.component').then(

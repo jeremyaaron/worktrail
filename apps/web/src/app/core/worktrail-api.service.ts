@@ -10,6 +10,7 @@ import type {
   CreateMemberRequest,
   CreateMilestoneRequest,
   CreateProjectRequest,
+  CreateProjectStatusReportRequest,
   CreateSavedWorkViewRequest,
   CreateWorkItemRequest,
   CreateWorkItemRelationshipRequest,
@@ -27,6 +28,9 @@ import type {
   ProjectDto,
   ProjectNavigationSummaryDto,
   ProjectPlanningSummaryDto,
+  ProjectStatusReportDetailDto,
+  ProjectStatusReportDraftDto,
+  ProjectStatusReportSummaryDto,
   ProjectSummaryDto,
   ListSavedWorkViewsQuery,
   SavedWorkViewDto,
@@ -163,6 +167,28 @@ export class WorktrailApiService {
 
   getProjectPlanningSummary(projectId: string): Observable<ProjectPlanningSummaryDto> {
     return this.planning.getProjectPlanningSummary(projectId);
+  }
+
+  listProjectStatusReports(projectId: string): Observable<ProjectStatusReportSummaryDto[]> {
+    return this.projects.listProjectStatusReports(projectId);
+  }
+
+  getProjectStatusReportDraft(projectId: string): Observable<ProjectStatusReportDraftDto> {
+    return this.projects.getProjectStatusReportDraft(projectId);
+  }
+
+  publishProjectStatusReport(
+    projectId: string,
+    input: CreateProjectStatusReportRequest
+  ): Observable<ProjectStatusReportDetailDto> {
+    return this.projects.publishProjectStatusReport(projectId, input);
+  }
+
+  getProjectStatusReport(
+    projectId: string,
+    reportId: string
+  ): Observable<ProjectStatusReportDetailDto> {
+    return this.projects.getProjectStatusReport(projectId, reportId);
   }
 
   getMilestoneReview(

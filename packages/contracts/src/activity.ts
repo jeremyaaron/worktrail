@@ -36,6 +36,7 @@ export type ActivityEventType =
   | 'saved_view.pinned'
   | 'saved_view.unpinned'
   | 'saved_view.deleted'
+  | 'status_report.published'
   | 'comment.added'
   | 'comment.edited'
   | 'comment.deleted';
