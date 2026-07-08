@@ -442,7 +442,21 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-08.
+- Added report detail print CSS that:
+  - hides sharing/navigation controls;
+  - renders report content as a print-friendly single-column document;
+  - avoids page breaks inside core report cards where practical;
+  - preserves link destinations in printed output.
+- Added conservative global print CSS in `apps/web/src/app/app.scss` to hide the topbar and flatten the content shell during print.
+- Tightened mobile action layout so sharing controls stack cleanly at narrow widths.
+- Extended the report detail component spec to assert sharing actions are grouped as button controls for wrapping and print behavior.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include src/app/features/projects/status-reports/project-status-report-detail-page.component.spec.ts`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `npm run build --workspace @worktrail/web`;
+  - `git diff --check`.
 
 ## Phase 6: Playwright Smoke Coverage
 

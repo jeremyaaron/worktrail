@@ -434,6 +434,20 @@ describe('ProjectStatusReportDetailPageComponent', () => {
     expect(print).toHaveBeenCalled();
   });
 
+  it('keeps sharing actions grouped for wrapping and print hiding', () => {
+    createComponent();
+    flushReport();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const actions = compiled.querySelector<HTMLElement>('.report-actions');
+    const actionButtons = compiled.querySelectorAll<HTMLButtonElement>('.report-actions button');
+
+    expect(actions).not.toBeNull();
+    expect(actions?.getAttribute('aria-label')).toBe('Status report sharing actions');
+    expect(actionButtons.length).toBe(3);
+    expect([...actionButtons].every((button) => button.type === 'button')).toBeTrue();
+  });
+
   it('renders archived project reports from their stored snapshot', () => {
     createComponent();
     flushReport(report({ projectStatus: 'archived' }));

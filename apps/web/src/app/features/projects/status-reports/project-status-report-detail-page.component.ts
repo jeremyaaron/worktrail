@@ -390,6 +390,7 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
+      max-width: 100%;
     }
 
     .share-status {
@@ -635,6 +636,24 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
     }
 
     @media (max-width: 640px) {
+      .status-page__heading {
+        align-items: stretch;
+      }
+
+      .status-page__secondary,
+      .status-page__action {
+        width: 100%;
+      }
+
+      .report-actions {
+        justify-items: stretch;
+      }
+
+      .report-actions__buttons {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+
       .report-hero,
       .report-card {
         padding: 14px;
@@ -646,6 +665,80 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
 
       .counts-grid {
         grid-template-columns: 1fr;
+      }
+    }
+
+    @media print {
+      :host {
+        color: #111827;
+      }
+
+      .status-page {
+        display: block;
+      }
+
+      .status-page__heading,
+      .report-actions,
+      .share-status {
+        display: none !important;
+      }
+
+      .snapshot-notice,
+      .report-hero,
+      .report-card {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        border-color: #cbd5e1;
+        box-shadow: none;
+      }
+
+      .report-grid,
+      .narrative-grid,
+      .risk-section {
+        display: block;
+      }
+
+      .report-main,
+      .report-side,
+      .risk-list,
+      .work-preview,
+      .milestone-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .report-card,
+      .snapshot-notice,
+      .report-hero {
+        margin-bottom: 12px;
+        background: #ffffff;
+      }
+
+      .report-hero,
+      .section-heading,
+      .milestone-row {
+        align-items: flex-start;
+      }
+
+      a[href]::after {
+        content: " (" attr(href) ")";
+        color: #475569;
+        font-size: 0.75rem;
+        font-weight: 600;
+        overflow-wrap: anywhere;
+      }
+
+      .milestone-row,
+      .work-row,
+      .risk-section > a {
+        color: #111827;
+      }
+
+      .health-pill,
+      .reason-chip {
+        border-color: #94a3b8;
+        background: #ffffff;
+        color: #111827;
       }
     }
   `
