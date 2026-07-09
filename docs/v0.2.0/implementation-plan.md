@@ -986,7 +986,43 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-09.
+- Ran full release-candidate verification:
+  - `npm run lint`;
+  - `npm run typecheck`;
+  - `npm test`;
+  - `npm run build`;
+  - `npm run test:e2e`.
+- Initial Playwright verification exposed E2E test drift from deliberate v0.2.0 UX changes:
+  - project-local navigation was removed in favor of the project shell nav;
+  - saved-view creation moved behind `Save view`;
+  - saved-view administration moved behind `Manage views`;
+  - project bulk selection moved behind explicit `Bulk edit` mode;
+  - report list and draft headings changed from status-oriented copy to `Published snapshots` and `Draft report`.
+- Updated `e2e/worktrail-smoke.spec.ts` to exercise the v0.2.0 flows:
+  - added helpers for the exact saved-view region and the collapsed save-view form;
+  - switched project navigation and create-work actions to current shell controls;
+  - opened `Bulk edit` before selecting project rows;
+  - updated report heading expectations.
+- Re-ran the previously failing E2E cases with a grep-focused Playwright run:
+  - 11 targeted tests passed.
+- Re-ran the full Playwright suite:
+  - 17 tests passed.
+- Confirmed generated OpenAPI did not need changes in v0.2.0; no public API routes or DTO contracts changed.
+- Confirmed first-party package metadata is consistently `0.2.0` across:
+  - root `package.json`;
+  - `apps/api/package.json`;
+  - `apps/web/package.json`;
+  - `packages/contracts/package.json`;
+  - `package-lock.json`.
+- Confirmed no dev server or test server is left listening on ports 3000 or 4200 after Playwright exits.
+- Verified final hygiene:
+  - `git diff --check`;
+  - `git status --short --branch`.
+- Current worktree state is understood:
+  - `e2e/worktrail-smoke.spec.ts` updated for v0.2.0 E2E flows;
+  - `docs/v0.2.0/implementation-plan.md` updated with Phase 12 completion notes.
+- v0.2.0 is ready for user QA/UAT or PR creation.
 
 ## Verification Policy
 
