@@ -317,6 +317,56 @@ npm run lint --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-09.
+- Updated `apps/api/src/db/schema.ts`:
+  - added `projectCycles`;
+  - added nullable `workItems.cycleId`;
+  - added cycle status, date range, and target point checks;
+  - added cycle workspace, project/status, project/start date, and project/archived indexes;
+  - added partial unique index for one active non-archived cycle per project;
+  - added non-archived cycle name uniqueness per project;
+  - added project/workspace cycle indexes on work items.
+- Generated and reviewed Drizzle migration artifacts:
+  - `apps/api/drizzle/0013_cuddly_dreadnoughts.sql`;
+  - `apps/api/drizzle/meta/0013_snapshot.json`;
+  - updated `apps/api/drizzle/meta/_journal.json`.
+- Updated repository types:
+  - `ProjectCycle`;
+  - `NewProjectCycle`.
+- Added `apps/api/src/repositories/project-cycle-repository.ts` with:
+  - `create`;
+  - `findById`;
+  - `findActiveByProject`;
+  - `findUpcomingByProject`;
+  - `findRecentlyCompletedByProject`;
+  - `findOverlappingPlannedOrActive`;
+  - `listByProject`;
+  - `update`;
+  - `archive`;
+  - `reactivate`.
+- Registered `projectCycles` in the central repository factory.
+- Updated typed API test fixtures to include `cycleId: null`, matching existing work item migration behavior.
+- Verified generated SQL includes:
+  - `project_cycles`;
+  - nullable `work_items.cycle_id`;
+  - project cycle foreign keys;
+  - work item cycle foreign key;
+  - partial active-cycle unique index;
+  - cycle name unique index;
+  - updated `activity_events_event_type_check` including `work_item.cycle_changed`.
+- Verified:
+  - `npm run db:generate --workspace @worktrail/api`;
+  - `npm run db:migrate`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `git diff --check`.
+- Did not run `npm run db:reset` because it drops all tables in the current local database. A disposable clean database could not be created because the local `worktrail` Postgres role does not have `CREATE DATABASE` permission. The migration was applied successfully to the current local database instead.
+
 ## Phase 3: Cycle Service Lifecycle
 
 Goal: implement cycle management behavior with permissions and validation.
