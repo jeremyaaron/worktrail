@@ -429,6 +429,56 @@ describe('project status reports', () => {
     expect(activityAfter).toHaveLength(activityBefore.length);
   });
 
+  it('rejects invalid stored report snapshots on list, detail, and Markdown export', async () => {
+    const fixture = await createFixture();
+    const service = createService(fixture);
+    const draft = await service.getProjectStatusReportDraft(fixture.projectId);
+    const published = await service.publishProjectStatusReport(fixture.projectId, {
+      title: 'Snapshot validation status',
+      statusDate: '2026-07-10',
+      summary: 'This report will be corrupted for parser coverage.',
+      snapshot: draft.snapshot
+    });
+
+    await pool.query('update project_status_reports set snapshot = $1::jsonb where id = $2', [
+      JSON.stringify({ ...draft.snapshot, snapshotVersion: 2 }),
+      published.id
+    ]);
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/status-reports`)
+      .set(fixture.headers)
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error).toMatchObject({
+          code: 'CONFLICT',
+          message: 'Stored status report snapshot is invalid.'
+        });
+      });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/status-reports/${published.id}`)
+      .set(fixture.headers)
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error).toMatchObject({
+          code: 'CONFLICT',
+          message: 'Stored status report snapshot is invalid.'
+        });
+      });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/status-reports/${published.id}/export.md`)
+      .set(fixture.headers)
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error).toMatchObject({
+          code: 'CONFLICT',
+          message: 'Stored status report snapshot is invalid.'
+        });
+      });
+  });
+
   it('rejects draft and publish access for contributors and archived projects', async () => {
     const contributorFixture = await createFixture({ actorRole: 'contributor' });
     const contributorService = createService(contributorFixture);
@@ -664,6 +714,26 @@ describe('project status report API', () => {
         title: '',
         statusDate: '07/10/2026',
         summary: ''
+      })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('VALIDATION_ERROR');
+        expect(body.error.message).toBe('Request validation failed.');
+      });
+
+    const draft = await createService(fixture).getProjectStatusReportDraft(fixture.projectId);
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/status-reports`)
+      .set(fixture.headers)
+      .send({
+        title: 'Invalid snapshot',
+        statusDate: '2026-07-10',
+        summary: 'Snapshot shape should be validated.',
+        snapshot: {
+          ...draft.snapshot,
+          snapshotVersion: 2
+        }
       })
       .expect(400)
       .expect(({ body }) => {

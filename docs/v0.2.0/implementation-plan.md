@@ -677,7 +677,22 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-09.
+- Added `apps/api/src/validation/project-status-report-snapshot.ts` as the explicit versioned parser for status report snapshot payloads.
+- Reused the snapshot schema from the status report endpoint request validator to avoid a second divergent snapshot schema.
+- Updated `ProjectStatusReportService` to parse stored snapshots before:
+  - listing report summaries;
+  - returning report detail;
+  - rendering Markdown export.
+- Updated publish flow so both generated snapshots and client-supplied draft snapshots pass through the version `1` parser before persistence.
+- Invalid persisted snapshots now fail with a controlled `CONFLICT` response instead of an unhandled runtime error.
+- Added route-level tests for invalid stored snapshots across list, detail, and Markdown export paths, plus invalid request snapshot rejection.
+- Verified:
+  - `npm test --workspace @worktrail/api -- tests/status-reports.test.ts`;
+  - `npm test --workspace @worktrail/api -- tests/status-report-markdown-renderer.test.ts`;
+  - `npm test --workspace @worktrail/api`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`.
 
 ## Phase 9: Planning, Reports, And Work Item Detail Framing
 

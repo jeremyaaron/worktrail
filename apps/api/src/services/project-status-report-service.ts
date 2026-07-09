@@ -35,6 +35,10 @@ import {
   createWorkRiskEvaluationContext,
   toPlanningRiskItems
 } from './work-risk-sections.js';
+import {
+  parseRequestedProjectStatusReportSnapshot,
+  parseStoredProjectStatusReportSnapshot
+} from '../validation/project-status-report-snapshot.js';
 
 const recentWorkLimit = 8;
 const milestoneSnapshotStatuses = new Set<Milestone['status']>(['planned', 'active']);
@@ -84,13 +88,14 @@ export class ProjectStatusReportService {
     const authors = await this.hydrateAuthors(reports, this.context.repositories);
 
     return reports.map((report) => {
+      const parsedReport = this.withParsedStoredSnapshot(report);
       const author = authors.get(report.authorMemberId);
 
       if (author === undefined) {
         throw new NotFoundError('Status report author not found.');
       }
 
-      return toProjectStatusReportSummaryDto(report, author);
+      return toProjectStatusReportSummaryDto(parsedReport, author);
     });
   }
 
@@ -101,8 +106,9 @@ export class ProjectStatusReportService {
     const project = await this.requireProject(projectId, this.context.repositories);
     const report = await this.requireReport(projectId, reportId, this.context.repositories);
     const author = await this.requireReportAuthor(report, this.context.repositories);
+    const parsedReport = this.withParsedStoredSnapshot(report);
 
-    return toProjectStatusReportDetailDto(report, project, author);
+    return toProjectStatusReportDetailDto(parsedReport, project, author);
   }
 
   async exportProjectStatusReportMarkdown(
@@ -153,7 +159,9 @@ export class ProjectStatusReportService {
       const normalized = this.normalizePublishInput(input);
       const snapshot =
         normalized.snapshot === undefined
-          ? await this.createSnapshot({ project, repositories, generatedAt: timestamp })
+          ? parseRequestedProjectStatusReportSnapshot(
+              await this.createSnapshot({ project, repositories, generatedAt: timestamp })
+            )
           : this.validateSnapshot(project, normalized.snapshot);
 
       const report = await repositories.projectStatusReports.create({
@@ -257,6 +265,13 @@ export class ProjectStatusReportService {
     );
 
     return authors;
+  }
+
+  private withParsedStoredSnapshot(report: ProjectStatusReport): ProjectStatusReport {
+    return {
+      ...report,
+      snapshot: parseStoredProjectStatusReportSnapshot(report.snapshot)
+    };
   }
 
   private async createSnapshot(input: SnapshotInput): Promise<ProjectStatusReportSnapshotDto> {
@@ -374,25 +389,19 @@ export class ProjectStatusReportService {
     project: Project,
     snapshot: ProjectStatusReportSnapshotDto
   ): ProjectStatusReportSnapshotDto {
-    if (snapshot.snapshotVersion !== 1) {
-      throw new ValidationError('Status report snapshot version is not supported.');
-    }
+    const parsed = parseRequestedProjectStatusReportSnapshot(snapshot);
 
-    if (snapshot.project.id !== project.id || snapshot.project.key !== project.key) {
+    if (parsed.project.id !== project.id || parsed.project.key !== project.key) {
       throw new ValidationError('Status report snapshot does not match the project.');
     }
 
-    if (Number.isNaN(Date.parse(snapshot.generatedAt))) {
-      throw new ValidationError('Status report snapshot generatedAt must be an ISO date-time.');
-    }
-
-    for (const risk of snapshot.risks) {
+    for (const risk of parsed.risks) {
       if (risk.query.projectId !== undefined && risk.query.projectId !== project.id) {
         throw new ValidationError('Status report snapshot includes a query for another project.');
       }
     }
 
-    return snapshot;
+    return parsed;
   }
 
   private async withWriteRepositories<T>(
