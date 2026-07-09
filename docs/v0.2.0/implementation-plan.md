@@ -906,7 +906,41 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-09.
+- Added `docs/v0.2.0/release-notes.md` for the Consolidated Operating Baseline release:
+  - user-facing consolidation changes;
+  - technical changes;
+  - compatibility notes;
+  - recommended release verification;
+  - deferred scope.
+- Added `docs/v0.2.0/pattern-notes.md` using destination-neutral language for:
+  - live views versus published snapshots;
+  - query contracts and URL state;
+  - saved operating lenses;
+  - explicit bulk mutation mode;
+  - shared risk sections;
+  - versioned persisted JSON parsing;
+  - detail page task hierarchy;
+  - public site as product baseline.
+- Updated `README.md` to reflect the v0.2.0 baseline:
+  - top-level product positioning;
+  - current capability summary;
+  - project report terminology and runtime snapshot validation;
+  - planning live-view/report bridge behavior;
+  - explicit project bulk edit mode;
+  - Work Item Detail hierarchy and dependency alert behavior;
+  - v0.2.0 capability and limitation headings;
+  - current v0.2.0 docs link;
+  - archived runbook and CSV guide links.
+- Reviewed `docs/api/openapi.yaml`; no route or DTO contract update was required because v0.2.0 preserved existing route paths and public API contracts.
+- Reviewed runbook/reference links; the README now points to the archived runbook and CSV guide paths.
+- Verified:
+  - `rg -n "v0\\.1\\.9|docs/v0\\.0\\.6|docs/v0\\.0\\.7|jawstack|jaws" README.md docs/v0.2.0 site/index.html docs/api/openapi.yaml --glob '!node_modules/**'`;
+  - the broad scan has only expected historical v0.1.9 mentions in v0.2.0 audit/planning documents;
+  - `rg -n "v0\\.1\\.9|docs/v0\\.0\\.6|docs/v0\\.0\\.7|jawstack|jaws" README.md site/index.html docs/v0.2.0/release-notes.md docs/v0.2.0/pattern-notes.md docs/api/openapi.yaml`;
+  - `rg -n "Status page|Status Report Sharing|v0\\.1\\.9|docs/v0\\.0\\.6|docs/v0\\.0\\.7" README.md site/index.html`;
+  - `npm run typecheck`;
+  - `git diff --check`.
 
 ## Phase 12: Final Verification
 
