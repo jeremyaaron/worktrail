@@ -540,8 +540,6 @@ describe('ProjectHomePageComponent', () => {
     expect(compiled.textContent).toContain('In progress');
     expect(compiled.textContent).toContain('WT-3');
     expect(compiled.textContent).toContain('Implement API client');
-    expect(compiled.textContent).toContain('Create work item');
-    expect(compiled.textContent).toContain('Settings');
     expect(compiled.textContent).toContain('Delivery health');
     expect(compiled.textContent).toContain('Blocked');
     expect(compiled.textContent).toContain('Active milestones');
@@ -556,6 +554,7 @@ describe('ProjectHomePageComponent', () => {
     expect(reasonHrefs.some((href) => href.includes('status=blocked'))).toBeTrue();
     expect(reasonHrefs.some((href) => href.includes('dependency=dependency_blocked'))).toBeTrue();
     expect(compiled.querySelector<HTMLAnchorElement>('a[href="/projects/10000000-0000-4000-8000-000000000201/planning"]')).not.toBeNull();
+    expect(compiled.querySelector('.project-actions')).toBeNull();
   });
 
   it('renders archived project state without the create action', () => {

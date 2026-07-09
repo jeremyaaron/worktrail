@@ -5,7 +5,6 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type {
   BulkUpdateWorkItemsAction,
   BulkUpdateWorkItemsRequest,
-  BulkUpdateWorkItemsResponseDto,
   BulkUpdateWorkItemsResultDto,
   DependencyFilter,
   DueDateState,
@@ -33,12 +32,8 @@ import { PinnedSavedViewsComponent } from './components/pinned-saved-views.compo
 import { SavedViewsToolbarComponent } from './components/saved-views-toolbar.component';
 import { WorkItemFilterPanelComponent } from './components/work-item-filter-panel.component';
 import { WorkItemResultListComponent } from './components/work-item-result-list.component';
-import {
-  projectFormValueFromQueryParams,
-  projectQueryFromFormValue,
-  projectRouterQueryParamsFromQuery,
-  returnUrlFromWorkItemQuery
-} from './query/work-item-query-serialization';
+import { ProjectBulkTriageStore } from './state/project-bulk-triage.store';
+import { WorkListQueryStore } from './state/work-list-query.store';
 
 const statuses: WorkItemStatus[] = [
   'backlog',
@@ -134,23 +129,14 @@ const defaultFilterValues: WorkItemFilterFormValue = {
     WorkItemResultListComponent
   ],
   template: `
+    <div class="work-list-page">
     <section class="page-header">
       <div>
         <p class="eyebrow">Work items</p>
         <h1>Project work items</h1>
         <p>Scan, filter, and open project work.</p>
       </div>
-
-      <nav aria-label="Project work navigation">
-        <a class="secondary-header-action" [routerLink]="['/projects', projectId(), 'board']">
-          Board
-        </a>
-        <a class="secondary-header-action" [routerLink]="['/projects', projectId(), 'planning']">
-          Planning
-        </a>
-        <a class="secondary-header-action" [routerLink]="['/projects', projectId(), 'settings']">
-          Settings
-        </a>
+      <nav class="header-actions" aria-label="Project work actions">
         <button type="button" class="secondary-header-action" [disabled]="isCopyingViewLink()" (click)="copyViewLink()">
           {{ isCopyingViewLink() ? 'Copying...' : 'Copy link' }}
         </button>
@@ -189,6 +175,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
       </section>
     }
 
+    <section class="work-list-views" aria-label="Project saved views">
     <app-pinned-saved-views
       heading="Project pinned views"
       [sharedViews]="pinnedSharedSavedViews()"
@@ -224,6 +211,10 @@ const defaultFilterValues: WorkItemFilterFormValue = {
       (delete)="deleteSavedView($event)"
       (draftNameChange)="setSavedViewDraftName($event.savedViewId, $event.name)"
     />
+    </section>
+
+    <section class="work-list-filters" aria-label="Project work item filters">
+    <app-active-filter-chips [labels]="activeFilterLabels()" (remove)="removeActiveFilter($event)" />
 
     <app-work-item-filter-panel [formGroup]="filterForm" (apply)="applyFilters()">
       <label filterCore>
@@ -334,19 +325,34 @@ const defaultFilterValues: WorkItemFilterFormValue = {
         <button type="button" class="secondary-action" (click)="clearFilters()">Clear</button>
       </div>
     </app-work-item-filter-panel>
+    </section>
 
-    <app-active-filter-chips [labels]="activeFilterLabels()" (remove)="removeActiveFilter($event)" />
+    <section class="work-list-actions" aria-label="Project work item actions">
+    @if (canEnterBulkEdit() && !isBulkEditActive()) {
+      <button type="button" class="secondary-action bulk-edit-entry" (click)="enterBulkEdit()">
+        Bulk edit
+      </button>
+    }
 
     @if (showBulkActionBar()) {
       <section class="bulk-action-bar" aria-label="Bulk work item actions">
-        <div class="bulk-action-bar__summary">
-          @if (hasBulkSelection()) {
-            <strong>{{ selectedVisibleCount() }} selected</strong>
-            <span>Apply one update to visible project work items.</span>
-          } @else {
-            <strong>Bulk update complete</strong>
-            <span>Review the result, then select more work items to continue.</span>
-          }
+        <div class="bulk-action-bar__top">
+          <div class="bulk-action-bar__summary">
+            @if (hasBulkSelection()) {
+              <strong>{{ selectedVisibleCount() }} selected</strong>
+              <span>Apply one update to visible project work items.</span>
+            } @else if (bulkActionResult() !== null) {
+              <strong>Bulk update complete</strong>
+              <span>Review the result, then select more work items to continue.</span>
+            } @else {
+              <strong>Bulk edit mode</strong>
+              <span>Select visible work items to apply one update.</span>
+            }
+          </div>
+
+          <button type="button" class="secondary-action" [disabled]="isBulkUpdating()" (click)="exitBulkEdit()">
+            Exit bulk edit
+          </button>
         </div>
 
         @if (hasBulkSelection()) {
@@ -504,13 +510,15 @@ const defaultFilterValues: WorkItemFilterFormValue = {
         }
       </section>
     }
+    </section>
 
+    <section class="work-list-results" aria-label="Project work item results">
     <app-work-item-result-list
       [items]="workItems()"
       mode="project"
       [isLoading]="isLoading()"
       [error]="error()"
-      [selectionEnabled]="canSelectWorkItems()"
+      [selectionEnabled]="isBulkEditActive() && canSelectWorkItems()"
       [selectedItemIds]="selectedWorkItemIds()"
       [allVisibleSelected]="isAllVisibleSelected()"
       loadingLabel="Loading work items"
@@ -522,17 +530,45 @@ const defaultFilterValues: WorkItemFilterFormValue = {
       (toggleSelection)="toggleWorkItemSelection($event)"
       (toggleAllVisibleSelection)="toggleAllVisibleSelection()"
     />
+    </section>
+    </div>
   `,
   styles: `
+    .work-list-page {
+      display: grid;
+      gap: 14px;
+    }
+
+    .work-list-views,
+    .work-list-filters,
+    .work-list-actions,
+    .work-list-results {
+      display: grid;
+      gap: 10px;
+    }
+
+    .work-list-actions:empty {
+      display: none;
+    }
+
+    app-active-filter-chips,
+    app-pinned-saved-views,
+    app-saved-views-toolbar,
+    app-work-item-filter-panel,
+    app-work-item-result-list {
+      display: block;
+    }
+
     .page-header {
       display: flex;
       justify-content: space-between;
       gap: 20px;
       align-items: flex-start;
-      margin-bottom: 20px;
+      margin-bottom: 0;
     }
 
-    nav {
+    nav,
+    .header-actions {
       display: flex;
       flex-wrap: wrap;
       justify-content: flex-end;
@@ -601,7 +637,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
     }
 
     .inline-error {
-      margin: 0 0 18px;
+      margin: 0;
       color: #991b1b;
       font-size: 0.875rem;
       font-weight: 700;
@@ -634,7 +670,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
     .notice {
       display: grid;
       gap: 4px;
-      margin-bottom: 18px;
+      margin-bottom: 0;
       border: 1px solid #fed7aa;
       border-radius: 8px;
       padding: 14px;
@@ -652,7 +688,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
     .bulk-action-bar {
       display: grid;
       gap: 14px;
-      margin-bottom: 16px;
+      margin-bottom: 0;
       border: 1px solid #c7d2fe;
       border-radius: 8px;
       padding: 14px;
@@ -664,6 +700,13 @@ const defaultFilterValues: WorkItemFilterFormValue = {
       flex-wrap: wrap;
       gap: 8px;
       align-items: baseline;
+    }
+
+    .bulk-action-bar__top {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      justify-content: space-between;
     }
 
     .bulk-action-bar__summary strong {
@@ -682,6 +725,10 @@ const defaultFilterValues: WorkItemFilterFormValue = {
       grid-template-columns: minmax(180px, 0.9fr) minmax(220px, 1fr) auto;
       gap: 12px;
       align-items: end;
+    }
+
+    .bulk-edit-entry {
+      width: fit-content;
     }
 
     .bulk-action-form > label,
@@ -1078,6 +1125,11 @@ const defaultFilterValues: WorkItemFilterFormValue = {
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       }
 
+      .bulk-action-bar__top {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+
       .bulk-action-form__actions {
         grid-column: 1 / -1;
         justify-content: flex-start;
@@ -1121,6 +1173,8 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly subscriptions = new Subscription();
+  private readonly queryState = WorkListQueryStore.project();
+  private readonly bulkTriage = new ProjectBulkTriageStore();
   private copyLinkStatusTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly statuses = statuses;
@@ -1142,28 +1196,24 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
 
   readonly project = signal<ProjectDto | null>(null);
   readonly workItems = signal<WorkItemListItemDto[]>([]);
-  readonly selectedWorkItemIds = signal<string[]>([]);
-  readonly selectedWorkItemIdSet = computed(() => new Set(this.selectedWorkItemIds()));
+  readonly isBulkEditActive = this.bulkTriage.isActive;
+  readonly selectedWorkItemIds = this.bulkTriage.selectedItemIds;
+  readonly selectedWorkItemIdSet = this.bulkTriage.selectedItemIdSet;
   readonly selectedWorkItems = computed<WorkItemListItemDto[]>(() =>
-    this.workItems().filter((workItem) => this.selectedWorkItemIdSet().has(workItem.id))
+    this.bulkTriage.selectedVisibleItems(this.workItems())
   );
   readonly selectedVisibleCount = computed(() => this.selectedWorkItems().length);
   readonly hasBulkSelection = computed(() => this.canSelectWorkItems() && this.selectedVisibleCount() > 0);
-  readonly showBulkActionBar = computed(
-    () => this.hasBulkSelection() || this.bulkActionResult() !== null || this.bulkActionError() !== null
-  );
+  readonly showBulkActionBar = computed(() => this.isBulkEditActive());
   readonly isAllVisibleSelected = computed(() => {
-    const workItems = this.workItems();
-    const selectedIds = this.selectedWorkItemIdSet();
-
-    return workItems.length > 0 && workItems.every((workItem) => selectedIds.has(workItem.id));
+    return this.bulkTriage.areAllVisibleSelected(this.workItems());
   });
   readonly labels = signal<LabelDto[]>([]);
   readonly milestones = signal<MilestoneDto[]>([]);
   readonly activeMilestones = computed<MilestoneDto[]>(() =>
     this.milestones().filter((milestone) => !milestone.isArchived && milestone.status !== 'completed')
   );
-  readonly appliedFilterValues = signal<WorkItemFilterFormValue>({ ...defaultFilterValues });
+  readonly appliedFilterValues = this.queryState.activeFilterValues;
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
   readonly isCopyingViewLink = signal(false);
@@ -1191,6 +1241,10 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   });
   readonly canSelectWorkItems = computed(() => {
     const role = this.currentUser.selectedMember()?.role;
+    return this.isBulkEditActive() && !this.isArchivedProject() && (role === 'owner' || role === 'maintainer');
+  });
+  readonly canEnterBulkEdit = computed(() => {
+    const role = this.currentUser.selectedMember()?.role;
     return !this.isArchivedProject() && (role === 'owner' || role === 'maintainer');
   });
   readonly savedViewDraftNames = signal<Record<string, string>>({});
@@ -1199,9 +1253,9 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   readonly isSavingView = signal(false);
   readonly savedViewMutationError = signal<string | null>(null);
   readonly selectedBulkLabelIds = signal<string[]>([]);
-  readonly isBulkUpdating = signal(false);
-  readonly bulkActionError = signal<string | null>(null);
-  readonly bulkActionResult = signal<BulkUpdateWorkItemsResponseDto | null>(null);
+  readonly isBulkUpdating = this.bulkTriage.isApplying;
+  readonly bulkActionError = this.bulkTriage.error;
+  readonly bulkActionResult = this.bulkTriage.result;
   readonly failedBulkResults = computed(() =>
     this.bulkActionResult()?.results.filter((result) => result.status === 'failed') ?? []
   );
@@ -1242,10 +1296,9 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
 
     this.subscriptions.add(
       this.route.queryParamMap.subscribe((params) => {
-        const nextFilters = projectFormValueFromQueryParams(params);
+        const nextFilters = this.queryState.applyRouteQueryParams(params);
 
         this.clearSelection();
-        this.appliedFilterValues.set(nextFilters);
         this.filterForm.patchValue(nextFilters, { emitEvent: false });
         this.loadWorkItems();
       })
@@ -1258,10 +1311,12 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   applyFilters(): void {
-    this.clearSelection();
+    this.bulkTriage.clearSelection();
+    this.resetBulkActionState();
+    this.queryState.setPendingFilterValues(this.filterForm.getRawValue());
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: this.queryParamsFromForm()
+      queryParams: this.queryState.pendingRouterQueryParams()
     });
   }
 
@@ -1415,11 +1470,24 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   openSavedView(savedView: SavedWorkViewDto): void {
-    this.clearSelection();
+    this.exitBulkEdit();
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: projectRouterQueryParamsFromQuery(savedView.query)
+      queryParams: this.queryState.routerQueryParamsFromQuery(savedView.query)
     });
+  }
+
+  enterBulkEdit(): void {
+    if (!this.canEnterBulkEdit()) {
+      return;
+    }
+
+    this.bulkTriage.enter();
+  }
+
+  exitBulkEdit(): void {
+    this.bulkTriage.exit();
+    this.resetBulkActionState();
   }
 
   toggleWorkItemSelection(workItemId: string): void {
@@ -1427,16 +1495,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
       return;
     }
 
-    const selectedIds = new Set(this.selectedWorkItemIds());
-
-    if (selectedIds.has(workItemId)) {
-      selectedIds.delete(workItemId);
-    } else {
-      selectedIds.add(workItemId);
-    }
-
-    this.selectedWorkItemIds.set([...selectedIds]);
-    this.clearBulkFeedback();
+    this.bulkTriage.toggleItem(workItemId);
   }
 
   toggleAllVisibleSelection(): void {
@@ -1444,25 +1503,11 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
       return;
     }
 
-    const visibleIds = new Set(this.workItems().map((workItem) => workItem.id));
-
-    if (visibleIds.size === 0) {
-      this.clearSelection();
-      return;
-    }
-
-    if (this.isAllVisibleSelected()) {
-      this.selectedWorkItemIds.set(this.selectedWorkItemIds().filter((workItemId) => !visibleIds.has(workItemId)));
-      this.clearBulkFeedback();
-      return;
-    }
-
-    this.selectedWorkItemIds.set([...new Set([...this.selectedWorkItemIds(), ...visibleIds])]);
-    this.clearBulkFeedback();
+    this.bulkTriage.toggleAllVisible(this.workItems());
   }
 
   clearSelection(): void {
-    this.selectedWorkItemIds.set([]);
+    this.bulkTriage.clearSelection();
     this.resetBulkActionState();
   }
 
@@ -1513,26 +1558,17 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
       return;
     }
 
-    this.isBulkUpdating.set(true);
-    this.bulkActionError.set(null);
-    this.bulkActionResult.set(null);
+    this.bulkTriage.beginApply();
 
     this.api.bulkUpdateProjectWorkItems(this.projectId(), request).subscribe({
       next: (result) => {
-        this.bulkActionResult.set(result);
-        this.selectedWorkItemIds.set(
-          result.results
-            .filter((itemResult) => itemResult.status === 'failed')
-            .map((itemResult) => itemResult.workItemId)
-        );
-        this.isBulkUpdating.set(false);
+        this.bulkTriage.applySucceeded(result);
         this.loadWorkItems();
       },
       error: (error: HttpErrorResponse) => {
-        this.bulkActionError.set(
+        this.bulkTriage.applyFailed(
           this.toErrorMessage(error, 'Selected work items could not be updated.')
         );
-        this.isBulkUpdating.set(false);
       }
     });
   }
@@ -1638,11 +1674,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   detailReturnUrl(): string {
-    return returnUrlFromWorkItemQuery(
-      `/projects/${this.projectId()}/work-items`,
-      this.appliedQuery(),
-      'project'
-    );
+    return this.queryState.returnUrl(`/projects/${this.projectId()}/work-items`);
   }
 
   removeActiveFilter(label: string): void {
@@ -1684,7 +1716,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   private appliedQuery(): WorkItemQuery {
-    return projectQueryFromFormValue(this.appliedFilterValues());
+    return this.queryState.activeQuery();
   }
 
   private createSavedView(visibility: SavedWorkViewDto['visibility'], name: string): void {
@@ -1746,18 +1778,10 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   private currentFilteredViewUrl(): string {
-    return new URL(
-      returnUrlFromWorkItemQuery(
-        `/projects/${this.projectId()}/work-items`,
-        this.appliedQuery(),
-        'project'
-      ),
+    return this.queryState.filteredViewUrl(
+      `/projects/${this.projectId()}/work-items`,
       window.location.origin
-    ).toString();
-  }
-
-  private queryParamsFromForm(): Record<string, string | null> {
-    return projectRouterQueryParamsFromQuery(projectQueryFromFormValue(this.filterForm.getRawValue()));
+    );
   }
 
   private watchFilterChanges(): void {
@@ -1852,19 +1876,16 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   private clearBulkFeedback(): void {
-    this.bulkActionError.set(null);
-    this.bulkActionResult.set(null);
+    this.bulkTriage.clearFeedback();
   }
 
   private resetBulkActionState(): void {
     this.selectedBulkLabelIds.set([]);
-    this.bulkActionError.set(null);
-    this.bulkActionResult.set(null);
+    this.bulkTriage.clearFeedback();
   }
 
   private pruneSelectionToVisibleRows(): void {
-    const visibleIds = new Set(this.workItems().map((workItem) => workItem.id));
-    this.selectedWorkItemIds.set(this.selectedWorkItemIds().filter((workItemId) => visibleIds.has(workItemId)));
+    this.bulkTriage.pruneSelectionToVisible(this.workItems());
   }
 
   private mergeLabels(workItems: WorkItemListItemDto[]): void {

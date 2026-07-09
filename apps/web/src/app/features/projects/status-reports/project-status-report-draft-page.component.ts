@@ -28,16 +28,16 @@ const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
     <section class="status-page">
       <div class="status-page__heading">
         <div>
-          <p class="status-page__eyebrow">Status reports</p>
-          <h1>New status report</h1>
+          <p class="status-page__eyebrow">Reports · Draft report</p>
+          <h1>Draft report</h1>
         </div>
         <a class="status-page__secondary" [routerLink]="['/projects', projectId(), 'status']">
-          Back to status
+          Back to reports
         </a>
       </div>
 
       @if (isLoading()) {
-        <app-loading-indicator label="Generating status report draft" />
+        <app-loading-indicator label="Generating report draft" />
       } @else if (loadError()) {
         <app-error-panel
           title="Draft unavailable"
@@ -48,7 +48,10 @@ const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
         <form class="draft-layout" [formGroup]="draftForm" (ngSubmit)="publishReport()" novalidate>
           <section class="draft-form" aria-labelledby="draft-form-heading">
             <div class="draft-form__heading">
-              <h2 id="draft-form-heading">Report narrative</h2>
+              <div>
+                <p class="status-page__eyebrow">Editable narrative</p>
+                <h2 id="draft-form-heading">Report narrative</h2>
+              </div>
               <span
                 class="health-pill"
                 [attr.data-tone]="healthTone(draft.snapshot.health.health)"
@@ -113,7 +116,7 @@ const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
           <aside class="snapshot-panel" aria-label="Generated snapshot">
             <section class="snapshot-card">
-              <p class="status-page__eyebrow">Snapshot</p>
+              <p class="status-page__eyebrow">Generated evidence</p>
               <h2>{{ draft.project.name }}</h2>
               <p>Generated {{ formatDateTime(draft.snapshot.generatedAt) }}</p>
             </section>
@@ -522,7 +525,7 @@ export class ProjectStatusReportDraftPageComponent implements OnInit {
         this.isLoading.set(false);
       },
       error: (error: HttpErrorResponse) => {
-        this.loadError.set(this.toErrorMessage(error, 'Status report draft could not be generated.'));
+        this.loadError.set(this.toErrorMessage(error, 'Report draft could not be generated.'));
         this.isLoading.set(false);
       }
     });
@@ -550,7 +553,7 @@ export class ProjectStatusReportDraftPageComponent implements OnInit {
         void this.router.navigate(['/projects', this.projectId(), 'status', report.id]);
       },
       error: (error: HttpErrorResponse) => {
-        this.publishError.set(this.toErrorMessage(error, 'Status report could not be published.'));
+        this.publishError.set(this.toErrorMessage(error, 'Report could not be published.'));
         this.isPublishing.set(false);
       }
     });

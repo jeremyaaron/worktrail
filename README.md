@@ -1,10 +1,10 @@
 # Worktrail
 
-Worktrail is a project management reference app. The v0.1.9 baseline is a local-first Angular + TypeScript API + Postgres application focused on daily team workflow, collaboration updates, reliable filtered work views, pinned workspace and project operating lenses, project batch triage, milestone review, project status reports and Markdown sharing, cross-project discovery, dependency-aware planning, workspace governance, data portability, and production-shaped application boundaries.
+Worktrail is a project management reference app. The v0.2.0 baseline is a local-first Angular + TypeScript API + Postgres application focused on daily team workflow, collaboration updates, reliable filtered work views, pinned workspace and project operating lenses, explicit project batch triage, milestone review, published project reports and Markdown sharing, cross-project discovery, dependency-aware planning, workspace governance, data portability, and production-shaped application boundaries.
 
-The app includes My Work, Action Inbox, top-level Work Items discovery, URL-backed filters, copyable filtered-view links, personal saved views, workspace-shared saved views, project-scoped personal and shared saved views, pinned saved-view shortcuts, project-scoped bulk updates, quick work capture, persistent project workspaces, planning review, milestone review, generated project status report drafts, immutable published status snapshots, Markdown copy/download for published reports, print-friendly report detail pages, milestone/work links from reports, milestone management, durable boards, work item relationships, dependency-blocked signals, project delivery health, comments, mentions, work item watchers, activity, CSV import/export, production-like preview, health/readiness checks, checked-in API documentation, CI, lint, and responsive work item scanning.
+The app includes My Work, Action Inbox, top-level Work Items discovery, URL-backed filters, copyable filtered-view links, personal saved views, workspace-shared saved views, project-scoped personal and shared saved views, pinned saved-view shortcuts, project-scoped bulk updates, quick work capture, persistent project workspaces, live planning review, live milestone review, generated report drafts, immutable published report snapshots, Markdown copy/download for published reports, print-friendly report detail pages, milestone/work links from reports, milestone management, durable boards, work item relationships, dependency-blocked signals, project delivery health, comments, mentions, work item watchers, activity, CSV import/export, production-like preview, health/readiness checks, checked-in API documentation, CI, lint, and responsive work item scanning.
 
-The app is intentionally built as a credible product surface before extracting broader framework patterns. It runs locally today, while preserving a path toward an S3/CloudFront Angular frontend with API Gateway/Lambda-style endpoint handlers and managed Postgres.
+The app is intentionally built as a credible product surface before generalizing reusable patterns. It runs locally today, while preserving a path toward an S3/CloudFront Angular frontend with API Gateway/Lambda-style endpoint handlers and managed Postgres.
 
 ## Repository Layout
 
@@ -17,15 +17,8 @@ packages/
 docs/
   v0.0.X/  Archived v0.0.1-v0.0.9 sprint docs
   v0.1.0/  Consolidation PRD, technical design, implementation plan, audits, and extraction notes
-  v0.1.1/  Action Inbox PRD, technical design, implementation plan, release notes, and extraction notes
-  v0.1.2/  Reliable filtered views PRD, technical design, implementation plan, release notes, and extraction notes
-  v0.1.3/  Team Work Views PRD, technical design, implementation plan, release notes, and extraction notes
-  v0.1.4/  Project Work Views PRD, technical design, implementation plan, release notes, and extraction notes
-  v0.1.5/  Pinned Operating Views PRD, technical design, implementation plan, release notes, and pattern notes
-  v0.1.6/  Project Batch Triage PRD, technical design, implementation plan, release notes, and pattern notes
-  v0.1.7/  Milestone Review PRD, technical design, implementation plan, release notes, and pattern notes
-  v0.1.8/  Project Status Reports PRD, technical design, implementation plan, release notes, and pattern notes
-  v0.1.9/  Status Report Sharing PRD, technical design, implementation plan, release notes, and pattern notes
+  v0.1.x/  Incremental v0.1 product sprint docs
+  v0.2.0/  Consolidated Operating Baseline PRD, technical design, implementation plan, audits, release notes, and pattern notes
   api/     OpenAPI reference
 site/       Static GitHub Pages product site
 e2e/        Playwright smoke tests
@@ -114,7 +107,7 @@ curl -I http://localhost:3000/my-work
 curl -I http://localhost:3000/work-items/new
 ```
 
-The detailed operator guide is in [docs/v0.0.6/operations-runbook.md](docs/v0.0.6/operations-runbook.md).
+The detailed operator guide is in [docs/v0.0.X/v0.0.6/operations-runbook.md](docs/v0.0.X/v0.0.6/operations-runbook.md).
 
 ## API Reference
 
@@ -190,15 +183,16 @@ Milestone review links are query-backed:
 
 Milestone review is intentionally current-state only in v0.1.7. Forecasting, roadmap views, critical path analysis, capacity planning, milestone sign-off, historical review snapshots, saved review reports, custom health formulas, and notification rules are deferred.
 
-## Project Status Reports
+## Project Reports
 
-v0.1.8 adds project status reports at `/projects/:projectId/status`. v0.1.9 adds Status Report Sharing for published reports. Owners and maintainers can generate a report draft from current project state, edit the narrative fields, and publish an immutable report with a stored snapshot. Anyone who can read a published report can copy it as Markdown, download it as Markdown, or open the browser print flow. Contributors can read and export published reports. Archived projects remain readable and exportable, including their existing reports, but cannot publish new reports.
+Project reports live at `/projects/:projectId/status` and appear as `Reports` in the project shell. Owners and maintainers can generate a report draft from current project state, edit the narrative fields, and publish an immutable report with a stored snapshot. Anyone who can read a published report can copy it as Markdown, download it as Markdown, or open the browser print flow. Contributors can read and export published reports. Archived projects remain readable and exportable, including their existing reports, but cannot publish new reports.
 
-Status report workflow:
+Report workflow:
 
-- The Status page shows the latest report, previous reports, and a create entry point when the selected actor can publish.
+- The Reports page shows the latest report, previous reports, and a create entry point when the selected actor can publish.
 - Draft generation captures project identity, delivery health, health reasons, work counts, active/planned milestone snapshots, risk sections, and recent work.
-- Owners and maintainers can edit title, status date, summary, highlights, risks, and next steps before publishing.
+- Draft pages distinguish generated evidence from editable narrative.
+- Owners and maintainers can edit title, report date, summary, highlights, risks, and next steps before publishing.
 - Published reports are immutable.
 - Published detail pages clearly distinguish stored snapshot values from links that open current project data.
 - Published detail pages include `Copy Markdown`, `Download Markdown`, and `Print` actions.
@@ -209,8 +203,9 @@ Status report workflow:
 - Risk sections link to current filtered project Work pages using canonical query parameters.
 - Work item preview rows link to current work item detail pages with a return URL back to the report.
 - Seed data includes a published Worktrail App weekly status report for local walkthroughs and browser smoke tests.
+- Stored report snapshots are parsed through an explicit versioned runtime validator before list, detail, and Markdown export responses are assembled.
 
-Status reports are intentionally lightweight. v0.1.9 does not add post-publication edits, report delete/archive, PDF generation, scheduled delivery, email/push distribution, approvals, comments, custom templates, subscriptions, recipients, public links, export history, analytics, workspace rollups, forecasting, or roadmap reporting.
+Reports are intentionally lightweight. The current baseline does not add post-publication edits, report delete/archive, PDF generation, scheduled delivery, email/push distribution, approvals, comments, custom templates, subscriptions, recipients, public links, export history, analytics, workspace rollups, forecasting, or roadmap reporting.
 
 ## CSV Import And Export
 
@@ -223,7 +218,7 @@ Import is a two-step flow:
 
 If any row is invalid during apply, no work items are created. Project and workspace exports use the same applied filters as the visible list or discovery view, so exported CSV matches the current result set rather than pending draft search input.
 
-The detailed CSV guide is in [docs/v0.0.7/csv-import-export.md](docs/v0.0.7/csv-import-export.md).
+The detailed CSV guide is in [docs/v0.0.X/v0.0.7/csv-import-export.md](docs/v0.0.X/v0.0.7/csv-import-export.md).
 
 ## Relationships And Dependency Signals
 
@@ -248,7 +243,7 @@ The project work item list, cross-project workspace discovery, saved work views,
 
 My Work includes a dependency-blocked assigned summary and section. Planning includes dependency-blocked work and blocking-open-work risk sections. The OpenAPI reference documents the relationship endpoints, dependency query parameter, and relationship DTOs.
 
-## Delivery Health And Planning Review
+## Delivery Health, Planning, And Review
 
 Derived delivery health appears on project overview and planning surfaces.
 
@@ -257,6 +252,8 @@ Delivery-health support includes:
 - project-level health states: on track, at risk, blocked, complete, and inactive;
 - compact delivery-health panels on project overview;
 - detailed planning delivery-health summaries with active, on-track, at-risk, blocked, and open-work counts;
+- live-view framing on Planning and Milestone Review pages;
+- a Planning-to-Reports bridge for publishing a shareable snapshot from current state;
 - milestone health labels and explainable reason chips;
 - milestone review pages with scoped health, risk, and recent-movement detail;
 - reason links into filtered project work item lists when the current work-item query model supports the reason;
@@ -370,7 +367,7 @@ Suggested delivery-health checks:
 5. Open milestone review from Planning and follow a risk section into project Work with milestone and risk chips applied.
 6. Confirm blocked and dependency-blocked seed items affect project health, while the healthy milestone remains on track.
 
-## v0.1.9 Baseline Capabilities
+## v0.2.0 Baseline Capabilities
 
 - My Work dashboard for the selected active actor.
 - Prioritized My Work daily queue for assigned, due-soon, overdue, blocked, dependency-blocked, stale, reported, and recently updated work.
@@ -399,6 +396,7 @@ Suggested delivery-health checks:
 - Owner and maintainer management for shared project views, with contributor read access and personal project-view creation.
 - Archived projects keep project saved views openable while blocking project-scoped saved-view mutations.
 - Project Work page multi-select for owners and maintainers.
+- Explicit project bulk edit mode that hides selection controls until the mode is entered.
 - Project-scoped bulk updates for assignee, priority, milestone, due date, labels, and status transitions.
 - Bulk update result summaries for updated, unchanged, and failed rows.
 - Partial-success handling that clears successful and unchanged selections while retaining failed visible rows.
@@ -407,8 +405,11 @@ Suggested delivery-health checks:
 - Query-backed milestone review risk links into project Work.
 - Hidden `workRisk` query support with visible project Work chips for review-driven risk states.
 - Project status report list, draft, publish, and detail pages under the project shell.
+- Project shell navigation labels report routes as `Reports` while preserving existing `/status` paths.
 - Generated status report drafts that reuse current project health, milestone, risk, and recent-work signals.
+- Report drafts split generated evidence from editable narrative.
 - Immutable published status reports with stored JSON snapshots and edited narrative fields.
+- Runtime validation for persisted report snapshots before list, detail, and Markdown export responses.
 - Status report links from stored milestone snapshots into current milestone review pages.
 - Status report links from stored risk sections into current filtered project Work pages.
 - Status report work item preview links with return URLs back to the report.
@@ -439,7 +440,7 @@ Suggested delivery-health checks:
 - Project work item list search and filters for status, type, priority, assignee, reporter, label, milestone, due date, dependency state, and sort.
 - Project-scoped CSV import with dry-run preview, normalized rows, row-level validation errors, and transactional apply.
 - Project and workspace CSV export that serializes the currently applied filters through canonical query params.
-- CSV import/export guide under `docs/v0.0.7/csv-import-export.md`.
+- CSV import/export guide under `docs/v0.0.X/v0.0.7/csv-import-export.md`.
 - Work item relationships with directional `blocks` and symmetric `relates_to` semantics.
 - Cross-project relationships inside the same workspace with project identity shown in relationship rows.
 - Blocking-cycle, duplicate, self-link, cross-workspace, and archived-project relationship write validation.
@@ -458,6 +459,8 @@ Suggested delivery-health checks:
 - Relationship activity events for add/remove commands.
 - In-app notification persistence for assignments, mentions, watched comments, watched work changes, and dependency blocker changes.
 - Work item watch/unwatch controls with watcher count and compact watcher list on detail pages.
+- Work item detail sections grouped around Summary, Act, Collaborate, Dependencies, and History.
+- Dependency alerts on work item detail pages when work is blocked by open work or blocking downstream open work.
 - Automatic watching for work item reporters, assignees, and newly assigned members.
 - Comment mentions through an active-member picker, persisted mention metadata, and readable mention chips.
 - Persisted board ordering for same-status reorder and cross-status movement.
@@ -474,7 +477,7 @@ Suggested delivery-health checks:
 - ESLint guardrails for API, web, and contracts workspaces.
 - GitHub Actions CI for lint, typecheck, tests with a Postgres service, and production build.
 
-## v0.1.9 Limitations
+## v0.2.0 Limitations
 
 - Authentication is represented by local request headers and the top-bar actor selector.
 - Permissions are enforced against local member records and are useful for exercising policy paths, but they are not production authentication.
@@ -495,7 +498,7 @@ Suggested delivery-health checks:
 - Relationship activity is recorded on the command context item only to avoid noisy cross-project activity.
 - Custom workflows, file attachments, and production auth are intentionally out of scope.
 - Invitations, multi-workspace switching, custom roles, project-specific membership, pinned projects, recent projects, and audit export are intentionally out of scope.
-- The local Express adapter is the only runtime adapter in v0.1.9, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
+- The local Express adapter is the only runtime adapter in v0.2.0, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
 - AWS deployment assets are not included yet; the Angular static build and transport-neutral handlers preserve that path.
 - Readiness checks database connectivity only; migration drift detection, metrics, tracing, and managed deployment runbooks are deferred.
 

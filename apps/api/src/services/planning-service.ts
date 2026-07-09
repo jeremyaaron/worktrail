@@ -1,10 +1,6 @@
-import type {
-  PlanningRiskItemDto,
-  ProjectPlanningSummaryDto
-} from '@worktrail/contracts';
+import type { ProjectPlanningSummaryDto } from '@worktrail/contracts';
 
 import type { ActorContext } from '../domain/actor.js';
-import type { WorkItemPriority } from '../domain/constants.js';
 import {
   addDays,
   dueSoonWindowDays,
@@ -18,16 +14,14 @@ import {
 } from '../domain/work-risk-policy.js';
 import { NotFoundError } from '../errors/app-error.js';
 import type { Repositories } from '../repositories/index.js';
-import type { Member, Milestone, Project, WorkItem } from '../repositories/types.js';
+import type { Project, WorkItem } from '../repositories/types.js';
 import { DeliveryHealthService } from './delivery-health-service.js';
-import { toMemberDto, toMilestoneDto, toProjectDto } from './dto.js';
-
-const priorityRank: Record<WorkItemPriority, number> = {
-  urgent: 4,
-  high: 3,
-  medium: 2,
-  low: 1
-};
+import { toProjectDto } from './dto.js';
+import {
+  compareByDueDateThenPriority,
+  compareByUpdatedAsc,
+  toPlanningRiskItems
+} from './work-risk-sections.js';
 
 export interface PlanningServiceContext {
   actor: ActorContext;
@@ -117,7 +111,7 @@ export class PlanningService {
             (workItem) =>
               isStaleInProgressStatus(workItem.status, workItem.updatedAt, staleCutoff)
           )
-          .sort((left, right) => left.updatedAt.getTime() - right.updatedAt.getTime()),
+          .sort(compareByUpdatedAsc),
         memberById,
         milestoneById
       ),
@@ -144,30 +138,7 @@ export class PlanningService {
     return project;
   }
 
-  private toRiskItems(
-    workItems: WorkItem[],
-    memberById: Map<string, Member>,
-    milestoneById: Map<string, Milestone>
-  ): PlanningRiskItemDto[] {
-    return workItems.map((workItem) => {
-      const assignee =
-        workItem.assigneeId === null ? null : memberById.get(workItem.assigneeId) ?? null;
-      const milestone =
-        workItem.milestoneId === null ? null : milestoneById.get(workItem.milestoneId) ?? null;
-
-      return {
-        id: workItem.id,
-        displayKey: workItem.displayKey,
-        title: workItem.title,
-        status: workItem.status,
-        priority: workItem.priority,
-        assignee: assignee === null ? null : toMemberDto(assignee),
-        dueDate: workItem.dueDate,
-        milestone: milestone === null ? null : toMilestoneDto(milestone),
-        updatedAt: workItem.updatedAt.toISOString()
-      };
-    });
-  }
+  private readonly toRiskItems = toPlanningRiskItems;
 }
 
 function isOpenWorkItem(workItem: WorkItem): boolean {
@@ -180,14 +151,4 @@ function isOverdue(workItem: WorkItem, today: string): boolean {
 
 function isDueSoon(workItem: WorkItem, today: string, dueSoonEnd: string): boolean {
   return isDueSoonDueDate(workItem.dueDate, today, dueSoonEnd);
-}
-
-function compareByDueDateThenPriority(left: WorkItem, right: WorkItem): number {
-  const dueDateCompare = (left.dueDate ?? '').localeCompare(right.dueDate ?? '');
-
-  if (dueDateCompare !== 0) {
-    return dueDateCompare;
-  }
-
-  return priorityRank[right.priority] - priorityRank[left.priority];
 }

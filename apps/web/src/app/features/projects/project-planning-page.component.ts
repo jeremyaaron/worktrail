@@ -82,7 +82,7 @@ interface PlanningReviewSection {
   template: `
     <section class="page-header">
       <div>
-        <p class="eyebrow">Planning</p>
+        <p class="eyebrow">Planning · Live view</p>
         <h1>{{ project()?.name ?? 'Project planning' }}</h1>
         @if (project(); as project) {
           <p>
@@ -93,13 +93,6 @@ interface PlanningReviewSection {
           </p>
         }
       </div>
-
-      <nav aria-label="Project navigation">
-        <a [routerLink]="['/projects', projectId()]">Overview</a>
-        <a [routerLink]="['/projects', projectId(), 'work-items']">Work items</a>
-        <a [routerLink]="['/projects', projectId(), 'board']">Board</a>
-        <a [routerLink]="['/projects', projectId(), 'settings']">Settings</a>
-      </nav>
     </section>
 
     @if (isLoadingProject()) {
@@ -118,6 +111,23 @@ interface PlanningReviewSection {
           <p>Owners and maintainers can change milestones. Contributors can review them here.</p>
         </section>
       }
+
+      <section class="planning-report-bridge" aria-labelledby="planning-report-bridge-heading">
+        <div>
+          <p class="eyebrow">Live view to published snapshots</p>
+          <h2 id="planning-report-bridge-heading">Turn current planning evidence into a report</h2>
+          <p>
+            Planning reflects the current project state. Reports preserve a published snapshot for
+            stakeholders, exports, and later comparison.
+          </p>
+        </div>
+        <nav class="planning-report-bridge__actions" aria-label="Planning report links">
+          <a [routerLink]="['/projects', projectId(), 'status']">View reports</a>
+          @if (canCreateReport()) {
+            <a [routerLink]="['/projects', projectId(), 'status', 'new']">Draft report</a>
+          }
+        </nav>
+      </section>
 
       <div class="planning-view-control" aria-label="Planning view">
         @for (view of planningViews; track view.value) {
@@ -769,6 +779,16 @@ interface PlanningReviewSection {
       font-size: 0.875rem;
     }
 
+    .planning-report-bridge {
+      display: grid;
+      gap: 14px;
+      margin-bottom: 20px;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 14px 16px;
+      background: #eff6ff;
+    }
+
     .planning-view-control {
       display: flex;
       flex-wrap: wrap;
@@ -1340,6 +1360,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
       (member?.role === 'owner' || member?.role === 'maintainer')
     );
   });
+  readonly canCreateReport = computed(() => this.canManageMilestones());
   readonly riskSections = computed<PlanningRiskSection[]>(() => {
     const summary = this.planningSummary();
 

@@ -58,7 +58,11 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
       <app-error-panel [message]="loadError() ?? ''" (retry)="loadWorkItem()" />
     } @else if (workItem(); as item) {
       <section class="detail-header">
-        <app-work-item-detail-summary [item]="item" />
+        <div class="summary-block" aria-labelledby="work-item-summary-heading">
+          <p class="section-eyebrow">Summary</p>
+          <span id="work-item-summary-heading" class="visually-hidden">Work item summary</span>
+          <app-work-item-detail-summary [item]="item" />
+        </div>
 
         <a [routerLink]="returnTarget().path" [queryParams]="returnTarget().queryParams">
           {{ returnTarget().label }}
@@ -77,9 +81,19 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
         </section>
       }
 
+      @if (item.relationships.openBlockerCount > 0 || item.relationships.openBlockedWorkCount > 0) {
+        <section class="dependency-alert" aria-label="Dependency state">
+          <strong>{{ dependencyStateLabel(item) }}</strong>
+          <p>
+            Review dependencies before changing status or publishing updates that reference this work.
+          </p>
+        </section>
+      }
+
       <section class="detail-grid">
         <section class="panel" aria-labelledby="edit-work-item-heading">
-          <h2 id="edit-work-item-heading">Details</h2>
+          <p class="section-eyebrow">Act</p>
+          <h2 id="edit-work-item-heading">Edit work item</h2>
 
           <form class="detail-form" [formGroup]="detailForm" (ngSubmit)="updateWorkItem()" novalidate>
             <label for="detail-title">Title</label>
@@ -228,53 +242,6 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
             </form>
           </section>
 
-          <section class="panel watch-panel" aria-labelledby="watch-heading">
-            <div class="watch-heading">
-              <div>
-                <h2 id="watch-heading">Watchers</h2>
-                <p>{{ watcherCount() }} watching</p>
-              </div>
-              <button
-                type="button"
-                class="secondary-action"
-                [disabled]="isArchivedProject() || isWatchLoading() || isWatchUpdating()"
-                (click)="toggleWatch()"
-              >
-                @if (isWatchUpdating()) {
-                  Updating...
-                } @else if (watchState()?.isWatchedByCurrentActor) {
-                  Unwatch
-                } @else {
-                  Watch
-                }
-              </button>
-            </div>
-
-            @if (watchError()) {
-              <app-error-panel
-                title="Watchers unavailable"
-                [message]="watchError() ?? ''"
-                (retry)="loadWatchState()"
-              />
-            } @else if (isWatchLoading()) {
-              <p class="muted">Loading watchers...</p>
-            } @else if (watchers().length === 0) {
-              <p class="muted">No active watchers.</p>
-            } @else {
-              <details class="watcher-list">
-                <summary>Show watchers</summary>
-                <ul>
-                  @for (watcher of watchers(); track watcher.id) {
-                    <li>
-                      <span>{{ memberDisplayName(watcher.member) }}</span>
-                      <time>{{ formatDateTime(watcher.watchedAt) }}</time>
-                    </li>
-                  }
-                </ul>
-              </details>
-            }
-          </section>
-
           <section class="panel" aria-labelledby="metadata-heading">
             <h2 id="metadata-heading">Metadata</h2>
             <dl class="metadata">
@@ -310,7 +277,8 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
       <section class="panel relationship-panel" aria-labelledby="relationships-heading">
         <div class="panel-heading">
           <div>
-            <h2 id="relationships-heading">Relationships</h2>
+            <p class="section-eyebrow">Dependencies</p>
+            <h2 id="relationships-heading">Blocking and related work</h2>
             <p>Connect blockers, downstream work, and related items across the workspace.</p>
           </div>
         </div>
@@ -500,6 +468,7 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
 
       <section class="collaboration-grid">
         <section class="panel" aria-labelledby="comments-heading">
+          <p class="section-eyebrow">Collaborate</p>
           <h2 id="comments-heading">Comments</h2>
 
           @if (item.comments.length === 0) {
@@ -665,6 +634,57 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
           </form>
         </section>
 
+        <section class="panel watch-panel" aria-labelledby="watch-heading">
+          <div class="watch-heading">
+            <div>
+              <p class="section-eyebrow">Collaborate</p>
+              <h2 id="watch-heading">Watchers</h2>
+              <p>{{ watcherCount() }} watching</p>
+            </div>
+            <button
+              type="button"
+              class="secondary-action"
+              [disabled]="isArchivedProject() || isWatchLoading() || isWatchUpdating()"
+              (click)="toggleWatch()"
+            >
+              @if (isWatchUpdating()) {
+                Updating...
+              } @else if (watchState()?.isWatchedByCurrentActor) {
+                Unwatch
+              } @else {
+                Watch
+              }
+            </button>
+          </div>
+
+          @if (watchError()) {
+            <app-error-panel
+              title="Watchers unavailable"
+              [message]="watchError() ?? ''"
+              (retry)="loadWatchState()"
+            />
+          } @else if (isWatchLoading()) {
+            <p class="muted">Loading watchers...</p>
+          } @else if (watchers().length === 0) {
+            <p class="muted">No active watchers.</p>
+          } @else {
+            <details class="watcher-list">
+              <summary>Show watchers</summary>
+              <ul>
+                @for (watcher of watchers(); track watcher.id) {
+                  <li>
+                    <span>{{ memberDisplayName(watcher.member) }}</span>
+                    <time>{{ formatDateTime(watcher.watchedAt) }}</time>
+                  </li>
+                }
+              </ul>
+            </details>
+          }
+        </section>
+      </section>
+
+      <section class="history-section" aria-label="History">
+        <p class="section-eyebrow">History</p>
         <app-activity-timeline [events]="item.activity" />
       </section>
     }
@@ -672,7 +692,8 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
   styles: `
     .detail-header,
     .detail-grid,
-    .collaboration-grid {
+    .collaboration-grid,
+    .history-section {
       display: grid;
       gap: 18px;
     }
@@ -690,6 +711,7 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
       margin-bottom: 18px;
     }
 
+    h1,
     h2,
     h3,
     p,
@@ -703,6 +725,25 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
       color: #111827;
       font-size: 1rem;
       line-height: 1.35;
+    }
+
+    .section-eyebrow {
+      margin: 0 0 4px;
+      color: #64748b;
+      font-size: 0.72rem;
+      font-weight: 900;
+      letter-spacing: 0;
+      line-height: 1.3;
+      text-transform: uppercase;
+    }
+
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
     }
 
     h3 {
@@ -732,6 +773,24 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
     .notice p {
       margin: 0;
       color: #9a3412;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+
+    .dependency-alert {
+      display: grid;
+      gap: 4px;
+      margin-bottom: 18px;
+      border: 1px solid #fca5a5;
+      border-radius: 8px;
+      padding: 14px;
+      background: #fef2f2;
+      color: #991b1b;
+    }
+
+    .dependency-alert p {
+      margin: 0;
+      color: #991b1b;
       font-size: 0.875rem;
       line-height: 1.5;
     }
@@ -1621,6 +1680,21 @@ export class WorkItemDetailPageComponent implements OnInit {
     }
 
     return 'Add related work';
+  }
+
+  dependencyStateLabel(item: WorkItemDetailDto): string {
+    const blockers = item.relationships.openBlockerCount;
+    const blockedWork = item.relationships.openBlockedWorkCount;
+
+    if (blockers > 0 && blockedWork > 0) {
+      return `Blocked by ${blockers} and blocking ${blockedWork}`;
+    }
+
+    if (blockers > 0) {
+      return `Blocked by ${blockers}`;
+    }
+
+    return `Blocking ${blockedWork}`;
   }
 
   addMentionMember(memberId: string): void {

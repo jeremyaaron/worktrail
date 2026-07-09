@@ -64,7 +64,7 @@ interface BreakdownMetric {
     } @else if (review(); as review) {
       <section class="review-header">
         <div>
-          <p class="eyebrow">Milestone</p>
+          <p class="eyebrow">Milestone review · Live view</p>
           <h1>{{ review.milestone.name }}</h1>
           <div class="review-meta">
             <span>{{ review.project.key }}</span>

@@ -27,15 +27,19 @@ import { LoadingIndicatorComponent } from '../../../shared/ui/loading-indicator.
   ],
   template: `
     @if (isLoading()) {
-      <app-loading-indicator label="Loading status reports" />
+      <app-loading-indicator label="Loading reports" />
     } @else if (error()) {
       <app-error-panel [message]="error() ?? ''" (retry)="loadStatusReports()" />
     } @else if (summary(); as summary) {
       <section class="status-page">
         <div class="status-page__heading">
           <div>
-            <p class="status-page__eyebrow">Status reports</p>
-            <h1>Project status</h1>
+            <p class="status-page__eyebrow">Reports · Published snapshots</p>
+            <h1>Published snapshots</h1>
+            <p class="status-page__copy">
+              Reports preserve point-in-time project evidence. Planning and work pages continue to
+              show live data.
+            </p>
           </div>
 
           <div class="status-page__actions">
@@ -53,10 +57,10 @@ import { LoadingIndicatorComponent } from '../../../shared/ui/loading-indicator.
         </div>
 
         @if (latestReport(); as latest) {
-          <article class="latest-report" aria-labelledby="latest-status-report-heading">
+          <article class="latest-report" aria-labelledby="latest-report-heading">
             <div class="latest-report__content">
               <p class="status-page__eyebrow">Latest report</p>
-              <h2 id="latest-status-report-heading">
+              <h2 id="latest-report-heading">
                 <a [routerLink]="['/projects', projectId(), 'status', latest.id]">
                   {{ latest.title }}
                 </a>
@@ -86,15 +90,15 @@ import { LoadingIndicatorComponent } from '../../../shared/ui/loading-indicator.
           </article>
         } @else {
           <app-empty-state
-            title="No status reports"
+            title="No reports"
             message="Published reports for this project will appear here."
           />
         }
 
         @if (previousReports().length > 0) {
-          <section class="report-list" aria-labelledby="previous-status-reports-heading">
+          <section class="report-list" aria-labelledby="previous-reports-heading">
             <div class="report-list__heading">
-              <h2 id="previous-status-reports-heading">Previous reports</h2>
+              <h2 id="previous-reports-heading">Previous reports</h2>
             </div>
 
             <div class="report-list__items">
@@ -167,6 +171,14 @@ import { LoadingIndicatorComponent } from '../../../shared/ui/loading-indicator.
       color: #111827;
       font-size: 1.05rem;
       line-height: 1.35;
+    }
+
+    .status-page__copy {
+      margin-top: 6px;
+      max-width: 68ch;
+      color: #64748b;
+      font-size: 0.9rem;
+      line-height: 1.5;
     }
 
     .status-page__actions {
@@ -411,7 +423,7 @@ export class ProjectStatusReportListPageComponent implements OnInit {
       error: () => {
         this.summary.set(null);
         this.reports.set([]);
-        this.error.set('Status reports could not be loaded from the API.');
+        this.error.set('Reports could not be loaded from the API.');
         this.isLoading.set(false);
       }
     });

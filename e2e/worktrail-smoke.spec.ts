@@ -91,6 +91,20 @@ function milestoneRiskSection(page: Page, name: string): Locator {
   });
 }
 
+function savedViewsRegion(page: Page): Locator {
+  return page.getByRole('region', { name: 'Saved views', exact: true });
+}
+
+async function openSaveViewForm(page: Page): Promise<void> {
+  const saveView = page.locator('details.saved-view-save');
+
+  await expect(saveView).toBeVisible();
+
+  if (!(await saveView.evaluate((element) => (element as HTMLDetailsElement).open))) {
+    await saveView.locator('summary').click();
+  }
+}
+
 async function openSavedViewManager(page: Page): Promise<void> {
   const manager = page.locator('details.saved-view-manager');
 
@@ -213,7 +227,7 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
   await page.getByRole('link', { name: 'Worktrail App' }).click();
   await expect(projectShellHeading(page, 'Worktrail App')).toBeVisible();
 
-  await page.locator('.project-actions').getByRole('link', { name: 'Planning' }).click();
+  await page.getByLabel('Project sections').getByRole('link', { name: 'Planning' }).click();
   await expect(projectShellHeading(page, 'Worktrail App')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Planning dashboard' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Milestone progress' })).toBeVisible();
@@ -252,7 +266,7 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
     .toContain(label);
 
   await page.getByLabel('Project sections').getByRole('link', { name: 'Overview' }).click();
-  await page.locator('.project-actions').getByRole('link', { name: 'Create work item' }).click();
+  await page.locator('.project-shell__actions').getByRole('link', { name: 'Create' }).click();
   await expect(page.getByRole('heading', { name: 'New project work item' })).toBeVisible();
 
   await page.locator('select[formcontrolname="type"]').selectOption('story');
@@ -363,13 +377,12 @@ test('completes the v0.0.5 daily workspace workflow', async ({ page }) => {
   await filterSearch.focus();
   await expectFocused(filterSearch);
 
+  await openSaveViewForm(page);
   const savedViewNameInput = page.locator('form.saved-view-form').getByLabel('Name');
   await savedViewNameInput.fill(savedViewName);
   await expectFocused(savedViewNameInput);
   await page.getByRole('button', { name: 'Save personal view' }).click();
-  await expect(page.getByRole('region', { name: 'Saved views' })).toContainText(
-    /5 shared · \d+ personal/
-  );
+  await expect(savedViewsRegion(page)).toContainText(/5 shared · \d+ personal/);
 
   await openSavedViewManager(page);
   const savedViewRow = page.locator('article.saved-view-row').filter({ hasText: savedViewName });
@@ -463,8 +476,9 @@ test('opens v0.1.3 shared views as owner and contributor', async ({ page }) => {
   await page.goto('/work-items');
   await expect(page.getByRole('heading', { name: 'Work items', exact: true })).toBeVisible();
   await page.locator('#current-member').selectOption({ label: 'Avery Owner · owner' });
-  const savedViewsRegion = page.getByRole('region', { name: 'Saved views' });
-  await expect(savedViewsRegion).toContainText('5 shared');
+  const savedViews = savedViewsRegion(page);
+  await expect(savedViews).toContainText('5 shared');
+  await openSaveViewForm(page);
   await expect(page.getByRole('button', { name: 'Save shared view' })).toBeVisible();
 
   await openSavedViewManager(page);
@@ -485,7 +499,7 @@ test('opens v0.1.3 shared views as owner and contributor', async ({ page }) => {
   await page.locator('#current-member').selectOption({ label: 'Casey Contributor · contributor' });
   await page.goto('/work-items');
   await expect(page.getByRole('heading', { name: 'Work items', exact: true })).toBeVisible();
-  await expect(savedViewsRegion).toContainText('5 shared');
+  await expect(savedViews).toContainText('5 shared');
   await expect(page.getByText('Owners and maintainers manage shared saved views.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save shared view' })).toHaveCount(0);
 
@@ -517,8 +531,9 @@ test('opens and saves v0.1.4 project saved views as owner and contributor', asyn
   await expect(page.getByRole('heading', { name: 'Project work items' })).toBeVisible();
   await page.locator('#current-member').selectOption({ label: 'Avery Owner · owner' });
 
-  const savedViewsRegion = page.getByRole('region', { name: 'Saved views' });
-  await expect(savedViewsRegion).toContainText(/5 shared · \d+ personal/);
+  const savedViews = savedViewsRegion(page);
+  await expect(savedViews).toContainText(/5 shared · \d+ personal/);
+  await openSaveViewForm(page);
   await expect(page.getByRole('button', { name: 'Save shared view' })).toBeVisible();
 
   await openSavedViewManager(page);
@@ -538,9 +553,10 @@ test('opens and saves v0.1.4 project saved views as owner and contributor', asyn
   await expect(page.getByText('Status: ready')).toBeVisible();
   await expect(page.getByRole('row', { name: /Add filter controls to work item list/ })).toBeVisible();
 
+  await openSaveViewForm(page);
   await page.locator('form.saved-view-form').getByLabel('Name').fill(personalViewName);
   await page.getByRole('button', { name: 'Save personal view' }).click();
-  await expect(savedViewsRegion).toContainText(/5 shared · \d+ personal/);
+  await expect(savedViews).toContainText(/5 shared · \d+ personal/);
 
   const personalSavedViewRow = page
     .getByLabel('Personal project views')
@@ -565,7 +581,7 @@ test('opens and saves v0.1.4 project saved views as owner and contributor', asyn
   await page.locator('#current-member').selectOption({ label: 'Casey Contributor · contributor' });
   await page.goto(`/projects/${demoProjectId}/work-items`);
   await expect(page.getByRole('heading', { name: 'Project work items' })).toBeVisible();
-  await expect(savedViewsRegion).toContainText('5 shared');
+  await expect(savedViews).toContainText('5 shared');
   await expect(page.getByText('Owners and maintainers manage shared project views.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save shared view' })).toHaveCount(0);
   await openSavedViewManager(page);
@@ -666,6 +682,9 @@ test('bulk triages seeded project work and hides controls for contributors', asy
   await expect(wt3Row).not.toContainText('design');
 
   const workItemTable = page.locator('.work-item-table');
+  await expect(workItemTable.getByLabel('Select WT-2')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Bulk edit' }).click();
+  await expect(page.getByRole('button', { name: 'Exit bulk edit' })).toBeVisible();
   await workItemTable.getByLabel('Select WT-2').check();
   await workItemTable.getByLabel('Select WT-3').check();
   const bulkActions = page.getByLabel('Bulk work item actions');
@@ -721,11 +740,10 @@ test('creates and opens a v0.1.5 pinned personal workspace saved view shortcut',
   await seededSavedViewRow.getByRole('button', { name: 'Pin' }).click();
   await expect(page.getByRole('button', { name: 'Open pinned personal view My open work' })).toBeVisible();
 
+  await openSaveViewForm(page);
   await page.locator('form.saved-view-form').getByLabel('Name').fill(savedViewName);
   await page.getByRole('button', { name: 'Save personal view' }).click();
-  await expect(page.getByRole('region', { name: 'Saved views' })).toContainText(
-    /5 shared · \d+ personal/
-  );
+  await expect(savedViewsRegion(page)).toContainText(/5 shared · \d+ personal/);
 
   await openSavedViewManager(page);
   const savedViewRow = page
@@ -799,11 +817,10 @@ test('validates the v0.0.8 dependency workflow', async ({ page, request }) => {
   await expect(dependencyRow).toBeVisible();
   await expect(dependencyRow).toContainText('Blocked by 1');
 
+  await openSaveViewForm(page);
   await page.locator('form.saved-view-form').getByLabel('Name').fill(savedViewName);
   await page.getByRole('button', { name: 'Save personal view' }).click();
-  await expect(page.getByRole('region', { name: 'Saved views' })).toContainText(
-    /5 shared · \d+ personal/
-  );
+  await expect(savedViewsRegion(page)).toContainText(/5 shared · \d+ personal/);
 
   await openSavedViewManager(page);
   const savedViewRow = page.locator('article.saved-view-row').filter({ hasText: savedViewName });
@@ -914,6 +931,7 @@ test('reviews seeded milestone delivery risks and preserves permission-sensitive
   await expect(
     page.getByRole('row', { name: /Triage unassigned onboarding feedback.*WT-7/ })
   ).toBeVisible();
+  await page.getByRole('button', { name: 'Bulk edit' }).click();
   await expect(page.getByRole('checkbox', { name: 'Select WT-7' }).first()).toBeVisible();
 
   await page.locator('#current-member').selectOption({ label: 'Casey Contributor · contributor' });
@@ -945,7 +963,7 @@ test('publishes and reads v0.1.8 project status reports from seeded project stat
   await page.goto(`/projects/${demoProjectId}/status`);
   await page.locator('#current-member').selectOption({ label: 'Avery Owner · owner' });
   await expect(projectShellHeading(page, 'Worktrail App')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Project status' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Published snapshots' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Create report' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Worktrail App weekly status' })).toBeVisible();
 
@@ -963,7 +981,7 @@ test('publishes and reads v0.1.8 project status reports from seeded project stat
   await expect(page.getByRole('heading', { name: 'v0.0.3 Planning' })).toBeVisible();
 
   await page.goto(`/projects/${demoProjectId}/status/new`);
-  await expect(page.getByRole('heading', { name: 'New status report' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Draft report' })).toBeVisible();
   await expect(page.getByLabel('Generated snapshot')).toContainText('Worktrail App');
   await expect(page.getByRole('button', { name: 'Publish report' })).toBeEnabled();
   await page.locator('#report-title').fill(reportTitle);
@@ -983,7 +1001,7 @@ test('publishes and reads v0.1.8 project status reports from seeded project stat
 
   await page.locator('#current-member').selectOption({ label: 'Casey Contributor · contributor' });
   await page.goto(`/projects/${demoProjectId}/status`);
-  await expect(page.getByRole('heading', { name: 'Project status' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Published snapshots' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Create report' })).toHaveCount(0);
   await expect(page.getByText('Only owners and maintainers can publish reports.')).toBeVisible();
   await expect(page.getByRole('link', { name: reportTitle })).toBeVisible();
@@ -1047,7 +1065,7 @@ test('shares v0.1.9 project status reports from seeded report data', async ({ pa
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.locator('#current-member').selectOption({ label: 'Casey Contributor · contributor' });
   await page.goto(`/projects/${demoProjectId}/status`);
-  await expect(page.getByRole('heading', { name: 'Project status' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Published snapshots' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Create report' })).toHaveCount(0);
   await expect(page.getByText('Only owners and maintainers can publish reports.')).toBeVisible();
   await expect(page.getByRole('link', { name: seededReportTitle })).toBeVisible();

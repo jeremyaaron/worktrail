@@ -112,7 +112,7 @@ describe('ProjectShellComponent', () => {
     expect(compiled.textContent).toContain('On track');
     expect(compiled.textContent).toContain('Create');
     expect([...compiled.querySelectorAll('.project-shell__nav a')].map((link) => link.textContent?.trim()))
-      .toEqual(['Overview', 'Work', 'Board', 'Planning', 'Status', 'Settings']);
+      .toEqual(['Overview', 'Work', 'Board', 'Planning', 'Reports', 'Settings']);
   });
 
   it('shows archived read-only notice and hides create action for archived projects', () => {

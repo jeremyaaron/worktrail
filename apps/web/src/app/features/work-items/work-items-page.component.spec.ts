@@ -376,6 +376,18 @@ describe('WorkItemListPageComponent', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
+    const filtersZone = compiled.querySelector<HTMLElement>('.work-list-filters');
+    const chipsElement = filtersZone?.querySelector('app-active-filter-chips');
+    const filterPanelElement = filtersZone?.querySelector('app-work-item-filter-panel');
+    expect(compiled.querySelector('.work-list-views')).not.toBeNull();
+    expect(filtersZone).not.toBeNull();
+    expect(compiled.querySelector('.work-list-actions')).not.toBeNull();
+    expect(compiled.querySelector('.work-list-results')).not.toBeNull();
+    expect(chipsElement).not.toBeNull();
+    expect(filterPanelElement).not.toBeNull();
+    expect(
+      Boolean(chipsElement!.compareDocumentPosition(filterPanelElement!) & Node.DOCUMENT_POSITION_FOLLOWING)
+    ).toBeTrue();
     expect(compiled.textContent).toContain('WT-3');
     expect(compiled.textContent).toContain('Implement work item API client');
     expect(compiled.textContent).toContain('Case Contributor');
@@ -409,9 +421,19 @@ describe('WorkItemListPageComponent', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
+    expect(fixture.componentInstance.canEnterBulkEdit()).toBeTrue();
+    expect(fixture.componentInstance.canSelectWorkItems()).toBeFalse();
+    expect(compiled.querySelector('button.bulk-edit-entry')?.textContent?.trim()).toBe('Bulk edit');
+    expect(compiled.querySelector('input[aria-label="Select all visible work items"]')).toBeNull();
+    expect(compiled.querySelector('input[aria-label="Select WT-3"]')).toBeNull();
+
+    fixture.componentInstance.enterBulkEdit();
+    fixture.detectChanges();
+
     expect(fixture.componentInstance.canSelectWorkItems()).toBeTrue();
     expect(compiled.querySelector('input[aria-label="Select all visible work items"]')).not.toBeNull();
     expect(compiled.querySelector('input[aria-label="Select WT-3"]')).not.toBeNull();
+    expect(compiled.textContent).toContain('Exit bulk edit');
 
     fixture.componentInstance.toggleWorkItemSelection(workItem.id);
     expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([workItem.id]);
@@ -437,10 +459,13 @@ describe('WorkItemListPageComponent', () => {
     http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
     fixture.detectChanges();
 
+    expect(fixture.componentInstance.canEnterBulkEdit()).toBeFalse();
     expect(fixture.componentInstance.canSelectWorkItems()).toBeFalse();
+    expect((fixture.nativeElement as HTMLElement).querySelector('button.bulk-edit-entry')).toBeNull();
     expect((fixture.nativeElement as HTMLElement).querySelector('input[aria-label="Select WT-3"]')).toBeNull();
 
     fixture.componentInstance.toggleWorkItemSelection(workItem.id);
+    fixture.componentInstance.enterBulkEdit();
     fixture.componentInstance.toggleAllVisibleSelection();
     expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([]);
   });
@@ -459,6 +484,7 @@ describe('WorkItemListPageComponent', () => {
     ]);
     fixture.detectChanges();
 
+    fixture.componentInstance.enterBulkEdit();
     fixture.componentInstance.toggleAllVisibleSelection();
     expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([workItem.id, readyWorkItem.id]);
 
@@ -483,12 +509,14 @@ describe('WorkItemListPageComponent', () => {
     flushProjectSavedViews(http, [sharedProjectSavedView]);
     http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
 
+    fixture.componentInstance.enterBulkEdit();
     fixture.componentInstance.toggleWorkItemSelection(workItem.id);
     expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([workItem.id]);
 
     fixture.componentInstance.openSavedView(sharedProjectSavedView);
 
     expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([]);
+    expect(fixture.componentInstance.isBulkEditActive()).toBeFalse();
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
       queryParams: jasmine.objectContaining({
@@ -506,6 +534,7 @@ describe('WorkItemListPageComponent', () => {
     flushProjectWorkPage(http, [workItem]);
     fixture.detectChanges();
 
+    fixture.componentInstance.enterBulkEdit();
     fixture.componentInstance.toggleWorkItemSelection(workItem.id);
     fixture.detectChanges();
 
@@ -532,6 +561,7 @@ describe('WorkItemListPageComponent', () => {
     fixture.detectChanges();
     flushProjectWorkPage(http, [workItem]);
 
+    fixture.componentInstance.enterBulkEdit();
     fixture.componentInstance.toggleWorkItemSelection(workItem.id);
     fixture.componentInstance.bulkActionForm.patchValue({ actionType: 'add_labels' });
     fixture.detectChanges();
@@ -605,6 +635,8 @@ describe('WorkItemListPageComponent', () => {
       }
     ] as const;
 
+    fixture.componentInstance.enterBulkEdit();
+
     for (const item of cases) {
       fixture.componentInstance.clearSelection();
       fixture.componentInstance.bulkActionForm.setValue({
@@ -642,6 +674,7 @@ describe('WorkItemListPageComponent', () => {
     fixture.detectChanges();
     flushProjectWorkPage(http, [workItem, readyWorkItem]);
 
+    fixture.componentInstance.enterBulkEdit();
     fixture.componentInstance.toggleAllVisibleSelection();
     fixture.componentInstance.bulkActionForm.patchValue({
       actionType: 'transition_status',
@@ -693,6 +726,7 @@ describe('WorkItemListPageComponent', () => {
     fixture.detectChanges();
     flushProjectWorkPage(http, [workItem]);
 
+    fixture.componentInstance.enterBulkEdit();
     fixture.componentInstance.toggleWorkItemSelection(workItem.id);
     fixture.componentInstance.bulkActionForm.patchValue({
       actionType: 'set_priority',
@@ -721,6 +755,7 @@ describe('WorkItemListPageComponent', () => {
     fixture.detectChanges();
     flushProjectWorkPage(http, [workItem]);
 
+    fixture.componentInstance.enterBulkEdit();
     fixture.componentInstance.toggleWorkItemSelection(workItem.id);
     fixture.componentInstance.bulkActionForm.patchValue({
       actionType: 'set_priority',
@@ -749,6 +784,7 @@ describe('WorkItemListPageComponent', () => {
     fixture.detectChanges();
     flushProjectWorkPage(http, [workItem, readyWorkItem]);
 
+    fixture.componentInstance.enterBulkEdit();
     fixture.componentInstance.toggleAllVisibleSelection();
     fixture.componentInstance.bulkActionForm.patchValue({
       actionType: 'set_priority',

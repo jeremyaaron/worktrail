@@ -208,6 +208,7 @@ describe('ProjectMilestoneReviewPageComponent', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Milestone review · Live view');
     expect(compiled.textContent).toContain('v0.1.7');
     expect(compiled.textContent).toContain('Milestone review release.');
     expect(compiled.textContent).toContain('WT');

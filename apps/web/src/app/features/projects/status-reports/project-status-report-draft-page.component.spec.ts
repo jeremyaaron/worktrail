@@ -249,6 +249,9 @@ describe('ProjectStatusReportDraftPageComponent', () => {
     expect(input('#report-status-date').value).toBe('2026-07-10');
     expect(textarea('#report-summary').value).toContain('Project is at risk');
     expect(textarea('#report-risks').value).toBe('Blocked work: 1');
+    expect(compiled.textContent).toContain('Reports · Draft report');
+    expect(compiled.textContent).toContain('Editable narrative');
+    expect(compiled.textContent).toContain('Generated evidence');
     expect(compiled.textContent).toContain('At risk');
     expect(compiled.textContent).toContain('Open');
     expect(compiled.textContent).toContain('5');

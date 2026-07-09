@@ -443,7 +443,10 @@ describe('ProjectStatusReportDetailPageComponent', () => {
     const actionButtons = compiled.querySelectorAll<HTMLButtonElement>('.report-actions button');
 
     expect(actions).not.toBeNull();
-    expect(actions?.getAttribute('aria-label')).toBe('Status report sharing actions');
+    expect(actions?.getAttribute('aria-label')).toBe('Report sharing actions');
+    expect(compiled.textContent).toContain('Reports · Published snapshots');
+    expect(compiled.textContent).toContain('Share and export');
+    expect(compiled.textContent).toContain('Report actions');
     expect(actionButtons.length).toBe(3);
     expect([...actionButtons].every((button) => button.type === 'button')).toBeTrue();
   });
@@ -469,7 +472,7 @@ describe('ProjectStatusReportDetailPageComponent', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
 
-    expect(compiled.textContent).toContain('Status report could not be loaded from the API.');
+    expect(compiled.textContent).toContain('Report could not be loaded from the API.');
     expect(compiled.querySelector('.report-hero')).toBeNull();
   });
 });

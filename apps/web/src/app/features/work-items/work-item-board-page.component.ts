@@ -47,15 +47,6 @@ const terminalStatuses = new Set<WorkItemStatus>(['done', 'canceled']);
         <h1>Project board</h1>
         <p>Move work through the workflow with status menus.</p>
       </div>
-
-      <nav aria-label="Project work navigation">
-        <a [routerLink]="['/projects', projectId(), 'work-items']">List</a>
-        <a [routerLink]="['/projects', projectId(), 'planning']">Planning</a>
-        <a [routerLink]="['/projects', projectId(), 'settings']">Settings</a>
-        @if (!isArchivedProject()) {
-          <a [routerLink]="['/projects', projectId(), 'work-items', 'new']">Create work item</a>
-        }
-      </nav>
     </section>
 
     @if (isArchivedProject()) {

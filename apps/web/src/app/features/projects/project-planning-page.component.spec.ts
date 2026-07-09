@@ -333,16 +333,16 @@ describe('ProjectPlanningPageComponent', () => {
     TestBed.inject(HttpTestingController).verify();
   });
 
-  it('opens planning review with project navigation links', () => {
+  it('opens planning review without duplicating project shell navigation', () => {
     const { fixture } = setupPlanningPage();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    const links = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('nav a')).map((link) => ({
-      text: link.textContent?.trim(),
-      href: link.getAttribute('href')
-    }));
 
     expect(compiled.textContent).toContain('Worktrail App');
+    expect(compiled.textContent).toContain('Planning · Live view');
+    expect(compiled.textContent).toContain('Live view to published snapshots');
+    expect(compiled.textContent).toContain('View reports');
+    expect(compiled.textContent).toContain('Draft report');
     expect(compiled.textContent).toContain('v0.0.3');
     expect(compiled.textContent).toContain('Planning dashboard');
     expect(compiled.textContent).toContain('6 risks');
@@ -350,12 +350,7 @@ describe('ProjectPlanningPageComponent', () => {
     expect(compiled.textContent).toContain('Blocked');
     expect(compiled.querySelector('button[aria-pressed="true"]')?.textContent?.trim()).toBe('Review');
     expect(compiled.querySelector('button[type="submit"]')).toBeNull();
-    expect(links).toEqual([
-      { text: 'Overview', href: `/projects/${projectId}` },
-      { text: 'Work items', href: `/projects/${projectId}/work-items` },
-      { text: 'Board', href: `/projects/${projectId}/board` },
-      { text: 'Settings', href: `/projects/${projectId}/settings` }
-    ]);
+    expect(compiled.querySelector('nav[aria-label="Project navigation"]')).toBeNull();
   });
 
   it('switches milestone management into a URL-backed planning view', () => {
