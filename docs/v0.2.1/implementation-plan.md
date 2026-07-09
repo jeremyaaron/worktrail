@@ -210,6 +210,57 @@ npm run lint --workspace @worktrail/contracts
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-09.
+- Added `packages/contracts/src/cycles.ts` with:
+  - `ProjectCycleStatus`;
+  - `ProjectCycleDto`;
+  - `CreateProjectCycleRequest`;
+  - `UpdateProjectCycleRequest`;
+  - `CycleReviewRiskType`;
+  - `CycleReviewProgressDto`;
+  - `CycleReviewScopeBreakdownDto`;
+  - `CycleReviewRiskSectionDto`;
+  - `ProjectCycleReviewDto`.
+- Exported cycle contracts from `packages/contracts/src/index.ts`.
+- Updated `packages/contracts/src/work-items.ts` with:
+  - `cycleId?: string` on `WorkItemQuery`;
+  - `cycleId?: string | null` on create/update requests;
+  - required `cycle: ProjectCycleDto | null` on work item list/detail DTOs;
+  - bulk `set_cycle` and `clear_cycle` actions.
+- Updated `packages/contracts/src/planning.ts` with:
+  - `ProjectPlanningCycleSummaryDto`;
+  - nullable `activeCycle`, `upcomingCycle`, and `recentlyCompletedCycle` fields on `ProjectPlanningSummaryDto`.
+- Updated `packages/contracts/src/projects.ts` with:
+  - `ProjectStatusReportCycleSnapshotDto`;
+  - optional nullable `cycle` on `ProjectStatusReportSnapshotDto`;
+  - `cycle_review` report link type and optional `cycleId` link field.
+- Added `work_item.cycle_changed` to:
+  - `packages/contracts/src/activity.ts`;
+  - `apps/api/src/domain/constants.ts`.
+- Added `projectCycleStatuses` and `ProjectCycleStatus` to `apps/api/src/domain/constants.ts`.
+- Added `packages/contracts/src/cycles.contract.test.ts` covering cycle DTOs, requests, cycle review DTOs, planning cycle summaries, risk types, query links, and cycle activity events.
+- Updated existing contract tests for:
+  - work item `cycleId` query support;
+  - work item DTO `cycle` field;
+  - bulk cycle actions;
+  - optional report cycle snapshots;
+  - cycle review report links.
+- Added temporary API compatibility placeholders so existing API and web consumers continue to compile before schema/service hydration phases:
+  - work item DTO mapping returns `cycle: null`;
+  - Planning summaries return null cycle summaries;
+  - project bulk cycle actions currently fail with a validation error until Phase 6 implements real behavior.
+- Verified:
+  - `npm test --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/contracts`;
+  - `npm run lint --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/api`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `git diff --check`.
+
 ## Phase 2: Schema, Migration, And Repository
 
 Goal: add persisted project cycles and repository access.

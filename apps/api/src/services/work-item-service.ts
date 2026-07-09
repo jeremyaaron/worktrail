@@ -648,6 +648,10 @@ export class WorkItemService {
       return current.milestoneId === null ? null : { patch: { milestoneId: null } };
     }
 
+    if (action.type === 'set_cycle' || action.type === 'clear_cycle') {
+      throw new ValidationError('Cycle bulk actions are not available yet.');
+    }
+
     if (action.type === 'set_due_date') {
       return current.dueDate === action.dueDate ? null : { patch: { dueDate: action.dueDate } };
     }

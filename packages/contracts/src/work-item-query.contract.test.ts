@@ -19,6 +19,7 @@ describe('work item query contracts', () => {
       dueDateState: 'due_soon',
       dependency: 'dependency_blocked',
       workRisk: 'stale_in_progress',
+      cycleId: 'c29686e0-b0ab-4ac8-901f-b9c6ca5963f9',
       archivedProjects: 'exclude',
       search: 'api',
       sort: 'priority_desc'
@@ -31,6 +32,7 @@ describe('work item query contracts', () => {
       dueDateState: 'due_soon',
       dependency: 'dependency_blocked',
       workRisk: 'stale_in_progress',
+      cycleId: 'c29686e0-b0ab-4ac8-901f-b9c6ca5963f9',
       archivedProjects: 'exclude',
       search: 'api',
       sort: 'priority_desc'
@@ -142,6 +144,9 @@ describe('work item query contracts', () => {
         reasons: []
       },
       milestoneProgress: [],
+      activeCycle: null,
+      upcomingCycle: null,
+      recentlyCompletedCycle: null,
       planningReview: {
         needsAttention: [
           {

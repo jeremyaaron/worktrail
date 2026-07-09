@@ -77,6 +77,9 @@ export class PlanningService {
       project: toProjectDto(project),
       deliveryHealth: healthSummary.deliveryHealth,
       milestoneProgress: healthSummary.milestoneProgress,
+      activeCycle: null,
+      upcomingCycle: null,
+      recentlyCompletedCycle: null,
       planningReview: healthSummary.planningReview,
       blockedWork: this.toRiskItems(
         workItems.filter((workItem) => workItem.status === 'blocked'),

@@ -8,6 +8,7 @@ import type {
   MilestoneDto,
   PlanningRiskItemDto,
   ProjectDto,
+  ProjectStatusReportCycleSnapshotDto,
   ProjectStatusReportDetailDto,
   ProjectStatusReportDraftDto,
   ProjectStatusReportLinkDto,
@@ -69,6 +70,32 @@ const healthReason = {
   count: 1,
   query: riskQuery
 } satisfies DeliveryHealthReasonDto;
+
+const cycleLink = {
+  type: 'cycle_review',
+  label: 'Open cycle review',
+  projectId: project.id,
+  cycleId: 'cycle-id'
+} satisfies ProjectStatusReportLinkDto;
+
+const cycleSnapshot = {
+  id: 'cycle-id',
+  name: 'v0.2.1 Cycle Planning',
+  goal: 'Commit and review cycle planning scope.',
+  status: 'active',
+  startDate: '2026-07-06',
+  endDate: '2026-07-17',
+  targetPoints: 24,
+  committedEstimatePoints: 21,
+  completedEstimatePoints: 8,
+  openWorkCount: 4,
+  blockedWorkCount: 1,
+  dependencyBlockedWorkCount: 1,
+  unestimatedWorkCount: 1,
+  health: 'at_risk',
+  reasons: [healthReason],
+  links: [cycleLink]
+} satisfies ProjectStatusReportCycleSnapshotDto;
 
 const riskItem = {
   id: 'work-item-id',
@@ -139,6 +166,7 @@ const snapshot = {
       reasons: [healthReason]
     }
   ],
+  cycle: cycleSnapshot,
   risks: [
     {
       type: 'stale_in_progress',
@@ -157,6 +185,7 @@ describe('project status report contracts', () => {
     expect(snapshot.health.health).toBe('at_risk');
     expect(snapshot.counts.staleInProgressWorkCount).toBe(1);
     expect(snapshot.milestones[0]?.name).toBe('July release');
+    expect(snapshot.cycle?.links[0]?.type).toBe('cycle_review');
     expect(snapshot.risks[0]?.query.workRisk).toBe('stale_in_progress');
     expect(snapshot.recentWork[0]?.displayKey).toBe('WT-42');
     expectTypeOf(snapshot).toMatchTypeOf<ProjectStatusReportSnapshotDto>();
@@ -217,9 +246,10 @@ describe('project status report contracts', () => {
     const linkTypes = [
       'project_work',
       'milestone_review',
+      'cycle_review',
       'work_item'
     ] satisfies ProjectStatusReportLinkType[];
-    const links = [
+    const links: ProjectStatusReportLinkDto[] = [
       {
         type: 'project_work',
         label: 'Open stale work',
@@ -232,13 +262,14 @@ describe('project status report contracts', () => {
         projectId: project.id,
         milestoneId: milestone.id
       },
+      cycleLink,
       {
         type: 'work_item',
         label: 'Open WT-42',
         projectId: project.id,
         workItemId: riskItem.id
       }
-    ] satisfies ProjectStatusReportLinkDto[];
+    ];
     const riskTypes = [
       'blocked',
       'dependency_blocked',
@@ -250,8 +281,9 @@ describe('project status report contracts', () => {
     ] satisfies ProjectStatusReportRiskType[];
     const eventType = 'status_report.published' satisfies ActivityEventType;
 
-    expect(linkTypes).toEqual(['project_work', 'milestone_review', 'work_item']);
+    expect(linkTypes).toEqual(['project_work', 'milestone_review', 'cycle_review', 'work_item']);
     expect(links[0]?.query?.workRisk).toBe('stale_in_progress');
+    expect(links[2]?.cycleId).toBe('cycle-id');
     expect(riskTypes).toContain('blocking_open_work');
     expect(eventType).toBe('status_report.published');
   });

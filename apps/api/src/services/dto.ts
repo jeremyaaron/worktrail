@@ -249,6 +249,7 @@ export function toWorkItemListItemDto(input: {
     reporter: toMemberDto(input.reporter),
     labels: input.labels.map(toLabelDto),
     milestone: input.milestone == null ? null : toMilestoneDto(input.milestone),
+    cycle: null,
     boardPosition: input.workItem.boardPosition,
     dueDate: input.workItem.dueDate,
     estimatePoints: input.workItem.estimatePoints,

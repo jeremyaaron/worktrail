@@ -4,6 +4,7 @@ import type {
   ProjectDeliveryHealthDto
 } from './health.js';
 import type { MemberDto } from './members.js';
+import type { ProjectCycleStatus } from './cycles.js';
 import type { MilestoneStatus, PlanningRiskItemDto } from './planning.js';
 import type { WorkItemQuery, WorkItemStatus } from './work-items.js';
 
@@ -93,6 +94,7 @@ export interface ProjectStatusReportMilestoneSnapshotDto {
 export type ProjectStatusReportLinkType =
   | 'project_work'
   | 'milestone_review'
+  | 'cycle_review'
   | 'work_item';
 
 export interface ProjectStatusReportLinkDto {
@@ -101,6 +103,7 @@ export interface ProjectStatusReportLinkDto {
   projectId: string;
   query?: WorkItemQuery;
   milestoneId?: string;
+  cycleId?: string;
   workItemId?: string;
 }
 
@@ -121,6 +124,25 @@ export interface ProjectStatusReportRiskSnapshotDto {
   items: PlanningRiskItemDto[];
 }
 
+export interface ProjectStatusReportCycleSnapshotDto {
+  id: string;
+  name: string;
+  goal: string;
+  status: ProjectCycleStatus;
+  startDate: string;
+  endDate: string;
+  targetPoints: number | null;
+  committedEstimatePoints: number;
+  completedEstimatePoints: number;
+  openWorkCount: number;
+  blockedWorkCount: number;
+  dependencyBlockedWorkCount: number;
+  unestimatedWorkCount: number;
+  health: DeliveryHealthState;
+  reasons: DeliveryHealthReasonDto[];
+  links: ProjectStatusReportLinkDto[];
+}
+
 export interface ProjectStatusReportSnapshotDto {
   snapshotVersion: 1;
   generatedAt: string;
@@ -133,6 +155,7 @@ export interface ProjectStatusReportSnapshotDto {
   health: ProjectDeliveryHealthDto;
   counts: ProjectStatusReportCountSnapshotDto;
   milestones: ProjectStatusReportMilestoneSnapshotDto[];
+  cycle?: ProjectStatusReportCycleSnapshotDto | null;
   risks: ProjectStatusReportRiskSnapshotDto[];
   recentWork: PlanningRiskItemDto[];
 }
