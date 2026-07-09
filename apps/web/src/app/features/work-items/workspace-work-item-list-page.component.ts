@@ -114,67 +114,73 @@ interface WorkspaceFilterFormValue {
     WorkItemResultListComponent
   ],
   template: `
-    <section class="page-header">
-      <div>
-        <p class="eyebrow">Workspace</p>
-        <h1>Work items</h1>
-        <p>Find work across projects, owners, priorities, and due dates.</p>
-      </div>
+    <div class="work-list-page">
+      <section class="page-header">
+        <div>
+          <p class="eyebrow">Workspace</p>
+          <h1>Work items</h1>
+          <p>Find work across projects, owners, priorities, and due dates.</p>
+        </div>
 
-      <div class="header-actions">
-        <button type="button" class="secondary-action" [disabled]="isCopyingViewLink()" (click)="copyViewLink()">
-          {{ isCopyingViewLink() ? 'Copying...' : 'Copy link' }}
-        </button>
-        <button
-          type="button"
-          class="secondary-action"
-          title="Export the applied workspace filters as CSV"
-          aria-label="Export applied workspace filters as CSV"
-          [disabled]="isExporting()"
-          (click)="exportCsv()"
-        >
-          {{ isExporting() ? 'Exporting...' : 'Export CSV' }}
-        </button>
-        <a class="primary-action" routerLink="/work-items/new">Create work item</a>
-        @if (copyLinkStatus()) {
-          <span class="copy-link-status" aria-live="polite">{{ copyLinkStatus() }}</span>
-        }
-      </div>
-    </section>
+        <div class="header-actions">
+          <button type="button" class="secondary-action" [disabled]="isCopyingViewLink()" (click)="copyViewLink()">
+            {{ isCopyingViewLink() ? 'Copying...' : 'Copy link' }}
+          </button>
+          <button
+            type="button"
+            class="secondary-action"
+            title="Export the applied workspace filters as CSV"
+            aria-label="Export applied workspace filters as CSV"
+            [disabled]="isExporting()"
+            (click)="exportCsv()"
+          >
+            {{ isExporting() ? 'Exporting...' : 'Export CSV' }}
+          </button>
+          <a class="primary-action" routerLink="/work-items/new">Create work item</a>
+          @if (copyLinkStatus()) {
+            <span class="copy-link-status" aria-live="polite">{{ copyLinkStatus() }}</span>
+          }
+        </div>
+      </section>
 
-    @if (exportError()) {
-      <p class="inline-error export-error">{{ exportError() }}</p>
-    }
+      @if (exportError()) {
+        <p class="inline-error export-error">{{ exportError() }}</p>
+      }
 
-    <app-pinned-saved-views
-      [sharedViews]="pinnedWorkspaceSavedViews()"
-      [personalViews]="pinnedPersonalSavedViews()"
-      (open)="openSavedView($event)"
-    />
+      <section class="work-list-views" aria-label="Workspace saved views">
+        <app-pinned-saved-views
+          [sharedViews]="pinnedWorkspaceSavedViews()"
+          [personalViews]="pinnedPersonalSavedViews()"
+          (open)="openSavedView($event)"
+        />
 
-    <app-saved-views-toolbar
-      [personalViews]="personalSavedViews()"
-      [sharedViews]="workspaceSavedViews()"
-      [canManageSharedViews]="canManageWorkspaceSavedViews()"
-      [draftNames]="savedViewDraftNames()"
-      [isLoading]="isSavedViewLoading()"
-      [isSaving]="isSavingView()"
-      [loadError]="savedViewLoadError()"
-      [mutationError]="savedViewMutationError()"
-      querySummaryScope="workspace"
-      emptyMessage="Save the current filters to reuse this workspace view."
-      sharedHelper="Owners and maintainers manage shared saved views."
-      (savePersonal)="saveCurrentViewName($event)"
-      (saveWorkspace)="saveWorkspaceViewName($event)"
-      (open)="openSavedView($event)"
-      (rename)="renameSavedView($event)"
-      (updateQuery)="updateSavedViewQuery($event)"
-      (pinChange)="setSavedViewPinned($event.savedView, $event.isPinned)"
-      (delete)="deleteSavedView($event)"
-      (draftNameChange)="setSavedViewDraftName($event.savedViewId, $event.name)"
-    />
+        <app-saved-views-toolbar
+          [personalViews]="personalSavedViews()"
+          [sharedViews]="workspaceSavedViews()"
+          [canManageSharedViews]="canManageWorkspaceSavedViews()"
+          [draftNames]="savedViewDraftNames()"
+          [isLoading]="isSavedViewLoading()"
+          [isSaving]="isSavingView()"
+          [loadError]="savedViewLoadError()"
+          [mutationError]="savedViewMutationError()"
+          querySummaryScope="workspace"
+          emptyMessage="Save the current filters to reuse this workspace view."
+          sharedHelper="Owners and maintainers manage shared saved views."
+          (savePersonal)="saveCurrentViewName($event)"
+          (saveWorkspace)="saveWorkspaceViewName($event)"
+          (open)="openSavedView($event)"
+          (rename)="renameSavedView($event)"
+          (updateQuery)="updateSavedViewQuery($event)"
+          (pinChange)="setSavedViewPinned($event.savedView, $event.isPinned)"
+          (delete)="deleteSavedView($event)"
+          (draftNameChange)="setSavedViewDraftName($event.savedViewId, $event.name)"
+        />
+      </section>
 
-    <app-work-item-filter-panel [formGroup]="filterForm" (apply)="applyFilters()">
+      <section class="work-list-filters" aria-label="Workspace work item filters">
+        <app-active-filter-chips [labels]="activeFilterLabels()" (remove)="removeActiveFilter($event)" />
+
+        <app-work-item-filter-panel [formGroup]="filterForm" (apply)="applyFilters()">
       <label filterCore class="filters__search">
         <span>Search</span>
         <input type="search" formControlName="search" placeholder="Key, title, or description" />
@@ -324,30 +330,52 @@ interface WorkspaceFilterFormValue {
       <div filterActions class="filter-actions">
         <button type="button" class="secondary-action" (click)="resetFilters()">Reset</button>
       </div>
-    </app-work-item-filter-panel>
+        </app-work-item-filter-panel>
+      </section>
 
-    <app-active-filter-chips [labels]="activeFilterLabels()" (remove)="removeActiveFilter($event)" />
-
-    <app-work-item-result-list
-      [items]="workItems()"
-      mode="workspace"
-      [isLoading]="isLoading()"
-      [error]="error()"
-      loadingLabel="Loading workspace work items"
-      ariaLabel="Workspace work items"
-      [emptyTitle]="activeFilterLabels().length > 0 ? 'No work items match these filters' : 'No work items found'"
-      [emptyMessage]="activeFilterLabels().length > 0 ? 'Reset filters or adjust the criteria to broaden the list.' : 'Workspace work from active projects will appear here.'"
-      [returnUrl]="detailReturnUrl()"
-      (retry)="loadWorkItems()"
-    />
+      <section class="work-list-results" aria-label="Workspace work item results">
+        <app-work-item-result-list
+          [items]="workItems()"
+          mode="workspace"
+          [isLoading]="isLoading()"
+          [error]="error()"
+          loadingLabel="Loading workspace work items"
+          ariaLabel="Workspace work items"
+          [emptyTitle]="activeFilterLabels().length > 0 ? 'No work items match these filters' : 'No work items found'"
+          [emptyMessage]="activeFilterLabels().length > 0 ? 'Reset filters or adjust the criteria to broaden the list.' : 'Workspace work from active projects will appear here.'"
+          [returnUrl]="detailReturnUrl()"
+          (retry)="loadWorkItems()"
+        />
+      </section>
+    </div>
   `,
   styles: `
+    .work-list-page {
+      display: grid;
+      gap: 14px;
+    }
+
+    .work-list-views,
+    .work-list-filters,
+    .work-list-results {
+      display: grid;
+      gap: 10px;
+    }
+
+    app-active-filter-chips,
+    app-pinned-saved-views,
+    app-saved-views-toolbar,
+    app-work-item-filter-panel,
+    app-work-item-result-list {
+      display: block;
+    }
+
     .page-header {
       display: flex;
       justify-content: space-between;
       gap: 20px;
       align-items: flex-start;
-      margin-bottom: 20px;
+      margin-bottom: 0;
     }
 
     .header-actions {
@@ -426,7 +454,7 @@ interface WorkspaceFilterFormValue {
     }
 
     .export-error {
-      margin-bottom: 18px;
+      margin-bottom: 0;
     }
 
     .copy-link-status {

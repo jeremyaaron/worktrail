@@ -376,6 +376,18 @@ describe('WorkItemListPageComponent', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
+    const filtersZone = compiled.querySelector<HTMLElement>('.work-list-filters');
+    const chipsElement = filtersZone?.querySelector('app-active-filter-chips');
+    const filterPanelElement = filtersZone?.querySelector('app-work-item-filter-panel');
+    expect(compiled.querySelector('.work-list-views')).not.toBeNull();
+    expect(filtersZone).not.toBeNull();
+    expect(compiled.querySelector('.work-list-actions')).not.toBeNull();
+    expect(compiled.querySelector('.work-list-results')).not.toBeNull();
+    expect(chipsElement).not.toBeNull();
+    expect(filterPanelElement).not.toBeNull();
+    expect(
+      Boolean(chipsElement!.compareDocumentPosition(filterPanelElement!) & Node.DOCUMENT_POSITION_FOLLOWING)
+    ).toBeTrue();
     expect(compiled.textContent).toContain('WT-3');
     expect(compiled.textContent).toContain('Implement work item API client');
     expect(compiled.textContent).toContain('Case Contributor');

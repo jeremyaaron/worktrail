@@ -463,7 +463,30 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-09.
+- Consolidated workspace and project work-list templates into explicit operating zones:
+  - page header;
+  - saved-view shortcuts and saved-view management;
+  - active filter chips and filter panel;
+  - project action mode;
+  - results.
+- Moved active filter chips above the collapsible filter panel so applied filters remain visible even when filters are collapsed on mobile.
+- Kept pinned saved-view shortcuts visible above saved-view management.
+- Preserved existing header actions:
+  - copy link;
+  - CSV export;
+  - workspace create;
+  - project import and create.
+- Preserved project bulk-action behavior while placing it in the new `work-list-actions` zone.
+- Normalized parent page spacing around zones so the result list depends on consistent grid gaps instead of stacked section margins.
+- Updated focused work-list specs to verify:
+  - workspace/project zone rendering;
+  - active chips precede the collapsible filter panel;
+  - existing query, action, saved-view, and result behavior remains intact.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --watch=false --browsers=ChromeHeadless --include 'src/app/features/work-items/workspace-work-item-list-page.component.spec.ts' --include 'src/app/features/work-items/work-items-page.component.spec.ts'`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`.
 
 ## Phase 6: Explicit Project Bulk Triage Mode
 

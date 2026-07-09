@@ -310,11 +310,22 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
+    const filtersZone = compiled.querySelector<HTMLElement>('.work-list-filters');
+    const chipsElement = filtersZone?.querySelector('app-active-filter-chips');
+    const filterPanelElement = filtersZone?.querySelector('app-work-item-filter-panel');
     const activeFilters = Array.from(compiled.querySelectorAll('.active-filters span')).map(
       (item) => item.textContent?.trim()
     );
     const rowLink = compiled.querySelector<HTMLAnchorElement>('.work-item-title-link');
 
+    expect(compiled.querySelector('.work-list-views')).not.toBeNull();
+    expect(filtersZone).not.toBeNull();
+    expect(compiled.querySelector('.work-list-results')).not.toBeNull();
+    expect(chipsElement).not.toBeNull();
+    expect(filterPanelElement).not.toBeNull();
+    expect(
+      Boolean(chipsElement!.compareDocumentPosition(filterPanelElement!) & Node.DOCUMENT_POSITION_FOLLOWING)
+    ).toBeTrue();
     expect(compiled.textContent).toContain('Design workspace discovery');
     expect(compiled.textContent).toContain('Export CSV');
     expect(

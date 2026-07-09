@@ -129,13 +129,14 @@ const defaultFilterValues: WorkItemFilterFormValue = {
     WorkItemResultListComponent
   ],
   template: `
+    <div class="work-list-page">
     <section class="page-header">
       <div>
         <p class="eyebrow">Work items</p>
         <h1>Project work items</h1>
         <p>Scan, filter, and open project work.</p>
       </div>
-      <nav aria-label="Project work actions">
+      <nav class="header-actions" aria-label="Project work actions">
         <button type="button" class="secondary-header-action" [disabled]="isCopyingViewLink()" (click)="copyViewLink()">
           {{ isCopyingViewLink() ? 'Copying...' : 'Copy link' }}
         </button>
@@ -174,6 +175,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
       </section>
     }
 
+    <section class="work-list-views" aria-label="Project saved views">
     <app-pinned-saved-views
       heading="Project pinned views"
       [sharedViews]="pinnedSharedSavedViews()"
@@ -209,6 +211,10 @@ const defaultFilterValues: WorkItemFilterFormValue = {
       (delete)="deleteSavedView($event)"
       (draftNameChange)="setSavedViewDraftName($event.savedViewId, $event.name)"
     />
+    </section>
+
+    <section class="work-list-filters" aria-label="Project work item filters">
+    <app-active-filter-chips [labels]="activeFilterLabels()" (remove)="removeActiveFilter($event)" />
 
     <app-work-item-filter-panel [formGroup]="filterForm" (apply)="applyFilters()">
       <label filterCore>
@@ -319,9 +325,9 @@ const defaultFilterValues: WorkItemFilterFormValue = {
         <button type="button" class="secondary-action" (click)="clearFilters()">Clear</button>
       </div>
     </app-work-item-filter-panel>
+    </section>
 
-    <app-active-filter-chips [labels]="activeFilterLabels()" (remove)="removeActiveFilter($event)" />
-
+    <section class="work-list-actions" aria-label="Project work item actions">
     @if (showBulkActionBar()) {
       <section class="bulk-action-bar" aria-label="Bulk work item actions">
         <div class="bulk-action-bar__summary">
@@ -489,7 +495,9 @@ const defaultFilterValues: WorkItemFilterFormValue = {
         }
       </section>
     }
+    </section>
 
+    <section class="work-list-results" aria-label="Project work item results">
     <app-work-item-result-list
       [items]="workItems()"
       mode="project"
@@ -507,17 +515,45 @@ const defaultFilterValues: WorkItemFilterFormValue = {
       (toggleSelection)="toggleWorkItemSelection($event)"
       (toggleAllVisibleSelection)="toggleAllVisibleSelection()"
     />
+    </section>
+    </div>
   `,
   styles: `
+    .work-list-page {
+      display: grid;
+      gap: 14px;
+    }
+
+    .work-list-views,
+    .work-list-filters,
+    .work-list-actions,
+    .work-list-results {
+      display: grid;
+      gap: 10px;
+    }
+
+    .work-list-actions:empty {
+      display: none;
+    }
+
+    app-active-filter-chips,
+    app-pinned-saved-views,
+    app-saved-views-toolbar,
+    app-work-item-filter-panel,
+    app-work-item-result-list {
+      display: block;
+    }
+
     .page-header {
       display: flex;
       justify-content: space-between;
       gap: 20px;
       align-items: flex-start;
-      margin-bottom: 20px;
+      margin-bottom: 0;
     }
 
-    nav {
+    nav,
+    .header-actions {
       display: flex;
       flex-wrap: wrap;
       justify-content: flex-end;
@@ -586,7 +622,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
     }
 
     .inline-error {
-      margin: 0 0 18px;
+      margin: 0;
       color: #991b1b;
       font-size: 0.875rem;
       font-weight: 700;
@@ -619,7 +655,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
     .notice {
       display: grid;
       gap: 4px;
-      margin-bottom: 18px;
+      margin-bottom: 0;
       border: 1px solid #fed7aa;
       border-radius: 8px;
       padding: 14px;
@@ -637,7 +673,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
     .bulk-action-bar {
       display: grid;
       gap: 14px;
-      margin-bottom: 16px;
+      margin-bottom: 0;
       border: 1px solid #c7d2fe;
       border-radius: 8px;
       padding: 14px;
