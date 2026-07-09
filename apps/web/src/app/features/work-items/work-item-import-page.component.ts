@@ -23,15 +23,6 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
         <h1>Import work items</h1>
         <p>Validate a project backlog CSV before creating work items.</p>
       </div>
-
-      <nav aria-label="Project import navigation">
-        <a class="secondary-header-action" [routerLink]="['/projects', projectId(), 'work-items']">
-          List
-        </a>
-        <a class="secondary-header-action" [routerLink]="['/projects', projectId(), 'board']">
-          Board
-        </a>
-      </nav>
     </section>
 
     @if (isProjectLoading()) {

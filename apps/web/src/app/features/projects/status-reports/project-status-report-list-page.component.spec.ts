@@ -150,12 +150,12 @@ describe('ProjectStatusReportListPageComponent', () => {
     fixture.detectChanges();
   }
 
-  it('shows loading state while status report data is requested', () => {
+  it('shows loading state while report data is requested', () => {
     createComponent();
 
     const compiled = fixture.nativeElement as HTMLElement;
 
-    expect(compiled.textContent).toContain('Loading status reports');
+    expect(compiled.textContent).toContain('Loading reports');
     http.expectOne(`/api/projects/${projectId}/summary`);
     http.expectOne(`/api/projects/${projectId}/status-reports`);
   });
@@ -172,13 +172,13 @@ describe('ProjectStatusReportListPageComponent', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.textContent).toContain('Status reports could not be loaded from the API.');
+    expect(compiled.textContent).toContain('Reports could not be loaded from the API.');
 
     compiled.querySelector<HTMLButtonElement>('button')?.click();
     fixture.detectChanges();
 
     flushStatusReports();
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('No status reports');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('No reports');
   });
 
   it('renders empty state and create action for active owners', () => {
@@ -188,7 +188,7 @@ describe('ProjectStatusReportListPageComponent', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     const createLink = compiled.querySelector<HTMLAnchorElement>('.status-page__primary');
 
-    expect(compiled.textContent).toContain('No status reports');
+    expect(compiled.textContent).toContain('No reports');
     expect(createLink?.textContent?.trim()).toBe('Create report');
     expect(createLink?.getAttribute('href')).toBe('/projects/10000000-0000-4000-8000-000000000201/status/new');
   });

@@ -140,17 +140,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
         <h1>Project work items</h1>
         <p>Scan, filter, and open project work.</p>
       </div>
-
-      <nav aria-label="Project work navigation">
-        <a class="secondary-header-action" [routerLink]="['/projects', projectId(), 'board']">
-          Board
-        </a>
-        <a class="secondary-header-action" [routerLink]="['/projects', projectId(), 'planning']">
-          Planning
-        </a>
-        <a class="secondary-header-action" [routerLink]="['/projects', projectId(), 'settings']">
-          Settings
-        </a>
+      <nav aria-label="Project work actions">
         <button type="button" class="secondary-header-action" [disabled]="isCopyingViewLink()" (click)="copyViewLink()">
           {{ isCopyingViewLink() ? 'Copying...' : 'Copy link' }}
         </button>

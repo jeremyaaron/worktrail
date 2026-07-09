@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import type { ActivityEventDto, LabelDto, ProjectDto } from '@worktrail/contracts';
 
 import { CurrentUserService } from '../../core/current-user.service';
@@ -21,7 +21,7 @@ const projectActivityEventLabels: Partial<Record<ActivityEventDto['eventType'], 
 
 @Component({
   selector: 'app-project-settings-page',
-  imports: [ErrorPanelComponent, LoadingIndicatorComponent, ReactiveFormsModule, RouterLink],
+  imports: [ErrorPanelComponent, LoadingIndicatorComponent, ReactiveFormsModule],
   template: `
     <section class="page-header">
       <div>
@@ -36,13 +36,6 @@ const projectActivityEventLabels: Partial<Record<ActivityEventDto['eventType'], 
           </p>
         }
       </div>
-
-      <nav aria-label="Project navigation">
-        <a [routerLink]="['/projects', projectId()]">Overview</a>
-        <a [routerLink]="['/projects', projectId(), 'work-items']">Work items</a>
-        <a [routerLink]="['/projects', projectId(), 'board']">Board</a>
-        <a [routerLink]="['/projects', projectId(), 'planning']">Planning</a>
-      </nav>
     </section>
 
     @if (isLoading()) {

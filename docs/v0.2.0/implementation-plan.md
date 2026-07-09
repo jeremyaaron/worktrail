@@ -245,7 +245,30 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-09.
+- Updated the project shell section label from `Status` to `Reports` while preserving the existing `/projects/:projectId/status` route path.
+- Updated report route titles to use `Reports`, `New Report`, and `Report`.
+- Updated report list, draft, and detail page copy so the project section reads as `Reports` and published reports are framed as snapshots.
+- Removed duplicated project section navigation from project child page headers:
+  - Overview;
+  - Work;
+  - Board;
+  - Planning;
+  - Settings;
+  - Import;
+  - placeholder project page.
+- Preserved workflow-specific links such as risk links, milestone review back-links, import result links, copy/export/import actions, and report routes.
+- Left real project/work item status terminology intact where it refers to lifecycle state or workflow status.
+- Updated web specs for:
+  - project shell navigation labels;
+  - report page copy;
+  - planning page relying on shell-owned navigation;
+  - overview page no longer rendering local project actions.
+- Verified:
+  - focused affected web specs;
+  - `npm run lint --workspace @worktrail/web`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm test --workspace @worktrail/web -- --watch=false --browsers=ChromeHeadless`.
 
 ## Phase 3: Work-List State Extraction Scaffold
 

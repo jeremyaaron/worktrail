@@ -93,13 +93,6 @@ interface PlanningReviewSection {
           </p>
         }
       </div>
-
-      <nav aria-label="Project navigation">
-        <a [routerLink]="['/projects', projectId()]">Overview</a>
-        <a [routerLink]="['/projects', projectId(), 'work-items']">Work items</a>
-        <a [routerLink]="['/projects', projectId(), 'board']">Board</a>
-        <a [routerLink]="['/projects', projectId(), 'settings']">Settings</a>
-      </nav>
     </section>
 
     @if (isLoadingProject()) {

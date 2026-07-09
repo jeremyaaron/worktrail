@@ -28,24 +28,24 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
     <section class="status-page">
       <div class="status-page__heading">
         <div>
-          <p class="status-page__eyebrow">Status reports</p>
-          <h1>{{ report()?.title ?? 'Status report' }}</h1>
+          <p class="status-page__eyebrow">Reports</p>
+          <h1>{{ report()?.title ?? 'Report' }}</h1>
         </div>
         <a class="status-page__secondary" [routerLink]="['/projects', projectId(), 'status']">
-          Back to status
+          Back to reports
         </a>
       </div>
 
       @if (isLoading()) {
-        <app-loading-indicator label="Loading status report" />
+        <app-loading-indicator label="Loading report" />
       } @else if (error()) {
         <app-error-panel
-          title="Status report unavailable"
+          title="Report unavailable"
           [message]="error() ?? ''"
           (retry)="loadReport()"
         />
       } @else if (report(); as report) {
-        <section class="report-actions" aria-label="Status report sharing actions">
+        <section class="report-actions" aria-label="Report sharing actions">
           <div class="report-actions__buttons">
             <button
               type="button"
@@ -772,7 +772,7 @@ export class ProjectStatusReportDetailPageComponent implements OnInit {
       },
       error: () => {
         this.report.set(null);
-        this.error.set('Status report could not be loaded from the API.');
+        this.error.set('Report could not be loaded from the API.');
         this.shareStatus.set(null);
         this.isLoading.set(false);
       }

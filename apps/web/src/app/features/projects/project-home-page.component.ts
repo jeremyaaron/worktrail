@@ -50,18 +50,6 @@ const statusLabels: Record<WorkItemStatus, string> = {
             {{ summary.project.description || 'No description provided.' }}
           </p>
         </div>
-
-        <div class="project-actions">
-          <a [routerLink]="['/projects', projectId(), 'work-items']">Work items</a>
-          <a [routerLink]="['/projects', projectId(), 'board']">Board</a>
-          <a [routerLink]="['/projects', projectId(), 'planning']">Planning</a>
-          <a [routerLink]="['/projects', projectId(), 'settings']">Settings</a>
-          @if (summary.project.status === 'active') {
-            <a class="project-actions__primary" [routerLink]="['/projects', projectId(), 'work-items', 'new']">
-              Create work item
-            </a>
-          }
-        </div>
       </section>
 
       @if (summary.project.status === 'archived') {
@@ -291,14 +279,6 @@ const statusLabels: Record<WorkItemStatus, string> = {
       line-height: 1.5;
     }
 
-    .project-actions {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-      gap: 8px;
-    }
-
-    .project-actions a,
     .panel__heading a {
       min-height: 36px;
       border: 1px solid #cbd5e1;
@@ -310,16 +290,9 @@ const statusLabels: Record<WorkItemStatus, string> = {
       text-decoration: none;
     }
 
-    .project-actions a:hover,
     .panel__heading a:hover {
       border-color: #94a3b8;
       background: #f8fafc;
-    }
-
-    .project-actions__primary {
-      border-color: #1f4f99 !important;
-      background: #1f4f99;
-      color: #ffffff !important;
     }
 
     .summary-grid {
@@ -653,11 +626,6 @@ const statusLabels: Record<WorkItemStatus, string> = {
       .home-grid {
         grid-template-columns: 1fr;
       }
-
-      .project-actions {
-        justify-content: flex-start;
-      }
-
       .summary-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
       }

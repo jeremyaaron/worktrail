@@ -97,7 +97,7 @@ export const routes: Routes = [
           import('./features/projects/status-reports/project-status-report-list-page.component').then(
             (module) => module.ProjectStatusReportListPageComponent
           ),
-        title: 'Status Reports | Worktrail'
+        title: 'Reports | Worktrail'
       },
       {
         path: 'status/new',
@@ -105,7 +105,7 @@ export const routes: Routes = [
           import('./features/projects/status-reports/project-status-report-draft-page.component').then(
             (module) => module.ProjectStatusReportDraftPageComponent
           ),
-        title: 'New Status Report | Worktrail'
+        title: 'New Report | Worktrail'
       },
       {
         path: 'status/:reportId',
@@ -113,7 +113,7 @@ export const routes: Routes = [
           import('./features/projects/status-reports/project-status-report-detail-page.component').then(
             (module) => module.ProjectStatusReportDetailPageComponent
           ),
-        title: 'Status Report | Worktrail'
+        title: 'Report | Worktrail'
       },
       {
         path: 'milestones/:milestoneId',
