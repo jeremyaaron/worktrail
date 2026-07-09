@@ -28,6 +28,10 @@ export function canManageMilestones(actor: ActorContext): boolean {
   return canManageProject(actor);
 }
 
+export function canManageProjectCycles(actor: ActorContext): boolean {
+  return canManageProject(actor);
+}
+
 export function canReopenTerminalWorkItem(actor: ActorContext): boolean {
   return actor.role === 'owner' || actor.role === 'maintainer';
 }

@@ -428,6 +428,57 @@ npm run lint --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-09.
+- Added `apps/api/src/validation/project-cycle.ts` with:
+  - create request schema;
+  - update request schema;
+  - list query schema;
+  - name, goal, status, ISO date, date range, and target point validation.
+- Added `canManageProjectCycles` to `apps/api/src/domain/permissions.ts`.
+- Added `toProjectCycleDto` to `apps/api/src/services/dto.ts`.
+- Extended `apps/api/src/repositories/project-cycle-repository.ts` with `findNonArchivedByProjectName` for friendly duplicate-name validation.
+- Added `apps/api/src/services/project-cycle-service.ts` with:
+  - `listProjectCycles`;
+  - `getProjectCycle`;
+  - `createProjectCycle`;
+  - `updateProjectCycle`;
+  - `archiveProjectCycle`;
+  - `reactivateProjectCycle`;
+  - `validateAssignableCycle`;
+  - active/upcoming/recent completed cycle lookup helpers.
+- Enforced:
+  - project must exist in the actor workspace;
+  - cycle must belong to the route project and actor workspace;
+  - owners/maintainers can mutate cycles;
+  - contributors can read cycles but cannot mutate them;
+  - archived projects are read-only;
+  - archived cycles cannot be updated;
+  - archived cycles can be reactivated when project and lifecycle rules allow it;
+  - one active non-archived cycle per project;
+  - non-archived planned/active date ranges cannot overlap;
+  - completed/canceled cycle date ranges can overlap historical windows;
+  - cycle assignment targets must be same-project and non-archived.
+- Added `apps/api/tests/project-cycle-service.test.ts` covering:
+  - create/list/update/archive/reactivate;
+  - duplicate-name conflict;
+  - active-cycle conflict;
+  - planned/active overlap conflict;
+  - completed/canceled overlap allowance;
+  - contributor read/write behavior;
+  - archived project and archived cycle write behavior;
+  - assignable-cycle validation without cross-project leakage.
+- Progress-bearing Planning summary helpers remain deferred to Phase 7 because they depend on Phase 4 cycle progress and health derivation.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/api -- project-cycle-service.test.ts`;
+  - `npm test --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `git diff --check`.
+
 ## Phase 4: Cycle Review Read Model
 
 Goal: build the derived cycle review DTO behind the service layer.

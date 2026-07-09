@@ -4,6 +4,7 @@ import type {
   LabelDto,
   MemberDto,
   MilestoneDto,
+  ProjectCycleDto,
   ProjectDto,
   ProjectStatusReportDetailDto,
   ProjectStatusReportSummaryDto,
@@ -25,6 +26,7 @@ import type {
   Member,
   Milestone,
   Project,
+  ProjectCycle,
   ProjectStatusReport,
   SavedWorkView,
   WorkItem,
@@ -160,6 +162,24 @@ export function toMilestoneDto(milestone: Milestone): MilestoneDto {
     archivedAt: milestone.archivedAt?.toISOString() ?? null,
     createdAt: milestone.createdAt.toISOString(),
     updatedAt: milestone.updatedAt.toISOString()
+  };
+}
+
+export function toProjectCycleDto(cycle: ProjectCycle): ProjectCycleDto {
+  return {
+    id: cycle.id,
+    workspaceId: cycle.workspaceId,
+    projectId: cycle.projectId,
+    name: cycle.name,
+    goal: cycle.goal,
+    status: cycle.status,
+    startDate: cycle.startDate,
+    endDate: cycle.endDate,
+    targetPoints: cycle.targetPoints,
+    isArchived: cycle.archivedAt !== null,
+    archivedAt: cycle.archivedAt?.toISOString() ?? null,
+    createdAt: cycle.createdAt.toISOString(),
+    updatedAt: cycle.updatedAt.toISOString()
   };
 }
 

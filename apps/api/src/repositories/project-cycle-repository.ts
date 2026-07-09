@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, isNull, lte, ne, or } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, isNull, lte, ne, or, sql } from 'drizzle-orm';
 
 import type { WorktrailDb } from '../db/client.js';
 import { projectCycles } from '../db/schema.js';
@@ -49,6 +49,21 @@ export function createProjectCycleRepository(db: WorktrailDb) {
           )
         )
         .orderBy(asc(projectCycles.startDate), asc(projectCycles.name))
+        .limit(1);
+      return cycle ?? null;
+    },
+
+    async findNonArchivedByProjectName(projectId: string, name: string) {
+      const [cycle] = await db
+        .select()
+        .from(projectCycles)
+        .where(
+          and(
+            eq(projectCycles.projectId, projectId),
+            isNull(projectCycles.archivedAt),
+            sql`lower(${projectCycles.name}) = ${name.toLowerCase()}`
+          )
+        )
         .limit(1);
       return cycle ?? null;
     },
