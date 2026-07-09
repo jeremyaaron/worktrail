@@ -316,7 +316,40 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-09.
+- Added feature-local work-item state helpers:
+  - `apps/web/src/app/features/work-items/state/work-list-query.store.ts`;
+  - `apps/web/src/app/features/work-items/state/saved-views.store.ts`.
+- Extracted shared work-list query behavior into `WorkListQueryStore`:
+  - route query parsing for workspace and project lists;
+  - active versus pending filter state;
+  - active and pending query derivation;
+  - canonical router query-param construction;
+  - reset behavior;
+  - return URL and copy-link URL construction;
+  - meaningful query field counting for saved-view labels.
+- Wired workspace and project work-list pages through `WorkListQueryStore` for:
+  - route query parsing;
+  - apply-filter navigation query params;
+  - saved-view open navigation query params;
+  - detail return URLs;
+  - copy-view-link URLs;
+  - export/list active query derivation.
+- Added `SavedViewsStore` as the shared saved-view orchestration scaffold for upcoming toolbar consolidation:
+  - load state and load errors;
+  - create, rename, query update, pin, and delete orchestration;
+  - draft-name synchronization;
+  - personal/shared grouping;
+  - pinned personal/shared shortcut derivation;
+  - scope-aware personal/shared permission checks.
+- Added focused state tests:
+  - `apps/web/src/app/features/work-items/state/work-list-query.store.spec.ts`;
+  - `apps/web/src/app/features/work-items/state/saved-views.store.spec.ts`.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --watch=false --browsers=ChromeHeadless --include 'src/app/features/work-items/state/**/*.spec.ts'`;
+  - `npm test --workspace @worktrail/web -- --watch=false --browsers=ChromeHeadless --include 'src/app/features/work-items/*work-item-list-page.component.spec.ts'`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`.
 
 ## Phase 4: Saved-View Control Consolidation
 

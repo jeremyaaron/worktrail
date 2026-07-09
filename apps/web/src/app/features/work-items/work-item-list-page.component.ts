@@ -33,12 +33,7 @@ import { PinnedSavedViewsComponent } from './components/pinned-saved-views.compo
 import { SavedViewsToolbarComponent } from './components/saved-views-toolbar.component';
 import { WorkItemFilterPanelComponent } from './components/work-item-filter-panel.component';
 import { WorkItemResultListComponent } from './components/work-item-result-list.component';
-import {
-  projectFormValueFromQueryParams,
-  projectQueryFromFormValue,
-  projectRouterQueryParamsFromQuery,
-  returnUrlFromWorkItemQuery
-} from './query/work-item-query-serialization';
+import { WorkListQueryStore } from './state/work-list-query.store';
 
 const statuses: WorkItemStatus[] = [
   'backlog',
@@ -1111,6 +1106,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly subscriptions = new Subscription();
+  private readonly queryState = WorkListQueryStore.project();
   private copyLinkStatusTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly statuses = statuses;
@@ -1232,7 +1228,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
 
     this.subscriptions.add(
       this.route.queryParamMap.subscribe((params) => {
-        const nextFilters = projectFormValueFromQueryParams(params);
+        const nextFilters = this.queryState.applyRouteQueryParams(params);
 
         this.clearSelection();
         this.appliedFilterValues.set(nextFilters);
@@ -1249,9 +1245,10 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
 
   applyFilters(): void {
     this.clearSelection();
+    this.queryState.setPendingFilterValues(this.filterForm.getRawValue());
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: this.queryParamsFromForm()
+      queryParams: this.queryState.pendingRouterQueryParams()
     });
   }
 
@@ -1408,7 +1405,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     this.clearSelection();
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: projectRouterQueryParamsFromQuery(savedView.query)
+      queryParams: this.queryState.routerQueryParamsFromQuery(savedView.query)
     });
   }
 
@@ -1628,11 +1625,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   detailReturnUrl(): string {
-    return returnUrlFromWorkItemQuery(
-      `/projects/${this.projectId()}/work-items`,
-      this.appliedQuery(),
-      'project'
-    );
+    return this.queryState.returnUrl(`/projects/${this.projectId()}/work-items`);
   }
 
   removeActiveFilter(label: string): void {
@@ -1674,7 +1667,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   private appliedQuery(): WorkItemQuery {
-    return projectQueryFromFormValue(this.appliedFilterValues());
+    return this.queryState.activeQuery();
   }
 
   private createSavedView(visibility: SavedWorkViewDto['visibility'], name: string): void {
@@ -1736,18 +1729,10 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   private currentFilteredViewUrl(): string {
-    return new URL(
-      returnUrlFromWorkItemQuery(
-        `/projects/${this.projectId()}/work-items`,
-        this.appliedQuery(),
-        'project'
-      ),
+    return this.queryState.filteredViewUrl(
+      `/projects/${this.projectId()}/work-items`,
       window.location.origin
-    ).toString();
-  }
-
-  private queryParamsFromForm(): Record<string, string | null> {
-    return projectRouterQueryParamsFromQuery(projectQueryFromFormValue(this.filterForm.getRawValue()));
+    );
   }
 
   private watchFilterChanges(): void {

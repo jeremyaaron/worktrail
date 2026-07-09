@@ -40,13 +40,7 @@ import { SavedViewsToolbarComponent } from './components/saved-views-toolbar.com
 import { WorkItemFilterPanelComponent } from './components/work-item-filter-panel.component';
 import { WorkItemResultListComponent } from './components/work-item-result-list.component';
 import { unassignedAssigneeValue } from './query/work-item-filter-options';
-import {
-  meaningfulWorkItemQueryFieldCount,
-  returnUrlFromWorkItemQuery,
-  workspaceFormValueFromQueryParams,
-  workspaceQueryFromFormValue,
-  workspaceRouterQueryParamsFromQuery
-} from './query/work-item-query-serialization';
+import { WorkListQueryStore } from './state/work-list-query.store';
 const statuses: WorkItemStatus[] = [
   'backlog',
   'ready',
@@ -803,6 +797,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly subscriptions = new Subscription();
+  private readonly queryState = WorkListQueryStore.workspace();
   private loadedProjectFilterId: string | null = null;
   private copyLinkStatusTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -901,7 +896,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
 
     this.subscriptions.add(
       this.route.queryParamMap.subscribe((params) => {
-        const nextFilters = this.filtersFromQueryParams(params);
+        const nextFilters = this.queryState.applyRouteQueryParams(params);
         this.appliedFilterValues.set(nextFilters);
         this.filterForm.patchValue(nextFilters, { emitEvent: false });
         this.loadProjectScopedFilters(nextFilters.projectId);
@@ -916,14 +911,15 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   applyFilters(): void {
+    this.queryState.setPendingFilterValues(this.filterForm.getRawValue());
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: this.queryParamsFromForm()
+      queryParams: this.queryState.pendingRouterQueryParams()
     });
   }
 
   resetFilters(): void {
-    this.filterForm.reset({ ...defaultFilterValues }, { emitEvent: false });
+    this.filterForm.reset(this.queryState.resetPendingFilterValues(), { emitEvent: false });
     this.applyFilters();
   }
 
@@ -1030,7 +1026,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   detailReturnUrl(): string {
-    return returnUrlFromWorkItemQuery('/work-items', this.appliedQuery(), 'workspace');
+    return this.queryState.returnUrl('/work-items');
   }
 
   removeActiveFilter(label: string): void {
@@ -1150,7 +1146,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   openSavedView(savedView: SavedWorkViewDto): void {
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: workspaceRouterQueryParamsFromQuery(savedView.query)
+      queryParams: this.queryState.routerQueryParamsFromQuery(savedView.query)
     });
   }
 
@@ -1260,7 +1256,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   savedViewQueryLabel(savedView: SavedWorkViewDto): string {
-    const count = meaningfulWorkItemQueryFieldCount(savedView.query, 'workspace');
+    const count = this.queryState.meaningfulFieldCount(savedView.query);
 
     return count === 0
       ? 'Default workspace view'
@@ -1287,26 +1283,11 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   private appliedQuery(): WorkItemQuery {
-    return workspaceQueryFromFormValue(this.appliedFilterValues());
+    return this.queryState.activeQuery();
   }
 
   private currentFilteredViewUrl(): string {
-    return new URL(
-      returnUrlFromWorkItemQuery('/work-items', this.appliedQuery(), 'workspace'),
-      window.location.origin
-    ).toString();
-  }
-
-  private queryParamsFromForm(): Record<string, string | null> {
-    return workspaceRouterQueryParamsFromQuery(
-      workspaceQueryFromFormValue(this.filterForm.getRawValue())
-    );
-  }
-
-  private filtersFromQueryParams(params: {
-    get(name: string): string | null;
-  }): WorkspaceFilterFormValue {
-    return workspaceFormValueFromQueryParams(params);
+    return this.queryState.filteredViewUrl('/work-items', window.location.origin);
   }
 
   private watchFilterChanges(): void {
