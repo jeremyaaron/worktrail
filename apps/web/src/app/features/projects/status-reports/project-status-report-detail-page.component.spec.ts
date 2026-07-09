@@ -444,6 +444,9 @@ describe('ProjectStatusReportDetailPageComponent', () => {
 
     expect(actions).not.toBeNull();
     expect(actions?.getAttribute('aria-label')).toBe('Report sharing actions');
+    expect(compiled.textContent).toContain('Reports · Published snapshots');
+    expect(compiled.textContent).toContain('Share and export');
+    expect(compiled.textContent).toContain('Report actions');
     expect(actionButtons.length).toBe(3);
     expect([...actionButtons].every((button) => button.type === 'button')).toBeTrue();
   });

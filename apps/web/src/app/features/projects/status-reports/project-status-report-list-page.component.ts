@@ -34,8 +34,12 @@ import { LoadingIndicatorComponent } from '../../../shared/ui/loading-indicator.
       <section class="status-page">
         <div class="status-page__heading">
           <div>
-            <p class="status-page__eyebrow">Reports</p>
+            <p class="status-page__eyebrow">Reports · Published snapshots</p>
             <h1>Published snapshots</h1>
+            <p class="status-page__copy">
+              Reports preserve point-in-time project evidence. Planning and work pages continue to
+              show live data.
+            </p>
           </div>
 
           <div class="status-page__actions">
@@ -167,6 +171,14 @@ import { LoadingIndicatorComponent } from '../../../shared/ui/loading-indicator.
       color: #111827;
       font-size: 1.05rem;
       line-height: 1.35;
+    }
+
+    .status-page__copy {
+      margin-top: 6px;
+      max-width: 68ch;
+      color: #64748b;
+      font-size: 0.9rem;
+      line-height: 1.5;
     }
 
     .status-page__actions {

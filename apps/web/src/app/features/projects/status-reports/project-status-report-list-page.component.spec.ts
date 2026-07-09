@@ -188,6 +188,8 @@ describe('ProjectStatusReportListPageComponent', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     const createLink = compiled.querySelector<HTMLAnchorElement>('.status-page__primary');
 
+    expect(compiled.textContent).toContain('Reports · Published snapshots');
+    expect(compiled.textContent).toContain('Reports preserve point-in-time project evidence.');
     expect(compiled.textContent).toContain('No reports');
     expect(createLink?.textContent?.trim()).toBe('Create report');
     expect(createLink?.getAttribute('href')).toBe('/projects/10000000-0000-4000-8000-000000000201/status/new');

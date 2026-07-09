@@ -330,6 +330,11 @@ describe('WorkItemDetailPageComponent', () => {
 
     expect(compiled.textContent).toContain('WT-3');
     expect(compiled.textContent).toContain('Implement detail surface');
+    expect(compiled.textContent).toContain('Summary');
+    expect(compiled.textContent).toContain('Act');
+    expect(compiled.textContent).toContain('Collaborate');
+    expect(compiled.textContent).toContain('Dependencies');
+    expect(compiled.textContent).toContain('History');
     expect(compiled.textContent).toContain('frontend');
     expect(compiled.textContent).toContain('backend');
     expect(compiled.textContent).toContain('v0.0.3');

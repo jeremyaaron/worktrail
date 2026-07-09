@@ -753,7 +753,32 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-09.
+- Added live/published/draft framing labels across:
+  - Planning;
+  - Milestone Review;
+  - Reports list/detail;
+  - Report draft.
+- Added a Planning-to-Reports bridge with links to published reports and draft creation when the actor can create reports.
+- Clarified report draft layout by labeling editable narrative separately from generated evidence.
+- Strengthened report detail sharing/export grouping while preserving copy Markdown, download Markdown, and print behavior.
+- Reorganized Work Item Detail into clearer sections:
+  - Summary;
+  - Act;
+  - Collaborate;
+  - Dependencies;
+  - History.
+- Moved watcher controls into the collaboration area beside comments.
+- Added a dependency alert when a work item is blocked by open work or blocking downstream open work.
+- Updated focused component specs to cover the new framing labels and section hierarchy.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --watch=false --include '**/project-planning*.spec.ts'`;
+  - `npm test --workspace @worktrail/web -- --watch=false --include '**/project-milestone-review*.spec.ts'`;
+  - `npm test --workspace @worktrail/web -- --watch=false --include '**/project-status-report*.spec.ts'`;
+  - `npm test --workspace @worktrail/web -- --watch=false --include '**/work-item-detail*.spec.ts'`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `git diff --check`.
 
 ## Phase 10: Public Site Consolidation
 

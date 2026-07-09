@@ -28,7 +28,7 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
     <section class="status-page">
       <div class="status-page__heading">
         <div>
-          <p class="status-page__eyebrow">Reports</p>
+          <p class="status-page__eyebrow">Reports · Published snapshots</p>
           <h1>{{ report()?.title ?? 'Report' }}</h1>
         </div>
         <a class="status-page__secondary" [routerLink]="['/projects', projectId(), 'status']">
@@ -45,7 +45,15 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
           (retry)="loadReport()"
         />
       } @else if (report(); as report) {
-        <section class="report-actions" aria-label="Report sharing actions">
+        <section
+          class="report-actions"
+          aria-label="Report sharing actions"
+          aria-labelledby="report-actions-heading"
+        >
+          <div>
+            <p class="status-page__eyebrow">Share and export</p>
+            <h2 id="report-actions-heading">Report actions</h2>
+          </div>
           <div class="report-actions__buttons">
             <button
               type="button"

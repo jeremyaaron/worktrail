@@ -339,6 +339,10 @@ describe('ProjectPlanningPageComponent', () => {
     const compiled = fixture.nativeElement as HTMLElement;
 
     expect(compiled.textContent).toContain('Worktrail App');
+    expect(compiled.textContent).toContain('Planning · Live view');
+    expect(compiled.textContent).toContain('Live view to published snapshots');
+    expect(compiled.textContent).toContain('View reports');
+    expect(compiled.textContent).toContain('Draft report');
     expect(compiled.textContent).toContain('v0.0.3');
     expect(compiled.textContent).toContain('Planning dashboard');
     expect(compiled.textContent).toContain('6 risks');
