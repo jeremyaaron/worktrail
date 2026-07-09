@@ -1,44 +1,27 @@
 import type {
   CreateProjectStatusReportRequest,
   MilestoneProgressDto,
-  PlanningRiskItemDto,
   ProjectStatusReportCountSnapshotDto,
   ProjectStatusReportDetailDto,
   ProjectStatusReportDraftDto,
   ProjectStatusReportMilestoneSnapshotDto,
-  ProjectStatusReportRiskSnapshotDto,
-  ProjectStatusReportRiskType,
   ProjectStatusReportSnapshotDto,
-  ProjectStatusReportSummaryDto,
-  WorkItemPriority,
-  WorkItemQuery
+  ProjectStatusReportSummaryDto
 } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
 import type { WorktrailDb } from '../db/client.js';
 import type { ActorContext } from '../domain/actor.js';
 import { canManageProject } from '../domain/permissions.js';
-import {
-  addDays,
-  dueSoonWindowDays,
-  isActiveUnassignedWorkItemStatus,
-  isDueSoonDueDate,
-  isOpenWorkItemStatus,
-  isOverdueDueDate,
-  isStaleInProgressStatus,
-  staleInProgressDays,
-  toDateString
-} from '../domain/work-risk-policy.js';
+import { toDateString } from '../domain/work-risk-policy.js';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../errors/app-error.js';
 import {
   type Repositories,
   withRepositoriesTransaction
 } from '../repositories/index.js';
-import type { Member, Milestone, Project, ProjectStatusReport, WorkItem } from '../repositories/types.js';
+import type { Member, Milestone, Project, ProjectStatusReport } from '../repositories/types.js';
 import { DeliveryHealthService } from './delivery-health-service.js';
 import {
-  toMemberDto,
-  toMilestoneDto,
   toProjectDto,
   toProjectStatusReportDetailDto,
   toProjectStatusReportSummaryDto
@@ -47,28 +30,15 @@ import {
   renderStatusReportMarkdown,
   statusReportMarkdownFileName
 } from './status-report-markdown-renderer.js';
+import {
+  createProjectStatusReportRiskSnapshots,
+  createWorkRiskEvaluationContext,
+  toPlanningRiskItems
+} from './work-risk-sections.js';
 
-const riskSectionPreviewLimit = 5;
 const recentWorkLimit = 8;
 const milestoneSnapshotStatuses = new Set<Milestone['status']>(['planned', 'active']);
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
-
-const priorityRank: Record<WorkItemPriority, number> = {
-  urgent: 4,
-  high: 3,
-  medium: 2,
-  low: 1
-};
-
-const riskSectionMetadata: Record<ProjectStatusReportRiskType, { title: string }> = {
-  blocked: { title: 'Blocked work' },
-  dependency_blocked: { title: 'Dependency blocked' },
-  overdue: { title: 'Overdue work' },
-  due_soon: { title: 'Due soon' },
-  unassigned_active: { title: 'Unassigned active work' },
-  stale_in_progress: { title: 'Stale in-progress work' },
-  blocking_open_work: { title: 'Blocking open work' }
-};
 
 export interface ProjectStatusReportServiceContext {
   actor: ActorContext;
@@ -82,14 +52,6 @@ interface SnapshotInput {
   project: Project;
   repositories: Repositories;
   generatedAt: Date;
-}
-
-interface EvaluationContext {
-  today: string;
-  dueSoonEnd: string;
-  staleCutoff: Date;
-  dependencyBlockedIds: Set<string>;
-  blockingOpenWorkIds: Set<string>;
 }
 
 interface NormalizedPublishInput {
@@ -326,7 +288,7 @@ export class ProjectStatusReportService {
     });
     const memberById = new Map(members.map((member) => [member.id, member]));
     const milestoneById = new Map(milestones.map((milestone) => [milestone.id, milestone]));
-    const evaluationContext = createEvaluationContext({
+    const evaluationContext = createWorkRiskEvaluationContext({
       now: input.generatedAt,
       dependencyBlockedWorkItems,
       blockingOpenWorkItems
@@ -346,13 +308,13 @@ export class ProjectStatusReportService {
       milestones: healthSummary.milestoneProgress
         .filter((progress) => milestoneSnapshotStatuses.has(progress.milestone.status))
         .map(toMilestoneSnapshot),
-      risks: createRiskSnapshots({
+      risks: createProjectStatusReportRiskSnapshots({
         workItems,
         memberById,
         milestoneById,
         context: evaluationContext
       }),
-      recentWork: toRiskItems(
+      recentWork: toPlanningRiskItems(
         [...workItems]
           .sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime())
           .slice(0, recentWorkLimit),
@@ -444,20 +406,6 @@ export class ProjectStatusReportService {
   }
 }
 
-function createEvaluationContext(input: {
-  now: Date;
-  dependencyBlockedWorkItems: WorkItem[];
-  blockingOpenWorkItems: WorkItem[];
-}): EvaluationContext {
-  return {
-    today: toDateString(input.now),
-    dueSoonEnd: toDateString(addDays(input.now, dueSoonWindowDays)),
-    staleCutoff: addDays(input.now, -staleInProgressDays),
-    dependencyBlockedIds: new Set(input.dependencyBlockedWorkItems.map((workItem) => workItem.id)),
-    blockingOpenWorkIds: new Set(input.blockingOpenWorkItems.map((workItem) => workItem.id))
-  };
-}
-
 function toCountSnapshot(
   deliveryHealth: ProjectStatusReportSnapshotDto['health']
 ): ProjectStatusReportCountSnapshotDto {
@@ -493,118 +441,6 @@ function toMilestoneSnapshot(progress: MilestoneProgressDto): ProjectStatusRepor
   };
 }
 
-function createRiskSnapshots(input: {
-  workItems: WorkItem[];
-  memberById: Map<string, Member>;
-  milestoneById: Map<string, Milestone>;
-  context: EvaluationContext;
-}): ProjectStatusReportRiskSnapshotDto[] {
-  return [
-    createRiskSnapshot(input, {
-      type: 'blocked',
-      query: { status: 'blocked', sort: 'priority_desc' },
-      filter: (workItem) => isOpenWorkItem(workItem) && workItem.status === 'blocked',
-      sort: compareByPriorityThenUpdatedDesc
-    }),
-    createRiskSnapshot(input, {
-      type: 'dependency_blocked',
-      query: { dependency: 'dependency_blocked', sort: 'priority_desc' },
-      filter: (workItem) =>
-        isOpenWorkItem(workItem) && input.context.dependencyBlockedIds.has(workItem.id),
-      sort: compareByPriorityThenUpdatedDesc
-    }),
-    createRiskSnapshot(input, {
-      type: 'overdue',
-      query: { dueDateState: 'overdue', sort: 'due_date_asc' },
-      filter: (workItem) =>
-        isOpenWorkItem(workItem) && isOverdueDueDate(workItem.dueDate, input.context.today),
-      sort: compareByDueDateThenPriority
-    }),
-    createRiskSnapshot(input, {
-      type: 'due_soon',
-      query: { dueDateState: 'due_soon', sort: 'due_date_asc' },
-      filter: (workItem) =>
-        isOpenWorkItem(workItem) &&
-        isDueSoonDueDate(workItem.dueDate, input.context.today, input.context.dueSoonEnd),
-      sort: compareByDueDateThenPriority
-    }),
-    createRiskSnapshot(input, {
-      type: 'unassigned_active',
-      query: { workRisk: 'unassigned_active', sort: 'priority_desc' },
-      filter: (workItem) =>
-        workItem.assigneeId === null && isActiveUnassignedWorkItemStatus(workItem.status),
-      sort: compareByPriorityThenUpdatedDesc
-    }),
-    createRiskSnapshot(input, {
-      type: 'stale_in_progress',
-      query: { workRisk: 'stale_in_progress', sort: 'updated_asc' },
-      filter: (workItem) =>
-        isStaleInProgressStatus(workItem.status, workItem.updatedAt, input.context.staleCutoff),
-      sort: compareByUpdatedAsc
-    }),
-    createRiskSnapshot(input, {
-      type: 'blocking_open_work',
-      query: { dependency: 'blocking_open_work', sort: 'priority_desc' },
-      filter: (workItem) =>
-        isOpenWorkItem(workItem) && input.context.blockingOpenWorkIds.has(workItem.id),
-      sort: compareByPriorityThenUpdatedDesc
-    })
-  ];
-}
-
-function createRiskSnapshot(
-  input: {
-    workItems: WorkItem[];
-    memberById: Map<string, Member>;
-    milestoneById: Map<string, Milestone>;
-  },
-  section: {
-    type: ProjectStatusReportRiskType;
-    query: WorkItemQuery;
-    filter: (workItem: WorkItem) => boolean;
-    sort: (left: WorkItem, right: WorkItem) => number;
-  }
-): ProjectStatusReportRiskSnapshotDto {
-  const matchingItems = input.workItems.filter(section.filter).sort(section.sort);
-
-  return {
-    type: section.type,
-    title: riskSectionMetadata[section.type].title,
-    count: matchingItems.length,
-    query: section.query,
-    items: toRiskItems(
-      matchingItems.slice(0, riskSectionPreviewLimit),
-      input.memberById,
-      input.milestoneById
-    )
-  };
-}
-
-function toRiskItems(
-  workItems: WorkItem[],
-  memberById: Map<string, Member>,
-  milestoneById: Map<string, Milestone>
-): PlanningRiskItemDto[] {
-  return workItems.map((workItem) => {
-    const assignee =
-      workItem.assigneeId === null ? null : memberById.get(workItem.assigneeId) ?? null;
-    const milestone =
-      workItem.milestoneId === null ? null : milestoneById.get(workItem.milestoneId) ?? null;
-
-    return {
-      id: workItem.id,
-      displayKey: workItem.displayKey,
-      title: workItem.title,
-      status: workItem.status,
-      priority: workItem.priority,
-      assignee: assignee === null ? null : toMemberDto(assignee),
-      dueDate: workItem.dueDate,
-      milestone: milestone === null ? null : toMilestoneDto(milestone),
-      updatedAt: workItem.updatedAt.toISOString()
-    };
-  });
-}
-
 function createDraftNarrative(snapshot: ProjectStatusReportSnapshotDto): {
   summary: string;
   risks: string;
@@ -626,32 +462,4 @@ function createDraftNarrative(snapshot: ProjectStatusReportSnapshotDto): {
         ? 'No major delivery risks are currently flagged.'
         : riskLines.join('\n')
   };
-}
-
-function isOpenWorkItem(workItem: WorkItem): boolean {
-  return isOpenWorkItemStatus(workItem.status);
-}
-
-function compareByPriorityThenUpdatedDesc(left: WorkItem, right: WorkItem): number {
-  const priorityCompare = priorityRank[right.priority] - priorityRank[left.priority];
-
-  if (priorityCompare !== 0) {
-    return priorityCompare;
-  }
-
-  return right.updatedAt.getTime() - left.updatedAt.getTime();
-}
-
-function compareByDueDateThenPriority(left: WorkItem, right: WorkItem): number {
-  const dueDateCompare = (left.dueDate ?? '').localeCompare(right.dueDate ?? '');
-
-  if (dueDateCompare !== 0) {
-    return dueDateCompare;
-  }
-
-  return priorityRank[right.priority] - priorityRank[left.priority];
-}
-
-function compareByUpdatedAsc(left: WorkItem, right: WorkItem): number {
-  return left.updatedAt.getTime() - right.updatedAt.getTime();
 }

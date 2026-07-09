@@ -614,7 +614,24 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-09.
+- Added `apps/api/src/services/work-risk-sections.ts` as the shared home for:
+  - risk section type/title/description metadata;
+  - project-wide and milestone-scoped query assembly;
+  - risk predicates and sort ordering;
+  - preview limiting;
+  - `PlanningRiskItemDto` hydration.
+- Updated `PlanningService` to reuse shared planning-risk item assembly and shared risk sort helpers while preserving its existing summary bucket behavior.
+- Updated `MilestoneReviewService` to build all risk sections through the shared risk-section definitions.
+- Updated `ProjectStatusReportService` to build snapshot risk sections through the same shared definitions, preserving snapshot version `1` shape.
+- Added `apps/api/tests/work-risk-sections.test.ts` to prove milestone-scoped sections and project-wide report risks stay aligned.
+- Verified:
+  - `npm test --workspace @worktrail/api -- tests/work-risk-sections.test.ts`;
+  - `npm test --workspace @worktrail/api -- tests/planning.test.ts`;
+  - `npm test --workspace @worktrail/api -- tests/status-reports.test.ts`;
+  - `npm test --workspace @worktrail/api`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`.
 
 ## Phase 8: Status Report Snapshot Validation
 
