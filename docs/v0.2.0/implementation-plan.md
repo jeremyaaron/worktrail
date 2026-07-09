@@ -181,7 +181,28 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-09.
+- Updated first-party package metadata to `0.2.0`:
+  - root `package.json`;
+  - `apps/api/package.json`;
+  - `apps/web/package.json`;
+  - `packages/contracts/package.json`.
+- Updated the API workspace dependency on `@worktrail/contracts` to `0.2.0`.
+- Refreshed `package-lock.json` with `npm install --package-lock-only`.
+- Confirmed no package publish workflow adjustment is needed; all packages remain private.
+- Initial full `npm test` found the known My Work queue ordering/date issue captured by the v0.2.0 tech-debt audit.
+- Fixed the baseline by freezing the My Work component spec date to `2026-07-08T12:00:00.000Z`, preserving the fixture's intended due-today behavior and avoiding date-dependent queue ordering drift.
+- Verified:
+  - `npm install --package-lock-only`;
+  - `npm run lint`;
+  - `npm run typecheck`;
+  - focused My Work web spec;
+  - `npm test`;
+  - `npm run build`.
+- npm audit after lockfile refresh reported 6 existing vulnerabilities:
+  - 2 low;
+  - 4 moderate.
+- No dependency audit remediation was performed in Phase 1 because it would change dependency versions outside the release-metadata and baseline-verification scope.
 
 ## Phase 2: Project Navigation And Terminology Cleanup
 
