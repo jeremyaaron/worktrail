@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { ActivatedRoute, ParamMap, convertToParamMap, provideRouter } from '@angular/router';
 import type {
   MemberDto,
   MilestoneDto,
@@ -11,6 +11,7 @@ import type {
   WorkItemWatchStateDto,
   WorkspaceWorkItemListItemDto
 } from '@worktrail/contracts';
+import { BehaviorSubject } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorkItemDetailPageComponent } from './work-item-detail-page.component';
@@ -29,6 +30,7 @@ const blockerWorkItemId = '10000000-0000-4000-8000-000000000404';
 const blockedWorkItemId = '10000000-0000-4000-8000-000000000405';
 const relatedWorkItemId = '10000000-0000-4000-8000-000000000406';
 let routeQueryParams: Record<string, string>;
+let routeParamMap: BehaviorSubject<ParamMap>;
 
 const owner: MemberDto = {
   id: ownerId,
@@ -296,6 +298,7 @@ function setup(
 describe('WorkItemDetailPageComponent', () => {
   beforeEach(async () => {
     routeQueryParams = {};
+    routeParamMap = new BehaviorSubject(convertToParamMap({ workItemId }));
 
     await TestBed.configureTestingModule({
       imports: [WorkItemDetailPageComponent],
@@ -306,8 +309,11 @@ describe('WorkItemDetailPageComponent', () => {
         {
           provide: ActivatedRoute,
           useValue: {
+            paramMap: routeParamMap.asObservable(),
             snapshot: {
-              paramMap: convertToParamMap({ workItemId }),
+              get paramMap() {
+                return routeParamMap.value;
+              },
               get queryParamMap() {
                 return convertToParamMap(routeQueryParams);
               }
@@ -499,6 +505,44 @@ describe('WorkItemDetailPageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).not.toContain(
       'WT-3 Implement detail surface'
     );
+  });
+
+  it('reloads detail when navigating to another work item on the same route component', () => {
+    const { fixture, http } = setup();
+    const nextDetail: WorkItemDetailDto = {
+      ...detail,
+      id: blockedWorkItemId,
+      displayKey: 'WT-5',
+      title: 'Build detail controls',
+      description: 'The downstream work item detail.',
+      comments: [],
+      labels: [],
+      relationships: {
+        ...detail.relationships,
+        blockedBy: [],
+        blocks: [],
+        related: [],
+        dependencyBlocked: false,
+        openBlockerCount: 0,
+        openBlockedWorkCount: 0
+      }
+    };
+
+    routeParamMap.next(convertToParamMap({ workItemId: blockedWorkItemId }));
+    fixture.detectChanges();
+
+    http.expectOne(`/api/work-items/${blockedWorkItemId}`).flush(nextDetail);
+    http.expectOne(`/api/work-items/${blockedWorkItemId}/watchers`).flush(unwatchedState);
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/labels`).flush([]);
+    http.expectOne(`/api/projects/${projectId}/milestones`).flush([]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('WT-5');
+    expect(compiled.textContent).toContain('Build detail controls');
+    expect(compiled.textContent).not.toContain('WT-3');
+    expect(fixture.componentInstance.workItemId()).toBe(blockedWorkItemId);
   });
 
   it('adds a blocker by posting from the selected blocker to the current work item', () => {
