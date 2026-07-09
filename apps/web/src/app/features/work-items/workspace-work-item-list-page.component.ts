@@ -102,25 +102,6 @@ interface WorkspaceFilterFormValue {
   sort: string;
 }
 
-const defaultFilterValues: WorkspaceFilterFormValue = {
-  search: '',
-  projectId: '',
-  status: '',
-  workState: '',
-  assigneeId: '',
-  reporterId: '',
-  type: '',
-  labelId: '',
-  milestoneId: '',
-  priority: '',
-  dueDateState: '',
-  blocked: '',
-  dependency: '',
-  workRisk: '',
-  archivedProjects: 'exclude',
-  sort: 'updated_desc'
-};
-
 @Component({
   selector: 'app-workspace-work-item-list-page',
   imports: [
@@ -850,7 +831,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   readonly labels = signal<LabelDto[]>([]);
   readonly milestones = signal<MilestoneDto[]>([]);
   readonly workItems = signal<WorkspaceWorkItemListItemDto[]>([]);
-  readonly appliedFilterValues = signal<WorkspaceFilterFormValue>({ ...defaultFilterValues });
+  readonly appliedFilterValues = this.queryState.activeFilterValues;
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
   readonly isCopyingViewLink = signal(false);
@@ -897,7 +878,6 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     this.subscriptions.add(
       this.route.queryParamMap.subscribe((params) => {
         const nextFilters = this.queryState.applyRouteQueryParams(params);
-        this.appliedFilterValues.set(nextFilters);
         this.filterForm.patchValue(nextFilters, { emitEvent: false });
         this.loadProjectScopedFilters(nextFilters.projectId);
         this.loadWorkItems();

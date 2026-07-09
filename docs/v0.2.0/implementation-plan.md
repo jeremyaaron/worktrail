@@ -396,7 +396,29 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-09.
+- Consolidated `SavedViewsToolbarComponent` so saved-view administration no longer dominates the default work-list page:
+  - creation now lives behind a compact `Save view` disclosure;
+  - open, rename, update query, pin/unpin, and delete controls now live behind `Manage views`;
+  - shared/personal counts, load errors, mutation errors, and permission helper copy remain visible;
+  - read-only users can still open saved views from the manage panel without mutation controls.
+- Kept pinned shortcuts visible outside the saved-view management surface through `PinnedSavedViewsComponent`.
+- Preserved workspace and project permission behavior:
+  - contributors cannot manage shared saved views;
+  - archived project saved views remain read-only;
+  - personal saved views remain manageable where allowed.
+- Tightened saved-view component tests around the compact default state:
+  - explicit `Save view` disclosure;
+  - explicit `Manage views` disclosure;
+  - pinned shortcut rendering;
+  - permission-gated actions;
+  - project/workspace saved-view copy and query summaries.
+- Fixed the Phase 3 query-store integration so page-level `appliedFilterValues` aliases the shared query store's active filter signal, preserving existing hidden-filter export/copy behavior.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --watch=false --browsers=ChromeHeadless --include 'src/app/features/work-items/components/*saved-views*.component.spec.ts'`;
+  - `npm test --workspace @worktrail/web -- --watch=false --browsers=ChromeHeadless --include 'src/app/features/work-items/workspace-work-item-list-page.component.spec.ts' --include 'src/app/features/work-items/work-items-page.component.spec.ts'`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`.
 
 ## Phase 5: Workspace And Project Work-List Layout Consolidation
 

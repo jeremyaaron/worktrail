@@ -1149,7 +1149,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   readonly activeMilestones = computed<MilestoneDto[]>(() =>
     this.milestones().filter((milestone) => !milestone.isArchived && milestone.status !== 'completed')
   );
-  readonly appliedFilterValues = signal<WorkItemFilterFormValue>({ ...defaultFilterValues });
+  readonly appliedFilterValues = this.queryState.activeFilterValues;
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
   readonly isCopyingViewLink = signal(false);
@@ -1231,7 +1231,6 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
         const nextFilters = this.queryState.applyRouteQueryParams(params);
 
         this.clearSelection();
-        this.appliedFilterValues.set(nextFilters);
         this.filterForm.patchValue(nextFilters, { emitEvent: false });
         this.loadWorkItems();
       })

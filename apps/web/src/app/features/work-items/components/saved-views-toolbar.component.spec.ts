@@ -72,14 +72,21 @@ describe('SavedViewsToolbarComponent', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('0 shared · 1 personal');
+    expect(compiled.querySelector('.saved-view-save summary')?.textContent?.trim()).toBe(
+      'Save view'
+    );
+    expect(compiled.querySelector('.saved-view-manager summary')?.textContent?.trim()).toBe(
+      'Manage views'
+    );
     expect(compiled.textContent).toContain('Personal views');
-    expect(compiled.querySelector('details')?.hasAttribute('open')).toBeFalse();
+    expect(compiled.querySelector<HTMLDetailsElement>('.saved-view-save')?.open).toBeFalse();
+    expect(compiled.querySelector<HTMLDetailsElement>('.saved-view-manager')?.open).toBeFalse();
 
     fixture.componentInstance.newViewName = 'Blocked risks';
     fixture.componentInstance.saveRequested('personal');
     expect(saves).toEqual(['Blocked risks']);
 
-    compiled.querySelector<HTMLDetailsElement>('details')?.setAttribute('open', '');
+    compiled.querySelector<HTMLDetailsElement>('.saved-view-manager')?.setAttribute('open', '');
     fixture.detectChanges();
     compiled.querySelector<HTMLButtonElement>('.saved-view-actions button')?.click();
     expect(opened).toEqual([savedView]);
@@ -111,10 +118,12 @@ describe('SavedViewsToolbarComponent', () => {
     );
 
     fixture.componentInstance.newViewName = 'Ready for pickup';
-    compiled.querySelectorAll<HTMLButtonElement>('button')[1]?.click();
+    compiled.querySelector<HTMLDetailsElement>('.saved-view-save')?.setAttribute('open', '');
+    fixture.detectChanges();
+    compiled.querySelector<HTMLButtonElement>('.saved-view-save .secondary-action')?.click();
     expect(sharedSaves).toEqual(['Ready for pickup']);
 
-    compiled.querySelector<HTMLDetailsElement>('details')?.setAttribute('open', '');
+    compiled.querySelector<HTMLDetailsElement>('.saved-view-manager')?.setAttribute('open', '');
     fixture.detectChanges();
     const actionButtons = [...compiled.querySelectorAll<HTMLButtonElement>('.saved-view-actions button')];
     actionButtons[0]?.click();
@@ -136,9 +145,10 @@ describe('SavedViewsToolbarComponent', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Owners and maintainers manage shared saved views.');
     expect(compiled.textContent).not.toContain('Save shared view');
-    expect(compiled.querySelector<HTMLDetailsElement>('details')?.hasAttribute('open')).toBeFalse();
+    expect(compiled.querySelector<HTMLDetailsElement>('.saved-view-save')?.open).toBeFalse();
+    expect(compiled.querySelector<HTMLDetailsElement>('.saved-view-manager')?.open).toBeFalse();
 
-    compiled.querySelector<HTMLDetailsElement>('details')?.setAttribute('open', '');
+    compiled.querySelector<HTMLDetailsElement>('.saved-view-manager')?.setAttribute('open', '');
     fixture.detectChanges();
 
     const buttons = [...compiled.querySelectorAll<HTMLButtonElement>('.saved-view-actions button')];
@@ -242,7 +252,7 @@ describe('SavedViewsToolbarComponent', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    compiled.querySelector<HTMLDetailsElement>('details')?.setAttribute('open', '');
+    compiled.querySelector<HTMLDetailsElement>('.saved-view-manager')?.setAttribute('open', '');
     fixture.detectChanges();
 
     const sections = [...compiled.querySelectorAll<HTMLElement>('.saved-view-section')];
@@ -277,7 +287,7 @@ describe('SavedViewsToolbarComponent', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    compiled.querySelector<HTMLDetailsElement>('details')?.setAttribute('open', '');
+    compiled.querySelector<HTMLDetailsElement>('.saved-view-manager')?.setAttribute('open', '');
     fixture.detectChanges();
 
     const personalRows = [...compiled.querySelectorAll<HTMLElement>('.saved-view-row')];

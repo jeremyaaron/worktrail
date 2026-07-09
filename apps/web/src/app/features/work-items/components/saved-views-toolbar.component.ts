@@ -28,35 +28,38 @@ import {
       }
 
       @if (canManagePersonalViews || canManageSharedViews) {
-        <form class="saved-view-form" (submit)="saveRequested('personal'); $event.preventDefault()">
-          <label>
-            <span>Name</span>
-            <input
-              type="text"
-              name="savedViewName"
-              [value]="newViewName"
-              [placeholder]="newViewPlaceholder"
-              (input)="newViewName = $any($event.target).value"
-            />
-          </label>
-          <div class="save-actions">
-            @if (canManagePersonalViews) {
-              <button type="submit" [disabled]="isSaving">
-                {{ isSaving ? 'Saving...' : savePersonalButtonLabel }}
-              </button>
-            }
-            @if (canManageSharedViews) {
-              <button
-                type="button"
-                class="secondary-action"
-                [disabled]="isSaving"
-                (click)="saveRequested('workspace')"
-              >
-                {{ isSaving ? 'Saving...' : saveSharedButtonLabel }}
-              </button>
-            }
-          </div>
-        </form>
+        <details class="saved-view-save">
+          <summary>Save view</summary>
+          <form class="saved-view-form" (submit)="saveRequested('personal'); $event.preventDefault()">
+            <label>
+              <span>Name</span>
+              <input
+                type="text"
+                name="savedViewName"
+                [value]="newViewName"
+                [placeholder]="newViewPlaceholder"
+                (input)="newViewName = $any($event.target).value"
+              />
+            </label>
+            <div class="save-actions">
+              @if (canManagePersonalViews) {
+                <button type="submit" [disabled]="isSaving">
+                  {{ isSaving ? 'Saving...' : savePersonalButtonLabel }}
+                </button>
+              }
+              @if (canManageSharedViews) {
+                <button
+                  type="button"
+                  class="secondary-action"
+                  [disabled]="isSaving"
+                  (click)="saveRequested('workspace')"
+                >
+                  {{ isSaving ? 'Saving...' : saveSharedButtonLabel }}
+                </button>
+              }
+            </div>
+          </form>
+        </details>
       }
 
       @if (mutationError !== null) {
@@ -76,9 +79,9 @@ import {
           [title]="emptyTitle"
           [message]="emptyMessage"
         />
-      } @else if (canManagePersonalViews || canManageSharedViews) {
+      } @else {
         <details class="saved-view-manager">
-          <summary>Manage saved views</summary>
+          <summary>Manage views</summary>
 
           <div class="saved-view-list">
             <section class="saved-view-section" [attr.aria-label]="sharedSectionLabel">
@@ -196,54 +199,6 @@ import {
             </section>
           </div>
         </details>
-      } @else {
-        <div class="saved-view-list">
-          @if (sharedViews.length > 0) {
-            <section class="saved-view-section" [attr.aria-label]="sharedSectionLabel">
-              <div class="saved-view-section__heading">
-                <strong>{{ sharedSectionLabel }}</strong>
-                <span>{{ sharedViews.length }}</span>
-              </div>
-              @for (view of sharedViews; track view.id) {
-                <article class="saved-view-row saved-view-row--shared">
-                  <div>
-                    <strong>{{ view.name }}</strong>
-                    <small>{{ savedViewQueryLabel(view) }}</small>
-                  </div>
-                  <p class="saved-view-owner">Shared by {{ view.owner.name }}</p>
-                  <div class="saved-view-actions">
-                    <button type="button" class="secondary-action" (click)="open.emit(view)">
-                      Open
-                    </button>
-                  </div>
-                </article>
-              }
-            </section>
-          }
-
-          @if (personalViews.length > 0) {
-            <section class="saved-view-section" [attr.aria-label]="personalSectionLabel">
-              <div class="saved-view-section__heading">
-                <strong>{{ personalSectionLabel }}</strong>
-                <span>{{ personalViews.length }}</span>
-              </div>
-              @for (view of personalViews; track view.id) {
-                <article class="saved-view-row">
-                  <div>
-                    <strong>{{ view.name }}</strong>
-                    <small>{{ savedViewQueryLabel(view) }}</small>
-                  </div>
-                  <p class="saved-view-owner">Personal view</p>
-                  <div class="saved-view-actions">
-                    <button type="button" class="secondary-action" (click)="open.emit(view)">
-                      Open
-                    </button>
-                  </div>
-                </article>
-              }
-            </section>
-          }
-        </div>
       }
     </section>
   `,
@@ -358,18 +313,35 @@ import {
       font-weight: 700;
     }
 
+    .saved-view-save,
+    .saved-view-manager {
+      display: grid;
+      gap: 12px;
+    }
+
+    .saved-view-save summary,
     .saved-view-manager summary {
       width: fit-content;
+      min-height: 36px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 8px 12px;
+      background: #ffffff;
       color: #1e3a5f;
       font-size: 0.875rem;
       font-weight: 800;
       cursor: pointer;
     }
 
+    .saved-view-save[open] summary,
+    .saved-view-manager[open] summary {
+      border-color: #1f4f99;
+      color: #1f4f99;
+    }
+
     .saved-view-list {
       display: grid;
       gap: 10px;
-      margin-top: 12px;
     }
 
     .saved-view-section {
