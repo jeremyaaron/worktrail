@@ -836,7 +836,37 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-09.
+- Rewrote `site/index.html` to describe the current v0.2.0 product/reference baseline instead of sprint chronology.
+- Tightened hero copy into:
+  - one product sentence;
+  - one developer-reference sentence.
+- Reframed the signal band around:
+  - users;
+  - builders;
+  - operators;
+  - cloud path.
+- Consolidated product capabilities into workflow pillars:
+  - start the day;
+  - find and shape work;
+  - operate projects;
+  - share status.
+- Added a v0.2.0 baseline section focused on product users, builders, and operators.
+- Reworked architecture copy into explicit layers:
+  - frontend;
+  - API boundary;
+  - domain;
+  - persistence;
+  - operations.
+- Converted broad caveats into concise non-goal cards.
+- Updated footer links to README, v0.2.0 PRD/design/audits, OpenAPI, runbook, and CSV guide.
+- Did not refresh the screenshot; the existing project-board image remains acceptable and screenshot refresh is non-blocking.
+- Trimmed the Phase 9 planning bridge styles by reusing existing component link styling, clearing a production-build style budget warning.
+- Verified:
+  - `npm run build`;
+  - `npm test --workspace @worktrail/web -- --watch=false --include '**/project-planning*.spec.ts'`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `git diff --check`.
 
 ## Phase 11: Documentation, Release Notes, And Pattern Notes
 

@@ -6,12 +6,12 @@
     <title>Worktrail | Project management reference app</title>
     <meta
       name="description"
-      content="Worktrail is a local-first project-management reference app for daily work, reliable filtered views, pinned operating lenses, project batch triage, milestone review, shareable status reports, collaboration updates, dependency-aware planning, and production-shaped TypeScript architecture."
+      content="Worktrail is a project management reference app for daily team work, reliable project operation, planning review, and published status snapshots, built as an Angular, TypeScript API, and Postgres reference baseline."
     >
     <meta property="og:title" content="Worktrail">
     <meta
       property="og:description"
-      content="A local-first project-management reference app for daily work, reliable filtered views, pinned operating lenses, project batch triage, milestone review, shareable status reports, collaboration updates, dependency-aware planning, and production-shaped TypeScript architecture."
+      content="A project management reference app for daily team work, planning review, published status snapshots, and production-shaped TypeScript architecture."
     >
     <meta property="og:type" content="website">
     <meta name="theme-color" content="#f6f8fb">
@@ -26,9 +26,9 @@
       </a>
       <nav class="nav" aria-label="Primary navigation">
         <a href="#app">Product</a>
+        <a href="#baseline">Baseline</a>
         <a href="#architecture">Architecture</a>
-        <a href="#capabilities">Baseline</a>
-        <a href="#operations">Operations</a>
+        <a href="#scope">Scope</a>
         <a href="#run">Run locally</a>
         <a href="https://github.com/jeremyaaron/worktrail">GitHub</a>
       </nav>
@@ -46,9 +46,12 @@
           <p class="eyebrow">Project management reference app</p>
           <h1 id="hero-title">Worktrail</h1>
           <p class="hero-copy">
-            A local-first project-management reference app for daily work, reliable filtered views,
-            pinned workspace and project operating lenses, project batch triage, milestone review, shareable status reports,
-            collaboration updates, dependency-aware planning, and production-shaped TypeScript architecture.
+            Worktrail is a focused project management app for daily execution, project operation,
+            planning review, collaboration, dependencies, and published status snapshots.
+          </p>
+          <p class="hero-copy hero-copy-secondary">
+            It is also a reference implementation for an Angular static frontend, a TypeScript API
+            boundary, domain services, Postgres persistence, and production-shaped local operations.
           </p>
           <div class="hero-actions" aria-label="Primary actions">
             <a class="button button-primary" href="https://github.com/jeremyaaron/worktrail">
@@ -61,154 +64,128 @@
 
       <section class="signal-band" aria-label="Project signals">
         <div class="signal">
-          <span class="signal-value">Reliable views</span>
-          <span class="signal-label">URL-backed filters, pinned views, copy links, batch triage, and exports</span>
+          <span class="signal-value">Users</span>
+          <span class="signal-label">Daily queue, inbox, saved views, project boards, milestones, comments, and reports</span>
         </div>
         <div class="signal">
-          <span class="signal-value">Planning</span>
-          <span class="signal-label">milestones, review pages, Markdown status reports, boards, dependencies, and delivery health</span>
+          <span class="signal-value">Builders</span>
+          <span class="signal-label">Typed contracts, endpoint handlers, query serialization, domain services, and tests</span>
         </div>
         <div class="signal">
-          <span class="signal-value">Reference</span>
-          <span class="signal-label">Angular, TypeScript API, Postgres, OpenAPI, CI</span>
+          <span class="signal-value">Operators</span>
+          <span class="signal-label">Postgres migrations, production preview, readiness checks, OpenAPI, CI, and runbooks</span>
         </div>
         <div class="signal">
           <span class="signal-value">Cloud path</span>
-          <span class="signal-label">static frontend and transport-neutral endpoint handlers</span>
+          <span class="signal-label">Angular static hosting and transport-neutral API boundaries for future managed deployment</span>
         </div>
       </section>
 
       <section class="section" id="app" aria-labelledby="app-title">
         <div class="section-heading">
-          <p class="eyebrow">The app</p>
-          <h2 id="app-title">A focused operating surface for project work.</h2>
+          <p class="eyebrow">The product</p>
+          <h2 id="app-title">A working operating surface for team project work.</h2>
           <p>
-            Worktrail is intentionally small, but the workflows are real. v0.1.0 consolidates
-            the app around daily execution, v0.1.1 adds the attention loop, v0.1.2 hardens
-            filtered work views, v0.1.3 turns saved views into workspace operating lenses,
-            v0.1.4 brings the same pattern into project workspaces, and v0.1.5 promotes
-            the most important saved views into pinned shortcuts, v0.1.6 adds project batch
-            triage for selected project work, v0.1.7 adds focused milestone review pages,
-            v0.1.8 adds project status reports with immutable published snapshots, and v0.1.9
-            makes those reports portable with Markdown copy, Markdown download, and print-friendly detail pages.
+            Worktrail is intentionally compact, but its workflows are real. The app gives a team a
+            daily starting point, durable ways to find and shape work, project-level operating views,
+            and published status artifacts that preserve what was true when a report was shared.
           </p>
         </div>
+
         <div class="feature-grid">
           <article class="feature">
-            <span class="feature-kicker">Daily execution</span>
-            <h3>Start from the work that needs attention.</h3>
+            <span class="feature-kicker">Start the day</span>
+            <h3>Open the work and updates that need attention.</h3>
             <ul>
-              <li>My Work daily queue for the selected local actor.</li>
-              <li>Inbox summary for unread collaboration updates.</li>
-              <li>Quick capture for project-scoped work from a global route.</li>
-              <li>Comments, tombstones, activity, and return-to-list context.</li>
+              <li>My Work summarizes assigned work, due dates, dependency-blocked work, and stale items.</li>
+              <li>Action Inbox collects mentions, assignments, watcher updates, and dependency changes.</li>
+              <li>Local actor switching exercises owner, maintainer, and contributor paths.</li>
+              <li>Notifications link back to the relevant work item or project context.</li>
             </ul>
           </article>
+
           <article class="feature">
-            <span class="feature-kicker">Action Inbox</span>
-            <h3>Route important changes to the right person.</h3>
+            <span class="feature-kicker">Find and shape work</span>
+            <h3>Use applied filters as a product contract.</h3>
             <ul>
-              <li>Unread and all notification views for the selected actor.</li>
-              <li>Read, unread, and mark-all-read controls.</li>
-              <li>Deep links back to mentioned, assigned, watched, and blocked work.</li>
+              <li>Workspace and project work lists use URL-backed filters, active chips, and copyable links.</li>
+              <li>Saved views support personal, workspace-shared, and project-scoped operating lenses.</li>
+              <li>Pinned shortcuts keep the most important saved views visible.</li>
+              <li>CSV import, dry-run validation, transactional apply, and filtered exports support portability.</li>
             </ul>
           </article>
+
           <article class="feature">
-            <span class="feature-kicker">Work discovery</span>
-            <h3>Find the right work across projects.</h3>
+            <span class="feature-kicker">Operate projects</span>
+            <h3>Keep project decisions close to delivery state.</h3>
             <ul>
-              <li>Top-level Work Items with URL-backed filters and active chips.</li>
-              <li>Copyable filtered-view links that reload to the same applied work set.</li>
-              <li>Personal, workspace-shared, and project-scoped saved views with compact controls.</li>
-              <li>Pinned workspace and project shortcuts for important operating lenses.</li>
-              <li>Contributor read access to shared workspace/project views with owner/maintainer management rules.</li>
-              <li>Filtered CSV export for project and workspace result sets using applied filters.</li>
+              <li>Project shell navigation keeps Overview, Work, Board, Planning, Reports, and Settings in context.</li>
+              <li>Angular CDK board interactions preserve durable server-validated order.</li>
+              <li>Owner and maintainer bulk triage applies scoped project updates with per-row results.</li>
+              <li>Relationships surface blocked-by, blocking, and related work across the workspace.</li>
             </ul>
           </article>
+
           <article class="feature">
-            <span class="feature-kicker">Project operation</span>
-            <h3>Keep every project view in context.</h3>
+            <span class="feature-kicker">Share status</span>
+            <h3>Separate live planning from published evidence.</h3>
             <ul>
-              <li>Persistent project shell with status and health.</li>
-              <li>Overview, Work, Board, Planning, and Settings subnav.</li>
-              <li>Durable Angular CDK board order with server validation.</li>
-              <li>Owner/maintainer batch triage for selected project work items.</li>
-            </ul>
-          </article>
-          <article class="feature">
-            <span class="feature-kicker">Planning</span>
-            <h3>Review health before editing administration.</h3>
-            <ul>
-              <li>Planning Review with needs attention, upcoming, and recent changes.</li>
-              <li>Milestone progress with explainable health reasons.</li>
-              <li>Milestone review pages with scope, risk, and recent movement.</li>
-              <li>Risk sections for overdue, blocked, stale, and unassigned work.</li>
-              <li>Query-backed risk links into filtered project Work.</li>
-            </ul>
-          </article>
-          <article class="feature">
-            <span class="feature-kicker">Status reports</span>
-            <h3>Turn current project state into a durable update.</h3>
-            <ul>
-              <li>Generated drafts from health, milestone, risk, and recent-work signals.</li>
-              <li>Editable narrative before publication.</li>
-              <li>Immutable published snapshots with links back to current work.</li>
-              <li>Markdown copy/download and print-friendly report detail pages.</li>
-              <li>Owner/maintainer publishing with contributor read access.</li>
-            </ul>
-          </article>
-          <article class="feature">
-            <span class="feature-kicker">Dependency visibility</span>
-            <h3>Make blockers part of the operating model.</h3>
-            <ul>
-              <li>Directional blocking and symmetric related-work links.</li>
-              <li>Derived dependency-blocked and blocking-open-work signals.</li>
-              <li>Dependency filters across lists, saved views, planning, and export.</li>
-            </ul>
-          </article>
-          <article class="feature">
-            <span class="feature-kicker">Workspace governance</span>
-            <h3>Exercise role paths without fake SaaS ceremony.</h3>
-            <ul>
-              <li>Owner, maintainer, and contributor policy paths.</li>
-              <li>Member lifecycle and inactive-member history.</li>
-              <li>Archived projects stay readable and block writes.</li>
+              <li>Planning and Milestone Review pages are labeled as live views of current state.</li>
+              <li>Report drafts separate generated evidence from editable narrative.</li>
+              <li>Published reports preserve immutable snapshots while linking to current work.</li>
+              <li>Markdown copy, Markdown download, and print-friendly report detail pages support sharing.</li>
             </ul>
           </article>
         </div>
       </section>
 
-      <section class="section" id="capabilities" aria-labelledby="capabilities-title">
+      <section class="section" id="baseline" aria-labelledby="baseline-title">
         <div class="section-heading">
-          <p class="eyebrow">v0.1.9 baseline</p>
-          <h2 id="capabilities-title">Product polish, reliable views, and reference-app discipline.</h2>
+          <p class="eyebrow">v0.2.0 baseline</p>
+          <h2 id="baseline-title">A consolidated reference app baseline.</h2>
           <p>
-            The v0.1.0 release turned accumulated capability into a clearer baseline.
-            v0.1.1 adds an actor-scoped collaboration layer. v0.1.2 turns filtered work views
-            into a trustworthy product contract. v0.1.3 builds on that foundation with
-            workspace-shared saved views. v0.1.4 adds project-scoped saved views that use
-            the same applied query-state model as URLs, chips, copy links, delivery-health
-            links, return URLs, and CSV exports. v0.1.5 makes important saved views visible
-            as pinned shortcuts without changing their underlying query contracts. v0.1.6
-            adds explicit project batch commands with partial-success feedback. v0.1.7
-            adds derived milestone review pages and query-backed risk links into project Work.
-            v0.1.8 adds generated project status reports that preserve historical snapshots while
-            keeping links connected to current project data. v0.1.9 adds server-rendered Markdown
-            exports, reader-facing copy/download controls, and print-friendly report output.
+            The v0.2.0 baseline is a polish and consolidation pass over the current product surface.
+            It reduces ambiguity between live views and published snapshots, improves Work Item
+            Detail scanability, centralizes backend risk-section assembly, adds explicit status
+            report snapshot validation, and keeps reference-app boundaries visible without turning
+            the site into a release log.
           </p>
         </div>
+
         <div class="baseline-grid">
           <div>
             <strong>For product users</strong>
-            <span>Lower scan cost, clearer navigation, visible collaboration updates, pinned workspace/project operating views, shareable filtered links, milestone review, portable status reports, batch project triage, and readable mobile work lists.</span>
+            <span>Daily work, inbox updates, reliable filters, saved/pinned views, project boards, planning review, milestone review, dependency signals, comments, watchers, activity, CSV flows, and portable status reports.</span>
           </div>
           <div>
             <strong>For builders</strong>
-            <span>Domain contracts, canonical query helpers, pinned query artifacts, derived review read models, immutable report snapshots, non-JSON Markdown exports, batch command envelopes, notification fan-out, route-level code splitting, shared risk policy, endpoint handlers, and API client boundaries.</span>
+            <span>Shared contracts, typed Angular API clients, query helpers, route-level code splitting, endpoint handlers, service-level domain policy, report snapshot parsing, and focused test coverage.</span>
           </div>
           <div>
             <strong>For operators</strong>
-            <span>Production preview, runtime config validation, health/readiness checks, OpenAPI, local runbook, CI, and deterministic seeds.</span>
+            <span>Postgres migrations and seed data, production preview, runtime configuration checks, health/readiness endpoints, checked-in OpenAPI, CI verification, and documented local run paths.</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section contrast" id="architecture" aria-labelledby="architecture-title">
+        <div class="architecture-layout">
+          <div>
+            <p class="eyebrow">Architecture</p>
+            <h2 id="architecture-title">Local-first now. Cloud-shaped where it matters.</h2>
+            <p>
+              Worktrail runs locally with Angular, Express, and Postgres. The important reference
+              value is in the boundaries: frontend state is explicit, HTTP handlers are adapter-ready,
+              domain rules live in services, persistence is relational, and operations have concrete
+              build and readiness paths.
+            </p>
+          </div>
+          <div class="stack-panel" aria-label="Architecture layers">
+            <div><strong>Frontend</strong><span>Angular standalone route components, lazy route chunks, static build output, URL-backed query state, and responsive work surfaces suitable for S3/CloudFront hosting.</span></div>
+            <div><strong>API boundary</strong><span>Shared DTO contracts, explicit request validation, transport-neutral endpoint handlers, Express local adapter, OpenAPI documentation, and non-JSON export responses.</span></div>
+            <div><strong>Domain</strong><span>Project planning, delivery health, risk sections, relationships, notifications, saved views, CSV flows, report snapshots, and permission paths in service-level code.</span></div>
+            <div><strong>Persistence</strong><span>Postgres with Drizzle schema and migrations, deterministic seed data, immutable report snapshots, activity records, notifications, relationships, and saved view state.</span></div>
+            <div><strong>Operations</strong><span>Production preview, runtime config validation, liveness/readiness endpoints, CI lint/typecheck/test/build, and local smoke-test guidance.</span></div>
           </div>
         </div>
       </section>
@@ -218,11 +195,9 @@
           <p class="eyebrow">Operations</p>
           <h2 id="operations-title">Built artifacts, readiness signals, and documented run paths.</h2>
           <p>
-            The production preview runs compiled API code and serves the built Angular app from
-            Express. It validates runtime configuration, requires an explicit production
-            <code>DATABASE_URL</code>, serves SPA deep links, keeps API routes separate from browser fallback,
-            and exposes process liveness plus database readiness endpoints. CI now runs lint,
-            typecheck, unit tests, and production build on pull requests and pushes to main.
+            The production preview compiles the API and Angular app, serves built frontend assets
+            from Express, keeps `/api/*` separate from SPA fallback, requires an explicit production
+            database URL, and exposes separate process liveness and database readiness checks.
           </p>
         </div>
         <div class="feature-grid feature-grid-compact">
@@ -239,7 +214,7 @@
           <article class="feature">
             <span class="feature-kicker">API docs</span>
             <h3>A checked-in OpenAPI reference.</h3>
-            <p>Implemented routes, local actor headers, representative DTOs, and errors are documented.</p>
+            <p>Implemented routes, local actor headers, representative DTOs, readiness behavior, and errors are documented.</p>
           </article>
           <article class="feature">
             <span class="feature-kicker">Runbook</span>
@@ -249,54 +224,28 @@
         </div>
       </section>
 
-      <section class="section contrast" id="architecture" aria-labelledby="architecture-title">
-        <div class="architecture-layout">
-          <div>
-            <p class="eyebrow">Architecture</p>
-            <h2 id="architecture-title">Local-first now. Cloud-shaped from the first cut.</h2>
-            <p>
-              Worktrail runs locally with Angular, Express, and Postgres. The internal boundaries
-              are deliberately boring: shared DTO contracts, request validation,
-              repository-backed services, actor context, command-style writes, and endpoint
-              handlers that can outlive the local Express adapter.
-            </p>
-          </div>
-          <div class="stack-panel" aria-label="Architecture layers">
-            <div><strong>Angular SPA</strong><span>static build suitable for S3 and CloudFront</span></div>
-            <div><strong>Lazy routes</strong><span>route chunks keep initial production bundles below warning budgets</span></div>
-            <div><strong>Query contracts</strong><span>one applied work item query model for URLs, saved views, exports, and links</span></div>
-            <div><strong>Batch commands</strong><span>explicit project bulk actions with per-row result envelopes</span></div>
-            <div><strong>Review read models</strong><span>derived milestone views that aggregate existing health and risk policy</span></div>
-            <div><strong>Report sharing</strong><span>immutable status reports with Markdown exports, print views, and live links back to current data</span></div>
-            <div><strong>Endpoint handlers</strong><span>transport-neutral request and response shape</span></div>
-            <div><strong>Relationship services</strong><span>edge validation, cycle checks, and derived dependency state</span></div>
-            <div><strong>Notification services</strong><span>actor-scoped read state, watcher fan-out, mention metadata, and dedupe</span></div>
-            <div><strong>Delivery health</strong><span>pure service-side derivation with explainable reason links</span></div>
-            <div><strong>CSV flows</strong><span>dry-run validation, transactional bulk commands, and non-JSON responses</span></div>
-            <div><strong>Express adapter</strong><span>local runtime and production preview host</span></div>
-            <div><strong>Health checks</strong><span>liveness and Postgres readiness for operational inspection</span></div>
-            <div><strong>Postgres + Drizzle</strong><span>migrations, saved views, and deterministic seed data</span></div>
-            <div><strong>CI + ESLint</strong><span>low-churn guardrails for API, web, and contracts</span></div>
-            <div><strong>Playwright smoke</strong><span>browser-level coverage for daily workflow, governance, planning, and responsiveness</span></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="section" id="mvp" aria-labelledby="mvp-title">
+      <section class="section" id="scope" aria-labelledby="scope-title">
         <div class="section-heading">
           <p class="eyebrow">Current scope</p>
-          <h2 id="mvp-title">Local-first, cloud-shaped, still honest about limits.</h2>
+          <h2 id="scope-title">Useful reference app, not hosted SaaS.</h2>
           <p>
-            Worktrail v0.1.9 is still a local reference app. Production authentication,
-            invitations, pinned projects, custom roles, custom
-            workflows, cross-project bulk edit, email or push delivery, notification preferences, attachments, third-party
-            migration mappings, graph visualization, dependency automation, custom health formulas,
-            forecasting, roadmap views, critical path analysis, milestone sign-off,
-            PDF reports, report delivery, report approvals, public report links, export history, and hosted infrastructure are intentionally out of scope. Production
-            preview is not an internet-safe authenticated deployment. The value today is a working
-            product surface and operational boundary that can accumulate evidence before patterns are
-            extracted into broader framework ideas.
+            Worktrail is candid about what it is not. The value today is a working product surface
+            and production-shaped local architecture, not an internet-safe deployment.
           </p>
+        </div>
+        <div class="baseline-grid non-goal-grid">
+          <div>
+            <strong>No production auth yet</strong>
+            <span>Authentication is represented by local actor headers and the top-bar actor selector. Real identity, invitations, tenant provisioning, and custom roles are deferred.</span>
+          </div>
+          <div>
+            <strong>No hosted infrastructure yet</strong>
+            <span>The production preview is for local operational inspection. Managed deployment, secrets, observability, background workers, and internet-safe hosting are not included.</span>
+          </div>
+          <div>
+            <strong>No enterprise workflow suite yet</strong>
+            <span>Custom workflows, attachments, roadmap forecasting, report approvals, public report links, critical path analysis, and third-party migrations remain outside the baseline.</span>
+          </div>
         </div>
       </section>
 
@@ -304,6 +253,10 @@
         <div>
           <p class="eyebrow">Run locally</p>
           <h2 id="run-title">Clone, migrate, seed, and start.</h2>
+          <p>
+            The default local path uses Postgres, deterministic seed data, the Angular dev server,
+            and the local Express API.
+          </p>
         </div>
         <pre><code>npm install
 npm run db:start
@@ -319,10 +272,13 @@ DATABASE_URL=postgres://worktrail:worktrail@localhost:5432/worktrail npm run pre
     <footer class="footer">
       <span>Worktrail</span>
       <a href="https://github.com/jeremyaaron/worktrail">GitHub</a>
-      <a href="https://github.com/jeremyaaron/worktrail/tree/main/docs/v0.1.9">v0.1.9 docs</a>
-      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.1.9/pattern-extraction-notes.md">Pattern notes</a>
-      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.0.7/csv-import-export.md">CSV guide</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/README.md">README</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.0/prd.md">v0.2.0 PRD</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.0/technical-design.md">Technical design</a>
+      <a href="https://github.com/jeremyaaron/worktrail/tree/main/docs/v0.2.0">v0.2.0 audits</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/api/openapi.yaml">OpenAPI</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.0.X/v0.0.6/operations-runbook.md">Runbook</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.0.X/v0.0.7/csv-import-export.md">CSV guide</a>
     </footer>
   </body>
 </html>

@@ -121,14 +121,12 @@ interface PlanningReviewSection {
             stakeholders, exports, and later comparison.
           </p>
         </div>
-        <div class="planning-report-bridge__actions">
+        <nav class="planning-report-bridge__actions" aria-label="Planning report links">
           <a [routerLink]="['/projects', projectId(), 'status']">View reports</a>
           @if (canCreateReport()) {
-            <a class="primary-link" [routerLink]="['/projects', projectId(), 'status', 'new']">
-              Draft report
-            </a>
+            <a [routerLink]="['/projects', projectId(), 'status', 'new']">Draft report</a>
           }
-        </div>
+        </nav>
       </section>
 
       <div class="planning-view-control" aria-label="Planning view">
@@ -782,50 +780,13 @@ interface PlanningReviewSection {
     }
 
     .planning-report-bridge {
-      display: flex;
-      flex-wrap: wrap;
+      display: grid;
       gap: 14px;
-      align-items: center;
-      justify-content: space-between;
       margin-bottom: 20px;
       border: 1px solid #bfdbfe;
       border-radius: 8px;
       padding: 14px 16px;
       background: #eff6ff;
-    }
-
-    .planning-report-bridge > div:first-child {
-      display: grid;
-      gap: 4px;
-      max-width: 72ch;
-    }
-
-    .planning-report-bridge__actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      justify-content: flex-end;
-    }
-
-    .planning-report-bridge__actions a {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 36px;
-      border: 1px solid #cbd5e1;
-      border-radius: 6px;
-      padding: 8px 12px;
-      background: #ffffff;
-      color: #1e3a5f;
-      font-size: 0.875rem;
-      font-weight: 800;
-      text-decoration: none;
-    }
-
-    .planning-report-bridge__actions .primary-link {
-      border-color: #1f4f99;
-      background: #1f4f99;
-      color: #ffffff;
     }
 
     .planning-view-control {
