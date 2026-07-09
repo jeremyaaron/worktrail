@@ -537,7 +537,34 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-09.
+- Added `ProjectBulkTriageStore` for project bulk mode state:
+  - enter and exit mode;
+  - selected ids and selected visible rows;
+  - all-visible selection;
+  - selection pruning after reloads;
+  - apply state;
+  - error/result feedback;
+  - partial-success recovery by retaining failed rows.
+- Added an explicit `Bulk edit` entry point for owners and maintainers on project work lists.
+- Hid selection checkboxes until bulk edit mode is active.
+- Added an always-visible `Exit bulk edit` control while mode is active.
+- Kept selection count, action selector, apply/clear controls, and result summary grouped in the bulk action zone.
+- Preserved read-only behavior:
+  - contributors do not see bulk mutation controls;
+  - archived projects do not see bulk mutation controls.
+- Preserved existing bulk actions and API request shape.
+- Updated focused tests for:
+  - bulk mode entry;
+  - hidden selection before mode entry;
+  - contributor/archive permissions;
+  - selection pruning;
+  - partial-success failed-row recovery;
+  - existing bulk action serialization.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --watch=false --browsers=ChromeHeadless --include 'src/app/features/work-items/state/project-bulk-triage.store.spec.ts' --include 'src/app/features/work-items/work-items-page.component.spec.ts'`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`.
 
 ## Phase 7: Backend Risk-Section Consolidation
 
