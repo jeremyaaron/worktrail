@@ -7,6 +7,7 @@ import type {
   LabelDto,
   MemberDto,
   MilestoneDto,
+  ProjectCycleDto,
   ProjectDto,
   WorkItemDetailDto,
   WorkItemPriority,
@@ -16,6 +17,7 @@ import type {
 import { Subscription, distinctUntilChanged } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
+import { CyclesApi } from '../../core/api/cycles-api';
 import { WorktrailApiService } from '../../core/worktrail-api.service';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
@@ -182,6 +184,16 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
         </label>
 
         <label>
+          <span>Cycle</span>
+          <select formControlName="cycleId">
+            <option value="">No cycle</option>
+            @for (cycle of availableCycles(); track cycle.id) {
+              <option [value]="cycle.id">{{ cycle.name }}</option>
+            }
+          </select>
+        </label>
+
+        <label>
           <span>Due date</span>
           <input type="date" formControlName="dueDate" />
         </label>
@@ -202,6 +214,14 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
           title="Milestones unavailable"
           [message]="milestoneLoadError() ?? ''"
           (retry)="loadProjectMilestones()"
+        />
+      }
+
+      @if (cycleLoadError()) {
+        <app-error-panel
+          title="Cycles unavailable"
+          [message]="cycleLoadError() ?? ''"
+          (retry)="loadProjectCycles()"
         />
       }
 
@@ -505,11 +525,13 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
 })
 export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
   private readonly api = inject(WorktrailApiService);
+  private readonly cyclesApi = inject(CyclesApi);
   private readonly currentUser = inject(CurrentUserService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
   private readonly subscriptions = new Subscription();
   private readonly routeProjectId = this.route.snapshot.paramMap.get('projectId') ?? '';
+  private readonly routeCycleId = this.route.snapshot.queryParamMap?.get('cycleId') ?? '';
 
   readonly types = types;
   readonly priorities = priorities;
@@ -521,6 +543,7 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
   readonly capabilities = signal<WorkspaceCapabilitiesDto | null>(null);
   readonly availableLabels = signal<LabelDto[]>([]);
   readonly availableMilestones = signal<MilestoneDto[]>([]);
+  readonly availableCycles = signal<ProjectCycleDto[]>([]);
   readonly selectedLabelIds = signal<string[]>([]);
   readonly createdWorkItem = signal<WorkItemDetailDto | null>(null);
   readonly isCreating = signal(false);
@@ -531,6 +554,7 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
   readonly projectLoadError = signal<string | null>(null);
   readonly labelLoadError = signal<string | null>(null);
   readonly milestoneLoadError = signal<string | null>(null);
+  readonly cycleLoadError = signal<string | null>(null);
   readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
   readonly canCreateWorkItems = computed(() => this.capabilities()?.canCreateWorkItems !== false);
   readonly isCreateDisabled = computed(
@@ -549,6 +573,7 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
     priority: ['medium'],
     assigneeId: [''],
     milestoneId: [''],
+    cycleId: [this.routeProjectId === '' ? '' : this.routeCycleId],
     dueDate: [''],
     estimatePoints: ['']
   });
@@ -616,6 +641,7 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
       priority: 'medium',
       assigneeId: '',
       milestoneId: '',
+      cycleId: '',
       dueDate: '',
       estimatePoints: ''
     });
@@ -706,6 +732,30 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
     });
   }
 
+  loadProjectCycles(): void {
+    const projectId = this.selectedProjectId();
+
+    this.cycleLoadError.set(null);
+
+    if (projectId === '') {
+      this.availableCycles.set([]);
+      return;
+    }
+
+    this.cyclesApi.listCycles(projectId).subscribe({
+      next: (cycles) => {
+        this.availableCycles.set(
+          this.sortCycles(
+            cycles.filter((cycle) => !cycle.isArchived && cycle.status !== 'completed' && cycle.status !== 'canceled')
+          )
+        );
+      },
+      error: () => {
+        this.cycleLoadError.set('Project cycles could not be loaded from the API.');
+      }
+    });
+  }
+
   retryProjectLoad(): void {
     const projectId = this.selectedProjectId();
 
@@ -747,12 +797,14 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
           this.selectedProjectId.set(projectId);
           this.selectedLabelIds.set([]);
           this.workItemForm.controls.milestoneId.setValue('', { emitEvent: false });
+          this.workItemForm.controls.cycleId.setValue('', { emitEvent: false });
           this.createdWorkItem.set(null);
 
           if (projectId === '') {
             this.project.set(null);
             this.availableLabels.set([]);
             this.availableMilestones.set([]);
+            this.availableCycles.set([]);
             this.syncReadOnlyState();
             return;
           }
@@ -779,6 +831,7 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
 
     this.loadProjectLabels();
     this.loadProjectMilestones();
+    this.loadProjectCycles();
   }
 
   private loadCapabilities(): void {
@@ -814,6 +867,7 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
       assigneeId: formValue.assigneeId === '' ? null : formValue.assigneeId,
       labelIds: this.selectedLabelIds(),
       milestoneId: formValue.milestoneId === '' ? null : formValue.milestoneId,
+      cycleId: formValue.cycleId === '' ? null : formValue.cycleId,
       dueDate: formValue.dueDate === '' ? null : formValue.dueDate,
       estimatePoints: estimate === '' ? null : Number.parseInt(estimate, 10)
     };
@@ -821,6 +875,16 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
 
   private normalizeEstimate(value: string | number): string {
     return typeof value === 'number' ? value.toString() : value.trim();
+  }
+
+  private sortCycles(cycles: ProjectCycleDto[]): ProjectCycleDto[] {
+    return [...cycles].sort((left, right) => {
+      if (left.startDate !== right.startDate) {
+        return left.startDate.localeCompare(right.startDate);
+      }
+
+      return left.name.localeCompare(right.name);
+    });
   }
 
   private toErrorMessage(error: HttpErrorResponse, fallback: string): string {

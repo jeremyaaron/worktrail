@@ -6,6 +6,7 @@ export interface ProjectWorkItemFilterFormValue {
   type: string;
   labelId: string;
   milestoneId: string;
+  cycleId: string;
   priority: string;
   dueDateState: string;
   dependency: string;
@@ -28,6 +29,7 @@ export const defaultProjectWorkItemFilterValues: ProjectWorkItemFilterFormValue 
   type: '',
   labelId: '',
   milestoneId: '',
+  cycleId: '',
   priority: '',
   dueDateState: '',
   dependency: '',

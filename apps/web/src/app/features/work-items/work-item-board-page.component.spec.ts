@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import type {
   MemberDto,
+  ProjectCycleDto,
   ProjectDto,
   WorkItemDetailDto,
   WorkItemListItemDto,
@@ -59,6 +60,22 @@ const archivedProject: ProjectDto = {
   status: 'archived'
 };
 
+const activeCycle: ProjectCycleDto = {
+  id: '10000000-0000-4000-8000-000000000701',
+  workspaceId: owner.workspaceId,
+  projectId,
+  name: 'Cycle 1',
+  goal: 'Integrate board cycle metadata.',
+  status: 'active',
+  startDate: '2026-07-06',
+  endDate: '2026-07-20',
+  targetPoints: 24,
+  isArchived: false,
+  archivedAt: null,
+  createdAt: '2026-07-02T12:00:00.000Z',
+  updatedAt: '2026-07-03T12:00:00.000Z'
+};
+
 const readyItem: WorkItemListItemDto = {
   id: '10000000-0000-4000-8000-000000000402',
   workspaceId: owner.workspaceId,
@@ -81,7 +98,7 @@ const readyItem: WorkItemListItemDto = {
     }
   ],
   milestone: null,
-  cycle: null,
+  cycle: activeCycle,
   boardPosition: 1024,
   dueDate: null,
   estimatePoints: 3,
@@ -178,6 +195,7 @@ describe('WorkItemBoardPageComponent', () => {
     expect(compiled.textContent).toContain('ready');
     expect(compiled.textContent).toContain('in progress');
     expect(compiled.textContent).toContain('WT-2');
+    expect(compiled.textContent).toContain('Cycle 1');
     expect(compiled.textContent).toContain('Ready board item');
     expect(compiled.textContent).toContain('No cards');
     expect(compiled.querySelector('select')?.value).toBe('ready');

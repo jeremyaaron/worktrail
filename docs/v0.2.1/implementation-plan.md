@@ -1162,6 +1162,23 @@ npm run lint --workspace @worktrail/web
 git diff --check
 ```
 
+Status: Completed.
+
+Notes:
+
+- Added `cycleId` to project/workspace work item query form state, URL serialization, return URLs, copied links, saved views, pinned views, active chips, and API params.
+- Added cycle assignment to work item create and detail pages, including route-query prefill for project-scoped create links and include-archived cycle options on detail.
+- Added project Work cycle filtering, cycle chips, cycle metadata in rows/cards, and bulk set/clear cycle actions.
+- Added workspace Work cycle filtering when project context is selected, while tolerating stale cycle ids from URLs and saved views.
+- Added compact cycle metadata to board cards.
+- Updated web tests for create/detail/list/workspace/board/query flows and cycle-aware fixtures.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include 'src/app/features/work-items/work-items-page.component.spec.ts' --include 'src/app/features/work-items/workspace-work-item-list-page.component.spec.ts' --include 'src/app/features/work-items/work-item-board-page.component.spec.ts'`;
+  - `npm test --workspace @worktrail/web -- --include 'src/app/features/work-items/work-item-detail-page.component.spec.ts' --include 'src/app/features/work-items/query/work-item-query-serialization.spec.ts' --include 'src/app/features/work-items/query/work-item-filter-labels.spec.ts' --include 'src/app/features/work-items/components/work-item-result-list.component.spec.ts'`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm test --workspace @worktrail/web`.
+
 ## Phase 12: Cycle Review Page, Report Rendering, And Browser Smoke
 
 Goal: complete the user-facing cycle review experience and prove it works against seeded data.

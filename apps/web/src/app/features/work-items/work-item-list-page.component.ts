@@ -11,6 +11,7 @@ import type {
   LabelDto,
   MemberDto,
   MilestoneDto,
+  ProjectCycleDto,
   ProjectDto,
   SavedWorkViewDto,
   WorkItemListItemDto,
@@ -25,6 +26,7 @@ import { Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorktrailApiService } from '../../core/worktrail-api.service';
 import { ClipboardService } from '../../shared/clipboard.service';
+import { CyclesApi } from '../../core/api/cycles-api';
 import { downloadBlob, fileNameFromContentDisposition } from '../../shared/download-file';
 import { dependencyFilterLabel } from '../../shared/work-items/work-item-display';
 import { ActiveFilterChipsComponent } from './components/active-filter-chips.component';
@@ -71,6 +73,8 @@ const bulkActionOptions: Array<{ label: string; value: BulkActionType }> = [
   { label: 'Set priority', value: 'set_priority' },
   { label: 'Set milestone', value: 'set_milestone' },
   { label: 'Clear milestone', value: 'clear_milestone' },
+  { label: 'Set cycle', value: 'set_cycle' },
+  { label: 'Clear cycle', value: 'clear_cycle' },
   { label: 'Set due date', value: 'set_due_date' },
   { label: 'Clear due date', value: 'clear_due_date' },
   { label: 'Add labels', value: 'add_labels' },
@@ -83,6 +87,7 @@ interface BulkActionFormValue {
   assigneeId: string;
   priority: WorkItemPriority | '';
   milestoneId: string;
+  cycleId: string;
   dueDate: string;
   status: WorkItemStatus | '';
 }
@@ -95,6 +100,7 @@ interface WorkItemFilterFormValue {
   type: string;
   labelId: string;
   milestoneId: string;
+  cycleId: string;
   priority: string;
   dueDateState: string;
   dependency: string;
@@ -110,6 +116,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
   type: '',
   labelId: '',
   milestoneId: '',
+  cycleId: '',
   priority: '',
   dueDateState: '',
   dependency: '',
@@ -283,6 +290,16 @@ const defaultFilterValues: WorkItemFilterFormValue = {
       </label>
 
       <label filterAdvanced>
+        <span>Cycle</span>
+        <select formControlName="cycleId">
+          <option value="">All cycles</option>
+          @for (cycle of cycles(); track cycle.id) {
+            <option [value]="cycle.id">{{ cycle.name }}</option>
+          }
+        </select>
+      </label>
+
+      <label filterAdvanced>
         <span>Priority</span>
         <select formControlName="priority">
           <option value="">All priorities</option>
@@ -397,6 +414,17 @@ const defaultFilterValues: WorkItemFilterFormValue = {
                     <option value="">Choose milestone</option>
                     @for (milestone of activeMilestones(); track milestone.id) {
                       <option [value]="milestone.id">{{ milestone.name }}</option>
+                    }
+                  </select>
+                </label>
+              }
+              @case ('set_cycle') {
+                <label>
+                  <span>Cycle</span>
+                  <select formControlName="cycleId">
+                    <option value="">Choose cycle</option>
+                    @for (cycle of activeCycles(); track cycle.id) {
+                      <option [value]="cycle.id">{{ cycle.name }}</option>
                     }
                   </select>
                 </label>
@@ -1167,6 +1195,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
 })
 export class WorkItemListPageComponent implements OnDestroy, OnInit {
   private readonly api = inject(WorktrailApiService);
+  private readonly cyclesApi = inject(CyclesApi);
   private readonly clipboard = inject(ClipboardService);
   private readonly currentUser = inject(CurrentUserService);
   private readonly formBuilder = inject(FormBuilder);
@@ -1212,6 +1241,10 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   readonly milestones = signal<MilestoneDto[]>([]);
   readonly activeMilestones = computed<MilestoneDto[]>(() =>
     this.milestones().filter((milestone) => !milestone.isArchived && milestone.status !== 'completed')
+  );
+  readonly cycles = signal<ProjectCycleDto[]>([]);
+  readonly activeCycles = computed<ProjectCycleDto[]>(() =>
+    this.cycles().filter((cycle) => !cycle.isArchived && cycle.status !== 'completed' && cycle.status !== 'canceled')
   );
   readonly appliedFilterValues = this.queryState.activeFilterValues;
   readonly isLoading = signal(false);
@@ -1268,6 +1301,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     type: [''],
     labelId: [''],
     milestoneId: [''],
+    cycleId: [''],
     priority: [''],
     dueDateState: [''],
     dependency: [''],
@@ -1280,6 +1314,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     assigneeId: [''],
     priority: ['' as WorkItemPriority | ''],
     milestoneId: [''],
+    cycleId: [''],
     dueDate: [''],
     status: ['' as WorkItemStatus | '']
   });
@@ -1291,6 +1326,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
 
     this.loadProject();
     this.loadMilestones();
+    this.loadCycles();
     this.loadSavedViews();
     this.watchFilterChanges();
 
@@ -1415,6 +1451,17 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
       },
       error: () => {
         this.milestones.set([]);
+      }
+    });
+  }
+
+  loadCycles(): void {
+    this.cyclesApi.listCycles(this.projectId(), { includeArchived: true }).subscribe({
+      next: (cycles) => {
+        this.cycles.set(this.sortCycles(cycles));
+      },
+      error: () => {
+        this.cycles.set([]);
       }
     });
   }
@@ -1695,6 +1742,8 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
       updates.labelId = '';
     } else if (filterName === 'Milestone') {
       updates.milestoneId = '';
+    } else if (filterName === 'Cycle') {
+      updates.cycleId = '';
     } else if (filterName === 'Priority') {
       updates.priority = '';
     } else if (filterName === 'Due date') {
@@ -1798,6 +1847,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
       this.filterForm.controls.type,
       this.filterForm.controls.labelId,
       this.filterForm.controls.milestoneId,
+      this.filterForm.controls.cycleId,
       this.filterForm.controls.priority,
       this.filterForm.controls.dueDateState,
       this.filterForm.controls.dependency,
@@ -1856,6 +1906,12 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
           : { type: 'set_milestone', milestoneId: formValue.milestoneId };
       case 'clear_milestone':
         return { type: 'clear_milestone' };
+      case 'set_cycle':
+        return formValue.cycleId === ''
+          ? null
+          : { type: 'set_cycle', cycleId: formValue.cycleId };
+      case 'clear_cycle':
+        return { type: 'clear_cycle' };
       case 'set_due_date':
         return formValue.dueDate === '' ? null : { type: 'set_due_date', dueDate: formValue.dueDate };
       case 'clear_due_date':
@@ -1929,6 +1985,20 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     });
   }
 
+  private sortCycles(cycles: ProjectCycleDto[]): ProjectCycleDto[] {
+    return [...cycles].sort((left, right) => {
+      if (left.isArchived !== right.isArchived) {
+        return left.isArchived ? 1 : -1;
+      }
+
+      if (left.startDate !== right.startDate) {
+        return left.startDate.localeCompare(right.startDate);
+      }
+
+      return left.name.localeCompare(right.name);
+    });
+  }
+
   private scheduleCopyLinkStatusReset(): void {
     this.copyLinkStatusTimer = setTimeout(() => {
       this.copyLinkStatus.set(null);
@@ -1957,6 +2027,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     this.pushLookupLabel(labels, 'Type', formValue.type, (value) => this.formatToken(value));
     this.pushLookupLabel(labels, 'Label', formValue.labelId, (value) => this.labelName(value));
     this.pushLookupLabel(labels, 'Milestone', formValue.milestoneId, (value) => this.milestoneName(value));
+    this.pushLookupLabel(labels, 'Cycle', formValue.cycleId, (value) => this.cycleName(value));
     this.pushLookupLabel(labels, 'Priority', formValue.priority, (value) => this.formatToken(value));
     this.pushLookupLabel(labels, 'Due date', formValue.dueDateState, (value) => this.dueDateStateLabel(value));
     this.pushLookupLabel(labels, 'Dependency', formValue.dependency, (value) =>
@@ -2012,6 +2083,10 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
 
   private milestoneName(milestoneId: string): string {
     return this.milestones().find((milestone) => milestone.id === milestoneId)?.name ?? milestoneId;
+  }
+
+  private cycleName(cycleId: string): string {
+    return this.cycles().find((cycle) => cycle.id === cycleId)?.name ?? cycleId;
   }
 
   private dueDateStateLabel(value: string): string {

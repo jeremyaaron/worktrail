@@ -6,6 +6,7 @@ import type {
   LabelDto,
   MemberDto,
   MilestoneDto,
+  ProjectCycleDto,
   ProjectDto,
   SavedWorkViewDto,
   WorkspaceCapabilitiesDto,
@@ -97,6 +98,22 @@ const activeMilestone: MilestoneDto = {
   updatedAt: '2026-07-04T12:00:00.000Z'
 };
 
+const activeCycle: ProjectCycleDto = {
+  id: '10000000-0000-4000-8000-000000000701',
+  workspaceId: member.workspaceId,
+  projectId,
+  name: 'Cycle 1',
+  goal: 'Integrate cycle assignment.',
+  status: 'active',
+  startDate: '2026-07-06',
+  endDate: '2026-07-20',
+  targetPoints: 24,
+  isArchived: false,
+  archivedAt: null,
+  createdAt: '2026-07-03T12:00:00.000Z',
+  updatedAt: '2026-07-04T12:00:00.000Z'
+};
+
 const workItem: WorkItemListItemDto = {
   id: workItemId,
   workspaceId: member.workspaceId,
@@ -119,7 +136,7 @@ const workItem: WorkItemListItemDto = {
     }
   ],
   milestone: activeMilestone,
-  cycle: null,
+  cycle: activeCycle,
   boardPosition: 1024,
   dueDate: null,
   estimatePoints: 5,
@@ -219,7 +236,8 @@ let clipboard: jasmine.SpyObj<ClipboardService>;
 function routeStub(query: Record<string, string> = {}, inputProjectId: string = projectId) {
   return {
     snapshot: {
-      paramMap: convertToParamMap(inputProjectId === '' ? {} : { projectId: inputProjectId })
+      paramMap: convertToParamMap(inputProjectId === '' ? {} : { projectId: inputProjectId }),
+      queryParamMap: convertToParamMap(query)
     },
     queryParamMap: new BehaviorSubject(convertToParamMap(query)).asObservable()
   };
@@ -246,12 +264,14 @@ function flushCreateContext(
     project?: ProjectDto;
     labels?: LabelDto[];
     milestones?: MilestoneDto[];
+    cycles?: ProjectCycleDto[];
     capabilities?: WorkspaceCapabilitiesDto;
   } = {}
 ) {
   http.expectOne('/api/workspace/capabilities').flush(input.capabilities ?? ownerCapabilities);
   http.expectOne(`/api/projects/${projectId}`).flush(input.project ?? activeProject);
   http.expectOne(`/api/projects/${projectId}/milestones`).flush(input.milestones ?? [activeMilestone]);
+  http.expectOne(`/api/projects/${projectId}/cycles`).flush(input.cycles ?? [activeCycle]);
   http.expectOne(`/api/projects/${projectId}/labels`).flush(input.labels ?? [backendLabel]);
 }
 
@@ -272,8 +292,15 @@ function flushProjectWorkPage(
 ): void {
   http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
   http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+  http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([activeCycle]);
   flushProjectSavedViews(http);
   http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush(workItems);
+}
+
+function flushPendingCycleRequests(http: HttpTestingController): void {
+  for (const request of http.match((candidate) => candidate.url.includes('/cycles'))) {
+    request.flush([]);
+  }
 }
 
 function bulkSuccessResponse(
@@ -349,7 +376,9 @@ describe('WorkItemListPageComponent', () => {
   });
 
   afterEach(() => {
-    TestBed.inject(HttpTestingController).verify();
+    const http = TestBed.inject(HttpTestingController);
+    flushPendingCycleRequests(http);
+    http.verify();
   });
 
   it('loads work items with query parameter filters and renders dense rows', () => {
@@ -358,6 +387,7 @@ describe('WorkItemListPageComponent', () => {
     fixture.detectChanges();
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([activeCycle]);
     flushProjectSavedViews(http);
 
     const request = http.expectOne((candidate) => {
@@ -610,6 +640,16 @@ describe('WorkItemListPageComponent', () => {
         action: { type: 'clear_milestone' }
       },
       {
+        form: { actionType: 'set_cycle', cycleId: activeCycle.id },
+        labels: [],
+        action: { type: 'set_cycle', cycleId: activeCycle.id }
+      },
+      {
+        form: { actionType: 'clear_cycle' },
+        labels: [],
+        action: { type: 'clear_cycle' }
+      },
+      {
         form: { actionType: 'set_due_date', dueDate: '2026-07-22' },
         labels: [],
         action: { type: 'set_due_date', dueDate: '2026-07-22' }
@@ -645,6 +685,7 @@ describe('WorkItemListPageComponent', () => {
         assigneeId: '',
         priority: '',
         milestoneId: '',
+        cycleId: '',
         dueDate: '',
         status: ''
       });
@@ -1492,7 +1533,9 @@ describe('WorkItemImportPageComponent', () => {
   });
 
   afterEach(() => {
-    TestBed.inject(HttpTestingController).verify();
+    const http = TestBed.inject(HttpTestingController);
+    flushPendingCycleRequests(http);
+    http.verify();
   });
 
   it('loads project context and starts with apply disabled', () => {
@@ -1695,7 +1738,9 @@ describe('WorkItemCreatePageComponent', () => {
   });
 
   afterEach(() => {
-    TestBed.inject(HttpTestingController).verify();
+    const http = TestBed.inject(HttpTestingController);
+    flushPendingCycleRequests(http);
+    http.verify();
   });
 
   it('shows required title validation before posting', () => {
@@ -1730,6 +1775,7 @@ describe('WorkItemCreatePageComponent', () => {
       priority: 'urgent',
       assigneeId: contributorId,
       milestoneId: activeMilestone.id,
+      cycleId: activeCycle.id,
       dueDate: '2026-07-20',
       estimatePoints: '8'
     });
@@ -1748,6 +1794,7 @@ describe('WorkItemCreatePageComponent', () => {
       assigneeId: contributorId,
       labelIds: [backendLabel.id],
       milestoneId: activeMilestone.id,
+      cycleId: activeCycle.id,
       dueDate: '2026-07-20',
       estimatePoints: 8
     });
@@ -1852,7 +1899,9 @@ describe('WorkItemCreatePageComponent global route', () => {
   });
 
   afterEach(() => {
-    TestBed.inject(HttpTestingController).verify();
+    const http = TestBed.inject(HttpTestingController);
+    flushPendingCycleRequests(http);
+    http.verify();
   });
 
   it('loads active projects only and requires project selection', () => {
@@ -1892,6 +1941,7 @@ describe('WorkItemCreatePageComponent global route', () => {
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne(`/api/projects/${projectId}/labels`).flush([backendLabel]);
     http.expectOne(`/api/projects/${projectId}/milestones`).flush([activeMilestone]);
+    http.expectOne(`/api/projects/${projectId}/cycles`).flush([activeCycle]);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
@@ -1905,6 +1955,7 @@ describe('WorkItemCreatePageComponent global route', () => {
       priority: 'high',
       assigneeId: contributorId,
       milestoneId: activeMilestone.id,
+      cycleId: activeCycle.id,
       dueDate: '2026-07-22',
       estimatePoints: '3'
     });
@@ -1922,6 +1973,7 @@ describe('WorkItemCreatePageComponent global route', () => {
       assigneeId: contributorId,
       labelIds: [backendLabel.id],
       milestoneId: activeMilestone.id,
+      cycleId: activeCycle.id,
       dueDate: '2026-07-22',
       estimatePoints: 3
     });

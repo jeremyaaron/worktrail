@@ -5,6 +5,7 @@ import { ActivatedRoute, ParamMap, convertToParamMap, provideRouter } from '@ang
 import type {
   MemberDto,
   MilestoneDto,
+  ProjectCycleDto,
   ProjectDto,
   WorkItemDetailDto,
   WorkItemRelationshipItemDto,
@@ -106,6 +107,22 @@ const nextMilestone: MilestoneDto = {
   targetDate: '2026-08-01'
 };
 
+const activeCycle: ProjectCycleDto = {
+  id: '10000000-0000-4000-8000-000000000701',
+  workspaceId: owner.workspaceId,
+  projectId,
+  name: 'Cycle 1',
+  goal: 'Integrate detail cycle assignment.',
+  status: 'active',
+  startDate: '2026-07-06',
+  endDate: '2026-07-20',
+  targetPoints: 24,
+  isArchived: false,
+  archivedAt: null,
+  createdAt: '2026-07-03T12:00:00.000Z',
+  updatedAt: '2026-07-04T12:00:00.000Z'
+};
+
 function relationshipItem(input: {
   id: string;
   workItemId: string;
@@ -190,7 +207,7 @@ const detail: WorkItemDetailDto = {
   reporter: owner,
   labels: [{ id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }],
   milestone: activeMilestone,
-  cycle: null,
+  cycle: activeCycle,
   boardPosition: 1024,
   dueDate: '2026-07-20',
   estimatePoints: 5,
@@ -292,7 +309,11 @@ function setup(
     { id: frontendLabelId, name: 'frontend', color: '#2563eb', isArchived: false, archivedAt: null },
     { id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }
   ]);
-  http.expectOne(`/api/projects/${projectId}/milestones`).flush([activeMilestone, nextMilestone]);
+  http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([
+    activeMilestone,
+    nextMilestone
+  ]);
+  http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([activeCycle]);
   fixture.detectChanges();
   return { fixture, http };
 }
@@ -427,7 +448,8 @@ describe('WorkItemDetailPageComponent', () => {
     http.expectOne(`/api/work-items/${workItemId}/watchers`).flush(unwatchedState);
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne(`/api/projects/${projectId}/labels`).flush([]);
-    http.expectOne(`/api/projects/${projectId}/milestones`).flush([]);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([]);
+    http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([]);
     unsafeFixture.detectChanges();
 
     const fallbackLink = (unsafeFixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>(
@@ -537,7 +559,8 @@ describe('WorkItemDetailPageComponent', () => {
     http.expectOne(`/api/work-items/${blockedWorkItemId}/watchers`).flush(unwatchedState);
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne(`/api/projects/${projectId}/labels`).flush([]);
-    http.expectOne(`/api/projects/${projectId}/milestones`).flush([]);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([]);
+    http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([]);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
@@ -923,6 +946,7 @@ describe('WorkItemDetailPageComponent', () => {
       priority: 'urgent',
       assigneeId: owner.id,
       milestoneId: nextMilestone.id,
+      cycleId: activeCycle.id,
       labelIds: [labelId, frontendLabelId]
     });
     request.flush({
@@ -1000,7 +1024,8 @@ describe('WorkItemDetailPageComponent', () => {
       { id: frontendLabelId, name: 'frontend', color: '#2563eb', isArchived: false, archivedAt: null },
       { id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }
     ]);
-    http.expectOne(`/api/projects/${projectId}/milestones`).flush([activeMilestone]);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([activeCycle]);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
@@ -1027,7 +1052,8 @@ describe('WorkItemDetailPageComponent', () => {
       { id: frontendLabelId, name: 'frontend', color: '#2563eb', isArchived: false, archivedAt: null },
       { id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }
     ]);
-    http.expectOne(`/api/projects/${projectId}/milestones`).flush([activeMilestone]);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([activeCycle]);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;

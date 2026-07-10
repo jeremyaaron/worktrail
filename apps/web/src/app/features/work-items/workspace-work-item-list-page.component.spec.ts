@@ -6,6 +6,7 @@ import type {
   LabelDto,
   MemberDto,
   MilestoneDto,
+  ProjectCycleDto,
   ProjectNavigationSummaryDto,
   SavedWorkViewDto,
   WorkspaceWorkItemListItemDto
@@ -67,6 +68,22 @@ const milestone: MilestoneDto = {
   updatedAt: '2026-07-04T12:00:00.000Z'
 };
 
+const activeCycle: ProjectCycleDto = {
+  id: '10000000-0000-4000-8000-000000000701',
+  workspaceId,
+  projectId,
+  name: 'Cycle 1',
+  goal: 'Integrate workspace cycle filtering.',
+  status: 'active',
+  startDate: '2026-07-06',
+  endDate: '2026-07-20',
+  targetPoints: 24,
+  isArchived: false,
+  archivedAt: null,
+  createdAt: '2026-07-03T12:00:00.000Z',
+  updatedAt: '2026-07-04T12:00:00.000Z'
+};
+
 const projectSummary: ProjectNavigationSummaryDto = {
   project: {
     id: projectId,
@@ -115,7 +132,7 @@ const workItem: WorkspaceWorkItemListItemDto = {
   reporter: contributor,
   labels: [designLabel],
   milestone,
-  cycle: null,
+  cycle: activeCycle,
   boardPosition: 1024,
   dueDate: '2026-07-08',
   estimatePoints: 5,
@@ -281,6 +298,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
       assigneeId: owner.id,
       labelId: designLabel.id,
       milestoneId: milestone.id,
+      cycleId: activeCycle.id,
       dueDateState: 'due_soon',
       dependency: 'dependency_blocked',
       archivedProjects: 'include',
@@ -292,6 +310,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     flushSavedViews(http);
     http.expectOne(`/api/projects/${projectId}/labels?includeArchived=true`).flush([designLabel]);
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([milestone]);
+    http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([activeCycle]);
     const request = http.expectOne((candidate) => {
       return (
         candidate.url === '/api/work-items' &&
@@ -300,6 +319,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
         candidate.params.get('assigneeId') === owner.id &&
         candidate.params.get('labelId') === designLabel.id &&
         candidate.params.get('milestoneId') === milestone.id &&
+        candidate.params.get('cycleId') === activeCycle.id &&
         candidate.params.get('dueDateState') === 'due_soon' &&
         candidate.params.get('dependency') === 'dependency_blocked' &&
         candidate.params.get('archivedProjects') === 'include' &&
@@ -349,6 +369,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect(activeFilters).toContain('Assignee: Avery Owner');
     expect(activeFilters).toContain('Label: design');
     expect(activeFilters).toContain('Milestone: v0.0.5');
+    expect(activeFilters).toContain('Cycle: Cycle 1');
     expect(activeFilters).toContain('Due date: Due soon');
     expect(activeFilters).toContain('Dependency: Blocked by open work');
     expect(activeFilters).toContain('Projects: Active and archived');
@@ -930,6 +951,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     route.setQuery({ projectId, labelId: designLabel.id });
     http.expectOne(`/api/projects/${projectId}/labels?includeArchived=true`).flush([designLabel]);
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([milestone]);
+    http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([activeCycle]);
     http.expectOne((candidate) => {
       return (
         candidate.url === '/api/work-items' &&

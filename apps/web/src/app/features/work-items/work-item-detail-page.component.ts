@@ -8,6 +8,7 @@ import type {
   LabelDto,
   MemberDto,
   MilestoneDto,
+  ProjectCycleDto,
   ProjectDto,
   UpdateWorkItemRequest,
   WorkItemDetailDto,
@@ -22,6 +23,7 @@ import type {
 import { distinctUntilChanged, map } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
+import { CyclesApi } from '../../core/api/cycles-api';
 import { WorktrailApiService } from '../../core/worktrail-api.service';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
@@ -155,6 +157,16 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
                   }
                 </select>
               </label>
+
+              <label>
+                <span>Cycle</span>
+                <select formControlName="cycleId">
+                  <option value="">No cycle</option>
+                  @for (cycle of availableCycles(); track cycle.id) {
+                    <option [value]="cycle.id">{{ cycle.name }}</option>
+                  }
+                </select>
+              </label>
             </div>
 
             @if (milestoneLoadError()) {
@@ -162,6 +174,14 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
                 title="Milestones unavailable"
                 [message]="milestoneLoadError() ?? ''"
                 (retry)="loadProjectMilestones(item.projectId)"
+              />
+            }
+
+            @if (cycleLoadError()) {
+              <app-error-panel
+                title="Cycles unavailable"
+                [message]="cycleLoadError() ?? ''"
+                (retry)="loadProjectCycles(item.projectId)"
               />
             }
 
@@ -262,6 +282,10 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
               <div>
                 <dt>Milestone</dt>
                 <dd>{{ item.milestone?.name ?? 'None' }}</dd>
+              </div>
+              <div>
+                <dt>Cycle</dt>
+                <dd>{{ item.cycle?.name ?? 'None' }}</dd>
               </div>
               <div>
                 <dt>Due date</dt>
@@ -1157,6 +1181,7 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
 })
 export class WorkItemDetailPageComponent implements OnInit {
   private readonly api = inject(WorktrailApiService);
+  private readonly cyclesApi = inject(CyclesApi);
   private readonly currentUser = inject(CurrentUserService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly formBuilder = inject(FormBuilder);
@@ -1214,8 +1239,10 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly candidateSearchError = signal<string | null>(null);
   readonly labelLoadError = signal<string | null>(null);
   readonly milestoneLoadError = signal<string | null>(null);
+  readonly cycleLoadError = signal<string | null>(null);
   readonly availableLabels = signal<LabelDto[]>([]);
   readonly availableMilestones = signal<MilestoneDto[]>([]);
+  readonly availableCycles = signal<ProjectCycleDto[]>([]);
   readonly relationshipCandidates = signal<WorkspaceWorkItemListItemDto[]>([]);
   readonly watchState = signal<WorkItemWatchStateDto | null>(null);
   readonly selectedMentionMemberIds = signal<string[]>([]);
@@ -1291,7 +1318,8 @@ export class WorkItemDetailPageComponent implements OnInit {
     type: ['task'],
     priority: ['medium'],
     assigneeId: [''],
-    milestoneId: ['']
+    milestoneId: [''],
+    cycleId: ['']
   });
 
   readonly statusForm = this.formBuilder.nonNullable.group({
@@ -1353,6 +1381,7 @@ export class WorkItemDetailPageComponent implements OnInit {
         this.loadProject(workItem.projectId);
         this.loadProjectLabels(workItem.projectId);
         this.loadProjectMilestones(workItem.projectId);
+        this.loadProjectCycles(workItem.projectId);
         this.isLoading.set(false);
       },
       error: () => {
@@ -1793,7 +1822,7 @@ export class WorkItemDetailPageComponent implements OnInit {
   loadProjectMilestones(projectId: string): void {
     this.milestoneLoadError.set(null);
 
-    this.api.listProjectMilestones(projectId).subscribe({
+    this.api.listProjectMilestones(projectId, { includeArchived: true }).subscribe({
       next: (milestones) => {
         if (this.workItem()?.projectId !== projectId) {
           return;
@@ -1807,6 +1836,27 @@ export class WorkItemDetailPageComponent implements OnInit {
         }
 
         this.milestoneLoadError.set('Project milestones could not be loaded from the API.');
+      }
+    });
+  }
+
+  loadProjectCycles(projectId: string): void {
+    this.cycleLoadError.set(null);
+
+    this.cyclesApi.listCycles(projectId, { includeArchived: true }).subscribe({
+      next: (cycles) => {
+        if (this.workItem()?.projectId !== projectId) {
+          return;
+        }
+
+        this.availableCycles.set(this.sortCycles(this.mergeCurrentCycle(cycles)));
+      },
+      error: () => {
+        if (this.workItem()?.projectId !== projectId) {
+          return;
+        }
+
+        this.cycleLoadError.set('Project cycles could not be loaded from the API.');
       }
     });
   }
@@ -1930,7 +1980,8 @@ export class WorkItemDetailPageComponent implements OnInit {
       type: workItem.type,
       priority: workItem.priority,
       assigneeId: workItem.assignee?.id ?? '',
-      milestoneId: workItem.milestone?.id ?? ''
+      milestoneId: workItem.milestone?.id ?? '',
+      cycleId: workItem.cycle?.id ?? ''
     });
     this.statusForm.reset({ status: workItem.status });
     this.relationshipError.set(null);
@@ -1943,6 +1994,7 @@ export class WorkItemDetailPageComponent implements OnInit {
     this.selectedLabelIds.set([]);
     this.availableLabels.set([]);
     this.availableMilestones.set([]);
+    this.availableCycles.set([]);
     this.relationshipCandidates.set([]);
     this.watchState.set(null);
     this.selectedMentionMemberIds.set([]);
@@ -1972,13 +2024,15 @@ export class WorkItemDetailPageComponent implements OnInit {
     this.candidateSearchError.set(null);
     this.labelLoadError.set(null);
     this.milestoneLoadError.set(null);
+    this.cycleLoadError.set(null);
     this.detailForm.reset({
       title: '',
       description: '',
       type: 'task',
       priority: 'medium',
       assigneeId: '',
-      milestoneId: ''
+      milestoneId: '',
+      cycleId: ''
     });
     this.statusForm.reset({ status: 'backlog' });
     this.commentForm.reset({ body: '' });
@@ -2001,6 +2055,7 @@ export class WorkItemDetailPageComponent implements OnInit {
       priority: formValue.priority as WorkItemPriority,
       assigneeId: formValue.assigneeId === '' ? null : formValue.assigneeId,
       milestoneId: formValue.milestoneId === '' ? null : formValue.milestoneId,
+      cycleId: formValue.cycleId === '' ? null : formValue.cycleId,
       labelIds: [...this.selectedLabelIds(), ...this.archivedAttachedLabels().map((label) => label.id)]
     };
   }
@@ -2030,10 +2085,36 @@ export class WorkItemDetailPageComponent implements OnInit {
     return [...milestonesById.values()];
   }
 
+  private mergeCurrentCycle(cycles: ProjectCycleDto[]): ProjectCycleDto[] {
+    const current = this.workItem()?.cycle;
+
+    if (current === null || current === undefined) {
+      return cycles;
+    }
+
+    const cyclesById = new Map(cycles.map((cycle) => [cycle.id, cycle]));
+    cyclesById.set(current.id, current);
+    return [...cyclesById.values()];
+  }
+
   private sortMilestones(milestones: MilestoneDto[]): MilestoneDto[] {
     return [...milestones].sort((left, right) => {
       if (left.isArchived !== right.isArchived) {
         return left.isArchived ? 1 : -1;
+      }
+
+      return left.name.localeCompare(right.name);
+    });
+  }
+
+  private sortCycles(cycles: ProjectCycleDto[]): ProjectCycleDto[] {
+    return [...cycles].sort((left, right) => {
+      if (left.isArchived !== right.isArchived) {
+        return left.isArchived ? 1 : -1;
+      }
+
+      if (left.startDate !== right.startDate) {
+        return left.startDate.localeCompare(right.startDate);
       }
 
       return left.name.localeCompare(right.name);

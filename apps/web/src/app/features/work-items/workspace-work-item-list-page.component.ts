@@ -9,6 +9,7 @@ import type {
   LabelDto,
   MemberDto,
   MilestoneDto,
+  ProjectCycleDto,
   ProjectNavigationSummaryDto,
   SavedWorkViewDto,
   WorkItemPriority,
@@ -24,6 +25,7 @@ import { Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorktrailApiService } from '../../core/worktrail-api.service';
 import { ClipboardService } from '../../shared/clipboard.service';
+import { CyclesApi } from '../../core/api/cycles-api';
 import { downloadBlob, fileNameFromContentDisposition } from '../../shared/download-file';
 import {
   dependencyFilterLabel,
@@ -93,6 +95,7 @@ interface WorkspaceFilterFormValue {
   type: string;
   labelId: string;
   milestoneId: string;
+  cycleId: string;
   priority: string;
   dueDateState: string;
   blocked: string;
@@ -268,6 +271,18 @@ interface WorkspaceFilterFormValue {
           }
         </select>
       </label>
+
+      @if (filterForm.controls.projectId.value !== '') {
+        <label filterAdvanced>
+          <span>Cycle</span>
+          <select formControlName="cycleId">
+            <option value="">All cycles</option>
+            @for (cycle of cycles(); track cycle.id) {
+              <option [value]="cycle.id">{{ cycle.name }}</option>
+            }
+          </select>
+        </label>
+      }
 
       <label filterAdvanced>
         <span>Priority</span>
@@ -800,6 +815,7 @@ interface WorkspaceFilterFormValue {
 })
 export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   private readonly api = inject(WorktrailApiService);
+  private readonly cyclesApi = inject(CyclesApi);
   private readonly clipboard = inject(ClipboardService);
   private readonly currentUser = inject(CurrentUserService);
   private readonly formBuilder = inject(FormBuilder);
@@ -858,6 +874,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   readonly savedViewDraftNames = signal<Record<string, string>>({});
   readonly labels = signal<LabelDto[]>([]);
   readonly milestones = signal<MilestoneDto[]>([]);
+  readonly cycles = signal<ProjectCycleDto[]>([]);
   readonly workItems = signal<WorkspaceWorkItemListItemDto[]>([]);
   readonly appliedFilterValues = this.queryState.activeFilterValues;
   readonly isLoading = signal(false);
@@ -881,6 +898,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     type: [''],
     labelId: [''],
     milestoneId: [''],
+    cycleId: [''],
     priority: [''],
     dueDateState: [''],
     blocked: [''],
@@ -1047,6 +1065,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       updates.projectId = '';
       updates.labelId = '';
       updates.milestoneId = '';
+      updates.cycleId = '';
     } else if (filterName === 'Status') {
       updates.status = '';
     } else if (filterName === 'State') {
@@ -1061,6 +1080,8 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       updates.labelId = '';
     } else if (filterName === 'Milestone') {
       updates.milestoneId = '';
+    } else if (filterName === 'Cycle') {
+      updates.cycleId = '';
     } else if (filterName === 'Priority') {
       updates.priority = '';
     } else if (filterName === 'Due date') {
@@ -1307,7 +1328,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
 
     this.subscriptions.add(
       this.filterForm.controls.projectId.valueChanges.pipe(distinctUntilChanged()).subscribe(() => {
-        this.filterForm.patchValue({ labelId: '', milestoneId: '' }, { emitEvent: false });
+        this.filterForm.patchValue({ labelId: '', milestoneId: '', cycleId: '' }, { emitEvent: false });
         this.applyFilters();
       })
     );
@@ -1338,6 +1359,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       this.filterForm.controls.type,
       this.filterForm.controls.labelId,
       this.filterForm.controls.milestoneId,
+      this.filterForm.controls.cycleId,
       this.filterForm.controls.priority,
       this.filterForm.controls.dueDateState,
       this.filterForm.controls.blocked,
@@ -1358,6 +1380,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       this.loadedProjectFilterId = null;
       this.labels.set([]);
       this.milestones.set([]);
+      this.cycles.set([]);
       return;
     }
 
@@ -1384,6 +1407,15 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
         this.milestones.set([]);
       }
     });
+
+    this.cyclesApi.listCycles(projectId, { includeArchived: true }).subscribe({
+      next: (cycles) => {
+        this.cycles.set(this.sortCycles(cycles));
+      },
+      error: () => {
+        this.cycles.set([]);
+      }
+    });
   }
 
   private getActiveFilterLabels(): string[] {
@@ -1399,6 +1431,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     this.pushFilterLabel(labels, 'Type', this.formatToken(filters.type));
     this.pushFilterLabel(labels, 'Label', this.labelName(filters.labelId));
     this.pushFilterLabel(labels, 'Milestone', this.milestoneName(filters.milestoneId));
+    this.pushFilterLabel(labels, 'Cycle', this.cycleName(filters.cycleId));
     this.pushFilterLabel(labels, 'Priority', filters.priority === '' ? '' : workItemPriorityLabel(filters.priority as WorkItemPriority));
     this.pushFilterLabel(labels, 'Due date', this.optionLabel(dueDateStates, filters.dueDateState));
     this.pushFilterLabel(labels, 'Blocked', this.optionLabel(blockedOptions, filters.blocked));
@@ -1465,6 +1498,14 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     }
 
     return this.milestones().find((milestone) => milestone.id === milestoneId)?.name ?? milestoneId;
+  }
+
+  private cycleName(cycleId: string): string {
+    if (cycleId === '') {
+      return '';
+    }
+
+    return this.cycles().find((cycle) => cycle.id === cycleId)?.name ?? cycleId;
   }
 
   private optionLabel<T extends string>(
@@ -1548,6 +1589,20 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     return [...milestones].sort((left, right) => {
       if (left.isArchived !== right.isArchived) {
         return left.isArchived ? 1 : -1;
+      }
+
+      return left.name.localeCompare(right.name);
+    });
+  }
+
+  private sortCycles(cycles: ProjectCycleDto[]): ProjectCycleDto[] {
+    return [...cycles].sort((left, right) => {
+      if (left.isArchived !== right.isArchived) {
+        return left.isArchived ? 1 : -1;
+      }
+
+      if (left.startDate !== right.startDate) {
+        return left.startDate.localeCompare(right.startDate);
       }
 
       return left.name.localeCompare(right.name);
