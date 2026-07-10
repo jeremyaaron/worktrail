@@ -12,6 +12,7 @@ import {
   milestones,
   notifications,
   projects,
+  projectCycles,
   projectStatusReports,
   savedWorkViews,
   workItemLabels,
@@ -52,6 +53,11 @@ const ids = {
     health: '10000000-0000-4000-8000-000000000354',
     atRisk: '10000000-0000-4000-8000-000000000355',
     inactive: '10000000-0000-4000-8000-000000000356'
+  },
+  cycles: {
+    active: '10000000-0000-4000-8000-000000000371',
+    upcoming: '10000000-0000-4000-8000-000000000372',
+    completed: '10000000-0000-4000-8000-000000000373'
   },
   workItems: {
     backlog: '10000000-0000-4000-8000-000000000401',
@@ -131,7 +137,8 @@ const ids = {
     appOpenDependencyRisks: '10000000-0000-4000-8000-000000000822',
     ownerAppOpenWork: '10000000-0000-4000-8000-000000000823',
     platformReleaseBlockers: '10000000-0000-4000-8000-000000000824',
-    platformReadyForQa: '10000000-0000-4000-8000-000000000825'
+    platformReadyForQa: '10000000-0000-4000-8000-000000000825',
+    appCurrentCycleRisk: '10000000-0000-4000-8000-000000000826'
   },
   notifications: {
     ownerWatchedStatus: '10000000-0000-4000-8000-000000000901',
@@ -447,6 +454,70 @@ try {
       });
 
     await tx
+      .insert(projectCycles)
+      .values([
+        {
+          id: ids.cycles.active,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.app,
+          name: 'v0.2.1 Cycle Planning',
+          goal: 'Prove cycle planning across work assignment, reviews, reports, and exports.',
+          status: 'active',
+          startDate: '2026-07-01',
+          endDate: '2026-07-12',
+          targetPoints: 20,
+          archivedAt: null,
+          archivedById: null,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.cycles.upcoming,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.app,
+          name: 'v0.2.2 Adoption Polish',
+          goal: 'Polish team adoption paths after cycle planning lands.',
+          status: 'planned',
+          startDate: '2026-07-20',
+          endDate: '2026-07-31',
+          targetPoints: 13,
+          archivedAt: null,
+          archivedById: null,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.cycles.completed,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.app,
+          name: 'v0.2.0 Consolidation',
+          goal: 'Consolidate the v0.1.x feature set into a cleaner product baseline.',
+          status: 'completed',
+          startDate: '2026-06-10',
+          endDate: '2026-06-24',
+          targetPoints: 8,
+          archivedAt: null,
+          archivedById: null,
+          createdAt: earlier,
+          updatedAt: now
+        }
+      ])
+      .onConflictDoUpdate({
+        target: projectCycles.id,
+        set: {
+          name: sql`excluded.name`,
+          goal: sql`excluded.goal`,
+          status: sql`excluded.status`,
+          startDate: sql`excluded.start_date`,
+          endDate: sql`excluded.end_date`,
+          targetPoints: sql`excluded.target_points`,
+          archivedAt: sql`excluded.archived_at`,
+          archivedById: sql`excluded.archived_by_id`,
+          updatedAt: now
+        }
+      });
+
+    await tx
       .insert(workItems)
       .values([
         {
@@ -463,6 +534,7 @@ try {
           assigneeId: ids.members.contributor,
           reporterId: ids.members.owner,
           milestoneId: ids.milestones.planning,
+          cycleId: null,
           boardPosition: 1024,
           dueDate: '2026-07-07',
           estimatePoints: 3,
@@ -483,6 +555,7 @@ try {
           assigneeId: ids.members.maintainer,
           reporterId: ids.members.owner,
           milestoneId: ids.milestones.planning,
+          cycleId: ids.cycles.active,
           boardPosition: 1024,
           dueDate: '2026-07-10',
           estimatePoints: 5,
@@ -503,6 +576,7 @@ try {
           assigneeId: ids.members.maintainer,
           reporterId: ids.members.owner,
           milestoneId: ids.milestones.planning,
+          cycleId: ids.cycles.active,
           boardPosition: 1024,
           dueDate: '2026-07-08',
           estimatePoints: 8,
@@ -523,6 +597,7 @@ try {
           assigneeId: ids.members.inactive,
           reporterId: ids.members.maintainer,
           milestoneId: ids.milestones.planning,
+          cycleId: ids.cycles.active,
           boardPosition: 1024,
           dueDate: '2026-06-30',
           estimatePoints: 2,
@@ -543,6 +618,7 @@ try {
           assigneeId: ids.members.owner,
           reporterId: ids.members.owner,
           milestoneId: ids.milestones.completed,
+          cycleId: ids.cycles.completed,
           boardPosition: 1024,
           dueDate: null,
           estimatePoints: 2,
@@ -563,6 +639,7 @@ try {
           assigneeId: null,
           reporterId: ids.members.maintainer,
           milestoneId: null,
+          cycleId: null,
           boardPosition: 1024,
           dueDate: null,
           estimatePoints: null,
@@ -583,6 +660,7 @@ try {
           assigneeId: ids.members.owner,
           reporterId: ids.members.maintainer,
           milestoneId: ids.milestones.cloud,
+          cycleId: null,
           boardPosition: 1024,
           dueDate: '2026-07-17',
           estimatePoints: 5,
@@ -603,6 +681,7 @@ try {
           assigneeId: null,
           reporterId: ids.members.contributor,
           milestoneId: ids.milestones.planning,
+          cycleId: ids.cycles.active,
           boardPosition: 2048,
           dueDate: '2026-07-11',
           estimatePoints: 3,
@@ -623,6 +702,7 @@ try {
           assigneeId: ids.members.contributor,
           reporterId: ids.members.maintainer,
           milestoneId: ids.milestones.planning,
+          cycleId: ids.cycles.active,
           boardPosition: 2048,
           dueDate: '2026-07-01',
           estimatePoints: 5,
@@ -643,6 +723,7 @@ try {
           assigneeId: ids.members.owner,
           reporterId: ids.members.contributor,
           milestoneId: ids.milestones.cloud,
+          cycleId: null,
           boardPosition: 1024,
           dueDate: '2026-07-09',
           estimatePoints: 8,
@@ -663,6 +744,7 @@ try {
           assigneeId: ids.members.maintainer,
           reporterId: ids.members.owner,
           milestoneId: ids.milestones.health,
+          cycleId: ids.cycles.upcoming,
           boardPosition: 3072,
           dueDate: '2026-07-20',
           estimatePoints: 3,
@@ -683,6 +765,7 @@ try {
           assigneeId: ids.members.owner,
           reporterId: ids.members.maintainer,
           milestoneId: ids.milestones.atRisk,
+          cycleId: ids.cycles.upcoming,
           boardPosition: 4096,
           dueDate: '2026-07-09',
           estimatePoints: 2,
@@ -703,6 +786,7 @@ try {
           assigneeId: null,
           reporterId: ids.members.owner,
           milestoneId: null,
+          cycleId: null,
           boardPosition: 5120,
           dueDate: '2026-07-09',
           estimatePoints: 1,
@@ -716,6 +800,7 @@ try {
           itemNumber: sql`excluded.item_number`,
           displayKey: sql`excluded.display_key`,
           milestoneId: sql`excluded.milestone_id`,
+          cycleId: sql`excluded.cycle_id`,
           boardPosition: sql`excluded.board_position`,
           dueDate: sql`excluded.due_date`,
           estimatePoints: sql`excluded.estimate_points`,
@@ -1465,6 +1550,23 @@ try {
           visibility: 'workspace',
           query: {
             dependency: 'dependency_blocked',
+            workState: 'open',
+            sort: 'priority_desc'
+          },
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.savedWorkViews.appCurrentCycleRisk,
+          workspaceId: ids.workspace,
+          ownerMemberId: ids.members.owner,
+          projectId: ids.projects.app,
+          scope: 'project',
+          name: 'Current cycle risks',
+          visibility: 'workspace',
+          isPinned: true,
+          query: {
+            cycleId: ids.cycles.active,
             workState: 'open',
             sort: 'priority_desc'
           },

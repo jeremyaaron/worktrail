@@ -905,6 +905,50 @@ npm run lint --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-09.
+- Updated `docs/api/openapi.yaml` for:
+  - project cycle schemas;
+  - cycle list/create/get/update/archive/reactivate/review routes;
+  - work item `cycleId` request/query fields;
+  - work item `cycle` response fields;
+  - bulk `set_cycle` and `clear_cycle` actions;
+  - Planning cycle summary fields;
+  - status report optional cycle snapshot section;
+  - status report cycle review links;
+  - cycle-specific delivery-health reason keys;
+  - CSV export `cycle_name` column documentation.
+- Updated `apps/api/tests/openapi.test.ts` to cover the new cycle route and schema surface.
+- Updated deterministic seed data with:
+  - active cycle `v0.2.1 Cycle Planning`;
+  - upcoming cycle `v0.2.2 Adoption Polish`;
+  - completed cycle `v0.2.0 Consolidation`;
+  - representative active/upcoming/completed work item assignments;
+  - active-cycle blocked, dependency-blocked, overdue, due-soon, unassigned, stale, and over-target risk examples;
+  - pinned project saved view `Current cycle risks`.
+- Confirmed the seeded status report now captures active-cycle snapshot data through the production report service path.
+- Confirmed seed re-runs do not duplicate seeded cycles or saved views.
+- Verified seeded database state directly:
+  - three app project cycles exist in deterministic order;
+  - active cycle has 5 assigned work items, 1 blocked item, and 23 estimate points against a 20 point target;
+  - the `Current cycle risks` saved view exists and is pinned;
+  - the seeded report snapshot includes the active cycle.
+- Verified:
+  - `npm run db:reset`;
+  - `npm run db:migrate`;
+  - `npm run db:seed`;
+  - `npm run db:seed`;
+  - direct seed verification query through the API database client;
+  - `npm test --workspace @worktrail/api -- openapi.test.ts`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/contracts`;
+  - `git diff --check`.
+- Note: `npm run db:seed` still emits the existing `pg` deprecation warning from the current seed/report publish flow, but seed execution succeeds and the resulting data is correct.
+
 ## Phase 9: Angular API Client, Routes, And Shared Cycle UI Plumbing
 
 Goal: add frontend access to cycle APIs and route scaffolding before feature surfaces are wired in.
