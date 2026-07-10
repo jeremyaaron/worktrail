@@ -1,4 +1,6 @@
 import type {
+  CycleReviewRiskSectionDto,
+  CycleReviewRiskType,
   MilestoneReviewRiskSectionDto,
   MilestoneReviewRiskType,
   PlanningRiskItemDto,
@@ -30,7 +32,7 @@ const priorityRank: Record<WorkItemPriority, number> = {
   low: 1
 };
 
-interface WorkRiskEvaluationContext {
+export interface WorkRiskEvaluationContext {
   today: string;
   dueSoonEnd: string;
   staleCutoff: Date;
@@ -38,8 +40,8 @@ interface WorkRiskEvaluationContext {
   blockingOpenWorkIds: Set<string>;
 }
 
-interface WorkRiskSectionDefinition {
-  type: MilestoneReviewRiskType;
+interface WorkRiskSectionDefinition<RiskType extends string = MilestoneReviewRiskType> {
+  type: RiskType;
   title: string;
   description: string;
   query: WorkItemQuery;
@@ -47,7 +49,7 @@ interface WorkRiskSectionDefinition {
   sort: (left: WorkItem, right: WorkItem) => number;
 }
 
-const workRiskSectionDefinitions: WorkRiskSectionDefinition[] = [
+const workRiskSectionDefinitions: WorkRiskSectionDefinition<MilestoneReviewRiskType>[] = [
   {
     type: 'blocked',
     title: 'Blocked work',
@@ -113,6 +115,18 @@ const workRiskSectionDefinitions: WorkRiskSectionDefinition[] = [
   }
 ];
 
+const cycleRiskSectionDefinitions: WorkRiskSectionDefinition<CycleReviewRiskType>[] = [
+  ...workRiskSectionDefinitions,
+  {
+    type: 'unestimated',
+    title: 'Unestimated work',
+    description: 'Open cycle work without an estimate.',
+    query: { workState: 'open', sort: 'priority_desc' },
+    filter: (workItem) => isOpenWorkItem(workItem) && workItem.estimatePoints === null,
+    sort: compareByPriorityThenUpdatedDesc
+  }
+];
+
 export function createWorkRiskEvaluationContext(input: {
   now: Date;
   dependencyBlockedWorkItems: WorkItem[];
@@ -150,6 +164,51 @@ export function createMilestoneReviewRiskSections(input: {
       )
     };
   });
+}
+
+export function createCycleReviewRiskSections(input: {
+  cycleId: string;
+  workItems: WorkItem[];
+  memberById: Map<string, Member>;
+  milestoneById: Map<string, Milestone>;
+  context: WorkRiskEvaluationContext;
+  isOverTarget: boolean;
+}): CycleReviewRiskSectionDto[] {
+  const sections = cycleRiskSectionDefinitions.map((definition) => {
+    const matchingItems = selectRiskSectionWorkItems(input.workItems, definition, input.context);
+
+    return {
+      type: definition.type,
+      title: definition.title,
+      description: definition.description,
+      count: matchingItems.length,
+      query: { cycleId: input.cycleId, ...definition.query },
+      items: toPlanningRiskItems(
+        matchingItems.slice(0, riskSectionPreviewLimit),
+        input.memberById,
+        input.milestoneById
+      )
+    };
+  });
+
+  const overTargetItems = input.isOverTarget
+    ? input.workItems
+        .filter(isOpenWorkItem)
+        .sort(compareByPriorityThenUpdatedDesc)
+        .slice(0, riskSectionPreviewLimit)
+    : [];
+
+  return [
+    ...sections,
+    {
+      type: 'over_target',
+      title: 'Over target',
+      description: 'Estimated cycle scope exceeds the target points.',
+      count: input.isOverTarget ? 1 : 0,
+      query: { cycleId: input.cycleId, sort: 'priority_desc' },
+      items: toPlanningRiskItems(overTargetItems, input.memberById, input.milestoneById)
+    }
+  ];
 }
 
 export function createProjectStatusReportRiskSnapshots(input: {
@@ -216,7 +275,7 @@ export function compareByUpdatedAsc(left: WorkItem, right: WorkItem): number {
 
 function selectRiskSectionWorkItems(
   workItems: WorkItem[],
-  definition: WorkRiskSectionDefinition,
+  definition: WorkRiskSectionDefinition<string>,
   context: WorkRiskEvaluationContext
 ): WorkItem[] {
   return workItems.filter((workItem) => definition.filter(workItem, context)).sort(definition.sort);

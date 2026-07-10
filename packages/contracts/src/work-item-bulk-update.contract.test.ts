@@ -56,6 +56,7 @@ const workItem = {
     createdAt: '2026-07-05T00:00:00.000Z',
     updatedAt: '2026-07-05T00:00:00.000Z'
   },
+  cycle: null,
   boardPosition: 1000,
   dueDate: '2026-07-20',
   estimatePoints: 3,
@@ -74,6 +75,8 @@ describe('work item bulk update contracts', () => {
       { type: 'set_priority', priority: 'urgent' },
       { type: 'set_milestone', milestoneId: 'milestone-id' },
       { type: 'clear_milestone' },
+      { type: 'set_cycle', cycleId: 'cycle-id' },
+      { type: 'clear_cycle' },
       { type: 'set_due_date', dueDate: '2026-07-24' },
       { type: 'clear_due_date' },
       { type: 'add_labels', labelIds: ['label-id'] },
@@ -92,6 +95,8 @@ describe('work item bulk update contracts', () => {
       'set_priority',
       'set_milestone',
       'clear_milestone',
+      'set_cycle',
+      'clear_cycle',
       'set_due_date',
       'clear_due_date',
       'add_labels',
@@ -145,7 +150,7 @@ describe('work item bulk update contracts', () => {
     expectTypeOf(response).toMatchTypeOf<BulkUpdateWorkItemsResponseDto>();
   });
 
-  it('includes due date changes in work item activity events', () => {
+  it('includes planning field changes in work item activity events', () => {
     const event = {
       id: 'activity-id',
       workspaceId: 'workspace-id',
@@ -159,8 +164,18 @@ describe('work item bulk update contracts', () => {
       metadata: {},
       createdAt: '2026-07-05T00:00:00.000Z'
     } satisfies ActivityEventDto;
+    const cycleEvent = {
+      ...event,
+      id: 'cycle-activity-id',
+      eventType: 'work_item.cycle_changed',
+      summary: 'Cycle changed.',
+      previousValue: { cycleId: null },
+      newValue: { cycleId: 'cycle-id' }
+    } satisfies ActivityEventDto;
 
     expect(event.eventType).toBe('work_item.due_date_changed');
+    expect(cycleEvent.eventType).toBe('work_item.cycle_changed');
     expectTypeOf(event).toMatchTypeOf<ActivityEventDto>();
+    expectTypeOf(cycleEvent).toMatchTypeOf<ActivityEventDto>();
   });
 });

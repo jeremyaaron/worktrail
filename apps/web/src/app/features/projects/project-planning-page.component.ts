@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import type {
+  CreateProjectCycleRequest,
   DeliveryHealthReasonDto,
   DeliveryHealthState,
   MilestoneDto,
@@ -11,11 +12,14 @@ import type {
   MilestoneStatus,
   PlanningRiskItemDto,
   PlanningReviewItemDto,
+  ProjectCycleDto,
+  ProjectCycleStatus,
   ProjectDto,
   ProjectPlanningSummaryDto,
   WorkItemStatus
 } from '@worktrail/contracts';
 
+import { CyclesApi } from '../../core/api/cycles-api';
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorktrailApiService } from '../../core/worktrail-api.service';
 import {
@@ -29,13 +33,25 @@ import {
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
+import {
+  CycleManagerComponent,
+  type CycleUpdateRequest
+} from './planning/cycle-manager.component';
+import { CycleSummaryPanelComponent } from './planning/cycle-summary-panel.component';
 import { MilestoneManagerComponent } from './planning/milestone-manager.component';
 import { PlanningReviewComponent } from './planning/planning-review.component';
 
 const milestoneStatuses: MilestoneStatus[] = ['planned', 'active', 'completed', 'canceled'];
+const cycleStatuses: ProjectCycleStatus[] = ['planned', 'active', 'completed', 'canceled'];
 const statusOrder = new Map<MilestoneStatus, number>(
   milestoneStatuses.map((status, index) => [status, index])
 );
+const cycleStatusOrder = new Map<ProjectCycleStatus, number>([
+  ['active', 0],
+  ['planned', 1],
+  ['completed', 2],
+  ['canceled', 3]
+]);
 const workItemStatusLabels: Record<WorkItemStatus, string> = {
   backlog: 'Backlog',
   ready: 'Ready',
@@ -44,9 +60,10 @@ const workItemStatusLabels: Record<WorkItemStatus, string> = {
   done: 'Done',
   canceled: 'Canceled'
 };
-type PlanningView = 'review' | 'milestones';
+type PlanningView = 'review' | 'cycles' | 'milestones';
 const planningViews: { value: PlanningView; label: string }[] = [
   { value: 'review', label: 'Review' },
+  { value: 'cycles', label: 'Cycles' },
   { value: 'milestones', label: 'Milestones' }
 ];
 const visibleRiskItemLimit = 4;
@@ -73,6 +90,8 @@ interface PlanningReviewSection {
   imports: [
     EmptyStateComponent,
     ErrorPanelComponent,
+    CycleManagerComponent,
+    CycleSummaryPanelComponent,
     LoadingIndicatorComponent,
     MilestoneManagerComponent,
     PlanningReviewComponent,
@@ -108,7 +127,7 @@ interface PlanningReviewSection {
       } @else if (!canManageMilestones()) {
         <section class="notice" aria-label="Read-only planning">
           <strong>Read-only planning</strong>
-          <p>Owners and maintainers can change milestones. Contributors can review them here.</p>
+          <p>Owners and maintainers can change cycles and milestones. Contributors can review them here.</p>
         </section>
       }
 
@@ -142,7 +161,28 @@ interface PlanningReviewSection {
       </div>
 
       <section class="planning-grid" aria-label="Planning sections">
-        @if (selectedPlanningView() === 'milestones') {
+        @if (selectedPlanningView() === 'cycles') {
+          <app-cycle-manager
+            [projectId]="projectId()"
+            [cycleForm]="cycleForm"
+            [cycles]="cycles()"
+            [cycleStatuses]="cycleStatuses"
+            [canManageCycles]="canManageCycles()"
+            [isLoadingCycles]="isLoadingCycles()"
+            [isCreatingCycle]="isCreatingCycle()"
+            [hasSubmittedCycleCreate]="hasSubmittedCycleCreate()"
+            [mutatingCycleId]="mutatingCycleId()"
+            [cycleLoadError]="cycleLoadError()"
+            [cycleCreateError]="cycleCreateError()"
+            [cycleMutationError]="cycleMutationError()"
+            [cycleSuccessMessage]="cycleSuccessMessage()"
+            (create)="createCycle()"
+            (retryLoad)="loadCycles()"
+            (update)="updateCycleFromRequest($event)"
+            (archive)="archiveCycle($event)"
+            (reactivate)="reactivateCycle($event)"
+          />
+        } @else if (selectedPlanningView() === 'milestones') {
           <app-milestone-manager>
         <section class="panel milestone-panel" aria-labelledby="milestones-heading">
           <div class="panel-heading">
@@ -406,6 +446,8 @@ interface PlanningReviewSection {
                 </div>
               }
             </section>
+
+            <app-cycle-summary-panel [projectId]="projectId()" [summary]="summary" />
 
             <section class="dashboard-section" aria-labelledby="milestone-progress-heading">
               <div class="section-heading">
@@ -690,7 +732,8 @@ interface PlanningReviewSection {
 
     h1,
     h2,
-    h3 {
+    h3,
+    h4 {
       margin: 0;
       color: #111827;
       line-height: 1.25;
@@ -707,6 +750,10 @@ interface PlanningReviewSection {
 
     h3 {
       font-size: 0.95rem;
+    }
+
+    h4 {
+      font-size: 0.9rem;
     }
 
     p {
@@ -1327,6 +1374,7 @@ interface PlanningReviewSection {
 })
 export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
   private readonly api = inject(WorktrailApiService);
+  private readonly cyclesApi = inject(CyclesApi);
   private readonly currentUser = inject(CurrentUserService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
@@ -1336,21 +1384,31 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
   readonly planningViews = planningViews;
   readonly selectedPlanningView = signal<PlanningView>('review');
   readonly milestoneStatuses = milestoneStatuses;
+  readonly cycleStatuses = cycleStatuses;
   readonly project = signal<ProjectDto | null>(null);
   readonly milestones = signal<MilestoneDto[]>([]);
+  readonly cycles = signal<ProjectCycleDto[]>([]);
   readonly planningSummary = signal<ProjectPlanningSummaryDto | null>(null);
   readonly isLoadingProject = signal(false);
   readonly isLoadingMilestones = signal(false);
+  readonly isLoadingCycles = signal(false);
   readonly isLoadingSummary = signal(false);
   readonly isCreatingMilestone = signal(false);
+  readonly isCreatingCycle = signal(false);
   readonly mutatingMilestoneId = signal<string | null>(null);
+  readonly mutatingCycleId = signal<string | null>(null);
   readonly hasSubmittedCreate = signal(false);
+  readonly hasSubmittedCycleCreate = signal(false);
   readonly projectLoadError = signal<string | null>(null);
   readonly milestoneLoadError = signal<string | null>(null);
+  readonly cycleLoadError = signal<string | null>(null);
   readonly planningSummaryLoadError = signal<string | null>(null);
   readonly createError = signal<string | null>(null);
+  readonly cycleCreateError = signal<string | null>(null);
   readonly milestoneMutationError = signal<string | null>(null);
+  readonly cycleMutationError = signal<string | null>(null);
   readonly successMessage = signal<string | null>(null);
+  readonly cycleSuccessMessage = signal<string | null>(null);
   readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
   readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
   readonly canManageMilestones = computed(() => {
@@ -1360,6 +1418,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
       (member?.role === 'owner' || member?.role === 'maintainer')
     );
   });
+  readonly canManageCycles = computed(() => this.canManageMilestones());
   readonly canCreateReport = computed(() => this.canManageMilestones());
   readonly riskSections = computed<PlanningRiskSection[]>(() => {
     const summary = this.planningSummary();
@@ -1466,6 +1525,14 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
     status: ['planned' as MilestoneStatus],
     targetDate: ['']
   });
+  readonly cycleForm = this.formBuilder.nonNullable.group({
+    name: ['', [Validators.required]],
+    goal: [''],
+    status: ['planned' as ProjectCycleStatus],
+    startDate: ['', [Validators.required]],
+    endDate: ['', [Validators.required]],
+    targetPoints: ['']
+  });
 
   ngOnInit(): void {
     this.subscriptions.add(
@@ -1508,6 +1575,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
         this.project.set(project);
         this.isLoadingProject.set(false);
         this.loadMilestones();
+        this.loadCycles();
         this.loadPlanningSummary();
       },
       error: () => {
@@ -1543,6 +1611,21 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
       error: () => {
         this.milestoneLoadError.set('Project milestones could not be loaded from the API.');
         this.isLoadingMilestones.set(false);
+      }
+    });
+  }
+
+  loadCycles(): void {
+    this.isLoadingCycles.set(true);
+    this.cycleLoadError.set(null);
+    this.cyclesApi.listCycles(this.projectId(), { includeArchived: true }).subscribe({
+      next: (cycles) => {
+        this.cycles.set(this.sortCycles(cycles));
+        this.isLoadingCycles.set(false);
+      },
+      error: () => {
+        this.cycleLoadError.set('Project cycles could not be loaded from the API.');
+        this.isLoadingCycles.set(false);
       }
     });
   }
@@ -1586,6 +1669,60 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
           this.isCreatingMilestone.set(false);
         }
       });
+  }
+
+  createCycle(): void {
+    this.hasSubmittedCycleCreate.set(true);
+    this.cycleCreateError.set(null);
+    this.cycleMutationError.set(null);
+    this.cycleSuccessMessage.set(null);
+
+    if (!this.canManageCycles()) {
+      this.cycleCreateError.set(this.cyclePermissionMessage());
+      return;
+    }
+
+    if (this.cycleForm.invalid) {
+      this.cycleForm.markAllAsTouched();
+      return;
+    }
+
+    const formValue = this.cycleForm.getRawValue();
+    const request = this.toCycleCreateRequest({
+      name: formValue.name,
+      goal: formValue.goal,
+      status: formValue.status,
+      startDate: formValue.startDate,
+      endDate: formValue.endDate,
+      targetPoints: formValue.targetPoints
+    }, 'create');
+
+    if (request === null) {
+      return;
+    }
+
+    this.isCreatingCycle.set(true);
+    this.cyclesApi.createCycle(this.projectId(), request).subscribe({
+      next: (cycle) => {
+        this.upsertCycle(cycle);
+        this.cycleForm.reset({
+          name: '',
+          goal: '',
+          status: 'planned',
+          startDate: '',
+          endDate: '',
+          targetPoints: ''
+        });
+        this.hasSubmittedCycleCreate.set(false);
+        this.isCreatingCycle.set(false);
+        this.cycleSuccessMessage.set('Cycle created.');
+        this.loadPlanningSummary();
+      },
+      error: (error: unknown) => {
+        this.cycleCreateError.set(this.toErrorMessage(error, 'Cycle could not be created.'));
+        this.isCreatingCycle.set(false);
+      }
+    });
   }
 
   updateMilestone(
@@ -1635,6 +1772,64 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
       });
   }
 
+  updateCycle(
+    cycle: ProjectCycleDto,
+    name: string,
+    goal: string,
+    status: string,
+    startDate: string,
+    endDate: string,
+    targetPoints: string
+  ): void {
+    this.cycleCreateError.set(null);
+    this.cycleMutationError.set(null);
+    this.cycleSuccessMessage.set(null);
+
+    if (!this.canManageCycles()) {
+      this.cycleMutationError.set(this.cyclePermissionMessage());
+      return;
+    }
+
+    const request = this.toCycleCreateRequest({
+      name,
+      goal,
+      status: status as ProjectCycleStatus,
+      startDate,
+      endDate,
+      targetPoints
+    }, 'mutation');
+
+    if (request === null) {
+      return;
+    }
+
+    this.mutatingCycleId.set(cycle.id);
+    this.cyclesApi.updateCycle(this.projectId(), cycle.id, request).subscribe({
+      next: (updated) => {
+        this.upsertCycle(updated);
+        this.mutatingCycleId.set(null);
+        this.cycleSuccessMessage.set('Cycle saved.');
+        this.loadPlanningSummary();
+      },
+      error: (error: unknown) => {
+        this.cycleMutationError.set(this.toErrorMessage(error, 'Cycle could not be saved.'));
+        this.mutatingCycleId.set(null);
+      }
+    });
+  }
+
+  updateCycleFromRequest(request: CycleUpdateRequest): void {
+    this.updateCycle(
+      request.cycle,
+      request.name,
+      request.goal,
+      request.status,
+      request.startDate,
+      request.endDate,
+      request.targetPoints
+    );
+  }
+
   archiveMilestone(milestone: MilestoneDto): void {
     this.runMilestoneCommand(
       milestone,
@@ -1650,6 +1845,24 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
       'Milestone reactivated.',
       'Milestone could not be reactivated.',
       () => this.api.reactivateMilestone(milestone.id)
+    );
+  }
+
+  archiveCycle(cycle: ProjectCycleDto): void {
+    this.runCycleCommand(
+      cycle,
+      'Cycle archived.',
+      'Cycle could not be archived.',
+      () => this.cyclesApi.archiveCycle(this.projectId(), cycle.id)
+    );
+  }
+
+  reactivateCycle(cycle: ProjectCycleDto): void {
+    this.runCycleCommand(
+      cycle,
+      'Cycle reactivated.',
+      'Cycle could not be reactivated.',
+      () => this.cyclesApi.reactivateCycle(this.projectId(), cycle.id)
     );
   }
 
@@ -1803,10 +2016,46 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
     });
   }
 
+  private runCycleCommand(
+    cycle: ProjectCycleDto,
+    successMessage: string,
+    fallbackError: string,
+    command: () => ReturnType<CyclesApi['archiveCycle']>
+  ): void {
+    this.cycleCreateError.set(null);
+    this.cycleMutationError.set(null);
+    this.cycleSuccessMessage.set(null);
+
+    if (!this.canManageCycles()) {
+      this.cycleMutationError.set(this.cyclePermissionMessage());
+      return;
+    }
+
+    this.mutatingCycleId.set(cycle.id);
+    command().subscribe({
+      next: (updated) => {
+        this.upsertCycle(updated);
+        this.mutatingCycleId.set(null);
+        this.cycleSuccessMessage.set(successMessage);
+        this.loadPlanningSummary();
+      },
+      error: (error: unknown) => {
+        this.cycleMutationError.set(this.toErrorMessage(error, fallbackError));
+        this.mutatingCycleId.set(null);
+      }
+    });
+  }
+
   private upsertMilestone(milestone: MilestoneDto): void {
     const milestonesById = new Map(this.milestones().map((item) => [item.id, item]));
     milestonesById.set(milestone.id, milestone);
     this.milestones.set(this.sortMilestones([...milestonesById.values()]));
+  }
+
+  private upsertCycle(cycle: ProjectCycleDto): void {
+    const cyclesById = new Map(this.cycles().map((item) => [item.id, item]));
+    cyclesById.set(cycle.id, cycle);
+    this.cycles.set(this.sortCycles([...cyclesById.values()]));
   }
 
   private sortMilestones(milestones: MilestoneDto[]): MilestoneDto[] {
@@ -1834,6 +2083,107 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
     });
   }
 
+  private sortCycles(cycles: ProjectCycleDto[]): ProjectCycleDto[] {
+    return [...cycles].sort((left, right) => {
+      if (left.isArchived !== right.isArchived) {
+        return left.isArchived ? 1 : -1;
+      }
+
+      const statusCompare =
+        (cycleStatusOrder.get(left.status) ?? 0) - (cycleStatusOrder.get(right.status) ?? 0);
+
+      if (statusCompare !== 0) {
+        return statusCompare;
+      }
+
+      const startCompare = left.startDate.localeCompare(right.startDate);
+
+      if (startCompare !== 0) {
+        return startCompare;
+      }
+
+      return left.name.localeCompare(right.name);
+    });
+  }
+
+  private toCycleCreateRequest(
+    input: {
+      name: string;
+      goal: string;
+      status: ProjectCycleStatus;
+      startDate: string;
+      endDate: string;
+      targetPoints: string;
+    },
+    target: 'create' | 'mutation'
+  ): CreateProjectCycleRequest | null {
+    const name = input.name.trim();
+    const startDate = input.startDate.trim();
+    const endDate = input.endDate.trim();
+
+    if (name === '') {
+      this.setCycleValidationMessage('Cycle name is required.', target);
+      return null;
+    }
+
+    if (startDate === '' || endDate === '') {
+      this.setCycleValidationMessage('Cycle start and end dates are required.', target);
+      return null;
+    }
+
+    if (startDate > endDate) {
+      this.setCycleValidationMessage('Cycle start date must be on or before end date.', target);
+      return null;
+    }
+
+    const targetPoints = this.parseCycleTargetPoints(input.targetPoints, target);
+
+    if (targetPoints === undefined) {
+      return null;
+    }
+
+    return {
+      name,
+      goal: input.goal.trim(),
+      status: input.status,
+      startDate,
+      endDate,
+      targetPoints
+    };
+  }
+
+  private parseCycleTargetPoints(
+    value: string,
+    target: 'create' | 'mutation'
+  ): number | null | undefined {
+    const trimmed = value.trim();
+
+    if (trimmed === '') {
+      return null;
+    }
+
+    const parsed = Number(trimmed);
+
+    if (!Number.isInteger(parsed) || parsed <= 0 || parsed > 999) {
+      this.setCycleValidationMessage(
+        'Cycle target points must be a whole number from 1 to 999.',
+        target
+      );
+      return undefined;
+    }
+
+    return parsed;
+  }
+
+  private setCycleValidationMessage(message: string, target: 'create' | 'mutation'): void {
+    if (target === 'create') {
+      this.cycleCreateError.set(message);
+      return;
+    }
+
+    this.cycleMutationError.set(message);
+  }
+
   private toErrorMessage(error: unknown, fallback: string): string {
     if (error instanceof HttpErrorResponse) {
       const message = (error.error as { error?: { message?: unknown } } | null)?.error?.message;
@@ -1852,7 +2202,17 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
       : 'Only owners and maintainers can manage milestones.';
   }
 
+  private cyclePermissionMessage(): string {
+    return this.isArchivedProject()
+      ? 'Archived projects are read-only.'
+      : 'Only owners and maintainers can manage cycles.';
+  }
+
   private toPlanningView(value: string | null): PlanningView {
-    return value === 'milestones' ? 'milestones' : 'review';
+    if (value === 'cycles' || value === 'milestones') {
+      return value;
+    }
+
+    return 'review';
   }
 }

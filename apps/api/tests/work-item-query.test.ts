@@ -12,6 +12,7 @@ import {
 describe('work item query validation', () => {
   const memberId = '0f8fad5b-d9cb-469f-a165-70867728950e';
   const projectId = '1f8fad5b-d9cb-469f-a165-70867728950e';
+  const cycleId = '2f8fad5b-d9cb-469f-a165-70867728950e';
 
   it('normalizes empty values and applies defaults', () => {
     expect(
@@ -33,6 +34,7 @@ describe('work item query validation', () => {
       parseProjectWorkItemQuery({
         archivedProjects: 'only',
         projectId,
+        cycleId,
         blocked: 'true',
         assigneeState: 'assigned',
         workRisk: 'stale_in_progress',
@@ -42,6 +44,7 @@ describe('work item query validation', () => {
     ).toEqual({
       assigneeState: 'assigned',
       blocked: true,
+      cycleId,
       sort: 'priority_desc',
       workRisk: 'stale_in_progress',
       workState: 'open'
@@ -52,12 +55,14 @@ describe('work item query validation', () => {
     expect(
       parseWorkspaceWorkItemQuery({
         projectId,
+        cycleId,
         archivedProjects: 'only',
         workRisk: 'unassigned_active',
         workState: 'terminal'
       })
     ).toEqual({
       archivedProjects: 'only',
+      cycleId,
       projectId,
       sort: 'updated_desc',
       workRisk: 'unassigned_active',
@@ -82,6 +87,7 @@ describe('work item query validation', () => {
     expect(
       normalizeWorkItemQuery({
         assigneeId: memberId,
+        cycleId,
         milestoneId: '',
         projectId: '',
         search: '  api gateway  ',
@@ -91,6 +97,7 @@ describe('work item query validation', () => {
     ).toEqual({
       assigneeId: memberId,
       archivedProjects: 'exclude',
+      cycleId,
       search: 'api gateway',
       sort: 'updated_desc',
       workState: 'open'
@@ -103,6 +110,7 @@ describe('work item query validation', () => {
         archivedProjects: '',
         assigneeId: '',
         blocked: false,
+        cycleId: '',
         search: '',
         sort: '',
         status: '',

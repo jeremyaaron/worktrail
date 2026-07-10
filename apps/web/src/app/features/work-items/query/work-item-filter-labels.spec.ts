@@ -2,6 +2,7 @@ import type {
   LabelDto,
   MemberDto,
   MilestoneDto,
+  ProjectCycleDto,
   ProjectDto,
   ProjectNavigationSummaryDto
 } from '@worktrail/contracts';
@@ -49,6 +50,21 @@ describe('work item filter labels', () => {
     createdAt: '2026-07-01T00:00:00.000Z',
     updatedAt: '2026-07-01T00:00:00.000Z'
   };
+  const cycle: ProjectCycleDto = {
+    id: 'cycle-1',
+    workspaceId: 'workspace-1',
+    projectId: 'project-1',
+    name: 'Cycle 1',
+    goal: 'Stabilize planning.',
+    status: 'active',
+    startDate: '2026-07-01',
+    endDate: '2026-07-15',
+    targetPoints: null,
+    isArchived: false,
+    archivedAt: null,
+    createdAt: '2026-07-01T00:00:00.000Z',
+    updatedAt: '2026-07-01T00:00:00.000Z'
+  };
   const project: ProjectDto = {
     id: 'project-1',
     workspaceId: 'workspace-1',
@@ -78,6 +94,7 @@ describe('work item filter labels', () => {
           type: 'story',
           labelId: label.id,
           milestoneId: milestone.id,
+          cycleId: cycle.id,
           priority: 'high',
           dueDateState: 'due_soon',
           dependency: 'blocking_open_work',
@@ -87,7 +104,8 @@ describe('work item filter labels', () => {
         {
           members: [activeMember, inactiveMember],
           labels: [label],
-          milestones: [milestone]
+          milestones: [milestone],
+          cycles: [cycle]
         }
       )
     ).toEqual([
@@ -98,6 +116,7 @@ describe('work item filter labels', () => {
       'Type: story',
       'Label: Design',
       'Milestone: Launch',
+      'Cycle: Cycle 1',
       'Priority: High',
       'Due date: Due soon',
       'Dependency: Blocking open work',
@@ -119,6 +138,7 @@ describe('work item filter labels', () => {
           type: '',
           labelId: '',
           milestoneId: '',
+          cycleId: '',
           priority: '',
           dueDateState: '',
           blocked: 'true',
@@ -131,6 +151,7 @@ describe('work item filter labels', () => {
           members: [],
           labels: [],
           milestones: [],
+          cycles: [],
           projectSummaries: [projectSummary]
         }
       )

@@ -128,6 +128,9 @@ const terminalStatuses = new Set<WorkItemStatus>(['done', 'canceled']);
                       @if (item.milestone !== null) {
                         <span class="milestone-pill">{{ item.milestone.name }}</span>
                       }
+                      @if (item.cycle !== null) {
+                        <span class="cycle-pill">{{ item.cycle.name }}</span>
+                      }
                       <span
                         class="assignee-pill"
                         [class.assignee-pill--empty]="item.assignee === null"
@@ -370,6 +373,17 @@ const terminalStatuses = new Set<WorkItemStatus>(['done', 'canceled']);
       padding: 2px 7px;
       background: #f0fdf4;
       color: #166534;
+      font-size: 0.75rem;
+      font-weight: 800;
+    }
+
+    .cycle-pill {
+      width: fit-content;
+      border: 1px solid #bfdbfe;
+      border-radius: 999px;
+      padding: 2px 7px;
+      background: #eff6ff;
+      color: #1d4ed8;
       font-size: 0.75rem;
       font-weight: 800;
     }

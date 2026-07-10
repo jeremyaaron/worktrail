@@ -6,12 +6,12 @@
     <title>Worktrail | Project management reference app</title>
     <meta
       name="description"
-      content="Worktrail is a project management reference app for daily team work, reliable project operation, planning review, and published status snapshots, built as an Angular, TypeScript API, and Postgres reference baseline."
+      content="Worktrail is a project management reference app for daily team work, reliable project operation, cycle planning, planning review, and published status snapshots, built as an Angular, TypeScript API, and Postgres reference baseline."
     >
     <meta property="og:title" content="Worktrail">
     <meta
       property="og:description"
-      content="A project management reference app for daily team work, planning review, published status snapshots, and production-shaped TypeScript architecture."
+      content="A project management reference app for daily team work, cycle planning, published status snapshots, and production-shaped TypeScript architecture."
     >
     <meta property="og:type" content="website">
     <meta name="theme-color" content="#f6f8fb">
@@ -47,7 +47,7 @@
           <h1 id="hero-title">Worktrail</h1>
           <p class="hero-copy">
             Worktrail is a focused project management app for daily execution, project operation,
-            planning review, collaboration, dependencies, and published status snapshots.
+            cycle planning, collaboration, dependencies, and published status snapshots.
           </p>
           <p class="hero-copy hero-copy-secondary">
             It is also a reference implementation for an Angular static frontend, a TypeScript API
@@ -65,7 +65,7 @@
       <section class="signal-band" aria-label="Project signals">
         <div class="signal">
           <span class="signal-value">Users</span>
-          <span class="signal-label">Daily queue, inbox, saved views, project boards, milestones, comments, and reports</span>
+          <span class="signal-label">Daily queue, inbox, saved views, project boards, milestones, cycles, comments, and reports</span>
         </div>
         <div class="signal">
           <span class="signal-value">Builders</span>
@@ -130,9 +130,10 @@
             <span class="feature-kicker">Share status</span>
             <h3>Separate live planning from published evidence.</h3>
             <ul>
-              <li>Planning and Milestone Review pages are labeled as live views of current state.</li>
+              <li>Planning, Milestone Review, and Cycle Review pages are labeled as live views of current state.</li>
+              <li>Cycles track methodology-neutral execution windows with scoped work and target points.</li>
               <li>Report drafts separate generated evidence from editable narrative.</li>
-              <li>Published reports preserve immutable snapshots while linking to current work.</li>
+              <li>Published reports preserve immutable milestone, cycle, risk, and recent-work snapshots while linking to current work.</li>
               <li>Markdown copy, Markdown download, and print-friendly report detail pages support sharing.</li>
             </ul>
           </article>
@@ -141,29 +142,28 @@
 
       <section class="section" id="baseline" aria-labelledby="baseline-title">
         <div class="section-heading">
-          <p class="eyebrow">v0.2.0 baseline</p>
-          <h2 id="baseline-title">A consolidated reference app baseline.</h2>
+          <p class="eyebrow">v0.2.1 baseline</p>
+          <h2 id="baseline-title">A cycle-aware reference app baseline.</h2>
           <p>
-            The v0.2.0 baseline is a polish and consolidation pass over the current product surface.
-            It reduces ambiguity between live views and published snapshots, improves Work Item
-            Detail scanability, centralizes backend risk-section assembly, adds explicit status
-            report snapshot validation, and keeps reference-app boundaries visible without turning
-            the site into a release log.
+            The v0.2.1 baseline adds project-scoped cycle planning on top of the consolidated
+            operating surface. Teams can plan execution windows, assign work into cycles, review
+            scoped risk, filter and save cycle-backed work views, and publish status reports that
+            preserve active-cycle context.
           </p>
         </div>
 
         <div class="baseline-grid">
           <div>
             <strong>For product users</strong>
-            <span>Daily work, inbox updates, reliable filters, saved/pinned views, project boards, planning review, milestone review, dependency signals, comments, watchers, activity, CSV flows, and portable status reports.</span>
+            <span>Daily work, inbox updates, reliable filters, saved/pinned views, project boards, planning review, milestone review, cycle review, dependency signals, comments, watchers, activity, CSV flows, and portable status reports.</span>
           </div>
           <div>
             <strong>For builders</strong>
-            <span>Shared contracts, typed Angular API clients, query helpers, route-level code splitting, endpoint handlers, service-level domain policy, report snapshot parsing, and focused test coverage.</span>
+            <span>Shared contracts, typed Angular API clients, query helpers, route-level code splitting, endpoint handlers, service-level domain policy, report snapshot parsing, cycle review derivation, and focused test coverage.</span>
           </div>
           <div>
             <strong>For operators</strong>
-            <span>Postgres migrations and seed data, production preview, runtime configuration checks, health/readiness endpoints, checked-in OpenAPI, CI verification, and documented local run paths.</span>
+            <span>Postgres migrations and cycle-aware seed data, production preview, runtime configuration checks, health/readiness endpoints, checked-in OpenAPI, CI verification, and documented local run paths.</span>
           </div>
         </div>
       </section>
@@ -183,8 +183,8 @@
           <div class="stack-panel" aria-label="Architecture layers">
             <div><strong>Frontend</strong><span>Angular standalone route components, lazy route chunks, static build output, URL-backed query state, and responsive work surfaces suitable for S3/CloudFront hosting.</span></div>
             <div><strong>API boundary</strong><span>Shared DTO contracts, explicit request validation, transport-neutral endpoint handlers, Express local adapter, OpenAPI documentation, and non-JSON export responses.</span></div>
-            <div><strong>Domain</strong><span>Project planning, delivery health, risk sections, relationships, notifications, saved views, CSV flows, report snapshots, and permission paths in service-level code.</span></div>
-            <div><strong>Persistence</strong><span>Postgres with Drizzle schema and migrations, deterministic seed data, immutable report snapshots, activity records, notifications, relationships, and saved view state.</span></div>
+            <div><strong>Domain</strong><span>Project planning, cycle review, delivery health, risk sections, relationships, notifications, saved views, CSV flows, report snapshots, and permission paths in service-level code.</span></div>
+            <div><strong>Persistence</strong><span>Postgres with Drizzle schema and migrations, deterministic seed data, project cycles, immutable report snapshots, activity records, notifications, relationships, and saved view state.</span></div>
             <div><strong>Operations</strong><span>Production preview, runtime config validation, liveness/readiness endpoints, CI lint/typecheck/test/build, and local smoke-test guidance.</span></div>
           </div>
         </div>
@@ -244,7 +244,7 @@
           </div>
           <div>
             <strong>No enterprise workflow suite yet</strong>
-            <span>Custom workflows, attachments, roadmap forecasting, report approvals, public report links, critical path analysis, and third-party migrations remain outside the baseline.</span>
+            <span>Custom workflows, attachments, roadmap forecasting, cycle capacity planning, report approvals, public report links, critical path analysis, and third-party migrations remain outside the baseline.</span>
           </div>
         </div>
       </section>
@@ -273,9 +273,9 @@ DATABASE_URL=postgres://worktrail:worktrail@localhost:5432/worktrail npm run pre
       <span>Worktrail</span>
       <a href="https://github.com/jeremyaaron/worktrail">GitHub</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/README.md">README</a>
-      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.0/prd.md">v0.2.0 PRD</a>
-      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.0/technical-design.md">Technical design</a>
-      <a href="https://github.com/jeremyaaron/worktrail/tree/main/docs/v0.2.0">v0.2.0 audits</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.1/prd.md">v0.2.1 PRD</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.1/technical-design.md">Technical design</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.1/release-notes.md">Release notes</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/api/openapi.yaml">OpenAPI</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.0.X/v0.0.6/operations-runbook.md">Runbook</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.0.X/v0.0.7/csv-import-export.md">CSV guide</a>

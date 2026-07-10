@@ -41,6 +41,11 @@ describe('OpenAPI reference', () => {
       '/api/milestones/{milestoneId}',
       '/api/milestones/{milestoneId}/archive',
       '/api/milestones/{milestoneId}/reactivate',
+      '/api/projects/{projectId}/cycles',
+      '/api/projects/{projectId}/cycles/{cycleId}',
+      '/api/projects/{projectId}/cycles/{cycleId}/archive',
+      '/api/projects/{projectId}/cycles/{cycleId}/reactivate',
+      '/api/projects/{projectId}/cycles/{cycleId}/review',
       '/api/work-items',
       '/api/work-items/export',
       '/api/projects/{projectId}/work-items',
@@ -109,6 +114,28 @@ describe('OpenAPI reference', () => {
     expect(openApi).toContain('MilestoneReviewScopeBreakdown:');
     expect(openApi).toContain('MilestoneReviewRiskSection:');
     expect(openApi).toContain('MilestoneReview:');
+    expect(openApi).toContain('ProjectCycleStatus:');
+    expect(openApi).toContain('ProjectCycle:');
+    expect(openApi).toContain('CreateProjectCycleRequest:');
+    expect(openApi).toContain('UpdateProjectCycleRequest:');
+    expect(openApi).toContain('CycleReviewProgress:');
+    expect(openApi).toContain('CycleReviewScopeBreakdown:');
+    expect(openApi).toContain('CycleReviewRiskType:');
+    expect(openApi).toContain('CycleReviewRiskSection:');
+    expect(openApi).toContain('ProjectCycleReview:');
+    expect(openApi).toContain('ProjectPlanningCycleSummary:');
+    expect(openApi).toContain('ProjectStatusReportCycleSnapshot:');
+    expect(openApi).toContain('cycle_review');
+    expect(openApi).toContain('cycleId:');
+    expect(openApi).toContain('set_cycle');
+    expect(openApi).toContain('clear_cycle');
+    expect(openApi).toContain('work_item.cycle_changed');
+    expect(openApi).toContain('cycle_name');
+    expect(openApi).toContain('activeCycle:');
+    expect(openApi).toContain('upcomingCycle:');
+    expect(openApi).toContain('recentlyCompletedCycle:');
+    expect(openApi).toContain('cycle_over_target');
+    expect(openApi).toContain('unestimated_work');
     expect(openApi).toContain('WorkItemRiskFilter:');
     expect(openApi).toContain('workRisk:');
     expect(openApi).toContain('deliveryHealth:');

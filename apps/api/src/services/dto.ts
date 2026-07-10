@@ -4,6 +4,7 @@ import type {
   LabelDto,
   MemberDto,
   MilestoneDto,
+  ProjectCycleDto,
   ProjectDto,
   ProjectStatusReportDetailDto,
   ProjectStatusReportSummaryDto,
@@ -25,6 +26,7 @@ import type {
   Member,
   Milestone,
   Project,
+  ProjectCycle,
   ProjectStatusReport,
   SavedWorkView,
   WorkItem,
@@ -163,6 +165,24 @@ export function toMilestoneDto(milestone: Milestone): MilestoneDto {
   };
 }
 
+export function toProjectCycleDto(cycle: ProjectCycle): ProjectCycleDto {
+  return {
+    id: cycle.id,
+    workspaceId: cycle.workspaceId,
+    projectId: cycle.projectId,
+    name: cycle.name,
+    goal: cycle.goal,
+    status: cycle.status,
+    startDate: cycle.startDate,
+    endDate: cycle.endDate,
+    targetPoints: cycle.targetPoints,
+    isArchived: cycle.archivedAt !== null,
+    archivedAt: cycle.archivedAt?.toISOString() ?? null,
+    createdAt: cycle.createdAt.toISOString(),
+    updatedAt: cycle.updatedAt.toISOString()
+  };
+}
+
 export function toCommentDto(
   comment: Comment,
   author: Member,
@@ -228,6 +248,7 @@ export function toWorkItemListItemDto(input: {
   reporter: Member;
   labels: Label[];
   milestone?: Milestone | null;
+  cycle?: ProjectCycle | null;
   dependencyCounts?: DependencyCounts;
 }): WorkItemListItemDto {
   const dependencyCounts = input.dependencyCounts ?? {
@@ -249,6 +270,7 @@ export function toWorkItemListItemDto(input: {
     reporter: toMemberDto(input.reporter),
     labels: input.labels.map(toLabelDto),
     milestone: input.milestone == null ? null : toMilestoneDto(input.milestone),
+    cycle: input.cycle == null ? null : toProjectCycleDto(input.cycle),
     boardPosition: input.workItem.boardPosition,
     dueDate: input.workItem.dueDate,
     estimatePoints: input.workItem.estimatePoints,

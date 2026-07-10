@@ -39,6 +39,7 @@ async function cleanupWorkspace(workspaceId: string) {
   );
   await pool.query('delete from labels where workspace_id = $1', [workspaceId]);
   await pool.query('delete from work_items where workspace_id = $1', [workspaceId]);
+  await pool.query('delete from project_cycles where workspace_id = $1', [workspaceId]);
   await pool.query('delete from milestones where workspace_id = $1', [workspaceId]);
   await pool.query('delete from projects where workspace_id = $1', [workspaceId]);
   await pool.query('delete from members where workspace_id = $1', [workspaceId]);
@@ -182,6 +183,28 @@ async function createMilestone(
     description: 'Planning milestone.',
     status: 'active',
     targetDate: '2026-07-18',
+    archivedAt: null,
+    archivedById: null,
+    createdAt: now(),
+    updatedAt: now(),
+    ...overrides
+  });
+}
+
+async function createProjectCycle(
+  fixture: Awaited<ReturnType<typeof createFixture>>,
+  overrides: Partial<Parameters<typeof repositories.projectCycles.create>[0]> = {}
+) {
+  return repositories.projectCycles.create({
+    id: randomUUID(),
+    workspaceId: fixture.workspaceId,
+    projectId: fixture.projectId,
+    name: 'Cycle 1',
+    goal: 'Complete the next reference workflow.',
+    status: 'active',
+    startDate: '2026-07-01',
+    endDate: '2026-07-12',
+    targetPoints: 24,
     archivedAt: null,
     archivedById: null,
     createdAt: now(),
@@ -354,6 +377,36 @@ describe('work item API', () => {
             name: 'v0.0.3',
             status: 'active',
             targetDate: '2026-07-18',
+            isArchived: false
+          }
+        });
+      });
+  });
+
+  it('creates work items with cycle assignment and returns cycle DTOs', async () => {
+    const fixture = await createFixture('owner');
+    const cycle = await createProjectCycle(fixture);
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items`)
+      .set(fixture.headers)
+      .send({
+        title: 'Cycle assigned item',
+        type: 'story',
+        priority: 'high',
+        cycleId: cycle.id
+      })
+      .expect(201)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          title: 'Cycle assigned item',
+          cycle: {
+            id: cycle.id,
+            name: 'Cycle 1',
+            status: 'active',
+            startDate: '2026-07-01',
+            endDate: '2026-07-12',
+            targetPoints: 24,
             isArchived: false
           }
         });
@@ -686,12 +739,16 @@ describe('work item API', () => {
 
   it('exports filtered project work items as CSV', async () => {
     const fixture = await createFixture('owner');
+    const cycle = await createProjectCycle(fixture, {
+      name: 'CSV export cycle'
+    });
     const ready = await createWorkItem(fixture, {
       title: 'Exported, ready work',
       status: 'ready',
       priority: 'urgent',
       assigneeId: fixture.contributorId,
       reporterId: fixture.maintainerId,
+      cycleId: cycle.id,
       dueDate: '2026-07-12',
       estimatePoints: 8,
       createdAt: new Date('2026-07-01T12:00:00.000Z'),
@@ -714,8 +771,8 @@ describe('work item API', () => {
       .expect(({ text }) => {
         expect(text).toBe(
           [
-            'project_key,display_key,title,type,status,priority,assignee_name,assignee_email,reporter_name,reporter_email,label_names,milestone_name,due_date,estimate_points,created_at,updated_at',
-            `WI,${ready.displayKey},"Exported, ready work",task,ready,urgent,API Contributor,${fixture.contributorId}@example.com,API Maintainer,${fixture.maintainerId}@example.com,backend,,2026-07-12,8,2026-07-01T12:00:00.000Z,2026-07-03T12:00:00.000Z`,
+            'project_key,display_key,title,type,status,priority,assignee_name,assignee_email,reporter_name,reporter_email,label_names,milestone_name,cycle_name,due_date,estimate_points,created_at,updated_at',
+            `WI,${ready.displayKey},"Exported, ready work",task,ready,urgent,API Contributor,${fixture.contributorId}@example.com,API Maintainer,${fixture.maintainerId}@example.com,backend,,CSV export cycle,2026-07-12,8,2026-07-01T12:00:00.000Z,2026-07-03T12:00:00.000Z`,
             ''
           ].join('\n')
         );
@@ -787,7 +844,7 @@ describe('work item API', () => {
       .expect('Content-Type', /text\/csv/)
       .expect(({ text }) => {
         expect(text).toBe(
-          'project_key,display_key,title,type,status,priority,assignee_name,assignee_email,reporter_name,reporter_email,label_names,milestone_name,due_date,estimate_points,created_at,updated_at\n'
+          'project_key,display_key,title,type,status,priority,assignee_name,assignee_email,reporter_name,reporter_email,label_names,milestone_name,cycle_name,due_date,estimate_points,created_at,updated_at\n'
         );
       });
   });
@@ -887,14 +944,16 @@ describe('work item API', () => {
       });
   });
 
-  it('supports workspace work item filters, search, labels, and sorts', async () => {
+  it('supports workspace work item filters, search, labels, cycles, and sorts', async () => {
     const fixture = await createFixture('owner');
     const milestone = await createMilestone(fixture);
+    const cycle = await createProjectCycle(fixture);
     const urgent = await createWorkItem(fixture, {
       title: 'Needle urgent backend work',
       priority: 'urgent',
       status: 'blocked',
       milestoneId: milestone.id,
+      cycleId: cycle.id,
       dueDate: '2026-07-05',
       updatedAt: new Date('2026-07-02T12:00:00.000Z')
     });
@@ -915,6 +974,7 @@ describe('work item API', () => {
         search: 'needle',
         labelId: fixture.backendLabelId,
         milestoneId: milestone.id,
+        cycleId: cycle.id,
         sort: 'priority_desc'
       })
       .set(fixture.headers)
@@ -925,7 +985,8 @@ describe('work item API', () => {
           id: urgent.id,
           displayKey: urgent.displayKey,
           labels: [{ id: fixture.backendLabelId, name: 'backend' }],
-          milestone: { id: milestone.id }
+          milestone: { id: milestone.id },
+          cycle: { id: cycle.id }
         });
       });
 
@@ -1376,14 +1437,18 @@ describe('work item API', () => {
     }
   });
 
-  it('supports clear assignee, milestone, label, and clear due date bulk actions', async () => {
+  it('supports clear assignee, milestone, cycle, label, and clear due date bulk actions', async () => {
     const fixture = await createFixture('owner');
     const milestone = await createMilestone(fixture);
+    const cycle = await createProjectCycle(fixture);
     const assigneeItem = await createWorkItem(fixture, {
       assigneeId: fixture.contributorId
     });
     const milestoneItem = await createWorkItem(fixture, {
       milestoneId: null
+    });
+    const cycleItem = await createWorkItem(fixture, {
+      cycleId: null
     });
     const dueDateItem = await createWorkItem(fixture, {
       dueDate: '2026-07-19'
@@ -1402,6 +1467,36 @@ describe('work item API', () => {
         expect(body.results[0]).toMatchObject({
           status: 'updated',
           workItem: { id: assigneeItem.id, assignee: null }
+        });
+      });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
+      .set(fixture.headers)
+      .send({
+        workItemIds: [cycleItem.id],
+        action: { type: 'set_cycle', cycleId: cycle.id }
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.results[0]).toMatchObject({
+          status: 'updated',
+          workItem: { id: cycleItem.id, cycle: { id: cycle.id } }
+        });
+      });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items/bulk-update`)
+      .set(fixture.headers)
+      .send({
+        workItemIds: [cycleItem.id],
+        action: { type: 'clear_cycle' }
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.results[0]).toMatchObject({
+          status: 'updated',
+          workItem: { id: cycleItem.id, cycle: null }
         });
       });
 
@@ -1494,6 +1589,9 @@ describe('work item API', () => {
     });
     await expect(repositories.workItems.findById(milestoneItem.id)).resolves.toMatchObject({
       milestoneId: null
+    });
+    await expect(repositories.workItems.findById(cycleItem.id)).resolves.toMatchObject({
+      cycleId: null
     });
     await expect(repositories.workItems.findById(dueDateItem.id)).resolves.toMatchObject({
       dueDate: null
@@ -1777,6 +1875,13 @@ describe('work item API', () => {
       },
       {
         action: {
+          type: 'set_cycle',
+          cycleId: randomUUID()
+        },
+        message: 'Cycle is invalid for this project.'
+      },
+      {
+        action: {
           type: 'add_labels',
           labelIds: [randomUUID()]
         },
@@ -1923,9 +2028,10 @@ describe('work item API', () => {
       });
   });
 
-  it('searches and filters by milestone, reporter, due date state, and board order', async () => {
+  it('searches and filters by milestone, cycle, reporter, due date state, and board order', async () => {
     const fixture = await createFixture('owner');
     const milestone = await createMilestone(fixture);
+    const cycle = await createProjectCycle(fixture);
     const {
       rows: [dates]
     } = await pool.query<{ dueSoon: string; overdue: string }>(
@@ -1939,6 +2045,7 @@ describe('work item API', () => {
       status: 'ready',
       reporterId: fixture.actorId,
       milestoneId: milestone.id,
+      cycleId: cycle.id,
       dueDate: dates.dueSoon,
       boardPosition: 2048
     });
@@ -1948,6 +2055,7 @@ describe('work item API', () => {
       status: 'ready',
       reporterId: fixture.actorId,
       milestoneId: null,
+      cycleId: null,
       dueDate: dates.overdue,
       boardPosition: 1024
     });
@@ -1956,6 +2064,7 @@ describe('work item API', () => {
       .get(`/api/projects/${fixture.projectId}/work-items`)
       .query({
         milestoneId: milestone.id,
+        cycleId: cycle.id,
         reporterId: fixture.actorId,
         dueDateState: 'due_soon',
         search: 'planning keyword',
@@ -1968,6 +2077,7 @@ describe('work item API', () => {
         expect(body[0]).toMatchObject({
           id: dueSoon.id,
           milestone: { id: milestone.id },
+          cycle: { id: cycle.id },
           dueDate: dates.dueSoon
         });
       });
@@ -2425,6 +2535,36 @@ describe('work item API', () => {
     ]);
   });
 
+  it('updates and clears cycle assignment with activity', async () => {
+    const fixture = await createFixture('owner');
+    const cycle = await createProjectCycle(fixture);
+    const workItem = await createWorkItem(fixture);
+
+    await request(app)
+      .patch(`/api/work-items/${workItem.id}`)
+      .set(fixture.headers)
+      .send({ cycleId: cycle.id })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.cycle).toMatchObject({ id: cycle.id, name: 'Cycle 1' });
+      });
+
+    await request(app)
+      .patch(`/api/work-items/${workItem.id}`)
+      .set(fixture.headers)
+      .send({ cycleId: null })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.cycle).toBeNull();
+      });
+
+    const activity = await repositories.activityEvents.findByWorkItem(workItem.id);
+    expect(activity.map((event) => event.eventType)).toEqual([
+      'work_item.cycle_changed',
+      'work_item.cycle_changed'
+    ]);
+  });
+
   it('rejects archived milestone assignment but allows clearing an archived assignment', async () => {
     const fixture = await createFixture('owner');
     const archivedMilestone = await createMilestone(fixture, {
@@ -2465,6 +2605,87 @@ describe('work item API', () => {
       .expect(200)
       .expect(({ body }) => {
         expect(body.milestone).toBeNull();
+      });
+  });
+
+  it('rejects archived cycle assignment but allows clearing an archived assignment', async () => {
+    const fixture = await createFixture('owner');
+    const archivedCycle = await createProjectCycle(fixture, {
+      archivedAt: now(),
+      archivedById: fixture.actorId
+    });
+    const workItem = await createWorkItem(fixture, {
+      cycleId: archivedCycle.id
+    });
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items`)
+      .set(fixture.headers)
+      .send({
+        title: 'Rejected archived cycle assignment',
+        type: 'task',
+        priority: 'medium',
+        cycleId: archivedCycle.id
+      })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('VALIDATION_ERROR');
+      });
+
+    await request(app)
+      .patch(`/api/work-items/${workItem.id}`)
+      .set(fixture.headers)
+      .send({ cycleId: archivedCycle.id })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.cycle).toMatchObject({ id: archivedCycle.id, isArchived: true });
+      });
+
+    await request(app)
+      .patch(`/api/work-items/${workItem.id}`)
+      .set(fixture.headers)
+      .send({ cycleId: null })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.cycle).toBeNull();
+      });
+  });
+
+  it('rejects cross-project cycle assignment', async () => {
+    const fixture = await createFixture('owner');
+    const otherProject = await createProject(fixture);
+    const otherProjectCycle = await createProjectCycle(fixture, {
+      projectId: otherProject.id
+    });
+    const workItem = await createWorkItem(fixture);
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items`)
+      .set(fixture.headers)
+      .send({
+        title: 'Rejected cross-project cycle assignment',
+        type: 'task',
+        priority: 'medium',
+        cycleId: otherProjectCycle.id
+      })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.error).toMatchObject({
+          code: 'VALIDATION_ERROR',
+          message: 'Cycle is invalid for this project.'
+        });
+      });
+
+    await request(app)
+      .patch(`/api/work-items/${workItem.id}`)
+      .set(fixture.headers)
+      .send({ cycleId: otherProjectCycle.id })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.error).toMatchObject({
+          code: 'VALIDATION_ERROR',
+          message: 'Cycle is invalid for this project.'
+        });
       });
   });
 

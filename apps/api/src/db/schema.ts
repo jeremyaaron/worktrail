@@ -20,6 +20,7 @@ import {
   type MemberRole,
   type MilestoneStatus,
   type NotificationType,
+  type ProjectCycleStatus,
   type ProjectStatus,
   type SavedWorkViewScope,
   type SavedWorkViewVisibility,
@@ -32,6 +33,7 @@ import {
   memberRoles,
   milestoneStatuses,
   notificationTypes,
+  projectCycleStatuses,
   projectStatuses,
   savedWorkViewScopes,
   savedWorkViewVisibilities,
@@ -131,6 +133,46 @@ export const milestones = pgTable(
   ]
 );
 
+export const projectCycles = pgTable(
+  'project_cycles',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id),
+    name: text('name').notNull(),
+    goal: text('goal').notNull().default(''),
+    status: text('status').$type<ProjectCycleStatus>().notNull(),
+    startDate: date('start_date', { mode: 'string' }).notNull(),
+    endDate: date('end_date', { mode: 'string' }).notNull(),
+    targetPoints: integer('target_points'),
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
+    archivedById: uuid('archived_by_id').references(() => members.id),
+    ...timestamps
+  },
+  (table) => [
+    check('project_cycles_status_check', enumCheckSql('status', projectCycleStatuses)),
+    check('project_cycles_date_range_check', sql`${table.startDate} <= ${table.endDate}`),
+    check(
+      'project_cycles_target_points_check',
+      sql`${table.targetPoints} is null or ${table.targetPoints} > 0`
+    ),
+    index('project_cycles_workspace_id_idx').on(table.workspaceId),
+    index('project_cycles_project_id_status_idx').on(table.projectId, table.status),
+    index('project_cycles_project_id_start_date_idx').on(table.projectId, table.startDate),
+    index('project_cycles_project_id_archived_at_idx').on(table.projectId, table.archivedAt),
+    uniqueIndex('project_cycles_project_id_active_unique')
+      .on(table.projectId)
+      .where(sql`${table.status} = 'active' and ${table.archivedAt} is null`),
+    uniqueIndex('project_cycles_project_id_active_name_unique')
+      .on(table.projectId, sql`lower(${table.name})`)
+      .where(sql`${table.archivedAt} is null`)
+  ]
+);
+
 export const workItems = pgTable(
   'work_items',
   {
@@ -153,6 +195,7 @@ export const workItems = pgTable(
       .notNull()
       .references(() => members.id),
     milestoneId: uuid('milestone_id').references(() => milestones.id),
+    cycleId: uuid('cycle_id').references(() => projectCycles.id),
     boardPosition: integer('board_position').notNull().default(0),
     dueDate: date('due_date', { mode: 'string' }),
     estimatePoints: integer('estimate_points'),
@@ -168,6 +211,7 @@ export const workItems = pgTable(
     index('work_items_project_id_type_idx').on(table.projectId, table.type),
     index('work_items_project_id_priority_idx').on(table.projectId, table.priority),
     index('work_items_project_id_milestone_id_idx').on(table.projectId, table.milestoneId),
+    index('work_items_project_id_cycle_id_idx').on(table.projectId, table.cycleId),
     index('work_items_project_id_status_board_position_idx').on(
       table.projectId,
       table.status,
@@ -181,6 +225,7 @@ export const workItems = pgTable(
     index('work_items_workspace_id_assignee_id_idx').on(table.workspaceId, table.assigneeId),
     index('work_items_workspace_id_reporter_id_idx').on(table.workspaceId, table.reporterId),
     index('work_items_workspace_id_priority_idx').on(table.workspaceId, table.priority),
+    index('work_items_workspace_id_cycle_id_idx').on(table.workspaceId, table.cycleId),
     index('work_items_workspace_id_due_date_idx').on(table.workspaceId, table.dueDate),
     index('work_items_workspace_id_updated_at_idx').on(table.workspaceId, table.updatedAt.desc()),
     uniqueIndex('work_items_project_id_item_number_unique').on(table.projectId, table.itemNumber),

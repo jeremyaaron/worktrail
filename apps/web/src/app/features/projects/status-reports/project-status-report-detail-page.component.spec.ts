@@ -136,6 +136,39 @@ function snapshot(): ProjectStatusReportSnapshotDto {
         reasons: []
       }
     ],
+    cycle: {
+      id: '10000000-0000-4000-8000-000000000701',
+      name: 'v0.2.1 Cycle Planning',
+      goal: 'Prove cycle planning across reports.',
+      status: 'active',
+      startDate: '2026-07-13',
+      endDate: '2026-07-24',
+      targetPoints: 20,
+      committedEstimatePoints: 23,
+      completedEstimatePoints: 8,
+      openWorkCount: 4,
+      blockedWorkCount: 1,
+      dependencyBlockedWorkCount: 1,
+      unestimatedWorkCount: 1,
+      health: 'at_risk',
+      reasons: [
+        {
+          key: 'cycle_over_target',
+          severity: 'warning',
+          message: 'Cycle estimate is 3 points over target.',
+          count: 3,
+          query: { cycleId: '10000000-0000-4000-8000-000000000701', sort: 'priority_desc' }
+        }
+      ],
+      links: [
+        {
+          type: 'cycle_review',
+          label: 'Review cycle',
+          projectId,
+          cycleId: '10000000-0000-4000-8000-000000000701'
+        }
+      ]
+    },
     risks: [
       {
         type: 'blocked',
@@ -282,6 +315,10 @@ describe('ProjectStatusReportDetailPageComponent', () => {
     expect(compiled.textContent).toContain('Open');
     expect(compiled.textContent).toContain('5');
     expect(compiled.textContent).toContain('Dependency blocked');
+    expect(compiled.textContent).toContain('Active cycle snapshot');
+    expect(compiled.textContent).toContain('v0.2.1 Cycle Planning');
+    expect(compiled.textContent).toContain('8/23 points, 20 target');
+    expect(compiled.textContent).toContain('Cycle estimate is 3 points over target.');
     expect(compiled.textContent).toContain('v0.1.8');
     expect(compiled.textContent).toContain('3 open');
     expect(compiled.textContent).toContain('Blocked work');
@@ -296,12 +333,23 @@ describe('ProjectStatusReportDetailPageComponent', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     const milestoneLink = compiled.querySelector<HTMLAnchorElement>('.milestone-row');
+    const cycleReviewLink = [...compiled.querySelectorAll<HTMLAnchorElement>('.report-links a')]
+      .find((link) => link.textContent?.includes('Review cycle'));
+    const cycleWorkLink = [...compiled.querySelectorAll<HTMLAnchorElement>('.report-links a')]
+      .find((link) => link.textContent?.includes('Open current cycle work'));
     const riskLink = [...compiled.querySelectorAll<HTMLAnchorElement>('.risk-section > a')]
       .find((link) => link.textContent?.includes('Open current work'));
     const workLink = compiled.querySelector<HTMLAnchorElement>('.work-row');
 
     expect(milestoneLink?.getAttribute('href')).toBe(
       `/projects/${projectId}/milestones/${milestone.id}`
+    );
+    expect(cycleReviewLink?.getAttribute('href')).toBe(
+      `/projects/${projectId}/cycles/10000000-0000-4000-8000-000000000701`
+    );
+    expect(cycleWorkLink?.getAttribute('href')).toContain(`/projects/${projectId}/work-items`);
+    expect(cycleWorkLink?.getAttribute('href')).toContain(
+      'cycleId=10000000-0000-4000-8000-000000000701'
     );
     expect(riskLink?.getAttribute('href')).toContain(`/projects/${projectId}/work-items`);
     expect(riskLink?.getAttribute('href')).toContain('status=blocked');

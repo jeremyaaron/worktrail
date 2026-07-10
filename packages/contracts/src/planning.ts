@@ -1,3 +1,4 @@
+import type { CycleReviewProgressDto, ProjectCycleDto } from './cycles.js';
 import type { DeliveryHealthReasonDto, DeliveryHealthSeverity, DeliveryHealthState, ProjectDeliveryHealthDto } from './health.js';
 import type { MemberDto } from './members.js';
 import type { ProjectDto } from './projects.js';
@@ -89,10 +90,23 @@ export interface PlanningReviewDto {
   recentlyChanged: PlanningReviewItemDto[];
 }
 
+export interface ProjectPlanningCycleSummaryDto {
+  cycle: ProjectCycleDto;
+  progress: CycleReviewProgressDto;
+  health: {
+    health: DeliveryHealthState;
+    reasons: DeliveryHealthReasonDto[];
+  };
+  scopedWorkQuery: WorkItemQuery;
+}
+
 export interface ProjectPlanningSummaryDto {
   project: ProjectDto;
   deliveryHealth: ProjectDeliveryHealthDto;
   milestoneProgress: MilestoneProgressDto[];
+  activeCycle: ProjectPlanningCycleSummaryDto | null;
+  upcomingCycle: ProjectPlanningCycleSummaryDto | null;
+  recentlyCompletedCycle: ProjectPlanningCycleSummaryDto | null;
   planningReview: PlanningReviewDto;
   blockedWork: PlanningRiskItemDto[];
   overdueWork: PlanningRiskItemDto[];

@@ -1,4 +1,5 @@
 import type { ActivityEventDto } from './activity.js';
+import type { ProjectCycleDto } from './cycles.js';
 import type { MemberDto } from './members.js';
 import type { MilestoneDto } from './planning.js';
 import type { ProjectDto } from './projects.js';
@@ -39,6 +40,7 @@ export interface WorkItemQuery {
   priority?: WorkItemPriority;
   labelId?: string;
   milestoneId?: string;
+  cycleId?: string;
   dueDateState?: DueDateState;
   blocked?: boolean;
   dependency?: DependencyFilter;
@@ -80,6 +82,7 @@ export interface WorkItemListItemDto {
   reporter: MemberDto;
   labels: LabelDto[];
   milestone: MilestoneDto | null;
+  cycle: ProjectCycleDto | null;
   boardPosition: number;
   dueDate: string | null;
   estimatePoints: number | null;
@@ -182,6 +185,7 @@ export interface CreateWorkItemRequest {
   assigneeId?: string | null;
   labelIds?: string[];
   milestoneId?: string | null;
+  cycleId?: string | null;
   dueDate?: string | null;
   estimatePoints?: number | null;
 }
@@ -194,6 +198,7 @@ export interface UpdateWorkItemRequest {
   assigneeId?: string | null;
   labelIds?: string[];
   milestoneId?: string | null;
+  cycleId?: string | null;
   dueDate?: string | null;
   estimatePoints?: number | null;
 }
@@ -214,6 +219,8 @@ export type BulkUpdateWorkItemsAction =
   | { type: 'set_priority'; priority: WorkItemPriority }
   | { type: 'set_milestone'; milestoneId: string }
   | { type: 'clear_milestone' }
+  | { type: 'set_cycle'; cycleId: string }
+  | { type: 'clear_cycle' }
   | { type: 'set_due_date'; dueDate: string }
   | { type: 'clear_due_date' }
   | { type: 'add_labels'; labelIds: string[] }

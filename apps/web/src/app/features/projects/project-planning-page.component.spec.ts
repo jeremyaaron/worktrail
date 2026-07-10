@@ -7,8 +7,10 @@ import type {
   MilestoneDto,
   PlanningRiskItemDto,
   PlanningReviewDto,
+  ProjectCycleDto,
   ProjectDto,
   ProjectDeliveryHealthDto,
+  ProjectPlanningCycleSummaryDto,
   ProjectPlanningSummaryDto
 } from '@worktrail/contracts';
 import { BehaviorSubject } from 'rxjs';
@@ -125,6 +127,80 @@ const activeMilestone: MilestoneDto = {
   createdAt: '2026-07-03T12:00:00.000Z',
   updatedAt: '2026-07-04T12:00:00.000Z'
 };
+
+const activeCycle: ProjectCycleDto = {
+  id: '10000000-0000-4000-8000-000000000701',
+  workspaceId,
+  projectId,
+  name: 'v0.2.1 Cycle Planning',
+  goal: 'Prove cycle planning across assignment, reviews, reports, and exports.',
+  status: 'active',
+  startDate: '2026-07-13',
+  endDate: '2026-07-24',
+  targetPoints: 20,
+  isArchived: false,
+  archivedAt: null,
+  createdAt: '2026-07-02T12:00:00.000Z',
+  updatedAt: '2026-07-03T12:00:00.000Z'
+};
+
+const upcomingCycle: ProjectCycleDto = {
+  ...activeCycle,
+  id: '10000000-0000-4000-8000-000000000702',
+  name: 'v0.2.2 Adoption',
+  goal: 'Polish adoption paths.',
+  status: 'planned',
+  startDate: '2026-07-27',
+  endDate: '2026-08-07',
+  targetPoints: 18
+};
+
+const completedCycle: ProjectCycleDto = {
+  ...activeCycle,
+  id: '10000000-0000-4000-8000-000000000703',
+  name: 'v0.2.0 Consolidation',
+  goal: 'Consolidate the planning surface.',
+  status: 'completed',
+  startDate: '2026-06-29',
+  endDate: '2026-07-10',
+  targetPoints: 16
+};
+
+const archivedCycle: ProjectCycleDto = {
+  ...completedCycle,
+  id: '10000000-0000-4000-8000-000000000704',
+  name: 'Archived cycle',
+  isArchived: true,
+  archivedAt: '2026-07-12T12:00:00.000Z'
+};
+
+function cycleSummary(
+  cycle: ProjectCycleDto,
+  input: Partial<ProjectPlanningCycleSummaryDto> = {}
+): ProjectPlanningCycleSummaryDto {
+  return {
+    cycle,
+    progress: input.progress ?? {
+      totalCount: 6,
+      openCount: 4,
+      doneCount: 2,
+      blockedCount: 1,
+      dependencyBlockedCount: 1,
+      committedEstimatePoints: 23,
+      completedEstimatePoints: 8,
+      unestimatedCount: 1,
+      targetPoints: cycle.targetPoints
+    },
+    health: input.health ?? {
+      health: cycle.status === 'completed' ? 'complete' : 'at_risk',
+      reasons: []
+    },
+    scopedWorkQuery: input.scopedWorkQuery ?? {
+      cycleId: cycle.id,
+      sort: 'priority_desc'
+    }
+  };
+}
 
 const blockedWorkItem: PlanningRiskItemDto = {
   id: '10000000-0000-4000-8000-000000000301',
@@ -253,6 +329,22 @@ const defaultPlanningSummary: ProjectPlanningSummaryDto = {
       ]
     }
   ],
+  activeCycle: cycleSummary(activeCycle),
+  upcomingCycle: cycleSummary(upcomingCycle, {
+    progress: {
+      totalCount: 2,
+      openCount: 2,
+      doneCount: 0,
+      blockedCount: 0,
+      dependencyBlockedCount: 0,
+      committedEstimatePoints: 5,
+      completedEstimatePoints: 0,
+      unestimatedCount: 0,
+      targetPoints: upcomingCycle.targetPoints
+    },
+    health: { health: 'healthy', reasons: [] }
+  }),
+  recentlyCompletedCycle: cycleSummary(completedCycle),
   planningReview: populatedPlanningReview,
   blockedWork: [blockedWorkItem],
   overdueWork: [overdueWorkItem],
@@ -290,7 +382,8 @@ function setupPlanningPage(
   planningSummary: ProjectPlanningSummaryDto = {
     ...defaultPlanningSummary,
     project
-  }
+  },
+  cycles: ProjectCycleDto[] = [activeCycle, upcomingCycle, completedCycle, archivedCycle]
 ) {
   seedCurrentUser(member);
   const fixture = TestBed.createComponent(ProjectPlanningPageComponent);
@@ -298,6 +391,7 @@ function setupPlanningPage(
   fixture.detectChanges();
   http.expectOne(`/api/projects/${projectId}`).flush(project);
   http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush(milestones);
+  http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush(cycles);
   http.expectOne(`/api/projects/${projectId}/planning-summary`).flush(planningSummary);
   fixture.detectChanges();
   return { fixture, http };
@@ -347,10 +441,43 @@ describe('ProjectPlanningPageComponent', () => {
     expect(compiled.textContent).toContain('Planning dashboard');
     expect(compiled.textContent).toContain('6 risks');
     expect(compiled.textContent).toContain('Delivery health');
+    expect(compiled.textContent).toContain('Cycle planning');
+    expect(compiled.textContent).toContain('v0.2.1 Cycle Planning');
     expect(compiled.textContent).toContain('Blocked');
     expect(compiled.querySelector('button[aria-pressed="true"]')?.textContent?.trim()).toBe('Review');
     expect(compiled.querySelector('button[type="submit"]')).toBeNull();
     expect(compiled.querySelector('nav[aria-label="Project navigation"]')).toBeNull();
+  });
+
+  it('switches cycle management into a URL-backed planning view', () => {
+    const { fixture } = setupPlanningPage();
+
+    fixture.componentInstance.setPlanningView('cycles');
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('button[aria-pressed="true"]')?.textContent?.trim()).toBe(
+      'Cycles'
+    );
+    expect(compiled.textContent).toContain('Plan timeboxed delivery windows for scoped project work.');
+    expect(compiled.textContent).toContain('v0.2.1 Cycle Planning');
+    expect(compiled.textContent).toContain('Archived cycle');
+    expect(compiled.textContent).toContain('4 total');
+    expect(compiled.querySelector('button[type="submit"]')?.textContent).toContain(
+      'Create cycle'
+    );
+
+    const reviewLink = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('a')).find(
+      (link) => link.textContent?.trim() === 'Review'
+    );
+    const workLink = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('a')).find(
+      (link) => link.textContent?.trim() === 'Work'
+    );
+
+    expect(reviewLink?.getAttribute('href')).toBe(`/projects/${projectId}/cycles/${activeCycle.id}`);
+    expect(workLink?.getAttribute('href')).toBe(
+      `/projects/${projectId}/work-items?cycleId=${activeCycle.id}&sort=priority_desc`
+    );
   });
 
   it('switches milestone management into a URL-backed planning view', () => {
@@ -397,6 +524,9 @@ describe('ProjectPlanningPageComponent', () => {
     );
 
     expect(compiled.textContent).toContain('Delivery health');
+    expect(compiled.textContent).toContain('Active cycle');
+    expect(compiled.textContent).toContain('Upcoming cycle');
+    expect(compiled.textContent).toContain('Recently completed');
     expect(compiled.textContent).toContain('1 blocked work item');
     expect(compiled.textContent).toContain('1 dependency-blocked work item');
     expect(compiled.textContent).toContain('Milestone progress');
@@ -418,6 +548,16 @@ describe('ProjectPlanningPageComponent', () => {
     expect(progressWorkLink?.getAttribute('href')).toBe(
       `/projects/${projectId}/work-items?milestoneId=${activeMilestone.id}&sort=due_date_asc`
     );
+    expect(
+      Array.from(compiled.querySelectorAll<HTMLAnchorElement>('.cycle-summary-card__actions a')).map(
+        (link) => link.getAttribute('href')
+      )
+    ).toContain(`/projects/${projectId}/cycles/${activeCycle.id}`);
+    expect(
+      Array.from(compiled.querySelectorAll<HTMLAnchorElement>('.cycle-summary-card__actions a')).map(
+        (link) => link.getAttribute('href')
+      )
+    ).toContain(`/projects/${projectId}/work-items?cycleId=${activeCycle.id}&sort=priority_desc`);
     expect(riskLinks).toContain(jasmine.objectContaining({
       text: jasmine.stringContaining('WT-1'),
       href: jasmine.stringContaining(`/work-items/${blockedWorkItem.id}?returnUrl=`)
@@ -456,6 +596,9 @@ describe('ProjectPlanningPageComponent', () => {
       project: activeProject,
       deliveryHealth: defaultDeliveryHealth,
       milestoneProgress: [],
+      activeCycle: null,
+      upcomingCycle: null,
+      recentlyCompletedCycle: null,
       planningReview: emptyPlanningReview,
       blockedWork: [],
       overdueWork: [],
@@ -567,6 +710,102 @@ describe('ProjectPlanningPageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Milestone reactivated.');
   });
 
+  it('creates, edits, archives, and reactivates cycles', () => {
+    const { fixture, http } = setupPlanningPage();
+    const createdCycle: ProjectCycleDto = {
+      ...upcomingCycle,
+      id: '10000000-0000-4000-8000-000000000705',
+      name: 'v0.2.3',
+      goal: 'Next cycle.',
+      startDate: '2026-08-10',
+      endDate: '2026-08-21',
+      targetPoints: 24
+    };
+
+    fixture.componentInstance.setPlanningView('cycles');
+    fixture.detectChanges();
+    fixture.componentInstance.cycleForm.setValue({
+      name: 'v0.2.3',
+      goal: 'Next cycle.',
+      status: 'planned',
+      startDate: '2026-08-10',
+      endDate: '2026-08-21',
+      targetPoints: '24'
+    });
+    fixture.componentInstance.createCycle();
+
+    const create = http.expectOne(`/api/projects/${projectId}/cycles`);
+    expect(create.request.method).toBe('POST');
+    expect(create.request.body).toEqual({
+      name: 'v0.2.3',
+      goal: 'Next cycle.',
+      status: 'planned',
+      startDate: '2026-08-10',
+      endDate: '2026-08-21',
+      targetPoints: 24
+    });
+    create.flush(createdCycle);
+    http.expectOne(`/api/projects/${projectId}/planning-summary`).flush(defaultPlanningSummary);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Cycle created.');
+
+    fixture.componentInstance.updateCycle(
+      activeCycle,
+      'v0.2.1 launch',
+      'Ready for launch.',
+      'completed',
+      '2026-07-13',
+      '2026-07-24',
+      ''
+    );
+    const update = http.expectOne(`/api/projects/${projectId}/cycles/${activeCycle.id}`);
+    expect(update.request.method).toBe('PATCH');
+    expect(update.request.body).toEqual({
+      name: 'v0.2.1 launch',
+      goal: 'Ready for launch.',
+      status: 'completed',
+      startDate: '2026-07-13',
+      endDate: '2026-07-24',
+      targetPoints: null
+    });
+    update.flush({
+      ...activeCycle,
+      name: 'v0.2.1 launch',
+      goal: 'Ready for launch.',
+      status: 'completed',
+      targetPoints: null
+    });
+    http.expectOne(`/api/projects/${projectId}/planning-summary`).flush(defaultPlanningSummary);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Cycle saved.');
+
+    fixture.componentInstance.archiveCycle(activeCycle);
+    const archive = http.expectOne(`/api/projects/${projectId}/cycles/${activeCycle.id}/archive`);
+    expect(archive.request.method).toBe('POST');
+    archive.flush({
+      ...activeCycle,
+      isArchived: true,
+      archivedAt: '2026-07-25T12:30:00.000Z'
+    });
+    http.expectOne(`/api/projects/${projectId}/planning-summary`).flush(defaultPlanningSummary);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Cycle archived.');
+
+    fixture.componentInstance.reactivateCycle(archivedCycle);
+    const reactivate = http.expectOne(
+      `/api/projects/${projectId}/cycles/${archivedCycle.id}/reactivate`
+    );
+    expect(reactivate.request.method).toBe('POST');
+    reactivate.flush({
+      ...archivedCycle,
+      isArchived: false,
+      archivedAt: null
+    });
+    http.expectOne(`/api/projects/${projectId}/planning-summary`).flush(defaultPlanningSummary);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Cycle reactivated.');
+  });
+
   it('shows validation and duplicate-name API errors inline', () => {
     const { fixture, http } = setupPlanningPage(activeProject, []);
 
@@ -602,6 +841,43 @@ describe('ProjectPlanningPageComponent', () => {
     );
   });
 
+  it('shows cycle create validation and duplicate-name API errors inline', () => {
+    const { fixture, http } = setupPlanningPage(activeProject, []);
+
+    fixture.componentInstance.setPlanningView('cycles');
+    fixture.detectChanges();
+    fixture.componentInstance.createCycle();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Cycle name is required.');
+    http.expectNone((request) => request.method === 'POST');
+
+    fixture.componentInstance.cycleForm.setValue({
+      name: 'v0.2.1 Cycle Planning',
+      goal: '',
+      status: 'planned',
+      startDate: '2026-08-10',
+      endDate: '2026-08-21',
+      targetPoints: ''
+    });
+    fixture.componentInstance.createCycle();
+
+    const create = http.expectOne(`/api/projects/${projectId}/cycles`);
+    create.flush(
+      {
+        error: {
+          code: 'CONFLICT',
+          message: 'A cycle with this name already exists.'
+        }
+      },
+      { status: 409, statusText: 'Conflict' }
+    );
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'A cycle with this name already exists.'
+    );
+  });
+
   it('renders archived projects read-only', () => {
     const { fixture, http } = setupPlanningPage(archivedProject);
 
@@ -627,6 +903,14 @@ describe('ProjectPlanningPageComponent', () => {
       'Archived projects are read-only.'
     );
     http.expectNone((request) => request.method === 'POST');
+
+    fixture.componentInstance.setPlanningView('cycles');
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('v0.2.1 Cycle Planning');
+    expect(
+      fixture.nativeElement.querySelectorAll('.cycle-row input, .cycle-row select, .cycle-row textarea')
+        .length
+    ).toBe(0);
   });
 
   it('renders contributor access read-only', () => {
@@ -647,5 +931,16 @@ describe('ProjectPlanningPageComponent', () => {
     fixture.detectChanges();
 
     expect(compiled.textContent).toContain('Only owners and maintainers can manage milestones.');
+
+    fixture.componentInstance.setPlanningView('cycles');
+    fixture.detectChanges();
+    expect(compiled.textContent).toContain('v0.2.1 Cycle Planning');
+    expect(compiled.querySelector('button[type="submit"]')).toBeNull();
+    expect(compiled.querySelectorAll('.cycle-row input, .cycle-row select, .cycle-row textarea').length).toBe(0);
+
+    fixture.componentInstance.createCycle();
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain('Only owners and maintainers can manage cycles.');
   });
 });

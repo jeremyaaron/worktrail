@@ -751,6 +751,139 @@ paths:
                 $ref: "#/components/schemas/Milestone"
         default:
           $ref: "#/components/responses/Error"
+  /api/projects/{projectId}/cycles:
+    get:
+      tags: [Cycles]
+      summary: List project cycles.
+      description: Lists non-archived project cycles by default. Contributors may read cycles, including cycles for archived projects.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: includeArchived
+          in: query
+          schema:
+            type: boolean
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/ProjectCycleStatus"
+      responses:
+        "200":
+          description: Project cycles.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProjectCycle"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Cycles]
+      summary: Create a project cycle.
+      description: Owners and maintainers can create cycles for active projects. A project can have one active non-archived cycle, and planned/active cycle windows cannot overlap.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectCycleRequest"
+      responses:
+        "201":
+          description: Created cycle.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectCycle"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/projects/{projectId}/cycles/{cycleId}:
+    get:
+      tags: [Cycles]
+      summary: Get a project cycle.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/CycleId"
+      responses:
+        "200":
+          description: Project cycle.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectCycle"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      tags: [Cycles]
+      summary: Update a project cycle.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/CycleId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjectCycleRequest"
+      responses:
+        "200":
+          description: Updated cycle.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectCycle"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/projects/{projectId}/cycles/{cycleId}/archive:
+    post:
+      tags: [Cycles]
+      summary: Archive a project cycle.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/CycleId"
+      responses:
+        "200":
+          description: Archived cycle.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectCycle"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/projects/{projectId}/cycles/{cycleId}/reactivate:
+    post:
+      tags: [Cycles]
+      summary: Reactivate a project cycle.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/CycleId"
+      responses:
+        "200":
+          description: Reactivated cycle.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectCycle"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/projects/{projectId}/cycles/{cycleId}/review:
+    get:
+      tags: [Cycles]
+      summary: Get cycle review.
+      description: Derived, read-only cycle review with progress, health, scoped risk sections, recent movement, and project Work query links.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/CycleId"
+      responses:
+        "200":
+          description: Cycle review.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectCycleReview"
+        default:
+          $ref: "#/components/responses/Error"
   /api/work-items:
     get:
       tags: [Work Items]
@@ -766,6 +899,7 @@ paths:
         - $ref: "#/components/parameters/WorkItemPriorityQuery"
         - $ref: "#/components/parameters/WorkItemLabelIdQuery"
         - $ref: "#/components/parameters/WorkItemMilestoneIdQuery"
+        - $ref: "#/components/parameters/WorkItemCycleIdQuery"
         - $ref: "#/components/parameters/WorkItemDueDateStateQuery"
         - $ref: "#/components/parameters/WorkItemBlockedQuery"
         - $ref: "#/components/parameters/WorkItemDependencyQuery"
@@ -787,7 +921,7 @@ paths:
     get:
       tags: [Work Items]
       summary: Export workspace work items as CSV.
-      description: Exports the workspace discovery result set using the same applied query parameters as `GET /api/work-items`.
+      description: Exports the workspace discovery result set using the same applied query parameters as `GET /api/work-items`. CSV columns include `cycle_name`.
       parameters:
         - $ref: "#/components/parameters/WorkItemProjectIdQuery"
         - $ref: "#/components/parameters/WorkItemStatusQuery"
@@ -799,6 +933,7 @@ paths:
         - $ref: "#/components/parameters/WorkItemPriorityQuery"
         - $ref: "#/components/parameters/WorkItemLabelIdQuery"
         - $ref: "#/components/parameters/WorkItemMilestoneIdQuery"
+        - $ref: "#/components/parameters/WorkItemCycleIdQuery"
         - $ref: "#/components/parameters/WorkItemDueDateStateQuery"
         - $ref: "#/components/parameters/WorkItemBlockedQuery"
         - $ref: "#/components/parameters/WorkItemDependencyQuery"
@@ -834,6 +969,7 @@ paths:
         - $ref: "#/components/parameters/WorkItemPriorityQuery"
         - $ref: "#/components/parameters/WorkItemLabelIdQuery"
         - $ref: "#/components/parameters/WorkItemMilestoneIdQuery"
+        - $ref: "#/components/parameters/WorkItemCycleIdQuery"
         - $ref: "#/components/parameters/WorkItemDueDateStateQuery"
         - $ref: "#/components/parameters/WorkItemBlockedQuery"
         - $ref: "#/components/parameters/WorkItemDependencyQuery"
@@ -940,7 +1076,7 @@ paths:
     get:
       tags: [Work Items]
       summary: Export project work items as CSV.
-      description: Exports the project work item list using the same applied query parameters as `GET /api/projects/{projectId}/work-items`.
+      description: Exports the project work item list using the same applied query parameters as `GET /api/projects/{projectId}/work-items`. CSV columns include `cycle_name`.
       parameters:
         - $ref: "#/components/parameters/ProjectId"
         - $ref: "#/components/parameters/WorkItemStatusQuery"
@@ -952,6 +1088,7 @@ paths:
         - $ref: "#/components/parameters/WorkItemPriorityQuery"
         - $ref: "#/components/parameters/WorkItemLabelIdQuery"
         - $ref: "#/components/parameters/WorkItemMilestoneIdQuery"
+        - $ref: "#/components/parameters/WorkItemCycleIdQuery"
         - $ref: "#/components/parameters/WorkItemDueDateStateQuery"
         - $ref: "#/components/parameters/WorkItemBlockedQuery"
         - $ref: "#/components/parameters/WorkItemDependencyQuery"
@@ -1357,6 +1494,13 @@ components:
       schema:
         type: string
         format: uuid
+    CycleId:
+      name: cycleId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     CommentId:
       name: commentId
       in: path
@@ -1451,6 +1595,12 @@ components:
         format: uuid
     WorkItemMilestoneIdQuery:
       name: milestoneId
+      in: query
+      schema:
+        type: string
+        format: uuid
+    WorkItemCycleIdQuery:
+      name: cycleId
       in: query
       schema:
         type: string
@@ -1584,6 +1734,9 @@ components:
     MilestoneStatus:
       type: string
       enum: [planned, active, completed, canceled]
+    ProjectCycleStatus:
+      type: string
+      enum: [planned, active, completed, canceled]
     SavedWorkViewVisibility:
       type: string
       enum: [personal, workspace]
@@ -1623,6 +1776,8 @@ components:
         - stale_in_progress
         - target_date_past
         - unassigned_active
+        - unestimated_work
+        - cycle_over_target
         - unmilestoned_risk
     PlanningReviewItemKind:
       type: string
@@ -1656,6 +1811,9 @@ components:
           type: string
           format: uuid
         milestoneId:
+          type: string
+          format: uuid
+        cycleId:
           type: string
           format: uuid
         dueDateState:
@@ -1902,6 +2060,9 @@ components:
         - project
         - deliveryHealth
         - milestoneProgress
+        - activeCycle
+        - upcomingCycle
+        - recentlyCompletedCycle
         - planningReview
         - blockedWork
         - overdueWork
@@ -1919,6 +2080,18 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MilestoneProgress"
+        activeCycle:
+          anyOf:
+            - $ref: "#/components/schemas/ProjectPlanningCycleSummary"
+            - type: "null"
+        upcomingCycle:
+          anyOf:
+            - $ref: "#/components/schemas/ProjectPlanningCycleSummary"
+            - type: "null"
+        recentlyCompletedCycle:
+          anyOf:
+            - $ref: "#/components/schemas/ProjectPlanningCycleSummary"
+            - type: "null"
         planningReview:
           $ref: "#/components/schemas/PlanningReview"
         blockedWork:
@@ -1949,6 +2122,26 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PlanningRiskItem"
+    ProjectPlanningCycleSummary:
+      type: object
+      required: [cycle, progress, health, scopedWorkQuery]
+      properties:
+        cycle:
+          $ref: "#/components/schemas/ProjectCycle"
+        progress:
+          $ref: "#/components/schemas/CycleReviewProgress"
+        health:
+          type: object
+          required: [health, reasons]
+          properties:
+            health:
+              $ref: "#/components/schemas/DeliveryHealthState"
+            reasons:
+              type: array
+              items:
+                $ref: "#/components/schemas/DeliveryHealthReason"
+        scopedWorkQuery:
+          $ref: "#/components/schemas/WorkItemQuery"
     ProjectStatusReportRiskType:
       type: string
       enum:
@@ -1964,6 +2157,7 @@ components:
       enum:
         - project_work
         - milestone_review
+        - cycle_review
         - work_item
     ProjectStatusReportLink:
       type: object
@@ -1979,6 +2173,9 @@ components:
         query:
           $ref: "#/components/schemas/WorkItemQuery"
         milestoneId:
+          type: string
+          format: uuid
+        cycleId:
           type: string
           format: uuid
         workItemId:
@@ -2082,6 +2279,72 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DeliveryHealthReason"
+    ProjectStatusReportCycleSnapshot:
+      type: object
+      required:
+        - id
+        - name
+        - goal
+        - status
+        - startDate
+        - endDate
+        - targetPoints
+        - committedEstimatePoints
+        - completedEstimatePoints
+        - openWorkCount
+        - blockedWorkCount
+        - dependencyBlockedWorkCount
+        - unestimatedWorkCount
+        - health
+        - reasons
+        - links
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        goal:
+          type: string
+        status:
+          $ref: "#/components/schemas/ProjectCycleStatus"
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        targetPoints:
+          type: [integer, "null"]
+          minimum: 1
+        committedEstimatePoints:
+          type: integer
+          minimum: 0
+        completedEstimatePoints:
+          type: integer
+          minimum: 0
+        openWorkCount:
+          type: integer
+          minimum: 0
+        blockedWorkCount:
+          type: integer
+          minimum: 0
+        dependencyBlockedWorkCount:
+          type: integer
+          minimum: 0
+        unestimatedWorkCount:
+          type: integer
+          minimum: 0
+        health:
+          $ref: "#/components/schemas/DeliveryHealthState"
+        reasons:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeliveryHealthReason"
+        links:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProjectStatusReportLink"
     ProjectStatusReportRiskSnapshot:
       type: object
       required: [type, title, count, query, items]
@@ -2140,6 +2403,11 @@ components:
           description: Active and planned milestone summaries captured when the report snapshot was generated.
           items:
             $ref: "#/components/schemas/ProjectStatusReportMilestoneSnapshot"
+        cycle:
+          anyOf:
+            - $ref: "#/components/schemas/ProjectStatusReportCycleSnapshot"
+            - type: "null"
+          description: Active-cycle summary captured when the report snapshot was generated; omitted on legacy snapshots and null when no active cycle existed.
         risks:
           type: array
           description: Fixed-order risk sections captured when the report snapshot was generated.
@@ -2363,6 +2631,172 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MilestoneReviewRiskSection"
+        recentlyChangedWork:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanningRiskItem"
+    CycleReviewRiskType:
+      type: string
+      enum:
+        - blocked
+        - dependency_blocked
+        - overdue
+        - due_soon
+        - unassigned_active
+        - stale_in_progress
+        - unestimated
+        - over_target
+        - blocking_open_work
+    CycleReviewProgress:
+      type: object
+      required:
+        - totalCount
+        - openCount
+        - doneCount
+        - blockedCount
+        - dependencyBlockedCount
+        - committedEstimatePoints
+        - completedEstimatePoints
+        - unestimatedCount
+        - targetPoints
+      properties:
+        totalCount:
+          type: integer
+          minimum: 0
+        openCount:
+          type: integer
+          minimum: 0
+        doneCount:
+          type: integer
+          minimum: 0
+        blockedCount:
+          type: integer
+          minimum: 0
+        dependencyBlockedCount:
+          type: integer
+          minimum: 0
+        committedEstimatePoints:
+          type: integer
+          minimum: 0
+        completedEstimatePoints:
+          type: integer
+          minimum: 0
+        unestimatedCount:
+          type: integer
+          minimum: 0
+        targetPoints:
+          type: [integer, "null"]
+          minimum: 1
+    CycleReviewScopeBreakdown:
+      type: object
+      required:
+        - statusCounts
+        - priorityCounts
+        - assignedCount
+        - unassignedCount
+        - dueDate
+        - dependency
+      properties:
+        statusCounts:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 0
+          description: Complete count map keyed by WorkItemStatus.
+        priorityCounts:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 0
+          description: Complete count map keyed by WorkItemPriority.
+        assignedCount:
+          type: integer
+          minimum: 0
+        unassignedCount:
+          type: integer
+          minimum: 0
+        dueDate:
+          type: object
+          required: [overdueCount, dueSoonCount, laterCount, noneCount]
+          properties:
+            overdueCount:
+              type: integer
+              minimum: 0
+            dueSoonCount:
+              type: integer
+              minimum: 0
+            laterCount:
+              type: integer
+              minimum: 0
+            noneCount:
+              type: integer
+              minimum: 0
+        dependency:
+          type: object
+          required: [dependencyBlockedCount, blockingOpenWorkCount]
+          properties:
+            dependencyBlockedCount:
+              type: integer
+              minimum: 0
+            blockingOpenWorkCount:
+              type: integer
+              minimum: 0
+    CycleReviewRiskSection:
+      type: object
+      required: [type, title, description, count, query, items]
+      properties:
+        type:
+          $ref: "#/components/schemas/CycleReviewRiskType"
+        title:
+          type: string
+        description:
+          type: string
+        count:
+          type: integer
+          minimum: 0
+        query:
+          $ref: "#/components/schemas/WorkItemQuery"
+        items:
+          type: array
+          description: Preview rows capped by the API; use the query to open the complete filtered project Work list.
+          items:
+            $ref: "#/components/schemas/PlanningRiskItem"
+    ProjectCycleReview:
+      type: object
+      required:
+        - project
+        - cycle
+        - progress
+        - health
+        - scopedWorkQuery
+        - scopeBreakdown
+        - riskSections
+        - recentlyChangedWork
+      properties:
+        project:
+          $ref: "#/components/schemas/Project"
+        cycle:
+          $ref: "#/components/schemas/ProjectCycle"
+        progress:
+          $ref: "#/components/schemas/CycleReviewProgress"
+        health:
+          type: object
+          required: [health, reasons]
+          properties:
+            health:
+              $ref: "#/components/schemas/DeliveryHealthState"
+            reasons:
+              type: array
+              items:
+                $ref: "#/components/schemas/DeliveryHealthReason"
+        scopedWorkQuery:
+          $ref: "#/components/schemas/WorkItemQuery"
+        scopeBreakdown:
+          $ref: "#/components/schemas/CycleReviewScopeBreakdown"
+        riskSections:
+          type: array
+          items:
+            $ref: "#/components/schemas/CycleReviewRiskSection"
         recentlyChangedWork:
           type: array
           items:
@@ -2687,6 +3121,90 @@ components:
         targetDate:
           type: [string, "null"]
           format: date
+    ProjectCycle:
+      type: object
+      required: [id, workspaceId, projectId, name, goal, status, startDate, endDate, targetPoints, isArchived, archivedAt, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        goal:
+          type: string
+        status:
+          $ref: "#/components/schemas/ProjectCycleStatus"
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        targetPoints:
+          type: [integer, "null"]
+          minimum: 1
+        isArchived:
+          type: boolean
+        archivedAt:
+          type: [string, "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateProjectCycleRequest:
+      type: object
+      required: [name, startDate, endDate]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        goal:
+          type: string
+          maxLength: 2000
+        status:
+          $ref: "#/components/schemas/ProjectCycleStatus"
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        targetPoints:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 999
+    UpdateProjectCycleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        goal:
+          type: string
+          maxLength: 2000
+        status:
+          $ref: "#/components/schemas/ProjectCycleStatus"
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        targetPoints:
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 999
     WorkItemListItem:
       type: object
       required:
@@ -2700,6 +3218,8 @@ components:
         - priority
         - reporter
         - labels
+        - milestone
+        - cycle
         - dependencyBlocked
         - openBlockerCount
         - openBlockedWorkCount
@@ -2738,6 +3258,10 @@ components:
         milestone:
           anyOf:
             - $ref: "#/components/schemas/Milestone"
+            - type: "null"
+        cycle:
+          anyOf:
+            - $ref: "#/components/schemas/ProjectCycle"
             - type: "null"
         boardPosition:
           type: number
@@ -3053,6 +3577,9 @@ components:
         milestoneId:
           type: [string, "null"]
           format: uuid
+        cycleId:
+          type: [string, "null"]
+          format: uuid
         dueDate:
           type: [string, "null"]
           format: date
@@ -3078,6 +3605,9 @@ components:
             type: string
             format: uuid
         milestoneId:
+          type: [string, "null"]
+          format: uuid
+        cycleId:
           type: [string, "null"]
           format: uuid
         dueDate:
@@ -3138,6 +3668,19 @@ components:
           properties:
             type:
               const: clear_milestone
+        - type: object
+          required: [type, cycleId]
+          properties:
+            type:
+              const: set_cycle
+            cycleId:
+              type: string
+              format: uuid
+        - type: object
+          required: [type]
+          properties:
+            type:
+              const: clear_cycle
         - type: object
           required: [type, dueDate]
           properties:
@@ -3460,7 +4003,7 @@ components:
           $ref: "#/components/schemas/Member"
         eventType:
           type: string
-          examples: [work_item.due_date_changed, work_item.relationship_added, work_item.relationship_removed, saved_view.pinned, saved_view.unpinned]
+          examples: [work_item.due_date_changed, work_item.cycle_changed, work_item.relationship_added, work_item.relationship_removed, saved_view.pinned, saved_view.unpinned]
         summary:
           type: string
         previousValue:

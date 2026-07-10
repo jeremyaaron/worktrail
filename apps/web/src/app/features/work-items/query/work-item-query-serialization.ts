@@ -25,6 +25,7 @@ export interface ProjectWorkItemFilters {
   type?: WorkItemType;
   labelId?: string;
   milestoneId?: string;
+  cycleId?: string;
   priority?: WorkItemPriority;
   dueDateState?: DueDateState;
   dependency?: DependencyFilter;
@@ -61,6 +62,7 @@ export function projectQueryFromFormValue(formValue: ProjectWorkItemFilterFormVa
     type: optionalFilterValue(formValue.type) as WorkItemType | undefined,
     labelId: optionalFilterValue(formValue.labelId),
     milestoneId: optionalFilterValue(formValue.milestoneId),
+    cycleId: optionalFilterValue(formValue.cycleId),
     priority: optionalFilterValue(formValue.priority) as WorkItemPriority | undefined,
     dueDateState: optionalFilterValue(formValue.dueDateState) as DueDateState | undefined,
     dependency: optionalFilterValue(formValue.dependency) as DependencyFilter | undefined,
@@ -86,6 +88,7 @@ export function projectRouterQueryParamsFromQuery(query: WorkItemQuery): RouterQ
     type: query.type ?? null,
     labelId: nonEmptyString(query.labelId) ?? null,
     milestoneId: nonEmptyString(query.milestoneId) ?? null,
+    cycleId: nonEmptyString(query.cycleId) ?? null,
     priority: query.priority ?? null,
     dueDateState: query.dueDateState ?? null,
     dependency: query.dependency ?? null,
@@ -105,6 +108,7 @@ export function projectFormValueFromQueryParams(
     type: params.get('type') ?? '',
     labelId: params.get('labelId') ?? '',
     milestoneId: params.get('milestoneId') ?? '',
+    cycleId: params.get('cycleId') ?? '',
     priority: params.get('priority') ?? '',
     dueDateState: params.get('dueDateState') ?? '',
     dependency: params.get('dependency') ?? '',
@@ -122,6 +126,7 @@ export function projectFormValueFromQuery(query: WorkItemQuery): ProjectWorkItem
     type: query.type ?? '',
     labelId: query.labelId ?? '',
     milestoneId: query.milestoneId ?? '',
+    cycleId: query.cycleId ?? '',
     priority: query.priority ?? '',
     dueDateState: query.dueDateState ?? '',
     dependency: query.dependency ?? '',
@@ -152,6 +157,7 @@ export function workspaceQueryFromFormValue(
     type: optionalFilterValue(formValue.type) as WorkItemType | undefined,
     labelId: optionalFilterValue(formValue.labelId),
     milestoneId: optionalFilterValue(formValue.milestoneId),
+    cycleId: optionalFilterValue(formValue.cycleId),
     priority: optionalFilterValue(formValue.priority) as WorkItemPriority | undefined,
     dueDateState: optionalFilterValue(formValue.dueDateState) as DueDateState | undefined,
     blocked: blocked === undefined ? undefined : blocked === 'true',
@@ -187,6 +193,7 @@ export function workspaceRouterQueryParamsFromQuery(query: WorkItemQuery): Route
     type: query.type ?? null,
     labelId: nonEmptyString(query.labelId) ?? null,
     milestoneId: nonEmptyString(query.milestoneId) ?? null,
+    cycleId: nonEmptyString(query.cycleId) ?? null,
     priority: query.priority ?? null,
     dueDateState: query.dueDateState ?? null,
     blocked: query.blocked === undefined ? null : String(query.blocked),
@@ -208,6 +215,7 @@ export function workspaceFormValueFromQuery(query: WorkItemQuery): WorkspaceWork
     type: query.type ?? '',
     labelId: query.labelId ?? '',
     milestoneId: query.milestoneId ?? '',
+    cycleId: query.cycleId ?? '',
     priority: query.priority ?? '',
     dueDateState: query.dueDateState ?? '',
     blocked: query.blocked === undefined ? '' : String(query.blocked),
@@ -236,6 +244,7 @@ export function workspaceFormValueFromQueryParams(
     type: params.get('type') ?? '',
     labelId: params.get('labelId') ?? '',
     milestoneId: params.get('milestoneId') ?? '',
+    cycleId: params.get('cycleId') ?? '',
     priority: params.get('priority') ?? '',
     dueDateState: params.get('dueDateState') ?? '',
     blocked: params.get('blocked') ?? '',

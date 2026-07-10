@@ -8,6 +8,7 @@ import type {
   members,
   milestones,
   notifications,
+  projectCycles,
   projectStatusReports,
   projects,
   savedWorkViews,
@@ -25,6 +26,8 @@ export type Member = InferSelectModel<typeof members>;
 export type NewMember = InferInsertModel<typeof members>;
 export type Project = InferSelectModel<typeof projects>;
 export type NewProject = InferInsertModel<typeof projects>;
+export type ProjectCycle = InferSelectModel<typeof projectCycles>;
+export type NewProjectCycle = InferInsertModel<typeof projectCycles>;
 export type ProjectStatusReport = InferSelectModel<typeof projectStatusReports>;
 export type NewProjectStatusReport = InferInsertModel<typeof projectStatusReports>;
 export type Milestone = InferSelectModel<typeof milestones>;

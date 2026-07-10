@@ -48,6 +48,7 @@ describe('routes', () => {
       'status/new',
       'status/:reportId',
       'milestones/:milestoneId',
+      'cycles/:cycleId',
       'settings'
     ]);
     expect(childPaths?.indexOf('work-items/import')).toBeLessThan(

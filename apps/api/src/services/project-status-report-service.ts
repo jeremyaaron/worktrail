@@ -2,8 +2,11 @@ import type {
   CreateProjectStatusReportRequest,
   MilestoneProgressDto,
   ProjectStatusReportCountSnapshotDto,
+  ProjectCycleReviewDto,
+  ProjectStatusReportCycleSnapshotDto,
   ProjectStatusReportDetailDto,
   ProjectStatusReportDraftDto,
+  ProjectStatusReportLinkDto,
   ProjectStatusReportMilestoneSnapshotDto,
   ProjectStatusReportSnapshotDto,
   ProjectStatusReportSummaryDto
@@ -26,6 +29,7 @@ import {
   toProjectStatusReportDetailDto,
   toProjectStatusReportSummaryDto
 } from './dto.js';
+import { ProjectCycleService } from './project-cycle-service.js';
 import {
   renderStatusReportMarkdown,
   statusReportMarkdownFileName
@@ -308,6 +312,17 @@ export class ProjectStatusReportService {
       dependencyBlockedWorkItems,
       blockingOpenWorkItems
     });
+    const activeCycle = await input.repositories.projectCycles.findActiveByProject(input.project.id);
+    const cycle =
+      activeCycle === null
+        ? null
+        : toCycleSnapshot(
+            await new ProjectCycleService({
+              actor: this.context.actor,
+              repositories: input.repositories,
+              clock: () => input.generatedAt
+            }).getCycleReview(input.project.id, activeCycle.id)
+          );
 
     return {
       snapshotVersion: 1,
@@ -323,6 +338,7 @@ export class ProjectStatusReportService {
       milestones: healthSummary.milestoneProgress
         .filter((progress) => milestoneSnapshotStatuses.has(progress.milestone.status))
         .map(toMilestoneSnapshot),
+      cycle,
       risks: createProjectStatusReportRiskSnapshots({
         workItems,
         memberById,
@@ -401,6 +417,14 @@ export class ProjectStatusReportService {
       }
     }
 
+    if (parsed.cycle !== null && parsed.cycle !== undefined) {
+      for (const link of parsed.cycle.links) {
+        if (link.projectId !== project.id) {
+          throw new ValidationError('Status report snapshot includes a cycle link for another project.');
+        }
+      }
+    }
+
     return parsed;
   }
 
@@ -447,6 +471,46 @@ function toMilestoneSnapshot(progress: MilestoneProgressDto): ProjectStatusRepor
     staleInProgressCount: progress.staleInProgressCount,
     health: progress.health,
     reasons: progress.reasons
+  };
+}
+
+function toCycleSnapshot(review: ProjectCycleReviewDto): ProjectStatusReportCycleSnapshotDto {
+  const links: ProjectStatusReportLinkDto[] = [
+    {
+      type: 'cycle_review',
+      label: 'Review cycle',
+      projectId: review.project.id,
+      cycleId: review.cycle.id
+    },
+    {
+      type: 'project_work',
+      label: 'Open cycle work',
+      projectId: review.project.id,
+      query: {
+        cycleId: review.cycle.id,
+        workState: 'open',
+        sort: 'priority_desc'
+      }
+    }
+  ];
+
+  return {
+    id: review.cycle.id,
+    name: review.cycle.name,
+    goal: review.cycle.goal,
+    status: review.cycle.status,
+    startDate: review.cycle.startDate,
+    endDate: review.cycle.endDate,
+    targetPoints: review.cycle.targetPoints,
+    committedEstimatePoints: review.progress.committedEstimatePoints,
+    completedEstimatePoints: review.progress.completedEstimatePoints,
+    openWorkCount: review.progress.openCount,
+    blockedWorkCount: review.progress.blockedCount,
+    dependencyBlockedWorkCount: review.progress.dependencyBlockedCount,
+    unestimatedWorkCount: review.progress.unestimatedCount,
+    health: review.health.health,
+    reasons: review.health.reasons,
+    links
   };
 }
 

@@ -1,9 +1,13 @@
 import { execFileSync } from 'node:child_process';
 
+const childEnv: NodeJS.ProcessEnv = { ...process.env };
+delete childEnv.NO_COLOR;
+delete childEnv.FORCE_COLOR;
+
 function runNpmScript(script: string): void {
   execFileSync('npm', ['run', script], {
     cwd: process.cwd(),
-    env: process.env,
+    env: childEnv,
     stdio: 'inherit'
   });
 }

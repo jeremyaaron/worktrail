@@ -139,6 +139,12 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
                 >
                   {{ item.milestone?.name ?? 'No milestone' }}
                 </span>
+                <span
+                  [class.muted-pill]="item.cycle === null"
+                  [class.cycle-pill]="item.cycle !== null"
+                >
+                  {{ item.cycle?.name ?? 'No cycle' }}
+                </span>
                 <small>{{ dueDateLabel(item) }}</small>
               </span>
 
@@ -213,6 +219,10 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
                 <div>
                   <dt>Milestone</dt>
                   <dd>{{ item.milestone?.name ?? 'No milestone' }}</dd>
+                </div>
+                <div>
+                  <dt>Cycle</dt>
+                  <dd>{{ item.cycle?.name ?? 'No cycle' }}</dd>
                 </div>
                 <div>
                   <dt>Due date</dt>
@@ -377,6 +387,7 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
     .key-pill,
     .label-pill,
     .milestone-pill,
+    .cycle-pill,
     .project-pill,
     .status-pill,
     .priority-pill,
@@ -404,6 +415,7 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
 
     .label-pill,
     .milestone-pill,
+    .cycle-pill,
     .key-pill,
     .project-pill,
     .status-pill,
@@ -444,6 +456,12 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
       border-color: #bbf7d0;
       background: #f0fdf4;
       color: #166534;
+    }
+
+    .cycle-pill {
+      border-color: #bfdbfe;
+      background: #eff6ff;
+      color: #1d4ed8;
     }
 
     .dependency-pill {

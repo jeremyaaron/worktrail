@@ -120,6 +120,39 @@ function snapshot(): ProjectStatusReportSnapshotDto {
         reasons: []
       }
     ],
+    cycle: {
+      id: '10000000-0000-4000-8000-000000000701',
+      name: 'v0.2.1 Cycle Planning',
+      goal: 'Prove cycle planning across reports.',
+      status: 'active',
+      startDate: '2026-07-13',
+      endDate: '2026-07-24',
+      targetPoints: 20,
+      committedEstimatePoints: 23,
+      completedEstimatePoints: 8,
+      openWorkCount: 4,
+      blockedWorkCount: 1,
+      dependencyBlockedWorkCount: 1,
+      unestimatedWorkCount: 1,
+      health: 'at_risk',
+      reasons: [
+        {
+          key: 'cycle_over_target',
+          severity: 'warning',
+          message: 'Cycle estimate is 3 points over target.',
+          count: 3,
+          query: { cycleId: '10000000-0000-4000-8000-000000000701', sort: 'priority_desc' }
+        }
+      ],
+      links: [
+        {
+          type: 'cycle_review',
+          label: 'Review cycle',
+          projectId,
+          cycleId: '10000000-0000-4000-8000-000000000701'
+        }
+      ]
+    },
     risks: [
       {
         type: 'blocked',
@@ -255,6 +288,9 @@ describe('ProjectStatusReportDraftPageComponent', () => {
     expect(compiled.textContent).toContain('At risk');
     expect(compiled.textContent).toContain('Open');
     expect(compiled.textContent).toContain('5');
+    expect(compiled.textContent).toContain('Active cycle');
+    expect(compiled.textContent).toContain('v0.2.1 Cycle Planning');
+    expect(compiled.textContent).toContain('8/23 points, 20 target');
     expect(compiled.textContent).toContain('v0.1.8');
     expect(compiled.textContent).toContain('Blocked work');
     expect(compiled.textContent).toContain('WT-1');

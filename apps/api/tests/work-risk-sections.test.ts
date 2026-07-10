@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { Member, Milestone, WorkItem } from '../src/repositories/types.js';
 import {
+  createCycleReviewRiskSections,
   createMilestoneReviewRiskSections,
   createProjectStatusReportRiskSnapshots,
   createWorkRiskEvaluationContext
@@ -88,6 +89,14 @@ describe('work risk sections', () => {
       milestoneById,
       context
     });
+    const cycleSections = createCycleReviewRiskSections({
+      cycleId: 'cycle-1',
+      workItems,
+      memberById,
+      milestoneById,
+      context,
+      isOverTarget: true
+    });
     const reportRisks = createProjectStatusReportRiskSnapshots({
       workItems,
       memberById,
@@ -106,6 +115,11 @@ describe('work risk sections', () => {
     ];
     expect(reviewSections.map((section) => section.type)).toEqual(expectedTypes);
     expect(reportRisks.map((risk) => risk.type)).toEqual(expectedTypes);
+    expect(cycleSections.map((section) => section.type)).toEqual([
+      ...expectedTypes,
+      'unestimated',
+      'over_target'
+    ]);
     expect(reviewSections.find((section) => section.type === 'blocked')).toMatchObject({
       count: 1,
       query: { milestoneId: milestone.id, status: 'blocked', sort: 'priority_desc' },
@@ -129,6 +143,10 @@ describe('work risk sections', () => {
       count: 1,
       items: [expect.objectContaining({ id: unassigned.id, assignee: null })]
     });
+    expect(cycleSections.find((section) => section.type === 'over_target')).toMatchObject({
+      count: 1,
+      query: { cycleId: 'cycle-1', sort: 'priority_desc' }
+    });
   });
 });
 
@@ -147,6 +165,7 @@ function createWorkItem(input: Partial<WorkItem> & Pick<WorkItem, 'id' | 'title'
     assigneeId: input.assigneeId === undefined ? member.id : input.assigneeId,
     reporterId: member.id,
     milestoneId: input.milestoneId === undefined ? milestone.id : input.milestoneId,
+    cycleId: input.cycleId ?? null,
     boardPosition: 0,
     dueDate: input.dueDate ?? null,
     estimatePoints: null,

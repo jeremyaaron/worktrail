@@ -2,6 +2,7 @@ import type {
   LabelDto,
   MemberDto,
   MilestoneDto,
+  ProjectCycleDto,
   ProjectNavigationSummaryDto,
   WorkItemPriority,
   WorkItemStatus
@@ -37,6 +38,7 @@ export interface ProjectFilterLabelLookups {
   members: MemberDto[];
   labels: LabelDto[];
   milestones: MilestoneDto[];
+  cycles: ProjectCycleDto[];
 }
 
 export interface WorkspaceFilterLabelLookups extends ProjectFilterLabelLookups {
@@ -60,6 +62,7 @@ export function projectWorkItemFilterLabels(
   pushFilterLabel(labels, 'Type', formatToken(formValue.type));
   pushFilterLabel(labels, 'Label', labelName(formValue.labelId, lookups.labels));
   pushFilterLabel(labels, 'Milestone', milestoneName(formValue.milestoneId, lookups.milestones));
+  pushFilterLabel(labels, 'Cycle', cycleName(formValue.cycleId, lookups.cycles));
   pushFilterLabel(
     labels,
     'Priority',
@@ -138,6 +141,10 @@ function milestoneName(milestoneId: string, milestones: MilestoneDto[]): string 
   return milestoneId === ''
     ? ''
     : milestones.find((milestone) => milestone.id === milestoneId)?.name ?? milestoneId;
+}
+
+function cycleName(cycleId: string, cycles: ProjectCycleDto[]): string {
+  return cycleId === '' ? '' : cycles.find((cycle) => cycle.id === cycleId)?.name ?? cycleId;
 }
 
 function projectName(projectId: string, summaries: ProjectNavigationSummaryDto[]): string {

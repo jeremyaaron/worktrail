@@ -44,6 +44,7 @@ async function cleanupWorkspace(workspaceId: string) {
   );
   await pool.query('delete from labels where workspace_id = $1', [workspaceId]);
   await pool.query('delete from work_items where workspace_id = $1', [workspaceId]);
+  await pool.query('delete from project_cycles where workspace_id = $1', [workspaceId]);
   await pool.query('delete from milestones where workspace_id = $1', [workspaceId]);
   await pool.query('delete from projects where workspace_id = $1', [workspaceId]);
   await pool.query('delete from members where workspace_id = $1', [workspaceId]);
@@ -144,6 +145,33 @@ async function createMilestone(
   });
 }
 
+async function createProjectCycle(
+  fixture: Awaited<ReturnType<typeof createFixture>>,
+  input: {
+    name: string;
+    status?: 'planned' | 'active' | 'completed' | 'canceled';
+    startDate: string;
+    endDate: string;
+    targetPoints?: number | null;
+  }
+) {
+  return repositories.projectCycles.create({
+    id: randomUUID(),
+    workspaceId: fixture.workspaceId,
+    projectId: fixture.projectId,
+    name: input.name,
+    goal: `${input.name} delivery goal.`,
+    status: input.status ?? 'planned',
+    startDate: input.startDate,
+    endDate: input.endDate,
+    targetPoints: input.targetPoints ?? null,
+    archivedAt: null,
+    archivedById: null,
+    createdAt: now(),
+    updatedAt: now()
+  });
+}
+
 let nextItemNumber = 1;
 
 async function createWorkItem(
@@ -154,7 +182,9 @@ async function createWorkItem(
     priority?: 'low' | 'medium' | 'high' | 'urgent';
     assigneeId?: string | null;
     milestoneId?: string | null;
+    cycleId?: string | null;
     dueDate?: string | null;
+    estimatePoints?: number | null;
     updatedAt?: Date;
   }
 ) {
@@ -175,9 +205,10 @@ async function createWorkItem(
     assigneeId: input.assigneeId === undefined ? fixture.assigneeId : input.assigneeId,
     reporterId: fixture.actorId,
     milestoneId: input.milestoneId ?? null,
+    cycleId: input.cycleId ?? null,
     boardPosition: itemNumber * 1024,
     dueDate: input.dueDate ?? null,
-    estimatePoints: null,
+    estimatePoints: input.estimatePoints ?? null,
     createdAt: now(),
     updatedAt: input.updatedAt ?? now()
   });
@@ -477,6 +508,82 @@ describe('planning summary', () => {
       milestone: null
     });
     expect(summary.overdueWork.find((item) => item.id === done.id)).toBeUndefined();
+  });
+
+  it('includes active, upcoming, and recently completed cycle summaries', async () => {
+    const fixture = await createFixture();
+    const activeCycle = await createProjectCycle(fixture, {
+      name: 'Active cycle',
+      status: 'active',
+      startDate: '2026-07-08',
+      endDate: '2026-07-15',
+      targetPoints: 8
+    });
+    const upcomingCycle = await createProjectCycle(fixture, {
+      name: 'Upcoming cycle',
+      status: 'planned',
+      startDate: '2026-07-20',
+      endDate: '2026-07-27'
+    });
+    const completedCycle = await createProjectCycle(fixture, {
+      name: 'Completed cycle',
+      status: 'completed',
+      startDate: '2026-06-20',
+      endDate: '2026-06-27'
+    });
+    await createWorkItem(fixture, {
+      title: 'Active cycle blocked work',
+      status: 'blocked',
+      cycleId: activeCycle.id,
+      estimatePoints: 5
+    });
+    await createWorkItem(fixture, {
+      title: 'Active cycle complete work',
+      status: 'done',
+      cycleId: activeCycle.id,
+      estimatePoints: 3
+    });
+
+    const service = new PlanningService({
+      actor: fixture.actor,
+      repositories,
+      clock: now
+    });
+    const summary = await service.getProjectPlanningSummary(fixture.projectId);
+
+    expect(summary.activeCycle).toMatchObject({
+      cycle: { id: activeCycle.id, name: 'Active cycle' },
+      progress: {
+        totalCount: 2,
+        openCount: 1,
+        doneCount: 1,
+        blockedCount: 1,
+        committedEstimatePoints: 8,
+        completedEstimatePoints: 3,
+        targetPoints: 8
+      },
+      health: {
+        health: 'blocked',
+        reasons: expect.arrayContaining([
+          expect.objectContaining({
+            key: 'blocked_work',
+            query: { cycleId: activeCycle.id, status: 'blocked', sort: 'priority_desc' }
+          })
+        ])
+      },
+      scopedWorkQuery: { cycleId: activeCycle.id, sort: 'priority_desc' }
+    });
+    expect(summary.upcomingCycle).toMatchObject({
+      cycle: { id: upcomingCycle.id, name: 'Upcoming cycle' },
+      progress: { totalCount: 0, openCount: 0, committedEstimatePoints: 0 },
+      health: { health: 'healthy' },
+      scopedWorkQuery: { cycleId: upcomingCycle.id, sort: 'priority_desc' }
+    });
+    expect(summary.recentlyCompletedCycle).toMatchObject({
+      cycle: { id: completedCycle.id, name: 'Completed cycle' },
+      health: { health: 'complete' },
+      scopedWorkQuery: { cycleId: completedCycle.id, sort: 'priority_desc' }
+    });
   });
 
   it('serves planning summaries for archived projects', async () => {

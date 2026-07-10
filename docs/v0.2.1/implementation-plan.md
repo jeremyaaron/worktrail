@@ -1,0 +1,1464 @@
+# Worktrail v0.2.1 Implementation Plan
+
+## Purpose
+
+This plan turns the v0.2.1 PRD and technical design into sequential implementation phases.
+
+v0.2.1 should add Cycle Planning: project-scoped, methodology-neutral execution windows that can be created, reviewed, assigned to work items, used in query-backed Work views, included in project report snapshots, and represented in seed data.
+
+The release should preserve:
+
+- local-first development;
+- Angular static-hosting compatibility;
+- transport-neutral API endpoint handlers;
+- the local Express adapter;
+- Postgres persistence;
+- deterministic seed data;
+- checked-in OpenAPI docs;
+- GitHub Pages public site deployment;
+- full local verification.
+
+## Design Decisions
+
+Use these decisions while implementing v0.2.1:
+
+- Use `Cycle` as the user-facing object name.
+- Add a project-shell review route at `/projects/:projectId/cycles/:cycleId`.
+- Add cycle API routes under `/api/projects/:projectId/cycles`.
+- Add one persisted table: `project_cycles`.
+- Add nullable `work_items.cycle_id`.
+- Keep cycles project-scoped; do not add workspace-wide or cross-project cycles.
+- Allow one work item to belong to at most one cycle.
+- Keep milestone assignment independent from cycle assignment.
+- Enforce at most one active non-archived cycle per project at the database level.
+- Enforce no overlapping non-archived `planned` or `active` cycle ranges at the service level.
+- Keep completed and canceled cycles readable.
+- Add optional `targetPoints` to cycles, backed by existing work item `estimatePoints`.
+- Defer velocity, forecasting, member capacity, rollover automation, and ceremony management.
+- Keep cycle lifecycle mutations owner/maintainer-only.
+- Keep cycle list/review readable by contributors and on archived projects.
+- Keep archived projects read-only.
+- Add cycle assignment to work item create, detail edit, project bulk triage, and query filters.
+- Include cycle filters in URLs, active chips, copy links, saved views, pinned views, and return URLs.
+- Include cycle information in CSV export.
+- Do not add CSV import cycle assignment in v0.2.1.
+- Add active-cycle context to generated project status reports as an optional snapshot section.
+- Keep project status report `snapshotVersion` at `1` because the cycle section is additive and optional.
+- Add deterministic active, upcoming, completed, and risk-bearing seed cycles.
+- Carry the already-committed `/work-items/:id` same-route navigation bugfix as part of the release notes.
+- Keep pattern notes destination-neutral.
+
+## Phase Sizing
+
+Each phase should leave the repository in a coherent working state.
+
+Implementation phases:
+
+1. baseline planning;
+2. contracts, constants, and activity type;
+3. schema, migration, and repository;
+4. cycle service lifecycle;
+5. cycle review read model;
+6. endpoint handlers, Express routes, and API tests;
+7. work item assignment, filtering, and bulk behavior;
+8. Planning, Reports, and CSV backend integration;
+9. OpenAPI and seed data;
+10. Angular API client, routes, and shared cycle UI plumbing;
+11. Planning cycle manager and summaries;
+12. Work item create/detail/list/board/bulk integration;
+13. cycle review page, report rendering, and browser smoke;
+14. documentation, public site, release notes, pattern notes, and final verification.
+
+Run focused contract/API tests after backend phases, focused web tests after frontend phases, and full verification during finalization. Prefer small reusable helpers where cycle behavior mirrors milestone/report behavior, but avoid a generic planning-object abstraction in this release.
+
+## Phase 0: Baseline Planning
+
+Goal: confirm v0.2.1 planning inputs and repository state before runtime changes.
+
+Scope:
+
+- Confirm `docs/v0.2.1/prd.md` exists.
+- Confirm `docs/v0.2.1/technical-design.md` exists.
+- Confirm `docs/v0.2.1/implementation-plan.md` exists.
+- Confirm active branch and repository status.
+- Confirm no unresolved technical choice blocks Phase 1.
+- Confirm no runtime files have been changed for v0.2.1 yet.
+- Confirm sprint docs use destination-neutral pattern extraction language.
+- Confirm whether a `v0.2.1` branch should be checked out before runtime work begins.
+
+Out of scope:
+
+- Runtime implementation.
+- Database migration.
+- Contract changes.
+- UI changes.
+
+Acceptance criteria:
+
+- v0.2.1 planning inputs exist.
+- Design decisions are recorded.
+- Worktree/index state is understood before implementation starts.
+- No open decision blocks Phase 1.
+- Sprint docs use destination-neutral pattern extraction language.
+
+Suggested commands:
+
+```sh
+find docs/v0.2.1 -maxdepth 1 -type f | sort
+git status --short --branch
+git diff --check
+```
+
+Status:
+
+- Completed on 2026-07-10.
+- Confirmed v0.2.1 planning inputs exist:
+  - `docs/v0.2.1/prd.md`;
+  - `docs/v0.2.1/technical-design.md`;
+  - `docs/v0.2.1/implementation-plan.md`.
+- Confirmed active branch is `v0.2.1` tracking `origin/v0.2.1`; no branch checkout is needed before runtime work begins.
+- Confirmed current change state:
+  - `docs/v0.2.1/` is untracked and contains only v0.2.1 planning documents;
+  - no runtime files have been changed for v0.2.1 yet.
+- Confirmed implementation decisions:
+  - use `Cycle` as the product term;
+  - add cycle review route `/projects/:projectId/cycles/:cycleId`;
+  - add cycle API routes under `/api/projects/:projectId/cycles`;
+  - persist cycles in `project_cycles`;
+  - add nullable `work_items.cycle_id`;
+  - keep cycles project-scoped and optional;
+  - enforce one active non-archived cycle per project;
+  - enforce no overlapping non-archived planned/active cycle ranges;
+  - keep completed/canceled cycles readable;
+  - defer CSV import cycle assignment, velocity, forecasting, member capacity, rollover automation, and ceremony management.
+- Confirmed PRD open questions are resolved by the technical design and implementation plan:
+  - Planning placement uses Planning with a `Cycles` management section, not a top-level nav item;
+  - overlap validation applies to non-archived `planned` and `active` cycles;
+  - CSV export includes cycle data while CSV import defers cycle assignment;
+  - report snapshots include optional active-cycle context;
+  - cycle target points are optional positive integers.
+- Confirmed remaining technical-design questions are later UI implementation choices and do not block Phase 1.
+- Confirmed sprint docs use destination-neutral pattern extraction language.
+- Verified:
+  - `find docs/v0.2.1 -maxdepth 1 -type f | sort`;
+  - `git status --short --branch`;
+  - `git branch --show-current`;
+  - `git diff --check`.
+- No unresolved technical choice blocks Phase 1.
+
+## Phase 1: Contracts, Constants, And Activity Type
+
+Goal: add shared cycle contracts and domain constants without database or runtime behavior changes.
+
+Scope:
+
+- Add `packages/contracts/src/cycles.ts` with:
+  - `ProjectCycleStatus`;
+  - `ProjectCycleDto`;
+  - `CreateProjectCycleRequest`;
+  - `UpdateProjectCycleRequest`;
+  - `CycleReviewRiskType`;
+  - `CycleReviewProgressDto`;
+  - `CycleReviewScopeBreakdownDto`;
+  - `CycleReviewRiskSectionDto`;
+  - `ProjectCycleReviewDto`.
+- Export cycle contracts from `packages/contracts/src/index.ts`.
+- Update `packages/contracts/src/work-items.ts`:
+  - add `cycleId?: string` to `WorkItemQuery`;
+  - add `cycleId?: string | null` to create/update requests;
+  - add `cycle: ProjectCycleDto | null` to relevant list/detail DTOs;
+  - add bulk actions for `set_cycle` and `clear_cycle`.
+- Update `packages/contracts/src/planning.ts`:
+  - add `ProjectPlanningCycleSummaryDto`;
+  - add `activeCycle`, `upcomingCycle`, and `recentlyCompletedCycle` to planning summary.
+- Update `packages/contracts/src/projects.ts`:
+  - add optional `ProjectStatusReportCycleSnapshotDto`;
+  - add optional `cycle?: ProjectStatusReportCycleSnapshotDto | null` to report snapshots.
+- Update `packages/contracts/src/activity.ts` with `work_item.cycle_changed` if activity types are contract-owned there.
+- Update `apps/api/src/domain/constants.ts`:
+  - add `projectCycleStatuses`;
+  - add `ProjectCycleStatus` type;
+  - add `work_item.cycle_changed` to API activity event constants if needed.
+- Add or update contract tests for:
+  - cycle DTO shape;
+  - cycle review DTO shape;
+  - work item query and bulk action compatibility;
+  - planning cycle summary fields;
+  - optional report snapshot cycle section;
+  - cycle activity event type.
+
+Out of scope:
+
+- Database schema.
+- API service behavior.
+- Angular pages.
+- OpenAPI.
+
+Acceptance criteria:
+
+- Shared contracts compile.
+- Cycle DTOs are exported from `@worktrail/contracts`.
+- Work item, Planning, and report contracts can carry cycle data.
+- Existing contract consumers continue to compile.
+
+Suggested commands:
+
+```sh
+npm test --workspace @worktrail/contracts
+npm run typecheck --workspace @worktrail/contracts
+npm run lint --workspace @worktrail/contracts
+git diff --check
+```
+
+Status:
+
+- Completed on 2026-07-09.
+- Added `packages/contracts/src/cycles.ts` with:
+  - `ProjectCycleStatus`;
+  - `ProjectCycleDto`;
+  - `CreateProjectCycleRequest`;
+  - `UpdateProjectCycleRequest`;
+  - `CycleReviewRiskType`;
+  - `CycleReviewProgressDto`;
+  - `CycleReviewScopeBreakdownDto`;
+  - `CycleReviewRiskSectionDto`;
+  - `ProjectCycleReviewDto`.
+- Exported cycle contracts from `packages/contracts/src/index.ts`.
+- Updated `packages/contracts/src/work-items.ts` with:
+  - `cycleId?: string` on `WorkItemQuery`;
+  - `cycleId?: string | null` on create/update requests;
+  - required `cycle: ProjectCycleDto | null` on work item list/detail DTOs;
+  - bulk `set_cycle` and `clear_cycle` actions.
+- Updated `packages/contracts/src/planning.ts` with:
+  - `ProjectPlanningCycleSummaryDto`;
+  - nullable `activeCycle`, `upcomingCycle`, and `recentlyCompletedCycle` fields on `ProjectPlanningSummaryDto`.
+- Updated `packages/contracts/src/projects.ts` with:
+  - `ProjectStatusReportCycleSnapshotDto`;
+  - optional nullable `cycle` on `ProjectStatusReportSnapshotDto`;
+  - `cycle_review` report link type and optional `cycleId` link field.
+- Added `work_item.cycle_changed` to:
+  - `packages/contracts/src/activity.ts`;
+  - `apps/api/src/domain/constants.ts`.
+- Added `projectCycleStatuses` and `ProjectCycleStatus` to `apps/api/src/domain/constants.ts`.
+- Added `packages/contracts/src/cycles.contract.test.ts` covering cycle DTOs, requests, cycle review DTOs, planning cycle summaries, risk types, query links, and cycle activity events.
+- Updated existing contract tests for:
+  - work item `cycleId` query support;
+  - work item DTO `cycle` field;
+  - bulk cycle actions;
+  - optional report cycle snapshots;
+  - cycle review report links.
+- Added temporary API compatibility placeholders so existing API and web consumers continue to compile before schema/service hydration phases:
+  - work item DTO mapping returns `cycle: null`;
+  - Planning summaries return null cycle summaries;
+  - project bulk cycle actions currently fail with a validation error until Phase 6 implements real behavior.
+- Verified:
+  - `npm test --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/contracts`;
+  - `npm run lint --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/api`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `git diff --check`.
+
+## Phase 2: Schema, Migration, And Repository
+
+Goal: add persisted project cycles and repository access.
+
+Scope:
+
+- Update `apps/api/src/db/schema.ts`:
+  - add `projectCycles`;
+  - add nullable `workItems.cycleId`;
+  - add cycle check constraints;
+  - add cycle indexes;
+  - add partial unique index for one active non-archived cycle per project;
+  - add active name uniqueness for non-archived cycles.
+- Generate and review a Drizzle migration.
+- Update Drizzle metadata.
+- Update repository types:
+  - `ProjectCycle`;
+  - `NewProjectCycle`;
+  - cycle update input shape.
+- Add `apps/api/src/repositories/project-cycle-repository.ts` with:
+  - `listByProject`;
+  - `findById`;
+  - `create`;
+  - `update`;
+  - `findActiveByProject`;
+  - `findUpcomingByProject`;
+  - `findRecentlyCompletedByProject`;
+  - `findOverlappingPlannedOrActive`.
+- Register the repository.
+- Update any schema inventory or enum check tests.
+
+Out of scope:
+
+- Lifecycle service rules.
+- Endpoint handlers.
+- Work item assignment behavior.
+- Seed cycles.
+
+Acceptance criteria:
+
+- Migrations apply from a clean reset.
+- Existing work items remain valid with `cycle_id = null`.
+- Repository methods compile and follow existing repository patterns.
+- API workspace compiles.
+
+Suggested commands:
+
+```sh
+npm run db:generate
+npm run db:reset
+npm run db:migrate
+npm run typecheck --workspace @worktrail/api
+npm run lint --workspace @worktrail/api
+git diff --check
+```
+
+Status:
+
+- Completed on 2026-07-09.
+- Updated `apps/api/src/db/schema.ts`:
+  - added `projectCycles`;
+  - added nullable `workItems.cycleId`;
+  - added cycle status, date range, and target point checks;
+  - added cycle workspace, project/status, project/start date, and project/archived indexes;
+  - added partial unique index for one active non-archived cycle per project;
+  - added non-archived cycle name uniqueness per project;
+  - added project/workspace cycle indexes on work items.
+- Generated and reviewed Drizzle migration artifacts:
+  - `apps/api/drizzle/0013_cuddly_dreadnoughts.sql`;
+  - `apps/api/drizzle/meta/0013_snapshot.json`;
+  - updated `apps/api/drizzle/meta/_journal.json`.
+- Updated repository types:
+  - `ProjectCycle`;
+  - `NewProjectCycle`.
+- Added `apps/api/src/repositories/project-cycle-repository.ts` with:
+  - `create`;
+  - `findById`;
+  - `findActiveByProject`;
+  - `findUpcomingByProject`;
+  - `findRecentlyCompletedByProject`;
+  - `findOverlappingPlannedOrActive`;
+  - `listByProject`;
+  - `update`;
+  - `archive`;
+  - `reactivate`.
+- Registered `projectCycles` in the central repository factory.
+- Updated typed API test fixtures to include `cycleId: null`, matching existing work item migration behavior.
+- Verified generated SQL includes:
+  - `project_cycles`;
+  - nullable `work_items.cycle_id`;
+  - project cycle foreign keys;
+  - work item cycle foreign key;
+  - partial active-cycle unique index;
+  - cycle name unique index;
+  - updated `activity_events_event_type_check` including `work_item.cycle_changed`.
+- Verified:
+  - `npm run db:generate --workspace @worktrail/api`;
+  - `npm run db:migrate`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `git diff --check`.
+- Did not run `npm run db:reset` because it drops all tables in the current local database. A disposable clean database could not be created because the local `worktrail` Postgres role does not have `CREATE DATABASE` permission. The migration was applied successfully to the current local database instead.
+
+## Phase 3: Cycle Service Lifecycle
+
+Goal: implement cycle management behavior with permissions and validation.
+
+Scope:
+
+- Add `apps/api/src/validation/project-cycle.ts`.
+- Add `apps/api/src/services/project-cycle-service.ts`.
+- Implement:
+  - `listCycles`;
+  - `getCycle`;
+  - `createCycle`;
+  - `updateCycle`;
+  - `archiveCycle`;
+  - `reactivateCycle`.
+- Validate request fields:
+  - name;
+  - goal;
+  - status;
+  - start/end dates;
+  - target points.
+- Enforce:
+  - project exists in actor workspace;
+  - cycle belongs to route project;
+  - cycle belongs to actor workspace;
+  - contributors cannot mutate cycles;
+  - archived projects block mutations;
+  - archived cycles cannot be mutated except reactivation;
+  - one active cycle per project;
+  - no overlapping non-archived planned/active cycles;
+  - completed/canceled cycles remain readable.
+- Add service helpers for downstream phases:
+  - `validateAssignableCycle`;
+  - `getActiveCycleSummaryForProject`;
+  - `getPlanningCycleSummaries`.
+- Map repository rows to `ProjectCycleDto`.
+- Add focused service/API-level tests for lifecycle validation if endpoint tests do not cover enough behavior.
+
+Out of scope:
+
+- Cycle review risk sections.
+- Express route registration.
+- Work item assignment.
+- Angular UI.
+
+Acceptance criteria:
+
+- Owners/maintainers can create, update, archive, and reactivate cycles.
+- Contributors can read but not mutate cycles.
+- Active-cycle and overlap conflicts are deterministic.
+- Cross-project and cross-workspace ids do not leak data.
+
+Suggested commands:
+
+```sh
+npm test --workspace @worktrail/api -- project-cycles.test.ts
+npm run typecheck --workspace @worktrail/api
+npm run lint --workspace @worktrail/api
+git diff --check
+```
+
+Status:
+
+- Completed on 2026-07-09.
+- Added `apps/api/src/validation/project-cycle.ts` with:
+  - create request schema;
+  - update request schema;
+  - list query schema;
+  - name, goal, status, ISO date, date range, and target point validation.
+- Added `canManageProjectCycles` to `apps/api/src/domain/permissions.ts`.
+- Added `toProjectCycleDto` to `apps/api/src/services/dto.ts`.
+- Extended `apps/api/src/repositories/project-cycle-repository.ts` with `findNonArchivedByProjectName` for friendly duplicate-name validation.
+- Added `apps/api/src/services/project-cycle-service.ts` with:
+  - `listProjectCycles`;
+  - `getProjectCycle`;
+  - `createProjectCycle`;
+  - `updateProjectCycle`;
+  - `archiveProjectCycle`;
+  - `reactivateProjectCycle`;
+  - `validateAssignableCycle`;
+  - active/upcoming/recent completed cycle lookup helpers.
+- Enforced:
+  - project must exist in the actor workspace;
+  - cycle must belong to the route project and actor workspace;
+  - owners/maintainers can mutate cycles;
+  - contributors can read cycles but cannot mutate them;
+  - archived projects are read-only;
+  - archived cycles cannot be updated;
+  - archived cycles can be reactivated when project and lifecycle rules allow it;
+  - one active non-archived cycle per project;
+  - non-archived planned/active date ranges cannot overlap;
+  - completed/canceled cycle date ranges can overlap historical windows;
+  - cycle assignment targets must be same-project and non-archived.
+- Added `apps/api/tests/project-cycle-service.test.ts` covering:
+  - create/list/update/archive/reactivate;
+  - duplicate-name conflict;
+  - active-cycle conflict;
+  - planned/active overlap conflict;
+  - completed/canceled overlap allowance;
+  - contributor read/write behavior;
+  - archived project and archived cycle write behavior;
+  - assignable-cycle validation without cross-project leakage.
+- Progress-bearing Planning summary helpers remain deferred to Phase 7 because they depend on Phase 4 cycle progress and health derivation.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/api -- project-cycle-service.test.ts`;
+  - `npm test --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `git diff --check`.
+
+## Phase 4: Cycle Review Read Model
+
+Goal: build the derived cycle review DTO behind the service layer.
+
+Scope:
+
+- Implement `ProjectCycleService.getCycleReview`.
+- Reuse existing risk-section and planning item helpers where practical.
+- Add cycle-specific health derivation:
+  - `complete` for completed cycles;
+  - `inactive` for canceled or archived cycles;
+  - `blocked` for active cycles with blocked or dependency-blocked work;
+  - `at_risk` for overdue, stale, unassigned active, unestimated, or over-target scope;
+  - `on_track` otherwise.
+- Build review data:
+  - project;
+  - cycle;
+  - progress;
+  - health;
+  - scoped work query;
+  - status/priority/assignment/due/dependency breakdowns;
+  - deterministic risk sections;
+  - recently changed work capped at 8.
+- Ensure risk section links include `cycleId`.
+- Add tests for:
+  - empty cycle review;
+  - active healthy cycle;
+  - over-target cycle;
+  - blocked cycle;
+  - stale/unassigned risk sections;
+  - completed/canceled cycle health;
+  - archived cycle readability.
+
+Out of scope:
+
+- HTTP endpoint registration.
+- Angular review page.
+- Planning page rendering.
+
+Acceptance criteria:
+
+- Review DTOs are deterministic.
+- Risk links are valid work item queries.
+- Review remains readable for contributors and archived/canceled/completed cycles.
+
+Suggested commands:
+
+```sh
+npm test --workspace @worktrail/api -- project-cycle-review.test.ts
+npm run typecheck --workspace @worktrail/api
+npm run lint --workspace @worktrail/api
+git diff --check
+```
+
+Status:
+
+- Completed on 2026-07-09.
+- Implemented `ProjectCycleService.getCycleReview`.
+- Extended `apps/api/src/services/work-risk-sections.ts` with:
+  - exported `WorkRiskEvaluationContext`;
+  - `createCycleReviewRiskSections`;
+  - cycle-specific `unestimated` and `over_target` risk sections.
+- Added cycle-specific review derivation in `apps/api/src/services/project-cycle-service.ts`:
+  - progress totals;
+  - open/done/blocked/dependency-blocked counts;
+  - committed and completed estimate point totals;
+  - unestimated open-work count;
+  - target point comparison;
+  - cycle health and reasons;
+  - scope breakdown by status, priority, assignee, due date, and dependency;
+  - risk sections;
+  - recently changed work capped at 8.
+- Added cycle health behavior:
+  - completed cycles return `complete`;
+  - canceled or archived cycles return `inactive`;
+  - active cycles with blocked/dependency-blocked work return `blocked`;
+  - planned/active cycles with overdue, stale, unassigned, unestimated, or over-target work return `at_risk`;
+  - otherwise return the existing contract health state `healthy`.
+- Added `unestimated_work` and `cycle_over_target` to `DeliveryHealthReasonKey`.
+- Ensured all cycle review action links include `cycleId`.
+- Updated `apps/api/tests/project-cycle-service.test.ts` for:
+  - cycle review progress;
+  - blocked/dependency-blocked health;
+  - over-target and unestimated reasons;
+  - risk-section ordering and queries;
+  - recent movement;
+  - healthy review state;
+  - completed, canceled, and archived review health.
+- Updated `apps/api/tests/work-risk-sections.test.ts` to cover cycle-specific risk sections.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/api -- project-cycle-service.test.ts work-risk-sections.test.ts`;
+  - `npm test --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/contracts`;
+  - `npm run lint --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `git diff --check`.
+
+## Phase 5: Endpoint Handlers, Express Routes, And API Tests
+
+Goal: expose cycle management and review through transport-neutral handlers and the local Express adapter.
+
+Scope:
+
+- Add `apps/api/src/endpoints/cycles.ts`.
+- Add Express route registration in:
+  - `apps/api/src/adapters/express/routes/cycle-routes.ts`; or
+  - the existing planning routes if the resulting file stays simple.
+- Register routes:
+  - `GET /api/projects/:projectId/cycles`;
+  - `POST /api/projects/:projectId/cycles`;
+  - `GET /api/projects/:projectId/cycles/:cycleId`;
+  - `PATCH /api/projects/:projectId/cycles/:cycleId`;
+  - `POST /api/projects/:projectId/cycles/:cycleId/archive`;
+  - `POST /api/projects/:projectId/cycles/:cycleId/reactivate`;
+  - `GET /api/projects/:projectId/cycles/:cycleId/review`.
+- Add integration tests for:
+  - list/create/get/update;
+  - archive/reactivate;
+  - contributor mutation rejection;
+  - archived project mutation rejection;
+  - active conflict;
+  - overlap conflict;
+  - review response;
+  - cross-project/cross-workspace behavior.
+- Confirm endpoint handlers stay independent of Express request/response types.
+
+Out of scope:
+
+- Work item cycle assignment.
+- OpenAPI.
+- Angular client.
+
+Acceptance criteria:
+
+- Cycle API routes work through the Express adapter.
+- Endpoint handlers follow existing handler patterns.
+- API tests cover expected happy paths and permission failures.
+
+Suggested commands:
+
+```sh
+npm test --workspace @worktrail/api -- project-cycles.test.ts project-cycle-review.test.ts
+npm run typecheck --workspace @worktrail/api
+npm run lint --workspace @worktrail/api
+git diff --check
+```
+
+Status:
+
+- Completed on 2026-07-09.
+- Added `apps/api/src/endpoints/cycles.ts` with transport-neutral handlers for:
+  - listing project cycles;
+  - creating project cycles;
+  - getting one project cycle;
+  - updating one project cycle;
+  - archiving one project cycle;
+  - reactivating one project cycle;
+  - getting cycle review data.
+- Added `apps/api/src/adapters/express/routes/cycle-routes.ts`.
+- Registered cycle routes in `apps/api/src/adapters/express/server.ts`.
+- Registered API routes:
+  - `GET /api/projects/:projectId/cycles`;
+  - `POST /api/projects/:projectId/cycles`;
+  - `GET /api/projects/:projectId/cycles/:cycleId`;
+  - `PATCH /api/projects/:projectId/cycles/:cycleId`;
+  - `POST /api/projects/:projectId/cycles/:cycleId/archive`;
+  - `POST /api/projects/:projectId/cycles/:cycleId/reactivate`;
+  - `GET /api/projects/:projectId/cycles/:cycleId/review`.
+- Updated `apps/api/tests/server.test.ts` for route registration coverage.
+- Added `apps/api/tests/project-cycles.test.ts` covering:
+  - list defaults;
+  - archived/status list filters;
+  - create/get/update/archive/reactivate;
+  - contributor read/write behavior;
+  - archived project mutation rejection;
+  - active-cycle conflict;
+  - planned/active overlap conflict;
+  - cycle review response;
+  - cross-project cycle id hiding.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/api -- project-cycles.test.ts server.test.ts`;
+  - `npm test --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `git diff --check`.
+
+## Phase 6: Work Item Assignment, Filtering, And Bulk Behavior
+
+Goal: make cycle assignment first-class in backend work item behavior.
+
+Scope:
+
+- Update work item create/update service behavior:
+  - accept `cycleId`;
+  - validate same-project assignment;
+  - reject archived cycle assignment;
+  - retain already-assigned archived cycle when unrelated fields change;
+  - record `work_item.cycle_changed` activity when assignment changes.
+- Hydrate `cycle` in work item list/detail DTOs.
+- Update work item query parsing:
+  - parse `cycleId`;
+  - validate malformed ids consistently.
+- Update repository query builder:
+  - filter by `cycle_id`;
+  - keep `cycleId` composable with status, priority, label, assignee, milestone, risk, dependency, due date, search, and sort filters.
+- Update project bulk update:
+  - `set_cycle`;
+  - `clear_cycle`;
+  - item-level failures for invalid assignments.
+- Update notification behavior only if current planning-field watcher notifications cover similar assignment changes.
+- Add tests for:
+  - create with cycle;
+  - update cycle;
+  - clear cycle;
+  - archived cycle assignment rejection;
+  - cross-project cycle rejection;
+  - activity event payload;
+  - list/detail hydration;
+  - project and workspace list filtering by `cycleId`;
+  - bulk set/clear cycle;
+  - cycle filter with saved query-shaped payloads.
+
+Out of scope:
+
+- Angular forms and filters.
+- Planning summaries.
+- Report snapshots.
+
+Acceptance criteria:
+
+- Work items can be assigned to cycles through backend contracts.
+- Work item list/detail DTOs include cycle metadata.
+- `cycleId` is a reliable query dimension.
+- Bulk assignment works with existing project bulk result semantics.
+
+Suggested commands:
+
+```sh
+npm test --workspace @worktrail/api -- work-items.test.ts work-item-query.test.ts project-bulk-work-items.test.ts
+npm run typecheck --workspace @worktrail/api
+npm run lint --workspace @worktrail/api
+git diff --check
+```
+
+Status:
+
+- Completed on 2026-07-09.
+- Updated work item create/update backend behavior to:
+  - accept `cycleId`;
+  - validate same-project cycle assignments;
+  - reject archived cycle assignment for new assignment attempts;
+  - allow unchanged retained archived cycle assignments and clearing;
+  - persist `work_items.cycle_id`;
+  - record `work_item.cycle_changed` activity when assignment changes.
+- Hydrated `cycle` metadata in work item list/detail DTOs.
+- Updated work item query parsing and repository query building so `cycleId` works across:
+  - project work item lists;
+  - workspace work item lists;
+  - saved-view-shaped query normalization;
+  - existing search, status, priority, label, assignee, milestone, risk, dependency, due date, and sort composition.
+- Implemented project bulk update cycle actions:
+  - `set_cycle`;
+  - `clear_cycle`.
+- Kept notification behavior unchanged because current planning-field watcher notifications do not cover milestone or cycle assignment changes.
+- Updated API tests for:
+  - create with cycle assignment;
+  - update and clear cycle assignment;
+  - archived cycle assignment rejection and clearing retained archived assignments;
+  - cross-project cycle rejection;
+  - cycle activity events;
+  - project and workspace list filtering by `cycleId`;
+  - bulk set/clear cycle;
+  - invalid bulk cycle references.
+- Updated work item query validation tests for project, workspace, and saved-view-shaped `cycleId` query payloads.
+- Verified:
+  - `npm test --workspace @worktrail/api -- work-item-query.test.ts`;
+  - `npm test --workspace @worktrail/api -- work-items.test.ts`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm run typecheck --workspace @worktrail/contracts`;
+  - `npm test --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/contracts`.
+
+## Phase 7: Planning, Reports, And CSV Backend Integration
+
+Goal: thread cycle data through Planning summaries, report snapshots, and CSV export.
+
+Scope:
+
+- Update `PlanningService`:
+  - include `activeCycle`;
+  - include `upcomingCycle`;
+  - include `recentlyCompletedCycle`.
+- Ensure Planning cycle summaries reuse the same progress/health derivation as cycle review.
+- Update project status report generation:
+  - include active-cycle snapshot when an active cycle exists;
+  - set cycle snapshot to `null` when no active cycle exists;
+  - keep old snapshots valid through optional runtime parsing.
+- Update `apps/api/src/validation/project-status-report-snapshot.ts` for optional cycle snapshot validation.
+- Update report Markdown rendering with a cycle section when present.
+- Update CSV export:
+  - include cycle name and/or id in an appropriate planning column position;
+  - keep CSV import unchanged.
+- Add tests for:
+  - planning summary cycle fields;
+  - report draft with active cycle;
+  - report draft without active cycle;
+  - published report detail with cycle snapshot;
+  - legacy report snapshot without cycle;
+  - Markdown rendering;
+  - CSV export cycle column.
+
+Out of scope:
+
+- Angular Planning rendering.
+- Angular report rendering.
+- OpenAPI.
+
+Acceptance criteria:
+
+- Planning API exposes cycle summaries.
+- Status reports preserve active cycle context without breaking existing reports.
+- CSV export reflects visible cycle assignments.
+
+Suggested commands:
+
+```sh
+npm test --workspace @worktrail/api -- planning.test.ts project-status-reports.test.ts project-status-report-markdown.test.ts work-item-export.test.ts
+npm run typecheck --workspace @worktrail/api
+npm run lint --workspace @worktrail/api
+git diff --check
+```
+
+Status:
+
+- Completed on 2026-07-09.
+- Updated `PlanningService` to include:
+  - `activeCycle`;
+  - `upcomingCycle`;
+  - `recentlyCompletedCycle`.
+- Reused `ProjectCycleService.getCycleReview` for Planning cycle summaries so progress, health, reasons, and scoped work queries stay aligned with cycle review behavior.
+- Updated project status report generation to:
+  - include an active-cycle snapshot when a project has an active cycle;
+  - set `cycle` to `null` when no active cycle exists;
+  - preserve immutable published cycle snapshot data.
+- Updated stored/requested status report snapshot validation for:
+  - optional legacy `cycle` snapshots;
+  - generated cycle snapshot shape;
+  - `cycleId` work item query fields;
+  - cycle-specific health reason keys.
+- Updated status report Markdown rendering with an `Active Cycle` section and cycle-scoped current-work links.
+- Updated project work item query link serialization to preserve `cycleId` and project-scoped `workState`.
+- Updated CSV export to include `cycle_name` next to `milestone_name`; CSV import remains unchanged.
+- Added/updated tests for:
+  - Planning summary cycle fields;
+  - report draft with active cycle;
+  - report draft without active cycle;
+  - published report detail with cycle snapshot;
+  - legacy stored report snapshot without cycle data;
+  - Markdown active-cycle rendering;
+  - CSV export cycle column.
+- Verified:
+  - `npm test --workspace @worktrail/api -- planning.test.ts`;
+  - `npm test --workspace @worktrail/api -- status-reports.test.ts status-report-markdown-renderer.test.ts`;
+  - `npm test --workspace @worktrail/api -- work-items.test.ts`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/contracts`.
+
+## Phase 8: OpenAPI And Seed Data
+
+Goal: document cycle API behavior and provide deterministic cycle examples.
+
+Scope:
+
+- Update checked-in OpenAPI docs for:
+  - cycle schemas;
+  - cycle list/create/get/update/archive/reactivate/review routes;
+  - work item `cycleId` request/query fields;
+  - work item `cycle` response fields;
+  - bulk cycle actions;
+  - planning cycle summary fields;
+  - report snapshot optional cycle section;
+  - CSV export column if documented.
+- Update seed data:
+  - add active cycle `v0.2.1 Cycle Planning`;
+  - add upcoming cycle `v0.2.2 Adoption Polish`;
+  - add completed cycle `v0.2.0 Consolidation`;
+  - assign representative work items;
+  - include at least one blocked/risk-bearing cycle work item;
+  - seed a cycle-focused saved view such as `Current cycle risks` if it strengthens QA.
+- Ensure seed upserts are idempotent.
+- Ensure reset/migrate/seed works from a clean database.
+
+Out of scope:
+
+- Angular UI.
+- Public site docs.
+- Release notes.
+
+Acceptance criteria:
+
+- OpenAPI matches implemented API and contracts.
+- Seeded cycles are deterministic and useful for manual QA.
+- Re-running seed does not duplicate cycles or assignments.
+
+Suggested commands:
+
+```sh
+npm run db:reset
+npm run db:migrate
+npm run db:seed
+npm test --workspace @worktrail/api
+npm run typecheck --workspace @worktrail/api
+npm run lint --workspace @worktrail/api
+git diff --check
+```
+
+Status:
+
+- Completed on 2026-07-09.
+- Updated `docs/api/openapi.yaml` for:
+  - project cycle schemas;
+  - cycle list/create/get/update/archive/reactivate/review routes;
+  - work item `cycleId` request/query fields;
+  - work item `cycle` response fields;
+  - bulk `set_cycle` and `clear_cycle` actions;
+  - Planning cycle summary fields;
+  - status report optional cycle snapshot section;
+  - status report cycle review links;
+  - cycle-specific delivery-health reason keys;
+  - CSV export `cycle_name` column documentation.
+- Updated `apps/api/tests/openapi.test.ts` to cover the new cycle route and schema surface.
+- Updated deterministic seed data with:
+  - active cycle `v0.2.1 Cycle Planning`;
+  - upcoming cycle `v0.2.2 Adoption Polish`;
+  - completed cycle `v0.2.0 Consolidation`;
+  - representative active/upcoming/completed work item assignments;
+  - active-cycle blocked, dependency-blocked, overdue, due-soon, unassigned, stale, and over-target risk examples;
+  - pinned project saved view `Current cycle risks`.
+- Confirmed the seeded status report now captures active-cycle snapshot data through the production report service path.
+- Confirmed seed re-runs do not duplicate seeded cycles or saved views.
+- Verified seeded database state directly:
+  - three app project cycles exist in deterministic order;
+  - active cycle has 5 assigned work items, 1 blocked item, and 23 estimate points against a 20 point target;
+  - the `Current cycle risks` saved view exists and is pinned;
+  - the seeded report snapshot includes the active cycle.
+- Verified:
+  - `npm run db:reset`;
+  - `npm run db:migrate`;
+  - `npm run db:seed`;
+  - `npm run db:seed`;
+  - direct seed verification query through the API database client;
+  - `npm test --workspace @worktrail/api -- openapi.test.ts`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/contracts`;
+  - `git diff --check`.
+- Note: `npm run db:seed` still emits the existing `pg` deprecation warning from the current seed/report publish flow, but seed execution succeeds and the resulting data is correct.
+
+## Phase 9: Angular API Client, Routes, And Shared Cycle UI Plumbing
+
+Status: Complete.
+
+Goal: add frontend access to cycle APIs and route scaffolding before feature surfaces are wired in.
+
+Scope:
+
+- Add `apps/web/src/app/core/api/cycles-api.ts`.
+- Add client methods:
+  - `listCycles`;
+  - `createCycle`;
+  - `getCycle`;
+  - `updateCycle`;
+  - `archiveCycle`;
+  - `reactivateCycle`;
+  - `getCycleReview`.
+- Add project-shell child route:
+  - `/projects/:projectId/cycles/:cycleId`.
+- Add a lazy `project-cycle-review-page.component`.
+- Add feature-local cycle option helpers or a small store if repeated loading appears in several components.
+- Add shared formatting helpers for:
+  - cycle status labels;
+  - date range labels;
+  - cycle health labels.
+- Add lightweight loading/error/empty states for the new route shell.
+- Add or update web tests for API client URL construction and route presence where current test seams allow it.
+
+Out of scope:
+
+- Full cycle manager UI.
+- Work item form fields.
+- Review page content.
+
+Acceptance criteria:
+
+- Angular builds with a lazy cycle review route.
+- Cycle API client follows existing domain client conventions.
+- No old `WorktrailApiService` expansion is required unless compatibility demands it.
+
+Suggested commands:
+
+```sh
+npm run typecheck --workspace @worktrail/web
+npm run lint --workspace @worktrail/web
+npm test --workspace @worktrail/web
+git diff --check
+```
+
+Completed:
+
+- Added `CyclesApi` with list/create/detail/update/archive/reactivate/review methods against the project-scoped cycle API routes.
+- Added the project-shell child route for `/projects/:projectId/cycles/:cycleId`.
+- Added a lazy `ProjectCycleReviewPageComponent` with loading, error, empty, archived/read-only, summary, health, and scoped-work link states.
+- Added shared cycle display helpers for status labels, date range labels, and health labels.
+- Added planning-local cycle option helpers for reusable cycle select/list surfaces.
+- Preserved `cycleId` through work item query URL serialization and API query params so cycle review links can open scoped work correctly.
+- Updated affected web test fixtures for required cycle DTO fields introduced by the cycle contract.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - focused cycle/route tests via `npm test --workspace @worktrail/web -- --include ...`;
+  - `npm test --workspace @worktrail/web`;
+  - `git diff --check`.
+
+## Phase 10: Planning Cycle Manager And Summaries
+
+Status: Complete.
+
+Goal: let users manage cycles and see current/upcoming/recent cycle context from Planning.
+
+Scope:
+
+- Update `project-planning-page.component.ts` or extracted Planning components to render:
+  - active cycle summary;
+  - upcoming cycle summary;
+  - recently completed cycle summary;
+  - links to cycle review and filtered Work.
+- Add a `Cycles` management section near Milestones.
+- Support owners/maintainers:
+  - create cycle;
+  - edit cycle fields;
+  - status changes;
+  - archive;
+  - reactivate.
+- Keep contributors read-only:
+  - visible cycle list;
+  - visible review links;
+  - hidden/disabled mutation controls.
+- Handle archived project read-only state.
+- Decide during implementation whether completed/canceled cycles are shown collapsed by default; prefer collapsed if the list gets visually heavy.
+- Add web tests for:
+  - cycle summaries rendering;
+  - cycle create validation;
+  - cycle update/archive/reactivate;
+  - contributor read-only behavior;
+  - review and Work query links.
+
+Out of scope:
+
+- Work item form cycle assignment.
+- Full cycle review content.
+- Report pages.
+
+Acceptance criteria:
+
+- A maintainer can manage cycles from Planning.
+- Contributors can inspect cycles without mutation controls.
+- Planning summaries link users into actionable cycle review and Work views.
+
+Suggested commands:
+
+```sh
+npm test --workspace @worktrail/web -- project-planning-page.component.spec.ts
+npm run typecheck --workspace @worktrail/web
+npm run lint --workspace @worktrail/web
+git diff --check
+```
+
+Completed:
+
+- Added a URL-backed Planning `Cycles` tab alongside Review and Milestones.
+- Added project cycle loading through `CyclesApi.listCycles(..., { includeArchived: true })`.
+- Added cycle management for owners and maintainers:
+  - create cycle;
+  - edit name, goal, status, start date, end date, and target points;
+  - archive cycle;
+  - reactivate cycle.
+- Kept contributors and archived projects read-only while preserving visible cycle list, review links, and filtered Work links.
+- Added Review dashboard cycle summaries for:
+  - active cycle;
+  - upcoming cycle;
+  - recently completed cycle.
+- Linked cycle summaries to cycle review pages and filtered project Work views.
+- Added validation and API error display for cycle creation and mutation flows.
+- Added Planning page tests for:
+  - cycle summary rendering and links;
+  - cycle tab routing;
+  - cycle create validation;
+  - cycle create/update/archive/reactivate;
+  - contributor and archived-project read-only behavior.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include 'src/app/features/projects/project-planning-page.component.spec.ts'`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `npm test --workspace @worktrail/web`;
+  - `git diff --check`.
+
+## Phase 11: Work Item Create, Detail, List, Board, And Bulk Integration
+
+Goal: expose cycle assignment and filtering across existing Work surfaces.
+
+Scope:
+
+- Update work item create page:
+  - load cycle options after project selection;
+  - include cycle dropdown;
+  - default to no cycle unless a route/query context clearly supplies one.
+- Update work item detail page:
+  - show assigned cycle in metadata;
+  - allow editing cycle assignment for permitted users;
+  - include current assigned cycle even if archived/completed/canceled.
+- Update project Work page:
+  - add cycle filter control;
+  - show active chip;
+  - show cycle metadata in rows/cards;
+  - support bulk set/clear cycle.
+- Update workspace Work Items page:
+  - support `cycleId` in query state;
+  - show cycle filter only when project context is available, or clearly disable it until a project is selected.
+- Update board cards where space allows:
+  - show compact cycle metadata;
+  - preserve existing status dropdown behavior.
+- Update query serialization:
+  - URL state;
+  - active chips;
+  - copy link;
+  - return URL;
+  - saved views;
+  - pinned views;
+  - stale cycle ids should be tolerated.
+- Add web tests for:
+  - create with cycle;
+  - detail cycle edit;
+  - list filter chip behavior;
+  - copy link/query round trip;
+  - saved view with cycle filter;
+  - pinned view with cycle filter;
+  - bulk set/clear cycle;
+  - board card cycle display if implemented.
+
+Out of scope:
+
+- Cycle manager UI.
+- Cycle review page content.
+- Backend behavior already completed in earlier phases.
+
+Acceptance criteria:
+
+- Cycle assignment is available from normal work item workflows.
+- Cycle filters behave like other query-backed filters.
+- Bulk triage can commit or remove work from a cycle.
+- Workspace and project Work views remain usable on narrow and wide screens.
+
+Suggested commands:
+
+```sh
+npm test --workspace @worktrail/web -- work-item-create-page.component.spec.ts work-item-detail-page.component.spec.ts work-item-list-page.component.spec.ts workspace-work-item-list-page.component.spec.ts
+npm run typecheck --workspace @worktrail/web
+npm run lint --workspace @worktrail/web
+git diff --check
+```
+
+Status: Completed.
+
+Notes:
+
+- Added `cycleId` to project/workspace work item query form state, URL serialization, return URLs, copied links, saved views, pinned views, active chips, and API params.
+- Added cycle assignment to work item create and detail pages, including route-query prefill for project-scoped create links and include-archived cycle options on detail.
+- Added project Work cycle filtering, cycle chips, cycle metadata in rows/cards, and bulk set/clear cycle actions.
+- Added workspace Work cycle filtering when project context is selected, while tolerating stale cycle ids from URLs and saved views.
+- Added compact cycle metadata to board cards.
+- Updated web tests for create/detail/list/workspace/board/query flows and cycle-aware fixtures.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include 'src/app/features/work-items/work-items-page.component.spec.ts' --include 'src/app/features/work-items/workspace-work-item-list-page.component.spec.ts' --include 'src/app/features/work-items/work-item-board-page.component.spec.ts'`;
+  - `npm test --workspace @worktrail/web -- --include 'src/app/features/work-items/work-item-detail-page.component.spec.ts' --include 'src/app/features/work-items/query/work-item-query-serialization.spec.ts' --include 'src/app/features/work-items/query/work-item-filter-labels.spec.ts' --include 'src/app/features/work-items/components/work-item-result-list.component.spec.ts'`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm test --workspace @worktrail/web`.
+
+## Phase 12: Cycle Review Page, Report Rendering, And Browser Smoke
+
+Goal: complete the user-facing cycle review experience and prove it works against seeded data.
+
+Scope:
+
+- Implement `project-cycle-review-page.component`.
+- Render:
+  - cycle identity, goal, dates, and status;
+  - progress counts and estimate progress;
+  - target point comparison when present;
+  - health state and reasons;
+  - scope breakdown;
+  - risk sections with links to filtered Work;
+  - recently changed work.
+- Keep zero-count risk sections readable without overwhelming the page.
+- Add loading, not-found, permission, and archived states.
+- Update project report detail/draft rendering to show cycle snapshot section when present.
+- Add Playwright or existing browser smoke coverage for:
+  - Planning cycle creation;
+  - cycle review navigation;
+  - filtered Work link from cycle review;
+  - work item assignment to cycle;
+  - report draft showing active cycle context.
+- Do responsive QA on:
+  - Planning cycle manager;
+  - Work list filters;
+  - cycle review page;
+  - report pages.
+
+Out of scope:
+
+- Public site content.
+- Release notes.
+- New product features beyond cycle planning.
+
+Acceptance criteria:
+
+- Seeded cycle review pages are useful and actionable.
+- Review links land on correctly filtered Work views.
+- Report pages render optional cycle sections without breaking old reports.
+- Browser smoke coverage exercises the main cycle workflow.
+
+Suggested commands:
+
+```sh
+npm test --workspace @worktrail/web
+npm run typecheck --workspace @worktrail/web
+npm run lint --workspace @worktrail/web
+npm run build
+npm run test:e2e
+git diff --check
+```
+
+Status: Completed.
+
+Notes:
+
+- Expanded `project-cycle-review-page.component` from a basic header/progress shell into a full live review page with:
+  - cycle identity, goal, lifecycle status, date window, archive/read-only notice, and scoped Work actions;
+  - count progress, estimate progress, target variance, health reasons, status/priority/planning breakdowns, risk sections, and recently changed work;
+  - compact empty states for zero-count risk sections and no recent movement;
+  - specific not-found and permission error states.
+- Added cycle review unit coverage for:
+  - review shell and scoped Work links;
+  - estimate/target, scope breakdown, risk rows, and recent movement rendering;
+  - archived read-only notice;
+  - empty risk/recent movement states;
+  - retry, not-found, and permission failures.
+- Updated report draft and published report detail rendering to show optional active-cycle snapshot sections when present, including cycle health, goal, date window, estimate/target summary, counts, reasons, and current cycle links.
+- Updated report unit fixtures and assertions so cycle snapshots are covered without requiring older reports to include cycle data.
+- Added browser smoke coverage for:
+  - Planning cycle manager availability;
+  - seeded cycle review navigation;
+  - filtered Work links from cycle review;
+  - creating a project work item with a cycle assignment preselected from URL state;
+  - report draft/detail active-cycle snapshot context.
+- Updated project saved-view smoke expectations for the additional seeded cycle saved view.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm test --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `npx playwright test -g "opens and saves v0.1.4|reviews v0.2.1 cycle"` after fixing test selectors and seeded-cycle ids.
+  - `npm run test:e2e`;
+  - `npm run build` (passes with the existing `project-planning-page.component.ts` style budget warning);
+  - `git diff --check`.
+
+## Phase 12A: Planning Page Component Extraction
+
+Goal: clear the Planning page style budget warning by splitting meaningful Planning sub-surfaces into focused Angular components, while preserving the current user experience and avoiding global CSS leakage.
+
+Scope:
+
+- Extract cycle management from `project-planning-page.component.ts` into a focused child component:
+  - cycle create form;
+  - cycle list rows;
+  - cycle edit fields;
+  - archive/reactivate controls;
+  - cycle mutation success/error states;
+  - owner/maintainer permission-sensitive controls.
+- Extract cycle summary cards from the Planning Review view into a focused child component:
+  - active cycle;
+  - upcoming cycle;
+  - recently completed cycle;
+  - review links and filtered Work links.
+- Keep `project-planning-page.component.ts` responsible for:
+  - route/project context;
+  - selected Planning tab state;
+  - high-level data loading orchestration;
+  - permission computation;
+  - passing typed inputs and handling child output events.
+- Keep child components standalone and colocated under the Planning feature, for example:
+  - `project-cycle-manager.component.ts`;
+  - `project-cycle-summary-panel.component.ts`;
+  - optional small shared Planning display helpers only if duplication becomes meaningful.
+- Move only the extracted component-specific template and styles into the extracted components.
+- Preserve current selectors, accessible labels, button text, links, and route/query behavior where browser tests depend on them.
+- Update `project-planning-page.component.spec.ts` and add focused child component specs where behavior moves out of the parent.
+- Run production build and confirm the `project-planning-page.component.ts` style budget warning is gone.
+
+Out of scope:
+
+- Raising Angular style budgets.
+- Moving page-specific styles into global styles.
+- Redesigning the Planning page.
+- Changing cycle API behavior, contracts, seed data, or persistence.
+- Extracting milestone management or planning review risk sections unless 12A does not clear the warning.
+- New cycle features.
+
+Acceptance criteria:
+
+- `npm run build` no longer emits the Planning component style budget warning.
+- Cycle create/edit/archive/reactivate behavior remains covered by tests.
+- Planning Review cycle summary cards still render active/upcoming/recent cycle context and preserve review/work links.
+- Existing Phase 12 browser smoke around cycle review, scoped Work links, cycle assignment, and report snapshot context still passes.
+- The parent Planning component is smaller and more orchestration-focused, without introducing broad abstractions.
+
+Suggested commands:
+
+```sh
+npm test --workspace @worktrail/web -- --include 'src/app/features/projects/project-planning-page.component.spec.ts' --include 'src/app/features/projects/planning/cycle-manager.component.spec.ts' --include 'src/app/features/projects/planning/cycle-summary-panel.component.spec.ts'
+npm test --workspace @worktrail/web
+npm run typecheck --workspace @worktrail/web
+npm run lint --workspace @worktrail/web
+npm run build
+npx playwright test -g "reviews v0.2.1 cycle|surfaces v0.0.9 delivery health|reviews seeded milestone delivery risks"
+git diff --check
+```
+
+Status:
+
+- Completed on 2026-07-09.
+- Extracted cycle management from `project-planning-page.component.ts` into `apps/web/src/app/features/projects/planning/cycle-manager.component.ts`.
+- Extracted Planning Review cycle summary cards into `apps/web/src/app/features/projects/planning/cycle-summary-panel.component.ts`.
+- Kept the parent Planning page responsible for project context, selected tab state, loading orchestration, permission checks, and cycle mutation API commands.
+- Preserved cycle create/edit/archive/reactivate behavior, accessible labels, route links, filtered Work links, and review navigation.
+- Added focused component specs for:
+  - cycle create/update/archive/read-only/loading/error behavior;
+  - cycle summary card rendering, empty state rendering, and review/work links.
+- Confirmed `npm run build` no longer emits the `project-planning-page.component.ts` style budget warning.
+- Cleared the pg seed deprecation warning by making cycle-review read queries sequential when they run inside the status-report publish transaction.
+- Cleaned E2E child-process environment handling so Playwright DB reset/restore and web-server subprocesses do not inherit conflicting `NO_COLOR`/`FORCE_COLOR` settings.
+- Updated the Playwright Angular web-server command to use a single loopback host value for E2E without changing the normal local `npm run dev` host behavior.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm test --workspace @worktrail/web -- --include 'src/app/features/projects/project-planning-page.component.spec.ts' --include 'src/app/features/projects/planning/cycle-manager.component.spec.ts' --include 'src/app/features/projects/planning/cycle-summary-panel.component.spec.ts'`;
+  - `npm test --workspace @worktrail/web`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm run typecheck`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `npm run lint`;
+  - `npm run build`;
+  - `npx playwright test -g "reviews v0.2.1 cycle|surfaces v0.0.9 delivery health|reviews seeded milestone delivery risks"`;
+  - `git diff --check`.
+
+Contingency:
+
+- Not needed. Extracting cycle management and cycle summaries cleared the budget.
+- If the budget clears but the parent component remains difficult to work in, defer deeper Planning composition to a later cleanup sprint rather than expanding v0.2.1 beyond the cycle-planning release goal.
+
+## Phase 13: Documentation, Public Site, Release Notes, Pattern Notes, And Final Verification
+
+Goal: finish v0.2.1 with accurate documentation and full verification.
+
+Scope:
+
+- Update README:
+  - feature list;
+  - local workflow notes if cycle seed data changes manual QA;
+  - screenshots/capability descriptions where helpful.
+- Update public static site:
+  - capability copy for Cycle Planning;
+  - product screenshots if the current screenshots no longer represent core workflow;
+  - keep GitHub Pages workflow unchanged unless necessary.
+- Add `docs/v0.2.1/release-notes.md`.
+- Add `docs/v0.2.1/pattern-notes.md`.
+- Mention the `/work-items/:id` same-route navigation bugfix in release notes.
+- Update package versions to `0.2.1` if the release process continues mirroring product tags in package metadata.
+- Run final verification:
+  - lint;
+  - typecheck;
+  - unit/API/web tests;
+  - E2E tests;
+  - production build;
+  - migration reset/migrate/seed;
+  - diff hygiene.
+- Record any known limitation or deferred follow-up in release notes.
+
+Out of scope:
+
+- Additional v0.2.2 feature planning.
+- Dependency audit remediation unless a cycle-related dependency introduces a new issue.
+
+Acceptance criteria:
+
+- User-facing docs and public site match v0.2.1 capabilities.
+- Release notes describe what changed, how to verify it, and what remains out of scope.
+- Pattern notes capture reusable lessons without assuming a destination framework.
+- Full verification is green or any residual issue is documented with a clear rationale.
+
+Suggested commands:
+
+```sh
+npm install --package-lock-only
+npm run db:reset
+npm run db:migrate
+npm run db:seed
+npm run lint
+npm run typecheck
+npm test
+npm run test:e2e
+npm run build
+git diff --check
+git status --short --branch
+```
+
+Status:
+
+- Completed on 2026-07-09.
+- Updated README to describe v0.2.1 cycle planning, cycle review, cycle filters, cycle-aware reports, seed data, walkthrough steps, current capabilities, current limitations, and schema status.
+- Updated the public static site to present Worktrail as a v0.2.1 cycle-aware reference app and point release links at v0.2.1 docs.
+- Added `docs/v0.2.1/release-notes.md`.
+- Added `docs/v0.2.1/pattern-notes.md`.
+- Recorded the `/work-items/:id` same-route navigation bugfix in release notes.
+- Updated first-party package metadata and lockfile workspace metadata to `0.2.1`.
+- Confirmed production-only dependency audit reports `0 vulnerabilities`.
+- Verified:
+  - `npm install --package-lock-only`;
+  - `npm run db:reset`;
+  - `npm run db:migrate`;
+  - `npm run db:seed`;
+  - `npm run lint`;
+  - `npm run typecheck`;
+  - `npm test`;
+  - `npm run test:e2e`;
+  - `npm run build`;
+  - `npm audit --omit=dev --audit-level=low`;
+  - `git diff --check`.
+
+## Rollback Notes
+
+If a late cycle-planning issue appears before release:
+
+- Backend-only failures can usually be contained by withholding route registration while keeping schema changes if migrations already landed.
+- Frontend-only failures can be contained by hiding cycle controls while retaining API and seed data.
+- Report snapshot issues should be rolled back by omitting the optional cycle section from new draft generation; existing reports remain compatible because the field is optional.
+- CSV export issues can be contained by removing the new cycle column before release.
+
+Do not ship partially wired cycle assignment where work items can store `cycle_id` but users cannot reliably see or clear that assignment.
+
+## Final Release Gate
+
+v0.2.1 is ready when:
+
+- cycles can be created, updated, archived, reactivated, and reviewed;
+- work items can be assigned to and filtered by cycles;
+- project bulk triage can set and clear cycles;
+- Planning summarizes current/upcoming/recent cycles;
+- Reports include active cycle context;
+- seeded data demonstrates the workflow;
+- docs, public site, release notes, and pattern notes are current;
+- full local verification passes.

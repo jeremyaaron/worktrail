@@ -41,6 +41,7 @@ import type {
   Member,
   Milestone,
   Project,
+  ProjectCycle,
   WorkItem
 } from '../repositories/types.js';
 import {
@@ -71,6 +72,7 @@ interface WorkItemBundle {
   reporter: Member;
   labels: Label[];
   milestone: Milestone | null;
+  cycle: ProjectCycle | null;
 }
 
 interface WorkItemDependencyCounts {
@@ -182,6 +184,7 @@ export class WorkItemService {
     this.assertProjectWritable(project);
     await this.validateLabels(projectId, labelIds, repositories);
     await this.validateMilestone(projectId, input.milestoneId ?? null, repositories);
+    await this.validateCycle(projectId, input.cycleId ?? null, repositories);
     await this.validateAssignee(input.assigneeId ?? null, repositories);
     await this.validateReporter(reporterId, repositories);
     const status = input.status ?? 'backlog';
@@ -210,6 +213,7 @@ export class WorkItemService {
       assigneeId: input.assigneeId ?? null,
       reporterId,
       milestoneId: input.milestoneId ?? null,
+      cycleId: input.cycleId ?? null,
       boardPosition,
       dueDate: input.dueDate ?? null,
       estimatePoints: input.estimatePoints ?? null,
@@ -273,6 +277,12 @@ export class WorkItemService {
         });
       }
 
+      if (input.cycleId !== undefined) {
+        await this.validateCycle(current.projectId, input.cycleId, repositories, {
+          currentCycleId: current.cycleId
+        });
+      }
+
       if (input.assigneeId !== undefined) {
         await this.validateAssignee(input.assigneeId, repositories, {
           currentAssigneeId: current.assigneeId
@@ -286,6 +296,7 @@ export class WorkItemService {
         ...(input.priority === undefined ? {} : { priority: input.priority }),
         ...(input.assigneeId === undefined ? {} : { assigneeId: input.assigneeId }),
         ...(input.milestoneId === undefined ? {} : { milestoneId: input.milestoneId }),
+        ...(input.cycleId === undefined ? {} : { cycleId: input.cycleId }),
         ...(input.dueDate === undefined ? {} : { dueDate: input.dueDate }),
         ...(input.estimatePoints === undefined ? {} : { estimatePoints: input.estimatePoints }),
         updatedAt: timestamp
@@ -498,6 +509,11 @@ export class WorkItemService {
       return;
     }
 
+    if (action.type === 'set_cycle') {
+      await this.validateCycle(projectId, action.cycleId, repositories);
+      return;
+    }
+
     if (action.type === 'add_labels' || action.type === 'remove_labels') {
       await this.validateLabels(projectId, action.labelIds, repositories);
     }
@@ -575,6 +591,12 @@ export class WorkItemService {
       });
     }
 
+    if (nextUpdate.patch.cycleId !== undefined) {
+      await this.validateCycle(current.projectId, nextUpdate.patch.cycleId, repositories, {
+        currentCycleId: current.cycleId
+      });
+    }
+
     if (nextUpdate.patch.assigneeId !== undefined) {
       await this.validateAssignee(nextUpdate.patch.assigneeId, repositories, {
         currentAssigneeId: current.assigneeId
@@ -624,7 +646,7 @@ export class WorkItemService {
     action: Exclude<BulkUpdateWorkItemsAction, { type: 'transition_status' }>
   ): {
     patch: Partial<
-      Pick<WorkItem, 'assigneeId' | 'priority' | 'milestoneId' | 'dueDate'>
+      Pick<WorkItem, 'assigneeId' | 'priority' | 'milestoneId' | 'cycleId' | 'dueDate'>
     >;
     labelIds?: string[];
   } | null {
@@ -646,6 +668,14 @@ export class WorkItemService {
 
     if (action.type === 'clear_milestone') {
       return current.milestoneId === null ? null : { patch: { milestoneId: null } };
+    }
+
+    if (action.type === 'set_cycle') {
+      return current.cycleId === action.cycleId ? null : { patch: { cycleId: action.cycleId } };
+    }
+
+    if (action.type === 'clear_cycle') {
+      return current.cycleId === null ? null : { patch: { cycleId: null } };
     }
 
     if (action.type === 'set_due_date') {
@@ -974,6 +1004,28 @@ export class WorkItemService {
     }
   }
 
+  private async validateCycle(
+    projectId: string,
+    cycleId: string | null,
+    repositories: Repositories,
+    options: { currentCycleId?: string | null } = {}
+  ): Promise<void> {
+    if (cycleId === null) {
+      return;
+    }
+
+    const cycle = await repositories.projectCycles.findById(cycleId);
+
+    if (
+      cycle === null ||
+      cycle.workspaceId !== this.context.actor.workspaceId ||
+      cycle.projectId !== projectId ||
+      (cycle.archivedAt !== null && cycle.id !== options.currentCycleId)
+    ) {
+      throw new ValidationError('Cycle is invalid for this project.');
+    }
+  }
+
   private async validateAssignee(
     assigneeId: string | null,
     repositories: Repositories,
@@ -1112,6 +1164,8 @@ export class WorkItemService {
       workItem.assigneeId === null ? null : await repositories.members.findById(workItem.assigneeId);
     const milestone =
       workItem.milestoneId === null ? null : await repositories.milestones.findById(workItem.milestoneId);
+    const cycle =
+      workItem.cycleId === null ? null : await repositories.projectCycles.findById(workItem.cycleId);
 
     if (reporter === null) {
       throw new NotFoundError('Work item reporter not found.');
@@ -1121,12 +1175,17 @@ export class WorkItemService {
       throw new NotFoundError('Work item milestone not found.');
     }
 
+    if (workItem.cycleId !== null && cycle === null) {
+      throw new NotFoundError('Work item cycle not found.');
+    }
+
     return {
       workItem,
       assignee,
       reporter,
       labels,
-      milestone
+      milestone,
+      cycle
     };
   }
 
@@ -1224,6 +1283,7 @@ export class WorkItemService {
     );
     await this.recordDueDateActivity(input);
     await this.recordMilestoneActivity(input);
+    await this.recordCycleActivity(input);
 
     const currentLabelIds = new Set(input.currentLabels.map((label) => label.id));
     const nextLabelIds = new Set(input.nextLabels.map((label) => label.id));
@@ -1363,6 +1423,49 @@ export class WorkItemService {
         nextMilestone === null
           ? null
           : { milestoneId: nextMilestone.id, milestoneName: nextMilestone.name },
+      metadata: {},
+      createdAt: input.timestamp
+    });
+  }
+
+  private async recordCycleActivity(input: {
+    current: WorkItem;
+    updated: WorkItem;
+    repositories: Repositories;
+    timestamp: Date;
+  }): Promise<void> {
+    if (input.current.cycleId === input.updated.cycleId) {
+      return;
+    }
+
+    const previousCycle =
+      input.current.cycleId === null
+        ? null
+        : await input.repositories.projectCycles.findById(input.current.cycleId);
+    const nextCycle =
+      input.updated.cycleId === null
+        ? null
+        : await input.repositories.projectCycles.findById(input.updated.cycleId);
+
+    await input.repositories.activityEvents.create({
+      id: this.idGenerator(),
+      workspaceId: input.updated.workspaceId,
+      projectId: input.updated.projectId,
+      workItemId: input.updated.id,
+      actorId: this.context.actor.memberId,
+      eventType: 'work_item.cycle_changed',
+      summary:
+        nextCycle === null
+          ? 'Cycle assignment cleared.'
+          : `Cycle changed to ${nextCycle.name}.`,
+      previousValue:
+        previousCycle === null
+          ? null
+          : { cycleId: previousCycle.id, cycleName: previousCycle.name },
+      newValue:
+        nextCycle === null
+          ? null
+          : { cycleId: nextCycle.id, cycleName: nextCycle.name },
       metadata: {},
       createdAt: input.timestamp
     });

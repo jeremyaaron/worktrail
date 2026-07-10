@@ -1,16 +1,18 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { ActivatedRoute, ParamMap, convertToParamMap, provideRouter } from '@angular/router';
 import type {
   MemberDto,
   MilestoneDto,
+  ProjectCycleDto,
   ProjectDto,
   WorkItemDetailDto,
   WorkItemRelationshipItemDto,
   WorkItemWatchStateDto,
   WorkspaceWorkItemListItemDto
 } from '@worktrail/contracts';
+import { BehaviorSubject } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorkItemDetailPageComponent } from './work-item-detail-page.component';
@@ -29,6 +31,7 @@ const blockerWorkItemId = '10000000-0000-4000-8000-000000000404';
 const blockedWorkItemId = '10000000-0000-4000-8000-000000000405';
 const relatedWorkItemId = '10000000-0000-4000-8000-000000000406';
 let routeQueryParams: Record<string, string>;
+let routeParamMap: BehaviorSubject<ParamMap>;
 
 const owner: MemberDto = {
   id: ownerId,
@@ -104,6 +107,22 @@ const nextMilestone: MilestoneDto = {
   targetDate: '2026-08-01'
 };
 
+const activeCycle: ProjectCycleDto = {
+  id: '10000000-0000-4000-8000-000000000701',
+  workspaceId: owner.workspaceId,
+  projectId,
+  name: 'Cycle 1',
+  goal: 'Integrate detail cycle assignment.',
+  status: 'active',
+  startDate: '2026-07-06',
+  endDate: '2026-07-20',
+  targetPoints: 24,
+  isArchived: false,
+  archivedAt: null,
+  createdAt: '2026-07-03T12:00:00.000Z',
+  updatedAt: '2026-07-04T12:00:00.000Z'
+};
+
 function relationshipItem(input: {
   id: string;
   workItemId: string;
@@ -155,6 +174,7 @@ function candidate(input: {
     reporter: owner,
     labels: [],
     milestone: null,
+    cycle: null,
     boardPosition: 1024,
     dueDate: null,
     estimatePoints: null,
@@ -187,6 +207,7 @@ const detail: WorkItemDetailDto = {
   reporter: owner,
   labels: [{ id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }],
   milestone: activeMilestone,
+  cycle: activeCycle,
   boardPosition: 1024,
   dueDate: '2026-07-20',
   estimatePoints: 5,
@@ -288,7 +309,11 @@ function setup(
     { id: frontendLabelId, name: 'frontend', color: '#2563eb', isArchived: false, archivedAt: null },
     { id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }
   ]);
-  http.expectOne(`/api/projects/${projectId}/milestones`).flush([activeMilestone, nextMilestone]);
+  http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([
+    activeMilestone,
+    nextMilestone
+  ]);
+  http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([activeCycle]);
   fixture.detectChanges();
   return { fixture, http };
 }
@@ -296,6 +321,7 @@ function setup(
 describe('WorkItemDetailPageComponent', () => {
   beforeEach(async () => {
     routeQueryParams = {};
+    routeParamMap = new BehaviorSubject(convertToParamMap({ workItemId }));
 
     await TestBed.configureTestingModule({
       imports: [WorkItemDetailPageComponent],
@@ -306,8 +332,11 @@ describe('WorkItemDetailPageComponent', () => {
         {
           provide: ActivatedRoute,
           useValue: {
+            paramMap: routeParamMap.asObservable(),
             snapshot: {
-              paramMap: convertToParamMap({ workItemId }),
+              get paramMap() {
+                return routeParamMap.value;
+              },
               get queryParamMap() {
                 return convertToParamMap(routeQueryParams);
               }
@@ -419,7 +448,8 @@ describe('WorkItemDetailPageComponent', () => {
     http.expectOne(`/api/work-items/${workItemId}/watchers`).flush(unwatchedState);
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne(`/api/projects/${projectId}/labels`).flush([]);
-    http.expectOne(`/api/projects/${projectId}/milestones`).flush([]);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([]);
+    http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([]);
     unsafeFixture.detectChanges();
 
     const fallbackLink = (unsafeFixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>(
@@ -499,6 +529,45 @@ describe('WorkItemDetailPageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).not.toContain(
       'WT-3 Implement detail surface'
     );
+  });
+
+  it('reloads detail when navigating to another work item on the same route component', () => {
+    const { fixture, http } = setup();
+    const nextDetail: WorkItemDetailDto = {
+      ...detail,
+      id: blockedWorkItemId,
+      displayKey: 'WT-5',
+      title: 'Build detail controls',
+      description: 'The downstream work item detail.',
+      comments: [],
+      labels: [],
+      relationships: {
+        ...detail.relationships,
+        blockedBy: [],
+        blocks: [],
+        related: [],
+        dependencyBlocked: false,
+        openBlockerCount: 0,
+        openBlockedWorkCount: 0
+      }
+    };
+
+    routeParamMap.next(convertToParamMap({ workItemId: blockedWorkItemId }));
+    fixture.detectChanges();
+
+    http.expectOne(`/api/work-items/${blockedWorkItemId}`).flush(nextDetail);
+    http.expectOne(`/api/work-items/${blockedWorkItemId}/watchers`).flush(unwatchedState);
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/labels`).flush([]);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([]);
+    http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('WT-5');
+    expect(compiled.textContent).toContain('Build detail controls');
+    expect(compiled.textContent).not.toContain('WT-3');
+    expect(fixture.componentInstance.workItemId()).toBe(blockedWorkItemId);
   });
 
   it('adds a blocker by posting from the selected blocker to the current work item', () => {
@@ -877,6 +946,7 @@ describe('WorkItemDetailPageComponent', () => {
       priority: 'urgent',
       assigneeId: owner.id,
       milestoneId: nextMilestone.id,
+      cycleId: activeCycle.id,
       labelIds: [labelId, frontendLabelId]
     });
     request.flush({
@@ -954,7 +1024,8 @@ describe('WorkItemDetailPageComponent', () => {
       { id: frontendLabelId, name: 'frontend', color: '#2563eb', isArchived: false, archivedAt: null },
       { id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }
     ]);
-    http.expectOne(`/api/projects/${projectId}/milestones`).flush([activeMilestone]);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([activeCycle]);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
@@ -981,7 +1052,8 @@ describe('WorkItemDetailPageComponent', () => {
       { id: frontendLabelId, name: 'frontend', color: '#2563eb', isArchived: false, archivedAt: null },
       { id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }
     ]);
-    http.expectOne(`/api/projects/${projectId}/milestones`).flush([activeMilestone]);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([activeCycle]);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;

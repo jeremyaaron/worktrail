@@ -82,6 +82,7 @@ const createWorkItemSchema = z.object({
   assigneeId: nullableUuidSchema.optional(),
   labelIds: z.array(z.string().uuid()).optional(),
   milestoneId: nullableUuidSchema.optional(),
+  cycleId: nullableUuidSchema.optional(),
   dueDate: nullableDateSchema.optional(),
   estimatePoints: nullableEstimateSchema.optional()
 }) satisfies z.ZodType<CreateWorkItemRequest>;
@@ -103,6 +104,7 @@ const updateWorkItemSchema = z
     assigneeId: nullableUuidSchema.optional(),
     labelIds: z.array(z.string().uuid()).optional(),
     milestoneId: nullableUuidSchema.optional(),
+    cycleId: nullableUuidSchema.optional(),
     dueDate: nullableDateSchema.optional(),
     estimatePoints: nullableEstimateSchema.optional()
   })
@@ -140,6 +142,13 @@ const bulkUpdateWorkItemsSchema = z.object({
     }),
     z.object({
       type: z.literal('clear_milestone')
+    }),
+    z.object({
+      type: z.literal('set_cycle'),
+      cycleId: z.string().uuid()
+    }),
+    z.object({
+      type: z.literal('clear_cycle')
     }),
     z.object({
       type: z.literal('set_due_date'),

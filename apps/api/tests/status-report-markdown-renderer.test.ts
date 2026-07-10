@@ -176,20 +176,30 @@ describe('projectWorkItemPathFromQuery', () => {
         archivedProjects: 'include',
         search: 'api gateway',
         status: 'blocked',
+        cycleId: 'cycle-id',
         sort: 'priority_desc',
         labelId: 'label-id'
       })
-    ).toBe('/projects/project-id/work-items?search=api+gateway&status=blocked&labelId=label-id&sort=priority_desc');
+    ).toBe('/projects/project-id/work-items?search=api+gateway&status=blocked&labelId=label-id&cycleId=cycle-id&sort=priority_desc');
   });
 
   it('omits the default sort and unsupported workspace-scope fields', () => {
     expect(
       projectWorkItemPathFromQuery(project.id, {
         blocked: true,
-        sort: 'updated_desc',
-        workState: 'open'
+        sort: 'updated_desc'
       })
     ).toBe('/projects/project-id/work-items');
+  });
+
+  it('serializes cycle-scoped open-work links', () => {
+    expect(
+      projectWorkItemPathFromQuery(project.id, {
+        cycleId: 'cycle-id',
+        workState: 'open',
+        sort: 'priority_desc'
+      })
+    ).toBe('/projects/project-id/work-items?workState=open&cycleId=cycle-id&sort=priority_desc');
   });
 });
 
@@ -219,6 +229,50 @@ describe('renderStatusReportMarkdown', () => {
     );
   });
 
+  it('renders active cycle context when captured', () => {
+    const markdown = renderStatusReportMarkdown(
+      createReport({
+        snapshot: {
+          ...snapshot,
+          cycle: {
+            id: 'cycle-id',
+            name: 'July execution cycle',
+            goal: 'Finish the July execution slice.',
+            status: 'active',
+            startDate: '2026-07-01',
+            endDate: '2026-07-15',
+            targetPoints: 13,
+            committedEstimatePoints: 15,
+            completedEstimatePoints: 5,
+            openWorkCount: 3,
+            blockedWorkCount: 1,
+            dependencyBlockedWorkCount: 1,
+            unestimatedWorkCount: 1,
+            health: 'blocked',
+            reasons: [healthReason],
+            links: [
+              {
+                type: 'cycle_review',
+                label: 'Review cycle',
+                projectId: project.id,
+                cycleId: 'cycle-id'
+              }
+            ]
+          }
+        }
+      })
+    );
+
+    expect(markdown).toContain('## Active Cycle');
+    expect(markdown).toContain('[July execution cycle](/projects/project-id/cycles/cycle-id)');
+    expect(markdown).toContain('- Health: Blocked');
+    expect(markdown).toContain('- Estimate: 5/15 of 13 target points');
+    expect(markdown).toContain(
+      '[Open current cycle work](/projects/project-id/work-items?workState=open&cycleId=cycle-id&sort=priority_desc)'
+    );
+    expect(markdown).toContain('Cycle reasons:');
+  });
+
   it('renders deterministic empty states for optional snapshot sections', () => {
     const markdown = renderStatusReportMarkdown(
       createReport({
@@ -243,6 +297,7 @@ describe('renderStatusReportMarkdown', () => {
     expect(markdown).toContain('No next steps provided.');
     expect(markdown).toContain('No delivery-health reasons recorded.');
     expect(markdown).toContain('No active or planned milestones captured.');
+    expect(markdown).toContain('No active cycle captured.');
     expect(markdown).toContain('No risk sections captured.');
     expect(markdown).toContain('No recent work captured.');
   });
