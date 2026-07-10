@@ -15,7 +15,6 @@ import type {
   ProjectCycleDto,
   ProjectCycleStatus,
   ProjectDto,
-  ProjectPlanningCycleSummaryDto,
   ProjectPlanningSummaryDto,
   WorkItemStatus
 } from '@worktrail/contracts';
@@ -23,11 +22,6 @@ import type {
 import { CyclesApi } from '../../core/api/cycles-api';
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorktrailApiService } from '../../core/worktrail-api.service';
-import {
-  cycleDateRangeLabel as displayCycleDateRangeLabel,
-  cycleHealthLabel as displayCycleHealthLabel,
-  cycleStatusLabel as displayCycleStatusLabel
-} from '../../shared/cycles/cycle-display';
 import {
   deliveryHealthLabel,
   deliveryHealthReasonLabel,
@@ -39,6 +33,11 @@ import {
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
+import {
+  CycleManagerComponent,
+  type CycleUpdateRequest
+} from './planning/cycle-manager.component';
+import { CycleSummaryPanelComponent } from './planning/cycle-summary-panel.component';
 import { MilestoneManagerComponent } from './planning/milestone-manager.component';
 import { PlanningReviewComponent } from './planning/planning-review.component';
 
@@ -91,6 +90,8 @@ interface PlanningReviewSection {
   imports: [
     EmptyStateComponent,
     ErrorPanelComponent,
+    CycleManagerComponent,
+    CycleSummaryPanelComponent,
     LoadingIndicatorComponent,
     MilestoneManagerComponent,
     PlanningReviewComponent,
@@ -161,217 +162,26 @@ interface PlanningReviewSection {
 
       <section class="planning-grid" aria-label="Planning sections">
         @if (selectedPlanningView() === 'cycles') {
-          <section class="panel cycle-panel" aria-labelledby="cycles-heading">
-            <div class="panel-heading">
-              <div>
-                <h2 id="cycles-heading">Cycles</h2>
-                <p>Plan timeboxed delivery windows for scoped project work.</p>
-              </div>
-              <span>{{ cycles().length }} total</span>
-            </div>
-
-            @if (canManageCycles()) {
-              <form class="cycle-form" [formGroup]="cycleForm" (ngSubmit)="createCycle()" novalidate>
-                <label for="cycle-name">Name</label>
-                <input
-                  id="cycle-name"
-                  type="text"
-                  formControlName="name"
-                  autocomplete="off"
-                  [attr.aria-invalid]="showCycleNameError()"
-                  aria-describedby="cycle-name-error"
-                />
-                @if (showCycleNameError()) {
-                  <p id="cycle-name-error" class="field-error">Cycle name is required.</p>
-                }
-
-                <label for="cycle-goal">Goal</label>
-                <textarea id="cycle-goal" rows="3" formControlName="goal"></textarea>
-
-                <div class="cycle-form__grid">
-                  <label>
-                    <span>Status</span>
-                    <select formControlName="status">
-                      @for (status of cycleStatuses; track status) {
-                        <option [value]="status">{{ cycleStatusLabel(status) }}</option>
-                      }
-                    </select>
-                  </label>
-
-                  <label>
-                    <span>Start date</span>
-                    <input type="date" formControlName="startDate" />
-                  </label>
-
-                  <label>
-                    <span>End date</span>
-                    <input type="date" formControlName="endDate" />
-                  </label>
-
-                  <label>
-                    <span>Target points</span>
-                    <input type="number" min="1" max="999" step="1" formControlName="targetPoints" />
-                  </label>
-                </div>
-
-                @if (cycleSuccessMessage()) {
-                  <p class="success-message">{{ cycleSuccessMessage() }}</p>
-                }
-
-                <button type="submit" [disabled]="isCreatingCycle()">
-                  {{ isCreatingCycle() ? 'Creating...' : 'Create cycle' }}
-                </button>
-              </form>
-            }
-
-            @if (cycleCreateError()) {
-              <p class="field-error">{{ cycleCreateError() }}</p>
-            }
-
-            @if (cycleMutationError()) {
-              <app-error-panel
-                title="Cycle change failed"
-                [message]="cycleMutationError() ?? ''"
-                (retry)="loadCycles()"
-              />
-            }
-
-            @if (isLoadingCycles()) {
-              <app-loading-indicator label="Loading cycles" />
-            } @else if (cycleLoadError()) {
-              <app-error-panel [message]="cycleLoadError() ?? ''" (retry)="loadCycles()" />
-            } @else if (cycles().length === 0) {
-              <app-empty-state
-                title="No cycles yet"
-                message="Create a cycle to start planning timeboxed work."
-              />
-            } @else {
-              <div class="cycle-list" aria-label="Project cycles">
-                @for (cycle of cycles(); track cycle.id) {
-                  <article class="cycle-row" [class.cycle-row--archived]="cycle.isArchived">
-                    <div class="cycle-row__header">
-                      <div class="cycle-row__title">
-                        <h3>{{ cycle.name }}</h3>
-                        <p>{{ cycle.goal || 'No goal provided.' }}</p>
-                      </div>
-
-                      <div class="cycle-row__links">
-                        <a [routerLink]="['/projects', projectId(), 'cycles', cycle.id]">Review</a>
-                        <a
-                          [routerLink]="['/projects', projectId(), 'work-items']"
-                          [queryParams]="{ cycleId: cycle.id, sort: 'priority_desc' }"
-                        >
-                          Work
-                        </a>
-                      </div>
-                    </div>
-
-                    <div class="cycle-row__meta">
-                      <span class="status-pill" [class.status-pill--archived]="cycle.isArchived">
-                        {{ cycle.isArchived ? 'archived' : cycleStatusLabel(cycle.status) }}
-                      </span>
-                      <span>{{ cycleDateRangeLabel(cycle) }}</span>
-                      <span>{{ cycle.targetPoints === null ? 'No target' : cycle.targetPoints + ' target points' }}</span>
-                      <span>Updated {{ formatDateTime(cycle.updatedAt) }}</span>
-                    </div>
-
-                    @if (canManageCycles()) {
-                      <div class="cycle-row__fields">
-                        <label>
-                          <span>Name</span>
-                          <input #cycleName type="text" [value]="cycle.name" [disabled]="isMutatingCycle(cycle)" />
-                        </label>
-
-                        <label>
-                          <span>Goal</span>
-                          <textarea #cycleGoal rows="2" [disabled]="isMutatingCycle(cycle)">{{ cycle.goal }}</textarea>
-                        </label>
-
-                        <label>
-                          <span>Status</span>
-                          <select #cycleStatus [value]="cycle.status" [disabled]="isMutatingCycle(cycle)">
-                            @for (status of cycleStatuses; track status) {
-                              <option [value]="status">{{ cycleStatusLabel(status) }}</option>
-                            }
-                          </select>
-                        </label>
-
-                        <label>
-                          <span>Start date</span>
-                          <input
-                            #cycleStartDate
-                            type="date"
-                            [value]="cycle.startDate"
-                            [disabled]="isMutatingCycle(cycle)"
-                          />
-                        </label>
-
-                        <label>
-                          <span>End date</span>
-                          <input
-                            #cycleEndDate
-                            type="date"
-                            [value]="cycle.endDate"
-                            [disabled]="isMutatingCycle(cycle)"
-                          />
-                        </label>
-
-                        <label>
-                          <span>Target points</span>
-                          <input
-                            #cycleTargetPoints
-                            type="number"
-                            min="1"
-                            max="999"
-                            step="1"
-                            [value]="cycle.targetPoints ?? ''"
-                            [disabled]="isMutatingCycle(cycle)"
-                          />
-                        </label>
-                      </div>
-
-                      <div class="cycle-actions">
-                        <button
-                          type="button"
-                          [disabled]="isMutatingCycle(cycle)"
-                          (click)="updateCycle(
-                            cycle,
-                            cycleName.value,
-                            cycleGoal.value,
-                            cycleStatus.value,
-                            cycleStartDate.value,
-                            cycleEndDate.value,
-                            cycleTargetPoints.value
-                          )"
-                        >
-                          {{ isMutatingCycle(cycle) ? 'Saving...' : 'Save' }}
-                        </button>
-
-                        @if (cycle.isArchived) {
-                          <button
-                            type="button"
-                            [disabled]="isMutatingCycle(cycle)"
-                            (click)="reactivateCycle(cycle)"
-                          >
-                            Reactivate
-                          </button>
-                        } @else {
-                          <button
-                            type="button"
-                            class="danger-button"
-                            [disabled]="isMutatingCycle(cycle)"
-                            (click)="archiveCycle(cycle)"
-                          >
-                            Archive
-                          </button>
-                        }
-                      </div>
-                    }
-                  </article>
-                }
-              </div>
-            }
-          </section>
+          <app-cycle-manager
+            [projectId]="projectId()"
+            [cycleForm]="cycleForm"
+            [cycles]="cycles()"
+            [cycleStatuses]="cycleStatuses"
+            [canManageCycles]="canManageCycles()"
+            [isLoadingCycles]="isLoadingCycles()"
+            [isCreatingCycle]="isCreatingCycle()"
+            [hasSubmittedCycleCreate]="hasSubmittedCycleCreate()"
+            [mutatingCycleId]="mutatingCycleId()"
+            [cycleLoadError]="cycleLoadError()"
+            [cycleCreateError]="cycleCreateError()"
+            [cycleMutationError]="cycleMutationError()"
+            [cycleSuccessMessage]="cycleSuccessMessage()"
+            (create)="createCycle()"
+            (retryLoad)="loadCycles()"
+            (update)="updateCycleFromRequest($event)"
+            (archive)="archiveCycle($event)"
+            (reactivate)="reactivateCycle($event)"
+          />
         } @else if (selectedPlanningView() === 'milestones') {
           <app-milestone-manager>
         <section class="panel milestone-panel" aria-labelledby="milestones-heading">
@@ -637,84 +447,7 @@ interface PlanningReviewSection {
               }
             </section>
 
-            <section class="dashboard-section" aria-labelledby="cycle-summary-heading">
-              <div class="section-heading">
-                <h3 id="cycle-summary-heading">Cycle planning</h3>
-                <span>{{ cycleSummaryCount(summary) }} visible</span>
-              </div>
-
-              @if (cycleSummaryCount(summary) === 0) {
-                <div class="compact-empty">
-                  <strong>No active cycle context</strong>
-                  <span>Active, upcoming, and recently completed cycles will appear here once created.</span>
-                </div>
-              } @else {
-                <div class="cycle-summary-grid">
-                  @if (summary.activeCycle; as activeCycle) {
-                    <article class="cycle-summary-card">
-                      <p class="section-eyebrow">Active cycle</p>
-                      <h4>{{ activeCycle.cycle.name }}</h4>
-                      <span class="health-pill" [attr.data-tone]="healthTone(activeCycle.health.health)">
-                        {{ cycleHealthLabel(activeCycle.health.health) }}
-                      </span>
-                      <p>{{ cycleDateRangeLabel(activeCycle.cycle) }}</p>
-                      <p>{{ cycleProgressLabel(activeCycle) }}</p>
-                      <div class="cycle-summary-card__actions">
-                        <a [routerLink]="['/projects', projectId(), 'cycles', activeCycle.cycle.id]">Review</a>
-                        <a
-                          [routerLink]="['/projects', projectId(), 'work-items']"
-                          [queryParams]="cycleWorkQueryParams(activeCycle)"
-                        >
-                          Open work
-                        </a>
-                      </div>
-                    </article>
-                  }
-
-                  @if (summary.upcomingCycle; as upcomingCycle) {
-                    <article class="cycle-summary-card">
-                      <p class="section-eyebrow">Upcoming cycle</p>
-                      <h4>{{ upcomingCycle.cycle.name }}</h4>
-                      <span class="health-pill" [attr.data-tone]="healthTone(upcomingCycle.health.health)">
-                        {{ cycleHealthLabel(upcomingCycle.health.health) }}
-                      </span>
-                      <p>{{ cycleDateRangeLabel(upcomingCycle.cycle) }}</p>
-                      <p>{{ cycleProgressLabel(upcomingCycle) }}</p>
-                      <div class="cycle-summary-card__actions">
-                        <a [routerLink]="['/projects', projectId(), 'cycles', upcomingCycle.cycle.id]">Review</a>
-                        <a
-                          [routerLink]="['/projects', projectId(), 'work-items']"
-                          [queryParams]="cycleWorkQueryParams(upcomingCycle)"
-                        >
-                          Open work
-                        </a>
-                      </div>
-                    </article>
-                  }
-
-                  @if (summary.recentlyCompletedCycle; as completedCycle) {
-                    <article class="cycle-summary-card">
-                      <p class="section-eyebrow">Recently completed</p>
-                      <h4>{{ completedCycle.cycle.name }}</h4>
-                      <span class="health-pill" [attr.data-tone]="healthTone(completedCycle.health.health)">
-                        {{ cycleHealthLabel(completedCycle.health.health) }}
-                      </span>
-                      <p>{{ cycleDateRangeLabel(completedCycle.cycle) }}</p>
-                      <p>{{ cycleProgressLabel(completedCycle) }}</p>
-                      <div class="cycle-summary-card__actions">
-                        <a [routerLink]="['/projects', projectId(), 'cycles', completedCycle.cycle.id]">Review</a>
-                        <a
-                          [routerLink]="['/projects', projectId(), 'work-items']"
-                          [queryParams]="cycleWorkQueryParams(completedCycle)"
-                        >
-                          Open work
-                        </a>
-                      </div>
-                    </article>
-                  }
-                </div>
-              }
-            </section>
+            <app-cycle-summary-panel [projectId]="projectId()" [summary]="summary" />
 
             <section class="dashboard-section" aria-labelledby="milestone-progress-heading">
               <div class="section-heading">
@@ -1166,7 +899,6 @@ interface PlanningReviewSection {
       font-weight: 800;
     }
 
-    .cycle-form,
     .milestone-form {
       display: grid;
       gap: 10px;
@@ -1177,8 +909,6 @@ interface PlanningReviewSection {
       background: #f8fafc;
     }
 
-    .cycle-form__grid,
-    .cycle-row__fields,
     .milestone-form__grid,
     .milestone-row__fields {
       display: grid;
@@ -1234,13 +964,11 @@ interface PlanningReviewSection {
       font-weight: 800;
     }
 
-    .cycle-list,
     .milestone-list {
       display: grid;
       gap: 12px;
     }
 
-    .cycle-row,
     .milestone-row {
       display: grid;
       gap: 12px;
@@ -1250,53 +978,16 @@ interface PlanningReviewSection {
       background: #ffffff;
     }
 
-    .cycle-row--archived,
     .milestone-row--archived {
       background: #f8fafc;
     }
 
-    .cycle-row__title,
     .milestone-row__title {
       display: grid;
       gap: 4px;
     }
 
-    .cycle-row__header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 16px;
-    }
-
-    .cycle-row__links {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-      gap: 8px;
-    }
-
-    .cycle-row__links a,
-    .cycle-summary-card__actions a {
-      display: inline-flex;
-      align-items: center;
-      min-height: 32px;
-      border: 1px solid #cbd5e1;
-      border-radius: 6px;
-      padding: 6px 10px;
-      color: #1d4ed8;
-      font-size: 0.8125rem;
-      font-weight: 800;
-      text-decoration: none;
-    }
-
-    .cycle-row__links a:hover,
-    .cycle-summary-card__actions a:hover {
-      background: #f8fafc;
-    }
-
-    .cycle-row__meta,
     .milestone-row__meta,
-    .cycle-actions,
     .milestone-actions {
       display: flex;
       flex-wrap: wrap;
@@ -1304,32 +995,10 @@ interface PlanningReviewSection {
       gap: 8px;
     }
 
-    .cycle-row__meta,
     .milestone-row__meta {
       color: #64748b;
       font-size: 0.8125rem;
       font-weight: 700;
-    }
-
-    .cycle-summary-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
-    }
-
-    .cycle-summary-card {
-      display: grid;
-      gap: 9px;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 12px;
-      background: #ffffff;
-    }
-
-    .cycle-summary-card__actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
     }
 
     .summary-panel {
@@ -1682,8 +1351,6 @@ interface PlanningReviewSection {
     @media (max-width: 900px) {
       .page-header,
       .planning-grid,
-      .cycle-form__grid,
-      .cycle-row__fields,
       .milestone-form__grid,
       .milestone-row__fields {
         grid-template-columns: 1fr;
@@ -1694,17 +1361,8 @@ interface PlanningReviewSection {
       }
 
       .health-counts,
-      .cycle-summary-grid,
       .risk-metrics {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .cycle-row__header {
-        display: grid;
-      }
-
-      .cycle-row__links {
-        justify-content: flex-start;
       }
 
       .risk-row,
@@ -2160,6 +1818,18 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
     });
   }
 
+  updateCycleFromRequest(request: CycleUpdateRequest): void {
+    this.updateCycle(
+      request.cycle,
+      request.name,
+      request.goal,
+      request.status,
+      request.startDate,
+      request.endDate,
+      request.targetPoints
+    );
+  }
+
   archiveMilestone(milestone: MilestoneDto): void {
     this.runMilestoneCommand(
       milestone,
@@ -2200,51 +1870,9 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
     return this.mutatingMilestoneId() === milestone.id;
   }
 
-  isMutatingCycle(cycle: ProjectCycleDto): boolean {
-    return this.mutatingCycleId() === cycle.id;
-  }
-
   showMilestoneNameError(): boolean {
     const control = this.milestoneForm.controls.name;
     return control.invalid && (control.touched || this.hasSubmittedCreate());
-  }
-
-  showCycleNameError(): boolean {
-    const control = this.cycleForm.controls.name;
-    return control.invalid && (control.touched || this.hasSubmittedCycleCreate());
-  }
-
-  cycleStatusLabel(status: ProjectCycleStatus): string {
-    return displayCycleStatusLabel(status);
-  }
-
-  cycleDateRangeLabel(cycle: Pick<ProjectCycleDto, 'startDate' | 'endDate'>): string {
-    return displayCycleDateRangeLabel(cycle);
-  }
-
-  cycleHealthLabel(state: DeliveryHealthState): string {
-    return displayCycleHealthLabel(state);
-  }
-
-  cycleSummaryCount(summary: ProjectPlanningSummaryDto): number {
-    return [
-      summary.activeCycle,
-      summary.upcomingCycle,
-      summary.recentlyCompletedCycle
-    ].filter((cycle) => cycle !== null).length;
-  }
-
-  cycleWorkQueryParams(summary: ProjectPlanningCycleSummaryDto): Record<string, string> | null {
-    return workItemQueryToRouterQueryParams(summary.scopedWorkQuery, 'project');
-  }
-
-  cycleProgressLabel(summary: ProjectPlanningCycleSummaryDto): string {
-    const target =
-      summary.progress.targetPoints === null
-        ? 'no target'
-        : `${summary.progress.targetPoints} target points`;
-
-    return `${summary.progress.doneCount} of ${summary.progress.totalCount} done · ${summary.progress.openCount} open · ${summary.progress.committedEstimatePoints}/${target}`;
   }
 
   formatToken(value: string): string {

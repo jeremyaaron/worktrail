@@ -7,6 +7,10 @@ import { expect, test } from '@playwright/test';
 import type { APIRequestContext, Download, Locator, Page } from '@playwright/test';
 
 const demoProjectId = '10000000-0000-4000-8000-000000000201';
+const childEnv: NodeJS.ProcessEnv = { ...process.env };
+
+delete childEnv.NO_COLOR;
+delete childEnv.FORCE_COLOR;
 
 interface CreatedWorkItem {
   id: string;
@@ -130,7 +134,7 @@ async function downloadText(download: Download): Promise<string> {
 function runNpmScript(script: string): void {
   execFileSync('npm', ['run', script], {
     cwd: process.cwd(),
-    env: process.env,
+    env: childEnv,
     stdio: 'inherit'
   });
 }

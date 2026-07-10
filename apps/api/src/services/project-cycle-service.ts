@@ -89,25 +89,29 @@ export class ProjectCycleService {
   async getCycleReview(projectId: string, cycleId: string): Promise<ProjectCycleReviewDto> {
     const project = await this.requireProject(projectId, this.context.repositories);
     const cycle = await this.requireProjectCycle(projectId, cycleId, this.context.repositories);
-    const [
-      workItems,
-      dependencyBlockedWorkItems,
-      blockingOpenWorkItems,
-      milestones,
-      members
-    ] = await Promise.all([
-      this.context.repositories.workItems.listByProject(projectId, { sort: 'board_order' }),
-      this.context.repositories.workItems.listByProject(projectId, {
+    const workItems = await this.context.repositories.workItems.listByProject(projectId, {
+      sort: 'board_order'
+    });
+    const dependencyBlockedWorkItems = await this.context.repositories.workItems.listByProject(
+      projectId,
+      {
         dependency: 'dependency_blocked',
         sort: 'priority_desc'
-      }),
-      this.context.repositories.workItems.listByProject(projectId, {
+      }
+    );
+    const blockingOpenWorkItems = await this.context.repositories.workItems.listByProject(
+      projectId,
+      {
         dependency: 'blocking_open_work',
         sort: 'priority_desc'
-      }),
-      this.context.repositories.milestones.listByProject(projectId, { includeArchived: true }),
-      this.context.repositories.members.listByWorkspace(this.context.actor.workspaceId)
-    ]);
+      }
+    );
+    const milestones = await this.context.repositories.milestones.listByProject(projectId, {
+      includeArchived: true
+    });
+    const members = await this.context.repositories.members.listByWorkspace(
+      this.context.actor.workspaceId
+    );
     const scopedWorkItems = workItems.filter((workItem) => workItem.cycleId === cycleId);
     const now = this.clock();
     const evaluationContext = createWorkRiskEvaluationContext({

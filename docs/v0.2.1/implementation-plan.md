@@ -1266,6 +1266,100 @@ Notes:
   - `npm run build` (passes with the existing `project-planning-page.component.ts` style budget warning);
   - `git diff --check`.
 
+## Phase 12A: Planning Page Component Extraction
+
+Goal: clear the Planning page style budget warning by splitting meaningful Planning sub-surfaces into focused Angular components, while preserving the current user experience and avoiding global CSS leakage.
+
+Scope:
+
+- Extract cycle management from `project-planning-page.component.ts` into a focused child component:
+  - cycle create form;
+  - cycle list rows;
+  - cycle edit fields;
+  - archive/reactivate controls;
+  - cycle mutation success/error states;
+  - owner/maintainer permission-sensitive controls.
+- Extract cycle summary cards from the Planning Review view into a focused child component:
+  - active cycle;
+  - upcoming cycle;
+  - recently completed cycle;
+  - review links and filtered Work links.
+- Keep `project-planning-page.component.ts` responsible for:
+  - route/project context;
+  - selected Planning tab state;
+  - high-level data loading orchestration;
+  - permission computation;
+  - passing typed inputs and handling child output events.
+- Keep child components standalone and colocated under the Planning feature, for example:
+  - `project-cycle-manager.component.ts`;
+  - `project-cycle-summary-panel.component.ts`;
+  - optional small shared Planning display helpers only if duplication becomes meaningful.
+- Move only the extracted component-specific template and styles into the extracted components.
+- Preserve current selectors, accessible labels, button text, links, and route/query behavior where browser tests depend on them.
+- Update `project-planning-page.component.spec.ts` and add focused child component specs where behavior moves out of the parent.
+- Run production build and confirm the `project-planning-page.component.ts` style budget warning is gone.
+
+Out of scope:
+
+- Raising Angular style budgets.
+- Moving page-specific styles into global styles.
+- Redesigning the Planning page.
+- Changing cycle API behavior, contracts, seed data, or persistence.
+- Extracting milestone management or planning review risk sections unless 12A does not clear the warning.
+- New cycle features.
+
+Acceptance criteria:
+
+- `npm run build` no longer emits the Planning component style budget warning.
+- Cycle create/edit/archive/reactivate behavior remains covered by tests.
+- Planning Review cycle summary cards still render active/upcoming/recent cycle context and preserve review/work links.
+- Existing Phase 12 browser smoke around cycle review, scoped Work links, cycle assignment, and report snapshot context still passes.
+- The parent Planning component is smaller and more orchestration-focused, without introducing broad abstractions.
+
+Suggested commands:
+
+```sh
+npm test --workspace @worktrail/web -- --include 'src/app/features/projects/project-planning-page.component.spec.ts' --include 'src/app/features/projects/planning/cycle-manager.component.spec.ts' --include 'src/app/features/projects/planning/cycle-summary-panel.component.spec.ts'
+npm test --workspace @worktrail/web
+npm run typecheck --workspace @worktrail/web
+npm run lint --workspace @worktrail/web
+npm run build
+npx playwright test -g "reviews v0.2.1 cycle|surfaces v0.0.9 delivery health|reviews seeded milestone delivery risks"
+git diff --check
+```
+
+Status:
+
+- Completed on 2026-07-09.
+- Extracted cycle management from `project-planning-page.component.ts` into `apps/web/src/app/features/projects/planning/cycle-manager.component.ts`.
+- Extracted Planning Review cycle summary cards into `apps/web/src/app/features/projects/planning/cycle-summary-panel.component.ts`.
+- Kept the parent Planning page responsible for project context, selected tab state, loading orchestration, permission checks, and cycle mutation API commands.
+- Preserved cycle create/edit/archive/reactivate behavior, accessible labels, route links, filtered Work links, and review navigation.
+- Added focused component specs for:
+  - cycle create/update/archive/read-only/loading/error behavior;
+  - cycle summary card rendering, empty state rendering, and review/work links.
+- Confirmed `npm run build` no longer emits the `project-planning-page.component.ts` style budget warning.
+- Cleared the pg seed deprecation warning by making cycle-review read queries sequential when they run inside the status-report publish transaction.
+- Cleaned E2E child-process environment handling so Playwright DB reset/restore and web-server subprocesses do not inherit conflicting `NO_COLOR`/`FORCE_COLOR` settings.
+- Updated the Playwright Angular web-server command to use a single loopback host value for E2E without changing the normal local `npm run dev` host behavior.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm test --workspace @worktrail/web -- --include 'src/app/features/projects/project-planning-page.component.spec.ts' --include 'src/app/features/projects/planning/cycle-manager.component.spec.ts' --include 'src/app/features/projects/planning/cycle-summary-panel.component.spec.ts'`;
+  - `npm test --workspace @worktrail/web`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm run typecheck`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `npm run lint`;
+  - `npm run build`;
+  - `npx playwright test -g "reviews v0.2.1 cycle|surfaces v0.0.9 delivery health|reviews seeded milestone delivery risks"`;
+  - `git diff --check`.
+
+Contingency:
+
+- Not needed. Extracting cycle management and cycle summaries cleared the budget.
+- If the budget clears but the parent component remains difficult to work in, defer deeper Planning composition to a later cleanup sprint rather than expanding v0.2.1 beyond the cycle-planning release goal.
+
 ## Phase 13: Documentation, Public Site, Release Notes, Pattern Notes, And Final Verification
 
 Goal: finish v0.2.1 with accurate documentation and full verification.
