@@ -47,6 +47,7 @@ async function cleanupWorkspace(workspaceId: string) {
   );
   await pool.query('delete from labels where workspace_id = $1', [workspaceId]);
   await pool.query('delete from work_items where workspace_id = $1', [workspaceId]);
+  await pool.query('delete from project_cycles where workspace_id = $1', [workspaceId]);
   await pool.query('delete from milestones where workspace_id = $1', [workspaceId]);
   await pool.query('delete from projects where workspace_id = $1', [workspaceId]);
   await pool.query('delete from members where workspace_id = $1', [workspaceId]);
@@ -150,6 +151,33 @@ async function createMilestone(
   });
 }
 
+async function createProjectCycle(
+  fixture: Awaited<ReturnType<typeof createFixture>>,
+  input: {
+    name: string;
+    status?: 'planned' | 'active' | 'completed' | 'canceled';
+    startDate: string;
+    endDate: string;
+    targetPoints?: number | null;
+  }
+) {
+  return repositories.projectCycles.create({
+    id: randomUUID(),
+    workspaceId: fixture.workspaceId,
+    projectId: fixture.projectId,
+    name: input.name,
+    goal: `${input.name} status report goal.`,
+    status: input.status ?? 'planned',
+    startDate: input.startDate,
+    endDate: input.endDate,
+    targetPoints: input.targetPoints ?? null,
+    archivedAt: null,
+    archivedById: null,
+    createdAt: now(),
+    updatedAt: now()
+  });
+}
+
 async function createWorkItem(
   fixture: Awaited<ReturnType<typeof createFixture>>,
   input: {
@@ -158,7 +186,9 @@ async function createWorkItem(
     priority?: WorkItemPriority;
     assigneeId?: string | null;
     milestoneId?: string | null;
+    cycleId?: string | null;
     dueDate?: string | null;
+    estimatePoints?: number | null;
     updatedAt?: Date;
   }
 ) {
@@ -179,9 +209,10 @@ async function createWorkItem(
     assigneeId: input.assigneeId === undefined ? fixture.assigneeId : input.assigneeId,
     reporterId: fixture.actorId,
     milestoneId: input.milestoneId ?? null,
+    cycleId: input.cycleId ?? null,
     boardPosition: itemNumber * 1024,
     dueDate: input.dueDate ?? null,
-    estimatePoints: null,
+    estimatePoints: input.estimatePoints ?? null,
     createdAt: now(),
     updatedAt: input.updatedAt ?? now()
   });
@@ -249,12 +280,21 @@ describe('project status reports', () => {
       status: 'completed',
       targetDate: '2026-07-01'
     });
+    const activeCycle = await createProjectCycle(fixture, {
+      name: 'Status cycle',
+      status: 'active',
+      startDate: '2026-07-08',
+      endDate: '2026-07-15',
+      targetPoints: 10
+    });
 
     const blocker = await createWorkItem(fixture, {
       title: 'Open blocker',
       status: 'blocked',
       priority: 'urgent',
       milestoneId: activeMilestone.id,
+      cycleId: activeCycle.id,
+      estimatePoints: 5,
       dueDate: '2026-07-09'
     });
     const blocked = await createWorkItem(fixture, {
@@ -262,6 +302,8 @@ describe('project status reports', () => {
       status: 'in_progress',
       priority: 'high',
       milestoneId: activeMilestone.id,
+      cycleId: activeCycle.id,
+      estimatePoints: 3,
       dueDate: '2026-07-12'
     });
     await createWorkItem(fixture, {
@@ -269,13 +311,16 @@ describe('project status reports', () => {
       status: 'ready',
       priority: 'medium',
       assigneeId: null,
-      milestoneId: activeMilestone.id
+      milestoneId: activeMilestone.id,
+      cycleId: activeCycle.id
     });
     await createWorkItem(fixture, {
       title: 'Stale implementation',
       status: 'in_progress',
       priority: 'low',
       milestoneId: activeMilestone.id,
+      cycleId: activeCycle.id,
+      estimatePoints: 4,
       updatedAt: staleUpdatedAt()
     });
     await createBlockingRelationship(fixture, {
@@ -315,6 +360,41 @@ describe('project status reports', () => {
       count: 1,
       query: { dependency: 'dependency_blocked', sort: 'priority_desc' }
     });
+    expect(draft.snapshot.cycle).toMatchObject({
+      id: activeCycle.id,
+      name: 'Status cycle',
+      status: 'active',
+      targetPoints: 10,
+      committedEstimatePoints: 12,
+      completedEstimatePoints: 0,
+      openWorkCount: 4,
+      blockedWorkCount: 1,
+      dependencyBlockedWorkCount: 1,
+      unestimatedWorkCount: 1,
+      health: 'blocked',
+      links: expect.arrayContaining([
+        expect.objectContaining({
+          type: 'cycle_review',
+          projectId: fixture.projectId,
+          cycleId: activeCycle.id
+        }),
+        expect.objectContaining({
+          type: 'project_work',
+          projectId: fixture.projectId,
+          query: { cycleId: activeCycle.id, workState: 'open', sort: 'priority_desc' }
+        })
+      ])
+    });
+    expect(draft.snapshot.cycle?.reasons).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        key: 'cycle_over_target',
+        query: { cycleId: activeCycle.id, sort: 'priority_desc' }
+      }),
+      expect.objectContaining({
+        key: 'unestimated_work',
+        query: { cycleId: activeCycle.id, workState: 'open', sort: 'priority_desc' }
+      })
+    ]));
     expect(draft.snapshot.recentWork).toHaveLength(4);
   });
 
@@ -328,6 +408,7 @@ describe('project status reports', () => {
     });
     const service = createService(fixture);
     const draft = await service.getProjectStatusReportDraft(fixture.projectId);
+    expect(draft.snapshot.cycle).toBeNull();
 
     const published = await service.publishProjectStatusReport(fixture.projectId, {
       title: '  Executive weekly status  ',
@@ -380,6 +461,7 @@ describe('project status reports', () => {
       health: draft.snapshot.health.health
     });
     expect(detail.snapshot.counts.blockedWorkCount).toBe(1);
+    expect(detail.snapshot.cycle).toBeNull();
     expect(detail.snapshot.recentWork[0]?.id).toBe(workItem.id);
     expect(activity[0]).toMatchObject({
       eventType: 'status_report.published',
@@ -393,10 +475,19 @@ describe('project status reports', () => {
 
   it('exports immutable report snapshots as Markdown without creating activity', async () => {
     const fixture = await createFixture();
+    const activeCycle = await createProjectCycle(fixture, {
+      name: 'Export cycle',
+      status: 'active',
+      startDate: '2026-07-08',
+      endDate: '2026-07-15',
+      targetPoints: 5
+    });
     const workItem = await createWorkItem(fixture, {
       title: 'Tracked export work',
       status: 'blocked',
       priority: 'high',
+      cycleId: activeCycle.id,
+      estimatePoints: 3,
       dueDate: '2026-07-09'
     });
     const service = createService(fixture);
@@ -406,6 +497,12 @@ describe('project status reports', () => {
       statusDate: '2026-07-10',
       summary: 'Delivery is under watch.',
       snapshot: draft.snapshot
+    });
+    expect(published.snapshot.cycle).toMatchObject({
+      id: activeCycle.id,
+      name: 'Export cycle',
+      openWorkCount: 1,
+      blockedWorkCount: 1
     });
     const activityBefore = await repositories.activityEvents.findByProject(fixture.projectId);
 
@@ -425,6 +522,9 @@ describe('project status reports', () => {
     );
     expect(exportResult.markdown).toContain('# Executive weekly status');
     expect(exportResult.markdown).toContain('| Blocked work | 1 |');
+    expect(exportResult.markdown).toContain('## Active Cycle');
+    expect(exportResult.markdown).toContain('[Export cycle]');
+    expect(exportResult.markdown).toContain('Open current cycle work');
     expect(exportResult.markdown).toContain('[STAT-1 - Tracked export work]');
     expect(activityAfter).toHaveLength(activityBefore.length);
   });
@@ -477,6 +577,31 @@ describe('project status reports', () => {
           message: 'Stored status report snapshot is invalid.'
         });
       });
+  });
+
+  it('accepts legacy stored report snapshots without cycle data', async () => {
+    const fixture = await createFixture();
+    const service = createService(fixture);
+    const draft = await service.getProjectStatusReportDraft(fixture.projectId);
+    const published = await service.publishProjectStatusReport(fixture.projectId, {
+      title: 'Legacy snapshot status',
+      statusDate: '2026-07-10',
+      summary: 'This report simulates an older stored snapshot.',
+      snapshot: draft.snapshot
+    });
+
+    await pool.query('update project_status_reports set snapshot = snapshot - $1 where id = $2', [
+      'cycle',
+      published.id
+    ]);
+
+    const detail = await service.getProjectStatusReport(fixture.projectId, published.id);
+    const [listed] = await service.listProjectStatusReports(fixture.projectId);
+    const exportResult = await service.exportProjectStatusReportMarkdown(fixture.projectId, published.id);
+
+    expect(detail.snapshot.cycle).toBeUndefined();
+    expect(listed?.id).toBe(published.id);
+    expect(exportResult.markdown).toContain('No active cycle captured.');
   });
 
   it('rejects draft and publish access for contributors and archived projects', async () => {

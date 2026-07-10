@@ -818,6 +818,44 @@ npm run lint --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-09.
+- Updated `PlanningService` to include:
+  - `activeCycle`;
+  - `upcomingCycle`;
+  - `recentlyCompletedCycle`.
+- Reused `ProjectCycleService.getCycleReview` for Planning cycle summaries so progress, health, reasons, and scoped work queries stay aligned with cycle review behavior.
+- Updated project status report generation to:
+  - include an active-cycle snapshot when a project has an active cycle;
+  - set `cycle` to `null` when no active cycle exists;
+  - preserve immutable published cycle snapshot data.
+- Updated stored/requested status report snapshot validation for:
+  - optional legacy `cycle` snapshots;
+  - generated cycle snapshot shape;
+  - `cycleId` work item query fields;
+  - cycle-specific health reason keys.
+- Updated status report Markdown rendering with an `Active Cycle` section and cycle-scoped current-work links.
+- Updated project work item query link serialization to preserve `cycleId` and project-scoped `workState`.
+- Updated CSV export to include `cycle_name` next to `milestone_name`; CSV import remains unchanged.
+- Added/updated tests for:
+  - Planning summary cycle fields;
+  - report draft with active cycle;
+  - report draft without active cycle;
+  - published report detail with cycle snapshot;
+  - legacy stored report snapshot without cycle data;
+  - Markdown active-cycle rendering;
+  - CSV export cycle column.
+- Verified:
+  - `npm test --workspace @worktrail/api -- planning.test.ts`;
+  - `npm test --workspace @worktrail/api -- status-reports.test.ts status-report-markdown-renderer.test.ts`;
+  - `npm test --workspace @worktrail/api -- work-items.test.ts`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/contracts`.
+
 ## Phase 8: OpenAPI And Seed Data
 
 Goal: document cycle API behavior and provide deterministic cycle examples.

@@ -1,4 +1,4 @@
-import type { ProjectPlanningSummaryDto } from '@worktrail/contracts';
+import type { ProjectPlanningCycleSummaryDto, ProjectPlanningSummaryDto } from '@worktrail/contracts';
 
 import type { ActorContext } from '../domain/actor.js';
 import {
@@ -17,6 +17,7 @@ import type { Repositories } from '../repositories/index.js';
 import type { Project, WorkItem } from '../repositories/types.js';
 import { DeliveryHealthService } from './delivery-health-service.js';
 import { toProjectDto } from './dto.js';
+import { ProjectCycleService } from './project-cycle-service.js';
 import {
   compareByDueDateThenPriority,
   compareByUpdatedAsc,
@@ -38,12 +39,17 @@ export class PlanningService {
 
   async getProjectPlanningSummary(projectId: string): Promise<ProjectPlanningSummaryDto> {
     const project = await this.requireProject(projectId);
+    const now = this.clock();
+    const today = toDateString(now);
     const [
       workItems,
       dependencyBlockedWorkItems,
       blockingOpenWorkItems,
       milestones,
-      members
+      members,
+      activeCycle,
+      upcomingCycle,
+      recentlyCompletedCycle
     ] = await Promise.all([
       this.context.repositories.workItems.listByProject(projectId, { sort: 'board_order' }),
       this.context.repositories.workItems.listByProject(projectId, {
@@ -55,11 +61,12 @@ export class PlanningService {
         sort: 'priority_desc'
       }),
       this.context.repositories.milestones.listByProject(projectId, { includeArchived: true }),
-      this.context.repositories.members.listByWorkspace(this.context.actor.workspaceId)
+      this.context.repositories.members.listByWorkspace(this.context.actor.workspaceId),
+      this.context.repositories.projectCycles.findActiveByProject(projectId),
+      this.context.repositories.projectCycles.findUpcomingByProject(projectId, today),
+      this.context.repositories.projectCycles.findRecentlyCompletedByProject(projectId, today)
     ]);
 
-    const now = this.clock();
-    const today = toDateString(now);
     const dueSoonEnd = toDateString(addDays(now, dueSoonWindowDays));
     const staleCutoff = addDays(now, -staleInProgressDays);
     const healthSummary = new DeliveryHealthService().derive({
@@ -72,14 +79,23 @@ export class PlanningService {
     });
     const memberById = new Map(members.map((member) => [member.id, member]));
     const milestoneById = new Map(milestones.map((milestone) => [milestone.id, milestone]));
+    const cycleService = new ProjectCycleService({
+      actor: this.context.actor,
+      repositories: this.context.repositories,
+      clock: this.clock
+    });
 
     return {
       project: toProjectDto(project),
       deliveryHealth: healthSummary.deliveryHealth,
       milestoneProgress: healthSummary.milestoneProgress,
-      activeCycle: null,
-      upcomingCycle: null,
-      recentlyCompletedCycle: null,
+      activeCycle: await this.toCycleSummary(projectId, activeCycle?.id ?? null, cycleService),
+      upcomingCycle: await this.toCycleSummary(projectId, upcomingCycle?.id ?? null, cycleService),
+      recentlyCompletedCycle: await this.toCycleSummary(
+        projectId,
+        recentlyCompletedCycle?.id ?? null,
+        cycleService
+      ),
       planningReview: healthSummary.planningReview,
       blockedWork: this.toRiskItems(
         workItems.filter((workItem) => workItem.status === 'blocked'),
@@ -142,6 +158,25 @@ export class PlanningService {
   }
 
   private readonly toRiskItems = toPlanningRiskItems;
+
+  private async toCycleSummary(
+    projectId: string,
+    cycleId: string | null,
+    cycleService: ProjectCycleService
+  ): Promise<ProjectPlanningCycleSummaryDto | null> {
+    if (cycleId === null) {
+      return null;
+    }
+
+    const review = await cycleService.getCycleReview(projectId, cycleId);
+
+    return {
+      cycle: review.cycle,
+      progress: review.progress,
+      health: review.health,
+      scopedWorkQuery: review.scopedWorkQuery
+    };
+  }
 }
 
 function isOpenWorkItem(workItem: WorkItem): boolean {

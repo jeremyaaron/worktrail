@@ -3,11 +3,13 @@ import type { WorkItemQuery } from '@worktrail/contracts';
 type ProjectWorkItemQueryKey =
   | 'search'
   | 'status'
+  | 'workState'
   | 'assigneeId'
   | 'reporterId'
   | 'type'
   | 'labelId'
   | 'milestoneId'
+  | 'cycleId'
   | 'priority'
   | 'dueDateState'
   | 'dependency'
@@ -17,11 +19,13 @@ type ProjectWorkItemQueryKey =
 const projectWorkItemQueryKeys: ProjectWorkItemQueryKey[] = [
   'search',
   'status',
+  'workState',
   'assigneeId',
   'reporterId',
   'type',
   'labelId',
   'milestoneId',
+  'cycleId',
   'priority',
   'dueDateState',
   'dependency',

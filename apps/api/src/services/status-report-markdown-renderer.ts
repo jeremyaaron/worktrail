@@ -2,6 +2,7 @@ import type {
   DeliveryHealthReasonDto,
   PlanningRiskItemDto,
   ProjectStatusReportDetailDto,
+  ProjectStatusReportCycleSnapshotDto,
   ProjectStatusReportMilestoneSnapshotDto,
   ProjectStatusReportRiskSnapshotDto
 } from '@worktrail/contracts';
@@ -30,6 +31,7 @@ export function renderStatusReportMarkdown(
     renderCounts(report),
     renderHealthReasons(report.snapshot.health.reasons),
     renderMilestones(report, basePath),
+    renderCycle(report, basePath),
     renderRiskSections(report, basePath),
     renderRecentWork(report.snapshot.recentWork, basePath)
   ];
@@ -149,6 +151,56 @@ function renderMilestoneRow(
     milestone.doneCount,
     `${milestone.blockedCount} |`
   ].join(' | ');
+}
+
+function renderCycle(report: ProjectStatusReportDetailDto, basePath: string): string {
+  if (report.snapshot.cycle == null) {
+    return ['## Active Cycle', 'No active cycle captured.'].join('\n\n');
+  }
+
+  const cycle = report.snapshot.cycle;
+  const cycleLink = markdownLink(
+    cycle.name,
+    `${basePath}/projects/${encodeURIComponent(report.projectId)}/cycles/${encodeURIComponent(cycle.id)}`
+  );
+  const workLink = markdownLink(
+    'Open current cycle work',
+    `${basePath}${projectWorkItemPathFromQuery(report.projectId, {
+      cycleId: cycle.id,
+      workState: 'open',
+      sort: 'priority_desc'
+    })}`
+  );
+
+  return [
+    '## Active Cycle',
+    `- Cycle: ${cycleLink}`,
+    `- Status: ${formatToken(cycle.status)}`,
+    `- Window: ${formatDate(cycle.startDate)} to ${formatDate(cycle.endDate)}`,
+    `- Health: ${formatToken(cycle.health)}`,
+    `- Estimate: ${cycle.completedEstimatePoints}/${cycle.committedEstimatePoints}` +
+      (cycle.targetPoints === null ? '' : ` of ${cycle.targetPoints} target points`),
+    `- Open work: ${cycle.openWorkCount}`,
+    `- Blocked work: ${cycle.blockedWorkCount}`,
+    `- Dependency-blocked work: ${cycle.dependencyBlockedWorkCount}`,
+    `- Unestimated open work: ${cycle.unestimatedWorkCount}`,
+    `- ${workLink}`,
+    renderCycleReasons(cycle)
+  ].join('\n');
+}
+
+function renderCycleReasons(cycle: ProjectStatusReportCycleSnapshotDto): string {
+  if (cycle.reasons.length === 0) {
+    return '- Cycle reasons: none recorded.';
+  }
+
+  return [
+    '- Cycle reasons:',
+    ...cycle.reasons.map(
+      (reason) =>
+        `  - ${escapeMarkdownInline(reason.message)} (${formatToken(reason.severity)}, ${reason.count})`
+    )
+  ].join('\n');
 }
 
 function renderRiskSections(report: ProjectStatusReportDetailDto, basePath: string): string {

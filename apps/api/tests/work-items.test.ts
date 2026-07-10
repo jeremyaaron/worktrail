@@ -739,12 +739,16 @@ describe('work item API', () => {
 
   it('exports filtered project work items as CSV', async () => {
     const fixture = await createFixture('owner');
+    const cycle = await createProjectCycle(fixture, {
+      name: 'CSV export cycle'
+    });
     const ready = await createWorkItem(fixture, {
       title: 'Exported, ready work',
       status: 'ready',
       priority: 'urgent',
       assigneeId: fixture.contributorId,
       reporterId: fixture.maintainerId,
+      cycleId: cycle.id,
       dueDate: '2026-07-12',
       estimatePoints: 8,
       createdAt: new Date('2026-07-01T12:00:00.000Z'),
@@ -767,8 +771,8 @@ describe('work item API', () => {
       .expect(({ text }) => {
         expect(text).toBe(
           [
-            'project_key,display_key,title,type,status,priority,assignee_name,assignee_email,reporter_name,reporter_email,label_names,milestone_name,due_date,estimate_points,created_at,updated_at',
-            `WI,${ready.displayKey},"Exported, ready work",task,ready,urgent,API Contributor,${fixture.contributorId}@example.com,API Maintainer,${fixture.maintainerId}@example.com,backend,,2026-07-12,8,2026-07-01T12:00:00.000Z,2026-07-03T12:00:00.000Z`,
+            'project_key,display_key,title,type,status,priority,assignee_name,assignee_email,reporter_name,reporter_email,label_names,milestone_name,cycle_name,due_date,estimate_points,created_at,updated_at',
+            `WI,${ready.displayKey},"Exported, ready work",task,ready,urgent,API Contributor,${fixture.contributorId}@example.com,API Maintainer,${fixture.maintainerId}@example.com,backend,,CSV export cycle,2026-07-12,8,2026-07-01T12:00:00.000Z,2026-07-03T12:00:00.000Z`,
             ''
           ].join('\n')
         );
@@ -840,7 +844,7 @@ describe('work item API', () => {
       .expect('Content-Type', /text\/csv/)
       .expect(({ text }) => {
         expect(text).toBe(
-          'project_key,display_key,title,type,status,priority,assignee_name,assignee_email,reporter_name,reporter_email,label_names,milestone_name,due_date,estimate_points,created_at,updated_at\n'
+          'project_key,display_key,title,type,status,priority,assignee_name,assignee_email,reporter_name,reporter_email,label_names,milestone_name,cycle_name,due_date,estimate_points,created_at,updated_at\n'
         );
       });
   });

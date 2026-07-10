@@ -4,6 +4,7 @@ import { z } from 'zod';
 import {
   memberRoles,
   milestoneStatuses,
+  projectCycleStatuses,
   projectStatuses,
   workItemPriorities,
   workItemStatuses
@@ -25,6 +26,7 @@ const workItemQuerySchema = z.object({
   priority: z.enum(workItemPriorities).optional(),
   labelId: z.string().min(1).optional(),
   milestoneId: z.string().min(1).optional(),
+  cycleId: z.string().min(1).optional(),
   dueDateState: z.enum(['overdue', 'due_soon', 'none']).optional(),
   blocked: z.boolean().optional(),
   dependency: z.enum(['dependency_blocked', 'blocking_open_work']).optional(),
@@ -59,6 +61,8 @@ const deliveryHealthReasonSchema = z.object({
     'stale_in_progress',
     'target_date_past',
     'unassigned_active',
+    'unestimated_work',
+    'cycle_over_target',
     'unmilestoned_risk'
   ]),
   severity: z.enum(['info', 'warning', 'critical']),
@@ -170,6 +174,35 @@ const riskSnapshotSchema = z.object({
   items: z.array(planningRiskItemSchema)
 });
 
+const statusReportLinkSchema = z.object({
+  type: z.enum(['project_work', 'milestone_review', 'cycle_review', 'work_item']),
+  label: z.string(),
+  projectId: z.string().min(1),
+  query: workItemQuerySchema.optional(),
+  milestoneId: z.string().min(1).optional(),
+  cycleId: z.string().min(1).optional(),
+  workItemId: z.string().min(1).optional()
+});
+
+const cycleSnapshotSchema = z.object({
+  id: z.string().min(1),
+  name: z.string(),
+  goal: z.string(),
+  status: z.enum(projectCycleStatuses),
+  startDate: z.string().regex(isoDatePattern),
+  endDate: z.string().regex(isoDatePattern),
+  targetPoints: z.union([z.number().int().positive(), z.null()]),
+  committedEstimatePoints: z.number().int().nonnegative(),
+  completedEstimatePoints: z.number().int().nonnegative(),
+  openWorkCount: z.number().int().nonnegative(),
+  blockedWorkCount: z.number().int().nonnegative(),
+  dependencyBlockedWorkCount: z.number().int().nonnegative(),
+  unestimatedWorkCount: z.number().int().nonnegative(),
+  health: z.enum(['healthy', 'at_risk', 'blocked', 'complete', 'inactive']),
+  reasons: z.array(deliveryHealthReasonSchema),
+  links: z.array(statusReportLinkSchema)
+});
+
 export const projectStatusReportSnapshotSchema = z.object({
   snapshotVersion: z.literal(1),
   generatedAt: z.string().datetime({ offset: true }),
@@ -182,6 +215,7 @@ export const projectStatusReportSnapshotSchema = z.object({
   health: deliveryHealthSchema,
   counts: countSnapshotSchema,
   milestones: z.array(milestoneSnapshotSchema),
+  cycle: z.union([cycleSnapshotSchema, z.null()]).optional(),
   risks: z.array(riskSnapshotSchema),
   recentWork: z.array(planningRiskItemSchema)
 }) satisfies z.ZodType<ProjectStatusReportSnapshotDto>;
