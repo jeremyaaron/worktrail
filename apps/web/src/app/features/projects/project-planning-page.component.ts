@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import type {
+  CreateProjectCycleRequest,
   DeliveryHealthReasonDto,
   DeliveryHealthState,
   MilestoneDto,
@@ -11,13 +12,22 @@ import type {
   MilestoneStatus,
   PlanningRiskItemDto,
   PlanningReviewItemDto,
+  ProjectCycleDto,
+  ProjectCycleStatus,
   ProjectDto,
+  ProjectPlanningCycleSummaryDto,
   ProjectPlanningSummaryDto,
   WorkItemStatus
 } from '@worktrail/contracts';
 
+import { CyclesApi } from '../../core/api/cycles-api';
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorktrailApiService } from '../../core/worktrail-api.service';
+import {
+  cycleDateRangeLabel as displayCycleDateRangeLabel,
+  cycleHealthLabel as displayCycleHealthLabel,
+  cycleStatusLabel as displayCycleStatusLabel
+} from '../../shared/cycles/cycle-display';
 import {
   deliveryHealthLabel,
   deliveryHealthReasonLabel,
@@ -33,9 +43,16 @@ import { MilestoneManagerComponent } from './planning/milestone-manager.componen
 import { PlanningReviewComponent } from './planning/planning-review.component';
 
 const milestoneStatuses: MilestoneStatus[] = ['planned', 'active', 'completed', 'canceled'];
+const cycleStatuses: ProjectCycleStatus[] = ['planned', 'active', 'completed', 'canceled'];
 const statusOrder = new Map<MilestoneStatus, number>(
   milestoneStatuses.map((status, index) => [status, index])
 );
+const cycleStatusOrder = new Map<ProjectCycleStatus, number>([
+  ['active', 0],
+  ['planned', 1],
+  ['completed', 2],
+  ['canceled', 3]
+]);
 const workItemStatusLabels: Record<WorkItemStatus, string> = {
   backlog: 'Backlog',
   ready: 'Ready',
@@ -44,9 +61,10 @@ const workItemStatusLabels: Record<WorkItemStatus, string> = {
   done: 'Done',
   canceled: 'Canceled'
 };
-type PlanningView = 'review' | 'milestones';
+type PlanningView = 'review' | 'cycles' | 'milestones';
 const planningViews: { value: PlanningView; label: string }[] = [
   { value: 'review', label: 'Review' },
+  { value: 'cycles', label: 'Cycles' },
   { value: 'milestones', label: 'Milestones' }
 ];
 const visibleRiskItemLimit = 4;
@@ -108,7 +126,7 @@ interface PlanningReviewSection {
       } @else if (!canManageMilestones()) {
         <section class="notice" aria-label="Read-only planning">
           <strong>Read-only planning</strong>
-          <p>Owners and maintainers can change milestones. Contributors can review them here.</p>
+          <p>Owners and maintainers can change cycles and milestones. Contributors can review them here.</p>
         </section>
       }
 
@@ -142,7 +160,219 @@ interface PlanningReviewSection {
       </div>
 
       <section class="planning-grid" aria-label="Planning sections">
-        @if (selectedPlanningView() === 'milestones') {
+        @if (selectedPlanningView() === 'cycles') {
+          <section class="panel cycle-panel" aria-labelledby="cycles-heading">
+            <div class="panel-heading">
+              <div>
+                <h2 id="cycles-heading">Cycles</h2>
+                <p>Plan timeboxed delivery windows for scoped project work.</p>
+              </div>
+              <span>{{ cycles().length }} total</span>
+            </div>
+
+            @if (canManageCycles()) {
+              <form class="cycle-form" [formGroup]="cycleForm" (ngSubmit)="createCycle()" novalidate>
+                <label for="cycle-name">Name</label>
+                <input
+                  id="cycle-name"
+                  type="text"
+                  formControlName="name"
+                  autocomplete="off"
+                  [attr.aria-invalid]="showCycleNameError()"
+                  aria-describedby="cycle-name-error"
+                />
+                @if (showCycleNameError()) {
+                  <p id="cycle-name-error" class="field-error">Cycle name is required.</p>
+                }
+
+                <label for="cycle-goal">Goal</label>
+                <textarea id="cycle-goal" rows="3" formControlName="goal"></textarea>
+
+                <div class="cycle-form__grid">
+                  <label>
+                    <span>Status</span>
+                    <select formControlName="status">
+                      @for (status of cycleStatuses; track status) {
+                        <option [value]="status">{{ cycleStatusLabel(status) }}</option>
+                      }
+                    </select>
+                  </label>
+
+                  <label>
+                    <span>Start date</span>
+                    <input type="date" formControlName="startDate" />
+                  </label>
+
+                  <label>
+                    <span>End date</span>
+                    <input type="date" formControlName="endDate" />
+                  </label>
+
+                  <label>
+                    <span>Target points</span>
+                    <input type="number" min="1" max="999" step="1" formControlName="targetPoints" />
+                  </label>
+                </div>
+
+                @if (cycleSuccessMessage()) {
+                  <p class="success-message">{{ cycleSuccessMessage() }}</p>
+                }
+
+                <button type="submit" [disabled]="isCreatingCycle()">
+                  {{ isCreatingCycle() ? 'Creating...' : 'Create cycle' }}
+                </button>
+              </form>
+            }
+
+            @if (cycleCreateError()) {
+              <p class="field-error">{{ cycleCreateError() }}</p>
+            }
+
+            @if (cycleMutationError()) {
+              <app-error-panel
+                title="Cycle change failed"
+                [message]="cycleMutationError() ?? ''"
+                (retry)="loadCycles()"
+              />
+            }
+
+            @if (isLoadingCycles()) {
+              <app-loading-indicator label="Loading cycles" />
+            } @else if (cycleLoadError()) {
+              <app-error-panel [message]="cycleLoadError() ?? ''" (retry)="loadCycles()" />
+            } @else if (cycles().length === 0) {
+              <app-empty-state
+                title="No cycles yet"
+                message="Create a cycle to start planning timeboxed work."
+              />
+            } @else {
+              <div class="cycle-list" aria-label="Project cycles">
+                @for (cycle of cycles(); track cycle.id) {
+                  <article class="cycle-row" [class.cycle-row--archived]="cycle.isArchived">
+                    <div class="cycle-row__header">
+                      <div class="cycle-row__title">
+                        <h3>{{ cycle.name }}</h3>
+                        <p>{{ cycle.goal || 'No goal provided.' }}</p>
+                      </div>
+
+                      <div class="cycle-row__links">
+                        <a [routerLink]="['/projects', projectId(), 'cycles', cycle.id]">Review</a>
+                        <a
+                          [routerLink]="['/projects', projectId(), 'work-items']"
+                          [queryParams]="{ cycleId: cycle.id, sort: 'priority_desc' }"
+                        >
+                          Work
+                        </a>
+                      </div>
+                    </div>
+
+                    <div class="cycle-row__meta">
+                      <span class="status-pill" [class.status-pill--archived]="cycle.isArchived">
+                        {{ cycle.isArchived ? 'archived' : cycleStatusLabel(cycle.status) }}
+                      </span>
+                      <span>{{ cycleDateRangeLabel(cycle) }}</span>
+                      <span>{{ cycle.targetPoints === null ? 'No target' : cycle.targetPoints + ' target points' }}</span>
+                      <span>Updated {{ formatDateTime(cycle.updatedAt) }}</span>
+                    </div>
+
+                    @if (canManageCycles()) {
+                      <div class="cycle-row__fields">
+                        <label>
+                          <span>Name</span>
+                          <input #cycleName type="text" [value]="cycle.name" [disabled]="isMutatingCycle(cycle)" />
+                        </label>
+
+                        <label>
+                          <span>Goal</span>
+                          <textarea #cycleGoal rows="2" [disabled]="isMutatingCycle(cycle)">{{ cycle.goal }}</textarea>
+                        </label>
+
+                        <label>
+                          <span>Status</span>
+                          <select #cycleStatus [value]="cycle.status" [disabled]="isMutatingCycle(cycle)">
+                            @for (status of cycleStatuses; track status) {
+                              <option [value]="status">{{ cycleStatusLabel(status) }}</option>
+                            }
+                          </select>
+                        </label>
+
+                        <label>
+                          <span>Start date</span>
+                          <input
+                            #cycleStartDate
+                            type="date"
+                            [value]="cycle.startDate"
+                            [disabled]="isMutatingCycle(cycle)"
+                          />
+                        </label>
+
+                        <label>
+                          <span>End date</span>
+                          <input
+                            #cycleEndDate
+                            type="date"
+                            [value]="cycle.endDate"
+                            [disabled]="isMutatingCycle(cycle)"
+                          />
+                        </label>
+
+                        <label>
+                          <span>Target points</span>
+                          <input
+                            #cycleTargetPoints
+                            type="number"
+                            min="1"
+                            max="999"
+                            step="1"
+                            [value]="cycle.targetPoints ?? ''"
+                            [disabled]="isMutatingCycle(cycle)"
+                          />
+                        </label>
+                      </div>
+
+                      <div class="cycle-actions">
+                        <button
+                          type="button"
+                          [disabled]="isMutatingCycle(cycle)"
+                          (click)="updateCycle(
+                            cycle,
+                            cycleName.value,
+                            cycleGoal.value,
+                            cycleStatus.value,
+                            cycleStartDate.value,
+                            cycleEndDate.value,
+                            cycleTargetPoints.value
+                          )"
+                        >
+                          {{ isMutatingCycle(cycle) ? 'Saving...' : 'Save' }}
+                        </button>
+
+                        @if (cycle.isArchived) {
+                          <button
+                            type="button"
+                            [disabled]="isMutatingCycle(cycle)"
+                            (click)="reactivateCycle(cycle)"
+                          >
+                            Reactivate
+                          </button>
+                        } @else {
+                          <button
+                            type="button"
+                            class="danger-button"
+                            [disabled]="isMutatingCycle(cycle)"
+                            (click)="archiveCycle(cycle)"
+                          >
+                            Archive
+                          </button>
+                        }
+                      </div>
+                    }
+                  </article>
+                }
+              </div>
+            }
+          </section>
+        } @else if (selectedPlanningView() === 'milestones') {
           <app-milestone-manager>
         <section class="panel milestone-panel" aria-labelledby="milestones-heading">
           <div class="panel-heading">
@@ -402,6 +632,85 @@ interface PlanningReviewSection {
                         {{ reasonLabel(reason) }}
                       </span>
                     }
+                  }
+                </div>
+              }
+            </section>
+
+            <section class="dashboard-section" aria-labelledby="cycle-summary-heading">
+              <div class="section-heading">
+                <h3 id="cycle-summary-heading">Cycle planning</h3>
+                <span>{{ cycleSummaryCount(summary) }} visible</span>
+              </div>
+
+              @if (cycleSummaryCount(summary) === 0) {
+                <div class="compact-empty">
+                  <strong>No active cycle context</strong>
+                  <span>Active, upcoming, and recently completed cycles will appear here once created.</span>
+                </div>
+              } @else {
+                <div class="cycle-summary-grid">
+                  @if (summary.activeCycle; as activeCycle) {
+                    <article class="cycle-summary-card">
+                      <p class="section-eyebrow">Active cycle</p>
+                      <h4>{{ activeCycle.cycle.name }}</h4>
+                      <span class="health-pill" [attr.data-tone]="healthTone(activeCycle.health.health)">
+                        {{ cycleHealthLabel(activeCycle.health.health) }}
+                      </span>
+                      <p>{{ cycleDateRangeLabel(activeCycle.cycle) }}</p>
+                      <p>{{ cycleProgressLabel(activeCycle) }}</p>
+                      <div class="cycle-summary-card__actions">
+                        <a [routerLink]="['/projects', projectId(), 'cycles', activeCycle.cycle.id]">Review</a>
+                        <a
+                          [routerLink]="['/projects', projectId(), 'work-items']"
+                          [queryParams]="cycleWorkQueryParams(activeCycle)"
+                        >
+                          Open work
+                        </a>
+                      </div>
+                    </article>
+                  }
+
+                  @if (summary.upcomingCycle; as upcomingCycle) {
+                    <article class="cycle-summary-card">
+                      <p class="section-eyebrow">Upcoming cycle</p>
+                      <h4>{{ upcomingCycle.cycle.name }}</h4>
+                      <span class="health-pill" [attr.data-tone]="healthTone(upcomingCycle.health.health)">
+                        {{ cycleHealthLabel(upcomingCycle.health.health) }}
+                      </span>
+                      <p>{{ cycleDateRangeLabel(upcomingCycle.cycle) }}</p>
+                      <p>{{ cycleProgressLabel(upcomingCycle) }}</p>
+                      <div class="cycle-summary-card__actions">
+                        <a [routerLink]="['/projects', projectId(), 'cycles', upcomingCycle.cycle.id]">Review</a>
+                        <a
+                          [routerLink]="['/projects', projectId(), 'work-items']"
+                          [queryParams]="cycleWorkQueryParams(upcomingCycle)"
+                        >
+                          Open work
+                        </a>
+                      </div>
+                    </article>
+                  }
+
+                  @if (summary.recentlyCompletedCycle; as completedCycle) {
+                    <article class="cycle-summary-card">
+                      <p class="section-eyebrow">Recently completed</p>
+                      <h4>{{ completedCycle.cycle.name }}</h4>
+                      <span class="health-pill" [attr.data-tone]="healthTone(completedCycle.health.health)">
+                        {{ cycleHealthLabel(completedCycle.health.health) }}
+                      </span>
+                      <p>{{ cycleDateRangeLabel(completedCycle.cycle) }}</p>
+                      <p>{{ cycleProgressLabel(completedCycle) }}</p>
+                      <div class="cycle-summary-card__actions">
+                        <a [routerLink]="['/projects', projectId(), 'cycles', completedCycle.cycle.id]">Review</a>
+                        <a
+                          [routerLink]="['/projects', projectId(), 'work-items']"
+                          [queryParams]="cycleWorkQueryParams(completedCycle)"
+                        >
+                          Open work
+                        </a>
+                      </div>
+                    </article>
                   }
                 </div>
               }
@@ -690,7 +999,8 @@ interface PlanningReviewSection {
 
     h1,
     h2,
-    h3 {
+    h3,
+    h4 {
       margin: 0;
       color: #111827;
       line-height: 1.25;
@@ -707,6 +1017,10 @@ interface PlanningReviewSection {
 
     h3 {
       font-size: 0.95rem;
+    }
+
+    h4 {
+      font-size: 0.9rem;
     }
 
     p {
@@ -852,6 +1166,7 @@ interface PlanningReviewSection {
       font-weight: 800;
     }
 
+    .cycle-form,
     .milestone-form {
       display: grid;
       gap: 10px;
@@ -862,6 +1177,8 @@ interface PlanningReviewSection {
       background: #f8fafc;
     }
 
+    .cycle-form__grid,
+    .cycle-row__fields,
     .milestone-form__grid,
     .milestone-row__fields {
       display: grid;
@@ -917,11 +1234,13 @@ interface PlanningReviewSection {
       font-weight: 800;
     }
 
+    .cycle-list,
     .milestone-list {
       display: grid;
       gap: 12px;
     }
 
+    .cycle-row,
     .milestone-row {
       display: grid;
       gap: 12px;
@@ -931,16 +1250,53 @@ interface PlanningReviewSection {
       background: #ffffff;
     }
 
+    .cycle-row--archived,
     .milestone-row--archived {
       background: #f8fafc;
     }
 
+    .cycle-row__title,
     .milestone-row__title {
       display: grid;
       gap: 4px;
     }
 
+    .cycle-row__header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .cycle-row__links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .cycle-row__links a,
+    .cycle-summary-card__actions a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 32px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 6px 10px;
+      color: #1d4ed8;
+      font-size: 0.8125rem;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .cycle-row__links a:hover,
+    .cycle-summary-card__actions a:hover {
+      background: #f8fafc;
+    }
+
+    .cycle-row__meta,
     .milestone-row__meta,
+    .cycle-actions,
     .milestone-actions {
       display: flex;
       flex-wrap: wrap;
@@ -948,10 +1304,32 @@ interface PlanningReviewSection {
       gap: 8px;
     }
 
+    .cycle-row__meta,
     .milestone-row__meta {
       color: #64748b;
       font-size: 0.8125rem;
       font-weight: 700;
+    }
+
+    .cycle-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .cycle-summary-card {
+      display: grid;
+      gap: 9px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 12px;
+      background: #ffffff;
+    }
+
+    .cycle-summary-card__actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
     }
 
     .summary-panel {
@@ -1304,6 +1682,8 @@ interface PlanningReviewSection {
     @media (max-width: 900px) {
       .page-header,
       .planning-grid,
+      .cycle-form__grid,
+      .cycle-row__fields,
       .milestone-form__grid,
       .milestone-row__fields {
         grid-template-columns: 1fr;
@@ -1314,8 +1694,17 @@ interface PlanningReviewSection {
       }
 
       .health-counts,
+      .cycle-summary-grid,
       .risk-metrics {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .cycle-row__header {
+        display: grid;
+      }
+
+      .cycle-row__links {
+        justify-content: flex-start;
       }
 
       .risk-row,
@@ -1327,6 +1716,7 @@ interface PlanningReviewSection {
 })
 export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
   private readonly api = inject(WorktrailApiService);
+  private readonly cyclesApi = inject(CyclesApi);
   private readonly currentUser = inject(CurrentUserService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
@@ -1336,21 +1726,31 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
   readonly planningViews = planningViews;
   readonly selectedPlanningView = signal<PlanningView>('review');
   readonly milestoneStatuses = milestoneStatuses;
+  readonly cycleStatuses = cycleStatuses;
   readonly project = signal<ProjectDto | null>(null);
   readonly milestones = signal<MilestoneDto[]>([]);
+  readonly cycles = signal<ProjectCycleDto[]>([]);
   readonly planningSummary = signal<ProjectPlanningSummaryDto | null>(null);
   readonly isLoadingProject = signal(false);
   readonly isLoadingMilestones = signal(false);
+  readonly isLoadingCycles = signal(false);
   readonly isLoadingSummary = signal(false);
   readonly isCreatingMilestone = signal(false);
+  readonly isCreatingCycle = signal(false);
   readonly mutatingMilestoneId = signal<string | null>(null);
+  readonly mutatingCycleId = signal<string | null>(null);
   readonly hasSubmittedCreate = signal(false);
+  readonly hasSubmittedCycleCreate = signal(false);
   readonly projectLoadError = signal<string | null>(null);
   readonly milestoneLoadError = signal<string | null>(null);
+  readonly cycleLoadError = signal<string | null>(null);
   readonly planningSummaryLoadError = signal<string | null>(null);
   readonly createError = signal<string | null>(null);
+  readonly cycleCreateError = signal<string | null>(null);
   readonly milestoneMutationError = signal<string | null>(null);
+  readonly cycleMutationError = signal<string | null>(null);
   readonly successMessage = signal<string | null>(null);
+  readonly cycleSuccessMessage = signal<string | null>(null);
   readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
   readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
   readonly canManageMilestones = computed(() => {
@@ -1360,6 +1760,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
       (member?.role === 'owner' || member?.role === 'maintainer')
     );
   });
+  readonly canManageCycles = computed(() => this.canManageMilestones());
   readonly canCreateReport = computed(() => this.canManageMilestones());
   readonly riskSections = computed<PlanningRiskSection[]>(() => {
     const summary = this.planningSummary();
@@ -1466,6 +1867,14 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
     status: ['planned' as MilestoneStatus],
     targetDate: ['']
   });
+  readonly cycleForm = this.formBuilder.nonNullable.group({
+    name: ['', [Validators.required]],
+    goal: [''],
+    status: ['planned' as ProjectCycleStatus],
+    startDate: ['', [Validators.required]],
+    endDate: ['', [Validators.required]],
+    targetPoints: ['']
+  });
 
   ngOnInit(): void {
     this.subscriptions.add(
@@ -1508,6 +1917,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
         this.project.set(project);
         this.isLoadingProject.set(false);
         this.loadMilestones();
+        this.loadCycles();
         this.loadPlanningSummary();
       },
       error: () => {
@@ -1543,6 +1953,21 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
       error: () => {
         this.milestoneLoadError.set('Project milestones could not be loaded from the API.');
         this.isLoadingMilestones.set(false);
+      }
+    });
+  }
+
+  loadCycles(): void {
+    this.isLoadingCycles.set(true);
+    this.cycleLoadError.set(null);
+    this.cyclesApi.listCycles(this.projectId(), { includeArchived: true }).subscribe({
+      next: (cycles) => {
+        this.cycles.set(this.sortCycles(cycles));
+        this.isLoadingCycles.set(false);
+      },
+      error: () => {
+        this.cycleLoadError.set('Project cycles could not be loaded from the API.');
+        this.isLoadingCycles.set(false);
       }
     });
   }
@@ -1586,6 +2011,60 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
           this.isCreatingMilestone.set(false);
         }
       });
+  }
+
+  createCycle(): void {
+    this.hasSubmittedCycleCreate.set(true);
+    this.cycleCreateError.set(null);
+    this.cycleMutationError.set(null);
+    this.cycleSuccessMessage.set(null);
+
+    if (!this.canManageCycles()) {
+      this.cycleCreateError.set(this.cyclePermissionMessage());
+      return;
+    }
+
+    if (this.cycleForm.invalid) {
+      this.cycleForm.markAllAsTouched();
+      return;
+    }
+
+    const formValue = this.cycleForm.getRawValue();
+    const request = this.toCycleCreateRequest({
+      name: formValue.name,
+      goal: formValue.goal,
+      status: formValue.status,
+      startDate: formValue.startDate,
+      endDate: formValue.endDate,
+      targetPoints: formValue.targetPoints
+    }, 'create');
+
+    if (request === null) {
+      return;
+    }
+
+    this.isCreatingCycle.set(true);
+    this.cyclesApi.createCycle(this.projectId(), request).subscribe({
+      next: (cycle) => {
+        this.upsertCycle(cycle);
+        this.cycleForm.reset({
+          name: '',
+          goal: '',
+          status: 'planned',
+          startDate: '',
+          endDate: '',
+          targetPoints: ''
+        });
+        this.hasSubmittedCycleCreate.set(false);
+        this.isCreatingCycle.set(false);
+        this.cycleSuccessMessage.set('Cycle created.');
+        this.loadPlanningSummary();
+      },
+      error: (error: unknown) => {
+        this.cycleCreateError.set(this.toErrorMessage(error, 'Cycle could not be created.'));
+        this.isCreatingCycle.set(false);
+      }
+    });
   }
 
   updateMilestone(
@@ -1635,6 +2114,52 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
       });
   }
 
+  updateCycle(
+    cycle: ProjectCycleDto,
+    name: string,
+    goal: string,
+    status: string,
+    startDate: string,
+    endDate: string,
+    targetPoints: string
+  ): void {
+    this.cycleCreateError.set(null);
+    this.cycleMutationError.set(null);
+    this.cycleSuccessMessage.set(null);
+
+    if (!this.canManageCycles()) {
+      this.cycleMutationError.set(this.cyclePermissionMessage());
+      return;
+    }
+
+    const request = this.toCycleCreateRequest({
+      name,
+      goal,
+      status: status as ProjectCycleStatus,
+      startDate,
+      endDate,
+      targetPoints
+    }, 'mutation');
+
+    if (request === null) {
+      return;
+    }
+
+    this.mutatingCycleId.set(cycle.id);
+    this.cyclesApi.updateCycle(this.projectId(), cycle.id, request).subscribe({
+      next: (updated) => {
+        this.upsertCycle(updated);
+        this.mutatingCycleId.set(null);
+        this.cycleSuccessMessage.set('Cycle saved.');
+        this.loadPlanningSummary();
+      },
+      error: (error: unknown) => {
+        this.cycleMutationError.set(this.toErrorMessage(error, 'Cycle could not be saved.'));
+        this.mutatingCycleId.set(null);
+      }
+    });
+  }
+
   archiveMilestone(milestone: MilestoneDto): void {
     this.runMilestoneCommand(
       milestone,
@@ -1653,13 +2178,73 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
     );
   }
 
+  archiveCycle(cycle: ProjectCycleDto): void {
+    this.runCycleCommand(
+      cycle,
+      'Cycle archived.',
+      'Cycle could not be archived.',
+      () => this.cyclesApi.archiveCycle(this.projectId(), cycle.id)
+    );
+  }
+
+  reactivateCycle(cycle: ProjectCycleDto): void {
+    this.runCycleCommand(
+      cycle,
+      'Cycle reactivated.',
+      'Cycle could not be reactivated.',
+      () => this.cyclesApi.reactivateCycle(this.projectId(), cycle.id)
+    );
+  }
+
   isMutating(milestone: MilestoneDto): boolean {
     return this.mutatingMilestoneId() === milestone.id;
+  }
+
+  isMutatingCycle(cycle: ProjectCycleDto): boolean {
+    return this.mutatingCycleId() === cycle.id;
   }
 
   showMilestoneNameError(): boolean {
     const control = this.milestoneForm.controls.name;
     return control.invalid && (control.touched || this.hasSubmittedCreate());
+  }
+
+  showCycleNameError(): boolean {
+    const control = this.cycleForm.controls.name;
+    return control.invalid && (control.touched || this.hasSubmittedCycleCreate());
+  }
+
+  cycleStatusLabel(status: ProjectCycleStatus): string {
+    return displayCycleStatusLabel(status);
+  }
+
+  cycleDateRangeLabel(cycle: Pick<ProjectCycleDto, 'startDate' | 'endDate'>): string {
+    return displayCycleDateRangeLabel(cycle);
+  }
+
+  cycleHealthLabel(state: DeliveryHealthState): string {
+    return displayCycleHealthLabel(state);
+  }
+
+  cycleSummaryCount(summary: ProjectPlanningSummaryDto): number {
+    return [
+      summary.activeCycle,
+      summary.upcomingCycle,
+      summary.recentlyCompletedCycle
+    ].filter((cycle) => cycle !== null).length;
+  }
+
+  cycleWorkQueryParams(summary: ProjectPlanningCycleSummaryDto): Record<string, string> | null {
+    return workItemQueryToRouterQueryParams(summary.scopedWorkQuery, 'project');
+  }
+
+  cycleProgressLabel(summary: ProjectPlanningCycleSummaryDto): string {
+    const target =
+      summary.progress.targetPoints === null
+        ? 'no target'
+        : `${summary.progress.targetPoints} target points`;
+
+    return `${summary.progress.doneCount} of ${summary.progress.totalCount} done · ${summary.progress.openCount} open · ${summary.progress.committedEstimatePoints}/${target}`;
   }
 
   formatToken(value: string): string {
@@ -1803,10 +2388,46 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
     });
   }
 
+  private runCycleCommand(
+    cycle: ProjectCycleDto,
+    successMessage: string,
+    fallbackError: string,
+    command: () => ReturnType<CyclesApi['archiveCycle']>
+  ): void {
+    this.cycleCreateError.set(null);
+    this.cycleMutationError.set(null);
+    this.cycleSuccessMessage.set(null);
+
+    if (!this.canManageCycles()) {
+      this.cycleMutationError.set(this.cyclePermissionMessage());
+      return;
+    }
+
+    this.mutatingCycleId.set(cycle.id);
+    command().subscribe({
+      next: (updated) => {
+        this.upsertCycle(updated);
+        this.mutatingCycleId.set(null);
+        this.cycleSuccessMessage.set(successMessage);
+        this.loadPlanningSummary();
+      },
+      error: (error: unknown) => {
+        this.cycleMutationError.set(this.toErrorMessage(error, fallbackError));
+        this.mutatingCycleId.set(null);
+      }
+    });
+  }
+
   private upsertMilestone(milestone: MilestoneDto): void {
     const milestonesById = new Map(this.milestones().map((item) => [item.id, item]));
     milestonesById.set(milestone.id, milestone);
     this.milestones.set(this.sortMilestones([...milestonesById.values()]));
+  }
+
+  private upsertCycle(cycle: ProjectCycleDto): void {
+    const cyclesById = new Map(this.cycles().map((item) => [item.id, item]));
+    cyclesById.set(cycle.id, cycle);
+    this.cycles.set(this.sortCycles([...cyclesById.values()]));
   }
 
   private sortMilestones(milestones: MilestoneDto[]): MilestoneDto[] {
@@ -1834,6 +2455,107 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
     });
   }
 
+  private sortCycles(cycles: ProjectCycleDto[]): ProjectCycleDto[] {
+    return [...cycles].sort((left, right) => {
+      if (left.isArchived !== right.isArchived) {
+        return left.isArchived ? 1 : -1;
+      }
+
+      const statusCompare =
+        (cycleStatusOrder.get(left.status) ?? 0) - (cycleStatusOrder.get(right.status) ?? 0);
+
+      if (statusCompare !== 0) {
+        return statusCompare;
+      }
+
+      const startCompare = left.startDate.localeCompare(right.startDate);
+
+      if (startCompare !== 0) {
+        return startCompare;
+      }
+
+      return left.name.localeCompare(right.name);
+    });
+  }
+
+  private toCycleCreateRequest(
+    input: {
+      name: string;
+      goal: string;
+      status: ProjectCycleStatus;
+      startDate: string;
+      endDate: string;
+      targetPoints: string;
+    },
+    target: 'create' | 'mutation'
+  ): CreateProjectCycleRequest | null {
+    const name = input.name.trim();
+    const startDate = input.startDate.trim();
+    const endDate = input.endDate.trim();
+
+    if (name === '') {
+      this.setCycleValidationMessage('Cycle name is required.', target);
+      return null;
+    }
+
+    if (startDate === '' || endDate === '') {
+      this.setCycleValidationMessage('Cycle start and end dates are required.', target);
+      return null;
+    }
+
+    if (startDate > endDate) {
+      this.setCycleValidationMessage('Cycle start date must be on or before end date.', target);
+      return null;
+    }
+
+    const targetPoints = this.parseCycleTargetPoints(input.targetPoints, target);
+
+    if (targetPoints === undefined) {
+      return null;
+    }
+
+    return {
+      name,
+      goal: input.goal.trim(),
+      status: input.status,
+      startDate,
+      endDate,
+      targetPoints
+    };
+  }
+
+  private parseCycleTargetPoints(
+    value: string,
+    target: 'create' | 'mutation'
+  ): number | null | undefined {
+    const trimmed = value.trim();
+
+    if (trimmed === '') {
+      return null;
+    }
+
+    const parsed = Number(trimmed);
+
+    if (!Number.isInteger(parsed) || parsed <= 0 || parsed > 999) {
+      this.setCycleValidationMessage(
+        'Cycle target points must be a whole number from 1 to 999.',
+        target
+      );
+      return undefined;
+    }
+
+    return parsed;
+  }
+
+  private setCycleValidationMessage(message: string, target: 'create' | 'mutation'): void {
+    if (target === 'create') {
+      this.cycleCreateError.set(message);
+      return;
+    }
+
+    this.cycleMutationError.set(message);
+  }
+
   private toErrorMessage(error: unknown, fallback: string): string {
     if (error instanceof HttpErrorResponse) {
       const message = (error.error as { error?: { message?: unknown } } | null)?.error?.message;
@@ -1852,7 +2574,17 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
       : 'Only owners and maintainers can manage milestones.';
   }
 
+  private cyclePermissionMessage(): string {
+    return this.isArchivedProject()
+      ? 'Archived projects are read-only.'
+      : 'Only owners and maintainers can manage cycles.';
+  }
+
   private toPlanningView(value: string | null): PlanningView {
-    return value === 'milestones' ? 'milestones' : 'review';
+    if (value === 'cycles' || value === 'milestones') {
+      return value;
+    }
+
+    return 'review';
   }
 }

@@ -1016,6 +1016,8 @@ Completed:
 
 ## Phase 10: Planning Cycle Manager And Summaries
 
+Status: Complete.
+
 Goal: let users manage cycles and see current/upcoming/recent cycle context from Planning.
 
 Scope:
@@ -1065,6 +1067,35 @@ npm run typecheck --workspace @worktrail/web
 npm run lint --workspace @worktrail/web
 git diff --check
 ```
+
+Completed:
+
+- Added a URL-backed Planning `Cycles` tab alongside Review and Milestones.
+- Added project cycle loading through `CyclesApi.listCycles(..., { includeArchived: true })`.
+- Added cycle management for owners and maintainers:
+  - create cycle;
+  - edit name, goal, status, start date, end date, and target points;
+  - archive cycle;
+  - reactivate cycle.
+- Kept contributors and archived projects read-only while preserving visible cycle list, review links, and filtered Work links.
+- Added Review dashboard cycle summaries for:
+  - active cycle;
+  - upcoming cycle;
+  - recently completed cycle.
+- Linked cycle summaries to cycle review pages and filtered project Work views.
+- Added validation and API error display for cycle creation and mutation flows.
+- Added Planning page tests for:
+  - cycle summary rendering and links;
+  - cycle tab routing;
+  - cycle create validation;
+  - cycle create/update/archive/reactivate;
+  - contributor and archived-project read-only behavior.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include 'src/app/features/projects/project-planning-page.component.spec.ts'`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `npm test --workspace @worktrail/web`;
+  - `git diff --check`.
 
 ## Phase 11: Work Item Create, Detail, List, Board, And Bulk Integration
 
