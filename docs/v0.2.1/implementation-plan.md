@@ -629,6 +629,48 @@ npm run lint --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-09.
+- Added `apps/api/src/endpoints/cycles.ts` with transport-neutral handlers for:
+  - listing project cycles;
+  - creating project cycles;
+  - getting one project cycle;
+  - updating one project cycle;
+  - archiving one project cycle;
+  - reactivating one project cycle;
+  - getting cycle review data.
+- Added `apps/api/src/adapters/express/routes/cycle-routes.ts`.
+- Registered cycle routes in `apps/api/src/adapters/express/server.ts`.
+- Registered API routes:
+  - `GET /api/projects/:projectId/cycles`;
+  - `POST /api/projects/:projectId/cycles`;
+  - `GET /api/projects/:projectId/cycles/:cycleId`;
+  - `PATCH /api/projects/:projectId/cycles/:cycleId`;
+  - `POST /api/projects/:projectId/cycles/:cycleId/archive`;
+  - `POST /api/projects/:projectId/cycles/:cycleId/reactivate`;
+  - `GET /api/projects/:projectId/cycles/:cycleId/review`.
+- Updated `apps/api/tests/server.test.ts` for route registration coverage.
+- Added `apps/api/tests/project-cycles.test.ts` covering:
+  - list defaults;
+  - archived/status list filters;
+  - create/get/update/archive/reactivate;
+  - contributor read/write behavior;
+  - archived project mutation rejection;
+  - active-cycle conflict;
+  - planned/active overlap conflict;
+  - cycle review response;
+  - cross-project cycle id hiding.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/api -- project-cycles.test.ts server.test.ts`;
+  - `npm test --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `git diff --check`.
+
 ## Phase 6: Work Item Assignment, Filtering, And Bulk Behavior
 
 Goal: make cycle assignment first-class in backend work item behavior.

@@ -9,6 +9,7 @@ import type { Repositories } from '../../repositories/index.js';
 import type { HealthCheckPool } from '../../services/health-check-service.js';
 import { adaptEndpoint } from './handler-adapter.js';
 import { requestLogger } from './request-logging.js';
+import { registerCycleRoutes } from './routes/cycle-routes.js';
 import { registerHealthRoutes } from './routes/health-routes.js';
 import { registerMemberRoutes } from './routes/member-routes.js';
 import { registerNotificationRoutes } from './routes/notification-routes.js';
@@ -51,6 +52,7 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
     registerWorkspaceRoutes(app, routeContext);
     registerMemberRoutes(app, routeContext);
     registerProjectRoutes(app, routeContext);
+    registerCycleRoutes(app, routeContext);
     registerPlanningRoutes(app, routeContext);
     registerSavedWorkViewRoutes(app, routeContext);
     registerNotificationRoutes(app, routeContext);
