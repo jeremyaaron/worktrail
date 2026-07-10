@@ -729,6 +729,45 @@ npm run lint --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-09.
+- Updated work item create/update backend behavior to:
+  - accept `cycleId`;
+  - validate same-project cycle assignments;
+  - reject archived cycle assignment for new assignment attempts;
+  - allow unchanged retained archived cycle assignments and clearing;
+  - persist `work_items.cycle_id`;
+  - record `work_item.cycle_changed` activity when assignment changes.
+- Hydrated `cycle` metadata in work item list/detail DTOs.
+- Updated work item query parsing and repository query building so `cycleId` works across:
+  - project work item lists;
+  - workspace work item lists;
+  - saved-view-shaped query normalization;
+  - existing search, status, priority, label, assignee, milestone, risk, dependency, due date, and sort composition.
+- Implemented project bulk update cycle actions:
+  - `set_cycle`;
+  - `clear_cycle`.
+- Kept notification behavior unchanged because current planning-field watcher notifications do not cover milestone or cycle assignment changes.
+- Updated API tests for:
+  - create with cycle assignment;
+  - update and clear cycle assignment;
+  - archived cycle assignment rejection and clearing retained archived assignments;
+  - cross-project cycle rejection;
+  - cycle activity events;
+  - project and workspace list filtering by `cycleId`;
+  - bulk set/clear cycle;
+  - invalid bulk cycle references.
+- Updated work item query validation tests for project, workspace, and saved-view-shaped `cycleId` query payloads.
+- Verified:
+  - `npm test --workspace @worktrail/api -- work-item-query.test.ts`;
+  - `npm test --workspace @worktrail/api -- work-items.test.ts`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm run typecheck --workspace @worktrail/contracts`;
+  - `npm test --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/contracts`.
+
 ## Phase 7: Planning, Reports, And CSV Backend Integration
 
 Goal: thread cycle data through Planning summaries, report snapshots, and CSV export.

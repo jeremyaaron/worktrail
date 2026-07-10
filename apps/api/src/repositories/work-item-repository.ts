@@ -22,6 +22,7 @@ export interface UpdateWorkItemInput {
   priority?: WorkItem['priority'];
   assigneeId?: string | null;
   milestoneId?: string | null;
+  cycleId?: string | null;
   boardPosition?: number;
   dueDate?: string | null;
   estimatePoints?: number | null;

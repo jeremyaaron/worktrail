@@ -30,6 +30,7 @@ export type ProjectWorkItemQuery = Pick<
   | 'priority'
   | 'labelId'
   | 'milestoneId'
+  | 'cycleId'
   | 'dueDateState'
   | 'blocked'
   | 'dependency'
@@ -121,6 +122,10 @@ function buildCommonWorkItemConditions(filters: ProjectWorkItemQuery): SQL[] {
 
   if (filters.milestoneId !== undefined) {
     conditions.push(eq(workItems.milestoneId, filters.milestoneId));
+  }
+
+  if (filters.cycleId !== undefined) {
+    conditions.push(eq(workItems.cycleId, filters.cycleId));
   }
 
   conditions.push(...dueDateConditions(filters.dueDateState));
