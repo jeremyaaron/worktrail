@@ -1,6 +1,17 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import type { DeliveryHealthState, ProjectCycleReviewDto, WorkItemQuery } from '@worktrail/contracts';
+import type {
+  CycleReviewRiskSectionDto,
+  CycleReviewScopeBreakdownDto,
+  DeliveryHealthReasonDto,
+  DeliveryHealthState,
+  PlanningRiskItemDto,
+  ProjectCycleReviewDto,
+  WorkItemPriority,
+  WorkItemQuery,
+  WorkItemStatus
+} from '@worktrail/contracts';
 import { Subscription } from 'rxjs';
 
 import { CyclesApi } from '../../core/api/cycles-api';
@@ -9,11 +20,45 @@ import {
   cycleHealthLabel,
   cycleStatusLabel
 } from '../../shared/cycles/cycle-display';
-import { deliveryHealthTone } from '../../shared/delivery-health/delivery-health-display';
+import {
+  deliveryHealthReasonLabel,
+  deliveryHealthSeverityTone,
+  deliveryHealthTone
+} from '../../shared/delivery-health/delivery-health-display';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
 import { routerLinkQueryParamsFromWorkItemQuery } from '../work-items/query/work-item-query-serialization';
+
+const visibleRiskItemLimit = 4;
+const workItemStatuses: WorkItemStatus[] = [
+  'backlog',
+  'ready',
+  'in_progress',
+  'blocked',
+  'done',
+  'canceled'
+];
+const workItemPriorities: WorkItemPriority[] = ['urgent', 'high', 'medium', 'low'];
+const statusLabels: Record<WorkItemStatus, string> = {
+  backlog: 'Backlog',
+  ready: 'Ready',
+  in_progress: 'In progress',
+  blocked: 'Blocked',
+  done: 'Done',
+  canceled: 'Canceled'
+};
+const priorityLabels: Record<WorkItemPriority, string> = {
+  urgent: 'Urgent',
+  high: 'High',
+  medium: 'Medium',
+  low: 'Low'
+};
+
+interface BreakdownMetric {
+  label: string;
+  value: number;
+}
 
 @Component({
   selector: 'app-project-cycle-review-page',
@@ -24,7 +69,7 @@ import { routerLinkQueryParamsFromWorkItemQuery } from '../work-items/query/work
         <app-loading-indicator label="Loading cycle review" />
       } @else if (error()) {
         <app-error-panel
-          title="Cycle review unavailable"
+          [title]="errorTitle()"
           [message]="error() ?? ''"
           (retry)="loadReview()"
         />
@@ -91,27 +136,240 @@ import { routerLinkQueryParamsFromWorkItemQuery } from '../work-items/query/work
           </article>
         </section>
 
-        <section class="panel" aria-labelledby="cycle-health-heading">
+        <div class="review-layout">
+          <section class="panel" aria-labelledby="cycle-health-heading">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Health</p>
+                <h2 id="cycle-health-heading">{{ healthLabel(review.health.health) }}</h2>
+              </div>
+              <span class="health-pill" [attr.data-tone]="healthTone(review.health.health)">
+                {{ healthLabel(review.health.health) }}
+              </span>
+            </div>
+
+            <span class="progress-bar" aria-hidden="true">
+              <span [style.width.%]="completionPercent(review)"></span>
+            </span>
+
+            @if (review.health.reasons.length === 0) {
+              <div class="compact-empty">
+                <strong>No cycle risks found</strong>
+                <span>This cycle has no surfaced delivery-health reasons.</span>
+              </div>
+            } @else {
+              <div class="reason-list" aria-label="Cycle health reasons">
+                @for (reason of topReasons(review.health.reasons); track reason.key + reason.message) {
+                  @if (reasonQueryParams(reason); as queryParams) {
+                    <a
+                      class="reason-chip"
+                      [attr.data-tone]="severityTone(reason.severity)"
+                      [routerLink]="['/projects', projectId(), 'work-items']"
+                      [queryParams]="queryParams"
+                    >
+                      {{ reasonLabel(reason) }}
+                    </a>
+                  } @else {
+                    <span class="reason-chip" [attr.data-tone]="severityTone(reason.severity)">
+                      {{ reasonLabel(reason) }}
+                    </span>
+                  }
+                }
+              </div>
+            }
+          </section>
+
+          <section class="panel" aria-labelledby="cycle-estimate-heading">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Estimate</p>
+                <h2 id="cycle-estimate-heading">Target progress</h2>
+              </div>
+              <span class="health-pill" [attr.data-tone]="targetTone(review)">
+                {{ targetVarianceLabel(review) }}
+              </span>
+            </div>
+
+            <span class="progress-bar progress-bar--estimate" aria-hidden="true">
+              <span [style.width.%]="estimatePercent(review)"></span>
+            </span>
+
+            <dl class="breakdown-list breakdown-list--wide">
+              <div>
+                <dt>Committed</dt>
+                <dd>{{ review.progress.committedEstimatePoints }}</dd>
+              </div>
+              <div>
+                <dt>Completed</dt>
+                <dd>{{ review.progress.completedEstimatePoints }}</dd>
+              </div>
+              <div>
+                <dt>Target</dt>
+                <dd>{{ review.progress.targetPoints ?? 'None' }}</dd>
+              </div>
+              <div>
+                <dt>Unestimated</dt>
+                <dd>{{ review.progress.unestimatedCount }}</dd>
+              </div>
+            </dl>
+          </section>
+        </div>
+
+        <section class="panel" aria-labelledby="scope-breakdown-heading">
           <div class="panel-heading">
             <div>
-              <p class="eyebrow">Health</p>
-              <h2 id="cycle-health-heading">{{ healthLabel(review.health.health) }}</h2>
+              <p class="eyebrow">Scope</p>
+              <h2 id="scope-breakdown-heading">Breakdown</h2>
             </div>
-            <span class="health-pill" [attr.data-tone]="healthTone(review.health.health)">
-              {{ healthLabel(review.health.health) }}
-            </span>
           </div>
 
-          <span class="progress-bar" aria-hidden="true">
-            <span [style.width.%]="completionPercent(review)"></span>
-          </span>
+          <div class="scope-grid">
+            <section class="breakdown-section">
+              <h3>Status</h3>
+              <dl class="breakdown-list">
+                @for (metric of statusBreakdown(review.scopeBreakdown); track metric.label) {
+                  <div>
+                    <dt>{{ metric.label }}</dt>
+                    <dd>{{ metric.value }}</dd>
+                  </div>
+                }
+              </dl>
+            </section>
 
-          @if (review.health.reasons.length === 0) {
-            <p class="panel-copy">No cycle health reasons surfaced.</p>
+            <section class="breakdown-section">
+              <h3>Priority</h3>
+              <dl class="breakdown-list">
+                @for (metric of priorityBreakdown(review.scopeBreakdown); track metric.label) {
+                  <div>
+                    <dt>{{ metric.label }}</dt>
+                    <dd>{{ metric.value }}</dd>
+                  </div>
+                }
+              </dl>
+            </section>
+
+            <section class="breakdown-section breakdown-section--wide">
+              <h3>Ownership, dates, and dependencies</h3>
+              <dl class="breakdown-list breakdown-list--wide">
+                @for (metric of planningBreakdown(review.scopeBreakdown); track metric.label) {
+                  <div>
+                    <dt>{{ metric.label }}</dt>
+                    <dd>{{ metric.value }}</dd>
+                  </div>
+                }
+              </dl>
+            </section>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="risk-sections-heading">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Risks</p>
+              <h2 id="risk-sections-heading">Needs attention</h2>
+            </div>
+            <span>{{ totalRiskCount(review) }} items</span>
+          </div>
+
+          @if (review.riskSections.length === 0) {
+            <div class="compact-empty">
+              <strong>No risk sections</strong>
+              <span>Current cycle work has no surfaced risk categories.</span>
+            </div>
           } @else {
-            <div class="reason-list" aria-label="Cycle health reasons">
-              @for (reason of review.health.reasons.slice(0, 4); track reason.key + reason.message) {
-                <span class="reason-chip">{{ reason.message }}</span>
+            <div class="risk-section-list">
+              @for (section of review.riskSections; track section.type) {
+                <section class="risk-section" [attr.aria-labelledby]="riskHeadingId(section)">
+                  <div class="section-heading">
+                    <div>
+                      <h3 [id]="riskHeadingId(section)">{{ section.title }}</h3>
+                      <p>{{ section.description }}</p>
+                    </div>
+                    <a
+                      [routerLink]="['/projects', projectId(), 'work-items']"
+                      [queryParams]="scopedWorkQueryParams(section.query)"
+                    >
+                      Open work
+                    </a>
+                  </div>
+
+                  @if (section.items.length === 0) {
+                    <div class="compact-empty">
+                      <strong>No matching work</strong>
+                      <span>This section has no item previews.</span>
+                    </div>
+                  } @else {
+                    <div class="risk-list">
+                      @for (item of visibleRiskItems(section); track item.id) {
+                        <a
+                          class="work-row"
+                          [routerLink]="['/work-items', item.id]"
+                          [queryParams]="detailQueryParams()"
+                        >
+                          <span class="work-row__title">
+                            <strong>{{ item.displayKey }} · {{ item.title }}</strong>
+                            <small>
+                              {{ workStatusLabel(item.status) }} · {{ priorityLabel(item.priority) }}
+                              · {{ item.assignee?.name ?? 'Unassigned' }}
+                            </small>
+                          </span>
+                          <span class="work-row__meta">
+                            <small>{{ item.dueDate === null ? 'No due date' : 'Due ' + formatDate(item.dueDate) }}</small>
+                            <small>Updated {{ formatDateTime(item.updatedAt) }}</small>
+                          </span>
+                        </a>
+                      }
+                      @if (hiddenRiskItemCount(section) > 0) {
+                        <a
+                          class="risk-more"
+                          [routerLink]="['/projects', projectId(), 'work-items']"
+                          [queryParams]="scopedWorkQueryParams(section.query)"
+                        >
+                          View {{ hiddenRiskItemCount(section) }} more
+                        </a>
+                      }
+                    </div>
+                  }
+                </section>
+              }
+            </div>
+          }
+        </section>
+
+        <section class="panel" aria-labelledby="recent-work-heading">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Movement</p>
+              <h2 id="recent-work-heading">Recently changed work</h2>
+            </div>
+            <span>{{ review.recentlyChangedWork.length }} items</span>
+          </div>
+
+          @if (review.recentlyChangedWork.length === 0) {
+            <div class="compact-empty">
+              <strong>No recent movement</strong>
+              <span>Work item updates in this cycle will appear here.</span>
+            </div>
+          } @else {
+            <div class="risk-list">
+              @for (item of review.recentlyChangedWork; track item.id) {
+                <a
+                  class="work-row"
+                  [routerLink]="['/work-items', item.id]"
+                  [queryParams]="detailQueryParams()"
+                >
+                  <span class="work-row__title">
+                    <strong>{{ item.displayKey }} · {{ item.title }}</strong>
+                    <small>
+                      {{ workStatusLabel(item.status) }} · {{ priorityLabel(item.priority) }}
+                      · {{ item.assignee?.name ?? 'Unassigned' }}
+                    </small>
+                  </span>
+                  <span class="work-row__meta">
+                    <small>{{ item.dueDate === null ? 'No due date' : 'Due ' + formatDate(item.dueDate) }}</small>
+                    <small>Updated {{ formatDateTime(item.updatedAt) }}</small>
+                  </span>
+                </a>
               }
             </div>
           }
@@ -148,7 +406,10 @@ import { routerLinkQueryParamsFromWorkItemQuery } from '../work-items/query/work
 
     h1,
     h2,
-    p {
+    h3,
+    p,
+    dl,
+    dd {
       margin: 0;
     }
 
@@ -162,6 +423,12 @@ import { routerLinkQueryParamsFromWorkItemQuery } from '../work-items/query/work
       color: #111827;
       font-size: 1.125rem;
       line-height: 1.2;
+    }
+
+    h3 {
+      color: #111827;
+      font-size: 0.95rem;
+      line-height: 1.35;
     }
 
     .review-meta {
@@ -279,6 +546,13 @@ import { routerLinkQueryParamsFromWorkItemQuery } from '../work-items/query/work
       padding: 18px;
     }
 
+    .review-layout,
+    .scope-grid {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .panel-heading {
       display: flex;
       align-items: center;
@@ -329,6 +603,10 @@ import { routerLinkQueryParamsFromWorkItemQuery } from '../work-items/query/work
       background: #2563eb;
     }
 
+    .progress-bar--estimate span {
+      background: #0f766e;
+    }
+
     .reason-list {
       display: flex;
       flex-wrap: wrap;
@@ -343,6 +621,184 @@ import { routerLinkQueryParamsFromWorkItemQuery } from '../work-items/query/work
       color: #334155;
       font-size: 0.75rem;
       font-weight: 800;
+      text-decoration: none;
+    }
+
+    .reason-chip[data-tone='positive'] {
+      border-color: #86efac;
+      background: #f0fdf4;
+      color: #166534;
+    }
+
+    .reason-chip[data-tone='warning'] {
+      border-color: #fde68a;
+      background: #fffbeb;
+      color: #92400e;
+    }
+
+    .reason-chip[data-tone='critical'] {
+      border-color: #fecaca;
+      background: #fff1f2;
+      color: #9f1239;
+    }
+
+    .compact-empty {
+      display: grid;
+      gap: 4px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      padding: 14px;
+      background: #f8fafc;
+      color: #475569;
+    }
+
+    .compact-empty strong {
+      color: #111827;
+      font-size: 0.875rem;
+    }
+
+    .compact-empty span {
+      color: #64748b;
+      font-size: 0.8125rem;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    .breakdown-section,
+    .risk-section {
+      display: grid;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .breakdown-section--wide {
+      grid-column: 1 / -1;
+    }
+
+    .breakdown-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .breakdown-list--wide {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .breakdown-list div {
+      min-width: 0;
+      border: 1px solid #e5e7eb;
+      border-radius: 7px;
+      padding: 10px;
+      background: #f8fafc;
+    }
+
+    dt {
+      color: #64748b;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    dd {
+      color: #111827;
+      font-size: 1.15rem;
+      font-weight: 900;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+    }
+
+    .risk-section-list,
+    .risk-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .risk-section {
+      border-top: 1px solid #e5e7eb;
+      padding-top: 14px;
+    }
+
+    .risk-section:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .section-heading p {
+      margin-top: 4px;
+      color: #64748b;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+
+    .section-heading a,
+    .risk-more {
+      display: inline-flex;
+      flex: 0 0 auto;
+      align-items: center;
+      min-height: 32px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 0 10px;
+      background: #ffffff;
+      color: #1e3a5f;
+      font-size: 0.8125rem;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .work-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 12px;
+      background: #ffffff;
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .work-row:hover,
+    .section-heading a:hover,
+    .risk-more:hover,
+    .reason-chip:hover {
+      border-color: #94a3b8;
+      background: #f8fafc;
+    }
+
+    .work-row__title,
+    .work-row__meta {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .work-row__title strong {
+      color: #111827;
+      font-size: 0.875rem;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+
+    .work-row small {
+      color: #64748b;
+      font-size: 0.78rem;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    .work-row__meta {
+      text-align: right;
     }
 
     @media (max-width: 900px) {
@@ -357,6 +813,32 @@ import { routerLinkQueryParamsFromWorkItemQuery } from '../work-items/query/work
       .summary-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
+
+      .review-layout,
+      .scope-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .breakdown-list--wide {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 560px) {
+      .summary-grid,
+      .breakdown-list,
+      .breakdown-list--wide {
+        grid-template-columns: 1fr;
+      }
+
+      .section-heading,
+      .work-row {
+        display: grid;
+      }
+
+      .work-row__meta {
+        text-align: left;
+      }
     }
   `
 })
@@ -370,6 +852,7 @@ export class ProjectCycleReviewPageComponent implements OnInit, OnDestroy {
   readonly review = signal<ProjectCycleReviewDto | null>(null);
   readonly isLoading = signal(true);
   readonly error = signal<string | null>(null);
+  readonly errorTitle = signal('Cycle review unavailable');
 
   ngOnInit(): void {
     this.routeSubscription = this.route.paramMap.subscribe((params) => {
@@ -396,15 +879,17 @@ export class ProjectCycleReviewPageComponent implements OnInit, OnDestroy {
 
     this.isLoading.set(true);
     this.error.set(null);
+    this.errorTitle.set('Cycle review unavailable');
 
     this.cyclesApi.getCycleReview(projectId, cycleId).subscribe({
       next: (review) => {
         this.review.set(review);
         this.isLoading.set(false);
       },
-      error: () => {
+      error: (error: HttpErrorResponse) => {
         this.review.set(null);
-        this.error.set('Cycle review could not be loaded.');
+        this.errorTitle.set(this.toErrorTitle(error));
+        this.error.set(this.toErrorMessage(error));
         this.isLoading.set(false);
       }
     });
@@ -416,6 +901,19 @@ export class ProjectCycleReviewPageComponent implements OnInit, OnDestroy {
     }
 
     return Math.round((review.progress.doneCount / review.progress.totalCount) * 100);
+  }
+
+  estimatePercent(review: ProjectCycleReviewDto): number {
+    if (review.progress.committedEstimatePoints === 0) {
+      return 0;
+    }
+
+    return Math.min(
+      100,
+      Math.round(
+        (review.progress.completedEstimatePoints / review.progress.committedEstimatePoints) * 100
+      )
+    );
   }
 
   statusLabel(status: ProjectCycleReviewDto['cycle']['status']): string {
@@ -434,7 +932,156 @@ export class ProjectCycleReviewPageComponent implements OnInit, OnDestroy {
     return deliveryHealthTone(health);
   }
 
+  severityTone(severity: DeliveryHealthReasonDto['severity']): string {
+    return deliveryHealthSeverityTone(severity);
+  }
+
+  topReasons(reasons: DeliveryHealthReasonDto[]): DeliveryHealthReasonDto[] {
+    return reasons.slice(0, 4);
+  }
+
+  reasonLabel(reason: DeliveryHealthReasonDto): string {
+    return deliveryHealthReasonLabel(reason);
+  }
+
+  reasonQueryParams(reason: DeliveryHealthReasonDto): Record<string, string> | null {
+    if (reason.query === null) {
+      return null;
+    }
+
+    return this.scopedWorkQueryParams(reason.query);
+  }
+
+  statusBreakdown(scope: CycleReviewScopeBreakdownDto): BreakdownMetric[] {
+    return workItemStatuses.map((status) => ({
+      label: statusLabels[status],
+      value: scope.statusCounts[status]
+    }));
+  }
+
+  priorityBreakdown(scope: CycleReviewScopeBreakdownDto): BreakdownMetric[] {
+    return workItemPriorities.map((priority) => ({
+      label: priorityLabels[priority],
+      value: scope.priorityCounts[priority]
+    }));
+  }
+
+  planningBreakdown(scope: CycleReviewScopeBreakdownDto): BreakdownMetric[] {
+    return [
+      { label: 'Assigned', value: scope.assignedCount },
+      { label: 'Unassigned', value: scope.unassignedCount },
+      { label: 'Overdue', value: scope.dueDate.overdueCount },
+      { label: 'Due soon', value: scope.dueDate.dueSoonCount },
+      { label: 'Later', value: scope.dueDate.laterCount },
+      { label: 'No due date', value: scope.dueDate.noneCount },
+      { label: 'Dependency blocked', value: scope.dependency.dependencyBlockedCount },
+      { label: 'Blocking open work', value: scope.dependency.blockingOpenWorkCount }
+    ];
+  }
+
+  totalRiskCount(review: ProjectCycleReviewDto): number {
+    return review.riskSections.reduce((total, section) => total + section.count, 0);
+  }
+
+  riskHeadingId(section: CycleReviewRiskSectionDto): string {
+    return `cycle-risk-${section.type}`;
+  }
+
+  visibleRiskItems(section: CycleReviewRiskSectionDto): PlanningRiskItemDto[] {
+    return section.items.slice(0, visibleRiskItemLimit);
+  }
+
+  hiddenRiskItemCount(section: CycleReviewRiskSectionDto): number {
+    return Math.max(section.count - visibleRiskItemLimit, 0);
+  }
+
+  detailQueryParams(): { returnUrl: string } {
+    return { returnUrl: `/projects/${this.projectId()}/cycles/${this.cycleId()}` };
+  }
+
+  targetVarianceLabel(review: ProjectCycleReviewDto): string {
+    const target = review.progress.targetPoints;
+
+    if (target === null) {
+      return 'No target';
+    }
+
+    const variance = review.progress.committedEstimatePoints - target;
+
+    if (variance > 0) {
+      return `${variance} over target`;
+    }
+
+    if (variance < 0) {
+      return `${Math.abs(variance)} under target`;
+    }
+
+    return 'On target';
+  }
+
+  targetTone(review: ProjectCycleReviewDto): string {
+    const target = review.progress.targetPoints;
+
+    if (target === null) {
+      return 'neutral';
+    }
+
+    return review.progress.committedEstimatePoints > target ? 'warning' : 'positive';
+  }
+
+  workStatusLabel(status: WorkItemStatus): string {
+    return statusLabels[status];
+  }
+
+  priorityLabel(priority: WorkItemPriority): string {
+    return priorityLabels[priority];
+  }
+
+  formatDate(value: string): string {
+    const [year, month, day] = value.split('-').map(Number);
+    return new Intl.DateTimeFormat('en', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    }).format(new Date(year, month - 1, day));
+  }
+
+  formatDateTime(value: string): string {
+    return new Intl.DateTimeFormat('en', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    }).format(new Date(value));
+  }
+
   scopedWorkQueryParams(query: WorkItemQuery): Record<string, string> | null {
     return routerLinkQueryParamsFromWorkItemQuery(query, 'project');
+  }
+
+  private toErrorTitle(error: HttpErrorResponse): string {
+    if (error.status === 404) {
+      return 'Cycle review not found';
+    }
+
+    if (error.status === 403) {
+      return 'Cycle review restricted';
+    }
+
+    return 'Cycle review unavailable';
+  }
+
+  private toErrorMessage(error: HttpErrorResponse): string {
+    if (error.status === 404) {
+      return 'The selected cycle could not be found.';
+    }
+
+    if (error.status === 403) {
+      return 'You do not have permission to view this cycle review.';
+    }
+
+    const message = (error.error as { error?: { message?: string } } | null)?.error?.message;
+    return message ?? 'Cycle review could not be loaded.';
   }
 }

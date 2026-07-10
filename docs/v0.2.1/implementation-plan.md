@@ -1233,6 +1233,39 @@ npm run test:e2e
 git diff --check
 ```
 
+Status: Completed.
+
+Notes:
+
+- Expanded `project-cycle-review-page.component` from a basic header/progress shell into a full live review page with:
+  - cycle identity, goal, lifecycle status, date window, archive/read-only notice, and scoped Work actions;
+  - count progress, estimate progress, target variance, health reasons, status/priority/planning breakdowns, risk sections, and recently changed work;
+  - compact empty states for zero-count risk sections and no recent movement;
+  - specific not-found and permission error states.
+- Added cycle review unit coverage for:
+  - review shell and scoped Work links;
+  - estimate/target, scope breakdown, risk rows, and recent movement rendering;
+  - archived read-only notice;
+  - empty risk/recent movement states;
+  - retry, not-found, and permission failures.
+- Updated report draft and published report detail rendering to show optional active-cycle snapshot sections when present, including cycle health, goal, date window, estimate/target summary, counts, reasons, and current cycle links.
+- Updated report unit fixtures and assertions so cycle snapshots are covered without requiring older reports to include cycle data.
+- Added browser smoke coverage for:
+  - Planning cycle manager availability;
+  - seeded cycle review navigation;
+  - filtered Work links from cycle review;
+  - creating a project work item with a cycle assignment preselected from URL state;
+  - report draft/detail active-cycle snapshot context.
+- Updated project saved-view smoke expectations for the additional seeded cycle saved view.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm test --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `npx playwright test -g "opens and saves v0.1.4|reviews v0.2.1 cycle"` after fixing test selectors and seeded-cycle ids.
+  - `npm run test:e2e`;
+  - `npm run build` (passes with the existing `project-planning-page.component.ts` style budget warning);
+  - `git diff --check`.
+
 ## Phase 13: Documentation, Public Site, Release Notes, Pattern Notes, And Final Verification
 
 Goal: finish v0.2.1 with accurate documentation and full verification.

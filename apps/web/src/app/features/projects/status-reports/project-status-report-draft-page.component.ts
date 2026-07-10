@@ -6,6 +6,7 @@ import type {
   CreateProjectStatusReportRequest,
   DeliveryHealthState,
   PlanningRiskItemDto,
+  ProjectStatusReportCycleSnapshotDto,
   ProjectStatusReportDraftDto,
   ProjectStatusReportRiskSnapshotDto
 } from '@worktrail/contracts';
@@ -143,6 +144,41 @@ const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
               </dl>
             </section>
 
+            @if (draft.snapshot.cycle; as cycle) {
+              <section class="snapshot-card" aria-labelledby="draft-cycle-heading">
+                <div class="snapshot-card__heading">
+                  <div>
+                    <p class="status-page__eyebrow">Active cycle</p>
+                    <h3 id="draft-cycle-heading">{{ cycle.name }}</h3>
+                  </div>
+                  <span class="health-pill" [attr.data-tone]="healthTone(cycle.health)">
+                    {{ healthLabel(cycle.health) }}
+                  </span>
+                </div>
+                <p>{{ cycle.goal || 'No cycle goal captured.' }}</p>
+                <dl class="counts-grid">
+                  <div>
+                    <dt>Window</dt>
+                    <dd class="counts-grid__label">
+                      {{ formatDate(cycle.startDate) }} - {{ formatDate(cycle.endDate) }}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Estimate</dt>
+                    <dd class="counts-grid__label">{{ cycleEstimateLabel(cycle) }}</dd>
+                  </div>
+                  <div>
+                    <dt>Open</dt>
+                    <dd>{{ cycle.openWorkCount }}</dd>
+                  </div>
+                  <div>
+                    <dt>Blocked</dt>
+                    <dd>{{ cycle.blockedWorkCount }}</dd>
+                  </div>
+                </dl>
+              </section>
+            }
+
             <section class="snapshot-card" aria-labelledby="draft-milestones-heading">
               <h3 id="draft-milestones-heading">Milestones</h3>
               @if (draft.snapshot.milestones.length === 0) {
@@ -211,7 +247,8 @@ const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
     .status-page__heading,
     .draft-form__heading,
-    .draft-form__actions {
+    .draft-form__actions,
+    .snapshot-card__heading {
       display: flex;
       flex-wrap: wrap;
       gap: 12px;
@@ -422,6 +459,11 @@ const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
       line-height: 1.2;
     }
 
+    .counts-grid__label {
+      font-size: 0.82rem;
+      line-height: 1.35;
+    }
+
     .compact-row {
       display: grid;
       gap: 3px;
@@ -590,6 +632,15 @@ export class ProjectStatusReportDraftPageComponent implements OnInit {
     return formatToken(value);
   }
 
+  formatDate(value: string): string {
+    return new Intl.DateTimeFormat(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: 'UTC'
+    }).format(new Date(value));
+  }
+
   formatDateTime(value: string): string {
     return new Intl.DateTimeFormat(undefined, {
       month: 'short',
@@ -598,6 +649,11 @@ export class ProjectStatusReportDraftPageComponent implements OnInit {
       hour: 'numeric',
       minute: '2-digit'
     }).format(new Date(value));
+  }
+
+  cycleEstimateLabel(cycle: ProjectStatusReportCycleSnapshotDto): string {
+    const target = cycle.targetPoints === null ? 'no target' : `${cycle.targetPoints} target`;
+    return `${cycle.completedEstimatePoints}/${cycle.committedEstimatePoints} points, ${target}`;
   }
 
   private toRequest(draft: ProjectStatusReportDraftDto): CreateProjectStatusReportRequest {

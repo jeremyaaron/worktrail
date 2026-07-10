@@ -3,6 +3,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import type {
   DeliveryHealthReasonDto,
   DeliveryHealthState,
+  ProjectStatusReportCycleSnapshotDto,
   ProjectStatusReportDetailDto,
   ProjectStatusReportRiskSnapshotDto
 } from '@worktrail/contracts';
@@ -164,6 +165,63 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
                 </div>
               }
             </section>
+
+            @if (report.snapshot.cycle; as cycle) {
+              <section class="report-card" aria-labelledby="report-cycle-heading">
+                <div class="section-heading">
+                  <div>
+                    <p class="status-page__eyebrow">Active cycle snapshot</p>
+                    <h2 id="report-cycle-heading">{{ cycle.name }}</h2>
+                  </div>
+                  <span class="health-pill" [attr.data-tone]="healthTone(cycle.health)">
+                    {{ healthLabel(cycle.health) }}
+                  </span>
+                </div>
+
+                <p>{{ cycle.goal || 'No cycle goal captured.' }}</p>
+
+                <dl class="counts-grid cycle-counts">
+                  <div>
+                    <dt>Window</dt>
+                    <dd>{{ formatDate(cycle.startDate) }} - {{ formatDate(cycle.endDate) }}</dd>
+                  </div>
+                  <div>
+                    <dt>Estimate</dt>
+                    <dd>{{ cycleEstimateLabel(cycle) }}</dd>
+                  </div>
+                  <div>
+                    <dt>Open</dt>
+                    <dd>{{ cycle.openWorkCount }}</dd>
+                  </div>
+                  <div>
+                    <dt>Blocked</dt>
+                    <dd>{{ cycle.blockedWorkCount }}</dd>
+                  </div>
+                </dl>
+
+                @if (cycle.reasons.length === 0) {
+                  <p>No active-cycle reasons captured.</p>
+                } @else {
+                  <div class="reason-list">
+                    @for (reason of cycle.reasons; track reason.key + reason.message) {
+                      <span class="reason-chip" [attr.data-tone]="reasonTone(reason)">
+                        {{ reasonLabel(reason) }}
+                      </span>
+                    }
+                  </div>
+                }
+
+                <div class="report-links">
+                  <a [routerLink]="['/projects', projectId(), 'cycles', cycle.id]">Review cycle</a>
+                  <a
+                    [routerLink]="['/projects', projectId(), 'work-items']"
+                    [queryParams]="cycleWorkQueryParams(cycle)"
+                  >
+                    Open current cycle work
+                  </a>
+                </div>
+              </section>
+            }
 
             <section class="report-card" aria-labelledby="report-milestones-heading">
               <div class="section-heading">
@@ -567,6 +625,32 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
       font-weight: 900;
     }
 
+    .cycle-counts dd {
+      font-size: 0.9rem;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+
+    .report-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .report-links a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 0 11px;
+      background: #ffffff;
+      color: #0f3f8c;
+      font-size: 0.8125rem;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
     .milestone-row,
     .work-row {
       min-width: 0;
@@ -585,6 +669,7 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
     .milestone-row:hover strong,
     .work-row:hover strong,
     .risk-section > a:hover,
+    .report-links a:hover,
     .status-page__secondary:hover,
     .status-page__action:hover:not(:disabled) {
       text-decoration: underline;
@@ -856,6 +941,13 @@ export class ProjectStatusReportDetailPageComponent implements OnInit {
     return routerLinkQueryParamsFromWorkItemQuery(risk.query, 'project');
   }
 
+  cycleWorkQueryParams(cycle: ProjectStatusReportCycleSnapshotDto): Record<string, string> | null {
+    return routerLinkQueryParamsFromWorkItemQuery(
+      { cycleId: cycle.id, workState: 'open', sort: 'priority_desc' },
+      'project'
+    );
+  }
+
   workItemQueryParams(): { returnUrl: string } {
     return { returnUrl: `/projects/${this.projectId()}/status/${this.reportId()}` };
   }
@@ -878,6 +970,11 @@ export class ProjectStatusReportDetailPageComponent implements OnInit {
 
   formatToken(value: string): string {
     return formatToken(value);
+  }
+
+  cycleEstimateLabel(cycle: ProjectStatusReportCycleSnapshotDto): string {
+    const target = cycle.targetPoints === null ? 'no target' : `${cycle.targetPoints} target`;
+    return `${cycle.completedEstimatePoints}/${cycle.committedEstimatePoints} points, ${target}`;
   }
 
   formatDate(value: string): string {

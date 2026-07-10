@@ -532,7 +532,7 @@ test('opens and saves v0.1.4 project saved views as owner and contributor', asyn
   await page.locator('#current-member').selectOption({ label: 'Avery Owner · owner' });
 
   const savedViews = savedViewsRegion(page);
-  await expect(savedViews).toContainText(/5 shared · \d+ personal/);
+  await expect(savedViews).toContainText(/6 shared · \d+ personal/);
   await openSaveViewForm(page);
   await expect(page.getByRole('button', { name: 'Save shared view' })).toBeVisible();
 
@@ -556,7 +556,7 @@ test('opens and saves v0.1.4 project saved views as owner and contributor', asyn
   await openSaveViewForm(page);
   await page.locator('form.saved-view-form').getByLabel('Name').fill(personalViewName);
   await page.getByRole('button', { name: 'Save personal view' }).click();
-  await expect(savedViews).toContainText(/5 shared · \d+ personal/);
+  await expect(savedViews).toContainText(/6 shared · \d+ personal/);
 
   const personalSavedViewRow = page
     .getByLabel('Personal project views')
@@ -581,7 +581,7 @@ test('opens and saves v0.1.4 project saved views as owner and contributor', asyn
   await page.locator('#current-member').selectOption({ label: 'Casey Contributor · contributor' });
   await page.goto(`/projects/${demoProjectId}/work-items`);
   await expect(page.getByRole('heading', { name: 'Project work items' })).toBeVisible();
-  await expect(savedViews).toContainText('5 shared');
+  await expect(savedViews).toContainText('6 shared');
   await expect(page.getByText('Owners and maintainers manage shared project views.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save shared view' })).toHaveCount(0);
   await openSavedViewManager(page);
@@ -951,6 +951,58 @@ test('reviews seeded milestone delivery risks and preserves permission-sensitive
   await expect(page.getByLabel('Bulk work item actions')).toHaveCount(0);
 });
 
+test('reviews v0.2.1 cycle planning, scoped work, and cycle assignment', async ({ page }) => {
+  test.setTimeout(90_000);
+
+  const activeCycleId = '10000000-0000-4000-8000-000000000371';
+  const workItemTitle = `E2E cycle-assigned work ${Date.now()}`;
+
+  await page.goto(`/projects/${demoProjectId}/planning`);
+  await page.locator('#current-member').selectOption({ label: 'Avery Owner · owner' });
+  await expect(projectShellHeading(page, 'Worktrail App')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Planning dashboard' })).toBeVisible();
+  await page.getByRole('button', { name: 'Cycles' }).click();
+  await expect(page.getByRole('heading', { name: 'Cycles' })).toBeVisible();
+  const cycleForm = page.locator('form.cycle-form');
+  await expect(cycleForm.getByLabel('Name')).toBeVisible();
+  await expect(cycleForm.getByRole('button', { name: 'Create cycle' })).toBeVisible();
+
+  const activeCycleRow = page.locator('article.cycle-row').filter({
+    has: page.getByRole('heading', { name: 'v0.2.1 Cycle Planning' })
+  });
+  await activeCycleRow.getByRole('link', { name: 'Review' }).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${demoProjectId}/cycles/${activeCycleId}$`));
+  await expect(page.getByRole('heading', { name: 'v0.2.1 Cycle Planning' })).toBeVisible();
+  await expect(page.getByLabel('Cycle progress summary')).toContainText('Target');
+  await expect(page.getByRole('heading', { name: 'Target progress' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Breakdown' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Blocked work' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Recently changed work' })).toBeVisible();
+  await expectNoPageOverflow(page);
+
+  await milestoneRiskSection(page, 'Blocked work').getByRole('link', { name: 'Open work' }).click();
+  await expect(page).toHaveURL(/status=blocked/);
+  await expect(page).toHaveURL(new RegExp(`cycleId=${activeCycleId}`));
+  await expect(page.getByRole('heading', { name: 'Project work items' })).toBeVisible();
+  await expect(page.getByText('Cycle: v0.2.1 Cycle Planning')).toBeVisible();
+  await expect(page.getByText('Status: Blocked')).toBeVisible();
+
+  await page.goto(`/projects/${demoProjectId}/work-items/new?cycleId=${activeCycleId}`);
+  await expect(page.getByRole('heading', { name: 'New project work item' })).toBeVisible();
+  await expect(page.locator('select[formcontrolname="cycleId"]')).toHaveValue(activeCycleId);
+  await page.locator('#work-item-title').fill(workItemTitle);
+  await page.locator('#work-item-description').fill('Created with an active cycle assignment.');
+  await page.locator('select[formcontrolname="priority"]').selectOption('high');
+  await page.locator('input[formcontrolname="estimatePoints"]').fill('2');
+  await page.getByRole('button', { name: 'Create work item' }).click();
+  await expect(page.getByRole('region', { name: 'Work item created' })).toContainText(
+    workItemTitle
+  );
+  await page.getByRole('link', { name: 'Open work item' }).click();
+  await expect(page.getByRole('heading', { name: workItemTitle })).toBeVisible();
+  await expect(page.getByLabel('Metadata')).toContainText('v0.2.1 Cycle Planning');
+});
+
 test('publishes and reads v0.1.8 project status reports from seeded project state', async ({ page }) => {
   test.setTimeout(90_000);
 
@@ -971,6 +1023,8 @@ test('publishes and reads v0.1.8 project status reports from seeded project stat
   await expect(page.getByRole('heading', { level: 1, name: 'Worktrail App weekly status' })).toBeVisible();
   await expect(page.getByLabel('Published snapshot notice')).toContainText('Links open current project data');
   await expect(page.getByRole('heading', { name: 'Summary' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'v0.2.1 Cycle Planning' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Open current cycle work' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Milestones' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Risk sections' })).toBeVisible();
   await expect(page.getByRole('link', { name: /v0\.0\.3 Planning/ })).toBeVisible();
@@ -983,6 +1037,8 @@ test('publishes and reads v0.1.8 project status reports from seeded project stat
   await page.goto(`/projects/${demoProjectId}/status/new`);
   await expect(page.getByRole('heading', { name: 'Draft report' })).toBeVisible();
   await expect(page.getByLabel('Generated snapshot')).toContainText('Worktrail App');
+  await expect(page.getByLabel('Generated snapshot')).toContainText('Active cycle');
+  await expect(page.getByLabel('Generated snapshot')).toContainText('v0.2.1 Cycle Planning');
   await expect(page.getByRole('button', { name: 'Publish report' })).toBeEnabled();
   await page.locator('#report-title').fill(reportTitle);
   await page.locator('#report-summary').fill(reportSummary);
@@ -992,6 +1048,7 @@ test('publishes and reads v0.1.8 project status reports from seeded project stat
   await expect(page.getByRole('heading', { level: 1, name: reportTitle })).toBeVisible();
   await expect(page.getByText(reportSummary)).toBeVisible();
   await expect(page.getByLabel('Published snapshot notice')).toContainText('Values reflect the report as published');
+  await expect(page.getByRole('heading', { name: 'v0.2.1 Cycle Planning' })).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`/projects/${demoProjectId}/status/[0-9a-f-]+$`));
 
   await page.setViewportSize({ width: 390, height: 900 });

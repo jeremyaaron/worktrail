@@ -195,6 +195,17 @@ describe('ProjectCycleReviewPageComponent', () => {
     expect(compiled.textContent).toContain('Jul 13, 2026 - Jul 24, 2026');
     expect(compiled.textContent).toContain('At risk');
     expect(compiled.textContent).toContain('33%');
+    expect(compiled.textContent).toContain('Target progress');
+    expect(compiled.textContent).toContain('3 over target');
+    expect(compiled.textContent).toContain('Committed');
+    expect(compiled.textContent).toContain('Unestimated');
+    expect(compiled.textContent).toContain('Scope');
+    expect(compiled.textContent).toContain('Urgent');
+    expect(compiled.textContent).toContain('Ownership, dates, and dependencies');
+    expect(compiled.textContent).toContain('Needs attention');
+    expect(compiled.textContent).toContain('Blocked work');
+    expect(compiled.textContent).toContain('Resolve active cycle blocker');
+    expect(compiled.textContent).toContain('Recently changed work');
     expect(compiled.textContent).toContain('Cycle estimate is 3 points over target.');
 
     const scopedWorkLink = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('a')).find(
@@ -202,6 +213,18 @@ describe('ProjectCycleReviewPageComponent', () => {
     );
     expect(scopedWorkLink?.getAttribute('href')).toBe(
       `/projects/${projectId}/work-items?cycleId=${cycleId}&sort=priority_desc`
+    );
+
+    const riskLink = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('.risk-section a')).find(
+      (link) => link.textContent?.trim() === 'Open work'
+    );
+    expect(riskLink?.getAttribute('href')).toContain(`/projects/${projectId}/work-items`);
+    expect(riskLink?.getAttribute('href')).toContain('status=blocked');
+
+    const workLink = compiled.querySelector<HTMLAnchorElement>('.work-row');
+    expect(workLink?.getAttribute('href')).toContain(`/work-items/${blockedWorkItem.id}`);
+    expect(decodeURIComponent(workLink?.getAttribute('href') ?? '')).toContain(
+      `/projects/${projectId}/cycles/${cycleId}`
     );
   });
 
@@ -250,5 +273,63 @@ describe('ProjectCycleReviewPageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'v0.2.1 Cycle Planning'
     );
+  });
+
+  it('keeps empty risk and recent movement states compact', () => {
+    const fixture = TestBed.createComponent(ProjectCycleReviewPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+
+    fixture.detectChanges();
+    http.expectOne(`/api/projects/${projectId}/cycles/${cycleId}/review`).flush(
+      cycleReview({
+        riskSections: [
+          {
+            type: 'unestimated',
+            title: 'Unestimated work',
+            description: 'Open cycle work without an estimate.',
+            count: 0,
+            query: { cycleId, sort: 'priority_desc' },
+            items: []
+          }
+        ],
+        recentlyChangedWork: []
+      })
+    );
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Unestimated work');
+    expect(compiled.textContent).toContain('No matching work');
+    expect(compiled.textContent).toContain('No recent movement');
+  });
+
+  it('shows a specific not-found state', () => {
+    const fixture = TestBed.createComponent(ProjectCycleReviewPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+
+    fixture.detectChanges();
+    http
+      .expectOne(`/api/projects/${projectId}/cycles/${cycleId}/review`)
+      .flush({ error: { message: 'Project cycle not found.' } }, { status: 404, statusText: 'Not Found' });
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Cycle review not found');
+    expect(compiled.textContent).toContain('The selected cycle could not be found.');
+  });
+
+  it('shows a specific permission state', () => {
+    const fixture = TestBed.createComponent(ProjectCycleReviewPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+
+    fixture.detectChanges();
+    http
+      .expectOne(`/api/projects/${projectId}/cycles/${cycleId}/review`)
+      .flush({ error: { message: 'Forbidden.' } }, { status: 403, statusText: 'Forbidden' });
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Cycle review restricted');
+    expect(compiled.textContent).toContain('You do not have permission to view this cycle review.');
   });
 });
