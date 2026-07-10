@@ -167,6 +167,32 @@ npm run typecheck --workspace @worktrail/web
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-10.
+- Added compact saved-view opening to `SavedViewsToolbarComponent`:
+  - native saved-view select;
+  - shared and personal option groups;
+  - placeholder option;
+  - adjacent disabled-until-selected `Open` action.
+- Added component-local opener state:
+  - selected open view id;
+  - opened-view confirmation message.
+- Added local option helpers for shared, personal, and combined saved-view options.
+- Routed compact opener and existing row-level `Open` buttons through the same `openSavedView` path.
+- Preserved existing save-view, loading, load-error, empty-state, helper, and row-manager behavior for Phase 2.
+- Added focused component coverage for:
+  - grouped compact open select options;
+  - query summary display;
+  - disabled open action with no selection;
+  - opening shared saved views;
+  - opening personal saved views;
+  - `aria-live="polite"` open confirmation.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include 'src/app/features/work-items/components/saved-views-toolbar.component.spec.ts'`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `git diff --check`.
+
 ## Phase 2: Selected-View Management Panel
 
 Goal: replace all-row saved-view management with a selected-view management flow.

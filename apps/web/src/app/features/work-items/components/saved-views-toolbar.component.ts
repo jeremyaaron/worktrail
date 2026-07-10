@@ -8,6 +8,16 @@ import {
   type WorkItemQueryScope
 } from '../query/work-item-query-serialization';
 
+type SavedViewOptionGroup = 'shared' | 'personal';
+
+interface SavedViewOption {
+  id: string;
+  group: SavedViewOptionGroup;
+  label: string;
+  summary: string;
+  savedView: SavedWorkViewDto;
+}
+
 @Component({
   selector: 'app-saved-views-toolbar',
   imports: [EmptyStateComponent, LoadingIndicatorComponent],
@@ -25,6 +35,51 @@ import {
 
       @if (loadError !== null) {
         <p class="inline-error">{{ loadError }}</p>
+      }
+
+      @if (sharedViews.length > 0 || personalViews.length > 0) {
+        <div class="saved-view-open">
+          <label>
+            <span>Open saved view</span>
+            <select
+              [value]="selectedOpenViewId"
+              (change)="selectedOpenViewId = $any($event.target).value"
+            >
+              <option value="">Choose a saved view</option>
+              @if (sharedViewOptions().length > 0) {
+                <optgroup [label]="sharedSectionLabel">
+                  @for (option of sharedViewOptions(); track option.id) {
+                    <option [value]="option.id">{{ option.label }}</option>
+                  }
+                </optgroup>
+              }
+              @if (personalViewOptions().length > 0) {
+                <optgroup [label]="personalSectionLabel">
+                  @for (option of personalViewOptions(); track option.id) {
+                    <option [value]="option.id">{{ option.label }}</option>
+                  }
+                </optgroup>
+              }
+            </select>
+          </label>
+          <button
+            type="button"
+            [disabled]="selectedOpenViewOption() === null"
+            (click)="openSelectedView()"
+          >
+            Open
+          </button>
+        </div>
+
+        @if (selectedOpenViewOption(); as option) {
+          <p class="saved-view-selected-summary">
+            {{ option.group === 'shared' ? 'Shared view' : 'Personal view' }} · {{ option.summary }}
+          </p>
+        }
+      }
+
+      @if (openedViewMessage !== null) {
+        <p class="saved-view-opened" aria-live="polite">{{ openedViewMessage }}</p>
       }
 
       @if (canManagePersonalViews || canManageSharedViews) {
@@ -114,7 +169,7 @@ import {
                     }
 
                     <div class="saved-view-actions">
-                      <button type="button" class="secondary-action" (click)="open.emit(view)">
+                      <button type="button" class="secondary-action" (click)="openSavedView(view)">
                         Open
                       </button>
                       @if (canManageSharedViews) {
@@ -171,7 +226,7 @@ import {
                     }
 
                     <div class="saved-view-actions">
-                      <button type="button" class="secondary-action" (click)="open.emit(view)">
+                      <button type="button" class="secondary-action" (click)="openSavedView(view)">
                         Open
                       </button>
                       @if (canManagePersonalViews) {
@@ -214,6 +269,7 @@ import {
     }
 
     .saved-views__heading,
+    .saved-view-open,
     .saved-view-form {
       display: flex;
       gap: 12px;
@@ -245,6 +301,7 @@ import {
       font-weight: 700;
     }
 
+    .saved-view-open label,
     .saved-view-form label {
       display: grid;
       flex: 1;
@@ -258,7 +315,8 @@ import {
       font-weight: 800;
     }
 
-    input {
+    input,
+    select {
       width: 100%;
       min-height: 38px;
       border: 1px solid #cbd5e1;
@@ -268,6 +326,17 @@ import {
       color: #111827;
       font: inherit;
       font-size: 0.875rem;
+    }
+
+    .saved-view-selected-summary,
+    .saved-view-opened {
+      color: #475569;
+      font-size: 0.8125rem;
+      font-weight: 700;
+    }
+
+    .saved-view-opened {
+      color: #166534;
     }
 
     .save-actions {
@@ -417,6 +486,7 @@ import {
 
     @media (max-width: 760px) {
       .saved-views__heading,
+      .saved-view-open,
       .saved-view-form,
       .save-actions,
       .saved-view-row {
@@ -464,6 +534,8 @@ export class SavedViewsToolbarComponent {
   @Output() readonly draftNameChange = new EventEmitter<{ savedViewId: string; name: string }>();
 
   newViewName = '';
+  selectedOpenViewId = '';
+  openedViewMessage: string | null = null;
 
   @Input()
   set savedViews(savedViews: SavedWorkViewDto[]) {
@@ -493,11 +565,60 @@ export class SavedViewsToolbarComponent {
     this.newViewName = '';
   }
 
+  sharedViewOptions(): SavedViewOption[] {
+    return this.toSavedViewOptions(this.sharedViews, 'shared');
+  }
+
+  personalViewOptions(): SavedViewOption[] {
+    return this.toSavedViewOptions(this.personalViews, 'personal');
+  }
+
+  savedViewOptions(): SavedViewOption[] {
+    return [...this.sharedViewOptions(), ...this.personalViewOptions()];
+  }
+
+  selectedOpenViewOption(): SavedViewOption | null {
+    return this.savedViewOptions().find((option) => option.id === this.selectedOpenViewId) ?? null;
+  }
+
+  openSelectedView(): void {
+    const option = this.selectedOpenViewOption();
+
+    if (option === null) {
+      return;
+    }
+
+    this.openSavedView(option.savedView);
+  }
+
+  openSavedView(savedView: SavedWorkViewDto): void {
+    this.selectedOpenViewId = savedView.id;
+    this.openedViewMessage = `Opened "${savedView.name}". Results updated below.`;
+    this.open.emit(savedView);
+  }
+
   savedViewQueryLabel(savedView: SavedWorkViewDto): string {
     const count = meaningfulWorkItemQueryFieldCount(savedView.query, this.querySummaryScope);
 
     return count === 0
       ? `Default ${this.querySummaryScope} view`
       : `${count} applied ${count === 1 ? 'filter' : 'filters'}`;
+  }
+
+  private toSavedViewOptions(
+    savedViews: SavedWorkViewDto[],
+    group: SavedViewOptionGroup
+  ): SavedViewOption[] {
+    return savedViews.map((savedView) => {
+      const summary = this.savedViewQueryLabel(savedView);
+
+      return {
+        id: savedView.id,
+        group,
+        label: `${savedView.name} - ${summary}`,
+        summary,
+        savedView
+      };
+    });
   }
 }

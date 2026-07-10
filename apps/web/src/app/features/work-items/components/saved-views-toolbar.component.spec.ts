@@ -63,6 +63,72 @@ describe('SavedViewsToolbarComponent', () => {
     fixture.componentInstance.draftNames = { [savedView.id]: savedView.name };
   });
 
+  it('renders compact open select groups with query summaries', () => {
+    fixture.componentInstance.sharedViews = [sharedView];
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const groups = [
+      ...compiled.querySelectorAll<HTMLOptGroupElement>('.saved-view-open optgroup')
+    ];
+
+    expect(groups.map((group) => group.label)).toEqual(['Shared views', 'Personal views']);
+    expect(groups[0]?.textContent).toContain('Dependency risks - 2 applied filters');
+    expect(groups[1]?.textContent).toContain('Open owner work - 2 applied filters');
+
+    const select = compiled.querySelector<HTMLSelectElement>('.saved-view-open select');
+    select!.value = savedView.id;
+    select!.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('.saved-view-selected-summary')?.textContent).toContain(
+      'Personal view · 2 applied filters'
+    );
+  });
+
+  it('disables compact open action until a saved view is selected', () => {
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const button = compiled.querySelector<HTMLButtonElement>('.saved-view-open button');
+
+    expect(button?.disabled).toBeTrue();
+  });
+
+  it('opens a shared saved view from the compact opener', () => {
+    const opened: SavedWorkViewDto[] = [];
+    fixture.componentInstance.sharedViews = [sharedView];
+    fixture.componentInstance.open.subscribe((view) => opened.push(view));
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const select = compiled.querySelector<HTMLSelectElement>('.saved-view-open select');
+    select!.value = sharedView.id;
+    select!.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    compiled.querySelector<HTMLButtonElement>('.saved-view-open button')?.click();
+    fixture.detectChanges();
+
+    expect(opened).toEqual([sharedView]);
+    expect(compiled.querySelector('.saved-view-opened')?.getAttribute('aria-live')).toBe('polite');
+    expect(compiled.textContent).toContain('Opened "Dependency risks". Results updated below.');
+  });
+
+  it('opens a personal saved view from the compact opener', () => {
+    const opened: SavedWorkViewDto[] = [];
+    fixture.componentInstance.open.subscribe((view) => opened.push(view));
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const select = compiled.querySelector<HTMLSelectElement>('.saved-view-open select');
+    select!.value = savedView.id;
+    select!.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    compiled.querySelector<HTMLButtonElement>('.saved-view-open button')?.click();
+
+    expect(opened).toEqual([savedView]);
+  });
+
   it('keeps management compact and emits personal save/open actions', () => {
     const saves: string[] = [];
     const opened: SavedWorkViewDto[] = [];
