@@ -81,6 +81,7 @@ const readyItem: WorkItemListItemDto = {
     }
   ],
   milestone: null,
+  cycle: null,
   boardPosition: 1024,
   dueDate: null,
   estimatePoints: 3,

@@ -124,6 +124,14 @@ export const routes: Routes = [
         title: 'Milestone Review | Worktrail'
       },
       {
+        path: 'cycles/:cycleId',
+        loadComponent: () =>
+          import('./features/projects/project-cycle-review-page.component').then(
+            (module) => module.ProjectCycleReviewPageComponent
+          ),
+        title: 'Cycle Review | Worktrail'
+      },
+      {
         path: 'settings',
         loadComponent: () =>
           import('./features/projects/project-settings-page.component').then(

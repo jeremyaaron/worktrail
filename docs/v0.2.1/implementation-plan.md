@@ -951,6 +951,8 @@ Status:
 
 ## Phase 9: Angular API Client, Routes, And Shared Cycle UI Plumbing
 
+Status: Complete.
+
 Goal: add frontend access to cycle APIs and route scaffolding before feature surfaces are wired in.
 
 Scope:
@@ -995,6 +997,22 @@ npm run lint --workspace @worktrail/web
 npm test --workspace @worktrail/web
 git diff --check
 ```
+
+Completed:
+
+- Added `CyclesApi` with list/create/detail/update/archive/reactivate/review methods against the project-scoped cycle API routes.
+- Added the project-shell child route for `/projects/:projectId/cycles/:cycleId`.
+- Added a lazy `ProjectCycleReviewPageComponent` with loading, error, empty, archived/read-only, summary, health, and scoped-work link states.
+- Added shared cycle display helpers for status labels, date range labels, and health labels.
+- Added planning-local cycle option helpers for reusable cycle select/list surfaces.
+- Preserved `cycleId` through work item query URL serialization and API query params so cycle review links can open scoped work correctly.
+- Updated affected web test fixtures for required cycle DTO fields introduced by the cycle contract.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - focused cycle/route tests via `npm test --workspace @worktrail/web -- --include ...`;
+  - `npm test --workspace @worktrail/web`;
+  - `git diff --check`.
 
 ## Phase 10: Planning Cycle Manager And Summaries
 

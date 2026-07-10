@@ -253,6 +253,9 @@ const defaultPlanningSummary: ProjectPlanningSummaryDto = {
       ]
     }
   ],
+  activeCycle: null,
+  upcomingCycle: null,
+  recentlyCompletedCycle: null,
   planningReview: populatedPlanningReview,
   blockedWork: [blockedWorkItem],
   overdueWork: [overdueWorkItem],
@@ -456,6 +459,9 @@ describe('ProjectPlanningPageComponent', () => {
       project: activeProject,
       deliveryHealth: defaultDeliveryHealth,
       milestoneProgress: [],
+      activeCycle: null,
+      upcomingCycle: null,
+      recentlyCompletedCycle: null,
       planningReview: emptyPlanningReview,
       blockedWork: [],
       overdueWork: [],

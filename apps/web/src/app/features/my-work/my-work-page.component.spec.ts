@@ -68,6 +68,7 @@ const workItem: WorkspaceWorkItemListItemDto = {
   reporter: contributor,
   labels: [],
   milestone,
+  cycle: null,
   boardPosition: 1024,
   dueDate: '2026-07-08',
   estimatePoints: 5,

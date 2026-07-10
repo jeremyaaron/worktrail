@@ -73,6 +73,7 @@ describe('work item query serialization', () => {
       type: null,
       labelId: null,
       milestoneId: null,
+      cycleId: null,
       priority: null,
       dueDateState: null,
       dependency: null,
@@ -120,6 +121,7 @@ describe('work item query serialization', () => {
           archivedProjects: 'include',
           blocked: true,
           projectId: 'project-1',
+          cycleId: 'cycle-1',
           search: 'api',
           sort: 'priority_desc',
           workRisk: 'stale_in_progress',
@@ -129,6 +131,7 @@ describe('work item query serialization', () => {
       )
     ).toEqual({
       search: 'api',
+      cycleId: 'cycle-1',
       workRisk: 'stale_in_progress',
       sort: 'priority_desc'
     });
@@ -193,6 +196,7 @@ describe('work item query serialization', () => {
       type: 'bug',
       labelId: 'label-1',
       milestoneId: 'milestone-1',
+      cycleId: null,
       priority: 'urgent',
       dueDateState: 'overdue',
       blocked: null,

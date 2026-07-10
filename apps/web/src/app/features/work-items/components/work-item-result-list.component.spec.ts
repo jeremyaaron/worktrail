@@ -52,6 +52,7 @@ const workspaceWorkItem: WorkspaceWorkItemListItemDto = {
     }
   ],
   milestone,
+  cycle: null,
   boardPosition: 1,
   dueDate: '2026-07-20',
   estimatePoints: 5,

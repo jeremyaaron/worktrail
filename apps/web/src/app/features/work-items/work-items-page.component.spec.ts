@@ -119,6 +119,7 @@ const workItem: WorkItemListItemDto = {
     }
   ],
   milestone: activeMilestone,
+  cycle: null,
   boardPosition: 1024,
   dueDate: null,
   estimatePoints: 5,
@@ -1305,6 +1306,7 @@ describe('WorkItemListPageComponent', () => {
         type: 'task',
         labelId: workItem.labels[0].id,
         milestoneId: activeMilestone.id,
+        cycleId: null,
         priority: 'high',
         dueDateState: 'overdue',
         dependency: 'blocking_open_work',

@@ -91,6 +91,7 @@ describe('WorkListQueryStore', () => {
       type: null,
       labelId: null,
       milestoneId: null,
+      cycleId: null,
       priority: null,
       dueDateState: null,
       dependency: null,
