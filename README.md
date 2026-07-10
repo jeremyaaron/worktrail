@@ -1,8 +1,8 @@
 # Worktrail
 
-Worktrail is a project management reference app. The v0.2.0 baseline is a local-first Angular + TypeScript API + Postgres application focused on daily team workflow, collaboration updates, reliable filtered work views, pinned workspace and project operating lenses, explicit project batch triage, milestone review, published project reports and Markdown sharing, cross-project discovery, dependency-aware planning, workspace governance, data portability, and production-shaped application boundaries.
+Worktrail is a project management reference app. The v0.2.1 baseline is a local-first Angular + TypeScript API + Postgres application focused on daily team workflow, collaboration updates, reliable filtered work views, pinned workspace and project operating lenses, explicit project batch triage, milestone review, cycle planning, published project reports and Markdown sharing, cross-project discovery, dependency-aware planning, workspace governance, data portability, and production-shaped application boundaries.
 
-The app includes My Work, Action Inbox, top-level Work Items discovery, URL-backed filters, copyable filtered-view links, personal saved views, workspace-shared saved views, project-scoped personal and shared saved views, pinned saved-view shortcuts, project-scoped bulk updates, quick work capture, persistent project workspaces, live planning review, live milestone review, generated report drafts, immutable published report snapshots, Markdown copy/download for published reports, print-friendly report detail pages, milestone/work links from reports, milestone management, durable boards, work item relationships, dependency-blocked signals, project delivery health, comments, mentions, work item watchers, activity, CSV import/export, production-like preview, health/readiness checks, checked-in API documentation, CI, lint, and responsive work item scanning.
+The app includes My Work, Action Inbox, top-level Work Items discovery, URL-backed filters, copyable filtered-view links, personal saved views, workspace-shared saved views, project-scoped personal and shared saved views, pinned saved-view shortcuts, project-scoped bulk updates, quick work capture, persistent project workspaces, live planning review, live milestone review, cycle management and review, generated report drafts, immutable published report snapshots with cycle context, Markdown copy/download for published reports, print-friendly report detail pages, milestone/cycle/work links from reports, milestone management, durable boards, work item relationships, dependency-blocked signals, project delivery health, comments, mentions, work item watchers, activity, CSV import/export, production-like preview, health/readiness checks, checked-in API documentation, CI, lint, and responsive work item scanning.
 
 The app is intentionally built as a credible product surface before generalizing reusable patterns. It runs locally today, while preserving a path toward an S3/CloudFront Angular frontend with API Gateway/Lambda-style endpoint handlers and managed Postgres.
 
@@ -19,6 +19,7 @@ docs/
   v0.1.0/  Consolidation PRD, technical design, implementation plan, audits, and extraction notes
   v0.1.x/  Incremental v0.1 product sprint docs
   v0.2.0/  Consolidated Operating Baseline PRD, technical design, implementation plan, audits, release notes, and pattern notes
+  v0.2.1/  Cycle Planning PRD, technical design, implementation plan, release notes, and pattern notes
   api/     OpenAPI reference
 site/       Static GitHub Pages product site
 e2e/        Playwright smoke tests
@@ -183,6 +184,26 @@ Milestone review links are query-backed:
 
 Milestone review is intentionally current-state only in v0.1.7. Forecasting, roadmap views, critical path analysis, capacity planning, milestone sign-off, historical review snapshots, saved review reports, custom health formulas, and notification rules are deferred.
 
+## Cycle Planning
+
+v0.2.1 adds project-scoped cycles for methodology-neutral execution windows. Cycles are distinct from milestones: milestones represent delivery targets, while cycles represent timeboxed work commitments. Owners and maintainers can create, update, archive, reactivate, and review cycles on active projects. Contributors can read cycle lists, cycle review pages, cycle-filtered work, and report cycle snapshots without mutation controls.
+
+Cycle planning support includes:
+
+- cycle lifecycle management from the project Planning page;
+- one active non-archived cycle per project;
+- non-overlapping planned/active cycle date ranges within a project;
+- optional target points compared with committed and completed work estimates;
+- work item cycle assignment on create, detail edit, and project bulk triage;
+- project and workspace work-list cycle filters with active chips, copyable URLs, saved views, pinned views, and CSV export support;
+- cycle review pages at `/projects/:projectId/cycles/:cycleId`;
+- focused cycle progress, scope breakdown, health, risk sections, and recently changed work;
+- Planning summaries for active, upcoming, and recently completed cycles;
+- active-cycle snapshot sections in generated and published project status reports;
+- deterministic seed cycles for local walkthroughs and browser smoke tests.
+
+Cycles are intentionally compact in v0.2.1. Velocity charts, ceremony management, rollover automation, capacity calendars, cycle forecasting, and CSV import cycle assignment are deferred.
+
 ## Project Reports
 
 Project reports live at `/projects/:projectId/status` and appear as `Reports` in the project shell. Owners and maintainers can generate a report draft from current project state, edit the narrative fields, and publish an immutable report with a stored snapshot. Anyone who can read a published report can copy it as Markdown, download it as Markdown, or open the browser print flow. Contributors can read and export published reports. Archived projects remain readable and exportable, including their existing reports, but cannot publish new reports.
@@ -190,16 +211,17 @@ Project reports live at `/projects/:projectId/status` and appear as `Reports` in
 Report workflow:
 
 - The Reports page shows the latest report, previous reports, and a create entry point when the selected actor can publish.
-- Draft generation captures project identity, delivery health, health reasons, work counts, active/planned milestone snapshots, risk sections, and recent work.
+- Draft generation captures project identity, delivery health, health reasons, work counts, active/planned milestone snapshots, active cycle context, risk sections, and recent work.
 - Draft pages distinguish generated evidence from editable narrative.
 - Owners and maintainers can edit title, report date, summary, highlights, risks, and next steps before publishing.
 - Published reports are immutable.
 - Published detail pages clearly distinguish stored snapshot values from links that open current project data.
 - Published detail pages include `Copy Markdown`, `Download Markdown`, and `Print` actions.
 - Markdown exports are rendered server-side from the stored published report and returned from `GET /api/projects/:projectId/status-reports/:reportId/export.md`.
-- Markdown exports include metadata, narrative, snapshot counts, health reasons, milestones, risk sections, recent work, and relative links back into Worktrail.
+- Markdown exports include metadata, narrative, snapshot counts, health reasons, milestones, active cycle context when present, risk sections, recent work, and relative links back into Worktrail.
 - Print styling hides app chrome and sharing controls so browser print output focuses on the report content.
 - Milestone rows link to current milestone review pages.
+- Cycle snapshot rows link to current cycle review pages.
 - Risk sections link to current filtered project Work pages using canonical query parameters.
 - Work item preview rows link to current work item detail pages with a return URL back to the report.
 - Seed data includes a published Worktrail App weekly status report for local walkthroughs and browser smoke tests.
@@ -216,7 +238,7 @@ Import is a two-step flow:
 1. Preview validates a CSV file and returns normalized rows without creating work.
 2. Apply revalidates the same CSV and creates all rows transactionally.
 
-If any row is invalid during apply, no work items are created. Project and workspace exports use the same applied filters as the visible list or discovery view, so exported CSV matches the current result set rather than pending draft search input.
+If any row is invalid during apply, no work items are created. Project and workspace exports use the same applied filters as the visible list or discovery view, so exported CSV matches the current result set rather than pending draft search input. v0.2.1 exports cycle context for assigned work and cycle-filtered views, but CSV import does not assign cycles yet.
 
 The detailed CSV guide is in [docs/v0.0.X/v0.0.7/csv-import-export.md](docs/v0.0.X/v0.0.7/csv-import-export.md).
 
@@ -241,7 +263,7 @@ The project work item list, cross-project workspace discovery, saved work views,
 - `dependency=dependency_blocked` finds open work blocked by upstream open work.
 - `dependency=blocking_open_work` finds open work that blocks downstream open work.
 
-My Work includes a dependency-blocked assigned summary and section. Planning includes dependency-blocked work and blocking-open-work risk sections. The OpenAPI reference documents the relationship endpoints, dependency query parameter, and relationship DTOs.
+My Work includes a dependency-blocked assigned summary and section. Planning and cycle review include dependency-blocked work and blocking-open-work risk sections. The OpenAPI reference documents the relationship endpoints, dependency query parameter, and relationship DTOs.
 
 ## Delivery Health, Planning, And Review
 
@@ -252,7 +274,9 @@ Delivery-health support includes:
 - project-level health states: on track, at risk, blocked, complete, and inactive;
 - compact delivery-health panels on project overview;
 - detailed planning delivery-health summaries with active, on-track, at-risk, blocked, and open-work counts;
-- live-view framing on Planning and Milestone Review pages;
+- live-view framing on Planning, Milestone Review, and Cycle Review pages;
+- cycle summaries for active, upcoming, and recently completed project execution windows;
+- cycle review pages with target progress, scope breakdown, risk, and recent-movement detail;
 - a Planning-to-Reports bridge for publishing a shareable snapshot from current state;
 - milestone health labels and explainable reason chips;
 - milestone review pages with scoped health, risk, and recent-movement detail;
@@ -260,7 +284,7 @@ Delivery-health support includes:
 - planning review sections for needs attention, upcoming work, and recently changed work;
 - deterministic seed examples for blocked, at-risk, healthy, complete, inactive, and unmilestoned risk scenarios.
 
-Delivery health is derived at read time from milestones, work item status, due dates, assignees, stale in-progress work, and dependency relationships. It is not stored in the database and does not trigger automatic workflow transitions.
+Delivery health is derived at read time from milestones, cycles, work item status, due dates, assignees, stale in-progress work, estimates, and dependency relationships. It is not stored in the database and does not trigger automatic workflow transitions.
 
 ## Verification
 
@@ -300,12 +324,13 @@ Seeded data includes:
 - one inactive historical member with seeded references;
 - two active projects and one archived project;
 - project milestones with due dates and lifecycle state;
+- active, upcoming, and completed Worktrail App cycles with target points and scoped work;
 - work items across every status with persisted board positions;
 - same-project, cross-project, and related-work relationships;
 - dependency-blocked examples where open blockers count and terminal blockers do not;
 - active work item watchers, comment mention metadata, unread notifications, and one read notification;
 - personal saved work views for each active seeded member, workspace-shared saved views for team operating lenses, and project-scoped shared/personal saved views for project rituals;
-- one published Worktrail App status report with snapshot data for milestone, risk, and recent-work review;
+- one published Worktrail App status report with snapshot data for milestone, cycle, risk, and recent-work review;
 - project labels, comments, deleted-comment tombstones, project activity, and workspace activity events.
 
 Use the `Acting as` selector in the top bar to switch the local placeholder actor. The selector only shows active members. This is intentionally local-only behavior and is not production authentication; the API derives the actor role and active state from the selected member record instead of trusting a client-supplied role.
@@ -329,45 +354,50 @@ Suggested walkthrough:
 15. Switch to a contributor and confirm member administration is unavailable with clear helper copy.
 16. Open the Worktrail App project.
 17. Review the project key, status counts, recently updated work, and activity.
-18. Open Planning and review milestone progress, overdue/due-soon work, blocked work, unassigned work, and stale work.
-19. Open a milestone review page, inspect progress, health, risk, and recent movement, then follow a risk link into filtered project work.
-20. Review dependency-blocked and blocking-open-work planning sections, then follow a dependency list link into filtered project work.
-21. Open Project Status, review the seeded weekly report, copy it as Markdown, download the Markdown export, print the page, and follow one milestone or risk link into current project data.
-22. As an owner or maintainer, create a new status report, edit the narrative, publish it, and confirm the detail page shows a published snapshot notice.
-23. Switch to a contributor and confirm published reports remain readable and exportable while the create action is unavailable.
-24. Create a milestone, then create a work item assigned to that milestone.
-25. Use the project work item list search and filters. Dropdown filters apply immediately, while search applies after a short debounce.
-26. Filter by dependency state to find dependency-blocked work or work blocking downstream items.
-27. Copy the filtered project work item list link and reload it to confirm the same applied view.
-28. Open a seeded pinned workspace view such as `Dependency risks` directly from the pinned shortcuts area.
-29. Open a seeded project shared view such as `Ready for QA`, confirm the project URL, active chips, and rows match the saved query, then copy the filtered project link.
-30. Pin a personal saved view from the saved-view manager, navigate away, and reopen it from the pinned shortcuts area.
-31. Switch to a contributor, open a shared pinned project view, and confirm shared project management controls are unavailable while personal project views remain available.
-32. Save a dependency-filtered project view, reload, and reopen it.
-33. As an owner or maintainer, select visible project work items, apply a project batch triage action such as adding a label, and review updated, unchanged, and failed result counts.
-34. Switch to a contributor and confirm project batch mutation controls are unavailable.
-35. Export the currently filtered project work item list to CSV.
-36. Import a small CSV through the project import page, review dry-run validation, apply it, and confirm created work appears in the project list and board.
-37. Export a filtered cross-project workspace discovery view to CSV.
-38. Open Inbox and review unread notifications for the selected actor.
-39. Mark an individual notification read, switch to All, and mark it unread again.
-40. Open the board, drag cards within a column to set planning order, reload, and confirm the order persists.
-41. Move a card through valid workflow columns with drag/drop or the status menu.
-42. Open the work item detail page, update fields, change milestone assignment, watch or unwatch the item, mention an active member in a new comment, add and edit another comment, delete a comment, and review activity.
-43. Switch to the mentioned actor and confirm the mention appears as an unread Inbox notification linking back to the work item.
-44. Add a blocking relationship, confirm the downstream dependency signal appears, move the blocker to done, and confirm the dependency signal clears.
-45. Open the archived project to confirm read-only project, milestone, work item, label, comment, relationship, import, transition, saved-view mutation, batch triage, and status report behavior.
+18. Open Planning and review delivery health, cycle context, milestone progress, overdue/due-soon work, blocked work, unassigned work, and stale work.
+19. Open the Cycles planning view, review the seeded active cycle, and open the cycle review page.
+20. Follow a cycle risk link into filtered project work and confirm the cycle chip remains applied.
+21. Create a work item in the active cycle, then update or clear cycle assignment from the detail page.
+22. Use project bulk edit to set or clear cycle assignment for selected visible work.
+23. Open a milestone review page, inspect progress, health, risk, and recent movement, then follow a risk link into filtered project work.
+24. Review dependency-blocked and blocking-open-work planning sections, then follow a dependency list link into filtered project work.
+25. Open Project Status, review the seeded weekly report with cycle context, copy it as Markdown, download the Markdown export, print the page, and follow one milestone, cycle, or risk link into current project data.
+26. As an owner or maintainer, create a new status report, edit the narrative, publish it, and confirm the detail page shows a published snapshot notice.
+27. Switch to a contributor and confirm published reports remain readable and exportable while the create action is unavailable.
+28. Create a milestone, then create a work item assigned to that milestone.
+29. Use the project work item list search and filters. Dropdown filters apply immediately, while search applies after a short debounce.
+30. Filter by dependency state to find dependency-blocked work or work blocking downstream items.
+31. Copy the filtered project work item list link and reload it to confirm the same applied view.
+32. Open a seeded pinned workspace view such as `Dependency risks` directly from the pinned shortcuts area.
+33. Open a seeded project shared view such as `Ready for QA`, confirm the project URL, active chips, and rows match the saved query, then copy the filtered project link.
+34. Pin a personal saved view from the saved-view manager, navigate away, and reopen it from the pinned shortcuts area.
+35. Switch to a contributor, open a shared pinned project view, and confirm shared project management controls are unavailable while personal project views remain available.
+36. Save a dependency-filtered project view, reload, and reopen it.
+37. As an owner or maintainer, select visible project work items, apply a project batch triage action such as adding a label, and review updated, unchanged, and failed result counts.
+38. Switch to a contributor and confirm project batch mutation controls are unavailable.
+39. Export the currently filtered project work item list to CSV.
+40. Import a small CSV through the project import page, review dry-run validation, apply it, and confirm created work appears in the project list and board.
+41. Export a filtered cross-project workspace discovery view to CSV.
+42. Open Inbox and review unread notifications for the selected actor.
+43. Mark an individual notification read, switch to All, and mark it unread again.
+44. Open the board, drag cards within a column to set planning order, reload, and confirm the order persists.
+45. Move a card through valid workflow columns with drag/drop or the status menu.
+46. Open the work item detail page, update fields, change milestone and cycle assignment, watch or unwatch the item, mention an active member in a new comment, add and edit another comment, delete a comment, and review activity.
+47. Switch to the mentioned actor and confirm the mention appears as an unread Inbox notification linking back to the work item.
+48. Add a blocking relationship, confirm the downstream dependency signal appears, move the blocker to done, and confirm the dependency signal clears.
+49. Open the archived project to confirm read-only project, milestone, cycle, work item, label, comment, relationship, import, transition, saved-view mutation, batch triage, and status report behavior.
 
 Suggested delivery-health checks:
 
 1. Open the Worktrail App project overview and review the compact delivery-health panel.
 2. Follow a delivery-health reason link into a filtered project work item list.
-3. Open Planning and review project delivery health, milestone health labels, and milestone reason chips.
+3. Open Planning and review project delivery health, cycle summaries, milestone health labels, and milestone reason chips.
 4. Review Needs attention, Upcoming, and Recently changed planning review sections.
 5. Open milestone review from Planning and follow a risk section into project Work with milestone and risk chips applied.
-6. Confirm blocked and dependency-blocked seed items affect project health, while the healthy milestone remains on track.
+6. Open cycle review from Planning and follow a risk section into project Work with cycle and risk chips applied.
+7. Confirm blocked and dependency-blocked seed items affect project and cycle health, while the healthy milestone remains on track.
 
-## v0.2.0 Baseline Capabilities
+## Current Baseline Capabilities
 
 - My Work dashboard for the selected active actor.
 - Prioritized My Work daily queue for assigned, due-soon, overdue, blocked, dependency-blocked, stale, reported, and recently updated work.
@@ -403,23 +433,31 @@ Suggested delivery-health checks:
 - Contributor and archived-project absence paths for project bulk mutation controls.
 - Milestone review pages for focused progress, health, scope, risk, and recent movement.
 - Query-backed milestone review risk links into project Work.
+- Project cycle lifecycle management for planned, active, completed, and canceled cycles.
+- One active non-archived cycle per project and overlap validation for planned/active cycles.
+- Work item cycle assignment on create, detail edit, and project bulk triage.
+- Cycle filters on project and workspace work lists with active chips, copy links, saved views, pinned views, and CSV export support.
+- Cycle review pages for focused progress, target points, scope, health, risk, and recent movement.
+- Query-backed cycle review links into project Work.
+- Planning summaries for active, upcoming, and recently completed cycles.
+- Active-cycle context in generated and published project status report snapshots.
 - Hidden `workRisk` query support with visible project Work chips for review-driven risk states.
 - Project status report list, draft, publish, and detail pages under the project shell.
 - Project shell navigation labels report routes as `Reports` while preserving existing `/status` paths.
-- Generated status report drafts that reuse current project health, milestone, risk, and recent-work signals.
+- Generated status report drafts that reuse current project health, milestone, active-cycle, risk, and recent-work signals.
 - Report drafts split generated evidence from editable narrative.
 - Immutable published status reports with stored JSON snapshots and edited narrative fields.
 - Runtime validation for persisted report snapshots before list, detail, and Markdown export responses.
 - Status report links from stored milestone snapshots into current milestone review pages.
 - Status report links from stored risk sections into current filtered project Work pages.
 - Status report work item preview links with return URLs back to the report.
-- Server-rendered Markdown export endpoint for published status reports.
+- Server-rendered Markdown export endpoint for published status reports, including active-cycle snapshot sections when present.
 - Reader-facing status report actions for copying Markdown, downloading Markdown, and browser print.
 - Print-friendly status report detail layout that hides app chrome and action controls.
 - Contributor read access to published reports, including reports for archived projects.
 - Contributor export access to published reports, including reports for archived projects.
 - Owner/maintainer-only report publishing for active projects.
-- Saved-view summaries that suppress default query noise and count meaningful applied filters.
+- Saved-view summaries that suppress default query noise and count meaningful applied filters, including cycle filters.
 - Global quick work capture at `/work-items/new` with active project selection and project-dependent labels and milestones.
 - Project-scoped work item creation still works with the project preselected and the same success actions.
 - Persistent project shell with project identity, status, delivery health, and consistent Overview, Work, Board, Planning, and Settings navigation.
@@ -437,9 +475,9 @@ Suggested delivery-health checks:
 - Planning dashboard with milestone progress, due-soon/overdue work, blocked work, unassigned work, stale work, and links back into filtered lists.
 - Review-first planning with Planning Review and Milestones views.
 - Planning links from milestone rows and milestone review items to focused milestone review pages.
-- Project work item list search and filters for status, type, priority, assignee, reporter, label, milestone, due date, dependency state, and sort.
+- Project work item list search and filters for status, type, priority, assignee, reporter, label, milestone, cycle, due date, dependency state, and sort.
 - Project-scoped CSV import with dry-run preview, normalized rows, row-level validation errors, and transactional apply.
-- Project and workspace CSV export that serializes the currently applied filters through canonical query params.
+- Project and workspace CSV export that serializes the currently applied filters through canonical query params and includes cycle data for assigned work.
 - CSV import/export guide under `docs/v0.0.X/v0.0.7/csv-import-export.md`.
 - Work item relationships with directional `blocks` and symmetric `relates_to` semantics.
 - Cross-project relationships inside the same workspace with project identity shown in relationship rows.
@@ -449,13 +487,14 @@ Suggested delivery-health checks:
 - Dependency filters on project work item lists and cross-project workspace discovery.
 - Saved work views and CSV export support for dependency filters.
 - My Work dependency-blocked assigned summary and section.
-- Planning dependency risk sections for dependency-blocked work and work blocking open downstream items.
+- Planning and cycle review dependency risk sections for dependency-blocked work and work blocking open downstream items.
 - Project overview delivery-health panel with health state, milestone risk counts, open-work count, top reasons, and planning link.
 - Planning delivery-health summary with active, on-track, at-risk, blocked, and open-work counts.
+- Cycle health summary with committed estimate points, completed estimate points, target point comparisons, dependency risk, unestimated work, and unassigned work signals.
 - Milestone health labels and explainable health reason chips on planning progress rows.
 - Planning review sections for needs attention, upcoming work, and recently changed work.
 - Delivery-health reason links into filtered project work item lists where the reason can be represented by current query parameters.
-- Deterministic seed data for healthy, at-risk, blocked, complete, inactive, and unmilestoned delivery-health examples.
+- Deterministic seed data for healthy, at-risk, blocked, complete, inactive, unmilestoned, and current-cycle delivery-health examples.
 - Relationship activity events for add/remove commands.
 - In-app notification persistence for assignments, mentions, watched comments, watched work changes, and dependency blocker changes.
 - Work item watch/unwatch controls with watcher count and compact watcher list on detail pages.
@@ -477,12 +516,13 @@ Suggested delivery-health checks:
 - ESLint guardrails for API, web, and contracts workspaces.
 - GitHub Actions CI for lint, typecheck, tests with a Postgres service, and production build.
 
-## v0.2.0 Limitations
+## Current Limitations
 
 - Authentication is represented by local request headers and the top-bar actor selector.
 - Permissions are enforced against local member records and are useful for exercising policy paths, but they are not production authentication.
 - Production preview is not a secure public deployment and should not be exposed as an authenticated product.
 - Milestone review and delivery health are deterministic and rule-based; custom health formulas, forecasting, capacity planning, roadmap views, critical path analysis, charts, delivery-health notifications, and milestone sign-off are deferred.
+- Cycle planning is intentionally lightweight. Velocity charts, ceremony management, rollover automation, member capacity calendars, cycle forecasting, cycle templates, and cycle-level notification rules are deferred.
 - Project status reports are immutable after publication. Report edits, report delete/archive, PDF generation, scheduled delivery, email/push distribution, approvals, comments, custom templates, subscriptions, recipients, public links, export history, analytics, workspace rollups, forecasting, and roadmap reporting are deferred.
 - Notifications are in-app only. Email, push, WebSockets, digests, notification preferences, deletion/archive controls, and background delivery workers are deferred.
 - Comment mentions are selected through an active-member picker. Rich-text editing and free-text `@name` parsing are deferred.
@@ -492,19 +532,20 @@ Suggested delivery-health checks:
 - Copy-link support uses browser clipboard APIs and a textarea fallback. Native share sheets, short links, and permission customization are deferred.
 - CSV import is project-scoped and limited to 1 MiB and 250 data rows per file.
 - CSV import supports Worktrail's current columns only; third-party tracker migration mappings are deferred.
+- CSV import does not assign cycles yet; cycle data is currently export-only.
 - CSV and status report Markdown export are direct file downloads; export history, scheduled exports, and additional report formats are deferred.
 - Relationships support only `blocks` and `relates_to`; custom relationship types, hierarchy, and graph visualization are deferred.
 - Dependency-blocked state is derived from current open blockers; critical path analysis, external dependency alerts, and automation rules are deferred.
 - Relationship activity is recorded on the command context item only to avoid noisy cross-project activity.
 - Custom workflows, file attachments, and production auth are intentionally out of scope.
 - Invitations, multi-workspace switching, custom roles, project-specific membership, pinned projects, recent projects, and audit export are intentionally out of scope.
-- The local Express adapter is the only runtime adapter in v0.2.0, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
+- The local Express adapter is the only runtime adapter in v0.2.1, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
 - AWS deployment assets are not included yet; the Angular static build and transport-neutral handlers preserve that path.
 - Readiness checks database connectivity only; migration drift detection, metrics, tracing, and managed deployment runbooks are deferred.
 
 ## Database Status
 
-The current schema includes workspace activity, member lifecycle metadata, project keys, scoped work item display keys, labels, milestones, comments, comment mentions, project activity, due dates, durable board positions, work item relationships, work item watchers, notifications, workspace-scoped saved work views, project-scoped saved work views, saved-view pinned state, and immutable project status report snapshots.
+The current schema includes workspace activity, member lifecycle metadata, project keys, scoped work item display keys, labels, milestones, project cycles, work item cycle assignments, comments, comment mentions, project activity, due dates, durable board positions, work item relationships, work item watchers, notifications, workspace-scoped saved work views, project-scoped saved work views, saved-view pinned state, and immutable project status report snapshots.
 
 Useful database commands:
 

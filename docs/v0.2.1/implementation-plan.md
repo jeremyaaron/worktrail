@@ -111,7 +111,7 @@ git diff --check
 
 Status:
 
-- Completed on 2026-07-09.
+- Completed on 2026-07-10.
 - Confirmed v0.2.1 planning inputs exist:
   - `docs/v0.2.1/prd.md`;
   - `docs/v0.2.1/technical-design.md`;
@@ -1415,6 +1415,29 @@ npm run build
 git diff --check
 git status --short --branch
 ```
+
+Status:
+
+- Completed on 2026-07-09.
+- Updated README to describe v0.2.1 cycle planning, cycle review, cycle filters, cycle-aware reports, seed data, walkthrough steps, current capabilities, current limitations, and schema status.
+- Updated the public static site to present Worktrail as a v0.2.1 cycle-aware reference app and point release links at v0.2.1 docs.
+- Added `docs/v0.2.1/release-notes.md`.
+- Added `docs/v0.2.1/pattern-notes.md`.
+- Recorded the `/work-items/:id` same-route navigation bugfix in release notes.
+- Updated first-party package metadata and lockfile workspace metadata to `0.2.1`.
+- Confirmed production-only dependency audit reports `0 vulnerabilities`.
+- Verified:
+  - `npm install --package-lock-only`;
+  - `npm run db:reset`;
+  - `npm run db:migrate`;
+  - `npm run db:seed`;
+  - `npm run lint`;
+  - `npm run typecheck`;
+  - `npm test`;
+  - `npm run test:e2e`;
+  - `npm run build`;
+  - `npm audit --omit=dev --audit-level=low`;
+  - `git diff --check`.
 
 ## Rollback Notes
 
