@@ -11,6 +11,7 @@ const workspaceIds = new Set<string>();
 let pool: ReturnType<typeof createPool>;
 let db: ReturnType<typeof createDb>;
 let repositories: Repositories;
+let nextWorkItemNumber = 1;
 
 function now() {
   return new Date('2026-07-09T12:00:00.000Z');
@@ -343,4 +344,188 @@ describe('ProjectCycleService', () => {
       ValidationError
     );
   });
+
+  it('builds cycle review progress, health, risk sections, and recent movement', async () => {
+    const fixture = await createFixture();
+    const cycle = await fixture.service.createProjectCycle(fixture.projectId, {
+      name: 'Current cycle',
+      status: 'active',
+      startDate: '2026-07-01',
+      endDate: '2026-07-12',
+      targetPoints: 5
+    });
+    const blocker = await createWorkItem(fixture, {
+      cycleId: cycle.id,
+      title: 'Resolve dependency',
+      status: 'in_progress',
+      priority: 'urgent',
+      estimatePoints: 3,
+      updatedAt: new Date('2026-07-01T12:00:00.000Z')
+    });
+    const blocked = await createWorkItem(fixture, {
+      cycleId: cycle.id,
+      title: 'Blocked cycle work',
+      status: 'blocked',
+      priority: 'high',
+      dueDate: '2026-07-08',
+      estimatePoints: 3
+    });
+    await createWorkItem(fixture, {
+      cycleId: cycle.id,
+      title: 'Unassigned unestimated work',
+      status: 'ready',
+      priority: 'medium',
+      assigneeId: null,
+      estimatePoints: null
+    });
+    await createWorkItem(fixture, {
+      cycleId: cycle.id,
+      title: 'Completed work',
+      status: 'done',
+      priority: 'low',
+      estimatePoints: 2
+    });
+    await repositories.workItemRelationships.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      relationshipType: 'blocks',
+      sourceWorkItemId: blocker.id,
+      targetWorkItemId: blocked.id,
+      createdById: fixture.actorId,
+      createdAt: now()
+    });
+
+    const review = await fixture.service.getCycleReview(fixture.projectId, cycle.id);
+
+    expect(review.project.id).toBe(fixture.projectId);
+    expect(review.cycle.id).toBe(cycle.id);
+    expect(review.scopedWorkQuery).toEqual({ cycleId: cycle.id, sort: 'priority_desc' });
+    expect(review.progress).toMatchObject({
+      totalCount: 4,
+      openCount: 3,
+      doneCount: 1,
+      blockedCount: 1,
+      dependencyBlockedCount: 1,
+      committedEstimatePoints: 8,
+      completedEstimatePoints: 2,
+      unestimatedCount: 1,
+      targetPoints: 5
+    });
+    expect(review.health.health).toBe('blocked');
+    expect(review.health.reasons.map((reason) => reason.key)).toEqual(
+      expect.arrayContaining([
+        'blocked_work',
+        'dependency_blocked',
+        'cycle_over_target',
+        'overdue_work',
+        'unassigned_active',
+        'stale_in_progress',
+        'unestimated_work'
+      ])
+    );
+    expect(review.scopeBreakdown.statusCounts.blocked).toBe(1);
+    expect(review.scopeBreakdown.priorityCounts.urgent).toBe(1);
+    expect(review.scopeBreakdown.dependency.dependencyBlockedCount).toBe(1);
+    expect(review.riskSections.map((section) => section.type)).toEqual([
+      'blocked',
+      'dependency_blocked',
+      'overdue',
+      'due_soon',
+      'unassigned_active',
+      'stale_in_progress',
+      'blocking_open_work',
+      'unestimated',
+      'over_target'
+    ]);
+    expect(review.riskSections.find((section) => section.type === 'over_target')).toMatchObject({
+      count: 1,
+      query: { cycleId: cycle.id, sort: 'priority_desc' }
+    });
+    expect(review.recentlyChangedWork).toHaveLength(4);
+  });
+
+  it('returns healthy, complete, and inactive cycle review health states', async () => {
+    const fixture = await createFixture();
+    const healthy = await fixture.service.createProjectCycle(fixture.projectId, {
+      name: 'Healthy cycle',
+      status: 'planned',
+      startDate: '2026-07-01',
+      endDate: '2026-07-12',
+      targetPoints: 10
+    });
+    await createWorkItem(fixture, {
+      cycleId: healthy.id,
+      title: 'Ready estimated work',
+      status: 'ready',
+      estimatePoints: 3
+    });
+    const completed = await fixture.service.createProjectCycle(fixture.projectId, {
+      name: 'Completed historical cycle',
+      status: 'completed',
+      startDate: '2026-06-01',
+      endDate: '2026-06-12'
+    });
+    const canceled = await fixture.service.createProjectCycle(fixture.projectId, {
+      name: 'Canceled historical cycle',
+      status: 'canceled',
+      startDate: '2026-05-01',
+      endDate: '2026-05-12'
+    });
+
+    await expect(fixture.service.getCycleReview(fixture.projectId, healthy.id)).resolves.toMatchObject({
+      health: { health: 'healthy', reasons: [] }
+    });
+    await expect(fixture.service.getCycleReview(fixture.projectId, completed.id)).resolves.toMatchObject({
+      health: { health: 'complete' }
+    });
+    await expect(fixture.service.getCycleReview(fixture.projectId, canceled.id)).resolves.toMatchObject({
+      health: { health: 'inactive' }
+    });
+
+    const archived = await fixture.service.archiveProjectCycle(fixture.projectId, healthy.id);
+    await expect(fixture.service.getCycleReview(fixture.projectId, archived.id)).resolves.toMatchObject({
+      health: { health: 'inactive' }
+    });
+  });
 });
+
+async function createWorkItem(
+  fixture: Awaited<ReturnType<typeof createFixture>>,
+  input: {
+    cycleId: string;
+    title: string;
+    status?: 'backlog' | 'ready' | 'in_progress' | 'blocked' | 'done' | 'canceled';
+    priority?: 'low' | 'medium' | 'high' | 'urgent';
+    assigneeId?: string | null;
+    dueDate?: string | null;
+    estimatePoints?: number | null;
+    updatedAt?: Date;
+  }
+) {
+  const id = randomUUID();
+  const timestamp = now();
+  const itemNumber = nextWorkItemNumber;
+  nextWorkItemNumber += 1;
+
+  return repositories.workItems.create({
+    id,
+    workspaceId: fixture.workspaceId,
+    projectId: fixture.projectId,
+    title: input.title,
+    description: '',
+    itemNumber,
+    displayKey: `CY-${itemNumber}`,
+    type: 'story',
+    status: input.status ?? 'ready',
+    priority: input.priority ?? 'medium',
+    assigneeId: input.assigneeId === undefined ? fixture.actorId : input.assigneeId,
+    reporterId: fixture.actorId,
+    milestoneId: null,
+    cycleId: input.cycleId,
+    boardPosition: 0,
+    dueDate: input.dueDate ?? null,
+    estimatePoints: input.estimatePoints === undefined ? 1 : input.estimatePoints,
+    createdAt: timestamp,
+    updatedAt: input.updatedAt ?? timestamp
+  });
+}

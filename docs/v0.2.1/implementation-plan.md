@@ -533,6 +533,52 @@ npm run lint --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-09.
+- Implemented `ProjectCycleService.getCycleReview`.
+- Extended `apps/api/src/services/work-risk-sections.ts` with:
+  - exported `WorkRiskEvaluationContext`;
+  - `createCycleReviewRiskSections`;
+  - cycle-specific `unestimated` and `over_target` risk sections.
+- Added cycle-specific review derivation in `apps/api/src/services/project-cycle-service.ts`:
+  - progress totals;
+  - open/done/blocked/dependency-blocked counts;
+  - committed and completed estimate point totals;
+  - unestimated open-work count;
+  - target point comparison;
+  - cycle health and reasons;
+  - scope breakdown by status, priority, assignee, due date, and dependency;
+  - risk sections;
+  - recently changed work capped at 8.
+- Added cycle health behavior:
+  - completed cycles return `complete`;
+  - canceled or archived cycles return `inactive`;
+  - active cycles with blocked/dependency-blocked work return `blocked`;
+  - planned/active cycles with overdue, stale, unassigned, unestimated, or over-target work return `at_risk`;
+  - otherwise return the existing contract health state `healthy`.
+- Added `unestimated_work` and `cycle_over_target` to `DeliveryHealthReasonKey`.
+- Ensured all cycle review action links include `cycleId`.
+- Updated `apps/api/tests/project-cycle-service.test.ts` for:
+  - cycle review progress;
+  - blocked/dependency-blocked health;
+  - over-target and unestimated reasons;
+  - risk-section ordering and queries;
+  - recent movement;
+  - healthy review state;
+  - completed, canceled, and archived review health.
+- Updated `apps/api/tests/work-risk-sections.test.ts` to cover cycle-specific risk sections.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/api -- project-cycle-service.test.ts work-risk-sections.test.ts`;
+  - `npm test --workspace @worktrail/api`;
+  - `npm test --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/contracts`;
+  - `npm run lint --workspace @worktrail/contracts`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `git diff --check`.
+
 ## Phase 5: Endpoint Handlers, Express Routes, And API Tests
 
 Goal: expose cycle management and review through transport-neutral handlers and the local Express adapter.

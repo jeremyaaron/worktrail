@@ -41,6 +41,8 @@ export type DeliveryHealthReasonKey =
   | 'stale_in_progress'
   | 'target_date_past'
   | 'unassigned_active'
+  | 'unestimated_work'
+  | 'cycle_over_target'
   | 'unmilestoned_risk';
 
 export interface DeliveryHealthReasonDto {
