@@ -65,6 +65,8 @@ const deliveryHealth: ProjectDeliveryHealthDto = {
 };
 
 function portfolioFixture(overrides: Partial<PortfolioDto> = {}): PortfolioDto {
+  const projectWorkRoute = `/projects/${project.id}/work-items`;
+
   return {
     generatedAt: '2026-07-11T14:30:00.000Z',
     reportFreshnessThresholdDays: 14,
@@ -78,10 +80,56 @@ function portfolioFixture(overrides: Partial<PortfolioDto> = {}): PortfolioDto {
       missingOrStaleReportProjectCount: 1
     },
     attention: {
-      needsAttention: [],
-      communicationFreshness: [],
-      currentExecution: [],
-      dependencyPressure: []
+      needsAttention: [
+        {
+          type: 'delivery_risk',
+          project,
+          title: 'WT delivery at risk',
+          message: '1 blocked work item',
+          severity: 'critical',
+          link: {
+            label: '1 blocked work item',
+            route: projectWorkRoute,
+            query: { status: 'blocked', sort: 'priority_desc' },
+            queryScope: 'project'
+          }
+        }
+      ],
+      communicationFreshness: [
+        {
+          type: 'communication_freshness',
+          project,
+          title: 'WT report is stale',
+          message: 'Latest report is 20 days old.',
+          severity: 'info',
+          link: { label: 'Reports', route: `/projects/${project.id}/status` }
+        }
+      ],
+      currentExecution: [
+        {
+          type: 'current_execution',
+          project,
+          title: 'WT active cycle',
+          message: 'Sprint 12 has 4 open work items.',
+          severity: 'warning',
+          link: { label: 'Review cycle', route: `/projects/${project.id}/cycles/cycle-1` }
+        }
+      ],
+      dependencyPressure: [
+        {
+          type: 'dependency_pressure',
+          project,
+          title: 'WT dependency pressure',
+          message: '1 blocked by dependencies, 0 blocking downstream work.',
+          severity: 'critical',
+          link: {
+            label: 'Dependency-blocked work',
+            route: projectWorkRoute,
+            query: { dependency: 'dependency_blocked', sort: 'priority_desc' },
+            queryScope: 'project'
+          }
+        }
+      ]
     },
     projects: [
       {
@@ -97,18 +145,69 @@ function portfolioFixture(overrides: Partial<PortfolioDto> = {}): PortfolioDto {
         report: {
           freshness: 'stale',
           thresholdDays: 14,
-          latestReport: null,
+          latestReport: {
+            id: '10000000-0000-4000-8000-000000000701',
+            workspaceId,
+            projectId: project.id,
+            title: 'Worktrail App status',
+            statusDate: '2026-06-21',
+            health: 'at_risk',
+            author: owner,
+            publishedAt: '2026-06-21T12:00:00.000Z',
+            createdAt: '2026-06-21T12:00:00.000Z'
+          },
           daysSincePublished: 20
         },
         planning: {
-          activeMilestone: null,
-          activeCycle: null
+          activeMilestone: {
+            id: '10000000-0000-4000-8000-000000000301',
+            name: 'MVP Portfolio',
+            status: 'active',
+            health: 'at_risk',
+            openCount: 4,
+            targetDate: '2026-07-31'
+          },
+          activeCycle: {
+            id: 'cycle-1',
+            name: 'Sprint 12',
+            health: 'at_risk',
+            openWorkCount: 4,
+            endDate: '2026-07-14',
+            targetPoints: 8
+          }
         },
         links: {
           overview: { label: 'Overview', route: `/projects/${project.id}` },
-          work: { label: 'Work', route: `/projects/${project.id}/work-items` },
+          work: { label: 'Work', route: projectWorkRoute },
           planning: { label: 'Planning', route: `/projects/${project.id}/planning` },
-          reports: { label: 'Reports', route: `/projects/${project.id}/status` }
+          reports: { label: 'Reports', route: `/projects/${project.id}/status` },
+          latestReport: {
+            label: 'Latest report',
+            route: `/projects/${project.id}/status/10000000-0000-4000-8000-000000000701`
+          },
+          activeMilestone: {
+            label: 'Review milestone',
+            route: `/projects/${project.id}/milestones/10000000-0000-4000-8000-000000000301`
+          },
+          activeCycle: { label: 'Review cycle', route: `/projects/${project.id}/cycles/cycle-1` },
+          blockedWork: {
+            label: 'Blocked work',
+            route: projectWorkRoute,
+            query: { status: 'blocked', sort: 'priority_desc' },
+            queryScope: 'project'
+          },
+          dependencyBlockedWork: {
+            label: 'Dependency-blocked work',
+            route: projectWorkRoute,
+            query: { dependency: 'dependency_blocked', sort: 'priority_desc' },
+            queryScope: 'project'
+          },
+          overdueWork: {
+            label: 'Overdue work',
+            route: projectWorkRoute,
+            query: { dueDateState: 'overdue', workState: 'open', sort: 'due_date_asc' },
+            queryScope: 'project'
+          }
         }
       }
     ],
@@ -161,7 +260,7 @@ describe('PortfolioPageComponent', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Portfolio review');
     expect(text).toContain('Worktrail App');
-    expect(text).toContain('At Risk');
+    expect(text).toContain('At risk');
     expect(text).toContain('Report stale');
   });
 
@@ -217,4 +316,77 @@ describe('PortfolioPageComponent', () => {
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Worktrail App');
   });
+
+  it('renders summary counts and bounded attention sections', () => {
+    const { fixture, http } = setup();
+    http.expectOne('/api/portfolio').flush(portfolioFixture());
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+
+    expect(text).toContain('Generated');
+    expect(text).toContain('Report freshness threshold: 14 days');
+    expect(text).toContain('Active');
+    expect(text).toContain('On track');
+    expect(text).toContain('Dependency pressure');
+    expect(text).toContain('Needs attention');
+    expect(text).toContain('WT delivery at risk');
+    expect(text).toContain('Communication freshness');
+    expect(text).toContain('WT report is stale');
+    expect(text).toContain('Current execution');
+    expect(text).toContain('WT active cycle');
+  });
+
+  it('renders project comparison context and all expected action links', () => {
+    const { fixture, http } = setup();
+    http.expectOne('/api/portfolio').flush(portfolioFixture());
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const text = compiled.textContent ?? '';
+
+    expect(text).toContain('Project comparison');
+    expect(text).toContain('1 blocked work item');
+    expect(text).toContain('4 open');
+    expect(text).toContain('1 dependency');
+    expect(text).toContain('Worktrail App status');
+    expect(text).toContain('20 days old · Avery Owner');
+    expect(text).toContain('Milestone: MVP Portfolio · At risk');
+    expect(text).toContain('Cycle: Sprint 12 · At risk');
+
+    expect(linkHref(compiled, 'Overview')).toBe(`/projects/${project.id}`);
+    expect(linkHref(compiled, 'Latest report')).toBe(
+      `/projects/${project.id}/status/10000000-0000-4000-8000-000000000701`
+    );
+    expect(linkHref(compiled, 'Review milestone')).toBe(
+      `/projects/${project.id}/milestones/10000000-0000-4000-8000-000000000301`
+    );
+    expect(linkHref(compiled, 'Review cycle')).toBe(`/projects/${project.id}/cycles/cycle-1`);
+  });
+
+  it('converts portfolio work queries into router query params', () => {
+    const { fixture, http } = setup();
+    http.expectOne('/api/portfolio').flush(portfolioFixture());
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(linkHref(compiled, 'Blocked work')).toBe(
+      `/projects/${project.id}/work-items?status=blocked&sort=priority_desc`
+    );
+    expect(linkHref(compiled, 'Dependency-blocked work')).toBe(
+      `/projects/${project.id}/work-items?dependency=dependency_blocked&sort=priority_desc`
+    );
+    expect(linkHref(compiled, 'Overdue work')).toBe(
+      `/projects/${project.id}/work-items?dueDateState=overdue&sort=due_date_asc`
+    );
+  });
 });
+
+function linkHref(compiled: HTMLElement, label: string): string | null {
+  const link = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('a')).find(
+    (candidate) => candidate.textContent?.trim() === label
+  );
+
+  return link?.getAttribute('href') ?? null;
+}

@@ -5,16 +5,35 @@ import { WorktrailApiService } from '../../core/worktrail-api.service';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
+import { PortfolioAttentionSectionsComponent } from './portfolio-attention-sections.component';
+import { PortfolioProjectComparisonComponent } from './portfolio-project-comparison.component';
+import { formatDateTime } from './portfolio-display';
+import { PortfolioSummaryStripComponent } from './portfolio-summary-strip.component';
 
 @Component({
   selector: 'app-portfolio-page',
-  imports: [EmptyStateComponent, ErrorPanelComponent, LoadingIndicatorComponent],
+  imports: [
+    EmptyStateComponent,
+    ErrorPanelComponent,
+    LoadingIndicatorComponent,
+    PortfolioAttentionSectionsComponent,
+    PortfolioProjectComparisonComponent,
+    PortfolioSummaryStripComponent
+  ],
   template: `
     <section class="page-header">
       <div>
         <p class="eyebrow">Portfolio</p>
         <h1>Portfolio review</h1>
-        <p>Workspace-level project health, communication freshness, and current execution context.</p>
+        <p>
+          Workspace-level project health, communication freshness, and current execution context.
+        </p>
+        @if (portfolio(); as portfolio) {
+          <span>
+            Generated {{ formatGeneratedAt(portfolio.generatedAt) }} · Report freshness threshold:
+            {{ portfolio.reportFreshnessThresholdDays }} days
+          </span>
+        }
       </div>
     </section>
 
@@ -33,47 +52,11 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
           message="Portfolio review appears here once the workspace has active projects."
         />
       } @else {
-        <section class="portfolio-summary" aria-label="Portfolio summary">
-          <article>
-            <span>Active projects</span>
-            <strong>{{ portfolio.summary.activeProjectCount }}</strong>
-          </article>
-          <article>
-            <span>At risk</span>
-            <strong>{{ portfolio.summary.atRiskProjectCount }}</strong>
-          </article>
-          <article>
-            <span>Blocked</span>
-            <strong>{{ portfolio.summary.blockedProjectCount }}</strong>
-          </article>
-          <article>
-            <span>Reports stale or missing</span>
-            <strong>{{ portfolio.summary.missingOrStaleReportProjectCount }}</strong>
-          </article>
-        </section>
-
-        <section class="portfolio-preview" aria-labelledby="portfolio-preview-heading">
-          <div class="section-heading">
-            <h2 id="portfolio-preview-heading">Active project rows</h2>
-            <span>Generated {{ formatGeneratedAt(portfolio.generatedAt) }}</span>
-          </div>
-
-          <div class="project-list">
-            @for (row of portfolio.projects; track row.project.id) {
-              <article class="project-row">
-                <div>
-                  <strong>{{ row.project.name }}</strong>
-                  <span>{{ row.project.key }}</span>
-                </div>
-                <span class="health-pill" [attr.data-health]="row.deliveryHealth.health">
-                  {{ healthLabel(row.deliveryHealth.health) }}
-                </span>
-                <span>{{ row.openWorkItemCount }} open</span>
-                <span>{{ reportFreshnessLabel(row.report.freshness) }}</span>
-              </article>
-            }
-          </div>
-        </section>
+        <div class="portfolio-layout">
+          <app-portfolio-summary-strip [summary]="portfolio.summary" />
+          <app-portfolio-attention-sections [attention]="portfolio.attention" />
+          <app-portfolio-project-comparison [rows]="portfolio.projects" />
+        </div>
       }
     }
   `,
@@ -112,130 +95,22 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
     }
 
     .page-header p:not(.eyebrow),
-    .section-heading span {
+    .page-header span {
+      display: block;
       margin-top: 8px;
       color: #52637a;
       font-size: 0.95rem;
       line-height: 1.5;
     }
 
-    .portfolio-summary {
+    .portfolio-layout {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-
-    .portfolio-summary article,
-    .portfolio-preview {
-      border: 1px solid #dbe3ef;
-      border-radius: 8px;
-      background: #ffffff;
-    }
-
-    .portfolio-summary article {
-      display: grid;
-      gap: 6px;
-      min-height: 86px;
-      padding: 16px;
-    }
-
-    .portfolio-summary span,
-    .project-row span {
-      color: #52637a;
-      font-size: 0.85rem;
-      font-weight: 650;
-    }
-
-    .portfolio-summary strong {
-      color: #111827;
-      font-size: 1.75rem;
-      line-height: 1;
-    }
-
-    .portfolio-preview {
-      overflow: hidden;
-    }
-
-    .section-heading {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 16px;
-      border-bottom: 1px solid #e5edf6;
-      padding: 16px;
-    }
-
-    h2 {
-      color: #111827;
-      font-size: 1rem;
-      line-height: 1.3;
-    }
-
-    .project-list {
-      display: grid;
-    }
-
-    .project-row {
-      display: grid;
-      grid-template-columns: minmax(180px, 1fr) repeat(3, minmax(96px, max-content));
-      align-items: center;
-      gap: 16px;
-      min-height: 68px;
-      border-bottom: 1px solid #edf2f7;
-      padding: 14px 16px;
-    }
-
-    .project-row:last-child {
-      border-bottom: 0;
-    }
-
-    .project-row div {
-      display: grid;
-      gap: 4px;
-    }
-
-    .project-row strong {
-      color: #111827;
-      line-height: 1.3;
-    }
-
-    .health-pill {
-      width: fit-content;
-      border-radius: 999px;
-      padding: 4px 8px;
-      background: #e0f2fe;
-      color: #075985;
-    }
-
-    .health-pill[data-health='at_risk'] {
-      background: #fef3c7;
-      color: #92400e;
-    }
-
-    .health-pill[data-health='blocked'] {
-      background: #fee2e2;
-      color: #991b1b;
-    }
-
-    .health-pill[data-health='complete'] {
-      background: #dcfce7;
-      color: #166534;
-    }
-
-    .health-pill[data-health='inactive'] {
-      background: #e5e7eb;
-      color: #374151;
+      gap: 18px;
     }
 
     @media (max-width: 860px) {
-      .portfolio-summary,
-      .project-row {
-        grid-template-columns: 1fr;
-      }
-
-      .section-heading {
-        display: grid;
+      .page-header {
+        display: block;
       }
     }
   `
@@ -269,24 +144,6 @@ export class PortfolioPageComponent implements OnInit {
   }
 
   formatGeneratedAt(value: string): string {
-    return new Intl.DateTimeFormat(undefined, {
-      dateStyle: 'medium',
-      timeStyle: 'short'
-    }).format(new Date(value));
-  }
-
-  healthLabel(value: PortfolioDto['projects'][number]['deliveryHealth']['health']): string {
-    return value
-      .split('_')
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(' ');
-  }
-
-  reportFreshnessLabel(value: PortfolioDto['projects'][number]['report']['freshness']): string {
-    if (value === 'missing') {
-      return 'Report missing';
-    }
-
-    return value === 'stale' ? 'Report stale' : 'Report fresh';
+    return formatDateTime(value);
   }
 }

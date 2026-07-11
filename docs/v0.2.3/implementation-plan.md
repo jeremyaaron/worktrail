@@ -464,6 +464,47 @@ npm run build --workspace @worktrail/web
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-11.
+- Replaced the Phase 4 preview surface with a complete Portfolio operating layout.
+- Added focused Portfolio UI components:
+  - `portfolio-summary-strip.component.ts`;
+  - `portfolio-attention-sections.component.ts`;
+  - `portfolio-project-comparison.component.ts`;
+  - `portfolio-display.ts` for shared labels, date formatting, tones, and link query conversion.
+- Rendered page header generated/freshness context.
+- Rendered compact summary counts for active, on-track, at-risk, blocked, overdue, dependency-pressure, and stale/missing-report projects.
+- Rendered bounded attention sections:
+  - Needs attention;
+  - Communication freshness;
+  - Current execution;
+  - Dependency pressure.
+- Rendered project comparison rows with:
+  - project identity;
+  - delivery health and health reasons;
+  - work count metrics;
+  - report freshness and latest report detail;
+  - active milestone and active cycle context;
+  - Overview, Work, Planning, Reports, latest report, milestone review, cycle review, and risk-specific work links.
+- Converted Portfolio `WorkItemQuery` drill-down links through the existing router query serialization helper using each link's `queryScope`.
+- Added responsive CSS across the route and child components.
+- Split the UI into child components to keep component styles under the production budget.
+- Expanded `portfolio-page.component.spec.ts` coverage for:
+  - summary counts;
+  - attention sections;
+  - project comparison content;
+  - report freshness labels;
+  - planning context labels;
+  - generated/freshness header context;
+  - risk-specific query params.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include 'src/app/features/portfolio/portfolio-page.component.spec.ts'`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run build --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `git diff --check`.
+
 ## Phase 6: Seed Data And Browser Smoke
 
 Goal: make Portfolio meaningful in a fresh local seed and cover the workflow through Playwright.
