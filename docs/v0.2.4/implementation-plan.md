@@ -189,7 +189,35 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-11.
+- Extended `packages/contracts/src/cycles.ts` with:
+  - `ProjectCycleCloseoutItemSnapshotDto`;
+  - `ProjectCycleCloseoutCountsDto`;
+  - `ProjectCycleCloseoutDestinationDto`;
+  - `ProjectCycleCloseoutSnapshotDto`;
+  - `ProjectCycleCloseoutDto`;
+  - `ProjectCycleCloseoutDestinationOptionDto`;
+  - `ProjectCycleCloseoutPreviewDto`;
+  - `CloseProjectCycleRequest`;
+  - `CloseProjectCycleResultDto`;
+  - shared `CycleReviewHealthDto` used by live review and closeout contracts.
+- Kept closeout contracts in the existing cycle domain; `packages/contracts/src/index.ts` already exports `cycles.ts`, so no additional export module was needed.
+- Added `cycle.closed` to:
+  - shared `ActivityEventType`;
+  - backend `activityEventTypes` vocabulary used by schema checks.
+- Added `packages/contracts/src/cycle-closeout.contract.test.ts` covering:
+  - `cycle`, `unplanned`, and `none` destination discriminants;
+  - version `1` snapshot and persisted closeout shapes;
+  - closeout preview, request, and result shapes;
+  - `cycle.closed` compile-time activity vocabulary.
+- Preserved existing `CreateProjectCycleRequest` and `UpdateProjectCycleRequest` status unions and made no lifecycle, service, endpoint, database, migration, or Angular changes.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/contracts`;
+  - `npm test --workspace @worktrail/contracts` (7 files, 21 tests passed);
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/contracts`;
+  - `npm run lint --workspace @worktrail/api`.
 
 ## Phase 2: Schema, Migration, And Set-Based Repositories
 
