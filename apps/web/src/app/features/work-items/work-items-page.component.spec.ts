@@ -1,6 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { TestBed, fakeAsync, flushMicrotasks, tick } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, flushMicrotasks, tick } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import type {
   LabelDto,
@@ -284,6 +284,19 @@ function flushProjectSavedViews(
   expect(request.request.params.get('scope')).toBe('project');
   expect(request.request.params.get('projectId')).toBe(projectId);
   request.flush(savedViews);
+}
+
+function openSavedViewFromToolbar(
+  fixture: ComponentFixture<WorkItemListPageComponent>,
+  savedViewId: string
+): void {
+  const compiled = fixture.nativeElement as HTMLElement;
+  const select = compiled.querySelector<HTMLSelectElement>('.saved-view-open select');
+  select!.value = savedViewId;
+  select!.dispatchEvent(new Event('change'));
+  fixture.detectChanges();
+  compiled.querySelector<HTMLButtonElement>('.saved-view-open button')?.click();
+  fixture.detectChanges();
 }
 
 function flushProjectWorkPage(
@@ -921,7 +934,7 @@ describe('WorkItemListPageComponent', () => {
       name: 'My filtered work'
     });
 
-    fixture.componentInstance.openSavedView(sharedProjectSavedView);
+    openSavedViewFromToolbar(fixture, sharedProjectSavedView.id);
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
       queryParams: jasmine.objectContaining({
@@ -929,6 +942,7 @@ describe('WorkItemListPageComponent', () => {
         sort: 'board_order'
       })
     });
+    expect(compiled.textContent).toContain('Opened "Ready for QA". Results updated below.');
   });
 
   it('lets owners create and manage shared project saved views', () => {

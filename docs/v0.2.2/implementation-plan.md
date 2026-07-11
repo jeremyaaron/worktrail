@@ -398,6 +398,25 @@ npm run lint --workspace @worktrail/web
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-10.
+- Confirmed no remaining positive assertions depend on the old saved-view row/action markup outside targeted negative checks that verify the old row markup is gone.
+- Updated workspace Work Items page tests to exercise the refactored toolbar through DOM interactions:
+  - opening a personal saved view from the compact opener;
+  - confirming the open feedback text is shown;
+  - selecting a shared saved view in the manager;
+  - renaming, updating, and deleting the selected shared view through management panel buttons.
+- Updated project Work page tests to open a shared project saved view from the compact opener and assert the confirmation text.
+- Preserved parent page handler contracts and did not change runtime parent component logic.
+- Verified workspace and project parent suites pass with the new toolbar markup.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include 'src/app/features/work-items/workspace-work-item-list-page.component.spec.ts' --include 'src/app/features/work-items/work-items-page.component.spec.ts'`;
+  - `npm test --workspace @worktrail/web -- --include 'src/app/features/work-items/components/saved-views-toolbar.component.spec.ts'`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `git diff --check`.
+
 ## Phase 5: Browser Smoke Updates
 
 Goal: update browser coverage for the saved-view open flow and confirm user-visible feedback.
@@ -433,6 +452,35 @@ npx playwright test -g "shared views|project saved views|pinned"
 npm run test:e2e
 git diff --check
 ```
+
+Status:
+
+- Completed on 2026-07-10.
+- Updated `e2e/worktrail-smoke.spec.ts` saved-view selectors for the compact opener and selected management panel.
+- Added smoke helpers for:
+  - selecting native saved-view options by visible saved-view name;
+  - waiting for dynamically-created saved-view options before selecting them;
+  - opening saved views from the compact `Open saved view` control;
+  - selecting a saved view in the `Manage views` selected-management panel.
+- Updated workspace shared-view smoke coverage to:
+  - verify owner management actions in the selected panel;
+  - open `Dependency risks` from the compact opener;
+  - verify confirmation, active dependency chip, and expected filtered row;
+  - verify contributor read-only management panel behavior;
+  - open the same shared view from the compact opener as contributor.
+- Updated project saved-view smoke coverage to:
+  - verify owner management actions for `Ready for QA`;
+  - open `Ready for QA` from the compact opener;
+  - verify confirmation, active status chip, and expected filtered row;
+  - create, locate, reload, and open a personal project saved view through the selected/compact controls;
+  - verify contributor read-only management panel behavior.
+- Preserved pinned saved-view shortcut coverage while updating management assertions to use selected panels.
+- Updated older saved-view creation smoke flows to stop relying on removed `article.saved-view-row` markup.
+- Scoped one project work filter selector to `form.filters` after native saved-view selects made a broad `getByLabel('Milestone')` ambiguous.
+- Verified:
+  - `npx playwright test -g "shared views|project saved views|pinned"`;
+  - `npm run test:e2e`;
+  - `git diff --check`.
 
 ## Phase 6: README, Release Notes, Pattern Notes, And Final Verification
 
