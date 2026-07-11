@@ -551,6 +551,48 @@ npm run test:e2e
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-11.
+- Inspected the seeded Portfolio response after a fresh `db:reset`, `db:migrate`, and `db:seed`.
+- Confirmed the existing seed already demonstrated:
+  - blocked active projects;
+  - missing report freshness;
+  - recent report freshness;
+  - active milestone context;
+  - active cycle context;
+  - dependency pressure.
+- Added minimal seed data for a healthier active project comparison:
+  - active `Reference Operations` project;
+  - active `Operations Baseline` milestone;
+  - ready `OPS-1` work item with future due date;
+  - fresh `Reference Operations weekly status` report.
+- Confirmed the seeded Portfolio now includes:
+  - active project count of at least three in a fresh seed;
+  - two blocked/risky projects;
+  - one healthy/on-track project;
+  - fresh and missing report states;
+  - bounded attention sections;
+  - dependency-pressure drill-down links.
+- Added focused Playwright smoke coverage in `e2e/worktrail-smoke.spec.ts` for:
+  - opening `/portfolio`;
+  - verifying seeded Portfolio summary labels, project names, attention sections, and comparison rows;
+  - following the Worktrail dependency-risk link into project work;
+  - confirming active dependency filter chip and seeded row;
+  - returning to Portfolio and opening the latest Worktrail status report;
+  - checking the Portfolio page at a common mobile width for page overflow.
+- Kept the smoke resilient to earlier e2e tests that create additional active projects or reports.
+- Verified:
+  - `npm run db:reset && npm run db:migrate && npm run db:seed`;
+  - seeded `GET /api/portfolio` response with owner actor headers;
+  - `npx playwright test -g "portfolio"`;
+  - `npm run test:e2e`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `git diff --check`.
+
 ## Phase 7: Documentation, Metadata, And Final Verification
 
 Goal: finish v0.2.3 with accurate docs, release notes, pattern notes, and full verification.

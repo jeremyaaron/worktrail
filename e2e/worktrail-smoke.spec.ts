@@ -1011,6 +1011,62 @@ test('reviews v0.2.1 cycle planning, scoped work, and cycle assignment', async (
   await expect(page.getByLabel('Metadata')).toContainText('v0.2.1 Cycle Planning');
 });
 
+test('reviews v0.2.3 workspace portfolio and drills into project work', async ({ page }) => {
+  test.setTimeout(60_000);
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/portfolio');
+  await page.locator('#current-member').selectOption({ label: 'Avery Owner · owner' });
+
+  await expect(page.getByRole('heading', { name: 'Portfolio review' })).toBeVisible();
+  await expect(page.getByText('Report freshness threshold: 14 days')).toBeVisible();
+  await expect(page.getByLabel('Portfolio summary')).toContainText('Active');
+  await expect(page.getByLabel('Portfolio summary')).toContainText('On track');
+  await expect(page.getByLabel('Portfolio summary')).toContainText('Reports stale or missing');
+  await expect(page.getByRole('heading', { name: 'Needs attention' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Communication freshness' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dependency pressure' })).toBeVisible();
+  await expect(page.getByText('WT dependency pressure')).toBeVisible();
+  await expect(page.getByText('CLOUD has no report')).toBeVisible();
+
+  const projectComparison = page.locator('.project-panel');
+  const worktrailRow = page.locator('article.project-row').filter({ hasText: 'Worktrail App' });
+  const cloudRow = page.locator('article.project-row').filter({ hasText: 'Cloud Readiness' });
+  const operationsRow = page.locator('article.project-row').filter({ hasText: 'Reference Operations' });
+
+  await expect(projectComparison).toContainText('active');
+  await expect(worktrailRow).toContainText('Blocked');
+  await expect(worktrailRow).toContainText('Report fresh');
+  await expect(worktrailRow).toContainText('v0.2.1 Cycle Planning');
+  await expect(cloudRow).toContainText('Report missing');
+  await expect(operationsRow).toContainText('On track');
+  await expect(operationsRow).toContainText('Reference Operations weekly status');
+  await expectNoPageOverflow(page);
+
+  await worktrailRow.getByRole('link', { name: 'Dependency-blocked work' }).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${demoProjectId}/work-items\\?`));
+  await expect(page).toHaveURL(/dependency=dependency_blocked/);
+  await expect(page).toHaveURL(/sort=priority_desc/);
+  await expect(page.getByRole('heading', { name: 'Project work items' })).toBeVisible();
+  await expect(page.getByText('Dependency: Blocked by open work')).toBeVisible();
+  await expect(page.getByRole('row', { name: /Add filter controls to work item list/ })).toBeVisible();
+
+  await page.goto('/portfolio');
+  await expect(page.getByRole('heading', { name: 'Portfolio review' })).toBeVisible();
+  await page
+    .locator('article.project-row')
+    .filter({ hasText: 'Worktrail App' })
+    .getByRole('link', { name: 'Latest report' })
+    .click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Worktrail App weekly status' })).toBeVisible();
+  await expect(page.getByLabel('Published snapshot notice')).toContainText('Links open current project data');
+
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.goto('/portfolio');
+  await expect(page.getByRole('heading', { name: 'Portfolio review' })).toBeVisible();
+  await expectNoPageOverflow(page);
+});
+
 test('publishes and reads v0.1.8 project status reports from seeded project state', async ({ page }) => {
   test.setTimeout(90_000);
 

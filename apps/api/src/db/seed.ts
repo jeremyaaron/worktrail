@@ -37,7 +37,8 @@ const ids = {
   projects: {
     app: '10000000-0000-4000-8000-000000000201',
     platform: '10000000-0000-4000-8000-000000000202',
-    archived: '10000000-0000-4000-8000-000000000203'
+    archived: '10000000-0000-4000-8000-000000000203',
+    operations: '10000000-0000-4000-8000-000000000204'
   },
   labels: {
     frontend: '10000000-0000-4000-8000-000000000301',
@@ -52,7 +53,8 @@ const ids = {
     completed: '10000000-0000-4000-8000-000000000353',
     health: '10000000-0000-4000-8000-000000000354',
     atRisk: '10000000-0000-4000-8000-000000000355',
-    inactive: '10000000-0000-4000-8000-000000000356'
+    inactive: '10000000-0000-4000-8000-000000000356',
+    operations: '10000000-0000-4000-8000-000000000357'
   },
   cycles: {
     active: '10000000-0000-4000-8000-000000000371',
@@ -72,7 +74,8 @@ const ids = {
     platformBlocked: '10000000-0000-4000-8000-000000000410',
     healthyMilestone: '10000000-0000-4000-8000-000000000411',
     atRiskMilestone: '10000000-0000-4000-8000-000000000412',
-    unmilestonedRisk: '10000000-0000-4000-8000-000000000413'
+    unmilestonedRisk: '10000000-0000-4000-8000-000000000413',
+    operationsReady: '10000000-0000-4000-8000-000000000414'
   },
   workItemRelationships: {
     sameProjectBlock: '10000000-0000-4000-8000-000000000451',
@@ -100,10 +103,12 @@ const ids = {
     label: '10000000-0000-4000-8000-000000000605',
     comment: '10000000-0000-4000-8000-000000000606',
     milestone: '10000000-0000-4000-8000-000000000607',
-    statusReport: '10000000-0000-4000-8000-000000000608'
+    statusReport: '10000000-0000-4000-8000-000000000608',
+    operationsStatusReport: '10000000-0000-4000-8000-000000000609'
   },
   statusReports: {
-    appWeekly: '10000000-0000-4000-8000-000000000651'
+    appWeekly: '10000000-0000-4000-8000-000000000651',
+    operationsWeekly: '10000000-0000-4000-8000-000000000652'
   },
   workspaceActivity: {
     ownerCreated: '10000000-0000-4000-8000-000000000701',
@@ -163,7 +168,9 @@ const db = createDb(pool);
 try {
   await db.transaction(async (tx) => {
     await tx.delete(projectStatusReports).where(eq(projectStatusReports.id, ids.statusReports.appWeekly));
+    await tx.delete(projectStatusReports).where(eq(projectStatusReports.id, ids.statusReports.operationsWeekly));
     await tx.delete(activityEvents).where(eq(activityEvents.id, ids.activity.statusReport));
+    await tx.delete(activityEvents).where(eq(activityEvents.id, ids.activity.operationsStatusReport));
 
     await tx
       .insert(workspaces)
@@ -264,6 +271,17 @@ try {
           nextWorkItemNumber: 4,
           name: 'Cloud Readiness',
           description: 'Future deployment and production architecture exploration.',
+          status: 'active',
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.projects.operations,
+          workspaceId: ids.workspace,
+          key: 'OPS',
+          nextWorkItemNumber: 2,
+          name: 'Reference Operations',
+          description: 'Steady-state project used to contrast healthier portfolio delivery.',
           status: 'active',
           createdAt: earlier,
           updatedAt: now
@@ -434,6 +452,19 @@ try {
           description: 'Canceled milestone kept to demonstrate inactive delivery-health state.',
           status: 'canceled',
           targetDate: '2026-07-12',
+          archivedAt: null,
+          archivedById: null,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.milestones.operations,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.operations,
+          name: 'Operations Baseline',
+          description: 'Healthy portfolio comparison target with current work under control.',
+          status: 'active',
+          targetDate: '2026-08-07',
           archivedAt: null,
           archivedById: null,
           createdAt: earlier,
@@ -790,6 +821,27 @@ try {
           boardPosition: 5120,
           dueDate: '2026-07-09',
           estimatePoints: 1,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.workItems.operationsReady,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.operations,
+          itemNumber: 1,
+          displayKey: 'OPS-1',
+          title: 'Publish weekly operations checklist',
+          description: 'Healthy active work for portfolio comparison and adoption demos.',
+          type: 'task',
+          status: 'ready',
+          priority: 'medium',
+          assigneeId: ids.members.maintainer,
+          reporterId: ids.members.owner,
+          milestoneId: ids.milestones.operations,
+          cycleId: null,
+          boardPosition: 1024,
+          dueDate: '2026-08-01',
+          estimatePoints: 2,
           createdAt: earlier,
           updatedAt: now
         }
@@ -1635,7 +1687,12 @@ try {
       });
   });
 
-  const seededReportIds = [ids.statusReports.appWeekly, ids.activity.statusReport];
+  const seededReportIds = [
+    ids.statusReports.appWeekly,
+    ids.activity.statusReport,
+    ids.statusReports.operationsWeekly,
+    ids.activity.operationsStatusReport
+  ];
   const reportService = new ProjectStatusReportService({
     actor: localSeedActor,
     db,
@@ -1663,6 +1720,18 @@ try {
       'Current risk remains concentrated around blocked project work, overdue assigned work, and unassigned delivery items. These are seeded intentionally to exercise status report links and planning review.',
     nextSteps:
       'Use the project Status area to review this seeded report, publish a fresh report, and follow risk links into current project work.'
+  });
+
+  await reportService.publishProjectStatusReport(ids.projects.operations, {
+    title: 'Reference Operations weekly status',
+    statusDate: '2026-07-03',
+    summary:
+      'Reference Operations is on track with one planned checklist item and no elevated delivery risks.',
+    highlights:
+      'The project gives the Portfolio review a healthy active-project comparison alongside riskier seeded projects.',
+    risks: 'No material delivery risks are currently tracked for this seeded project.',
+    nextSteps:
+      'Use Portfolio to compare this steady project against blocked and dependency-heavy projects.'
   });
 
   console.log('Database seed data applied.');
