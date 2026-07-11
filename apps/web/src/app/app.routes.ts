@@ -29,6 +29,14 @@ export const routes: Routes = [
     title: 'Projects | Worktrail'
   },
   {
+    path: 'portfolio',
+    loadComponent: () =>
+      import('./features/portfolio/portfolio-page.component').then(
+        (module) => module.PortfolioPageComponent
+      ),
+    title: 'Portfolio | Worktrail'
+  },
+  {
     path: 'workspace/settings',
     loadComponent: () =>
       import('./features/workspace/workspace-settings-page.component').then(

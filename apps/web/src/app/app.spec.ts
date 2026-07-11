@@ -82,6 +82,7 @@ describe('App', () => {
       'My Work',
       'Inbox 2',
       'Projects',
+      'Portfolio',
       'Work Items',
       'Workspace Settings',
       'Create'

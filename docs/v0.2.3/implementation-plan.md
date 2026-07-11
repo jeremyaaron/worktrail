@@ -376,6 +376,34 @@ npm run typecheck --workspace @worktrail/web
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-11.
+- Added lazy top-level `/portfolio` route loading `PortfolioPageComponent`.
+- Added `Portfolio` to the primary app navigation.
+- Added `apps/web/src/app/features/portfolio/portfolio-page.component.ts` with:
+  - `getPortfolio()` data loading;
+  - loading state;
+  - error state with retry;
+  - empty state for no active projects;
+  - compact successful-response preview for active project rows.
+- Added route coverage for the lazy Portfolio route.
+- Updated shell navigation coverage for the new primary nav entry.
+- Added `apps/web/src/app/features/portfolio/portfolio-page.component.spec.ts` coverage for:
+  - active actor API request and headers;
+  - loading state;
+  - empty state;
+  - error state and retry;
+  - basic response rendering.
+- Kept full Portfolio layout, attention sections, and drill-down link behavior deferred to Phase 5.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include 'src/app/app.routes.spec.ts'`;
+  - `npm test --workspace @worktrail/web -- --include 'src/app/features/portfolio/portfolio-page.component.spec.ts'`;
+  - `npm test --workspace @worktrail/web -- --include 'src/app/app.spec.ts'`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `git diff --check`.
+
 ## Phase 5: Portfolio Page UI
 
 Goal: build the complete Portfolio operating surface.
