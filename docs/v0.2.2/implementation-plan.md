@@ -256,6 +256,37 @@ npm run lint --workspace @worktrail/web
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-10.
+- Replaced the old all-row `Manage views` list in `SavedViewsToolbarComponent` with a selected-view management flow.
+- Added component-local selected management state and selected management option lookup.
+- Added a management select with shared and personal saved-view option groups.
+- Added a selected saved-view management panel showing:
+  - saved-view name;
+  - shared/personal visibility;
+  - owner/readability metadata;
+  - query summary;
+  - pinned state;
+  - updated date.
+- Scoped mutation controls to only the selected saved view:
+  - rename input;
+  - `Rename`;
+  - `Update query`;
+  - `Pin`/`Unpin`;
+  - `Delete`.
+- Kept read-only selected views openable without disabled mutation button clutter.
+- Preserved existing toolbar output events for open, rename, query update, pin change, delete, and draft-name changes.
+- Removed row-oriented manager markup and styles from the component.
+- Updated component tests around selected-view management behavior and permissions.
+- Updated affected project work-items page tests that asserted old saved-view row markup.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include 'src/app/features/work-items/components/saved-views-toolbar.component.spec.ts'`;
+  - `npm test --workspace @worktrail/web -- --include 'src/app/features/work-items/work-items-page.component.spec.ts'`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `git diff --check`.
+
 ## Phase 3: Toolbar Styling, Responsive Behavior, And Accessibility Pass
 
 Goal: make the refactored toolbar compact, responsive, and accessible.

@@ -15,6 +15,7 @@ interface SavedViewOption {
   group: SavedViewOptionGroup;
   label: string;
   summary: string;
+  canManage: boolean;
   savedView: SavedWorkViewDto;
 }
 
@@ -138,120 +139,103 @@ interface SavedViewOption {
         <details class="saved-view-manager">
           <summary>Manage views</summary>
 
-          <div class="saved-view-list">
-            <section class="saved-view-section" [attr.aria-label]="sharedSectionLabel">
-              <div class="saved-view-section__heading">
-                <strong>{{ sharedSectionLabel }}</strong>
-                <span>{{ sharedViews.length }}</span>
-              </div>
-
-              @if (sharedViews.length === 0) {
-                <p class="saved-view-section__empty">{{ sharedEmptyMessage }}</p>
-              } @else {
-                @for (view of sharedViews; track view.id) {
-                  <article class="saved-view-row saved-view-row--shared">
-                    <div>
-                      <strong>{{ view.name }}</strong>
-                      <small>{{ savedViewQueryLabel(view) }}</small>
-                    </div>
-
-                    @if (canManageSharedViews) {
-                      <label>
-                        <span>Rename</span>
-                        <input
-                          type="text"
-                          [value]="draftNames[view.id] ?? view.name"
-                          (input)="draftNameChange.emit({ savedViewId: view.id, name: $any($event.target).value })"
-                        />
-                      </label>
-                    } @else {
-                      <p class="saved-view-owner">Shared by {{ view.owner.name }}</p>
+          <div class="saved-view-manage">
+            <label>
+              <span>Saved view</span>
+              <select
+                [value]="selectedManageViewId"
+                (change)="selectedManageViewId = $any($event.target).value"
+              >
+                <option value="">Choose a saved view to manage</option>
+                @if (sharedViewOptions().length > 0) {
+                  <optgroup [label]="sharedSectionLabel">
+                    @for (option of sharedViewOptions(); track option.id) {
+                      <option [value]="option.id">{{ option.label }}</option>
                     }
-
-                    <div class="saved-view-actions">
-                      <button type="button" class="secondary-action" (click)="openSavedView(view)">
-                        Open
-                      </button>
-                      @if (canManageSharedViews) {
-                        <button type="button" class="secondary-action" (click)="rename.emit(view)">
-                          Rename
-                        </button>
-                        <button type="button" class="secondary-action" (click)="updateQuery.emit(view)">
-                          Update query
-                        </button>
-                        <button
-                          type="button"
-                          class="secondary-action"
-                          (click)="pinChange.emit({ savedView: view, isPinned: !view.isPinned })"
-                        >
-                          {{ view.isPinned ? 'Unpin' : 'Pin' }}
-                        </button>
-                        <button type="button" class="danger-action" (click)="delete.emit(view)">
-                          Delete
-                        </button>
-                      }
-                    </div>
-                  </article>
+                  </optgroup>
                 }
-              }
-            </section>
-
-            <section class="saved-view-section" [attr.aria-label]="personalSectionLabel">
-              <div class="saved-view-section__heading">
-                <strong>{{ personalSectionLabel }}</strong>
-                <span>{{ personalViews.length }}</span>
-              </div>
-
-              @if (personalViews.length === 0) {
-                <p class="saved-view-section__empty">{{ personalEmptyMessage }}</p>
-              } @else {
-                @for (view of personalViews; track view.id) {
-                  <article class="saved-view-row">
-                    <div>
-                      <strong>{{ view.name }}</strong>
-                      <small>{{ savedViewQueryLabel(view) }}</small>
-                    </div>
-
-                    @if (canManagePersonalViews) {
-                      <label>
-                        <span>Rename</span>
-                        <input
-                          type="text"
-                          [value]="draftNames[view.id] ?? view.name"
-                          (input)="draftNameChange.emit({ savedViewId: view.id, name: $any($event.target).value })"
-                        />
-                      </label>
-                    } @else {
-                      <p class="saved-view-owner">Personal view</p>
+                @if (personalViewOptions().length > 0) {
+                  <optgroup [label]="personalSectionLabel">
+                    @for (option of personalViewOptions(); track option.id) {
+                      <option [value]="option.id">{{ option.label }}</option>
                     }
-
-                    <div class="saved-view-actions">
-                      <button type="button" class="secondary-action" (click)="openSavedView(view)">
-                        Open
-                      </button>
-                      @if (canManagePersonalViews) {
-                        <button type="button" class="secondary-action" (click)="rename.emit(view)">
-                          Rename
-                        </button>
-                        <button type="button" class="secondary-action" (click)="updateQuery.emit(view)">
-                          Update query
-                        </button>
-                        <button
-                          type="button"
-                          class="secondary-action"
-                          (click)="pinChange.emit({ savedView: view, isPinned: !view.isPinned })"
-                        >
-                          {{ view.isPinned ? 'Unpin' : 'Pin' }}
-                        </button>
-                        <button type="button" class="danger-action" (click)="delete.emit(view)">
-                          Delete
-                        </button>
-                      }
-                    </div>
-                  </article>
+                  </optgroup>
                 }
-              }
-            </section>
+              </select>
+            </label>
+
+            @if (selectedManageViewOption(); as option) {
+              <article class="saved-view-management-panel">
+                <div class="saved-view-management-panel__heading">
+                  <div>
+                    <strong>{{ option.savedView.name }}</strong>
+                    <small>{{ option.summary }}</small>
+                  </div>
+                  <span>{{ option.group === 'shared' ? 'Shared view' : 'Personal view' }}</span>
+                </div>
+
+                <p class="saved-view-management-meta">
+                  {{ managementMetaLabel(option) }}
+                </p>
+
+                <div class="saved-view-management-actions">
+                  <button type="button" (click)="openSavedView(option.savedView)">
+                    Open
+                  </button>
+
+                  @if (option.canManage) {
+                    <button
+                      type="button"
+                      class="secondary-action"
+                      (click)="updateQuery.emit(option.savedView)"
+                    >
+                      Update query
+                    </button>
+                    <button
+                      type="button"
+                      class="secondary-action"
+                      (click)="pinChange.emit({ savedView: option.savedView, isPinned: !option.savedView.isPinned })"
+                    >
+                      {{ option.savedView.isPinned ? 'Unpin' : 'Pin' }}
+                    </button>
+                  }
+                </div>
+
+                @if (option.canManage) {
+                  <label class="saved-view-management-rename">
+                    <span>Rename</span>
+                    <input
+                      type="text"
+                      [value]="draftNames[option.id] ?? option.savedView.name"
+                      (input)="draftNameChange.emit({ savedViewId: option.id, name: $any($event.target).value })"
+                    />
+                  </label>
+
+                  <div class="saved-view-management-actions">
+                    <button
+                      type="button"
+                      class="secondary-action"
+                      (click)="rename.emit(option.savedView)"
+                    >
+                      Rename
+                    </button>
+                    <button
+                      type="button"
+                      class="danger-action"
+                      (click)="delete.emit(option.savedView)"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                } @else {
+                  <p class="saved-view-read-only">
+                    This saved view is read-only for your current role.
+                  </p>
+                }
+              </article>
+            } @else {
+              <p class="saved-view-manage-empty">Choose a saved view to inspect or manage it.</p>
+            }
           </div>
         </details>
       }
@@ -302,6 +286,7 @@ interface SavedViewOption {
     }
 
     .saved-view-open label,
+    .saved-view-manage label,
     .saved-view-form label {
       display: grid;
       flex: 1;
@@ -408,79 +393,57 @@ interface SavedViewOption {
       color: #1f4f99;
     }
 
-    .saved-view-list {
+    .saved-view-manage {
       display: grid;
       gap: 10px;
     }
 
-    .saved-view-section {
+    .saved-view-management-panel {
       display: grid;
-      gap: 10px;
-    }
-
-    .saved-view-section + .saved-view-section {
+      gap: 12px;
       border-top: 1px solid #e5e7eb;
       padding-top: 12px;
     }
 
-    .saved-view-section__heading {
+    .saved-view-management-panel__heading {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
     }
 
-    .saved-view-section__heading strong {
-      color: #111827;
-      font-size: 0.875rem;
-    }
-
-    .saved-view-section__heading span {
-      min-width: 28px;
-      border-radius: 999px;
-      padding: 3px 8px;
-      background: #e8eef8;
-      color: #334155;
-      font-size: 0.75rem;
-      font-weight: 800;
-      text-align: center;
-    }
-
-    .saved-view-section__empty,
-    .saved-view-owner {
-      color: #64748b;
-      font-size: 0.8125rem;
-    }
-
-    .saved-view-row {
-      display: grid;
-      grid-template-columns: minmax(180px, 1fr) minmax(180px, 0.8fr) auto;
-      gap: 12px;
-      align-items: end;
-      border-top: 1px solid #eef2f7;
-      padding-top: 12px;
-    }
-
-    .saved-view-row--shared {
-      background: #f8fafc;
-    }
-
-    .saved-view-row strong {
+    .saved-view-management-panel__heading strong {
       display: block;
       color: #111827;
       font-size: 0.875rem;
       line-height: 1.35;
     }
 
-    .saved-view-row small {
+    .saved-view-management-panel__heading small {
       display: block;
       margin-top: 4px;
     }
 
-    .saved-view-actions {
+    .saved-view-management-panel__heading span {
+      border-radius: 999px;
+      padding: 4px 8px;
+      background: #e8eef8;
+      color: #334155;
+      font-size: 0.75rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .saved-view-management-meta,
+    .saved-view-manage-empty,
+    .saved-view-read-only {
+      color: #64748b;
+      font-size: 0.8125rem;
+    }
+
+    .saved-view-management-actions {
       display: flex;
       flex-wrap: wrap;
-      justify-content: flex-end;
       gap: 8px;
     }
 
@@ -489,13 +452,9 @@ interface SavedViewOption {
       .saved-view-open,
       .saved-view-form,
       .save-actions,
-      .saved-view-row {
+      .saved-view-management-panel__heading {
         display: grid;
         grid-template-columns: 1fr;
-      }
-
-      .saved-view-actions {
-        justify-content: flex-start;
       }
     }
   `
@@ -535,6 +494,7 @@ export class SavedViewsToolbarComponent {
 
   newViewName = '';
   selectedOpenViewId = '';
+  selectedManageViewId = '';
   openedViewMessage: string | null = null;
 
   @Input()
@@ -581,6 +541,16 @@ export class SavedViewsToolbarComponent {
     return this.savedViewOptions().find((option) => option.id === this.selectedOpenViewId) ?? null;
   }
 
+  selectedManageViewOption(): SavedViewOption | null {
+    return this.savedViewOptions().find((option) => option.id === this.selectedManageViewId) ?? null;
+  }
+
+  canManageView(savedView: SavedWorkViewDto): boolean {
+    return savedView.visibility === 'personal'
+      ? this.canManagePersonalViews
+      : this.canManageSharedViews;
+  }
+
   openSelectedView(): void {
     const option = this.selectedOpenViewOption();
 
@@ -605,6 +575,16 @@ export class SavedViewsToolbarComponent {
       : `${count} applied ${count === 1 ? 'filter' : 'filters'}`;
   }
 
+  managementMetaLabel(option: SavedViewOption): string {
+    const ownerLabel =
+      option.group === 'shared'
+        ? `Shared by ${option.savedView.owner.name}`
+        : 'Personal saved view';
+    const pinnedLabel = option.savedView.isPinned ? 'Pinned' : 'Not pinned';
+
+    return `${ownerLabel} · ${pinnedLabel} · Updated ${this.updatedDateLabel(option.savedView)}`;
+  }
+
   private toSavedViewOptions(
     savedViews: SavedWorkViewDto[],
     group: SavedViewOptionGroup
@@ -617,8 +597,23 @@ export class SavedViewsToolbarComponent {
         group,
         label: `${savedView.name} - ${summary}`,
         summary,
+        canManage: this.canManageView(savedView),
         savedView
       };
     });
+  }
+
+  private updatedDateLabel(savedView: SavedWorkViewDto): string {
+    const date = new Date(savedView.updatedAt);
+
+    if (Number.isNaN(date.getTime())) {
+      return savedView.updatedAt;
+    }
+
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    }).format(date);
   }
 }
