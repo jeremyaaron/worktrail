@@ -1277,7 +1277,7 @@ describe('work item API', () => {
       title: 'Recent in-progress milestone work',
       status: 'in_progress',
       milestoneId: milestone.id,
-      updatedAt: new Date('2026-07-03T12:00:00.000Z')
+      updatedAt: new Date()
     });
 
     await request(app)

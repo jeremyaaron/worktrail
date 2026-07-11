@@ -535,6 +535,42 @@ git diff --check
 git status --short --branch
 ```
 
+Status:
+
+- Completed on 2026-07-10.
+- Updated README saved-view documentation for:
+  - compact saved-view opening;
+  - local opened-view confirmation;
+  - selected saved-view management;
+  - pinned shortcuts remaining the fastest path for promoted views;
+  - read-only shared and archived-project saved-view behavior.
+- Added `docs/v0.2.2/release-notes.md`.
+- Added `docs/v0.2.2/pattern-notes.md`.
+- Updated first-party package metadata and lockfile entries to `0.2.2`.
+- Fixed a time-dependent API test fixture where a hard-coded `2026-07-03` "recent" in-progress work item became stale after 2026-07-10 under the database `now()` stale-risk filter.
+- Confirmed deferred follow-ups remain:
+  - durable active-view state;
+  - last-opened saved-view metadata;
+  - saved-view usage analytics;
+  - unsaved-change detection;
+  - auto-scroll or auto-focus to results after opening a saved view;
+  - richer saved-view organization and metadata.
+- Verified:
+  - `npm install --package-lock-only`;
+  - `npm run db:reset`;
+  - `npm run db:migrate`;
+  - `npm run db:seed`;
+  - `npm run lint`;
+  - `npm run typecheck`;
+  - `npm test --workspace @worktrail/api -- tests/work-items.test.ts`;
+  - `npm test`;
+  - `npm run test:e2e`;
+  - `npm run build`;
+  - `npm audit --omit=dev --audit-level=low`;
+  - `git diff --check`;
+  - `rg -n '"version": "0\.2\.1"|"@worktrail/contracts": "0\.2\.1"|v0\.2\.1 baseline|v0\.2\.1' package.json package-lock.json apps/api/package.json apps/web/package.json packages/contracts/package.json README.md docs/v0.2.2/*.md`;
+  - `git status --short --branch`.
+
 ## Rollback Notes
 
 If a saved-view ergonomics issue appears before release:
