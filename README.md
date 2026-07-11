@@ -1,6 +1,6 @@
 # Worktrail
 
-Worktrail is a project management reference app. The v0.2.1 baseline is a local-first Angular + TypeScript API + Postgres application focused on daily team workflow, collaboration updates, reliable filtered work views, pinned workspace and project operating lenses, explicit project batch triage, milestone review, cycle planning, published project reports and Markdown sharing, cross-project discovery, dependency-aware planning, workspace governance, data portability, and production-shaped application boundaries.
+Worktrail is a project management reference app. The v0.2.2 baseline is a local-first Angular + TypeScript API + Postgres application focused on daily team workflow, collaboration updates, reliable filtered work views, pinned workspace and project operating lenses, explicit project batch triage, milestone review, cycle planning, published project reports and Markdown sharing, cross-project discovery, dependency-aware planning, workspace governance, data portability, and production-shaped application boundaries.
 
 The app includes My Work, Action Inbox, top-level Work Items discovery, URL-backed filters, copyable filtered-view links, personal saved views, workspace-shared saved views, project-scoped personal and shared saved views, pinned saved-view shortcuts, project-scoped bulk updates, quick work capture, persistent project workspaces, live planning review, live milestone review, cycle management and review, generated report drafts, immutable published report snapshots with cycle context, Markdown copy/download for published reports, print-friendly report detail pages, milestone/cycle/work links from reports, milestone management, durable boards, work item relationships, dependency-blocked signals, project delivery health, comments, mentions, work item watchers, activity, CSV import/export, production-like preview, health/readiness checks, checked-in API documentation, CI, lint, and responsive work item scanning.
 
@@ -20,6 +20,7 @@ docs/
   v0.1.x/  Incremental v0.1 product sprint docs
   v0.2.0/  Consolidated Operating Baseline PRD, technical design, implementation plan, audits, release notes, and pattern notes
   v0.2.1/  Cycle Planning PRD, technical design, implementation plan, release notes, and pattern notes
+  v0.2.2/  Saved Views Ergonomics PRD, technical design, implementation plan, release notes, and pattern notes
   api/     OpenAPI reference
 site/       Static GitHub Pages product site
 e2e/        Playwright smoke tests
@@ -138,6 +139,10 @@ Key behavior:
 - Project saved views remain openable for archived projects, but archived projects block project-scoped saved-view create, update, and delete operations.
 - Archived projects still show existing pinned project shortcuts, but archived project saved views cannot be pinned or unpinned.
 - Personal and shared saved views open through canonical URL parameters, so copy links and CSV exports stay aligned with the applied query.
+- Saved views can be opened from a compact selector without expanding management controls.
+- Opening a saved view shows local confirmation that the results below were updated.
+- `Manage views` edits one selected saved view at a time instead of rendering rename and mutation controls for every saved view.
+- Read-only shared and archived-project saved views keep an uncluttered open-only management path.
 - Saved-view summaries count meaningful filters only; default sort and default archived-project mode stay quiet.
 - CSV export uses the currently applied filters, so exports match the visible filtered result set rather than draft form values.
 - Dashboard, planning, and delivery-health reason links route into filtered work item lists using the same query conversion rules.
@@ -539,7 +544,7 @@ Suggested delivery-health checks:
 - Relationship activity is recorded on the command context item only to avoid noisy cross-project activity.
 - Custom workflows, file attachments, and production auth are intentionally out of scope.
 - Invitations, multi-workspace switching, custom roles, project-specific membership, pinned projects, recent projects, and audit export are intentionally out of scope.
-- The local Express adapter is the only runtime adapter in v0.2.1, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
+- The local Express adapter is the only runtime adapter in the current baseline, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
 - AWS deployment assets are not included yet; the Angular static build and transport-neutral handlers preserve that path.
 - Readiness checks database connectivity only; migration drift detection, metrics, tracing, and managed deployment runbooks are deferred.
 

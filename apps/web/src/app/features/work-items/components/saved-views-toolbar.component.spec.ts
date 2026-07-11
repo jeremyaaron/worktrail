@@ -63,7 +63,131 @@ describe('SavedViewsToolbarComponent', () => {
     fixture.componentInstance.draftNames = { [savedView.id]: savedView.name };
   });
 
-  it('keeps management compact and emits personal save/open actions', () => {
+  function selectManagedView(savedViewId: string): HTMLElement {
+    const compiled = fixture.nativeElement as HTMLElement;
+    compiled.querySelector<HTMLDetailsElement>('.saved-view-manager')?.setAttribute('open', '');
+    fixture.detectChanges();
+
+    const select = compiled.querySelector<HTMLSelectElement>('.saved-view-manage select');
+    select!.value = savedViewId;
+    select!.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    return compiled;
+  }
+
+  function managementButtons(compiled: HTMLElement): HTMLButtonElement[] {
+    return [
+      ...compiled.querySelectorAll<HTMLButtonElement>('.saved-view-management-actions button')
+    ];
+  }
+
+  it('renders compact open select groups with query summaries', () => {
+    fixture.componentInstance.sharedViews = [sharedView];
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const groups = [
+      ...compiled.querySelectorAll<HTMLOptGroupElement>('.saved-view-open optgroup')
+    ];
+
+    expect(groups.map((group) => group.label)).toEqual(['Shared views', 'Personal views']);
+    expect(groups[0]?.textContent).toContain('Dependency risks - 2 applied filters');
+    expect(groups[1]?.textContent).toContain('Open owner work - 2 applied filters');
+
+    const select = compiled.querySelector<HTMLSelectElement>('.saved-view-open select');
+    select!.value = savedView.id;
+    select!.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('.saved-view-selected-summary')?.textContent).toContain(
+      'Personal view · 2 applied filters'
+    );
+  });
+
+  it('disables compact open action until a saved view is selected', () => {
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const button = compiled.querySelector<HTMLButtonElement>('.saved-view-open button');
+
+    expect(button?.disabled).toBeTrue();
+  });
+
+  it('provides accessible select help and named management actions', () => {
+    fixture.componentInstance.sharedViews = [sharedView];
+    fixture.componentInstance.canManageSharedViews = true;
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('#saved-view-open-help')?.classList).toContain(
+      'visually-hidden'
+    );
+    expect(compiled.querySelector('#saved-view-manage-help')?.classList).toContain(
+      'visually-hidden'
+    );
+    expect(
+      compiled.querySelector<HTMLSelectElement>('.saved-view-open select')?.getAttribute(
+        'aria-describedby'
+      )
+    ).toBe('saved-view-open-help');
+    expect(
+      compiled.querySelector<HTMLButtonElement>('.saved-view-open button')?.getAttribute(
+        'aria-label'
+      )
+    ).toBe('Open selected saved view');
+
+    selectManagedView(sharedView.id);
+
+    expect(
+      compiled.querySelector<HTMLSelectElement>('.saved-view-manage select')?.getAttribute(
+        'aria-describedby'
+      )
+    ).toBe('saved-view-manage-help');
+    expect(managementButtons(compiled).map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Open Dependency risks',
+      'Update query for Dependency risks',
+      'Pin Dependency risks',
+      'Rename Dependency risks',
+      'Delete Dependency risks'
+    ]);
+  });
+
+  it('opens a shared saved view from the compact opener', () => {
+    const opened: SavedWorkViewDto[] = [];
+    fixture.componentInstance.sharedViews = [sharedView];
+    fixture.componentInstance.open.subscribe((view) => opened.push(view));
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const select = compiled.querySelector<HTMLSelectElement>('.saved-view-open select');
+    select!.value = sharedView.id;
+    select!.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    compiled.querySelector<HTMLButtonElement>('.saved-view-open button')?.click();
+    fixture.detectChanges();
+
+    expect(opened).toEqual([sharedView]);
+    expect(compiled.querySelector('.saved-view-opened')?.getAttribute('aria-live')).toBe('polite');
+    expect(compiled.textContent).toContain('Opened "Dependency risks". Results updated below.');
+  });
+
+  it('opens a personal saved view from the compact opener', () => {
+    const opened: SavedWorkViewDto[] = [];
+    fixture.componentInstance.open.subscribe((view) => opened.push(view));
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const select = compiled.querySelector<HTMLSelectElement>('.saved-view-open select');
+    select!.value = savedView.id;
+    select!.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    compiled.querySelector<HTMLButtonElement>('.saved-view-open button')?.click();
+
+    expect(opened).toEqual([savedView]);
+  });
+
+  it('keeps management compact and emits personal save/open actions after selection', () => {
     const saves: string[] = [];
     const opened: SavedWorkViewDto[] = [];
     fixture.componentInstance.savePersonal.subscribe((name) => saves.push(name));
@@ -78,7 +202,9 @@ describe('SavedViewsToolbarComponent', () => {
     expect(compiled.querySelector('.saved-view-manager summary')?.textContent?.trim()).toBe(
       'Manage views'
     );
-    expect(compiled.textContent).toContain('Personal views');
+    expect(
+      compiled.querySelector<HTMLOptGroupElement>('.saved-view-manage optgroup')?.label
+    ).toBe('Personal views');
     expect(compiled.querySelector<HTMLDetailsElement>('.saved-view-save')?.open).toBeFalse();
     expect(compiled.querySelector<HTMLDetailsElement>('.saved-view-manager')?.open).toBeFalse();
 
@@ -88,7 +214,11 @@ describe('SavedViewsToolbarComponent', () => {
 
     compiled.querySelector<HTMLDetailsElement>('.saved-view-manager')?.setAttribute('open', '');
     fixture.detectChanges();
-    compiled.querySelector<HTMLButtonElement>('.saved-view-actions button')?.click();
+    expect(compiled.querySelector('.saved-view-management-panel')).toBeNull();
+    expect(compiled.textContent).toContain('Choose a saved view to inspect or manage it.');
+
+    selectManagedView(savedView.id);
+    managementButtons(compiled)[0]?.click();
     expect(opened).toEqual([savedView]);
   });
 
@@ -96,6 +226,8 @@ describe('SavedViewsToolbarComponent', () => {
     const sharedSaves: string[] = [];
     const opened: SavedWorkViewDto[] = [];
     const renamed: SavedWorkViewDto[] = [];
+    const updated: SavedWorkViewDto[] = [];
+    const deleted: SavedWorkViewDto[] = [];
     const pinChanges: Array<{ savedView: SavedWorkViewDto; isPinned: boolean }> = [];
     fixture.componentInstance.workspaceViews = [sharedView];
     fixture.componentInstance.canManageWorkspaceViews = true;
@@ -106,13 +238,18 @@ describe('SavedViewsToolbarComponent', () => {
     fixture.componentInstance.saveWorkspace.subscribe((name) => sharedSaves.push(name));
     fixture.componentInstance.open.subscribe((view) => opened.push(view));
     fixture.componentInstance.rename.subscribe((view) => renamed.push(view));
+    fixture.componentInstance.updateQuery.subscribe((view) => updated.push(view));
+    fixture.componentInstance.delete.subscribe((view) => deleted.push(view));
     fixture.componentInstance.pinChange.subscribe((change) => pinChanges.push(change));
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('1 shared · 1 personal');
-    expect(compiled.textContent).toContain('Shared views');
-    expect(compiled.textContent).toContain('Personal views');
+    expect(
+      [...compiled.querySelectorAll<HTMLOptGroupElement>('.saved-view-manage optgroup')].map(
+        (group) => group.label
+      )
+    ).toEqual(['Shared views', 'Personal views']);
     expect(compiled.textContent?.indexOf('Dependency risks')).toBeLessThan(
       compiled.textContent?.indexOf('Open owner work') ?? 0
     );
@@ -123,18 +260,28 @@ describe('SavedViewsToolbarComponent', () => {
     compiled.querySelector<HTMLButtonElement>('.saved-view-save .secondary-action')?.click();
     expect(sharedSaves).toEqual(['Ready for pickup']);
 
-    compiled.querySelector<HTMLDetailsElement>('.saved-view-manager')?.setAttribute('open', '');
-    fixture.detectChanges();
-    const actionButtons = [...compiled.querySelectorAll<HTMLButtonElement>('.saved-view-actions button')];
+    selectManagedView(sharedView.id);
+    const actionButtons = managementButtons(compiled);
+    expect(actionButtons.map((button) => button.textContent?.trim())).toEqual([
+      'Open',
+      'Update query',
+      'Pin',
+      'Rename',
+      'Delete'
+    ]);
     actionButtons[0]?.click();
     actionButtons[1]?.click();
+    actionButtons[2]?.click();
     actionButtons[3]?.click();
+    actionButtons[4]?.click();
     expect(opened).toEqual([sharedView]);
+    expect(updated).toEqual([sharedView]);
     expect(renamed).toEqual([sharedView]);
+    expect(deleted).toEqual([sharedView]);
     expect(pinChanges).toEqual([{ savedView: sharedView, isPinned: true }]);
   });
 
-  it('lets contributors open shared views without showing shared management actions', () => {
+  it('lets contributors open shared views from a read-only selected panel', () => {
     const opened: SavedWorkViewDto[] = [];
     fixture.componentInstance.personalViews = [];
     fixture.componentInstance.workspaceViews = [sharedView];
@@ -148,14 +295,13 @@ describe('SavedViewsToolbarComponent', () => {
     expect(compiled.querySelector<HTMLDetailsElement>('.saved-view-save')?.open).toBeFalse();
     expect(compiled.querySelector<HTMLDetailsElement>('.saved-view-manager')?.open).toBeFalse();
 
-    compiled.querySelector<HTMLDetailsElement>('.saved-view-manager')?.setAttribute('open', '');
-    fixture.detectChanges();
-
-    const buttons = [...compiled.querySelectorAll<HTMLButtonElement>('.saved-view-actions button')];
+    selectManagedView(sharedView.id);
+    const buttons = managementButtons(compiled);
     expect(buttons.map((button) => button.textContent?.trim())).toEqual(['Open']);
     buttons[0]?.click();
     expect(opened).toEqual([sharedView]);
-    expect(compiled.querySelector('input[value="Dependency risks"]')).toBeNull();
+    expect(compiled.querySelector('.saved-view-management-rename input')).toBeNull();
+    expect(compiled.textContent).toContain('This saved view is read-only for your current role.');
   });
 
   it('summarizes saved view queries without default-only filter noise', () => {
@@ -199,8 +345,11 @@ describe('SavedViewsToolbarComponent', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Owners and maintainers manage shared project views.');
-    expect(compiled.textContent).toContain('Shared project views');
-    expect(compiled.textContent).toContain('Personal project views');
+    expect(
+      [...compiled.querySelectorAll<HTMLOptGroupElement>('.saved-view-manage optgroup')].map(
+        (group) => group.label
+      )
+    ).toEqual(['Shared project views']);
 
     fixture.componentInstance.sharedViews = [];
     fixture.detectChanges();
@@ -252,27 +401,24 @@ describe('SavedViewsToolbarComponent', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    compiled.querySelector<HTMLDetailsElement>('.saved-view-manager')?.setAttribute('open', '');
-    fixture.detectChanges();
-
-    const sections = [...compiled.querySelectorAll<HTMLElement>('.saved-view-section')];
-    const sharedButtons = [
-      ...sections[0]!.querySelectorAll<HTMLButtonElement>('.saved-view-actions button')
-    ];
-    const personalButtons = [
-      ...sections[1]!.querySelectorAll<HTMLButtonElement>('.saved-view-actions button')
-    ];
+    selectManagedView(sharedView.id);
+    const sharedButtons = managementButtons(compiled);
 
     expect(sharedButtons.map((button) => button.textContent?.trim())).toEqual(['Open']);
+    expect(compiled.querySelector('.saved-view-management-rename input')).toBeNull();
+
+    selectManagedView(savedView.id);
+    const personalButtons = managementButtons(compiled);
     expect(personalButtons.map((button) => button.textContent?.trim())).toEqual([
       'Open',
-      'Rename',
       'Update query',
       'Pin',
+      'Rename',
       'Delete'
     ]);
+    expect(compiled.querySelector('.saved-view-management-rename input')).not.toBeNull();
 
-    personalButtons[1]?.click();
+    personalButtons[3]?.click();
     expect(renamed).toEqual([savedView]);
   });
 
@@ -287,34 +433,32 @@ describe('SavedViewsToolbarComponent', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    compiled.querySelector<HTMLDetailsElement>('.saved-view-manager')?.setAttribute('open', '');
-    fixture.detectChanges();
-
-    const personalRows = [...compiled.querySelectorAll<HTMLElement>('.saved-view-row')];
-    const unpinnedButtons = [
-      ...personalRows[0]!.querySelectorAll<HTMLButtonElement>('.saved-view-actions button')
-    ];
-    const pinnedButtons = [
-      ...personalRows[1]!.querySelectorAll<HTMLButtonElement>('.saved-view-actions button')
-    ];
+    selectManagedView(savedView.id);
+    const unpinnedButtons = managementButtons(compiled);
 
     expect(unpinnedButtons.map((button) => button.textContent?.trim())).toEqual([
       'Open',
-      'Rename',
       'Update query',
       'Pin',
+      'Rename',
       'Delete'
     ]);
+    expect(compiled.querySelectorAll('.saved-view-management-rename input').length).toBe(1);
+    expect(compiled.querySelector('.saved-view-row')).toBeNull();
+
+    unpinnedButtons[2]?.click();
+
+    selectManagedView(pinnedSavedView.id);
+    const pinnedButtons = managementButtons(compiled);
     expect(pinnedButtons.map((button) => button.textContent?.trim())).toEqual([
       'Open',
-      'Rename',
       'Update query',
       'Unpin',
+      'Rename',
       'Delete'
     ]);
 
-    unpinnedButtons[3]?.click();
-    pinnedButtons[3]?.click();
+    pinnedButtons[2]?.click();
 
     expect(pinChanges).toEqual([
       { savedView, isPinned: true },
@@ -330,10 +474,19 @@ describe('SavedViewsToolbarComponent', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    const buttons = [...compiled.querySelectorAll<HTMLButtonElement>('.saved-view-actions button')];
+    selectManagedView(savedView.id);
+    let buttons = managementButtons(compiled);
 
-    expect(buttons.map((button) => button.textContent?.trim())).toEqual(['Open', 'Open']);
+    expect(buttons.map((button) => button.textContent?.trim())).toEqual(['Open']);
+    expect(compiled.textContent).not.toContain('Update query');
+    expect(compiled.textContent).not.toContain('Rename');
+    expect(compiled.textContent).not.toContain('Delete');
     expect(compiled.textContent).not.toContain('Pin');
+
+    selectManagedView(sharedView.id);
+    buttons = managementButtons(compiled);
+
+    expect(buttons.map((button) => button.textContent?.trim())).toEqual(['Open']);
     expect(compiled.textContent).not.toContain('Unpin');
   });
 });

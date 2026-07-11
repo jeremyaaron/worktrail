@@ -262,6 +262,41 @@ function flushSavedViews(http: HttpTestingController, views: SavedWorkViewDto[] 
   request.flush(views);
 }
 
+function openSavedViewFromToolbar(
+  fixture: ComponentFixture<WorkspaceWorkItemListPageComponent>,
+  savedViewId: string
+): void {
+  const compiled = fixture.nativeElement as HTMLElement;
+  const select = compiled.querySelector<HTMLSelectElement>('.saved-view-open select');
+  select!.value = savedViewId;
+  select!.dispatchEvent(new Event('change'));
+  fixture.detectChanges();
+  compiled.querySelector<HTMLButtonElement>('.saved-view-open button')?.click();
+  fixture.detectChanges();
+}
+
+function selectManagedSavedView(
+  fixture: ComponentFixture<WorkspaceWorkItemListPageComponent>,
+  savedViewId: string
+): HTMLElement {
+  const compiled = fixture.nativeElement as HTMLElement;
+  compiled.querySelector<HTMLDetailsElement>('.saved-view-manager')?.setAttribute('open', '');
+  fixture.detectChanges();
+
+  const select = compiled.querySelector<HTMLSelectElement>('.saved-view-manage select');
+  select!.value = savedViewId;
+  select!.dispatchEvent(new Event('change'));
+  fixture.detectChanges();
+
+  return compiled;
+}
+
+function managementButtons(compiled: HTMLElement): HTMLButtonElement[] {
+  return [
+    ...compiled.querySelectorAll<HTMLButtonElement>('.saved-view-management-actions button')
+  ];
+}
+
 describe('WorkspaceWorkItemListPageComponent', () => {
   beforeEach(async () => {
     localStorage.clear();
@@ -624,7 +659,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
 
     const router = TestBed.inject(Router);
     const navigate = spyOn(router, 'navigate').and.resolveTo(true);
-    fixture.componentInstance.openSavedView(savedView);
+    openSavedViewFromToolbar(fixture, savedView.id);
     expect(navigate).toHaveBeenCalledWith(
       [],
       jasmine.objectContaining({
@@ -634,6 +669,9 @@ describe('WorkspaceWorkItemListPageComponent', () => {
           sort: 'priority_desc'
         })
       })
+    );
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Opened "Open owner work". Results updated below.'
     );
 
     fixture.componentInstance.setSavedViewDraftName(savedView.id, 'My open owner work');
@@ -718,8 +756,16 @@ describe('WorkspaceWorkItemListPageComponent', () => {
       'Shared blocked risks'
     ]);
 
-    fixture.componentInstance.setSavedViewDraftName(sharedSavedView.id, 'Shared dependency risks');
-    fixture.componentInstance.renameSavedView(sharedSavedView);
+    const compiled = selectManagedSavedView(fixture, sharedSavedView.id);
+    expect(compiled.querySelector('.saved-view-row')).toBeNull();
+    const renameInput = compiled.querySelector<HTMLInputElement>(
+      '.saved-view-management-rename input'
+    );
+    renameInput!.value = 'Shared dependency risks';
+    renameInput!.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    managementButtons(compiled)[3]?.click();
     const rename = http.expectOne(`/api/saved-work-views/${sharedSavedView.id}`);
     expect(rename.request.method).toBe('PATCH');
     expect(rename.request.body).toEqual({ name: 'Shared dependency risks' });
@@ -729,7 +775,8 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     };
     rename.flush(renamedView);
 
-    fixture.componentInstance.updateSavedViewQuery(renamedView);
+    fixture.detectChanges();
+    managementButtons(compiled)[1]?.click();
     const update = http.expectOne(`/api/saved-work-views/${sharedSavedView.id}`);
     expect(update.request.method).toBe('PATCH');
     expect(update.request.body.query).toEqual(
@@ -742,7 +789,8 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     );
     update.flush({ ...renamedView, query: update.request.body.query });
 
-    fixture.componentInstance.deleteSavedView(renamedView);
+    fixture.detectChanges();
+    managementButtons(compiled)[4]?.click();
     const remove = http.expectOne(`/api/saved-work-views/${sharedSavedView.id}`);
     expect(remove.request.method).toBe('DELETE');
     remove.flush(null);

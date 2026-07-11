@@ -119,6 +119,55 @@ async function openSavedViewManager(page: Page): Promise<void> {
   }
 }
 
+async function selectSavedViewOptionByName(select: Locator, savedViewName: string): Promise<void> {
+  await expect
+    .poll(
+      async () =>
+        select.evaluate((element, name) => {
+          return [...(element as HTMLSelectElement).options].some((candidate) =>
+            candidate.text.trim().startsWith(name)
+          );
+        }, savedViewName),
+      { message: `saved view option "${savedViewName}" should be available` }
+    )
+    .toBe(true);
+
+  const value = await select.evaluate((element, name) => {
+    const option = [...(element as HTMLSelectElement).options].find((candidate) =>
+      candidate.text.trim().startsWith(name)
+    );
+
+    return option?.value ?? null;
+  }, savedViewName);
+
+  if (value === null) {
+    throw new Error(`Could not find saved view option starting with "${savedViewName}".`);
+  }
+
+  await select.selectOption(value);
+}
+
+async function openSavedViewFromCompactControl(page: Page, savedViewName: string): Promise<void> {
+  const savedViews = savedViewsRegion(page);
+
+  await selectSavedViewOptionByName(savedViews.getByLabel('Open saved view'), savedViewName);
+  await savedViews.getByRole('button', { name: 'Open selected saved view' }).click();
+  await expect(savedViews.getByText(`Opened "${savedViewName}". Results updated below.`)).toBeVisible();
+}
+
+async function selectManagedSavedView(page: Page, savedViewName: string): Promise<Locator> {
+  const savedViews = savedViewsRegion(page);
+
+  await openSavedViewManager(page);
+  await selectSavedViewOptionByName(savedViews.getByLabel('Manage saved view'), savedViewName);
+
+  const panel = savedViews.locator('.saved-view-management-panel');
+  await expect(panel).toBeVisible();
+  await expect(panel).toContainText(savedViewName);
+
+  return panel;
+}
+
 async function downloadText(download: Download): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), 'worktrail-download-'));
   const filePath = join(directory, download.suggestedFilename());
@@ -298,7 +347,7 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
 
   await page.goto(`/projects/${demoProjectId}/work-items`);
   await page.getByText('Advanced filters').click();
-  await page.getByLabel('Milestone').selectOption({ label: milestone });
+  await page.locator('form.filters').getByLabel('Milestone').selectOption({ label: milestone });
   await expect(page.getByText(`Milestone: ${milestone}`)).toBeVisible();
   await expect(page.getByRole('row', { name: new RegExp(title) })).toBeVisible();
 
@@ -388,20 +437,20 @@ test('completes the v0.0.5 daily workspace workflow', async ({ page }) => {
   await page.getByRole('button', { name: 'Save personal view' }).click();
   await expect(savedViewsRegion(page)).toContainText(/5 shared · \d+ personal/);
 
-  await openSavedViewManager(page);
-  const savedViewRow = page.locator('article.saved-view-row').filter({ hasText: savedViewName });
-  await expect(savedViewRow).toBeVisible();
-  await expect(savedViewRow).toContainText(/applied filters/);
+  await selectManagedSavedView(page, savedViewName);
+  await expect(savedViewsRegion(page).locator('.saved-view-management-panel')).toContainText(
+    /applied filters/
+  );
 
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Work items', exact: true })).toBeVisible();
-  await openSavedViewManager(page);
-  const reloadedSavedViewRow = page.locator('article.saved-view-row').filter({ hasText: savedViewName });
-  await expect(reloadedSavedViewRow).toBeVisible();
-  const openSavedView = reloadedSavedViewRow.getByRole('button', { name: 'Open' });
+  await selectManagedSavedView(page, savedViewName);
+  const openSavedView = savedViewsRegion(page).getByRole('button', {
+    name: `Open ${savedViewName}`
+  });
   await openSavedView.focus();
   await expectFocused(openSavedView);
-  await openSavedView.click();
+  await openSavedViewFromCompactControl(page, savedViewName);
   await expect(page.getByText('Assignee: Avery Owner')).toBeVisible();
   await expect(page.getByRole('row', { name: /Document future S3 and API Gateway deployment path/ })).toBeVisible();
 
@@ -485,17 +534,14 @@ test('opens v0.1.3 shared views as owner and contributor', async ({ page }) => {
   await openSaveViewForm(page);
   await expect(page.getByRole('button', { name: 'Save shared view' })).toBeVisible();
 
-  await openSavedViewManager(page);
-  const ownerSharedViewRow = page
-    .getByLabel('Shared views')
-    .locator('article.saved-view-row')
-    .filter({ hasText: 'Dependency risks' });
-  await expect(ownerSharedViewRow).toBeVisible();
-  await expect(ownerSharedViewRow.getByRole('button', { name: 'Rename' })).toBeVisible();
-  await expect(ownerSharedViewRow.getByRole('button', { name: 'Update query' })).toBeVisible();
-  await expect(ownerSharedViewRow.getByRole('button', { name: 'Delete' })).toBeVisible();
+  const ownerDependencyPanel = await selectManagedSavedView(page, 'Dependency risks');
+  await expect(ownerDependencyPanel.getByRole('button', { name: 'Rename Dependency risks' })).toBeVisible();
+  await expect(
+    ownerDependencyPanel.getByRole('button', { name: 'Update query for Dependency risks' })
+  ).toBeVisible();
+  await expect(ownerDependencyPanel.getByRole('button', { name: 'Delete Dependency risks' })).toBeVisible();
 
-  await ownerSharedViewRow.getByRole('button', { name: 'Open' }).click();
+  await openSavedViewFromCompactControl(page, 'Dependency risks');
   await expect(page).toHaveURL(/dependency=dependency_blocked/);
   await expect(page.getByText('Dependency: Blocked by open work')).toBeVisible();
   await expect(page.getByRole('row', { name: /Add filter controls to work item list/ })).toBeVisible();
@@ -507,18 +553,14 @@ test('opens v0.1.3 shared views as owner and contributor', async ({ page }) => {
   await expect(page.getByText('Owners and maintainers manage shared saved views.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save shared view' })).toHaveCount(0);
 
-  await openSavedViewManager(page);
-  const contributorSharedViewRow = page
-    .getByLabel('Shared views')
-    .locator('article.saved-view-row')
-    .filter({ hasText: 'Dependency risks' });
-  await expect(contributorSharedViewRow).toBeVisible();
-  await expect(contributorSharedViewRow.getByRole('button', { name: 'Open' })).toBeVisible();
-  await expect(contributorSharedViewRow.getByRole('button', { name: 'Rename' })).toHaveCount(0);
-  await expect(contributorSharedViewRow.getByRole('button', { name: 'Update query' })).toHaveCount(0);
-  await expect(contributorSharedViewRow.getByRole('button', { name: 'Delete' })).toHaveCount(0);
+  const contributorDependencyPanel = await selectManagedSavedView(page, 'Dependency risks');
+  await expect(contributorDependencyPanel.getByRole('button', { name: 'Open Dependency risks' })).toBeVisible();
+  await expect(contributorDependencyPanel).toContainText('This saved view is read-only for your current role.');
+  await expect(contributorDependencyPanel.getByRole('button', { name: /Rename/ })).toHaveCount(0);
+  await expect(contributorDependencyPanel.getByRole('button', { name: /Update query/ })).toHaveCount(0);
+  await expect(contributorDependencyPanel.getByRole('button', { name: /Delete/ })).toHaveCount(0);
 
-  await contributorSharedViewRow.getByRole('button', { name: 'Open' }).click();
+  await openSavedViewFromCompactControl(page, 'Dependency risks');
   await expect(page).toHaveURL(/dependency=dependency_blocked/);
   await expect(page.getByText('Dependency: Blocked by open work')).toBeVisible();
   await expect(page.getByRole('row', { name: /Add filter controls to work item list/ })).toBeVisible();
@@ -540,18 +582,15 @@ test('opens and saves v0.1.4 project saved views as owner and contributor', asyn
   await openSaveViewForm(page);
   await expect(page.getByRole('button', { name: 'Save shared view' })).toBeVisible();
 
-  await openSavedViewManager(page);
-  const ownerReadyForQaRow = page
-    .getByLabel('Shared project views')
-    .locator('article.saved-view-row')
-    .filter({ hasText: 'Ready for QA' });
-  await expect(ownerReadyForQaRow).toBeVisible();
-  await expect(ownerReadyForQaRow).toContainText('2 applied filters');
-  await expect(ownerReadyForQaRow.getByRole('button', { name: 'Rename' })).toBeVisible();
-  await expect(ownerReadyForQaRow.getByRole('button', { name: 'Update query' })).toBeVisible();
-  await expect(ownerReadyForQaRow.getByRole('button', { name: 'Delete' })).toBeVisible();
+  const ownerReadyForQaPanel = await selectManagedSavedView(page, 'Ready for QA');
+  await expect(ownerReadyForQaPanel).toContainText('2 applied filters');
+  await expect(ownerReadyForQaPanel.getByRole('button', { name: 'Rename Ready for QA' })).toBeVisible();
+  await expect(
+    ownerReadyForQaPanel.getByRole('button', { name: 'Update query for Ready for QA' })
+  ).toBeVisible();
+  await expect(ownerReadyForQaPanel.getByRole('button', { name: 'Delete Ready for QA' })).toBeVisible();
 
-  await ownerReadyForQaRow.getByRole('button', { name: 'Open' }).click();
+  await openSavedViewFromCompactControl(page, 'Ready for QA');
   await expect(page).toHaveURL(/\/projects\/10000000-0000-4000-8000-000000000201\/work-items\?/);
   await expect(page).toHaveURL(/status=ready/);
   await expect(page.getByText('Status: ready')).toBeVisible();
@@ -562,22 +601,13 @@ test('opens and saves v0.1.4 project saved views as owner and contributor', asyn
   await page.getByRole('button', { name: 'Save personal view' }).click();
   await expect(savedViews).toContainText(/6 shared · \d+ personal/);
 
-  const personalSavedViewRow = page
-    .getByLabel('Personal project views')
-    .locator('article.saved-view-row')
-    .filter({ hasText: personalViewName });
-  await expect(personalSavedViewRow).toBeVisible();
-  await expect(personalSavedViewRow).toContainText('2 applied filters');
+  await selectManagedSavedView(page, personalViewName);
+  await expect(savedViews.locator('.saved-view-management-panel')).toContainText('2 applied filters');
 
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Project work items' })).toBeVisible();
-  await openSavedViewManager(page);
-  const reloadedPersonalSavedViewRow = page
-    .getByLabel('Personal project views')
-    .locator('article.saved-view-row')
-    .filter({ hasText: personalViewName });
-  await expect(reloadedPersonalSavedViewRow).toBeVisible();
-  await reloadedPersonalSavedViewRow.getByRole('button', { name: 'Open' }).click();
+  await selectManagedSavedView(page, personalViewName);
+  await openSavedViewFromCompactControl(page, personalViewName);
   await expect(page).toHaveURL(/status=ready/);
   await expect(page.getByText('Status: ready')).toBeVisible();
   await expect(page.getByRole('row', { name: /Add filter controls to work item list/ })).toBeVisible();
@@ -588,20 +618,16 @@ test('opens and saves v0.1.4 project saved views as owner and contributor', asyn
   await expect(savedViews).toContainText('6 shared');
   await expect(page.getByText('Owners and maintainers manage shared project views.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save shared view' })).toHaveCount(0);
-  await openSavedViewManager(page);
 
-  const contributorReadyForQaRow = page
-    .getByLabel('Shared project views')
-    .locator('article.saved-view-row')
-    .filter({ hasText: 'Ready for QA' });
-  await expect(contributorReadyForQaRow).toBeVisible();
-  await expect(contributorReadyForQaRow.getByText('Shared by Avery Owner')).toBeVisible();
-  await expect(contributorReadyForQaRow.getByRole('button', { name: 'Open' })).toBeVisible();
-  await expect(contributorReadyForQaRow.getByRole('button', { name: 'Rename' })).toHaveCount(0);
-  await expect(contributorReadyForQaRow.getByRole('button', { name: 'Update query' })).toHaveCount(0);
-  await expect(contributorReadyForQaRow.getByRole('button', { name: 'Delete' })).toHaveCount(0);
+  const contributorReadyForQaPanel = await selectManagedSavedView(page, 'Ready for QA');
+  await expect(contributorReadyForQaPanel).toContainText('Shared by Avery Owner');
+  await expect(contributorReadyForQaPanel.getByRole('button', { name: 'Open Ready for QA' })).toBeVisible();
+  await expect(contributorReadyForQaPanel).toContainText('This saved view is read-only for your current role.');
+  await expect(contributorReadyForQaPanel.getByRole('button', { name: /Rename/ })).toHaveCount(0);
+  await expect(contributorReadyForQaPanel.getByRole('button', { name: /Update query/ })).toHaveCount(0);
+  await expect(contributorReadyForQaPanel.getByRole('button', { name: /Delete/ })).toHaveCount(0);
 
-  await contributorReadyForQaRow.getByRole('button', { name: 'Open' }).click();
+  await openSavedViewFromCompactControl(page, 'Ready for QA');
   await expect(page).toHaveURL(/status=ready/);
   await expect(page.getByText('Status: ready')).toBeVisible();
   await expect(page.getByRole('row', { name: /Add filter controls to work item list/ })).toBeVisible();
@@ -627,16 +653,11 @@ test('opens seeded v0.1.5 pinned workspace and project saved views', async ({ pa
   await page.goto('/work-items');
   await expect(page.getByRole('heading', { name: 'Work items', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open pinned shared view Dependency risks' })).toBeVisible();
-  await openSavedViewManager(page);
 
-  const contributorWorkspacePinnedRow = page
-    .getByLabel('Shared views')
-    .locator('article.saved-view-row')
-    .filter({ hasText: 'Dependency risks' });
-  await expect(contributorWorkspacePinnedRow).toBeVisible();
-  await expect(contributorWorkspacePinnedRow.getByRole('button', { name: 'Open' })).toBeVisible();
-  await expect(contributorWorkspacePinnedRow.getByRole('button', { name: 'Pin' })).toHaveCount(0);
-  await expect(contributorWorkspacePinnedRow.getByRole('button', { name: 'Unpin' })).toHaveCount(0);
+  const contributorWorkspacePinnedPanel = await selectManagedSavedView(page, 'Dependency risks');
+  await expect(contributorWorkspacePinnedPanel.getByRole('button', { name: 'Open Dependency risks' })).toBeVisible();
+  await expect(contributorWorkspacePinnedPanel.getByRole('button', { name: /Pin/ })).toHaveCount(0);
+  await expect(contributorWorkspacePinnedPanel.getByRole('button', { name: /Unpin/ })).toHaveCount(0);
 
   await page.locator('#current-member').selectOption({ label: 'Avery Owner · owner' });
   await page.goto(`/projects/${demoProjectId}/work-items`);
@@ -656,16 +677,11 @@ test('opens seeded v0.1.5 pinned workspace and project saved views', async ({ pa
   await page.goto(`/projects/${demoProjectId}/work-items`);
   await expect(page.getByRole('heading', { name: 'Project work items' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open pinned shared view Ready for QA' })).toBeVisible();
-  await openSavedViewManager(page);
 
-  const contributorProjectPinnedRow = page
-    .getByLabel('Shared project views')
-    .locator('article.saved-view-row')
-    .filter({ hasText: 'Ready for QA' });
-  await expect(contributorProjectPinnedRow).toBeVisible();
-  await expect(contributorProjectPinnedRow.getByRole('button', { name: 'Open' })).toBeVisible();
-  await expect(contributorProjectPinnedRow.getByRole('button', { name: 'Pin' })).toHaveCount(0);
-  await expect(contributorProjectPinnedRow.getByRole('button', { name: 'Unpin' })).toHaveCount(0);
+  const contributorProjectPinnedPanel = await selectManagedSavedView(page, 'Ready for QA');
+  await expect(contributorProjectPinnedPanel.getByRole('button', { name: 'Open Ready for QA' })).toBeVisible();
+  await expect(contributorProjectPinnedPanel.getByRole('button', { name: /Pin/ })).toHaveCount(0);
+  await expect(contributorProjectPinnedPanel.getByRole('button', { name: /Unpin/ })).toHaveCount(0);
 });
 
 test('bulk triages seeded project work and hides controls for contributors', async ({ page }) => {
@@ -735,13 +751,8 @@ test('creates and opens a v0.1.5 pinned personal workspace saved view shortcut',
   await expect(page).toHaveURL(/assigneeId=10000000-0000-4000-8000-000000000101/);
   await expect(page.getByText('Assignee: Avery Owner')).toBeVisible();
 
-  await openSavedViewManager(page);
-  const seededSavedViewRow = page
-    .getByLabel('Personal views')
-    .locator('article.saved-view-row')
-    .filter({ hasText: 'My open work' });
-  await expect(seededSavedViewRow).toBeVisible();
-  await seededSavedViewRow.getByRole('button', { name: 'Pin' }).click();
+  const seededSavedViewPanel = await selectManagedSavedView(page, 'My open work');
+  await seededSavedViewPanel.getByRole('button', { name: 'Pin My open work' }).click();
   await expect(page.getByRole('button', { name: 'Open pinned personal view My open work' })).toBeVisible();
 
   await openSaveViewForm(page);
@@ -749,13 +760,8 @@ test('creates and opens a v0.1.5 pinned personal workspace saved view shortcut',
   await page.getByRole('button', { name: 'Save personal view' }).click();
   await expect(savedViewsRegion(page)).toContainText(/5 shared · \d+ personal/);
 
-  await openSavedViewManager(page);
-  const savedViewRow = page
-    .getByLabel('Personal views')
-    .locator('article.saved-view-row')
-    .filter({ hasText: savedViewName });
-  await expect(savedViewRow).toBeVisible();
-  await savedViewRow.getByRole('button', { name: 'Pin' }).click();
+  const savedViewPanel = await selectManagedSavedView(page, savedViewName);
+  await savedViewPanel.getByRole('button', { name: `Pin ${savedViewName}` }).click();
 
   await expect(
     page.getByRole('button', { name: `Open pinned personal view ${savedViewName}` })
@@ -826,17 +832,15 @@ test('validates the v0.0.8 dependency workflow', async ({ page, request }) => {
   await page.getByRole('button', { name: 'Save personal view' }).click();
   await expect(savedViewsRegion(page)).toContainText(/5 shared · \d+ personal/);
 
-  await openSavedViewManager(page);
-  const savedViewRow = page.locator('article.saved-view-row').filter({ hasText: savedViewName });
-  await expect(savedViewRow).toBeVisible();
-  await expect(savedViewRow).toContainText(/applied filters/);
+  await selectManagedSavedView(page, savedViewName);
+  await expect(savedViewsRegion(page).locator('.saved-view-management-panel')).toContainText(
+    /applied filters/
+  );
 
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Work items', exact: true })).toBeVisible();
-  await openSavedViewManager(page);
-  const reloadedSavedViewRow = page.locator('article.saved-view-row').filter({ hasText: savedViewName });
-  await expect(reloadedSavedViewRow).toBeVisible();
-  await reloadedSavedViewRow.getByRole('button', { name: 'Open' }).click();
+  await selectManagedSavedView(page, savedViewName);
+  await openSavedViewFromCompactControl(page, savedViewName);
   await expect(page.getByText('Dependency: Blocked by open work')).toBeVisible();
   await expect(page.getByRole('row', { name: new RegExp(blockedTitle) })).toBeVisible();
 
