@@ -242,6 +242,38 @@ npm run typecheck --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-11.
+- Added `apps/api/src/services/portfolio-service.ts`.
+- Implemented derived Portfolio read model from existing data:
+  - active workspace projects only;
+  - project work items;
+  - dependency-blocked work;
+  - work blocking downstream open work;
+  - milestones;
+  - active cycles;
+  - latest published status reports.
+- Reused `DeliveryHealthService` for project delivery health and milestone progress.
+- Derived Portfolio summary counts, urgency-sorted rows, report freshness, planning summaries, action links, and bounded attention sections.
+- Kept the service read-only and avoided database migrations.
+- Used a service clock for report freshness and stale-cycle checks.
+- Added `apps/api/tests/portfolio.test.ts` coverage for:
+  - active project rows and archived-project exclusion;
+  - summary counts;
+  - stale, fresh, and missing report freshness;
+  - latest report author/health summary hydration;
+  - active milestone and active cycle summaries;
+  - dependency-pressure drill-down links;
+  - bounded attention sections;
+  - contributor read access;
+  - empty workspace behavior.
+- No batch repository helpers were needed for this phase; simple read fan-out remains acceptable for the initial derived model.
+- Verified:
+  - `npm test --workspace @worktrail/api -- tests/portfolio.test.ts`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`.
+
 ## Phase 3: Endpoint, Express Route, And OpenAPI
 
 Goal: expose the portfolio read model through the transport-neutral endpoint and document it.
