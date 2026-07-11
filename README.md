@@ -1,8 +1,8 @@
 # Worktrail
 
-Worktrail is a project management reference app. The v0.2.2 baseline is a local-first Angular + TypeScript API + Postgres application focused on daily team workflow, collaboration updates, reliable filtered work views, pinned workspace and project operating lenses, explicit project batch triage, milestone review, cycle planning, published project reports and Markdown sharing, cross-project discovery, dependency-aware planning, workspace governance, data portability, and production-shaped application boundaries.
+Worktrail is a project management reference app. The v0.2.3 baseline is a local-first Angular + TypeScript API + Postgres application focused on daily team workflow, workspace portfolio review, collaboration updates, reliable filtered work views, pinned workspace and project operating lenses, explicit project batch triage, milestone review, cycle planning, published project reports and Markdown sharing, cross-project discovery, dependency-aware planning, workspace governance, data portability, and production-shaped application boundaries.
 
-The app includes My Work, Action Inbox, top-level Work Items discovery, URL-backed filters, copyable filtered-view links, personal saved views, workspace-shared saved views, project-scoped personal and shared saved views, pinned saved-view shortcuts, project-scoped bulk updates, quick work capture, persistent project workspaces, live planning review, live milestone review, cycle management and review, generated report drafts, immutable published report snapshots with cycle context, Markdown copy/download for published reports, print-friendly report detail pages, milestone/cycle/work links from reports, milestone management, durable boards, work item relationships, dependency-blocked signals, project delivery health, comments, mentions, work item watchers, activity, CSV import/export, production-like preview, health/readiness checks, checked-in API documentation, CI, lint, and responsive work item scanning.
+The app includes My Work, Portfolio review, Action Inbox, top-level Work Items discovery, URL-backed filters, copyable filtered-view links, personal saved views, workspace-shared saved views, project-scoped personal and shared saved views, pinned saved-view shortcuts, project-scoped bulk updates, quick work capture, persistent project workspaces, live planning review, live milestone review, cycle management and review, generated report drafts, immutable published report snapshots with cycle context, Markdown copy/download for published reports, print-friendly report detail pages, milestone/cycle/work links from reports, milestone management, durable boards, work item relationships, dependency-blocked signals, project delivery health, comments, mentions, work item watchers, activity, CSV import/export, production-like preview, health/readiness checks, checked-in API documentation, CI, lint, and responsive work item scanning.
 
 The app is intentionally built as a credible product surface before generalizing reusable patterns. It runs locally today, while preserving a path toward an S3/CloudFront Angular frontend with API Gateway/Lambda-style endpoint handlers and managed Postgres.
 
@@ -21,6 +21,7 @@ docs/
   v0.2.0/  Consolidated Operating Baseline PRD, technical design, implementation plan, audits, release notes, and pattern notes
   v0.2.1/  Cycle Planning PRD, technical design, implementation plan, release notes, and pattern notes
   v0.2.2/  Saved Views Ergonomics PRD, technical design, implementation plan, release notes, and pattern notes
+  v0.2.3/  Portfolio Review PRD, technical design, implementation plan, release notes, and pattern notes
   api/     OpenAPI reference
 site/       Static GitHub Pages product site
 e2e/        Playwright smoke tests
@@ -114,6 +115,21 @@ The detailed operator guide is in [docs/v0.0.X/v0.0.6/operations-runbook.md](doc
 ## API Reference
 
 The checked-in OpenAPI reference lives at [docs/api/openapi.yaml](docs/api/openapi.yaml). It documents the implemented route surface, representative DTOs, development-only local actor headers, readiness behavior, and the common structured error shape.
+
+## Portfolio Review
+
+v0.2.3 adds a top-level Portfolio review at `/portfolio`. Portfolio is a read-only workspace operating surface that compares active projects without requiring a user to open each project individually.
+
+Portfolio support includes:
+
+- active-project summary counts for on-track, at-risk, blocked, overdue, dependency-pressure, and stale-or-missing-report projects;
+- bounded attention sections for delivery risk, communication freshness, current execution, and dependency pressure;
+- project comparison rows with delivery health, health reasons, work counts, report freshness, latest report details, active milestone context, and active cycle context;
+- action links into existing Overview, Work, Planning, Reports, latest report, milestone review, cycle review, and risk-specific filtered Work pages;
+- canonical `WorkItemQuery` conversion for Portfolio drill-down links, using each link's project or workspace query scope;
+- deterministic seed data that shows blocked/risky projects, a healthy comparison project, fresh and missing report states, active planning context, and dependency pressure.
+
+Portfolio is derived at read time from existing projects, work items, delivery health, milestones, cycles, and status reports. It does not add stored portfolio snapshots, new planning hierarchy, charts, custom sorting, exports, portfolio filters, historical portfolio review, or cross-project mutation workflows.
 
 ## Reliable Filtered Views And Saved Work Views
 
@@ -327,7 +343,7 @@ Seeded data includes:
 - one workspace;
 - active owner, maintainer, and contributor members;
 - one inactive historical member with seeded references;
-- two active projects and one archived project;
+- three active projects and one archived project;
 - project milestones with due dates and lifecycle state;
 - active, upcoming, and completed Worktrail App cycles with target points and scoped work;
 - work items across every status with persisted board positions;
@@ -335,7 +351,7 @@ Seeded data includes:
 - dependency-blocked examples where open blockers count and terminal blockers do not;
 - active work item watchers, comment mention metadata, unread notifications, and one read notification;
 - personal saved work views for each active seeded member, workspace-shared saved views for team operating lenses, and project-scoped shared/personal saved views for project rituals;
-- one published Worktrail App status report with snapshot data for milestone, cycle, risk, and recent-work review;
+- published Worktrail App and Reference Operations status reports with snapshot data for milestone, cycle, risk, recent-work, and Portfolio review;
 - project labels, comments, deleted-comment tombstones, project activity, and workspace activity events.
 
 Use the `Acting as` selector in the top bar to switch the local placeholder actor. The selector only shows active members. This is intentionally local-only behavior and is not production authentication; the API derives the actor role and active state from the selected member record instead of trusting a client-supplied role.
@@ -343,56 +359,57 @@ Use the `Acting as` selector in the top bar to switch the local placeholder acto
 Suggested walkthrough:
 
 1. Open My Work and review the selected actor's assigned open, due soon, overdue, blocked, stale, and reported work counts.
-2. Click a My Work summary count to open the cross-project Work Items page with URL-backed filters applied.
-3. Change cross-project filters for project, assignee, reporter, status, type, label, milestone, priority, due date, blocked state, archived projects, and sort.
-4. Open a seeded workspace shared view such as `Dependency risks`, confirm the active chips and result set match the saved query, and copy the filtered workspace view link.
-5. Save a useful cross-project filter as a personal saved view, reload the page, and reopen it.
-6. As an owner or maintainer, save the applied workspace filter as a shared saved view, then rename, update, and delete it from the saved-view manager.
-7. Switch to a contributor, open a shared saved view, and confirm shared-view management controls are not available.
-8. Copy the filtered workspace view link, open it in another tab, and confirm the same applied chips and results appear.
-9. Use the global Create work item route, select a project, choose project-dependent labels or milestones, create work, and open the created item.
-10. Open Projects, search by project name or key, and review project summary signals for open, blocked, overdue, status, and last updated state.
-11. Open Workspace Settings and review role summaries, members, and workspace activity.
-12. As Avery Owner, create a contributor, promote the member to maintainer, deactivate the member, and reactivate the member.
-13. Confirm the actor selector updates when active members are created, changed, deactivated, and reactivated.
-14. Switch to a maintainer and confirm project creation is available, then create a project with an explicit key.
-15. Switch to a contributor and confirm member administration is unavailable with clear helper copy.
-16. Open the Worktrail App project.
-17. Review the project key, status counts, recently updated work, and activity.
-18. Open Planning and review delivery health, cycle context, milestone progress, overdue/due-soon work, blocked work, unassigned work, and stale work.
-19. Open the Cycles planning view, review the seeded active cycle, and open the cycle review page.
-20. Follow a cycle risk link into filtered project work and confirm the cycle chip remains applied.
-21. Create a work item in the active cycle, then update or clear cycle assignment from the detail page.
-22. Use project bulk edit to set or clear cycle assignment for selected visible work.
-23. Open a milestone review page, inspect progress, health, risk, and recent movement, then follow a risk link into filtered project work.
-24. Review dependency-blocked and blocking-open-work planning sections, then follow a dependency list link into filtered project work.
-25. Open Project Status, review the seeded weekly report with cycle context, copy it as Markdown, download the Markdown export, print the page, and follow one milestone, cycle, or risk link into current project data.
-26. As an owner or maintainer, create a new status report, edit the narrative, publish it, and confirm the detail page shows a published snapshot notice.
-27. Switch to a contributor and confirm published reports remain readable and exportable while the create action is unavailable.
-28. Create a milestone, then create a work item assigned to that milestone.
-29. Use the project work item list search and filters. Dropdown filters apply immediately, while search applies after a short debounce.
-30. Filter by dependency state to find dependency-blocked work or work blocking downstream items.
-31. Copy the filtered project work item list link and reload it to confirm the same applied view.
-32. Open a seeded pinned workspace view such as `Dependency risks` directly from the pinned shortcuts area.
-33. Open a seeded project shared view such as `Ready for QA`, confirm the project URL, active chips, and rows match the saved query, then copy the filtered project link.
-34. Pin a personal saved view from the saved-view manager, navigate away, and reopen it from the pinned shortcuts area.
-35. Switch to a contributor, open a shared pinned project view, and confirm shared project management controls are unavailable while personal project views remain available.
-36. Save a dependency-filtered project view, reload, and reopen it.
-37. As an owner or maintainer, select visible project work items, apply a project batch triage action such as adding a label, and review updated, unchanged, and failed result counts.
-38. Switch to a contributor and confirm project batch mutation controls are unavailable.
-39. Export the currently filtered project work item list to CSV.
-40. Import a small CSV through the project import page, review dry-run validation, apply it, and confirm created work appears in the project list and board.
-41. Export a filtered cross-project workspace discovery view to CSV.
-42. Open Inbox and review unread notifications for the selected actor.
-43. Mark an individual notification read, switch to All, and mark it unread again.
-44. Open the board, drag cards within a column to set planning order, reload, and confirm the order persists.
-45. Move a card through valid workflow columns with drag/drop or the status menu.
-46. Open the work item detail page, update fields, change milestone and cycle assignment, watch or unwatch the item, mention an active member in a new comment, add and edit another comment, delete a comment, and review activity.
-47. Switch to the mentioned actor and confirm the mention appears as an unread Inbox notification linking back to the work item.
-48. Add a blocking relationship, confirm the downstream dependency signal appears, move the blocker to done, and confirm the dependency signal clears.
-49. Open the archived project to confirm read-only project, milestone, cycle, work item, label, comment, relationship, import, transition, saved-view mutation, batch triage, and status report behavior.
+1. Click a My Work summary count to open the cross-project Work Items page with URL-backed filters applied.
+1. Change cross-project filters for project, assignee, reporter, status, type, label, milestone, priority, due date, blocked state, archived projects, and sort.
+1. Open a seeded workspace shared view such as `Dependency risks`, confirm the active chips and result set match the saved query, and copy the filtered workspace view link.
+1. Save a useful cross-project filter as a personal saved view, reload the page, and reopen it.
+1. As an owner or maintainer, save the applied workspace filter as a shared saved view, then rename, update, and delete it from the saved-view manager.
+1. Switch to a contributor, open a shared saved view, and confirm shared-view management controls are not available.
+1. Copy the filtered workspace view link, open it in another tab, and confirm the same applied chips and results appear.
+1. Use the global Create work item route, select a project, choose project-dependent labels or milestones, create work, and open the created item.
+1. Open Portfolio and compare Worktrail App, Cloud Readiness, and Reference Operations across delivery health, report freshness, planning context, and dependency pressure.
+1. Follow a Portfolio dependency-pressure link into filtered project Work, then return and open the latest Worktrail App report from Portfolio.
+1. Open Projects, search by project name or key, and review project summary signals for open, blocked, overdue, status, and last updated state.
+1. Open Workspace Settings and review role summaries, members, and workspace activity.
+1. As Avery Owner, create a contributor, promote the member to maintainer, deactivate the member, and reactivate the member.
+1. Confirm the actor selector updates when active members are created, changed, deactivated, and reactivated.
+1. Switch to a maintainer and confirm project creation is available, then create a project with an explicit key.
+1. Switch to a contributor and confirm member administration is unavailable with clear helper copy.
+1. Open the Worktrail App project.
+1. Review the project key, status counts, recently updated work, and activity.
+1. Open Planning and review delivery health, cycle context, milestone progress, overdue/due-soon work, blocked work, unassigned work, and stale work.
+1. Open the Cycles planning view, review the seeded active cycle, and open the cycle review page.
+1. Follow a cycle risk link into filtered project work and confirm the cycle chip remains applied.
+1. Create a work item in the active cycle, then update or clear cycle assignment from the detail page.
+1. Use project bulk edit to set or clear cycle assignment for selected visible work.
+1. Open a milestone review page, inspect progress, health, risk, and recent movement, then follow a risk link into filtered project work.
+1. Review dependency-blocked and blocking-open-work planning sections, then follow a dependency list link into filtered project work.
+1. Open Project Status, review the seeded weekly report with cycle context, copy it as Markdown, download the Markdown export, print the page, and follow one milestone, cycle, or risk link into current project data.
+1. As an owner or maintainer, create a new status report, edit the narrative, publish it, and confirm the detail page shows a published snapshot notice.
+1. Switch to a contributor and confirm published reports remain readable and exportable while the create action is unavailable.
+1. Create a milestone, then create a work item assigned to that milestone.
+1. Use the project work item list search and filters. Dropdown filters apply immediately, while search applies after a short debounce.
+1. Filter by dependency state to find dependency-blocked work or work blocking downstream items.
+1. Copy the filtered project work item list link and reload it to confirm the same applied view.
+1. Open a seeded pinned workspace view such as `Dependency risks` directly from the pinned shortcuts area.
+1. Open a seeded project shared view such as `Ready for QA`, confirm the project URL, active chips, and rows match the saved query, then copy the filtered project link.
+1. Pin a personal saved view from the saved-view manager, navigate away, and reopen it from the pinned shortcuts area.
+1. Switch to a contributor, open a shared pinned project view, and confirm shared project management controls are unavailable while personal project views remain available.
+1. Save a dependency-filtered project view, reload, and reopen it.
+1. As an owner or maintainer, select visible project work items, apply a project batch triage action such as adding a label, and review updated, unchanged, and failed result counts.
+1. Switch to a contributor and confirm project batch mutation controls are unavailable.
+1. Export the currently filtered project work item list to CSV.
+1. Import a small CSV through the project import page, review dry-run validation, apply it, and confirm created work appears in the project list and board.
+1. Export a filtered cross-project workspace discovery view to CSV.
+1. Open Inbox and review unread notifications for the selected actor.
+1. Mark an individual notification read, switch to All, and mark it unread again.
+1. Open the board, drag cards within a column to set planning order, reload, and confirm the order persists.
+1. Move a card through valid workflow columns with drag/drop or the status menu.
+1. Open the work item detail page, update fields, change milestone and cycle assignment, watch or unwatch the item, mention an active member in a new comment, add and edit another comment, delete a comment, and review activity.
+1. Switch to the mentioned actor and confirm the mention appears as an unread Inbox notification linking back to the work item.
+1. Add a blocking relationship, confirm the downstream dependency signal appears, move the blocker to done, and confirm the dependency signal clears.
+1. Open the archived project to confirm read-only project, milestone, cycle, work item, label, comment, relationship, import, transition, saved-view mutation, batch triage, and status report behavior.
 
-Suggested delivery-health checks:
 
 1. Open the Worktrail App project overview and review the compact delivery-health panel.
 2. Follow a delivery-health reason link into a filtered project work item list.
@@ -409,6 +426,11 @@ Suggested delivery-health checks:
 - Inbox with unread/all views for actor-scoped collaboration notifications.
 - Unread notification count badge in primary navigation and Inbox summary from My Work.
 - Notification read/unread actions and mark-all-read support.
+- Top-level Portfolio review for workspace-wide active project comparison.
+- Portfolio summary counts for active, on-track, at-risk, blocked, overdue, dependency-pressure, and stale/missing-report projects.
+- Portfolio attention sections for delivery risk, communication freshness, current execution, and dependency pressure.
+- Portfolio project rows with delivery health, health reasons, work metrics, report freshness, latest report details, active milestone context, and active cycle context.
+- Portfolio drill-down links into Overview, Work, Planning, Reports, latest reports, milestone review, cycle review, and risk-specific filtered Work views.
 - Top-level Work Items destination for cross-project discovery.
 - Dashboard summary counts linked to filtered cross-project discovery.
 - Cross-project work item discovery with URL-backed search, filters, sorts, project identity, archived-project modes, and active filter pills.
@@ -533,6 +555,7 @@ Suggested delivery-health checks:
 - Comment mentions are selected through an active-member picker. Rich-text editing and free-text `@name` parsing are deferred.
 - Watchers are work-item scoped only. Project-level and workspace-level watching are deferred.
 - Saved views support workspace and project scopes with personal/shared visibility and pinned shortcuts. Custom pinned ordering, saved-view folders, icons, colors, descriptions, ownership transfer, custom permissions, short links, and analytics are deferred.
+- Portfolio review is read-only and active-project focused. Portfolio filters, custom sorting, charts, exports, stored portfolio snapshots, historical portfolio review, and cross-project mutation workflows are deferred.
 - Batch triage is project-scoped and works on explicit visible selections only. Cross-project bulk edit, board bulk actions, bulk delete, bulk comments, query-wide durable selection sets, background jobs, and custom bulk permissions are deferred.
 - Copy-link support uses browser clipboard APIs and a textarea fallback. Native share sheets, short links, and permission customization are deferred.
 - CSV import is project-scoped and limited to 1 MiB and 250 data rows per file.

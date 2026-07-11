@@ -6,12 +6,12 @@
     <title>Worktrail | Project management reference app</title>
     <meta
       name="description"
-      content="Worktrail is a project management reference app for daily team work, reliable project operation, cycle planning, planning review, and published status snapshots, built as an Angular, TypeScript API, and Postgres reference baseline."
+      content="Worktrail is a project management reference app for daily team work, workspace portfolio review, reliable project operation, cycle planning, planning review, and published status snapshots, built as an Angular, TypeScript API, and Postgres reference baseline."
     >
     <meta property="og:title" content="Worktrail">
     <meta
       property="og:description"
-      content="A project management reference app for daily team work, cycle planning, published status snapshots, and production-shaped TypeScript architecture."
+      content="A project management reference app for daily team work, workspace portfolio review, cycle planning, published status snapshots, and production-shaped TypeScript architecture."
     >
     <meta property="og:type" content="website">
     <meta name="theme-color" content="#f6f8fb">
@@ -47,7 +47,7 @@
           <h1 id="hero-title">Worktrail</h1>
           <p class="hero-copy">
             Worktrail is a focused project management app for daily execution, project operation,
-            cycle planning, collaboration, dependencies, and published status snapshots.
+            workspace portfolio review, cycle planning, collaboration, dependencies, and published status snapshots.
           </p>
           <p class="hero-copy hero-copy-secondary">
             It is also a reference implementation for an Angular static frontend, a TypeScript API
@@ -65,7 +65,7 @@
       <section class="signal-band" aria-label="Project signals">
         <div class="signal">
           <span class="signal-value">Users</span>
-          <span class="signal-label">Daily queue, inbox, saved views, project boards, milestones, cycles, comments, and reports</span>
+          <span class="signal-label">Daily queue, portfolio review, inbox, saved views, project boards, milestones, cycles, comments, and reports</span>
         </div>
         <div class="signal">
           <span class="signal-value">Builders</span>
@@ -101,6 +101,17 @@
               <li>Action Inbox collects mentions, assignments, watcher updates, and dependency changes.</li>
               <li>Local actor switching exercises owner, maintainer, and contributor paths.</li>
               <li>Notifications link back to the relevant work item or project context.</li>
+            </ul>
+          </article>
+
+          <article class="feature">
+            <span class="feature-kicker">Review the portfolio</span>
+            <h3>Compare active projects before diving into details.</h3>
+            <ul>
+              <li>Portfolio summarizes active project health, overdue work, dependency pressure, and report freshness.</li>
+              <li>Attention sections group delivery risk, communication freshness, current execution, and dependency pressure.</li>
+              <li>Project rows link into Work, Planning, Reports, milestone review, cycle review, and latest report detail.</li>
+              <li>Seed data demonstrates blocked projects, a healthy comparison project, fresh reports, and missing reports.</li>
             </ul>
           </article>
 
@@ -142,28 +153,28 @@
 
       <section class="section" id="baseline" aria-labelledby="baseline-title">
         <div class="section-heading">
-          <p class="eyebrow">v0.2.1 baseline</p>
-          <h2 id="baseline-title">A cycle-aware reference app baseline.</h2>
+          <p class="eyebrow">v0.2.3 baseline</p>
+          <h2 id="baseline-title">A portfolio-aware reference app baseline.</h2>
           <p>
-            The v0.2.1 baseline adds project-scoped cycle planning on top of the consolidated
-            operating surface. Teams can plan execution windows, assign work into cycles, review
-            scoped risk, filter and save cycle-backed work views, and publish status reports that
-            preserve active-cycle context.
+            The v0.2.3 baseline adds workspace Portfolio review on top of the consolidated
+            operating surface. Teams can scan active project health, communication freshness,
+            current execution, and dependency pressure before drilling into existing Work,
+            Planning, Review, and Reports surfaces.
           </p>
         </div>
 
         <div class="baseline-grid">
           <div>
             <strong>For product users</strong>
-            <span>Daily work, inbox updates, reliable filters, saved/pinned views, project boards, planning review, milestone review, cycle review, dependency signals, comments, watchers, activity, CSV flows, and portable status reports.</span>
+            <span>Daily work, portfolio review, inbox updates, reliable filters, saved/pinned views, project boards, planning review, milestone review, cycle review, dependency signals, comments, watchers, activity, CSV flows, and portable status reports.</span>
           </div>
           <div>
             <strong>For builders</strong>
-            <span>Shared contracts, typed Angular API clients, query helpers, route-level code splitting, endpoint handlers, service-level domain policy, report snapshot parsing, cycle review derivation, and focused test coverage.</span>
+            <span>Shared contracts, typed Angular API clients, query helpers, route-level code splitting, endpoint handlers, service-level domain policy, derived portfolio read models, report snapshot parsing, cycle review derivation, and focused test coverage.</span>
           </div>
           <div>
             <strong>For operators</strong>
-            <span>Postgres migrations and cycle-aware seed data, production preview, runtime configuration checks, health/readiness endpoints, checked-in OpenAPI, CI verification, and documented local run paths.</span>
+            <span>Postgres migrations and portfolio-aware seed data, production preview, runtime configuration checks, health/readiness endpoints, checked-in OpenAPI, CI verification, and documented local run paths.</span>
           </div>
         </div>
       </section>
@@ -244,7 +255,7 @@
           </div>
           <div>
             <strong>No enterprise workflow suite yet</strong>
-            <span>Custom workflows, attachments, roadmap forecasting, cycle capacity planning, report approvals, public report links, critical path analysis, and third-party migrations remain outside the baseline.</span>
+            <span>Custom workflows, attachments, roadmap forecasting, portfolio charts, cycle capacity planning, report approvals, public report links, critical path analysis, and third-party migrations remain outside the baseline.</span>
           </div>
         </div>
       </section>
@@ -273,9 +284,9 @@ DATABASE_URL=postgres://worktrail:worktrail@localhost:5432/worktrail npm run pre
       <span>Worktrail</span>
       <a href="https://github.com/jeremyaaron/worktrail">GitHub</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/README.md">README</a>
-      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.1/prd.md">v0.2.1 PRD</a>
-      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.1/technical-design.md">Technical design</a>
-      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.1/release-notes.md">Release notes</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.3/prd.md">v0.2.3 PRD</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.3/technical-design.md">Technical design</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.3/release-notes.md">Release notes</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/api/openapi.yaml">OpenAPI</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.0.X/v0.0.6/operations-runbook.md">Runbook</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.0.X/v0.0.7/csv-import-export.md">CSV guide</a>

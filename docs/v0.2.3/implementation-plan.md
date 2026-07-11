@@ -597,6 +597,8 @@ Status:
 
 Goal: finish v0.2.3 with accurate docs, release notes, pattern notes, and full verification.
 
+Status: Completed 2026-07-11.
+
 Scope:
 
 - Update README:
@@ -631,6 +633,27 @@ Acceptance criteria:
 - README and release docs reflect the Portfolio release.
 - Pattern notes capture destination-neutral lessons.
 - Full verification is green or any residual issue is documented with a clear rationale.
+
+Completed changes:
+
+- Updated README for the v0.2.3 Portfolio baseline, including repository layout, seeded demo data, walkthrough steps, shipped capabilities, and current limitations.
+- Added `docs/v0.2.3/release-notes.md`.
+- Added `docs/v0.2.3/pattern-notes.md`.
+- Updated package metadata and lockfile to `0.2.3`.
+- Updated the static product site to present Worktrail as portfolio-aware and point release links at v0.2.3 docs.
+- Updated OpenAPI metadata to `0.2.3`.
+- Updated API route inventory coverage for `GET /api/portfolio`.
+
+Verification completed:
+
+- `npm install --package-lock-only`
+- `npm run db:reset && npm run db:migrate && npm run db:seed`
+- `npm run lint`
+- `npm run typecheck`
+- `npm run build`
+- `npm audit --omit=dev --audit-level=low`
+- `npm test`
+- `npm run test:e2e`
 
 Suggested commands:
 
