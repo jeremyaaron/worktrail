@@ -328,6 +328,29 @@ npm run lint --workspace @worktrail/web
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-10.
+- Tightened `SavedViewsToolbarComponent` scoped styles for the refactored saved-view toolbar.
+- Converted opener and save form rows to stable grid layouts with mobile stacking.
+- Added wrapping safeguards for long saved-view names, summaries, and helper text.
+- Added mobile full-width action buttons for compact touch targets.
+- Added explicit separation between general management actions and destructive delete actions.
+- Added visually hidden help text for the open and manage selects.
+- Added `aria-describedby` links from both saved-view selects to their help text.
+- Added explicit accessible names for compact open and selected-view management action buttons.
+- Preserved visible text and the native select/button interaction model.
+- Added focused component coverage for:
+  - visually hidden select help;
+  - `aria-describedby` wiring;
+  - compact open button accessible name;
+  - selected management action accessible names.
+- Verified:
+  - `npm test --workspace @worktrail/web -- --include 'src/app/features/work-items/components/saved-views-toolbar.component.spec.ts'`;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `git diff --check`.
+
 ## Phase 4: Parent Page And Page-Spec Alignment
 
 Goal: update workspace and project Work page tests and any integration assumptions around the new toolbar markup.

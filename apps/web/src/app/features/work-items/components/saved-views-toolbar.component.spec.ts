@@ -114,6 +114,45 @@ describe('SavedViewsToolbarComponent', () => {
     expect(button?.disabled).toBeTrue();
   });
 
+  it('provides accessible select help and named management actions', () => {
+    fixture.componentInstance.sharedViews = [sharedView];
+    fixture.componentInstance.canManageSharedViews = true;
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('#saved-view-open-help')?.classList).toContain(
+      'visually-hidden'
+    );
+    expect(compiled.querySelector('#saved-view-manage-help')?.classList).toContain(
+      'visually-hidden'
+    );
+    expect(
+      compiled.querySelector<HTMLSelectElement>('.saved-view-open select')?.getAttribute(
+        'aria-describedby'
+      )
+    ).toBe('saved-view-open-help');
+    expect(
+      compiled.querySelector<HTMLButtonElement>('.saved-view-open button')?.getAttribute(
+        'aria-label'
+      )
+    ).toBe('Open selected saved view');
+
+    selectManagedView(sharedView.id);
+
+    expect(
+      compiled.querySelector<HTMLSelectElement>('.saved-view-manage select')?.getAttribute(
+        'aria-describedby'
+      )
+    ).toBe('saved-view-manage-help');
+    expect(managementButtons(compiled).map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Open Dependency risks',
+      'Update query for Dependency risks',
+      'Pin Dependency risks',
+      'Rename Dependency risks',
+      'Delete Dependency risks'
+    ]);
+  });
+
   it('opens a shared saved view from the compact opener', () => {
     const opened: SavedWorkViewDto[] = [];
     fixture.componentInstance.sharedViews = [sharedView];

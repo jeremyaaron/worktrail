@@ -44,6 +44,7 @@ interface SavedViewOption {
             <span>Open saved view</span>
             <select
               [value]="selectedOpenViewId"
+              aria-describedby="saved-view-open-help"
               (change)="selectedOpenViewId = $any($event.target).value"
             >
               <option value="">Choose a saved view</option>
@@ -65,12 +66,16 @@ interface SavedViewOption {
           </label>
           <button
             type="button"
+            aria-label="Open selected saved view"
             [disabled]="selectedOpenViewOption() === null"
             (click)="openSelectedView()"
           >
             Open
           </button>
         </div>
+        <p id="saved-view-open-help" class="visually-hidden">
+          Choose a saved view, then open it to apply its filters.
+        </p>
 
         @if (selectedOpenViewOption(); as option) {
           <p class="saved-view-selected-summary">
@@ -141,9 +146,10 @@ interface SavedViewOption {
 
           <div class="saved-view-manage">
             <label>
-              <span>Saved view</span>
+              <span>Manage saved view</span>
               <select
                 [value]="selectedManageViewId"
+                aria-describedby="saved-view-manage-help"
                 (change)="selectedManageViewId = $any($event.target).value"
               >
                 <option value="">Choose a saved view to manage</option>
@@ -163,6 +169,9 @@ interface SavedViewOption {
                 }
               </select>
             </label>
+            <p id="saved-view-manage-help" class="visually-hidden">
+              Choose a saved view to inspect or manage its allowed actions.
+            </p>
 
             @if (selectedManageViewOption(); as option) {
               <article class="saved-view-management-panel">
@@ -179,7 +188,11 @@ interface SavedViewOption {
                 </p>
 
                 <div class="saved-view-management-actions">
-                  <button type="button" (click)="openSavedView(option.savedView)">
+                  <button
+                    type="button"
+                    [attr.aria-label]="'Open ' + option.savedView.name"
+                    (click)="openSavedView(option.savedView)"
+                  >
                     Open
                   </button>
 
@@ -187,6 +200,7 @@ interface SavedViewOption {
                     <button
                       type="button"
                       class="secondary-action"
+                      [attr.aria-label]="'Update query for ' + option.savedView.name"
                       (click)="updateQuery.emit(option.savedView)"
                     >
                       Update query
@@ -194,6 +208,9 @@ interface SavedViewOption {
                     <button
                       type="button"
                       class="secondary-action"
+                      [attr.aria-label]="
+                        (option.savedView.isPinned ? 'Unpin ' : 'Pin ') + option.savedView.name
+                      "
                       (click)="pinChange.emit({ savedView: option.savedView, isPinned: !option.savedView.isPinned })"
                     >
                       {{ option.savedView.isPinned ? 'Unpin' : 'Pin' }}
@@ -211,10 +228,11 @@ interface SavedViewOption {
                     />
                   </label>
 
-                  <div class="saved-view-management-actions">
+                  <div class="saved-view-management-actions saved-view-management-actions--danger">
                     <button
                       type="button"
                       class="secondary-action"
+                      [attr.aria-label]="'Rename ' + option.savedView.name"
                       (click)="rename.emit(option.savedView)"
                     >
                       Rename
@@ -222,6 +240,7 @@ interface SavedViewOption {
                     <button
                       type="button"
                       class="danger-action"
+                      [attr.aria-label]="'Delete ' + option.savedView.name"
                       (click)="delete.emit(option.savedView)"
                     >
                       Delete
@@ -252,13 +271,20 @@ interface SavedViewOption {
       background: #ffffff;
     }
 
-    .saved-views__heading,
-    .saved-view-open,
-    .saved-view-form {
+    .saved-views__heading {
       display: flex;
       gap: 12px;
       align-items: end;
       justify-content: space-between;
+      min-width: 0;
+    }
+
+    .saved-view-open,
+    .saved-view-form {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto;
+      gap: 12px;
+      align-items: end;
     }
 
     h2,
@@ -277,6 +303,7 @@ interface SavedViewOption {
       color: #64748b;
       font-size: 0.75rem;
       line-height: 1.4;
+      overflow-wrap: anywhere;
     }
 
     .shared-helper {
@@ -322,6 +349,18 @@ interface SavedViewOption {
 
     .saved-view-opened {
       color: #166534;
+    }
+
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+      border: 0;
+      padding: 0;
     }
 
     .save-actions {
@@ -396,6 +435,7 @@ interface SavedViewOption {
     .saved-view-manage {
       display: grid;
       gap: 10px;
+      max-width: 100%;
     }
 
     .saved-view-management-panel {
@@ -410,6 +450,11 @@ interface SavedViewOption {
       align-items: center;
       justify-content: space-between;
       gap: 12px;
+      min-width: 0;
+    }
+
+    .saved-view-management-panel__heading div {
+      min-width: 0;
     }
 
     .saved-view-management-panel__heading strong {
@@ -417,6 +462,7 @@ interface SavedViewOption {
       color: #111827;
       font-size: 0.875rem;
       line-height: 1.35;
+      overflow-wrap: anywhere;
     }
 
     .saved-view-management-panel__heading small {
@@ -447,6 +493,15 @@ interface SavedViewOption {
       gap: 8px;
     }
 
+    .saved-view-management-actions--danger {
+      border-top: 1px solid #eef2f7;
+      padding-top: 12px;
+    }
+
+    .saved-view-management-actions--danger .danger-action {
+      margin-left: auto;
+    }
+
     @media (max-width: 760px) {
       .saved-views__heading,
       .saved-view-open,
@@ -455,6 +510,16 @@ interface SavedViewOption {
       .saved-view-management-panel__heading {
         display: grid;
         grid-template-columns: 1fr;
+      }
+
+      .saved-view-management-actions button,
+      .save-actions button,
+      .saved-view-open button {
+        width: 100%;
+      }
+
+      .saved-view-management-actions--danger .danger-action {
+        margin-left: 0;
       }
     }
   `
