@@ -25,6 +25,7 @@ import type {
   NotificationListResponse,
   NotificationStateFilter,
   NotificationUnreadCountResponse,
+  PortfolioDto,
   ProjectDto,
   ProjectNavigationSummaryDto,
   ProjectPlanningSummaryDto,
@@ -139,6 +140,10 @@ export class WorktrailApiService {
 
   listProjectNavigationSummaries(): Observable<ProjectNavigationSummaryDto[]> {
     return this.projects.listProjectNavigationSummaries();
+  }
+
+  getPortfolio(): Observable<PortfolioDto> {
+    return this.projects.getPortfolio();
   }
 
   createProject(input: CreateProjectRequest): Observable<ProjectDto> {

@@ -9,6 +9,7 @@ import type {
   LabelDto,
   MilestoneDto,
   MilestoneStatus,
+  PortfolioDto,
   ProjectDto,
   ProjectNavigationSummaryDto,
   ProjectStatusReportDetailDto,
@@ -33,6 +34,10 @@ export class ProjectsApi {
 
   listProjectNavigationSummaries(): Observable<ProjectNavigationSummaryDto[]> {
     return this.api.get<ProjectNavigationSummaryDto[]>('/projects/navigation-summary');
+  }
+
+  getPortfolio(): Observable<PortfolioDto> {
+    return this.api.get<PortfolioDto>('/portfolio');
   }
 
   createProject(input: CreateProjectRequest): Observable<ProjectDto> {

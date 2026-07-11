@@ -161,6 +161,32 @@ npm run typecheck --workspace @worktrail/web
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-10.
+- Added `packages/contracts/src/portfolio.ts` with:
+  - `PortfolioDto`;
+  - `PortfolioSummaryDto`;
+  - `PortfolioProjectRowDto`;
+  - `PortfolioProjectLinksDto`;
+  - `PortfolioAttentionItemDto`;
+  - `PortfolioAttentionSectionsDto`;
+  - `PortfolioLinkDto`;
+  - `PortfolioReportSummaryDto`;
+  - report freshness, attention type, and link query-scope unions.
+- Exported portfolio DTOs from `@worktrail/contracts`.
+- Added `ProjectsApi.getPortfolio()` for `GET /api/portfolio`.
+- Added `WorktrailApiService.getPortfolio()` facade method.
+- Added focused API facade test coverage confirming:
+  - request path is `/api/portfolio`;
+  - method is `GET`;
+  - selected actor headers are applied.
+- Kept backend endpoint behavior, Angular route, and page UI deferred to later phases.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/contracts`;
+  - `npm test --workspace @worktrail/web -- --include 'src/app/core/worktrail-api.service.spec.ts'`;
+  - `npm run typecheck --workspace @worktrail/web`.
+
 ## Phase 2: Backend Portfolio Read Model
 
 Goal: implement the derived Portfolio service and focused API/service tests.
