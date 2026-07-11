@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Worktrail API
-  version: 0.1.8
+  version: 0.2.3
   summary: HTTP API reference for the Worktrail local-first project management app.
   description: |
     This document describes the implemented Worktrail API routes. It is intentionally
@@ -279,6 +279,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NotificationUnreadCountResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/portfolio:
+    get:
+      tags: [Projects]
+      summary: Get workspace portfolio review.
+      description: Returns a read-only, derived portfolio review for active projects in the current actor workspace.
+      responses:
+        "200":
+          description: Workspace portfolio review.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Portfolio"
         default:
           $ref: "#/components/responses/Error"
   /api/projects:
@@ -2038,6 +2052,228 @@ components:
             $ref: "#/components/schemas/RecentWorkItem"
         deliveryHealth:
           $ref: "#/components/schemas/ProjectDeliveryHealth"
+    Portfolio:
+      type: object
+      required: [generatedAt, reportFreshnessThresholdDays, summary, attention, projects]
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        reportFreshnessThresholdDays:
+          type: integer
+        summary:
+          $ref: "#/components/schemas/PortfolioSummary"
+        attention:
+          $ref: "#/components/schemas/PortfolioAttentionSections"
+        projects:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortfolioProjectRow"
+    PortfolioSummary:
+      type: object
+      required:
+        - activeProjectCount
+        - blockedProjectCount
+        - atRiskProjectCount
+        - onTrackProjectCount
+        - overdueProjectCount
+        - dependencyPressureProjectCount
+        - missingOrStaleReportProjectCount
+      properties:
+        activeProjectCount:
+          type: integer
+        blockedProjectCount:
+          type: integer
+        atRiskProjectCount:
+          type: integer
+        onTrackProjectCount:
+          type: integer
+        overdueProjectCount:
+          type: integer
+        dependencyPressureProjectCount:
+          type: integer
+        missingOrStaleReportProjectCount:
+          type: integer
+    PortfolioAttentionSections:
+      type: object
+      required: [needsAttention, communicationFreshness, currentExecution, dependencyPressure]
+      properties:
+        needsAttention:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortfolioAttentionItem"
+        communicationFreshness:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortfolioAttentionItem"
+        currentExecution:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortfolioAttentionItem"
+        dependencyPressure:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortfolioAttentionItem"
+    PortfolioAttentionItem:
+      type: object
+      required: [type, project, title, message, severity, link]
+      properties:
+        type:
+          type: string
+          enum: [delivery_risk, dependency_pressure, communication_freshness, current_execution]
+        project:
+          $ref: "#/components/schemas/Project"
+        title:
+          type: string
+        message:
+          type: string
+        severity:
+          $ref: "#/components/schemas/DeliveryHealthSeverity"
+        link:
+          $ref: "#/components/schemas/PortfolioLink"
+    PortfolioProjectRow:
+      type: object
+      required:
+        - project
+        - deliveryHealth
+        - openWorkItemCount
+        - blockedWorkItemCount
+        - dependencyBlockedWorkItemCount
+        - blockingOpenWorkItemCount
+        - overdueWorkItemCount
+        - staleInProgressWorkItemCount
+        - updatedAt
+        - report
+        - planning
+        - links
+      properties:
+        project:
+          $ref: "#/components/schemas/Project"
+        deliveryHealth:
+          $ref: "#/components/schemas/ProjectDeliveryHealth"
+        openWorkItemCount:
+          type: integer
+        blockedWorkItemCount:
+          type: integer
+        dependencyBlockedWorkItemCount:
+          type: integer
+        blockingOpenWorkItemCount:
+          type: integer
+        overdueWorkItemCount:
+          type: integer
+        staleInProgressWorkItemCount:
+          type: integer
+        updatedAt:
+          type: string
+          format: date-time
+        report:
+          $ref: "#/components/schemas/PortfolioReportSummary"
+        planning:
+          $ref: "#/components/schemas/PortfolioPlanningSummary"
+        links:
+          $ref: "#/components/schemas/PortfolioProjectLinks"
+    PortfolioReportSummary:
+      type: object
+      required: [freshness, thresholdDays, latestReport, daysSincePublished]
+      properties:
+        freshness:
+          type: string
+          enum: [fresh, stale, missing]
+        thresholdDays:
+          type: integer
+        latestReport:
+          anyOf:
+            - $ref: "#/components/schemas/ProjectStatusReportSummary"
+            - type: "null"
+        daysSincePublished:
+          type: [integer, "null"]
+    PortfolioPlanningSummary:
+      type: object
+      required: [activeMilestone, activeCycle]
+      properties:
+        activeMilestone:
+          anyOf:
+            - $ref: "#/components/schemas/PortfolioMilestoneSummary"
+            - type: "null"
+        activeCycle:
+          anyOf:
+            - $ref: "#/components/schemas/PortfolioCycleSummary"
+            - type: "null"
+    PortfolioMilestoneSummary:
+      type: object
+      required: [id, name, status, health, openCount, targetDate]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          $ref: "#/components/schemas/MilestoneStatus"
+        health:
+          $ref: "#/components/schemas/DeliveryHealthState"
+        openCount:
+          type: integer
+        targetDate:
+          type: [string, "null"]
+          format: date
+    PortfolioCycleSummary:
+      type: object
+      required: [id, name, health, openWorkCount, endDate, targetPoints]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        health:
+          $ref: "#/components/schemas/DeliveryHealthState"
+        openWorkCount:
+          type: integer
+        endDate:
+          type: string
+          format: date
+        targetPoints:
+          type: [integer, "null"]
+    PortfolioProjectLinks:
+      type: object
+      required: [overview, work, planning, reports]
+      properties:
+        overview:
+          $ref: "#/components/schemas/PortfolioLink"
+        work:
+          $ref: "#/components/schemas/PortfolioLink"
+        planning:
+          $ref: "#/components/schemas/PortfolioLink"
+        reports:
+          $ref: "#/components/schemas/PortfolioLink"
+        latestReport:
+          $ref: "#/components/schemas/PortfolioLink"
+        activeMilestone:
+          $ref: "#/components/schemas/PortfolioLink"
+        activeCycle:
+          $ref: "#/components/schemas/PortfolioLink"
+        blockedWork:
+          $ref: "#/components/schemas/PortfolioLink"
+        dependencyBlockedWork:
+          $ref: "#/components/schemas/PortfolioLink"
+        overdueWork:
+          $ref: "#/components/schemas/PortfolioLink"
+        staleWork:
+          $ref: "#/components/schemas/PortfolioLink"
+    PortfolioLink:
+      type: object
+      required: [label, route]
+      properties:
+        label:
+          type: string
+        route:
+          type: string
+        query:
+          $ref: "#/components/schemas/WorkItemQuery"
+        queryScope:
+          type: string
+          enum: [workspace, project]
     RecentWorkItem:
       type: object
       required: [id, displayKey, title, status, updatedAt]

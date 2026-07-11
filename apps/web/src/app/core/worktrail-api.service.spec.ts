@@ -54,6 +54,35 @@ describe('WorktrailApiService', () => {
     summaries.flush([]);
   });
 
+  it('requests the workspace portfolio review', () => {
+    api.getPortfolio().subscribe();
+
+    const request = http.expectOne('/api/portfolio');
+    expect(request.request.method).toBe('GET');
+    expect(request.request.headers.get('x-worktrail-member-id')).toBe(actor.id);
+    expect(request.request.headers.get('x-worktrail-workspace-id')).toBe(actor.workspaceId);
+    request.flush({
+      generatedAt: '2026-07-10T12:00:00.000Z',
+      reportFreshnessThresholdDays: 14,
+      summary: {
+        activeProjectCount: 0,
+        blockedProjectCount: 0,
+        atRiskProjectCount: 0,
+        onTrackProjectCount: 0,
+        overdueProjectCount: 0,
+        dependencyPressureProjectCount: 0,
+        missingOrStaleReportProjectCount: 0
+      },
+      attention: {
+        needsAttention: [],
+        communicationFreshness: [],
+        currentExecution: [],
+        dependencyPressure: []
+      },
+      projects: []
+    });
+  });
+
   it('supports project status report requests', () => {
     const projectId = '10000000-0000-4000-8000-000000000201';
     const reportId = '10000000-0000-4000-8000-000000000901';

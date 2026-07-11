@@ -92,6 +92,7 @@ describe('Express API foundation', () => {
       'PATCH /api/members/:memberId',
       'POST /api/members/:memberId/deactivate',
       'POST /api/members/:memberId/reactivate',
+      'GET /api/portfolio',
       'GET /api/projects',
       'GET /api/projects/navigation-summary',
       'POST /api/projects',

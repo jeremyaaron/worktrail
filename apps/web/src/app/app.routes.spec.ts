@@ -20,6 +20,7 @@ describe('routes', () => {
 
     expect(paths).toContain('my-work');
     expect(paths).toContain('inbox');
+    expect(paths).toContain('portfolio');
     expect(paths).toContain('work-items');
     expect(paths).toContain('work-items/new');
     expect(paths.indexOf('work-items/new')).toBeLessThan(paths.indexOf('work-items/:workItemId'));
@@ -30,6 +31,13 @@ describe('routes', () => {
 
     expect(inboxRoute?.loadComponent).toBeDefined();
     expect(inboxRoute?.title).toBe('Inbox | Worktrail');
+  });
+
+  it('registers Portfolio as a lazy route', () => {
+    const portfolioRoute = routes.find((route) => route.path === 'portfolio');
+
+    expect(portfolioRoute?.loadComponent).toBeDefined();
+    expect(portfolioRoute?.title).toBe('Portfolio | Worktrail');
   });
 
   it('nests project routes under the project shell while preserving child URLs', () => {

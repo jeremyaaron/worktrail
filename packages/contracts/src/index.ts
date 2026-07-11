@@ -6,6 +6,7 @@ export * from './members.js';
 export * from './my-work.js';
 export * from './notifications.js';
 export * from './planning.js';
+export * from './portfolio.js';
 export * from './projects.js';
 export * from './saved-work-views.js';
 export * from './workspace.js';
