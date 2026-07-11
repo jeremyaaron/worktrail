@@ -25,6 +25,7 @@ import {
   reactivateProjectHandler,
   updateProjectHandler
 } from '../../../endpoints/projects.js';
+import { getPortfolioHandler } from '../../../endpoints/portfolio.js';
 import {
   exportProjectStatusReportMarkdownHandler,
   getProjectStatusReportDraftHandler,
@@ -38,6 +39,7 @@ import { adapterOptions, type ExpressRouteContext } from './context.js';
 export function registerProjectRoutes(app: Express, context: ExpressRouteContext): void {
   const options = adapterOptions(context);
 
+  app.get('/api/portfolio', adaptEndpoint(getPortfolioHandler(context.repositories), options));
   app.get('/api/projects', adaptEndpoint(listProjectsHandler(context.repositories), options));
   app.get(
     '/api/projects/navigation-summary',

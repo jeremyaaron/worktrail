@@ -1,7 +1,9 @@
 import type { ProjectStatusReportSnapshotDto } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
+import request from 'supertest';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
+import { createExpressApp } from '../src/adapters/express/server.js';
 import { createDb, createPool } from '../src/db/client.js';
 import type { MemberRole, ProjectStatus, WorkItemStatus } from '../src/domain/constants.js';
 import type { ActorContext } from '../src/domain/actor.js';
@@ -13,10 +15,19 @@ const workspaceIds = new Set<string>();
 let pool: ReturnType<typeof createPool>;
 let db: ReturnType<typeof createDb>;
 let repositories: Repositories;
+let app: ReturnType<typeof createExpressApp>;
 let nextWorkItemNumber = 1;
 
 function now() {
   return new Date('2026-07-10T12:00:00.000Z');
+}
+
+function actorHeaders(input: { workspaceId: string; memberId: string; role: MemberRole }) {
+  return {
+    'x-worktrail-workspace-id': input.workspaceId,
+    'x-worktrail-member-id': input.memberId,
+    'x-worktrail-role': input.role
+  };
 }
 
 async function cleanupWorkspace(workspaceId: string) {
@@ -288,6 +299,7 @@ beforeAll(() => {
   pool = createPool();
   db = createDb(pool);
   repositories = createRepositories(db);
+  app = createExpressApp({ repositories, db });
 });
 
 afterEach(async () => {
@@ -508,5 +520,43 @@ describe('portfolio service', () => {
       currentExecution: [],
       dependencyPressure: []
     });
+  });
+});
+
+describe('portfolio API', () => {
+  it('returns portfolio read model for the current actor workspace', async () => {
+    const fixture = await createFixture('contributor');
+    const project = await createProject({
+      workspaceId: fixture.workspaceId,
+      key: 'API',
+      name: 'API Portfolio Project'
+    });
+
+    await createWorkItem({
+      workspaceId: fixture.workspaceId,
+      projectId: project.id,
+      reporterId: fixture.actorId,
+      title: 'API visible work',
+      status: 'ready'
+    });
+
+    await request(app)
+      .get('/api/portfolio')
+      .set(actorHeaders({ workspaceId: fixture.workspaceId, memberId: fixture.actorId, role: 'contributor' }))
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.summary.activeProjectCount).toBe(1);
+        expect(body.projects).toHaveLength(1);
+        expect(body.projects[0]).toMatchObject({
+          project: { id: project.id, key: 'API' },
+          report: { freshness: 'missing' },
+          links: {
+            overview: { route: `/projects/${project.id}` },
+            work: { route: `/projects/${project.id}/work-items` },
+            planning: { route: `/projects/${project.id}/planning` },
+            reports: { route: `/projects/${project.id}/status` }
+          }
+        });
+      });
   });
 });

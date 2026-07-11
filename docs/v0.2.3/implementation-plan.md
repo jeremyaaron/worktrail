@@ -308,6 +308,33 @@ npm run typecheck --workspace @worktrail/api
 git diff --check
 ```
 
+Status:
+
+- Completed on 2026-07-11.
+- Added `apps/api/src/endpoints/portfolio.ts`.
+- Registered `GET /api/portfolio` in the Express route adapter.
+- Kept the endpoint transport-neutral and thin:
+  - constructs `PortfolioService` from `request.actor` and repositories;
+  - accepts no workspace id route or query input;
+  - relies on actor workspace context for scoping.
+- Extended `apps/api/tests/portfolio.test.ts` with endpoint coverage for:
+  - active workspace member request;
+  - `200` response;
+  - derived project row payload;
+  - missing report freshness;
+  - generated Portfolio drill-down routes.
+- Updated `docs/api/openapi.yaml` with:
+  - `/api/portfolio`;
+  - `Portfolio`;
+  - `PortfolioSummary`;
+  - attention, project-row, report, planning, link, milestone, and cycle nested schemas.
+- Verified:
+  - `npm test --workspace @worktrail/api -- tests/portfolio.test.ts`;
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `ruby -e "require 'yaml'; YAML.load_file('docs/api/openapi.yaml'); puts 'ok'"`;
+  - `git diff --check`.
+
 ## Phase 4: Angular Route, Navigation, And API Integration
 
 Goal: add the lazy Portfolio route and wire it into top-level navigation.
