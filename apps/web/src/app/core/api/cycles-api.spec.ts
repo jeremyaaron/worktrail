@@ -64,7 +64,7 @@ describe('CyclesApi', () => {
       targetPoints: 20
     };
     const updateInput: UpdateProjectCycleRequest = {
-      status: 'completed',
+      status: 'canceled',
       targetPoints: null
     };
 

@@ -5,11 +5,13 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import type {
   CreateProjectCycleRequest,
+  CreatableProjectCycleStatus,
   DeliveryHealthReasonDto,
   DeliveryHealthState,
   MilestoneDto,
   MilestoneProgressDto,
   MilestoneStatus,
+  MutableProjectCycleStatus,
   PlanningRiskItemDto,
   PlanningReviewItemDto,
   ProjectCycleDto,
@@ -42,7 +44,8 @@ import { MilestoneManagerComponent } from './planning/milestone-manager.componen
 import { PlanningReviewComponent } from './planning/planning-review.component';
 
 const milestoneStatuses: MilestoneStatus[] = ['planned', 'active', 'completed', 'canceled'];
-const cycleStatuses: ProjectCycleStatus[] = ['planned', 'active', 'completed', 'canceled'];
+const creatableCycleStatuses: CreatableProjectCycleStatus[] = ['planned', 'active'];
+const mutableCycleStatuses: MutableProjectCycleStatus[] = ['planned', 'active', 'canceled'];
 const statusOrder = new Map<MilestoneStatus, number>(
   milestoneStatuses.map((status, index) => [status, index])
 );
@@ -166,7 +169,8 @@ interface PlanningReviewSection {
             [projectId]="projectId()"
             [cycleForm]="cycleForm"
             [cycles]="cycles()"
-            [cycleStatuses]="cycleStatuses"
+            [creatableCycleStatuses]="creatableCycleStatuses"
+            [mutableCycleStatuses]="mutableCycleStatuses"
             [canManageCycles]="canManageCycles()"
             [isLoadingCycles]="isLoadingCycles()"
             [isCreatingCycle]="isCreatingCycle()"
@@ -1384,7 +1388,8 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
   readonly planningViews = planningViews;
   readonly selectedPlanningView = signal<PlanningView>('review');
   readonly milestoneStatuses = milestoneStatuses;
-  readonly cycleStatuses = cycleStatuses;
+  readonly creatableCycleStatuses = creatableCycleStatuses;
+  readonly mutableCycleStatuses = mutableCycleStatuses;
   readonly project = signal<ProjectDto | null>(null);
   readonly milestones = signal<MilestoneDto[]>([]);
   readonly cycles = signal<ProjectCycleDto[]>([]);
@@ -1528,7 +1533,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
   readonly cycleForm = this.formBuilder.nonNullable.group({
     name: ['', [Validators.required]],
     goal: [''],
-    status: ['planned' as ProjectCycleStatus],
+    status: ['planned' as CreatableProjectCycleStatus],
     startDate: ['', [Validators.required]],
     endDate: ['', [Validators.required]],
     targetPoints: ['']
@@ -1688,18 +1693,19 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
     }
 
     const formValue = this.cycleForm.getRawValue();
-    const request = this.toCycleCreateRequest({
+    const fields = this.toCycleFields({
       name: formValue.name,
       goal: formValue.goal,
-      status: formValue.status,
       startDate: formValue.startDate,
       endDate: formValue.endDate,
       targetPoints: formValue.targetPoints
     }, 'create');
 
-    if (request === null) {
+    if (fields === null) {
       return;
     }
+
+    const request: CreateProjectCycleRequest = { ...fields, status: formValue.status };
 
     this.isCreatingCycle.set(true);
     this.cyclesApi.createCycle(this.projectId(), request).subscribe({
@@ -1790,18 +1796,29 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
       return;
     }
 
-    const request = this.toCycleCreateRequest({
+    const fields = this.toCycleFields({
       name,
       goal,
-      status: status as ProjectCycleStatus,
       startDate,
       endDate,
       targetPoints
     }, 'mutation');
 
-    if (request === null) {
+    if (fields === null) {
       return;
     }
+
+    const mutableStatus = mutableCycleStatuses.find((candidate) => candidate === status);
+
+    if (cycle.status !== 'completed' && mutableStatus === undefined) {
+      this.cycleMutationError.set('Select a valid cycle status.');
+      return;
+    }
+
+    const request = {
+      ...fields,
+      ...(cycle.status === 'completed' ? {} : { status: mutableStatus })
+    };
 
     this.mutatingCycleId.set(cycle.id);
     this.cyclesApi.updateCycle(this.projectId(), cycle.id, request).subscribe({
@@ -2106,17 +2123,16 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
     });
   }
 
-  private toCycleCreateRequest(
+  private toCycleFields(
     input: {
       name: string;
       goal: string;
-      status: ProjectCycleStatus;
       startDate: string;
       endDate: string;
       targetPoints: string;
     },
     target: 'create' | 'mutation'
-  ): CreateProjectCycleRequest | null {
+  ): Omit<CreateProjectCycleRequest, 'status'> | null {
     const name = input.name.trim();
     const startDate = input.startDate.trim();
     const endDate = input.endDate.trim();
@@ -2145,7 +2161,6 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
     return {
       name,
       goal: input.goal.trim(),
-      status: input.status,
       startDate,
       endDate,
       targetPoints

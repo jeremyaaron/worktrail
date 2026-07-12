@@ -447,3 +447,350 @@ describe('project cycle closeout preview', () => {
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 });
+
+describe('project cycle closeout command', () => {
+  it('atomically closes into a planned cycle with an immutable snapshot and matching activity', async () => {
+    const fixture = await createFixture('maintainer');
+    const source = await createCycle(fixture, {
+      name: 'Current delivery',
+      status: 'active',
+      startDate: '2026-07-01',
+      endDate: '2026-07-14'
+    });
+    const destination = await createCycle(fixture, {
+      name: 'Next delivery',
+      status: 'planned',
+      startDate: '2026-07-15',
+      endDate: '2026-07-28'
+    });
+    const done = await createWorkItem(fixture, {
+      cycleId: source.id,
+      title: 'Delivered work',
+      status: 'done',
+      priority: 'high',
+      estimatePoints: 3
+    });
+    const canceled = await createWorkItem(fixture, {
+      cycleId: source.id,
+      title: 'Canceled work',
+      status: 'canceled',
+      priority: 'low',
+      estimatePoints: 1
+    });
+    const unfinished = await createWorkItem(fixture, {
+      cycleId: source.id,
+      title: 'Carry this work',
+      status: 'blocked',
+      priority: 'urgent',
+      estimatePoints: null
+    });
+    await repositories.workItems.update(unfinished.id, {
+      description: 'Preserve this description.',
+      dueDate: '2026-07-20',
+      updatedAt: new Date('2026-07-13T09:00:00.000Z')
+    });
+
+    const response = await request(app)
+      .post(`/api/projects/${fixture.projectId}/cycles/${source.id}/closeout`)
+      .set(fixture.headers)
+      .send({ destinationCycleId: destination.id })
+      .expect(200);
+
+    expect(response.body).toMatchObject({
+      applied: true,
+      cycle: { id: source.id, status: 'completed' },
+      movedItemCount: 1,
+      retainedItemCount: 2,
+      closeout: {
+        cycleId: source.id,
+        destinationCycleId: destination.id,
+        closedBy: { id: fixture.actorId },
+        snapshot: {
+          snapshotVersion: 1,
+          cycle: { id: source.id, status: 'active' },
+          destination: { kind: 'cycle', cycle: { id: destination.id } },
+          counts: {
+            totalCount: 3,
+            completedCount: 1,
+            canceledCount: 1,
+            unfinishedCount: 1,
+            retainedCount: 2,
+            movedCount: 1,
+            committedEstimatePoints: 4,
+            completedEstimatePoints: 3,
+            unfinishedEstimatePoints: 0,
+            unestimatedUnfinishedCount: 1
+          },
+          items: {
+            completed: [expect.objectContaining({ id: done.id, status: 'done' })],
+            canceled: [expect.objectContaining({ id: canceled.id, status: 'canceled' })],
+            unfinished: [expect.objectContaining({ id: unfinished.id, status: 'blocked' })]
+          }
+        }
+      }
+    });
+
+    const storedDone = await repositories.workItems.findById(done.id);
+    const storedCanceled = await repositories.workItems.findById(canceled.id);
+    const storedUnfinished = await repositories.workItems.findById(unfinished.id);
+    expect(storedDone).toMatchObject({ cycleId: source.id, updatedAt: done.updatedAt });
+    expect(storedCanceled).toMatchObject({ cycleId: source.id, updatedAt: canceled.updatedAt });
+    expect(storedUnfinished).toMatchObject({
+      cycleId: destination.id,
+      description: 'Preserve this description.',
+      dueDate: '2026-07-20',
+      status: 'blocked',
+      priority: 'urgent',
+      assigneeId: fixture.actorId
+    });
+
+    const activity = await repositories.activityEvents.findByProject(fixture.projectId);
+    expect(activity).toHaveLength(2);
+    expect(activity.find((event) => event.eventType === 'work_item.cycle_changed')).toMatchObject({
+      workItemId: unfinished.id,
+      summary: `Cycle changed to ${destination.name}.`,
+      previousValue: { cycleId: source.id, cycleName: source.name },
+      newValue: { cycleId: destination.id, cycleName: destination.name }
+    });
+    expect(activity.find((event) => event.eventType === 'cycle.closed')).toMatchObject({
+      workItemId: null,
+      summary: `Cycle ${source.name} closed; 1 item moved to ${destination.name}.`,
+      previousValue: { cycleId: source.id, status: 'active' },
+      newValue: { cycleId: source.id, status: 'completed' },
+      metadata: {
+        closeoutId: response.body.closeout.id,
+        destinationCycleId: destination.id,
+        movedItemCount: 1,
+        retainedItemCount: 2
+      }
+    });
+    await expect(
+      repositories.notifications.listByRecipient({
+        workspaceId: fixture.workspaceId,
+        recipientMemberId: fixture.actorId,
+        state: 'all'
+      })
+    ).resolves.toEqual([]);
+  });
+
+  it('supports unplanned carryover and empty-cycle completion', async () => {
+    const fixture = await createFixture();
+    const source = await createCycle(fixture, {
+      name: 'Unplanned carryover source',
+      status: 'active',
+      startDate: '2026-07-01',
+      endDate: '2026-07-14'
+    });
+    await fixture.service.preview(fixture.projectId, source.id);
+    const unfinished = await createWorkItem(fixture, {
+      cycleId: source.id,
+      title: 'Return to backlog planning',
+      status: 'ready',
+      priority: 'medium',
+      estimatePoints: 2
+    });
+
+    const result = await fixture.service.close(fixture.projectId, source.id, {
+      destinationCycleId: null
+    });
+
+    expect(result.closeout.snapshot.destination).toEqual({ kind: 'unplanned', cycle: null });
+    await expect(repositories.workItems.findById(unfinished.id)).resolves.toMatchObject({
+      cycleId: null
+    });
+
+    const emptySource = await createCycle(fixture, {
+      name: 'Empty source',
+      status: 'active',
+      startDate: '2026-07-15',
+      endDate: '2026-07-28'
+    });
+    const emptyResult = await fixture.service.close(fixture.projectId, emptySource.id, {
+      destinationCycleId: null
+    });
+    expect(emptyResult).toMatchObject({ movedItemCount: 0, retainedItemCount: 0 });
+    expect(emptyResult.closeout.snapshot.destination).toEqual({ kind: 'none', cycle: null });
+  });
+
+  it('returns a matching retry without duplicate writes and rejects destination changes', async () => {
+    const fixture = await createFixture();
+    const source = await createCycle(fixture, {
+      name: 'Retry source',
+      status: 'active',
+      startDate: '2026-07-01',
+      endDate: '2026-07-14'
+    });
+    await createWorkItem(fixture, {
+      cycleId: source.id,
+      title: 'Retry carryover',
+      status: 'in_progress',
+      priority: 'high',
+      estimatePoints: 5
+    });
+
+    const first = await fixture.service.close(fixture.projectId, source.id, {
+      destinationCycleId: null
+    });
+    const replay = await fixture.service.close(fixture.projectId, source.id, {
+      destinationCycleId: null
+    });
+
+    expect(replay).toMatchObject({
+      applied: false,
+      movedItemCount: 1,
+      closeout: { id: first.closeout.id }
+    });
+    expect(await repositories.activityEvents.findByProject(fixture.projectId)).toHaveLength(2);
+
+    const destination = await createCycle(fixture, {
+      name: 'Different destination',
+      status: 'planned',
+      startDate: '2026-07-15',
+      endDate: '2026-07-28'
+    });
+    await expect(
+      fixture.service.close(fixture.projectId, source.id, {
+        destinationCycleId: destination.id
+      })
+    ).rejects.toBeInstanceOf(ConflictError);
+  });
+
+  it('validates permission, request shape, source state, and destination eligibility', async () => {
+    const contributor = await createFixture('contributor');
+    const contributorSource = await createCycle(contributor, {
+      name: 'Contributor source',
+      status: 'active',
+      startDate: '2026-07-01',
+      endDate: '2026-07-14'
+    });
+    await expect(
+      contributor.service.close(contributor.projectId, contributorSource.id, {
+        destinationCycleId: null
+      })
+    ).rejects.toBeInstanceOf(ForbiddenError);
+
+    await request(app)
+      .post(`/api/projects/${contributor.projectId}/cycles/${contributorSource.id}/closeout`)
+      .set({ ...contributor.headers, 'x-worktrail-role': 'owner' })
+      .send({})
+      .expect(400);
+
+    const fixture = await createFixture();
+    const plannedSource = await createCycle(fixture, {
+      name: 'Planned source',
+      status: 'planned',
+      startDate: '2026-07-01',
+      endDate: '2026-07-14'
+    });
+    await expect(
+      fixture.service.close(fixture.projectId, plannedSource.id, { destinationCycleId: null })
+    ).rejects.toBeInstanceOf(ConflictError);
+
+    const source = await createCycle(fixture, {
+      name: 'Active source',
+      status: 'active',
+      startDate: '2026-07-01',
+      endDate: '2026-07-14'
+    });
+    await createWorkItem(fixture, {
+      cycleId: source.id,
+      title: 'Needs a destination',
+      status: 'backlog',
+      priority: 'low',
+      estimatePoints: null
+    });
+    const invalidDestination = await createCycle(fixture, {
+      name: 'Canceled destination',
+      status: 'canceled',
+      startDate: '2026-07-15',
+      endDate: '2026-07-28'
+    });
+    await expect(
+      fixture.service.close(fixture.projectId, source.id, {
+        destinationCycleId: invalidDestination.id
+      })
+    ).rejects.toBeInstanceOf(ConflictError);
+    await expect(
+      fixture.service.close(fixture.projectId, source.id, { destinationCycleId: source.id })
+    ).rejects.toBeInstanceOf(ConflictError);
+
+    const otherFixture = await createFixture();
+    const otherDestination = await createCycle(otherFixture, {
+      name: 'Other workspace destination',
+      status: 'planned',
+      startDate: '2026-07-15',
+      endDate: '2026-07-28'
+    });
+    await expect(
+      fixture.service.close(fixture.projectId, source.id, {
+        destinationCycleId: otherDestination.id
+      })
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('uses command-time scope and rolls back every closeout effect when activity insertion fails', async () => {
+    const fixture = await createFixture();
+    const source = await createCycle(fixture, {
+      name: 'Rollback source',
+      status: 'active',
+      startDate: '2026-07-01',
+      endDate: '2026-07-14'
+    });
+    await fixture.service.preview(fixture.projectId, source.id);
+    const addedAfterPreview = await createWorkItem(fixture, {
+      cycleId: source.id,
+      title: 'Added after preview',
+      status: 'ready',
+      priority: 'medium',
+      estimatePoints: 3
+    });
+    const duplicateId = randomUUID();
+    const failingService = new ProjectCycleCloseoutService({
+      actor: fixture.actor,
+      repositories,
+      db,
+      clock: now,
+      idGenerator: () => duplicateId
+    });
+
+    await expect(
+      failingService.close(fixture.projectId, source.id, { destinationCycleId: null })
+    ).rejects.toBeDefined();
+
+    await expect(repositories.projectCycleCloseouts.findByCycleId(source.id)).resolves.toBeNull();
+    await expect(repositories.projectCycles.findById(source.id)).resolves.toMatchObject({
+      status: 'active'
+    });
+    await expect(repositories.workItems.findById(addedAfterPreview.id)).resolves.toMatchObject({
+      cycleId: source.id,
+      updatedAt: addedAfterPreview.updatedAt
+    });
+    await expect(repositories.activityEvents.findByProject(fixture.projectId)).resolves.toEqual([]);
+  });
+
+  it('serializes concurrent retries into one applied closeout', async () => {
+    const fixture = await createFixture();
+    const source = await createCycle(fixture, {
+      name: 'Concurrent source',
+      status: 'active',
+      startDate: '2026-07-01',
+      endDate: '2026-07-14'
+    });
+    await createWorkItem(fixture, {
+      cycleId: source.id,
+      title: 'Concurrent carryover',
+      status: 'ready',
+      priority: 'high',
+      estimatePoints: 2
+    });
+
+    const results = await Promise.all([
+      fixture.service.close(fixture.projectId, source.id, { destinationCycleId: null }),
+      fixture.service.close(fixture.projectId, source.id, { destinationCycleId: null })
+    ]);
+
+    expect(results.map((result) => result.applied).sort()).toEqual([false, true]);
+    expect(new Set(results.map((result) => result.closeout.id))).toHaveLength(1);
+    expect(await repositories.activityEvents.findByProject(fixture.projectId)).toHaveLength(2);
+  });
+});

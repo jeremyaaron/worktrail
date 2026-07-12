@@ -1,7 +1,12 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import type { ProjectCycleDto, ProjectCycleStatus } from '@worktrail/contracts';
+import type {
+  CreatableProjectCycleStatus,
+  MutableProjectCycleStatus,
+  ProjectCycleDto,
+  ProjectCycleStatus
+} from '@worktrail/contracts';
 
 import {
   cycleDateRangeLabel,
@@ -62,7 +67,7 @@ export interface CycleUpdateRequest {
             <label>
               <span>Status</span>
               <select formControlName="status">
-                @for (status of cycleStatuses; track status) {
+                @for (status of creatableCycleStatuses; track status) {
                   <option [value]="status">{{ cycleStatusLabel(status) }}</option>
                 }
               </select>
@@ -159,9 +164,17 @@ export interface CycleUpdateRequest {
 
                   <label>
                     <span>Status</span>
-                    <select #cycleStatus [value]="cycle.status" [disabled]="isMutatingCycle(cycle)">
-                      @for (status of cycleStatuses; track status) {
-                        <option [value]="status">{{ cycleStatusLabel(status) }}</option>
+                    <select
+                      #cycleStatus
+                      [value]="cycle.status"
+                      [disabled]="isMutatingCycle(cycle) || cycle.status === 'completed'"
+                    >
+                      @if (cycle.status === 'completed') {
+                        <option value="completed">{{ cycleStatusLabel('completed') }}</option>
+                      } @else {
+                        @for (status of mutableCycleStatuses; track status) {
+                          <option [value]="status">{{ cycleStatusLabel(status) }}</option>
+                        }
                       }
                     </select>
                   </label>
@@ -491,7 +504,8 @@ export class CycleManagerComponent {
   @Input({ required: true }) cycleForm!: FormGroup;
   @Input({ required: true }) projectId = '';
   @Input() cycles: ProjectCycleDto[] = [];
-  @Input() cycleStatuses: ProjectCycleStatus[] = [];
+  @Input() creatableCycleStatuses: CreatableProjectCycleStatus[] = [];
+  @Input() mutableCycleStatuses: MutableProjectCycleStatus[] = [];
   @Input() canManageCycles = false;
   @Input() isLoadingCycles = false;
   @Input() isCreatingCycle = false;

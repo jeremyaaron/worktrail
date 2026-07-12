@@ -200,6 +200,10 @@ export class ProjectCycleService {
       this.assertProjectWritable(project);
       this.assertCycleWritable(current);
 
+      if (current.status === 'completed' && body.status !== undefined) {
+        throw new ConflictError('Completed cycle status cannot be changed.');
+      }
+
       const nextWindow = this.resolveCycleWindow(current, body);
 
       if (body.name !== undefined && body.name.toLowerCase() !== current.name.toLowerCase()) {

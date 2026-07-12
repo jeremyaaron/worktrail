@@ -5,6 +5,11 @@ import type { PlanningRiskItemDto } from './planning.js';
 import type { WorkItemPriority, WorkItemQuery, WorkItemStatus } from './work-items.js';
 
 export type ProjectCycleStatus = 'planned' | 'active' | 'completed' | 'canceled';
+export type CreatableProjectCycleStatus = Extract<ProjectCycleStatus, 'planned' | 'active'>;
+export type MutableProjectCycleStatus = Extract<
+  ProjectCycleStatus,
+  'planned' | 'active' | 'canceled'
+>;
 
 export interface ProjectCycleDto {
   id: string;
@@ -25,7 +30,7 @@ export interface ProjectCycleDto {
 export interface CreateProjectCycleRequest {
   name: string;
   goal?: string;
-  status?: ProjectCycleStatus;
+  status?: CreatableProjectCycleStatus;
   startDate: string;
   endDate: string;
   targetPoints?: number | null;
@@ -34,7 +39,7 @@ export interface CreateProjectCycleRequest {
 export interface UpdateProjectCycleRequest {
   name?: string;
   goal?: string;
-  status?: ProjectCycleStatus;
+  status?: MutableProjectCycleStatus;
   startDate?: string;
   endDate?: string;
   targetPoints?: number | null;

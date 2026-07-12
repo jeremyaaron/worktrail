@@ -49,7 +49,8 @@ describe('CycleManagerComponent', () => {
     fixture.componentInstance.projectId = projectId;
     fixture.componentInstance.cycleForm = createCycleForm();
     fixture.componentInstance.cycles = [activeCycle];
-    fixture.componentInstance.cycleStatuses = ['planned', 'active', 'completed', 'canceled'];
+    fixture.componentInstance.creatableCycleStatuses = ['planned', 'active'];
+    fixture.componentInstance.mutableCycleStatuses = ['planned', 'active', 'canceled'];
     fixture.componentInstance.canManageCycles = true;
     fixture.detectChanges();
 
@@ -90,7 +91,8 @@ describe('CycleManagerComponent', () => {
     fixture.componentInstance.projectId = projectId;
     fixture.componentInstance.cycleForm = createCycleForm();
     fixture.componentInstance.cycles = [activeCycle];
-    fixture.componentInstance.cycleStatuses = ['planned', 'active', 'completed', 'canceled'];
+    fixture.componentInstance.creatableCycleStatuses = ['planned', 'active'];
+    fixture.componentInstance.mutableCycleStatuses = ['planned', 'active', 'canceled'];
     fixture.componentInstance.canManageCycles = false;
     fixture.detectChanges();
 
@@ -104,7 +106,8 @@ describe('CycleManagerComponent', () => {
     const fixture = TestBed.createComponent(CycleManagerComponent);
     fixture.componentInstance.projectId = projectId;
     fixture.componentInstance.cycleForm = createCycleForm();
-    fixture.componentInstance.cycleStatuses = ['planned', 'active', 'completed', 'canceled'];
+    fixture.componentInstance.creatableCycleStatuses = ['planned', 'active'];
+    fixture.componentInstance.mutableCycleStatuses = ['planned', 'active', 'canceled'];
     fixture.componentInstance.canManageCycles = true;
     fixture.componentInstance.isLoadingCycles = true;
     fixture.detectChanges();

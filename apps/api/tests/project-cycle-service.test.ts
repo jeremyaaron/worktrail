@@ -100,6 +100,32 @@ async function createFixture(role: 'owner' | 'maintainer' | 'contributor' = 'own
   };
 }
 
+async function createHistoricalCycle(
+  fixture: Awaited<ReturnType<typeof createFixture>>,
+  input: {
+    name: string;
+    status: 'completed' | 'canceled';
+    startDate: string;
+    endDate: string;
+  }
+) {
+  return repositories.projectCycles.create({
+    id: randomUUID(),
+    workspaceId: fixture.workspaceId,
+    projectId: fixture.projectId,
+    name: input.name,
+    goal: '',
+    status: input.status,
+    startDate: input.startDate,
+    endDate: input.endDate,
+    targetPoints: null,
+    archivedAt: null,
+    archivedById: null,
+    createdAt: now(),
+    updatedAt: now()
+  });
+}
+
 beforeAll(() => {
   pool = createPool();
   db = createDb(pool);
@@ -218,14 +244,14 @@ describe('ProjectCycleService', () => {
   it('allows completed and canceled cycles to overlap historical windows', async () => {
     const fixture = await createFixture();
 
-    const completed = await fixture.service.createProjectCycle(fixture.projectId, {
+    const completed = await createHistoricalCycle(fixture, {
       name: 'Completed cycle',
       status: 'completed',
       startDate: '2026-07-01',
       endDate: '2026-07-10'
     });
 
-    const canceled = await fixture.service.createProjectCycle(fixture.projectId, {
+    const canceled = await createHistoricalCycle(fixture, {
       name: 'Canceled cycle',
       status: 'canceled',
       startDate: '2026-07-01',
@@ -234,6 +260,25 @@ describe('ProjectCycleService', () => {
 
     expect(completed.status).toBe('completed');
     expect(canceled.status).toBe('canceled');
+  });
+
+  it('allows metadata corrections but rejects status changes on completed cycles', async () => {
+    const fixture = await createFixture();
+    const completed = await createHistoricalCycle(fixture, {
+      name: 'Completed cycle',
+      status: 'completed',
+      startDate: '2026-06-01',
+      endDate: '2026-06-12'
+    });
+
+    await expect(
+      fixture.service.updateProjectCycle(fixture.projectId, completed.id, {
+        name: 'Corrected completed cycle'
+      })
+    ).resolves.toMatchObject({ name: 'Corrected completed cycle', status: 'completed' });
+    await expect(
+      fixture.service.updateProjectCycle(fixture.projectId, completed.id, { status: 'active' })
+    ).rejects.toMatchObject({ message: 'Completed cycle status cannot be changed.' });
   });
 
   it('allows contributors to read cycles but rejects cycle writes', async () => {
@@ -459,13 +504,13 @@ describe('ProjectCycleService', () => {
       status: 'ready',
       estimatePoints: 3
     });
-    const completed = await fixture.service.createProjectCycle(fixture.projectId, {
+    const completed = await createHistoricalCycle(fixture, {
       name: 'Completed historical cycle',
       status: 'completed',
       startDate: '2026-06-01',
       endDate: '2026-06-12'
     });
-    const canceled = await fixture.service.createProjectCycle(fixture.projectId, {
+    const canceled = await createHistoricalCycle(fixture, {
       name: 'Canceled historical cycle',
       status: 'canceled',
       startDate: '2026-05-01',

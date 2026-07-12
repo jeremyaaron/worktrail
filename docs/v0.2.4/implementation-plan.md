@@ -606,7 +606,44 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-11.
+
+Implementation notes:
+
+- Added strict runtime validation for `CloseProjectCycleRequest` and registered
+  `POST /api/projects/:projectId/cycles/:cycleId/closeout` through the transport-neutral
+  endpoint and Express route inventory.
+- Implemented transactional cycle closeout with:
+  - locked source and destination cycle validation;
+  - command-time work locking and evaluation;
+  - version `1` immutable snapshot creation;
+  - source completion, unfinished carryover, and activity writes in one transaction;
+  - planned-cycle and unplanned destinations plus empty-cycle completion;
+  - matching idempotent replay and conflicting destination rejection;
+  - serialized concurrent retries producing one applied closeout;
+  - no notification side effects.
+- Extracted `createWorkItemCycleChangedActivity` and reused it for individual work-item
+  mutations and bulk closeout activity so summaries and previous/new values remain aligned.
+- Added `cycle.closed` project activity with closeout, destination, moved, and retained metadata.
+- Added creatable and mutable cycle status contracts and runtime enums:
+  - create accepts only `planned | active`;
+  - generic update accepts only `planned | active | canceled`;
+  - completed-cycle status is immutable while metadata remains correctable.
+- Updated the planning cycle controls to use separate create and mutation status choices and to
+  render completed status as fixed during metadata editing.
+- Replaced historical completed/canceled service fixtures with explicit repository fixtures.
+- Added closeout and lifecycle coverage for destination, null-destination, empty-cycle, terminal
+  retention, unrelated field preservation, snapshot fidelity, activity, notifications, replay,
+  permission, ownership, lifecycle, scope drift, rollback, concurrency, HTTP validation, and route
+  registration.
+- Kept transaction-client queries sequential to avoid the `pg` concurrent-query deprecation path.
+- Verified with:
+  - `npm test --workspace @worktrail/api` (29 files, 297 tests passed);
+  - `npm test --workspace @worktrail/contracts` (7 files, 21 tests passed);
+  - `npm test --workspace @worktrail/web` (286 tests passed);
+  - `npm run typecheck`;
+  - `npm run lint`;
+  - `git diff --check`.
 
 ## Phase 6: Cycle Review, Planning, And OpenAPI Backend Integration
 

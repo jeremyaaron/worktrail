@@ -753,7 +753,7 @@ describe('ProjectPlanningPageComponent', () => {
       activeCycle,
       'v0.2.1 launch',
       'Ready for launch.',
-      'completed',
+      'canceled',
       '2026-07-13',
       '2026-07-24',
       ''
@@ -763,7 +763,7 @@ describe('ProjectPlanningPageComponent', () => {
     expect(update.request.body).toEqual({
       name: 'v0.2.1 launch',
       goal: 'Ready for launch.',
-      status: 'completed',
+      status: 'canceled',
       startDate: '2026-07-13',
       endDate: '2026-07-24',
       targetPoints: null
@@ -772,7 +772,7 @@ describe('ProjectPlanningPageComponent', () => {
       ...activeCycle,
       name: 'v0.2.1 launch',
       goal: 'Ready for launch.',
-      status: 'completed',
+      status: 'canceled',
       targetPoints: null
     });
     http.expectOne(`/api/projects/${projectId}/planning-summary`).flush(defaultPlanningSummary);

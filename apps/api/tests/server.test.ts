@@ -124,6 +124,7 @@ describe('Express API foundation', () => {
       'POST /api/projects/:projectId/cycles/:cycleId/archive',
       'POST /api/projects/:projectId/cycles/:cycleId/reactivate',
       'GET /api/projects/:projectId/cycles/:cycleId/closeout-preview',
+      'POST /api/projects/:projectId/cycles/:cycleId/closeout',
       'GET /api/projects/:projectId/cycles/:cycleId/review',
       'GET /api/projects/:projectId/planning-summary',
       'GET /api/projects/:projectId/milestones/:milestoneId/review',
