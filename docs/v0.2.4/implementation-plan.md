@@ -489,7 +489,43 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-11.
+- Added `ProjectCycleCloseoutService.preview()` with:
+  - owner/maintainer authorization before entity lookup;
+  - actor-workspace project and cycle isolation;
+  - active-project and active/non-archived source-cycle enforcement;
+  - source-cycle work, dependency-blocked work, blocking-open-work, member, and cycle reads;
+  - shared cycle progress/health evaluation using one service-clock timestamp;
+  - completed, canceled, and unfinished categorization;
+  - committed, completed, unfinished, retained, and unestimated preview counts;
+  - compact assignee and dependency-blocked item snapshots;
+  - deterministic unfinished ordering by status urgency, priority, display key, and id;
+  - deterministic planned destination ordering by start date, name, and id;
+  - exclusion of source, non-planned, archived, cross-project, and cross-workspace destinations.
+- Added transport-neutral `getProjectCycleCloseoutPreviewHandler`.
+- Registered `GET /api/projects/:projectId/cycles/:cycleId/closeout-preview` in the Express cycle routes.
+- Updated the exact Express route inventory assertion in `apps/api/tests/server.test.ts`.
+- Added `apps/api/tests/project-cycle-closeout.test.ts` coverage for:
+  - detailed mixed terminal/unfinished preview derivation;
+  - estimate and unestimated totals;
+  - blocked health and dependency flags;
+  - unfinished and destination ordering;
+  - assignee snapshot display;
+  - empty cycle and no-destination response;
+  - maintainer HTTP access;
+  - contributor service and HTTP rejection;
+  - archived project/source rejection;
+  - planned, completed, and canceled source rejection;
+  - cross-workspace project/cycle anti-enumeration;
+  - no closeout, activity, or work-item timestamp writes during preview.
+- Kept POST closeout, lifecycle restriction, OpenAPI, Angular, and all mutation behavior out of scope.
+- Verified focused behavior with:
+  - `npm test --workspace @worktrail/api -- tests/project-cycle-closeout.test.ts tests/server.test.ts` (2 files, 24 tests passed).
+- Verified broader compatibility with:
+  - `npm test --workspace @worktrail/api` (29 files, 289 tests passed);
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `git diff --check`.
 
 ## Phase 5: Transactional Closeout Command And Lifecycle Cutover
 

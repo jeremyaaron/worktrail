@@ -123,6 +123,7 @@ describe('Express API foundation', () => {
       'PATCH /api/projects/:projectId/cycles/:cycleId',
       'POST /api/projects/:projectId/cycles/:cycleId/archive',
       'POST /api/projects/:projectId/cycles/:cycleId/reactivate',
+      'GET /api/projects/:projectId/cycles/:cycleId/closeout-preview',
       'GET /api/projects/:projectId/cycles/:cycleId/review',
       'GET /api/projects/:projectId/planning-summary',
       'GET /api/projects/:projectId/milestones/:milestoneId/review',

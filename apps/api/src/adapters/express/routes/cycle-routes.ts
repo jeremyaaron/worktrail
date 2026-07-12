@@ -3,6 +3,7 @@ import type { Express } from 'express';
 import {
   archiveProjectCycleHandler,
   createProjectCycleHandler,
+  getProjectCycleCloseoutPreviewHandler,
   getProjectCycleHandler,
   getProjectCycleReviewHandler,
   listProjectCyclesHandler,
@@ -54,6 +55,16 @@ export function registerCycleRoutes(app: Express, context: ExpressRouteContext):
     '/api/projects/:projectId/cycles/:cycleId/reactivate',
     adaptEndpoint(
       reactivateProjectCycleHandler({ repositories: context.repositories, db: context.db }),
+      options
+    )
+  );
+  app.get(
+    '/api/projects/:projectId/cycles/:cycleId/closeout-preview',
+    adaptEndpoint(
+      getProjectCycleCloseoutPreviewHandler({
+        repositories: context.repositories,
+        db: context.db
+      }),
       options
     )
   );

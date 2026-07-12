@@ -1,5 +1,6 @@
 import type {
   CreateProjectCycleRequest,
+  ProjectCycleCloseoutPreviewDto,
   ProjectCycleDto,
   ProjectCycleReviewDto,
   UpdateProjectCycleRequest
@@ -9,6 +10,7 @@ import { z } from 'zod';
 import type { WorktrailDb } from '../db/client.js';
 import type { EndpointHandler } from '../http/app-request.js';
 import type { Repositories } from '../repositories/index.js';
+import { ProjectCycleCloseoutService } from '../services/project-cycle-closeout-service.js';
 import { ProjectCycleService } from '../services/project-cycle-service.js';
 import {
   createProjectCycleSchema,
@@ -171,6 +173,25 @@ export function getProjectCycleReviewHandler(input: {
     return {
       status: 200,
       body: await service.getCycleReview(projectId, cycleId)
+    };
+  };
+}
+
+export function getProjectCycleCloseoutPreviewHandler(input: {
+  repositories: Repositories;
+  db?: WorktrailDb;
+}): EndpointHandler<ProjectCycleCloseoutPreviewDto> {
+  return async (request) => {
+    const { projectId, cycleId } = parseWithSchema(projectCycleParamSchema, request.params);
+    const service = new ProjectCycleCloseoutService({
+      actor: request.actor,
+      repositories: input.repositories,
+      db: input.db
+    });
+
+    return {
+      status: 200,
+      body: await service.preview(projectId, cycleId)
     };
   };
 }
