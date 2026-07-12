@@ -813,7 +813,37 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-12.
+
+Implementation notes:
+
+- Extended `CyclesApi` with typed closeout preview and command methods and verified method, path,
+  exact request body, and actor headers.
+- Added the lazy `/projects/:projectId/cycles/:cycleId/closeout` project-shell route before the
+  cycle review sibling route and updated route-order coverage.
+- Added `ProjectCycleCloseoutPageComponent` with:
+  - route parameter subscriptions and cancellation of stale preview/close requests;
+  - loading, load failure, retry, mutation failure, and recoverable conflict states;
+  - cycle identity, date range, goal, health reasons, scope counts, and estimate metrics;
+  - deterministic unfinished work rows with assignee, status, priority, estimate, and dependency
+    signals;
+  - typed destination selection defaulting to the first server-ordered planned cycle;
+  - explicit unplanned carryover copy that distinguishes cycle assignment from workflow status;
+  - no-unfinished and no-planned-destination states;
+  - stable submission controls, duplicate local submission prevention, and exact
+    `{ destinationCycleId }` payloads;
+  - Cycle Review navigation after successful closeout;
+  - `409` conflict copy with preview refresh.
+- Added focused API, route, and page tests covering loading/error/retry, parameter changes,
+  metrics, unfinished rows, destination defaults, null destination, empty scope, exact submission,
+  duplicate prevention, conflict refresh, and success navigation.
+- Kept the workflow in a dedicated lazy chunk and below the component-style budget.
+- Verified with:
+  - `npm test --workspace @worktrail/web` (292 tests passed);
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `npm run build --workspace @worktrail/web` with no budget warnings;
+  - `git diff --check`.
 
 ## Phase 8: Completed Review, Planning, And Cycle Management UI Integration
 

@@ -132,6 +132,14 @@ export const routes: Routes = [
         title: 'Milestone Review | Worktrail'
       },
       {
+        path: 'cycles/:cycleId/closeout',
+        loadComponent: () =>
+          import('./features/projects/cycle-closeout/project-cycle-closeout-page.component').then(
+            (module) => module.ProjectCycleCloseoutPageComponent
+          ),
+        title: 'Close Cycle | Worktrail'
+      },
+      {
         path: 'cycles/:cycleId',
         loadComponent: () =>
           import('./features/projects/project-cycle-review-page.component').then(
