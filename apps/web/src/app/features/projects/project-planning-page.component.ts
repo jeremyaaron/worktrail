@@ -451,7 +451,11 @@ interface PlanningReviewSection {
               }
             </section>
 
-            <app-cycle-summary-panel [projectId]="projectId()" [summary]="summary" />
+            <app-cycle-summary-panel
+              [projectId]="projectId()"
+              [summary]="summary"
+              [canManageCycles]="canManageCycles()"
+            />
 
             <section class="dashboard-section" aria-labelledby="milestone-progress-heading">
               <div class="section-heading">

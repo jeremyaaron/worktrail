@@ -138,6 +138,9 @@ export interface CycleUpdateRequest {
                   >
                     Work
                   </a>
+                  @if (canManageCycles && !cycle.isArchived && cycle.status === 'active') {
+                    <a [routerLink]="['/projects', projectId, 'cycles', cycle.id, 'closeout']">Close</a>
+                  }
                 </div>
               </div>
 
@@ -172,7 +175,7 @@ export interface CycleUpdateRequest {
                       @if (cycle.status === 'completed') {
                         <option value="completed">{{ cycleStatusLabel('completed') }}</option>
                       } @else {
-                        @for (status of mutableCycleStatuses; track status) {
+                        @for (status of mutationStatuses(cycle); track status) {
                           <option [value]="status">{{ cycleStatusLabel(status) }}</option>
                         }
                       }
@@ -529,6 +532,18 @@ export class CycleManagerComponent {
 
   isMutatingCycle(cycle: ProjectCycleDto): boolean {
     return this.mutatingCycleId === cycle.id;
+  }
+
+  mutationStatuses(cycle: ProjectCycleDto): MutableProjectCycleStatus[] {
+    if (cycle.status === 'active') {
+      return ['active', 'canceled'];
+    }
+
+    if (cycle.status === 'completed') {
+      return [];
+    }
+
+    return this.mutableCycleStatuses;
   }
 
   cycleStatusLabel(status: ProjectCycleStatus): string {

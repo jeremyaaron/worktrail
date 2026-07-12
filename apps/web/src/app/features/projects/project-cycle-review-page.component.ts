@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type {
   CycleReviewRiskSectionDto,
@@ -15,6 +15,7 @@ import type {
 import { Subscription } from 'rxjs';
 
 import { CyclesApi } from '../../core/api/cycles-api';
+import { CurrentUserService } from '../../core/current-user.service';
 import {
   cycleDateRangeLabel,
   cycleHealthLabel,
@@ -29,6 +30,7 @@ import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
 import { routerLinkQueryParamsFromWorkItemQuery } from '../work-items/query/work-item-query-serialization';
+import { CycleCloseoutResultComponent } from './cycle-closeout/cycle-closeout-result.component';
 
 const visibleRiskItemLimit = 4;
 const workItemStatuses: WorkItemStatus[] = [
@@ -62,7 +64,13 @@ interface BreakdownMetric {
 
 @Component({
   selector: 'app-project-cycle-review-page',
-  imports: [EmptyStateComponent, ErrorPanelComponent, LoadingIndicatorComponent, RouterLink],
+  imports: [
+    CycleCloseoutResultComponent,
+    EmptyStateComponent,
+    ErrorPanelComponent,
+    LoadingIndicatorComponent,
+    RouterLink
+  ],
   template: `
     <section class="cycle-review-page">
       @if (isLoading()) {
@@ -76,7 +84,9 @@ interface BreakdownMetric {
       } @else if (review(); as review) {
         <section class="review-header">
           <div>
-            <p class="eyebrow">Cycle review · Live view</p>
+            <p class="eyebrow">
+              {{ review.closeout === null ? 'Cycle review · Live view' : 'Cycle result · Snapshot' }}
+            </p>
             <h1>{{ review.cycle.name }}</h1>
             <div class="review-meta">
               <span>{{ review.project.key }}</span>
@@ -93,12 +103,19 @@ interface BreakdownMetric {
           <div class="review-actions">
             <a [routerLink]="['/projects', projectId(), 'planning']">Back to Planning</a>
             <a
-              class="review-actions__primary"
               [routerLink]="['/projects', projectId(), 'work-items']"
               [queryParams]="scopedWorkQueryParams(review.scopedWorkQuery)"
             >
               Open cycle work
             </a>
+            @if (canCloseCycle()) {
+              <a
+                class="review-actions__primary"
+                [routerLink]="['/projects', projectId(), 'cycles', cycleId(), 'closeout']"
+              >
+                Close cycle
+              </a>
+            }
           </div>
         </section>
 
@@ -106,6 +123,20 @@ interface BreakdownMetric {
           <section class="notice" aria-label="Read-only cycle review">
             <strong>Read-only review</strong>
             <p>Archived project and cycle data remains readable from this page.</p>
+          </section>
+        }
+
+        @if (review.closeout !== null) {
+          <app-cycle-closeout-result [closeout]="review.closeout" />
+          <section class="current-context" aria-labelledby="current-cycle-state-heading">
+            <p class="eyebrow">Current state · Live view</p>
+            <h2 id="current-cycle-state-heading">Current cycle context</h2>
+            <p>Links and risk details below reflect current work item data, not the closeout snapshot.</p>
+          </section>
+        } @else if (review.cycle.status === 'completed') {
+          <section class="legacy-notice" aria-label="Legacy completed cycle">
+            <strong>Completed before closeout history was available</strong>
+            <p>This page shows current linked work because no immutable closeout snapshot exists.</p>
           </section>
         }
 
@@ -487,6 +518,36 @@ interface BreakdownMetric {
       color: #ffffff !important;
     }
 
+    .current-context {
+      padding-top: 4px;
+    }
+
+    .current-context .eyebrow {
+      margin-bottom: 4px;
+    }
+
+    .current-context p:last-child {
+      margin-top: 5px;
+      color: #52637a;
+      font-size: 0.84rem;
+    }
+
+    .legacy-notice {
+      border-left: 4px solid #64748b;
+      padding: 14px 16px;
+      background: #f8fafc;
+    }
+
+    .legacy-notice strong {
+      font-size: 0.9rem;
+    }
+
+    .legacy-notice p {
+      margin-top: 4px;
+      color: #52637a;
+      font-size: 0.84rem;
+    }
+
     .notice {
       border: 1px solid #fed7aa;
       border-radius: 8px;
@@ -845,6 +906,7 @@ interface BreakdownMetric {
 export class ProjectCycleReviewPageComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly cyclesApi = inject(CyclesApi);
+  private readonly currentUser = inject(CurrentUserService);
   private routeSubscription: Subscription | null = null;
 
   readonly projectId = signal('');
@@ -853,6 +915,16 @@ export class ProjectCycleReviewPageComponent implements OnInit, OnDestroy {
   readonly isLoading = signal(true);
   readonly error = signal<string | null>(null);
   readonly errorTitle = signal('Cycle review unavailable');
+  readonly canCloseCycle = computed(() => {
+    const review = this.review();
+    const member = this.currentUser.selectedMember();
+    return (
+      review?.project.status === 'active' &&
+      review.cycle.status === 'active' &&
+      !review.cycle.isArchived &&
+      (member?.role === 'owner' || member?.role === 'maintainer')
+    );
+  });
 
   ngOnInit(): void {
     this.routeSubscription = this.route.paramMap.subscribe((params) => {

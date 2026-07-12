@@ -49,6 +49,19 @@ import {
                 >
                   Open work
                 </a>
+                @if (canManageCycles) {
+                  <a
+                    [routerLink]="[
+                      '/projects',
+                      projectId,
+                      'cycles',
+                      activeCycle.cycle.id,
+                      'closeout'
+                    ]"
+                  >
+                    Close
+                  </a>
+                }
               </div>
             </article>
           }
@@ -82,7 +95,15 @@ import {
                 {{ cycleHealthLabel(completedCycle.health.health) }}
               </span>
               <p>{{ cycleDateRangeLabel(completedCycle.cycle) }}</p>
-              <p>{{ cycleProgressLabel(completedCycle) }}</p>
+              @if (completedCycle.closeout; as closeout) {
+                <p class="closeout-result">
+                  Closed {{ formatCloseDate(closeout.closedAt) }} by {{ closeout.closedBy.name }}.<br />
+                  {{ closeout.counts.movedCount }} moved · {{ closeout.counts.retainedCount }} retained ·
+                  {{ closeoutDestinationLabel(completedCycle) }}
+                </p>
+              } @else {
+                <p>{{ cycleProgressLabel(completedCycle) }}</p>
+              }
               <div class="cycle-summary-card__actions">
                 <a [routerLink]="['/projects', projectId, 'cycles', completedCycle.cycle.id]">Review</a>
                 <a
@@ -181,6 +202,11 @@ import {
       background: #f8fafc;
     }
 
+    .closeout-result {
+      color: #334155;
+      font-size: 0.8125rem;
+    }
+
     .section-eyebrow {
       margin: 0 0 4px;
       color: #64748b;
@@ -265,6 +291,7 @@ import {
 export class CycleSummaryPanelComponent {
   @Input({ required: true }) projectId = '';
   @Input() summary: ProjectPlanningSummaryDto | null = null;
+  @Input() canManageCycles = false;
 
   cycleSummaryCount(): number {
     return [
@@ -297,5 +324,27 @@ export class CycleSummaryPanelComponent {
 
   healthTone(state: DeliveryHealthState): string {
     return deliveryHealthTone(state);
+  }
+
+  closeoutDestinationLabel(summary: ProjectPlanningCycleSummaryDto): string {
+    const destination = summary.closeout?.destination;
+
+    if (destination?.kind === 'cycle') {
+      return destination.cycle.name;
+    }
+
+    if (destination?.kind === 'unplanned') {
+      return 'returned to unplanned work';
+    }
+
+    return 'no carryover';
+  }
+
+  formatCloseDate(value: string): string {
+    return new Intl.DateTimeFormat('en', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    }).format(new Date(value));
   }
 }

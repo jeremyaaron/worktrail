@@ -917,7 +917,34 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-12.
+
+Implementation notes:
+
+- Added role-aware `Close cycle` entry points to Cycle Review, Planning, and cycle management for
+  owners and maintainers of active projects with active, non-archived cycles.
+- Suppressed closeout actions for contributors, archived projects/cycles, and completed cycles.
+- Added a reusable completed-cycle result presentation with:
+  - explicit `Cycle result · Snapshot` framing and separate current/live context;
+  - close timestamp and actor;
+  - target, committed, and completed points;
+  - completed, canceled, retained, and moved counts;
+  - destination outcome and destination-cycle navigation;
+  - bounded completed, canceled, and unfinished-at-close groups with accessible current-item links.
+- Added honest legacy messaging for completed cycles without persisted closeout history.
+- Added compact recent-cycle closeout results to Planning and a role-aware active-cycle close link.
+- Restricted cycle manager transitions so active cycles can remain active or be canceled, planned
+  and canceled cycles retain valid non-completed transitions, and completed status is read-only.
+- Preserved completed-cycle metadata corrections without exposing direct completion or mutating
+  closeout snapshots.
+- Added focused coverage for permissions, archived-state suppression, snapshot rendering, bounded
+  groups, destination/current links, legacy results, Planning summaries, and status restrictions.
+- Verified with:
+  - `npm test --workspace @worktrail/web` (298 tests passed);
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run lint --workspace @worktrail/web`;
+  - `npm run build --workspace @worktrail/web` with no budget warnings;
+  - `git diff --check`.
 
 ## Phase 9: Seed Data, Browser Smoke, And Responsive/Accessibility Verification
 
