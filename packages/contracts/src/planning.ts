@@ -1,4 +1,9 @@
-import type { CycleReviewProgressDto, ProjectCycleDto } from './cycles.js';
+import type {
+  CycleReviewProgressDto,
+  ProjectCycleCloseoutCountsDto,
+  ProjectCycleCloseoutDestinationDto,
+  ProjectCycleDto
+} from './cycles.js';
 import type { DeliveryHealthReasonDto, DeliveryHealthSeverity, DeliveryHealthState, ProjectDeliveryHealthDto } from './health.js';
 import type { MemberDto } from './members.js';
 import type { ProjectDto } from './projects.js';
@@ -98,6 +103,12 @@ export interface ProjectPlanningCycleSummaryDto {
     reasons: DeliveryHealthReasonDto[];
   };
   scopedWorkQuery: WorkItemQuery;
+  closeout: {
+    closedAt: string;
+    closedBy: Pick<MemberDto, 'id' | 'name'>;
+    counts: ProjectCycleCloseoutCountsDto;
+    destination: ProjectCycleCloseoutDestinationDto;
+  } | null;
 }
 
 export interface ProjectPlanningSummaryDto {

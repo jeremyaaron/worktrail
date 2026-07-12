@@ -45,7 +45,8 @@ function cycleSummary(cycle: ProjectCycleDto): ProjectPlanningCycleSummaryDto {
       health: 'at_risk',
       reasons: []
     },
-    scopedWorkQuery: { cycleId: cycle.id, sort: 'priority_desc' }
+    scopedWorkQuery: { cycleId: cycle.id, sort: 'priority_desc' },
+    closeout: null
   };
 }
 

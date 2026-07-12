@@ -28,6 +28,7 @@ tags:
   - name: Projects
   - name: Labels
   - name: Milestones
+  - name: Cycles
   - name: Work Items
   - name: Relationships
   - name: Comments
@@ -879,6 +880,54 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProjectCycle"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/projects/{projectId}/cycles/{cycleId}/closeout-preview:
+    get:
+      tags: [Cycles]
+      summary: Preview cycle closeout.
+      description: |
+        Owners and maintainers can preview the current active, non-archived cycle scope,
+        immutable snapshot counts, unfinished work, and eligible planned destinations.
+        Preview is advisory and performs no writes.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/CycleId"
+      responses:
+        "200":
+          description: Current closeout preview.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectCycleCloseoutPreview"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/projects/{projectId}/cycles/{cycleId}/closeout:
+    post:
+      tags: [Cycles]
+      summary: Close an active cycle.
+      description: |
+        Owners and maintainers atomically complete an active, non-archived cycle, preserve
+        its immutable closeout snapshot, and move unfinished work to a planned destination
+        cycle or to unplanned work when `destinationCycleId` is null. Terminal work remains
+        assigned to the completed source cycle. A matching retry returns the original result
+        with `applied: false`; a retry naming a different destination returns conflict.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/CycleId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CloseProjectCycleRequest"
+      responses:
+        "200":
+          description: Applied closeout or matching idempotent replay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CloseProjectCycleResult"
         default:
           $ref: "#/components/responses/Error"
   /api/projects/{projectId}/cycles/{cycleId}/review:
@@ -1751,6 +1800,12 @@ components:
     ProjectCycleStatus:
       type: string
       enum: [planned, active, completed, canceled]
+    CreatableProjectCycleStatus:
+      type: string
+      enum: [planned, active]
+    MutableProjectCycleStatus:
+      type: string
+      enum: [planned, active, canceled]
     SavedWorkViewVisibility:
       type: string
       enum: [personal, workspace]
@@ -2360,24 +2415,20 @@ components:
             $ref: "#/components/schemas/PlanningRiskItem"
     ProjectPlanningCycleSummary:
       type: object
-      required: [cycle, progress, health, scopedWorkQuery]
+      required: [cycle, progress, health, scopedWorkQuery, closeout]
       properties:
         cycle:
           $ref: "#/components/schemas/ProjectCycle"
         progress:
           $ref: "#/components/schemas/CycleReviewProgress"
         health:
-          type: object
-          required: [health, reasons]
-          properties:
-            health:
-              $ref: "#/components/schemas/DeliveryHealthState"
-            reasons:
-              type: array
-              items:
-                $ref: "#/components/schemas/DeliveryHealthReason"
+          $ref: "#/components/schemas/CycleReviewHealth"
         scopedWorkQuery:
           $ref: "#/components/schemas/WorkItemQuery"
+        closeout:
+          anyOf:
+            - $ref: "#/components/schemas/ProjectCycleCloseoutCompactSummary"
+            - type: "null"
     ProjectStatusReportRiskType:
       type: string
       enum:
@@ -2997,6 +3048,16 @@ components:
           description: Preview rows capped by the API; use the query to open the complete filtered project Work list.
           items:
             $ref: "#/components/schemas/PlanningRiskItem"
+    CycleReviewHealth:
+      type: object
+      required: [health, reasons]
+      properties:
+        health:
+          $ref: "#/components/schemas/DeliveryHealthState"
+        reasons:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeliveryHealthReason"
     ProjectCycleReview:
       type: object
       required:
@@ -3008,6 +3069,7 @@ components:
         - scopeBreakdown
         - riskSections
         - recentlyChangedWork
+        - closeout
       properties:
         project:
           $ref: "#/components/schemas/Project"
@@ -3016,15 +3078,7 @@ components:
         progress:
           $ref: "#/components/schemas/CycleReviewProgress"
         health:
-          type: object
-          required: [health, reasons]
-          properties:
-            health:
-              $ref: "#/components/schemas/DeliveryHealthState"
-            reasons:
-              type: array
-              items:
-                $ref: "#/components/schemas/DeliveryHealthReason"
+          $ref: "#/components/schemas/CycleReviewHealth"
         scopedWorkQuery:
           $ref: "#/components/schemas/WorkItemQuery"
         scopeBreakdown:
@@ -3037,6 +3091,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PlanningRiskItem"
+        closeout:
+          anyOf:
+            - $ref: "#/components/schemas/ProjectCycleCloseout"
+            - type: "null"
     DeliveryHealthReason:
       type: object
       required: [key, severity, message, count, query]
@@ -3408,7 +3466,7 @@ components:
           type: string
           maxLength: 2000
         status:
-          $ref: "#/components/schemas/ProjectCycleStatus"
+          $ref: "#/components/schemas/CreatableProjectCycleStatus"
         startDate:
           type: string
           format: date
@@ -3430,7 +3488,7 @@ components:
           type: string
           maxLength: 2000
         status:
-          $ref: "#/components/schemas/ProjectCycleStatus"
+          $ref: "#/components/schemas/MutableProjectCycleStatus"
         startDate:
           type: string
           format: date
@@ -3441,6 +3499,326 @@ components:
           type: [integer, "null"]
           minimum: 1
           maximum: 999
+    ProjectCycleCloseoutMemberIdentity:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    ProjectCycleCloseoutItemSnapshot:
+      type: object
+      required: [id, displayKey, title, status, priority, assignee, estimatePoints, dependencyBlocked]
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayKey:
+          type: string
+        title:
+          type: string
+        status:
+          $ref: "#/components/schemas/WorkItemStatus"
+        priority:
+          $ref: "#/components/schemas/WorkItemPriority"
+        assignee:
+          anyOf:
+            - $ref: "#/components/schemas/ProjectCycleCloseoutMemberIdentity"
+            - type: "null"
+        estimatePoints:
+          type: [integer, "null"]
+          minimum: 0
+        dependencyBlocked:
+          type: boolean
+    ProjectCycleCloseoutCounts:
+      type: object
+      required:
+        - totalCount
+        - completedCount
+        - canceledCount
+        - unfinishedCount
+        - retainedCount
+        - movedCount
+        - committedEstimatePoints
+        - completedEstimatePoints
+        - unfinishedEstimatePoints
+        - unestimatedUnfinishedCount
+      properties:
+        totalCount:
+          type: integer
+          minimum: 0
+        completedCount:
+          type: integer
+          minimum: 0
+        canceledCount:
+          type: integer
+          minimum: 0
+        unfinishedCount:
+          type: integer
+          minimum: 0
+        retainedCount:
+          type: integer
+          minimum: 0
+        movedCount:
+          type: integer
+          minimum: 0
+        committedEstimatePoints:
+          type: integer
+          minimum: 0
+        completedEstimatePoints:
+          type: integer
+          minimum: 0
+        unfinishedEstimatePoints:
+          type: integer
+          minimum: 0
+        unestimatedUnfinishedCount:
+          type: integer
+          minimum: 0
+    ProjectCycleCloseoutPreviewCounts:
+      type: object
+      required:
+        - totalCount
+        - completedCount
+        - canceledCount
+        - unfinishedCount
+        - retainedCount
+        - committedEstimatePoints
+        - completedEstimatePoints
+        - unfinishedEstimatePoints
+        - unestimatedUnfinishedCount
+      properties:
+        totalCount:
+          type: integer
+          minimum: 0
+        completedCount:
+          type: integer
+          minimum: 0
+        canceledCount:
+          type: integer
+          minimum: 0
+        unfinishedCount:
+          type: integer
+          minimum: 0
+        retainedCount:
+          type: integer
+          minimum: 0
+        committedEstimatePoints:
+          type: integer
+          minimum: 0
+        completedEstimatePoints:
+          type: integer
+          minimum: 0
+        unfinishedEstimatePoints:
+          type: integer
+          minimum: 0
+        unestimatedUnfinishedCount:
+          type: integer
+          minimum: 0
+    ProjectCycleCloseoutDestinationCycle:
+      type: object
+      required: [id, name, startDate, endDate]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+    ProjectCycleCloseoutDestination:
+      oneOf:
+        - type: object
+          required: [kind, cycle]
+          properties:
+            kind:
+              type: string
+              const: cycle
+            cycle:
+              $ref: "#/components/schemas/ProjectCycleCloseoutDestinationCycle"
+        - type: object
+          required: [kind, cycle]
+          properties:
+            kind:
+              type: string
+              const: unplanned
+            cycle:
+              type: "null"
+        - type: object
+          required: [kind, cycle]
+          properties:
+            kind:
+              type: string
+              const: none
+            cycle:
+              type: "null"
+      discriminator:
+        propertyName: kind
+    ProjectCycleCloseoutSnapshot:
+      type: object
+      required: [snapshotVersion, project, cycle, closedAt, closedBy, health, counts, destination, items]
+      properties:
+        snapshotVersion:
+          type: integer
+          const: 1
+        project:
+          type: object
+          required: [id, key, name]
+          properties:
+            id:
+              type: string
+              format: uuid
+            key:
+              type: string
+            name:
+              type: string
+        cycle:
+          type: object
+          required: [id, name, goal, status, startDate, endDate, targetPoints]
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            goal:
+              type: string
+            status:
+              type: string
+              const: active
+            startDate:
+              type: string
+              format: date
+            endDate:
+              type: string
+              format: date
+            targetPoints:
+              type: [integer, "null"]
+              minimum: 1
+        closedAt:
+          type: string
+          format: date-time
+        closedBy:
+          $ref: "#/components/schemas/ProjectCycleCloseoutMemberIdentity"
+        health:
+          $ref: "#/components/schemas/CycleReviewHealth"
+        counts:
+          $ref: "#/components/schemas/ProjectCycleCloseoutCounts"
+        destination:
+          $ref: "#/components/schemas/ProjectCycleCloseoutDestination"
+        items:
+          type: object
+          required: [completed, canceled, unfinished]
+          properties:
+            completed:
+              type: array
+              items:
+                $ref: "#/components/schemas/ProjectCycleCloseoutItemSnapshot"
+            canceled:
+              type: array
+              items:
+                $ref: "#/components/schemas/ProjectCycleCloseoutItemSnapshot"
+            unfinished:
+              type: array
+              items:
+                $ref: "#/components/schemas/ProjectCycleCloseoutItemSnapshot"
+    ProjectCycleCloseout:
+      type: object
+      required: [id, workspaceId, projectId, cycleId, closedAt, closedBy, destinationCycleId, snapshot]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        cycleId:
+          type: string
+          format: uuid
+        closedAt:
+          type: string
+          format: date-time
+        closedBy:
+          $ref: "#/components/schemas/Member"
+        destinationCycleId:
+          type: [string, "null"]
+          format: uuid
+        snapshot:
+          $ref: "#/components/schemas/ProjectCycleCloseoutSnapshot"
+    ProjectCycleCloseoutCompactSummary:
+      type: object
+      required: [closedAt, closedBy, counts, destination]
+      properties:
+        closedAt:
+          type: string
+          format: date-time
+        closedBy:
+          $ref: "#/components/schemas/ProjectCycleCloseoutMemberIdentity"
+        counts:
+          $ref: "#/components/schemas/ProjectCycleCloseoutCounts"
+        destination:
+          $ref: "#/components/schemas/ProjectCycleCloseoutDestination"
+    ProjectCycleCloseoutPreview:
+      type: object
+      required: [project, cycle, generatedAt, health, counts, unfinishedItems, eligibleDestinations]
+      properties:
+        project:
+          $ref: "#/components/schemas/Project"
+        cycle:
+          $ref: "#/components/schemas/ProjectCycle"
+        generatedAt:
+          type: string
+          format: date-time
+        health:
+          $ref: "#/components/schemas/CycleReviewHealth"
+        counts:
+          $ref: "#/components/schemas/ProjectCycleCloseoutPreviewCounts"
+        unfinishedItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProjectCycleCloseoutItemSnapshot"
+        eligibleDestinations:
+          type: array
+          items:
+            type: object
+            required: [cycle]
+            properties:
+              cycle:
+                $ref: "#/components/schemas/ProjectCycle"
+    CloseProjectCycleRequest:
+      type: object
+      required: [destinationCycleId]
+      additionalProperties: false
+      properties:
+        destinationCycleId:
+          type: [string, "null"]
+          format: uuid
+          description: Planned destination cycle, or null to return unfinished work to unplanned scope. Must be null when no unfinished work exists.
+    CloseProjectCycleResult:
+      type: object
+      required: [applied, cycle, closeout, movedItemCount, retainedItemCount]
+      properties:
+        applied:
+          type: boolean
+          description: True for the first successful application and false for a matching retry.
+        cycle:
+          $ref: "#/components/schemas/ProjectCycle"
+        closeout:
+          $ref: "#/components/schemas/ProjectCycleCloseout"
+        movedItemCount:
+          type: integer
+          minimum: 0
+        retainedItemCount:
+          type: integer
+          minimum: 0
     WorkItemListItem:
       type: object
       required:

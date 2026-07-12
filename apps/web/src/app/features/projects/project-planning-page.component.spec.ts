@@ -198,7 +198,8 @@ function cycleSummary(
     scopedWorkQuery: input.scopedWorkQuery ?? {
       cycleId: cycle.id,
       sort: 'priority_desc'
-    }
+    },
+    closeout: input.closeout ?? null
   };
 }
 

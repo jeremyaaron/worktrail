@@ -174,7 +174,19 @@ export class PlanningService {
       cycle: review.cycle,
       progress: review.progress,
       health: review.health,
-      scopedWorkQuery: review.scopedWorkQuery
+      scopedWorkQuery: review.scopedWorkQuery,
+      closeout:
+        review.closeout === null
+          ? null
+          : {
+              closedAt: review.closeout.closedAt,
+              closedBy: {
+                id: review.closeout.closedBy.id,
+                name: review.closeout.closedBy.name
+              },
+              counts: review.closeout.snapshot.counts,
+              destination: review.closeout.snapshot.destination
+            }
     };
   }
 }

@@ -5,6 +5,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createDb, createPool } from '../src/db/client.js';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../src/errors/app-error.js';
 import { createRepositories, type Repositories } from '../src/repositories/index.js';
+import { ProjectCycleCloseoutService } from '../src/services/project-cycle-closeout-service.js';
 import { ProjectCycleService } from '../src/services/project-cycle-service.js';
 
 const workspaceIds = new Set<string>();
@@ -30,6 +31,7 @@ async function cleanupWorkspace(workspaceId: string) {
   );
   await pool.query('delete from labels where workspace_id = $1', [workspaceId]);
   await pool.query('delete from work_items where workspace_id = $1', [workspaceId]);
+  await pool.query('delete from project_cycle_closeouts where workspace_id = $1', [workspaceId]);
   await pool.query('delete from project_cycles where workspace_id = $1', [workspaceId]);
   await pool.query('delete from milestones where workspace_id = $1', [workspaceId]);
   await pool.query('delete from projects where workspace_id = $1', [workspaceId]);
@@ -521,16 +523,87 @@ describe('ProjectCycleService', () => {
       health: { health: 'healthy', reasons: [] }
     });
     await expect(fixture.service.getCycleReview(fixture.projectId, completed.id)).resolves.toMatchObject({
-      health: { health: 'complete' }
+      health: { health: 'complete' },
+      closeout: null
     });
     await expect(fixture.service.getCycleReview(fixture.projectId, canceled.id)).resolves.toMatchObject({
-      health: { health: 'inactive' }
+      health: { health: 'inactive' },
+      closeout: null
     });
 
     const archived = await fixture.service.archiveProjectCycle(fixture.projectId, healthy.id);
     await expect(fixture.service.getCycleReview(fixture.projectId, archived.id)).resolves.toMatchObject({
       health: { health: 'inactive' }
     });
+  });
+
+  it('hydrates completed-cycle closeout snapshots with the current closing member', async () => {
+    const fixture = await createFixture();
+    const cycle = await fixture.service.createProjectCycle(fixture.projectId, {
+      name: 'Closeout review cycle',
+      status: 'active',
+      startDate: '2026-07-01',
+      endDate: '2026-07-08'
+    });
+    const closeoutService = new ProjectCycleCloseoutService({
+      actor: {
+        workspaceId: fixture.workspaceId,
+        memberId: fixture.actorId,
+        role: 'owner'
+      },
+      repositories,
+      db,
+      clock: now
+    });
+    const closed = await closeoutService.close(fixture.projectId, cycle.id, {
+      destinationCycleId: null
+    });
+    await repositories.members.update(fixture.actorId, {
+      name: 'Renamed Cycle Owner',
+      updatedAt: new Date('2026-07-10T12:00:00.000Z')
+    });
+
+    const review = await fixture.service.getCycleReview(fixture.projectId, cycle.id);
+
+    expect(review.closeout).toMatchObject({
+      id: closed.closeout.id,
+      closedAt: now().toISOString(),
+      closedBy: { id: fixture.actorId, name: 'Renamed Cycle Owner' },
+      snapshot: {
+        closedBy: { id: fixture.actorId, name: 'Cycle API Actor' },
+        destination: { kind: 'none', cycle: null },
+        counts: { totalCount: 0, movedCount: 0, retainedCount: 0 }
+      }
+    });
+  });
+
+  it('rejects malformed persisted closeout snapshots through a controlled conflict', async () => {
+    const fixture = await createFixture();
+    const cycle = await fixture.service.createProjectCycle(fixture.projectId, {
+      name: 'Malformed closeout cycle',
+      status: 'active',
+      startDate: '2026-07-01',
+      endDate: '2026-07-08'
+    });
+    const closeoutService = new ProjectCycleCloseoutService({
+      actor: {
+        workspaceId: fixture.workspaceId,
+        memberId: fixture.actorId,
+        role: 'owner'
+      },
+      repositories,
+      db,
+      clock: now
+    });
+    await closeoutService.close(fixture.projectId, cycle.id, { destinationCycleId: null });
+    await pool.query(
+      `update project_cycle_closeouts set snapshot = '{}'::jsonb where cycle_id = $1`,
+      [cycle.id]
+    );
+
+    await expect(
+      fixture.service.getCycleReview(fixture.projectId, cycle.id)
+    ).rejects.toBeInstanceOf(ConflictError);
   });
 });
 

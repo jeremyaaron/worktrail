@@ -45,6 +45,8 @@ describe('OpenAPI reference', () => {
       '/api/projects/{projectId}/cycles/{cycleId}',
       '/api/projects/{projectId}/cycles/{cycleId}/archive',
       '/api/projects/{projectId}/cycles/{cycleId}/reactivate',
+      '/api/projects/{projectId}/cycles/{cycleId}/closeout-preview',
+      '/api/projects/{projectId}/cycles/{cycleId}/closeout',
       '/api/projects/{projectId}/cycles/{cycleId}/review',
       '/api/work-items',
       '/api/work-items/export',
@@ -115,6 +117,8 @@ describe('OpenAPI reference', () => {
     expect(openApi).toContain('MilestoneReviewRiskSection:');
     expect(openApi).toContain('MilestoneReview:');
     expect(openApi).toContain('ProjectCycleStatus:');
+    expect(openApi).toContain('CreatableProjectCycleStatus:');
+    expect(openApi).toContain('MutableProjectCycleStatus:');
     expect(openApi).toContain('ProjectCycle:');
     expect(openApi).toContain('CreateProjectCycleRequest:');
     expect(openApi).toContain('UpdateProjectCycleRequest:');
@@ -124,6 +128,20 @@ describe('OpenAPI reference', () => {
     expect(openApi).toContain('CycleReviewRiskSection:');
     expect(openApi).toContain('ProjectCycleReview:');
     expect(openApi).toContain('ProjectPlanningCycleSummary:');
+    expect(openApi).toContain('ProjectCycleCloseoutItemSnapshot:');
+    expect(openApi).toContain('ProjectCycleCloseoutCounts:');
+    expect(openApi).toContain('ProjectCycleCloseoutDestination:');
+    expect(openApi).toContain('ProjectCycleCloseoutSnapshot:');
+    expect(openApi).toContain('ProjectCycleCloseout:');
+    expect(openApi).toContain('ProjectCycleCloseoutCompactSummary:');
+    expect(openApi).toContain('ProjectCycleCloseoutPreview:');
+    expect(openApi).toContain('CloseProjectCycleRequest:');
+    expect(openApi).toContain('CloseProjectCycleResult:');
+    expect(openApi).toContain('enum: [planned, active]');
+    expect(openApi).toContain('enum: [planned, active, canceled]');
+    expect(openApi).toContain('A matching retry returns the original result');
+    expect(openApi).toContain('destinationCycleId` is null');
+    expect(openApi).toContain('applied: false');
     expect(openApi).toContain('ProjectStatusReportCycleSnapshot:');
     expect(openApi).toContain('cycle_review');
     expect(openApi).toContain('cycleId:');

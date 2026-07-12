@@ -196,4 +196,5 @@ export interface ProjectCycleReviewDto {
   scopeBreakdown: CycleReviewScopeBreakdownDto;
   riskSections: CycleReviewRiskSectionDto[];
   recentlyChangedWork: PlanningRiskItemDto[];
+  closeout: ProjectCycleCloseoutDto | null;
 }

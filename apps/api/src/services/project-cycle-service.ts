@@ -24,6 +24,7 @@ import {
 import { parseWithSchema } from '../validation/parse.js';
 import { createCycleEvaluation } from './cycle-review-model.js';
 import { toProjectCycleDto, toProjectDto } from './dto.js';
+import { toProjectCycleCloseoutDto } from './project-cycle-closeout-mapper.js';
 import {
   createCycleReviewRiskSections,
   createWorkRiskEvaluationContext,
@@ -112,6 +113,22 @@ export class ProjectCycleService {
       scopedWorkItems,
       context: evaluationContext
     });
+    const closeoutRecord =
+      cycle.status === 'completed'
+        ? await this.context.repositories.projectCycleCloseouts.findByCycleId(cycleId)
+        : null;
+    const closeout =
+      closeoutRecord === null
+        ? null
+        : await toProjectCycleCloseoutDto({
+            closeout: closeoutRecord,
+            repositories: this.context.repositories,
+            expected: {
+              workspaceId: cycle.workspaceId,
+              projectId: cycle.projectId,
+              cycleId: cycle.id
+            }
+          });
 
     return {
       project: toProjectDto(project),
@@ -137,7 +154,8 @@ export class ProjectCycleService {
           .slice(0, recentMovementLimit),
         memberById,
         milestoneById
-      )
+      ),
+      closeout
     };
   }
 

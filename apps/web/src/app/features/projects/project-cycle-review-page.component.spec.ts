@@ -138,7 +138,8 @@ function cycleReview(input: Partial<ProjectCycleReviewDto> = {}): ProjectCycleRe
         items: [blockedWorkItem]
       }
     ],
-    recentlyChangedWork: input.recentlyChangedWork ?? [blockedWorkItem]
+    recentlyChangedWork: input.recentlyChangedWork ?? [blockedWorkItem],
+    closeout: input.closeout ?? null
   };
 }
 

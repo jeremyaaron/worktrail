@@ -571,6 +571,17 @@ describe('project cycle closeout command', () => {
         state: 'all'
       })
     ).resolves.toEqual([]);
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/cycles/${source.id}/review`)
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.closeout).toMatchObject({
+          id: response.body.closeout.id,
+          snapshot: { counts: { movedCount: 1, retainedCount: 2 } }
+        });
+      });
   });
 
   it('supports unplanned carryover and empty-cycle completion', async () => {

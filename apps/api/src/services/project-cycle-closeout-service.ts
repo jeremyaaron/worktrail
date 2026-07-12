@@ -2,7 +2,6 @@ import type {
   CloseProjectCycleRequest,
   CloseProjectCycleResultDto,
   ProjectCycleCloseoutCountsDto,
-  ProjectCycleCloseoutDto,
   ProjectCycleCloseoutItemSnapshotDto,
   ProjectCycleCloseoutPreviewDto,
   ProjectCycleCloseoutSnapshotDto,
@@ -20,21 +19,12 @@ import {
   type Repositories,
   withRepositoriesTransaction
 } from '../repositories/index.js';
-import type {
-  Member,
-  Project,
-  ProjectCycle,
-  ProjectCycleCloseout,
-  WorkItem
-} from '../repositories/types.js';
+import type { Member, Project, ProjectCycle, ProjectCycleCloseout, WorkItem } from '../repositories/types.js';
 import { closeProjectCycleSchema } from '../validation/project-cycle.js';
-import {
-  assertProjectCycleCloseoutSnapshotMatchesRecord,
-  parseStoredProjectCycleCloseoutSnapshot
-} from '../validation/project-cycle-closeout-snapshot.js';
 import { parseWithSchema } from '../validation/parse.js';
 import { createCycleEvaluation } from './cycle-review-model.js';
-import { toMemberDto, toProjectCycleDto, toProjectDto } from './dto.js';
+import { toProjectCycleDto, toProjectDto } from './dto.js';
+import { toProjectCycleCloseoutDto } from './project-cycle-closeout-mapper.js';
 import { createWorkItemCycleChangedActivity } from './work-item-cycle-activity.js';
 import { createWorkRiskEvaluationContext } from './work-risk-sections.js';
 
@@ -337,10 +327,20 @@ export class ProjectCycleCloseoutService {
         }
       ]);
 
+      const closeoutDto = await toProjectCycleCloseoutDto({
+        closeout,
+        repositories,
+        expected: {
+          workspaceId: sourceCycle.workspaceId,
+          projectId,
+          cycleId
+        }
+      });
+
       return {
         applied: true,
         cycle: toProjectCycleDto(completedCycle),
-        closeout: this.toCloseoutDto(closeout, actor),
+        closeout: closeoutDto,
         movedItemCount: snapshot.counts.movedCount,
         retainedItemCount: snapshot.counts.retainedCount
       };
@@ -403,35 +403,21 @@ export class ProjectCycleCloseoutService {
       throw new ConflictError('Stored cycle closeout is inconsistent with the source cycle.');
     }
 
-    const actor = await repositories.members.findById(closeout.closedByMemberId);
-
-    if (actor === null) {
-      throw new ConflictError('Stored cycle closeout references a missing member.');
-    }
-
-    const dto = this.toCloseoutDto(closeout, actor);
+    const dto = await toProjectCycleCloseoutDto({
+      closeout,
+      repositories,
+      expected: {
+        workspaceId: cycle.workspaceId,
+        projectId: cycle.projectId,
+        cycleId: cycle.id
+      }
+    });
     return {
       applied,
       cycle: toProjectCycleDto(cycle),
       closeout: dto,
       movedItemCount: dto.snapshot.counts.movedCount,
       retainedItemCount: dto.snapshot.counts.retainedCount
-    };
-  }
-
-  private toCloseoutDto(closeout: ProjectCycleCloseout, actor: Member): ProjectCycleCloseoutDto {
-    const snapshot = parseStoredProjectCycleCloseoutSnapshot(closeout.snapshot);
-    assertProjectCycleCloseoutSnapshotMatchesRecord(snapshot, closeout);
-
-    return {
-      id: closeout.id,
-      workspaceId: closeout.workspaceId,
-      projectId: closeout.projectId,
-      cycleId: closeout.cycleId,
-      closedAt: closeout.closedAt.toISOString(),
-      closedBy: toMemberDto(actor),
-      destinationCycleId: closeout.destinationCycleId,
-      snapshot
     };
   }
 

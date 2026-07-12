@@ -12,6 +12,7 @@ import type {
   ProjectCycleCloseoutPreviewDto,
   ProjectCycleCloseoutSnapshotDto,
   ProjectCycleDto,
+  ProjectPlanningCycleSummaryDto,
   ProjectDto
 } from './index.js';
 
@@ -217,6 +218,19 @@ describe('cycle closeout contracts', () => {
     expectTypeOf(preview).toMatchTypeOf<ProjectCycleCloseoutPreviewDto>();
     expectTypeOf(request).toMatchTypeOf<CloseProjectCycleRequest>();
     expectTypeOf(result).toMatchTypeOf<CloseProjectCycleResultDto>();
+  });
+
+  it('supports compact closeout data without snapshot item arrays in planning', () => {
+    const compact = {
+      closedAt: closeout.closedAt,
+      closedBy: { id: closeout.closedBy.id, name: closeout.closedBy.name },
+      counts: closeout.snapshot.counts,
+      destination: closeout.snapshot.destination
+    } satisfies NonNullable<ProjectPlanningCycleSummaryDto['closeout']>;
+
+    expect(compact.counts.movedCount).toBe(1);
+    expect(compact).not.toHaveProperty('snapshot');
+    expect(compact).not.toHaveProperty('items');
   });
 
   it('includes the cycle closeout activity event vocabulary', () => {

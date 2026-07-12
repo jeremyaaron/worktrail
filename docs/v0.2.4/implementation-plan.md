@@ -705,7 +705,40 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-11.
+
+Implementation notes:
+
+- Extended cycle review responses with required nullable full closeout data and planning cycle
+  summaries with required nullable compact closeout data.
+- Added a shared persisted-closeout mapper that:
+  - validates workspace, project, cycle, destination, and snapshot consistency;
+  - parses versioned stored snapshots through the controlled conflict path;
+  - hydrates the current closing-member DTO while retaining historical member identity in the
+    immutable snapshot.
+- Reused the mapper for command responses, idempotent replay, and completed-cycle review reads.
+- Kept active, planned, canceled, and legacy completed cycle reviews explicit with
+  `closeout: null`.
+- Added compact planning projection containing only close timestamp, closing member identity,
+  counts, and destination; full snapshot item arrays remain excluded.
+- Expanded OpenAPI with:
+  - preview and closeout command routes;
+  - permission, null-destination, carryover, and idempotent retry semantics;
+  - closeout preview, command, result, record, snapshot, count, item, destination, health, and
+    compact planning schemas;
+  - required nullable review/planning closeout fields;
+  - distinct creatable and mutable cycle status enums.
+- Added service, HTTP, planning, contract, and OpenAPI coverage for completed closeout reads,
+  legacy absence, current-member hydration, compact projection, malformed stored data, route
+  documentation, and lifecycle enum documentation.
+- Verified with:
+  - `npm test --workspace @worktrail/api` (29 files, 299 tests passed);
+  - `npm test --workspace @worktrail/contracts` (7 files, 22 tests passed);
+  - `npm test --workspace @worktrail/web` (286 tests passed);
+  - `npx js-yaml docs/api/openapi.yaml`;
+  - `npm run typecheck`;
+  - `npm run lint`;
+  - `git diff --check`.
 
 ## Phase 7: Angular Closeout Route And Workflow
 

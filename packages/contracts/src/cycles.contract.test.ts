@@ -200,7 +200,8 @@ describe('cycle contracts', () => {
       scopedWorkQuery,
       scopeBreakdown,
       riskSections: [riskSection],
-      recentlyChangedWork: [riskItem]
+      recentlyChangedWork: [riskItem],
+      closeout: null
     } satisfies ProjectCycleReviewDto;
 
     expect(review.progress.committedEstimatePoints).toBe(21);
@@ -214,7 +215,8 @@ describe('cycle contracts', () => {
       cycle,
       progress,
       health,
-      scopedWorkQuery
+      scopedWorkQuery,
+      closeout: null
     } satisfies ProjectPlanningCycleSummaryDto;
     const riskTypes = [
       'blocked',
