@@ -287,7 +287,46 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-11.
+- Added `project_cycle_closeouts` persistence with:
+  - workspace, project, source cycle, closing member, and optional destination cycle foreign keys;
+  - versioned JSONB snapshot;
+  - closed and created timestamps;
+  - unique source-cycle index;
+  - workspace/project/closed, project/closed, and destination-cycle indexes;
+  - restrictive default foreign-key delete behavior.
+- Generated additive Drizzle migration `apps/api/drizzle/0014_dapper_hellfire_club.sql` and matching metadata.
+- Confirmed the generated migration:
+  - creates the closeout table without backfill statements;
+  - replaces `activity_events_event_type_check` with a constraint containing `cycle.closed`.
+- Added `ProjectCycleCloseout` and `NewProjectCycleCloseout` repository model types.
+- Added and registered `createProjectCycleCloseoutRepository` with create and source-cycle lookup operations.
+- Kept closeout lookup unlocked because Phase 5 will first lock the source cycle, which serializes closeout attempts even before a closeout row exists; the unique source-cycle index remains the database race guard.
+- Added transaction-oriented repository operations:
+  - `projectCycles.findByIdForUpdate`;
+  - `workItems.listByCycleForUpdate` with deterministic id ordering;
+  - empty-safe, set-based `workItems.updateCycleAssignments`;
+  - empty-safe, multi-row `activityEvents.createMany`.
+- Extended repository integration coverage for:
+  - source-cycle and work-scope locks;
+  - set-based cycle assignment updates;
+  - empty update and activity inputs;
+  - multi-row work item and `cycle.closed` activity insertion;
+  - closeout create/find;
+  - unique source-cycle enforcement;
+  - destination-cycle foreign-key enforcement.
+- Updated repository test cleanup to remove closeouts before cycles.
+- Verified incremental migration against the existing v0.2.3 database with `npm run db:migrate`.
+- Verified fresh migration and repository behavior with:
+  - `npm run db:reset`;
+  - `npm run db:migrate`;
+  - `npm run db:seed`;
+  - `npm test --workspace @worktrail/api -- tests/repositories.test.ts` (13 tests passed).
+- Verified broader compatibility with:
+  - `npm test --workspace @worktrail/api` (26 files, 272 tests passed);
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `git diff --check`.
 
 ## Phase 3: Snapshot Validation And Shared Cycle Evaluation
 

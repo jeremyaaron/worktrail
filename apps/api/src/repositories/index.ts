@@ -6,6 +6,7 @@ import { createLabelRepository } from './label-repository.js';
 import { createMemberRepository } from './member-repository.js';
 import { createMilestoneRepository } from './milestone-repository.js';
 import { createNotificationRepository } from './notification-repository.js';
+import { createProjectCycleCloseoutRepository } from './project-cycle-closeout-repository.js';
 import { createProjectCycleRepository } from './project-cycle-repository.js';
 import { createProjectRepository } from './project-repository.js';
 import { createProjectStatusReportRepository } from './project-status-report-repository.js';
@@ -22,6 +23,7 @@ export function createRepositories(db: WorktrailDb) {
     members: createMemberRepository(db),
     projects: createProjectRepository(db),
     projectCycles: createProjectCycleRepository(db),
+    projectCycleCloseouts: createProjectCycleCloseoutRepository(db),
     projectStatusReports: createProjectStatusReportRepository(db),
     milestones: createMilestoneRepository(db),
     savedWorkViews: createSavedWorkViewRepository(db),
