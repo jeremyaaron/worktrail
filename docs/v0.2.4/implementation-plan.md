@@ -388,7 +388,41 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-11.
+- Added `apps/api/src/validation/project-cycle-closeout-snapshot.ts` with:
+  - strict nested Zod schemas for snapshot version `1`;
+  - UUID, ISO date/timestamp, enum, nonnegative count, estimate, and source-status validation;
+  - strict unknown-field rejection;
+  - completed/canceled/unfinished category-status validation;
+  - item-array/count, retained-count, and moved-count equations;
+  - committed, completed, unfinished, and unestimated estimate-total validation;
+  - `none`, `unplanned`, and cycle destination semantics tied to unfinished scope;
+  - controlled `ConflictError` behavior for malformed stored snapshots;
+  - `ValidationError` behavior for requested snapshot validation;
+  - relational project, cycle, and destination identity matching helper.
+- Added `apps/api/src/services/cycle-review-model.ts` as a pure cycle evaluation boundary for:
+  - progress;
+  - delivery health and ordered reasons;
+  - scope breakdown;
+  - over-target state.
+- Updated `ProjectCycleService.getCycleReview()` to keep repository reads, risk-section hydration, recent movement, and DTO assembly while delegating shared calculations to the pure model.
+- Preserved existing Cycle Review response shape and behavior.
+- Added `apps/api/tests/project-cycle-closeout-snapshot.test.ts` coverage for:
+  - valid version `1` parsing;
+  - unsupported version;
+  - invalid UUID, source status, date, timestamp, and unknown fields;
+  - category and count mismatches;
+  - estimate and destination inconsistencies;
+  - requested versus stored error classes;
+  - relational record identity mismatches.
+- Added `apps/api/tests/cycle-review-model.test.ts` with a fixed-clock blocked, dependency-blocked, overdue, stale, unassigned, unestimated, and over-target scenario.
+- Verified focused behavior with:
+  - `npm test --workspace @worktrail/api -- tests/project-cycle-closeout-snapshot.test.ts tests/cycle-review-model.test.ts tests/project-cycle-service.test.ts` (3 files, 20 tests passed).
+- Verified broader compatibility with:
+  - `npm test --workspace @worktrail/api` (28 files, 284 tests passed);
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `git diff --check`.
 
 ## Phase 4: Closeout Preview Service And Endpoint
 
