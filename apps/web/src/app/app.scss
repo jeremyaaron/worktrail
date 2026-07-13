@@ -118,6 +118,27 @@
   padding: 32px 0 56px;
 }
 
+@media (min-width: 761px) and (max-width: 1200px) {
+  .topbar {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 10px 24px;
+    padding: 12px 24px;
+  }
+
+  .primary-nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .actor-selector {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+  }
+}
+
 @media (max-width: 760px) {
   .topbar {
     grid-template-columns: 1fr;

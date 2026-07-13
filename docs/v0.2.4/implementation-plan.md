@@ -1017,7 +1017,40 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-12.
+
+Implementation notes:
+
+- Added an isolated seeded `Closeout Lab` project so the destructive walkthrough does not alter
+  the primary Worktrail App active cycle or Reference Operations portfolio baseline.
+- Added an active source cycle, planned destination cycle, and mixed source scope containing:
+  - completed and canceled work;
+  - estimated and unestimated unfinished work;
+  - dependency-blocked unfinished work backed by a real blocking relationship.
+- Kept the source cycle active with no seeded closeout so every database reset supports the full
+  interactive workflow.
+- Added a dedicated serial Playwright closeout test that:
+  - acts as Morgan Maintainer and enters closeout from Cycle Review;
+  - verifies loading semantics, exact preview totals, health signals, and unfinished scope;
+  - verifies the default radio choice and keyboard focus order;
+  - submits the exact planned-destination command while checking stable button dimensions;
+  - verifies the durable snapshot, actor, metrics, retained/moved counts, and destination result;
+  - follows destination-cycle and current-work links;
+  - verifies the carried item's new cycle assignment and cycle-change activity;
+  - restores the fresh seed afterward so execution order cannot affect existing smoke tests.
+- Captured and visually inspected preview and completed-result screenshots at 1440x900, 1024x768,
+  and 390x844, with automated horizontal-overflow and long-title wrapping assertions.
+- Corrected the global shell's medium-width layout after screenshot review exposed navigation and
+  actor-selector overlap at 1024px; the header now uses a stable two-row layout from 761-1200px.
+- Verified with:
+  - `npm run db:reset && npm run db:migrate && npm run db:seed`;
+  - `npx playwright test -g "cycle closeout"` (1 focused test passed);
+  - `npm run test:e2e` (20 tests passed);
+  - `npm test` (619 API, web, and contract tests passed);
+  - `npm run typecheck`;
+  - `npm run lint`;
+  - `npm run build` with no budget warnings;
+  - `git diff --check`.
 
 ## Phase 10: Documentation, Metadata, And Final Verification
 
@@ -1088,7 +1121,44 @@ git status --short --branch
 
 Status:
 
-- Not started.
+- Completed on 2026-07-12.
+
+Implementation notes:
+
+- Updated README for the v0.2.4 Cycle Closeout baseline, including:
+  - closeout preview, apply, carryover, snapshot, and live-state semantics;
+  - the isolated Closeout Lab walkthrough;
+  - current capabilities, database state, and explicit deferred scope.
+- Added `docs/v0.2.4/release-notes.md` with user-facing behavior, technical changes,
+  compatibility notes, migration requirements, verification commands, and deferred work.
+- Added destination-neutral `docs/v0.2.4/pattern-notes.md` covering preview/apply contracts,
+  natural idempotency, relational ownership plus JSONB evidence, shared derivation, set-based side
+  effects, snapshot/current framing, seed isolation, and deliberate non-abstractions.
+- Updated the static product site for cycle closeout and inspected full-page desktop and mobile
+  renders.
+- Updated OpenAPI metadata and root/API/web/contracts package metadata to `0.2.4`, with a minimal
+  lockfile workspace-metadata update verified by `npm ci`.
+- Reviewed every implementation-plan phase; Phases 0-10 now have dated completion records.
+- Confirmed current v0.2.4 release artifacts contain no references to a presumed pattern extraction
+  destination and no stale v0.2.3 baseline claim.
+- Kept velocity/analytics, forecasting, automatic rollover/closeout, split carryover, retrospective
+  tooling, closeout notifications, and reopen/undo explicitly deferred.
+- Dependency audit result:
+  - `npm audit --omit=dev --audit-level=low` reports zero production vulnerabilities;
+  - the full audit retains two low and four moderate development-only findings under Angular
+    compiler/Babel and Drizzle Kit's legacy esbuild loader;
+  - forced remediation was intentionally rejected because npm proposes framework/tooling changes,
+    including a breaking Drizzle Kit downgrade, while no production dependency is affected.
+- Verified from a clean install with:
+  - `npm ci`;
+  - `npm run db:reset && npm run db:migrate && npm run db:seed`;
+  - `npm run lint`;
+  - `npm run typecheck`;
+  - `npm test` (619 API, web, and contract tests passed);
+  - `npm run test:e2e` (20 tests passed);
+  - `npm run build` with a 367.89 kB initial bundle and no budget warnings;
+  - `npm audit --omit=dev --audit-level=low` (zero production vulnerabilities);
+  - `git diff --check`.
 
 ## Phase Completion Protocol
 

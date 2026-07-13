@@ -38,7 +38,8 @@ const ids = {
     app: '10000000-0000-4000-8000-000000000201',
     platform: '10000000-0000-4000-8000-000000000202',
     archived: '10000000-0000-4000-8000-000000000203',
-    operations: '10000000-0000-4000-8000-000000000204'
+    operations: '10000000-0000-4000-8000-000000000204',
+    closeoutLab: '10000000-0000-4000-8000-000000000205'
   },
   labels: {
     frontend: '10000000-0000-4000-8000-000000000301',
@@ -59,7 +60,9 @@ const ids = {
   cycles: {
     active: '10000000-0000-4000-8000-000000000371',
     upcoming: '10000000-0000-4000-8000-000000000372',
-    completed: '10000000-0000-4000-8000-000000000373'
+    completed: '10000000-0000-4000-8000-000000000373',
+    closeoutSource: '10000000-0000-4000-8000-000000000374',
+    closeoutDestination: '10000000-0000-4000-8000-000000000375'
   },
   workItems: {
     backlog: '10000000-0000-4000-8000-000000000401',
@@ -75,13 +78,19 @@ const ids = {
     healthyMilestone: '10000000-0000-4000-8000-000000000411',
     atRiskMilestone: '10000000-0000-4000-8000-000000000412',
     unmilestonedRisk: '10000000-0000-4000-8000-000000000413',
-    operationsReady: '10000000-0000-4000-8000-000000000414'
+    operationsReady: '10000000-0000-4000-8000-000000000414',
+    closeoutDone: '10000000-0000-4000-8000-000000000415',
+    closeoutCanceled: '10000000-0000-4000-8000-000000000416',
+    closeoutEstimated: '10000000-0000-4000-8000-000000000417',
+    closeoutUnestimated: '10000000-0000-4000-8000-000000000418',
+    closeoutBlocker: '10000000-0000-4000-8000-000000000419'
   },
   workItemRelationships: {
     sameProjectBlock: '10000000-0000-4000-8000-000000000451',
     crossProjectBlock: '10000000-0000-4000-8000-000000000452',
     relatedWork: '10000000-0000-4000-8000-000000000453',
-    terminalBlocker: '10000000-0000-4000-8000-000000000454'
+    terminalBlocker: '10000000-0000-4000-8000-000000000454',
+    closeoutBlock: '10000000-0000-4000-8000-000000000455'
   },
   comments: {
     first: '10000000-0000-4000-8000-000000000501',
@@ -294,6 +303,17 @@ try {
           name: 'Legacy Tracker',
           description: 'Archived project used to verify archived states.',
           status: 'archived',
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.projects.closeoutLab,
+          workspaceId: ids.workspace,
+          key: 'LAB',
+          nextWorkItemNumber: 6,
+          name: 'Closeout Lab',
+          description: 'Isolated cycle closeout scenario for product walkthroughs and browser verification.',
+          status: 'active',
           createdAt: earlier,
           updatedAt: now
         }
@@ -526,6 +546,36 @@ try {
           status: 'completed',
           startDate: '2026-06-10',
           endDate: '2026-06-24',
+          targetPoints: 8,
+          archivedAt: null,
+          archivedById: null,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.cycles.closeoutSource,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.closeoutLab,
+          name: 'Closeout Demonstration',
+          goal: 'Validate a transparent closeout with mixed scope and planned carryover.',
+          status: 'active',
+          startDate: '2026-07-01',
+          endDate: '2026-07-12',
+          targetPoints: 13,
+          archivedAt: null,
+          archivedById: null,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.cycles.closeoutDestination,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.closeoutLab,
+          name: 'Follow-up Validation',
+          goal: 'Receive unfinished work while preserving its workflow state.',
+          status: 'planned',
+          startDate: '2026-07-20',
+          endDate: '2026-07-31',
           targetPoints: 8,
           archivedAt: null,
           archivedById: null,
@@ -844,6 +894,111 @@ try {
           estimatePoints: 2,
           createdAt: earlier,
           updatedAt: now
+        },
+        {
+          id: ids.workItems.closeoutDone,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.closeoutLab,
+          itemNumber: 1,
+          displayKey: 'LAB-1',
+          title: 'Complete closeout acceptance notes',
+          description: 'Terminal completed work retained in the source-cycle snapshot.',
+          type: 'task',
+          status: 'done',
+          priority: 'medium',
+          assigneeId: ids.members.maintainer,
+          reporterId: ids.members.owner,
+          milestoneId: null,
+          cycleId: ids.cycles.closeoutSource,
+          boardPosition: 1024,
+          dueDate: null,
+          estimatePoints: 3,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.workItems.closeoutCanceled,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.closeoutLab,
+          itemNumber: 2,
+          displayKey: 'LAB-2',
+          title: 'Retire duplicate closeout checklist',
+          description: 'Terminal canceled work retained in the source-cycle snapshot.',
+          type: 'chore',
+          status: 'canceled',
+          priority: 'low',
+          assigneeId: null,
+          reporterId: ids.members.maintainer,
+          milestoneId: null,
+          cycleId: ids.cycles.closeoutSource,
+          boardPosition: 1024,
+          dueDate: null,
+          estimatePoints: 2,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.workItems.closeoutEstimated,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.closeoutLab,
+          itemNumber: 3,
+          displayKey: 'LAB-3',
+          title: 'Carry estimated closeout follow-up into the planned validation cycle',
+          description: 'Long unfinished work verifies wrapping and estimated carryover behavior.',
+          type: 'story',
+          status: 'in_progress',
+          priority: 'high',
+          assigneeId: ids.members.maintainer,
+          reporterId: ids.members.owner,
+          milestoneId: null,
+          cycleId: ids.cycles.closeoutSource,
+          boardPosition: 1024,
+          dueDate: '2026-07-12',
+          estimatePoints: 5,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.workItems.closeoutUnestimated,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.closeoutLab,
+          itemNumber: 4,
+          displayKey: 'LAB-4',
+          title: 'Resolve dependency-blocked unestimated validation work',
+          description: 'Unestimated unfinished work blocked by an open item in the same cycle.',
+          type: 'bug',
+          status: 'blocked',
+          priority: 'urgent',
+          assigneeId: ids.members.contributor,
+          reporterId: ids.members.maintainer,
+          milestoneId: null,
+          cycleId: ids.cycles.closeoutSource,
+          boardPosition: 1024,
+          dueDate: '2026-07-11',
+          estimatePoints: null,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.workItems.closeoutBlocker,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.closeoutLab,
+          itemNumber: 5,
+          displayKey: 'LAB-5',
+          title: 'Publish prerequisite closeout evidence',
+          description: 'Open prerequisite that carries into the destination with its dependent work.',
+          type: 'task',
+          status: 'ready',
+          priority: 'high',
+          assigneeId: ids.members.owner,
+          reporterId: ids.members.maintainer,
+          milestoneId: null,
+          cycleId: ids.cycles.closeoutSource,
+          boardPosition: 1024,
+          dueDate: '2026-07-10',
+          estimatePoints: 2,
+          createdAt: earlier,
+          updatedAt: now
         }
       ])
       .onConflictDoUpdate({
@@ -914,6 +1069,15 @@ try {
           sourceWorkItemId: ids.workItems.done,
           targetWorkItemId: ids.workItems.blocked,
           createdById: ids.members.owner,
+          createdAt: now
+        },
+        {
+          id: ids.workItemRelationships.closeoutBlock,
+          workspaceId: ids.workspace,
+          relationshipType: 'blocks',
+          sourceWorkItemId: ids.workItems.closeoutBlocker,
+          targetWorkItemId: ids.workItems.closeoutUnestimated,
+          createdById: ids.members.maintainer,
           createdAt: now
         }
       ])
