@@ -5,6 +5,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import type {
   MemberDto,
   PlanningRiskItemDto,
+  ProjectCycleCloseoutDto,
   ProjectCycleDto,
   ProjectCycleReviewDto,
   ProjectDto
@@ -28,6 +29,14 @@ const owner: MemberDto = {
   deactivatedAt: null,
   createdAt: '2026-07-02T12:00:00.000Z',
   updatedAt: '2026-07-03T12:00:00.000Z'
+};
+
+const contributor: MemberDto = {
+  ...owner,
+  id: '10000000-0000-4000-8000-000000000102',
+  name: 'Casey Contributor',
+  email: 'casey.contributor@example.com',
+  role: 'contributor'
 };
 
 const activeProject: ProjectDto = {
@@ -68,6 +77,87 @@ const blockedWorkItem: PlanningRiskItemDto = {
   milestone: null,
   updatedAt: '2026-07-04T10:30:00.000Z'
 };
+
+function cycleCloseout(): ProjectCycleCloseoutDto {
+  const completed = Array.from({ length: 10 }, (_, index) => ({
+    id: `10000000-0000-4000-8000-${(500 + index).toString().padStart(12, '0')}`,
+    displayKey: `WT-${index + 1}`,
+    title: `Completed snapshot item ${index + 1}`,
+    status: 'done' as const,
+    priority: 'medium' as const,
+    assignee: { id: owner.id, name: owner.name },
+    estimatePoints: 1,
+    dependencyBlocked: false
+  }));
+  const canceled = [
+    {
+      ...completed[0]!,
+      id: '10000000-0000-4000-8000-000000000520',
+      displayKey: 'WT-20',
+      title: 'Canceled snapshot item',
+      status: 'canceled' as const
+    }
+  ];
+  const unfinished = [
+    {
+      ...completed[0]!,
+      id: '10000000-0000-4000-8000-000000000521',
+      displayKey: 'WT-21',
+      title: 'Unfinished snapshot item',
+      status: 'blocked' as const,
+      priority: 'urgent' as const,
+      dependencyBlocked: true
+    }
+  ];
+
+  return {
+    id: '10000000-0000-4000-8000-000000000801',
+    workspaceId,
+    projectId,
+    cycleId,
+    closedAt: '2026-07-24T16:30:00.000Z',
+    closedBy: owner,
+    destinationCycleId: '10000000-0000-4000-8000-000000000702',
+    snapshot: {
+      snapshotVersion: 1,
+      project: { id: projectId, key: 'WT', name: 'Worktrail App' },
+      cycle: {
+        id: cycleId,
+        name: activeCycle.name,
+        goal: activeCycle.goal,
+        status: 'active',
+        startDate: activeCycle.startDate,
+        endDate: activeCycle.endDate,
+        targetPoints: 20
+      },
+      closedAt: '2026-07-24T16:30:00.000Z',
+      closedBy: { id: owner.id, name: owner.name },
+      health: { health: 'at_risk', reasons: [] },
+      counts: {
+        totalCount: 12,
+        completedCount: 10,
+        canceledCount: 1,
+        unfinishedCount: 1,
+        retainedCount: 11,
+        movedCount: 1,
+        committedEstimatePoints: 12,
+        completedEstimatePoints: 10,
+        unfinishedEstimatePoints: 1,
+        unestimatedUnfinishedCount: 0
+      },
+      destination: {
+        kind: 'cycle',
+        cycle: {
+          id: '10000000-0000-4000-8000-000000000702',
+          name: 'Next delivery cycle',
+          startDate: '2026-07-25',
+          endDate: '2026-08-07'
+        }
+      },
+      items: { completed, canceled, unfinished }
+    }
+  };
+}
 
 function cycleReview(input: Partial<ProjectCycleReviewDto> = {}): ProjectCycleReviewDto {
   return {
@@ -138,7 +228,8 @@ function cycleReview(input: Partial<ProjectCycleReviewDto> = {}): ProjectCycleRe
         items: [blockedWorkItem]
       }
     ],
-    recentlyChangedWork: input.recentlyChangedWork ?? [blockedWorkItem]
+    recentlyChangedWork: input.recentlyChangedWork ?? [blockedWorkItem],
+    closeout: input.closeout ?? null
   };
 }
 
@@ -208,6 +299,13 @@ describe('ProjectCycleReviewPageComponent', () => {
     expect(compiled.textContent).toContain('Recently changed work');
     expect(compiled.textContent).toContain('Cycle estimate is 3 points over target.');
 
+    const closeLink = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('a')).find(
+      (link) => link.textContent?.trim() === 'Close cycle'
+    );
+    expect(closeLink?.getAttribute('href')).toBe(
+      `/projects/${projectId}/cycles/${cycleId}/closeout`
+    );
+
     const scopedWorkLink = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('a')).find(
       (link) => link.textContent?.trim() === 'Open cycle work'
     );
@@ -247,6 +345,77 @@ describe('ProjectCycleReviewPageComponent', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Archived');
     expect(compiled.textContent).toContain('Read-only review');
+    expect(compiled.textContent).not.toContain('Close cycle');
+  });
+
+  it('hides closeout mutation affordances from contributors', () => {
+    const currentUser = TestBed.inject(CurrentUserService);
+    currentUser.members.set([owner, contributor]);
+    currentUser.selectMember(contributor.id);
+    const fixture = TestBed.createComponent(ProjectCycleReviewPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+
+    fixture.detectChanges();
+    http.expectOne(`/api/projects/${projectId}/cycles/${cycleId}/review`).flush(cycleReview());
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Close cycle');
+  });
+
+  it('leads completed reviews with a bounded immutable result and current links', () => {
+    const fixture = TestBed.createComponent(ProjectCycleReviewPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    const closeout = cycleCloseout();
+
+    fixture.detectChanges();
+    http.expectOne(`/api/projects/${projectId}/cycles/${cycleId}/review`).flush(
+      cycleReview({
+        cycle: { ...activeCycle, status: 'completed' },
+        closeout
+      })
+    );
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const text = compiled.textContent ?? '';
+    expect(text).toContain('Cycle result · Snapshot');
+    expect(text).toContain('Outcome at close');
+    expect(text).toContain('Closed Jul 24, 2026');
+    expect(text).toContain('Avery Owner');
+    expect(text).toContain('Retained11');
+    expect(text).toContain('Moved1');
+    expect(text).toContain('Next delivery cycle received 1 moved item');
+    expect(text).toContain('2 additional snapshot items not shown.');
+    expect(text).toContain('Current state · Live view');
+    expect(text).toContain('reflect current work item data, not the closeout snapshot');
+    expect(text).not.toContain('Close cycle');
+
+    const completedGroup = compiled.querySelector('[aria-labelledby="snapshot-completed"]');
+    expect(completedGroup?.querySelectorAll('[aria-label^="Open current WT-"]').length).toBe(8);
+    expect(
+      completedGroup?.querySelector<HTMLAnchorElement>('[aria-label="Open current WT-1"]')?.getAttribute('href')
+    ).toBe(`/work-items/${closeout.snapshot.items.completed[0]?.id}`);
+    expect(
+      Array.from(compiled.querySelectorAll<HTMLAnchorElement>('a')).find((link) =>
+        link.textContent?.includes('Review destination cycle')
+      )?.getAttribute('href')
+    ).toBe('/projects/10000000-0000-4000-8000-000000000201/cycles/10000000-0000-4000-8000-000000000702');
+  });
+
+  it('shows honest legacy copy for completed cycles without closeout history', () => {
+    const fixture = TestBed.createComponent(ProjectCycleReviewPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+
+    fixture.detectChanges();
+    http.expectOne(`/api/projects/${projectId}/cycles/${cycleId}/review`).flush(
+      cycleReview({ cycle: { ...activeCycle, status: 'completed' }, closeout: null })
+    );
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Completed before closeout history was available');
+    expect(text).toContain('shows current linked work');
+    expect(text).not.toContain('Outcome at close');
   });
 
   it('surfaces load errors and retries the review request', () => {

@@ -37,6 +37,16 @@ export function createProjectCycleRepository(db: WorktrailDb) {
       return cycle ?? null;
     },
 
+    async findByIdForUpdate(id: string) {
+      const [cycle] = await db
+        .select()
+        .from(projectCycles)
+        .where(eq(projectCycles.id, id))
+        .limit(1)
+        .for('update');
+      return cycle ?? null;
+    },
+
     async findActiveByProject(projectId: string) {
       const [cycle] = await db
         .select()

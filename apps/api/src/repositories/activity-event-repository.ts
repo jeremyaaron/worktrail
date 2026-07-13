@@ -11,6 +11,14 @@ export function createActivityEventRepository(db: WorktrailDb) {
       return activityEvent;
     },
 
+    async createMany(inputs: NewActivityEvent[]) {
+      if (inputs.length === 0) {
+        return [];
+      }
+
+      return db.insert(activityEvents).values(inputs).returning();
+    },
+
     async findByWorkItem(workItemId: string) {
       return db
         .select()
@@ -28,4 +36,3 @@ export function createActivityEventRepository(db: WorktrailDb) {
     }
   };
 }
-

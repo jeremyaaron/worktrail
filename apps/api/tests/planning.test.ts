@@ -8,6 +8,7 @@ import { createDb, createPool } from '../src/db/client.js';
 import { createRepositories, type Repositories } from '../src/repositories/index.js';
 import { MilestoneReviewService } from '../src/services/milestone-review-service.js';
 import { PlanningService } from '../src/services/planning-service.js';
+import { ProjectCycleCloseoutService } from '../src/services/project-cycle-closeout-service.js';
 
 const workspaceIds = new Set<string>();
 let pool: ReturnType<typeof createPool>;
@@ -44,6 +45,7 @@ async function cleanupWorkspace(workspaceId: string) {
   );
   await pool.query('delete from labels where workspace_id = $1', [workspaceId]);
   await pool.query('delete from work_items where workspace_id = $1', [workspaceId]);
+  await pool.query('delete from project_cycle_closeouts where workspace_id = $1', [workspaceId]);
   await pool.query('delete from project_cycles where workspace_id = $1', [workspaceId]);
   await pool.query('delete from milestones where workspace_id = $1', [workspaceId]);
   await pool.query('delete from projects where workspace_id = $1', [workspaceId]);
@@ -512,6 +514,18 @@ describe('planning summary', () => {
 
   it('includes active, upcoming, and recently completed cycle summaries', async () => {
     const fixture = await createFixture();
+    const completedCycle = await createProjectCycle(fixture, {
+      name: 'Completed cycle',
+      status: 'active',
+      startDate: '2026-06-20',
+      endDate: '2026-06-27'
+    });
+    await new ProjectCycleCloseoutService({
+      actor: fixture.actor,
+      repositories,
+      db,
+      clock: now
+    }).close(fixture.projectId, completedCycle.id, { destinationCycleId: null });
     const activeCycle = await createProjectCycle(fixture, {
       name: 'Active cycle',
       status: 'active',
@@ -524,12 +538,6 @@ describe('planning summary', () => {
       status: 'planned',
       startDate: '2026-07-20',
       endDate: '2026-07-27'
-    });
-    const completedCycle = await createProjectCycle(fixture, {
-      name: 'Completed cycle',
-      status: 'completed',
-      startDate: '2026-06-20',
-      endDate: '2026-06-27'
     });
     await createWorkItem(fixture, {
       title: 'Active cycle blocked work',
@@ -571,19 +579,29 @@ describe('planning summary', () => {
           })
         ])
       },
-      scopedWorkQuery: { cycleId: activeCycle.id, sort: 'priority_desc' }
+      scopedWorkQuery: { cycleId: activeCycle.id, sort: 'priority_desc' },
+      closeout: null
     });
     expect(summary.upcomingCycle).toMatchObject({
       cycle: { id: upcomingCycle.id, name: 'Upcoming cycle' },
       progress: { totalCount: 0, openCount: 0, committedEstimatePoints: 0 },
       health: { health: 'healthy' },
-      scopedWorkQuery: { cycleId: upcomingCycle.id, sort: 'priority_desc' }
+      scopedWorkQuery: { cycleId: upcomingCycle.id, sort: 'priority_desc' },
+      closeout: null
     });
     expect(summary.recentlyCompletedCycle).toMatchObject({
       cycle: { id: completedCycle.id, name: 'Completed cycle' },
       health: { health: 'complete' },
-      scopedWorkQuery: { cycleId: completedCycle.id, sort: 'priority_desc' }
+      scopedWorkQuery: { cycleId: completedCycle.id, sort: 'priority_desc' },
+      closeout: {
+        closedAt: now().toISOString(),
+        closedBy: { id: fixture.actorId, name: 'Planning API Actor' },
+        counts: { totalCount: 0, movedCount: 0, retainedCount: 0 },
+        destination: { kind: 'none', cycle: null }
+      }
     });
+    expect(summary.recentlyCompletedCycle?.closeout).not.toHaveProperty('snapshot');
+    expect(summary.recentlyCompletedCycle?.closeout).not.toHaveProperty('items');
   });
 
   it('serves planning summaries for archived projects', async () => {

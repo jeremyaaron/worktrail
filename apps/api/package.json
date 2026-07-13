@@ -1,6 +1,6 @@
 {
   "name": "@worktrail/api",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "private": true,
   "type": "module",
   "main": "dist/main.js",
@@ -19,7 +19,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@worktrail/contracts": "0.2.3",
+    "@worktrail/contracts": "0.2.4",
     "cors": "^2.8.5",
     "csv-parse": "^7.0.1",
     "csv-stringify": "^6.8.1",

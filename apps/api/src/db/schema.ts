@@ -1,5 +1,8 @@
 import { sql } from 'drizzle-orm';
-import type { ProjectStatusReportSnapshotDto } from '@worktrail/contracts';
+import type {
+  ProjectCycleCloseoutSnapshotDto,
+  ProjectStatusReportSnapshotDto
+} from '@worktrail/contracts';
 import {
   boolean,
   check,
@@ -170,6 +173,42 @@ export const projectCycles = pgTable(
     uniqueIndex('project_cycles_project_id_active_name_unique')
       .on(table.projectId, sql`lower(${table.name})`)
       .where(sql`${table.archivedAt} is null`)
+  ]
+);
+
+export const projectCycleCloseouts = pgTable(
+  'project_cycle_closeouts',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id),
+    cycleId: uuid('cycle_id')
+      .notNull()
+      .references(() => projectCycles.id),
+    closedByMemberId: uuid('closed_by_member_id')
+      .notNull()
+      .references(() => members.id),
+    destinationCycleId: uuid('destination_cycle_id').references(() => projectCycles.id),
+    snapshot: jsonb('snapshot').$type<ProjectCycleCloseoutSnapshotDto>().notNull(),
+    closedAt: timestamp('closed_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull()
+  },
+  (table) => [
+    uniqueIndex('project_cycle_closeouts_cycle_id_unique').on(table.cycleId),
+    index('project_cycle_closeouts_workspace_project_closed_idx').on(
+      table.workspaceId,
+      table.projectId,
+      table.closedAt.desc()
+    ),
+    index('project_cycle_closeouts_project_closed_idx').on(
+      table.projectId,
+      table.closedAt.desc()
+    ),
+    index('project_cycle_closeouts_destination_cycle_id_idx').on(table.destinationCycleId)
   ]
 );
 

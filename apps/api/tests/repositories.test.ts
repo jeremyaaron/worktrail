@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import type { ProjectCycleCloseoutSnapshotDto } from '@worktrail/contracts';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { createDb, createPool } from '../src/db/client.js';
@@ -33,6 +34,7 @@ function ids() {
 async function cleanupWorkspace(workspaceId: string) {
   await pool.query('delete from notifications where workspace_id = $1', [workspaceId]);
   await pool.query('delete from comment_mentions where workspace_id = $1', [workspaceId]);
+  await pool.query('delete from project_cycle_closeouts where workspace_id = $1', [workspaceId]);
   await pool.query('delete from activity_events where workspace_id = $1', [workspaceId]);
   await pool.query('delete from comments where workspace_id = $1', [workspaceId]);
   await pool.query('delete from work_item_watchers where workspace_id = $1', [workspaceId]);
@@ -42,6 +44,7 @@ async function cleanupWorkspace(workspaceId: string) {
   );
   await pool.query('delete from labels where workspace_id = $1', [workspaceId]);
   await pool.query('delete from work_items where workspace_id = $1', [workspaceId]);
+  await pool.query('delete from project_cycles where workspace_id = $1', [workspaceId]);
   await pool.query('delete from milestones where workspace_id = $1', [workspaceId]);
   await pool.query('delete from projects where workspace_id = $1', [workspaceId]);
   await pool.query('delete from members where workspace_id = $1', [workspaceId]);
@@ -201,6 +204,95 @@ async function createRepositoryWorkItem(
   });
 }
 
+async function createRepositoryCycle(
+  repos: Repositories,
+  graph: Awaited<ReturnType<typeof createRepositoryGraph>>,
+  input: {
+    id?: string;
+    name: string;
+    status: 'planned' | 'active' | 'completed' | 'canceled';
+    startDate: string;
+    endDate: string;
+  }
+) {
+  const timestamp = now();
+
+  return repos.projectCycles.create({
+    id: input.id ?? randomUUID(),
+    workspaceId: graph.id.workspaceId,
+    projectId: graph.id.projectId,
+    name: input.name,
+    goal: `${input.name} goal.`,
+    status: input.status,
+    startDate: input.startDate,
+    endDate: input.endDate,
+    targetPoints: 10,
+    archivedAt: null,
+    archivedById: null,
+    createdAt: timestamp,
+    updatedAt: timestamp
+  });
+}
+
+function createCloseoutSnapshot(input: {
+  graph: Awaited<ReturnType<typeof createRepositoryGraph>>;
+  sourceCycle: Awaited<ReturnType<typeof createRepositoryCycle>>;
+  destinationCycle: Awaited<ReturnType<typeof createRepositoryCycle>>;
+}): ProjectCycleCloseoutSnapshotDto {
+  return {
+    snapshotVersion: 1,
+    project: {
+      id: input.graph.project.id,
+      key: input.graph.project.key,
+      name: input.graph.project.name
+    },
+    cycle: {
+      id: input.sourceCycle.id,
+      name: input.sourceCycle.name,
+      goal: input.sourceCycle.goal,
+      status: 'active',
+      startDate: input.sourceCycle.startDate,
+      endDate: input.sourceCycle.endDate,
+      targetPoints: input.sourceCycle.targetPoints
+    },
+    closedAt: '2026-07-14T16:00:00.000Z',
+    closedBy: {
+      id: input.graph.owner.id,
+      name: input.graph.owner.name
+    },
+    health: {
+      health: 'complete',
+      reasons: []
+    },
+    counts: {
+      totalCount: 0,
+      completedCount: 0,
+      canceledCount: 0,
+      unfinishedCount: 0,
+      retainedCount: 0,
+      movedCount: 0,
+      committedEstimatePoints: 0,
+      completedEstimatePoints: 0,
+      unfinishedEstimatePoints: 0,
+      unestimatedUnfinishedCount: 0
+    },
+    destination: {
+      kind: 'cycle',
+      cycle: {
+        id: input.destinationCycle.id,
+        name: input.destinationCycle.name,
+        startDate: input.destinationCycle.startDate,
+        endDate: input.destinationCycle.endDate
+      }
+    },
+    items: {
+      completed: [],
+      canceled: [],
+      unfinished: []
+    }
+  };
+}
+
 beforeAll(() => {
   pool = createPool();
   db = createDb(pool);
@@ -295,6 +387,155 @@ describe('Drizzle repositories', () => {
       id: id.workItemId,
       title: 'Repository work item'
     });
+  });
+
+  it('locks cycle scope and updates cycle assignments and activity in sets', async () => {
+    const graph = await createRepositoryGraph(repositories);
+    const sourceCycle = await createRepositoryCycle(repositories, graph, {
+      name: 'Repository Cycle 1',
+      status: 'active',
+      startDate: '2026-07-01',
+      endDate: '2026-07-14'
+    });
+    const destinationCycle = await createRepositoryCycle(repositories, graph, {
+      name: 'Repository Cycle 2',
+      status: 'planned',
+      startDate: '2026-07-15',
+      endDate: '2026-07-28'
+    });
+    const second = await createRepositoryWorkItem(repositories, graph, { itemNumber: 2 });
+    const updatedAt = new Date('2026-07-14T16:00:00.000Z');
+
+    await repositories.workItems.update(graph.workItem.id, {
+      cycleId: sourceCycle.id,
+      updatedAt: now()
+    });
+    await repositories.workItems.update(second.id, {
+      cycleId: sourceCycle.id,
+      updatedAt: now()
+    });
+
+    const result = await withRepositoriesTransaction(db, async (transactionRepositories) => {
+      const lockedCycle = await transactionRepositories.projectCycles.findByIdForUpdate(
+        sourceCycle.id
+      );
+      const lockedWork = await transactionRepositories.workItems.listByCycleForUpdate(
+        graph.project.id,
+        sourceCycle.id
+      );
+      const emptyUpdate = await transactionRepositories.workItems.updateCycleAssignments(
+        [],
+        destinationCycle.id,
+        updatedAt
+      );
+      const updatedWork = await transactionRepositories.workItems.updateCycleAssignments(
+        lockedWork.map((item) => item.id),
+        destinationCycle.id,
+        updatedAt
+      );
+      const emptyActivity = await transactionRepositories.activityEvents.createMany([]);
+      const activity = await transactionRepositories.activityEvents.createMany([
+        ...updatedWork.map((item) => ({
+          id: randomUUID(),
+          workspaceId: item.workspaceId,
+          projectId: item.projectId,
+          workItemId: item.id,
+          actorId: graph.owner.id,
+          eventType: 'work_item.cycle_changed' as const,
+          summary: `Cycle changed to ${destinationCycle.name}.`,
+          previousValue: { cycleId: sourceCycle.id, cycleName: sourceCycle.name },
+          newValue: { cycleId: destinationCycle.id, cycleName: destinationCycle.name },
+          metadata: {},
+          createdAt: updatedAt
+        })),
+        {
+          id: randomUUID(),
+          workspaceId: graph.workspace.id,
+          projectId: graph.project.id,
+          workItemId: null,
+          actorId: graph.owner.id,
+          eventType: 'cycle.closed',
+          summary: `${sourceCycle.name} closed.`,
+          previousValue: { cycleId: sourceCycle.id, status: 'active' },
+          newValue: { cycleId: sourceCycle.id, status: 'completed' },
+          metadata: { destinationCycleId: destinationCycle.id },
+          createdAt: updatedAt
+        }
+      ]);
+
+      return { lockedCycle, lockedWork, emptyUpdate, updatedWork, emptyActivity, activity };
+    });
+
+    expect(result.lockedCycle).toMatchObject({ id: sourceCycle.id, status: 'active' });
+    expect(result.lockedWork.map((item) => item.id)).toEqual(
+      [graph.workItem.id, second.id].sort((left, right) => left.localeCompare(right))
+    );
+    expect(result.emptyUpdate).toEqual([]);
+    expect(result.emptyActivity).toEqual([]);
+    expect(result.updatedWork).toHaveLength(2);
+    expect(result.activity).toHaveLength(3);
+    expect(result.activity.map((event) => event.eventType)).toContain('cycle.closed');
+    await expect(repositories.workItems.findById(graph.workItem.id)).resolves.toMatchObject({
+      cycleId: destinationCycle.id,
+      updatedAt
+    });
+  });
+
+  it('creates immutable cycle closeout records with source uniqueness and foreign keys', async () => {
+    const graph = await createRepositoryGraph(repositories);
+    const sourceCycle = await createRepositoryCycle(repositories, graph, {
+      name: 'Closeout Source',
+      status: 'active',
+      startDate: '2026-07-01',
+      endDate: '2026-07-14'
+    });
+    const destinationCycle = await createRepositoryCycle(repositories, graph, {
+      name: 'Closeout Destination',
+      status: 'planned',
+      startDate: '2026-07-15',
+      endDate: '2026-07-28'
+    });
+    const snapshot = createCloseoutSnapshot({ graph, sourceCycle, destinationCycle });
+    const closeoutId = randomUUID();
+    const closeoutInput = {
+      id: closeoutId,
+      workspaceId: graph.workspace.id,
+      projectId: graph.project.id,
+      cycleId: sourceCycle.id,
+      closedByMemberId: graph.owner.id,
+      destinationCycleId: destinationCycle.id,
+      snapshot,
+      closedAt: new Date(snapshot.closedAt),
+      createdAt: new Date(snapshot.closedAt)
+    };
+
+    await expect(repositories.projectCycleCloseouts.create(closeoutInput)).resolves.toMatchObject({
+      id: closeoutId,
+      cycleId: sourceCycle.id,
+      destinationCycleId: destinationCycle.id
+    });
+    await expect(
+      repositories.projectCycleCloseouts.findByCycleId(sourceCycle.id)
+    ).resolves.toMatchObject({ id: closeoutId, snapshot });
+
+    await expect(
+      repositories.projectCycleCloseouts.create({ ...closeoutInput, id: randomUUID() })
+    ).rejects.toMatchObject({ cause: { code: '23505' } });
+
+    const otherSource = await createRepositoryCycle(repositories, graph, {
+      name: 'Closeout Other Source',
+      status: 'completed',
+      startDate: '2026-06-15',
+      endDate: '2026-06-28'
+    });
+    await expect(
+      repositories.projectCycleCloseouts.create({
+        ...closeoutInput,
+        id: randomUUID(),
+        cycleId: otherSource.id,
+        destinationCycleId: randomUUID()
+      })
+    ).rejects.toMatchObject({ cause: { code: '23503' } });
   });
 
   it('creates actor-scoped notifications and updates read state', async () => {

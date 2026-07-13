@@ -1,7 +1,10 @@
 import { Injectable, inject } from '@angular/core';
 import type {
+  CloseProjectCycleRequest,
+  CloseProjectCycleResultDto,
   CreateProjectCycleRequest,
   ProjectCycleDto,
+  ProjectCycleCloseoutPreviewDto,
   ProjectCycleReviewDto,
   ProjectCycleStatus,
   UpdateProjectCycleRequest
@@ -70,6 +73,26 @@ export class CyclesApi {
   getCycleReview(projectId: string, cycleId: string): Observable<ProjectCycleReviewDto> {
     return this.api.get<ProjectCycleReviewDto>(
       `/projects/${projectId}/cycles/${cycleId}/review`
+    );
+  }
+
+  getCloseoutPreview(
+    projectId: string,
+    cycleId: string
+  ): Observable<ProjectCycleCloseoutPreviewDto> {
+    return this.api.get<ProjectCycleCloseoutPreviewDto>(
+      `/projects/${projectId}/cycles/${cycleId}/closeout-preview`
+    );
+  }
+
+  closeCycle(
+    projectId: string,
+    cycleId: string,
+    input: CloseProjectCycleRequest
+  ): Observable<CloseProjectCycleResultDto> {
+    return this.api.post<CloseProjectCycleResultDto, CloseProjectCycleRequest>(
+      `/projects/${projectId}/cycles/${cycleId}/closeout`,
+      input
     );
   }
 }

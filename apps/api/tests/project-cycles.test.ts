@@ -343,6 +343,69 @@ describe('project cycles API', () => {
       .expect(409);
   });
 
+  it('reserves completed status for closeout while allowing completed-cycle metadata corrections', async () => {
+    const fixture = await createFixture();
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/cycles`)
+      .set(fixture.headers)
+      .send({
+        name: 'Invalid completed creation',
+        status: 'completed',
+        startDate: '2026-06-01',
+        endDate: '2026-06-12'
+      })
+      .expect(400);
+
+    const active = await request(app)
+      .post(`/api/projects/${fixture.projectId}/cycles`)
+      .set(fixture.headers)
+      .send({
+        name: 'Active cycle',
+        status: 'active',
+        startDate: '2026-07-01',
+        endDate: '2026-07-12'
+      })
+      .expect(201);
+
+    await request(app)
+      .patch(`/api/projects/${fixture.projectId}/cycles/${active.body.id}`)
+      .set(fixture.headers)
+      .send({ status: 'completed' })
+      .expect(400);
+
+    const historical = await repositories.projectCycles.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      projectId: fixture.projectId,
+      name: 'Historical completed cycle',
+      goal: '',
+      status: 'completed',
+      startDate: '2026-06-01',
+      endDate: '2026-06-12',
+      targetPoints: null,
+      archivedAt: null,
+      archivedById: null,
+      createdAt: now(),
+      updatedAt: now()
+    });
+
+    await request(app)
+      .patch(`/api/projects/${fixture.projectId}/cycles/${historical.id}`)
+      .set(fixture.headers)
+      .send({ name: 'Corrected historical name' })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({ name: 'Corrected historical name', status: 'completed' });
+      });
+
+    await request(app)
+      .patch(`/api/projects/${fixture.projectId}/cycles/${historical.id}`)
+      .set(fixture.headers)
+      .send({ status: 'active' })
+      .expect(409);
+  });
+
   it('returns cycle review data and hides cross-project ids', async () => {
     const fixture = await createFixture();
     const cycleResponse = await request(app)

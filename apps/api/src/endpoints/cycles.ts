@@ -1,5 +1,8 @@
 import type {
+  CloseProjectCycleRequest,
+  CloseProjectCycleResultDto,
   CreateProjectCycleRequest,
+  ProjectCycleCloseoutPreviewDto,
   ProjectCycleDto,
   ProjectCycleReviewDto,
   UpdateProjectCycleRequest
@@ -9,8 +12,10 @@ import { z } from 'zod';
 import type { WorktrailDb } from '../db/client.js';
 import type { EndpointHandler } from '../http/app-request.js';
 import type { Repositories } from '../repositories/index.js';
+import { ProjectCycleCloseoutService } from '../services/project-cycle-closeout-service.js';
 import { ProjectCycleService } from '../services/project-cycle-service.js';
 import {
+  closeProjectCycleSchema,
   createProjectCycleSchema,
   projectCycleListQuerySchema,
   updateProjectCycleSchema
@@ -171,6 +176,48 @@ export function getProjectCycleReviewHandler(input: {
     return {
       status: 200,
       body: await service.getCycleReview(projectId, cycleId)
+    };
+  };
+}
+
+export function getProjectCycleCloseoutPreviewHandler(input: {
+  repositories: Repositories;
+  db?: WorktrailDb;
+}): EndpointHandler<ProjectCycleCloseoutPreviewDto> {
+  return async (request) => {
+    const { projectId, cycleId } = parseWithSchema(projectCycleParamSchema, request.params);
+    const service = new ProjectCycleCloseoutService({
+      actor: request.actor,
+      repositories: input.repositories,
+      db: input.db
+    });
+
+    return {
+      status: 200,
+      body: await service.preview(projectId, cycleId)
+    };
+  };
+}
+
+export function closeProjectCycleHandler(input: {
+  repositories: Repositories;
+  db?: WorktrailDb;
+}): EndpointHandler<CloseProjectCycleResultDto> {
+  return async (request) => {
+    const { projectId, cycleId } = parseWithSchema(projectCycleParamSchema, request.params);
+    const body = parseWithSchema(
+      closeProjectCycleSchema,
+      request.body
+    ) as CloseProjectCycleRequest;
+    const service = new ProjectCycleCloseoutService({
+      actor: request.actor,
+      repositories: input.repositories,
+      db: input.db
+    });
+
+    return {
+      status: 200,
+      body: await service.close(projectId, cycleId, body)
     };
   };
 }

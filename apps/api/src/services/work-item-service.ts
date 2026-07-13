@@ -51,6 +51,7 @@ import {
   toWorkItemListItemDto,
   toWorkspaceWorkItemListItemDto
 } from './dto.js';
+import { createWorkItemCycleChangedActivity } from './work-item-cycle-activity.js';
 import { NotificationService } from './notification-service.js';
 import { WorkItemRelationshipService } from './work-item-relationship-service.js';
 
@@ -1447,27 +1448,15 @@ export class WorkItemService {
         ? null
         : await input.repositories.projectCycles.findById(input.updated.cycleId);
 
-    await input.repositories.activityEvents.create({
-      id: this.idGenerator(),
-      workspaceId: input.updated.workspaceId,
-      projectId: input.updated.projectId,
-      workItemId: input.updated.id,
-      actorId: this.context.actor.memberId,
-      eventType: 'work_item.cycle_changed',
-      summary:
-        nextCycle === null
-          ? 'Cycle assignment cleared.'
-          : `Cycle changed to ${nextCycle.name}.`,
-      previousValue:
-        previousCycle === null
-          ? null
-          : { cycleId: previousCycle.id, cycleName: previousCycle.name },
-      newValue:
-        nextCycle === null
-          ? null
-          : { cycleId: nextCycle.id, cycleName: nextCycle.name },
-      metadata: {},
-      createdAt: input.timestamp
-    });
+    await input.repositories.activityEvents.create(
+      createWorkItemCycleChangedActivity({
+        id: this.idGenerator(),
+        workItem: input.updated,
+        previousCycle,
+        nextCycle,
+        actorId: this.context.actor.memberId,
+        createdAt: input.timestamp
+      })
+    );
   }
 }

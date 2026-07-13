@@ -49,7 +49,8 @@ describe('CycleManagerComponent', () => {
     fixture.componentInstance.projectId = projectId;
     fixture.componentInstance.cycleForm = createCycleForm();
     fixture.componentInstance.cycles = [activeCycle];
-    fixture.componentInstance.cycleStatuses = ['planned', 'active', 'completed', 'canceled'];
+    fixture.componentInstance.creatableCycleStatuses = ['planned', 'active'];
+    fixture.componentInstance.mutableCycleStatuses = ['planned', 'active', 'canceled'];
     fixture.componentInstance.canManageCycles = true;
     fixture.detectChanges();
 
@@ -63,6 +64,16 @@ describe('CycleManagerComponent', () => {
     expect(compiled.querySelector<HTMLAnchorElement>('.cycle-row__links a')?.getAttribute('href')).toBe(
       `/projects/${projectId}/cycles/${activeCycle.id}`
     );
+    expect(
+      [...compiled.querySelectorAll<HTMLAnchorElement>('.cycle-row__links a')]
+        .find((link) => link.textContent?.trim() === 'Close')
+        ?.getAttribute('href')
+    ).toBe(`/projects/${projectId}/cycles/${activeCycle.id}/closeout`);
+    expect(
+      [...compiled.querySelectorAll<HTMLOptionElement>('.cycle-row select option')].map(
+        (option) => option.value
+      )
+    ).toEqual(['active', 'canceled']);
 
     compiled.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
     expect(createSpy).toHaveBeenCalled();
@@ -90,7 +101,8 @@ describe('CycleManagerComponent', () => {
     fixture.componentInstance.projectId = projectId;
     fixture.componentInstance.cycleForm = createCycleForm();
     fixture.componentInstance.cycles = [activeCycle];
-    fixture.componentInstance.cycleStatuses = ['planned', 'active', 'completed', 'canceled'];
+    fixture.componentInstance.creatableCycleStatuses = ['planned', 'active'];
+    fixture.componentInstance.mutableCycleStatuses = ['planned', 'active', 'canceled'];
     fixture.componentInstance.canManageCycles = false;
     fixture.detectChanges();
 
@@ -98,13 +110,46 @@ describe('CycleManagerComponent', () => {
     expect(compiled.textContent).toContain('v0.2.1 Cycle Planning');
     expect(compiled.querySelector('form')).toBeNull();
     expect(compiled.querySelector('.cycle-actions')).toBeNull();
+    expect(compiled.textContent).not.toContain('Close');
+  });
+
+  it('keeps completed status read-only and preserves valid planned and canceled transitions', () => {
+    const fixture = TestBed.createComponent(CycleManagerComponent);
+    const component = fixture.componentInstance;
+    component.projectId = projectId;
+    component.cycleForm = createCycleForm();
+    component.creatableCycleStatuses = ['planned', 'active'];
+    component.mutableCycleStatuses = ['planned', 'active', 'canceled'];
+    component.canManageCycles = true;
+
+    expect(component.mutationStatuses(activeCycle)).toEqual(['active', 'canceled']);
+    expect(component.mutationStatuses({ ...activeCycle, status: 'planned' })).toEqual([
+      'planned',
+      'active',
+      'canceled'
+    ]);
+    expect(component.mutationStatuses({ ...activeCycle, status: 'canceled' })).toEqual([
+      'planned',
+      'active',
+      'canceled'
+    ]);
+    expect(component.mutationStatuses({ ...activeCycle, status: 'completed' })).toEqual([]);
+
+    component.cycles = [{ ...activeCycle, status: 'completed' }];
+    fixture.detectChanges();
+    const status = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>(
+      '.cycle-row select'
+    );
+    expect(status?.disabled).toBe(true);
+    expect([...status!.options].map((option) => option.value)).toEqual(['completed']);
   });
 
   it('shows loading, load error, and create error states', () => {
     const fixture = TestBed.createComponent(CycleManagerComponent);
     fixture.componentInstance.projectId = projectId;
     fixture.componentInstance.cycleForm = createCycleForm();
-    fixture.componentInstance.cycleStatuses = ['planned', 'active', 'completed', 'canceled'];
+    fixture.componentInstance.creatableCycleStatuses = ['planned', 'active'];
+    fixture.componentInstance.mutableCycleStatuses = ['planned', 'active', 'canceled'];
     fixture.componentInstance.canManageCycles = true;
     fixture.componentInstance.isLoadingCycles = true;
     fixture.detectChanges();

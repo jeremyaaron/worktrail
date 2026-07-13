@@ -45,7 +45,8 @@ function cycleSummary(cycle: ProjectCycleDto): ProjectPlanningCycleSummaryDto {
       health: 'at_risk',
       reasons: []
     },
-    scopedWorkQuery: { cycleId: cycle.id, sort: 'priority_desc' }
+    scopedWorkQuery: { cycleId: cycle.id, sort: 'priority_desc' },
+    closeout: null
   };
 }
 
@@ -111,6 +112,7 @@ describe('CycleSummaryPanelComponent', () => {
     const fixture = TestBed.createComponent(CycleSummaryPanelComponent);
     fixture.componentInstance.projectId = projectId;
     fixture.componentInstance.summary = planningSummary();
+    fixture.componentInstance.canManageCycles = true;
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
@@ -123,12 +125,74 @@ describe('CycleSummaryPanelComponent', () => {
     const reviewLink = compiled.querySelector<HTMLAnchorElement>('.cycle-summary-card__actions a');
     const workLink = [...compiled.querySelectorAll<HTMLAnchorElement>('.cycle-summary-card__actions a')]
       .find((link) => link.textContent?.includes('Open work'));
+    const closeLink = [...compiled.querySelectorAll<HTMLAnchorElement>('.cycle-summary-card__actions a')]
+      .find((link) => link.textContent?.trim() === 'Close');
 
     expect(reviewLink?.getAttribute('href')).toBe(
       `/projects/${projectId}/cycles/${activeCycle.id}`
     );
     expect(workLink?.getAttribute('href')).toContain(`/projects/${projectId}/work-items`);
     expect(workLink?.getAttribute('href')).toContain(`cycleId=${activeCycle.id}`);
+    expect(closeLink?.getAttribute('href')).toBe(
+      `/projects/${projectId}/cycles/${activeCycle.id}/closeout`
+    );
+  });
+
+  it('hides active closeout actions without cycle-management permission', () => {
+    const fixture = TestBed.createComponent(CycleSummaryPanelComponent);
+    fixture.componentInstance.projectId = projectId;
+    fixture.componentInstance.summary = planningSummary();
+    fixture.componentInstance.canManageCycles = false;
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Close');
+  });
+
+  it('renders the compact recently completed closeout result', () => {
+    const completedCycle: ProjectCycleDto = {
+      ...activeCycle,
+      id: '10000000-0000-4000-8000-000000000704',
+      name: 'Completed delivery cycle',
+      status: 'completed'
+    };
+    const completedSummary = cycleSummary(completedCycle);
+    completedSummary.closeout = {
+      closedAt: '2026-07-24T16:30:00.000Z',
+      closedBy: { id: '10000000-0000-4000-8000-000000000101', name: 'Avery Owner' },
+      counts: {
+        totalCount: 8,
+        completedCount: 5,
+        canceledCount: 1,
+        unfinishedCount: 2,
+        retainedCount: 6,
+        movedCount: 2,
+        committedEstimatePoints: 18,
+        completedEstimatePoints: 13,
+        unfinishedEstimatePoints: 5,
+        unestimatedUnfinishedCount: 0
+      },
+      destination: {
+        kind: 'cycle',
+        cycle: {
+          id: '10000000-0000-4000-8000-000000000705',
+          name: 'Next delivery cycle',
+          startDate: '2026-07-25',
+          endDate: '2026-08-07'
+        }
+      }
+    };
+    const fixture = TestBed.createComponent(CycleSummaryPanelComponent);
+    fixture.componentInstance.projectId = projectId;
+    fixture.componentInstance.summary = planningSummary({
+      activeCycle: null,
+      recentlyCompletedCycle: completedSummary
+    });
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Completed delivery cycle');
+    expect(text).toContain('Closed Jul 24, 2026 by Avery Owner');
+    expect(text).toContain('2 moved · 6 retained · Next delivery cycle');
   });
 
   it('renders compact empty copy when there is no cycle context', () => {

@@ -1,6 +1,6 @@
 # Worktrail
 
-Worktrail is a project management reference app. The v0.2.3 baseline is a local-first Angular + TypeScript API + Postgres application focused on daily team workflow, workspace portfolio review, collaboration updates, reliable filtered work views, pinned workspace and project operating lenses, explicit project batch triage, milestone review, cycle planning, published project reports and Markdown sharing, cross-project discovery, dependency-aware planning, workspace governance, data portability, and production-shaped application boundaries.
+Worktrail is a project management reference app. The v0.2.4 baseline is a local-first Angular + TypeScript API + Postgres application focused on daily team workflow, workspace portfolio review, collaboration updates, reliable filtered work views, pinned workspace and project operating lenses, explicit project batch triage, milestone review, cycle planning and closeout, published project reports and Markdown sharing, cross-project discovery, dependency-aware planning, workspace governance, data portability, and production-shaped application boundaries.
 
 The app includes My Work, Portfolio review, Action Inbox, top-level Work Items discovery, URL-backed filters, copyable filtered-view links, personal saved views, workspace-shared saved views, project-scoped personal and shared saved views, pinned saved-view shortcuts, project-scoped bulk updates, quick work capture, persistent project workspaces, live planning review, live milestone review, cycle management and review, generated report drafts, immutable published report snapshots with cycle context, Markdown copy/download for published reports, print-friendly report detail pages, milestone/cycle/work links from reports, milestone management, durable boards, work item relationships, dependency-blocked signals, project delivery health, comments, mentions, work item watchers, activity, CSV import/export, production-like preview, health/readiness checks, checked-in API documentation, CI, lint, and responsive work item scanning.
 
@@ -22,6 +22,7 @@ docs/
   v0.2.1/  Cycle Planning PRD, technical design, implementation plan, release notes, and pattern notes
   v0.2.2/  Saved Views Ergonomics PRD, technical design, implementation plan, release notes, and pattern notes
   v0.2.3/  Portfolio Review PRD, technical design, implementation plan, release notes, and pattern notes
+  v0.2.4/  Cycle Closeout PRD, technical design, implementation plan, release notes, and pattern notes
   api/     OpenAPI reference
 site/       Static GitHub Pages product site
 e2e/        Playwright smoke tests
@@ -225,6 +226,25 @@ Cycle planning support includes:
 
 Cycles are intentionally compact in v0.2.1. Velocity charts, ceremony management, rollover automation, capacity calendars, cycle forecasting, and CSV import cycle assignment are deferred.
 
+## Cycle Closeout
+
+v0.2.4 completes the cycle lifecycle with a guided closeout workflow. Owners and maintainers can preview an active cycle's closing scope, choose one planned destination for all unfinished work or return it to unplanned work, and apply completion plus carryover as one transactional command.
+
+Closeout behavior includes:
+
+- a read-only preview with cycle identity, health, scope counts, estimate totals, unfinished work, and dependency signals;
+- planned same-project destination choices plus an explicit unplanned option that clears cycle assignment without changing workflow status;
+- atomic cycle completion, immutable closeout evidence, unfinished-work reassignment, and activity creation;
+- naturally idempotent retries for the same destination and conflicts for incompatible repeated decisions;
+- completed and canceled work retained on the source cycle;
+- carried work preserving status, milestone, assignee, labels, estimate, priority, and due date;
+- completed Cycle Review results with closing actor/time, target and estimate outcomes, retained/moved counts, destination links, and bounded snapshot item groups;
+- clear `Snapshot` framing for closeout evidence and `Live view` framing for links and current work state;
+- compact recent-closeout results and role-aware close actions in Planning;
+- honest legacy messaging for completed cycles created before closeout history existed.
+
+Closeout is deliberate and one-way in this baseline. It does not activate the destination cycle, split work across multiple destinations, change workflow statuses, broadcast notifications, or provide reopen/undo.
+
 ## Project Reports
 
 Project reports live at `/projects/:projectId/status` and appear as `Reports` in the project shell. Owners and maintainers can generate a report draft from current project state, edit the narrative fields, and publish an immutable report with a stored snapshot. Anyone who can read a published report can copy it as Markdown, download it as Markdown, or open the browser print flow. Contributors can read and export published reports. Archived projects remain readable and exportable, including their existing reports, but cannot publish new reports.
@@ -343,9 +363,10 @@ Seeded data includes:
 - one workspace;
 - active owner, maintainer, and contributor members;
 - one inactive historical member with seeded references;
-- three active projects and one archived project;
+- four active projects and one archived project;
 - project milestones with due dates and lifecycle state;
 - active, upcoming, and completed Worktrail App cycles with target points and scoped work;
+- an isolated Closeout Lab with an active source cycle, planned destination, mixed terminal and unfinished scope, and dependency-blocked carryover;
 - work items across every status with persisted board positions;
 - same-project, cross-project, and related-work relationships;
 - dependency-blocked examples where open blockers count and terminal blockers do not;
@@ -382,6 +403,10 @@ Suggested walkthrough:
 1. Follow a cycle risk link into filtered project work and confirm the cycle chip remains applied.
 1. Create a work item in the active cycle, then update or clear cycle assignment from the detail page.
 1. Use project bulk edit to set or clear cycle assignment for selected visible work.
+1. Open Closeout Lab, switch to Morgan Maintainer, and review the active `Closeout Demonstration` cycle.
+1. Choose `Close cycle`, verify the mixed completed, canceled, estimated, unestimated, and dependency-blocked scope, and keep `Follow-up Validation` selected.
+1. Confirm closeout, review the immutable snapshot result, and distinguish it from the current live context below.
+1. Follow the destination-cycle link, then open a carried snapshot item and verify its current cycle assignment and cycle-change activity.
 1. Open a milestone review page, inspect progress, health, risk, and recent movement, then follow a risk link into filtered project work.
 1. Review dependency-blocked and blocking-open-work planning sections, then follow a dependency list link into filtered project work.
 1. Open Project Status, review the seeded weekly report with cycle context, copy it as Markdown, download the Markdown export, print the page, and follow one milestone, cycle, or risk link into current project data.
@@ -467,6 +492,12 @@ Suggested walkthrough:
 - Cycle review pages for focused progress, target points, scope, health, risk, and recent movement.
 - Query-backed cycle review links into project Work.
 - Planning summaries for active, upcoming, and recently completed cycles.
+- Guided owner/maintainer cycle closeout with a read-only preview and one explicit carryover destination.
+- Transactional source-cycle completion, immutable closeout evidence, unfinished-work reassignment, and bounded activity fan-out.
+- Idempotent matching closeout retries and conflict protection for incompatible repeat decisions.
+- Completed Cycle Review snapshot results with closing actor/time, target and estimate totals, retained/moved counts, destination links, and historical item summaries.
+- Explicit snapshot-versus-live framing and honest legacy completed-cycle behavior when no closeout record exists.
+- Compact Planning closeout outcomes and role-aware closeout entry points.
 - Active-cycle context in generated and published project status report snapshots.
 - Hidden `workRisk` query support with visible project Work chips for review-driven risk states.
 - Project status report list, draft, publish, and detail pages under the project shell.
@@ -549,7 +580,7 @@ Suggested walkthrough:
 - Permissions are enforced against local member records and are useful for exercising policy paths, but they are not production authentication.
 - Production preview is not a secure public deployment and should not be exposed as an authenticated product.
 - Milestone review and delivery health are deterministic and rule-based; custom health formulas, forecasting, capacity planning, roadmap views, critical path analysis, charts, delivery-health notifications, and milestone sign-off are deferred.
-- Cycle planning is intentionally lightweight. Velocity charts, ceremony management, rollover automation, member capacity calendars, cycle forecasting, cycle templates, and cycle-level notification rules are deferred.
+- Cycle planning is intentionally lightweight. Velocity charts, ceremony management, automatic rollover/closeout, member capacity calendars, cycle forecasting, cycle templates, retrospective tooling, closeout notifications, split carryover destinations, and safe reopen/undo are deferred.
 - Project status reports are immutable after publication. Report edits, report delete/archive, PDF generation, scheduled delivery, email/push distribution, approvals, comments, custom templates, subscriptions, recipients, public links, export history, analytics, workspace rollups, forecasting, and roadmap reporting are deferred.
 - Notifications are in-app only. Email, push, WebSockets, digests, notification preferences, deletion/archive controls, and background delivery workers are deferred.
 - Comment mentions are selected through an active-member picker. Rich-text editing and free-text `@name` parsing are deferred.
@@ -573,7 +604,7 @@ Suggested walkthrough:
 
 ## Database Status
 
-The current schema includes workspace activity, member lifecycle metadata, project keys, scoped work item display keys, labels, milestones, project cycles, work item cycle assignments, comments, comment mentions, project activity, due dates, durable board positions, work item relationships, work item watchers, notifications, workspace-scoped saved work views, project-scoped saved work views, saved-view pinned state, and immutable project status report snapshots.
+The current schema includes workspace activity, member lifecycle metadata, project keys, scoped work item display keys, labels, milestones, project cycles, immutable project cycle closeouts with versioned JSONB evidence, work item cycle assignments, comments, comment mentions, project activity, due dates, durable board positions, work item relationships, work item watchers, notifications, workspace-scoped saved work views, project-scoped saved work views, saved-view pinned state, and immutable project status report snapshots.
 
 Useful database commands:
 

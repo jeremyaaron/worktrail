@@ -64,7 +64,7 @@ describe('CyclesApi', () => {
       targetPoints: 20
     };
     const updateInput: UpdateProjectCycleRequest = {
-      status: 'completed',
+      status: 'canceled',
       targetPoints: null
     };
 
@@ -103,5 +103,26 @@ describe('CyclesApi', () => {
     const review = http.expectOne(`/api/projects/${projectId}/cycles/${cycleId}/review`);
     expect(review.request.method).toBe('GET');
     review.flush({});
+  });
+
+  it('previews and submits cycle closeout with actor headers and the exact body', () => {
+    api.getCloseoutPreview(projectId, cycleId).subscribe();
+    const preview = http.expectOne(
+      `/api/projects/${projectId}/cycles/${cycleId}/closeout-preview`
+    );
+    expect(preview.request.method).toBe('GET');
+    expect(preview.request.headers.get('x-worktrail-member-id')).toBe(actor.id);
+    expect(preview.request.headers.get('x-worktrail-workspace-id')).toBe(workspaceId);
+    preview.flush({});
+
+    const input = { destinationCycleId: null };
+    api.closeCycle(projectId, cycleId, input).subscribe();
+    const closeout = http.expectOne(`/api/projects/${projectId}/cycles/${cycleId}/closeout`);
+    expect(closeout.request.method).toBe('POST');
+    expect(closeout.request.body).toEqual(input);
+    expect(Object.keys(closeout.request.body)).toEqual(['destinationCycleId']);
+    expect(closeout.request.headers.get('x-worktrail-member-id')).toBe(actor.id);
+    expect(closeout.request.headers.get('x-worktrail-workspace-id')).toBe(workspaceId);
+    closeout.flush({});
   });
 });

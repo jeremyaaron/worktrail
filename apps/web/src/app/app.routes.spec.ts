@@ -56,6 +56,7 @@ describe('routes', () => {
       'status/new',
       'status/:reportId',
       'milestones/:milestoneId',
+      'cycles/:cycleId/closeout',
       'cycles/:cycleId',
       'settings'
     ]);
@@ -64,6 +65,9 @@ describe('routes', () => {
     );
     expect(childPaths?.indexOf('status/new')).toBeLessThan(
       childPaths?.indexOf('status/:reportId') ?? -1
+    );
+    expect(childPaths?.indexOf('cycles/:cycleId/closeout')).toBeLessThan(
+      childPaths?.indexOf('cycles/:cycleId') ?? -1
     );
   });
 });

@@ -1,5 +1,5 @@
 import type { WorkItemQuery } from '@worktrail/contracts';
-import { and, asc, count, desc, eq } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray } from 'drizzle-orm';
 
 import type { WorktrailDb } from '../db/client.js';
 import { projects, workItems } from '../db/schema.js';
@@ -79,6 +79,15 @@ export function createWorkItemRepository(db: WorktrailDb) {
         .from(workItems)
         .where(and(...conditions))
         .orderBy(...orderBy);
+    },
+
+    async listByCycleForUpdate(projectId: string, cycleId: string) {
+      return db
+        .select()
+        .from(workItems)
+        .where(and(eq(workItems.projectId, projectId), eq(workItems.cycleId, cycleId)))
+        .orderBy(asc(workItems.id))
+        .for('update');
     },
 
     async listByWorkspace(
@@ -181,6 +190,24 @@ export function createWorkItemRepository(db: WorktrailDb) {
     async update(id: string, input: UpdateWorkItemInput) {
       const [workItem] = await db.update(workItems).set(input).where(eq(workItems.id, id)).returning();
       return workItem ?? null;
+    },
+
+    async updateCycleAssignments(
+      ids: string[],
+      cycleId: string | null,
+      updatedAt: Date
+    ) {
+      if (ids.length === 0) {
+        return [];
+      }
+
+      const updated = await db
+        .update(workItems)
+        .set({ cycleId, updatedAt })
+        .where(inArray(workItems.id, ids))
+        .returning();
+
+      return updated.sort((left, right) => left.id.localeCompare(right.id));
     }
   };
 }

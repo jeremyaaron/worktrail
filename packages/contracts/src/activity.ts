@@ -5,6 +5,7 @@ export type ActivityEventType =
   | 'project.description_changed'
   | 'project.archived'
   | 'project.reactivated'
+  | 'cycle.closed'
   | 'milestone.created'
   | 'milestone.name_changed'
   | 'milestone.description_changed'
