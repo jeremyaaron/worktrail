@@ -4,6 +4,7 @@ import type {
   CreateWorkItemRequest,
   CreateWorkItemRelationshipRequest,
   MoveWorkItemOnBoardRequest,
+  SetWorkItemParentRequest,
   TransitionWorkItemRequest,
   UpdateWorkItemRequest,
   WorkItemCsvImportApplyDto,
@@ -12,7 +13,9 @@ import type {
   WorkItemCsvImportPreviewRequest,
   WorkspaceWorkItemListItemDto,
   WorkItemDetailDto,
+  WorkItemChildrenDto,
   WorkItemListItemDto,
+  WorkItemParentCandidateDto,
   WorkItemRelationshipDto,
   WorkItemRelationshipSummaryDto,
   WorkItemWatchStateDto
@@ -84,8 +87,23 @@ const createWorkItemSchema = z.object({
   milestoneId: nullableUuidSchema.optional(),
   cycleId: nullableUuidSchema.optional(),
   dueDate: nullableDateSchema.optional(),
-  estimatePoints: nullableEstimateSchema.optional()
+  estimatePoints: nullableEstimateSchema.optional(),
+  parentWorkItemId: nullableUuidSchema.optional()
 }) satisfies z.ZodType<CreateWorkItemRequest>;
+
+const setWorkItemParentSchema = z
+  .object({
+    parentWorkItemId: nullableUuidSchema
+  })
+  .strict() satisfies z.ZodType<SetWorkItemParentRequest>;
+
+const listWorkItemChildrenQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(25)
+});
+
+const listParentCandidatesQuerySchema = z.object({
+  search: z.string().trim().max(120).optional()
+});
 
 const csvImportPreviewSchema = z.object({
   csv: z.string()
@@ -346,6 +364,67 @@ export function getWorkItemHandler(input: {
   };
 }
 
+export function listWorkItemChildrenHandler(input: {
+  repositories: Repositories;
+  db?: WorktrailDb;
+}): EndpointHandler<WorkItemChildrenDto> {
+  return async (request) => {
+    const { workItemId } = parseWithSchema(workItemIdParamSchema, request.params);
+    const { limit } = parseWithSchema(listWorkItemChildrenQuerySchema, {
+      limit: firstQueryValue(request.query.limit)
+    });
+    const service = new WorkItemService({
+      actor: request.actor,
+      repositories: input.repositories,
+      db: input.db
+    });
+    return {
+      status: 200,
+      body: await service.listChildren(workItemId, limit)
+    };
+  };
+}
+
+export function listWorkItemParentCandidatesHandler(input: {
+  repositories: Repositories;
+  db?: WorktrailDb;
+}): EndpointHandler<WorkItemParentCandidateDto[]> {
+  return async (request) => {
+    const { workItemId } = parseWithSchema(workItemIdParamSchema, request.params);
+    const { search } = parseWithSchema(listParentCandidatesQuerySchema, {
+      search: emptyQueryValueToUndefined(firstQueryValue(request.query.search))
+    });
+    const service = new WorkItemService({
+      actor: request.actor,
+      repositories: input.repositories,
+      db: input.db
+    });
+    return {
+      status: 200,
+      body: await service.listParentCandidates(workItemId, search)
+    };
+  };
+}
+
+export function setWorkItemParentHandler(input: {
+  repositories: Repositories;
+  db?: WorktrailDb;
+}): EndpointHandler<WorkItemDetailDto> {
+  return async (request) => {
+    const { workItemId } = parseWithSchema(workItemIdParamSchema, request.params);
+    const body = parseWithSchema(setWorkItemParentSchema, request.body);
+    const service = new WorkItemService({
+      actor: request.actor,
+      repositories: input.repositories,
+      db: input.db
+    });
+    return {
+      status: 200,
+      body: await service.setParent(workItemId, body)
+    };
+  };
+}
+
 export function getWorkItemWatchStateHandler(input: {
   repositories: Repositories;
 }): EndpointHandler<WorkItemWatchStateDto> {
@@ -457,6 +536,14 @@ function csvExportHeaders(fileName: string): Record<string, string> {
     'Content-Type': 'text/csv; charset=utf-8',
     'Content-Disposition': `attachment; filename="${fileName}"`
   };
+}
+
+function firstQueryValue(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function emptyQueryValueToUndefined(value: string | undefined): string | undefined {
+  return value === undefined || value.trim() === '' ? undefined : value;
 }
 
 export function updateWorkItemHandler(input: {

@@ -56,6 +56,9 @@ describe('OpenAPI reference', () => {
       '/api/projects/{projectId}/work-items/imports',
       '/api/projects/{projectId}/work-items/export',
       '/api/work-items/{workItemId}',
+      '/api/work-items/{workItemId}/children',
+      '/api/work-items/{workItemId}/parent-candidates',
+      '/api/work-items/{workItemId}/parent',
       '/api/work-items/{workItemId}/transitions',
       '/api/work-items/{workItemId}/board-move',
       '/api/work-items/{workItemId}/watchers',
@@ -155,7 +158,19 @@ describe('OpenAPI reference', () => {
     expect(openApi).toContain('cycle_over_target');
     expect(openApi).toContain('unestimated_work');
     expect(openApi).toContain('WorkItemRiskFilter:');
+    expect(openApi).toContain('WorkItemHierarchyFilter:');
+    expect(openApi).toContain('WorkItemHierarchyQuery:');
+    expect(openApi).toContain('WorkItemParentKeyQuery:');
+    expect(openApi).toContain('WorkItemParent:');
+    expect(openApi).toContain('WorkItemChildSummary:');
+    expect(openApi).toContain('WorkItemChildren:');
+    expect(openApi).toContain('WorkItemParentCandidate:');
+    expect(openApi).toContain('SetWorkItemParentRequest:');
+    expect(openApi).toContain('A work item cannot be its own parent.');
+    expect(openApi).toContain('Work with children cannot be assigned a parent.');
     expect(openApi).toContain('workRisk:');
+    expect(openApi).toContain('hierarchy:');
+    expect(openApi).toContain('parentKey:');
     expect(openApi).toContain('deliveryHealth:');
     expect(openApi).toContain('planningReview:');
     expect(openApi).toContain('SavedWorkViewVisibility:');

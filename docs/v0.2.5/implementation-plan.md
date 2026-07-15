@@ -680,7 +680,38 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-15.
+- Extended create-work-item validation with optional nullable `parentWorkItemId`.
+- Added adapter-neutral hierarchy handlers and Express routes for:
+  - `GET /api/work-items/:workItemId/children` with a default limit of 25 and maximum of 100;
+  - `GET /api/work-items/:workItemId/parent-candidates` with trimmed search and a 20-row cap;
+  - `PUT /api/work-items/:workItemId/parent` with an exact nullable-parent request body.
+- Added `WorkItemService` reads for bounded child collections and eligible parent candidates while
+  reusing the established batched work-item DTO enrichment path.
+- Returned child `totalCount` and `hasMore` independently of the requested page limit.
+- Preserved deterministic repository ordering, workspace isolation, archived-project reads, and
+  archived-project mutation rejection.
+- Registered all specific hierarchy routes before the generic work-item detail route and updated the
+  exact Express route inventory.
+- Added typed Angular `WorkItemsApi` and `WorktrailApiService` methods for child listing, candidate
+  search, and parent set/clear commands without exposing unfinished UI.
+- Updated OpenAPI with hierarchy query parameters, parent/child/candidate schemas, create-parent
+  input, response hierarchy fields, all three paths, limits, and structured error examples.
+- Parsed the updated OpenAPI document with `js-yaml` and extended the OpenAPI reference test.
+- Added endpoint and client coverage for:
+  - create, set, no-op replay, and clear behavior;
+  - bounded child envelopes and child endpoint ordering;
+  - candidate search, eligibility, populated-parent support, and ineligible-container behavior;
+  - malformed IDs, bodies, limits, and search values;
+  - structured validation, not-found, conflict, workspace-isolation, and archive outcomes;
+  - Angular HTTP methods, paths, query parameters, request bodies, and defaults.
+- Verified:
+  - focused API endpoint/route tests (93 tests passed);
+  - focused Angular API-client tests (15 tests passed);
+  - `npm test` (API 318, web 299, contracts 28 tests passed);
+  - API and web typechecks and lint;
+  - `git diff --check`.
+- Kept Angular hierarchy controls, saved-view integration, and CSV parent columns out of Phase 5.
 
 ## Phase 6: Canonical Frontend Query, Filters, And Saved-View Integration
 

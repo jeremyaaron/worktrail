@@ -13,8 +13,10 @@ import type {
   UpdateWorkItemRequest,
   WorkItemQuery,
   WorkItemChildSummaryDto,
+  WorkItemChildrenDto,
   WorkItemDetailDto,
   WorkItemListItemDto,
+  WorkItemParentCandidateDto,
   WorkItemParentDto,
   WorkspaceWorkItemListItemDto
 } from '@worktrail/contracts';
@@ -276,6 +278,44 @@ export class WorkItemService {
   async getWorkItem(workItemId: string): Promise<WorkItemDetailDto> {
     const workItem = await this.requireWorkItem(workItemId, this.context.repositories);
     return this.toDetailDto(workItem, this.context.repositories);
+  }
+
+  async listChildren(workItemId: string, limit: number): Promise<WorkItemChildrenDto> {
+    const workItem = await this.requireWorkItem(workItemId, this.context.repositories);
+    const [children, childSummaries] = await Promise.all([
+      this.context.repositories.workItems.listChildren(workItem.id, limit),
+      this.context.repositories.workItems.summarizeChildren([workItem.id])
+    ]);
+    const totalCount = childSummaries[0]?.summary.totalCount ?? 0;
+
+    return {
+      items: await this.toListDtos(children, this.context.repositories),
+      totalCount,
+      hasMore: totalCount > children.length
+    };
+  }
+
+  async listParentCandidates(
+    workItemId: string,
+    search?: string
+  ): Promise<WorkItemParentCandidateDto[]> {
+    const workItem = await this.requireWorkItem(workItemId, this.context.repositories);
+
+    if (await this.context.repositories.workItems.hasChildren(workItem.id)) {
+      return [];
+    }
+
+    const candidates = await this.context.repositories.workItems.listEligibleParentCandidates({
+      workItem,
+      search,
+      limit: 20
+    });
+
+    return candidates.map((candidate) => ({
+      ...this.toParentDto(candidate),
+      priority: candidate.priority,
+      updatedAt: candidate.updatedAt.toISOString()
+    }));
   }
 
   async setParent(

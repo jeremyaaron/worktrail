@@ -12,14 +12,17 @@ import type {
   DueDateState,
   MoveWorkItemOnBoardRequest,
   MyWorkDashboardDto,
+  SetWorkItemParentRequest,
   TransitionWorkItemRequest,
   UpdateCommentRequest,
   UpdateWorkItemRequest,
   WorkItemCsvImportApplyDto,
   WorkItemCsvImportPreviewDto,
+  WorkItemChildrenDto,
   WorkItemDetailDto,
   WorkItemListItemDto,
   WorkItemPriority,
+  WorkItemParentCandidateDto,
   WorkItemQuery,
   WorkItemRelationshipDto,
   WorkItemRelationshipSummaryDto,
@@ -127,6 +130,32 @@ export class WorkItemsApi {
 
   getWorkItem(workItemId: string): Observable<WorkItemDetailDto> {
     return this.api.get<WorkItemDetailDto>(`/work-items/${workItemId}`);
+  }
+
+  listWorkItemChildren(workItemId: string, limit = 25): Observable<WorkItemChildrenDto> {
+    return this.api.get<WorkItemChildrenDto>(`/work-items/${workItemId}/children`, {
+      params: { limit }
+    });
+  }
+
+  listParentCandidates(
+    workItemId: string,
+    search?: string
+  ): Observable<WorkItemParentCandidateDto[]> {
+    return this.api.get<WorkItemParentCandidateDto[]>(
+      `/work-items/${workItemId}/parent-candidates`,
+      { params: { search } }
+    );
+  }
+
+  setWorkItemParent(
+    workItemId: string,
+    input: SetWorkItemParentRequest
+  ): Observable<WorkItemDetailDto> {
+    return this.api.put<WorkItemDetailDto, SetWorkItemParentRequest>(
+      `/work-items/${workItemId}/parent`,
+      input
+    );
   }
 
   updateWorkItem(workItemId: string, input: UpdateWorkItemRequest): Observable<WorkItemDetailDto> {

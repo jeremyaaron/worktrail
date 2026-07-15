@@ -35,6 +35,7 @@ import type {
   ProjectSummaryDto,
   ListSavedWorkViewsQuery,
   SavedWorkViewDto,
+  SetWorkItemParentRequest,
   TransitionWorkItemRequest,
   UpdateCommentRequest,
   UpdateLabelRequest,
@@ -47,9 +48,11 @@ import type {
   UpdateWorkItemRequest,
   WorkItemCsvImportApplyDto,
   WorkItemCsvImportPreviewDto,
+  WorkItemChildrenDto,
   WorkItemQuery,
   WorkItemDetailDto,
   WorkItemListItemDto,
+  WorkItemParentCandidateDto,
   WorkItemRelationshipDto,
   WorkItemRelationshipSummaryDto,
   WorkItemWatchStateDto,
@@ -326,6 +329,24 @@ export class WorktrailApiService {
 
   getWorkItem(workItemId: string): Observable<WorkItemDetailDto> {
     return this.workItems.getWorkItem(workItemId);
+  }
+
+  listWorkItemChildren(workItemId: string, limit = 25): Observable<WorkItemChildrenDto> {
+    return this.workItems.listWorkItemChildren(workItemId, limit);
+  }
+
+  listParentCandidates(
+    workItemId: string,
+    search?: string
+  ): Observable<WorkItemParentCandidateDto[]> {
+    return this.workItems.listParentCandidates(workItemId, search);
+  }
+
+  setWorkItemParent(
+    workItemId: string,
+    input: SetWorkItemParentRequest
+  ): Observable<WorkItemDetailDto> {
+    return this.workItems.setWorkItemParent(workItemId, input);
   }
 
   updateWorkItem(workItemId: string, input: UpdateWorkItemRequest): Observable<WorkItemDetailDto> {

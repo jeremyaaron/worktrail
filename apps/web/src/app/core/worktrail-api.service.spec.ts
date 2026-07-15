@@ -328,6 +328,53 @@ describe('WorktrailApiService', () => {
     remove.flush(null);
   });
 
+  it('supports work item hierarchy requests', () => {
+    const workItemId = '10000000-0000-4000-8000-000000000401';
+    const parentWorkItemId = '10000000-0000-4000-8000-000000000402';
+
+    api.listWorkItemChildren(workItemId).subscribe();
+    const children = http.expectOne(
+      (candidate) => candidate.url === `/api/work-items/${workItemId}/children`
+    );
+    expect(children.request.method).toBe('GET');
+    expect(children.request.params.get('limit')).toBe('25');
+    children.flush({ items: [], totalCount: 0, hasMore: false });
+
+    api.listWorkItemChildren(workItemId, 10).subscribe();
+    const limitedChildren = http.expectOne(
+      (candidate) => candidate.url === `/api/work-items/${workItemId}/children`
+    );
+    expect(limitedChildren.request.params.get('limit')).toBe('10');
+    limitedChildren.flush({ items: [], totalCount: 0, hasMore: false });
+
+    api.listParentCandidates(workItemId, '  WT-4  ').subscribe();
+    const candidates = http.expectOne(
+      (candidate) => candidate.url === `/api/work-items/${workItemId}/parent-candidates`
+    );
+    expect(candidates.request.method).toBe('GET');
+    expect(candidates.request.params.get('search')).toBe('  WT-4  ');
+    candidates.flush([]);
+
+    api.listParentCandidates(workItemId, '  ').subscribe();
+    const blankSearch = http.expectOne(
+      (candidate) => candidate.url === `/api/work-items/${workItemId}/parent-candidates`
+    );
+    expect(blankSearch.request.params.has('search')).toBeFalse();
+    blankSearch.flush([]);
+
+    api.setWorkItemParent(workItemId, { parentWorkItemId }).subscribe();
+    const setParent = http.expectOne(`/api/work-items/${workItemId}/parent`);
+    expect(setParent.request.method).toBe('PUT');
+    expect(setParent.request.body).toEqual({ parentWorkItemId });
+    setParent.flush({ parent: { id: parentWorkItemId } });
+
+    api.setWorkItemParent(workItemId, { parentWorkItemId: null }).subscribe();
+    const clearParent = http.expectOne(`/api/work-items/${workItemId}/parent`);
+    expect(clearParent.request.method).toBe('PUT');
+    expect(clearParent.request.body).toEqual({ parentWorkItemId: null });
+    clearParent.flush({ parent: null });
+  });
+
   it('supports work item watcher requests', () => {
     const workItemId = '10000000-0000-4000-8000-000000000401';
     const watchState = {
