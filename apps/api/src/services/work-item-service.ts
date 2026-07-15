@@ -8,6 +8,7 @@ import type {
   CommentDto,
   CreateWorkItemRequest,
   MoveWorkItemOnBoardRequest,
+  SetWorkItemParentRequest,
   TransitionWorkItemRequest,
   UpdateWorkItemRequest,
   WorkItemQuery,
@@ -86,6 +87,12 @@ interface WorkItemDependencyCounts {
 interface WorkItemHierarchyContext {
   parentsByChildId: Map<string, WorkItemParentDto>;
   childSummariesByParentId: Map<string, WorkItemChildSummaryDto>;
+}
+
+interface WorkItemActivityParent {
+  id: string;
+  displayKey: string;
+  title: string;
 }
 
 export interface WorkItemCreationInput extends CreateWorkItemRequest {
@@ -195,6 +202,13 @@ export class WorkItemService {
     await this.validateCycle(projectId, input.cycleId ?? null, repositories);
     await this.validateAssignee(input.assigneeId ?? null, repositories);
     await this.validateReporter(reporterId, repositories);
+    const workItemId = this.idGenerator();
+    const parent = await this.lockAndValidateParentForCreate({
+      workItemId,
+      projectId,
+      parentWorkItemId: input.parentWorkItemId ?? null,
+      repositories
+    });
     const status = input.status ?? 'backlog';
     const boardPosition = await this.getTopInsertionPosition(projectId, status, repositories);
     const numberedProject = await repositories.projects.allocateWorkItemNumber(projectId, timestamp);
@@ -208,7 +222,7 @@ export class WorkItemService {
     const itemNumber = numberedProject.nextWorkItemNumber - 1;
 
     const workItem = await repositories.workItems.create({
-      id: this.idGenerator(),
+      id: workItemId,
       workspaceId: this.context.actor.workspaceId,
       projectId,
       title: input.title,
@@ -222,6 +236,7 @@ export class WorkItemService {
       reporterId,
       milestoneId: input.milestoneId ?? null,
       cycleId: input.cycleId ?? null,
+      parentWorkItemId: parent?.id ?? null,
       boardPosition,
       dueDate: input.dueDate ?? null,
       estimatePoints: input.estimatePoints ?? null,
@@ -230,6 +245,7 @@ export class WorkItemService {
     });
 
     await repositories.labels.replaceForWorkItem(workItem.id, labelIds);
+    const activityParent = parent === null ? null : this.toActivityParent(parent);
     const activityEvent = await repositories.activityEvents.create({
       id: this.idGenerator(),
       workspaceId: workItem.workspaceId,
@@ -239,8 +255,11 @@ export class WorkItemService {
       eventType: 'work_item.created',
       summary: 'Work item created.',
       previousValue: null,
-      newValue: { status: workItem.status },
-      metadata: {},
+      newValue: {
+        status: workItem.status,
+        ...(activityParent === null ? {} : { parent: activityParent })
+      },
+      metadata: activityParent === null ? {} : { parent: activityParent },
       createdAt: timestamp
     });
 
@@ -257,6 +276,83 @@ export class WorkItemService {
   async getWorkItem(workItemId: string): Promise<WorkItemDetailDto> {
     const workItem = await this.requireWorkItem(workItemId, this.context.repositories);
     return this.toDetailDto(workItem, this.context.repositories);
+  }
+
+  async setParent(
+    workItemId: string,
+    input: SetWorkItemParentRequest
+  ): Promise<WorkItemDetailDto> {
+    if (input.parentWorkItemId === workItemId) {
+      throw new ValidationError('A work item cannot be its own parent.');
+    }
+
+    return this.withWriteRepositories(async (repositories) => {
+      const lockIds = [workItemId];
+
+      if (input.parentWorkItemId !== null) {
+        lockIds.push(input.parentWorkItemId);
+      }
+
+      const lockedById = new Map(
+        (await repositories.workItems.findManyByIdsForUpdate(lockIds)).map((item) => [item.id, item])
+      );
+      const current = lockedById.get(workItemId);
+
+      if (current === undefined || current.workspaceId !== this.context.actor.workspaceId) {
+        throw new NotFoundError('Work item not found.');
+      }
+
+      const project = await this.requireProjectFromRepositories(current.projectId, repositories);
+      this.assertProjectWritable(project);
+
+      if (current.parentWorkItemId === input.parentWorkItemId) {
+        return this.toDetailDto(current, repositories);
+      }
+
+      const previousParent =
+        current.parentWorkItemId === null
+          ? null
+          : await repositories.workItems.findById(current.parentWorkItemId);
+      let nextParent: WorkItem | null = null;
+
+      if (input.parentWorkItemId !== null) {
+        nextParent = lockedById.get(input.parentWorkItemId) ?? null;
+        this.validateProposedParent(current, nextParent);
+
+        if (await repositories.workItems.hasChildren(current.id)) {
+          throw new ConflictError('Work with children cannot be assigned a parent.');
+        }
+      }
+
+      const timestamp = this.clock();
+      const updated = await repositories.workItems.update(current.id, {
+        parentWorkItemId: input.parentWorkItemId,
+        updatedAt: timestamp
+      });
+
+      if (updated === null) {
+        throw new NotFoundError('Work item not found.');
+      }
+
+      const previousActivityParent =
+        previousParent === null ? null : this.toActivityParent(previousParent);
+      const nextActivityParent = nextParent === null ? null : this.toActivityParent(nextParent);
+      await repositories.activityEvents.create({
+        id: this.idGenerator(),
+        workspaceId: updated.workspaceId,
+        projectId: updated.projectId,
+        workItemId: updated.id,
+        actorId: this.context.actor.memberId,
+        eventType: 'work_item.parent_changed',
+        summary: this.parentChangeSummary(previousActivityParent, nextActivityParent),
+        previousValue: { parent: previousActivityParent },
+        newValue: { parent: nextActivityParent },
+        metadata: {},
+        createdAt: timestamp
+      });
+
+      return this.toDetailDto(updated, repositories);
+    });
   }
 
   async updateWorkItem(
@@ -475,6 +571,80 @@ export class WorkItemService {
 
       return this.toDetailDto(updated, repositories);
     });
+  }
+
+  private async lockAndValidateParentForCreate(input: {
+    workItemId: string;
+    projectId: string;
+    parentWorkItemId: string | null;
+    repositories: Repositories;
+  }): Promise<WorkItem | null> {
+    if (input.parentWorkItemId === null) {
+      return null;
+    }
+
+    if (input.parentWorkItemId === input.workItemId) {
+      throw new ValidationError('A work item cannot be its own parent.');
+    }
+
+    const [parent] = await input.repositories.workItems.findManyByIdsForUpdate([
+      input.parentWorkItemId
+    ]);
+
+    if (parent === undefined || parent.workspaceId !== this.context.actor.workspaceId) {
+      throw new NotFoundError('Parent work item not found.');
+    }
+
+    if (parent.projectId !== input.projectId) {
+      throw new ValidationError('Parent work must belong to the same project.');
+    }
+
+    if (parent.parentWorkItemId !== null) {
+      throw new ConflictError('A child work item cannot contain child work.');
+    }
+
+    return parent;
+  }
+
+  private validateProposedParent(current: WorkItem, parent: WorkItem | null): asserts parent is WorkItem {
+    if (parent === null || parent.workspaceId !== this.context.actor.workspaceId) {
+      throw new NotFoundError('Parent work item not found.');
+    }
+
+    if (parent.id === current.id) {
+      throw new ValidationError('A work item cannot be its own parent.');
+    }
+
+    if (parent.projectId !== current.projectId) {
+      throw new ValidationError('Parent work must belong to the same project.');
+    }
+
+    if (parent.parentWorkItemId !== null) {
+      throw new ConflictError('A child work item cannot contain child work.');
+    }
+  }
+
+  private toActivityParent(workItem: WorkItem): WorkItemActivityParent {
+    return {
+      id: workItem.id,
+      displayKey: workItem.displayKey,
+      title: workItem.title
+    };
+  }
+
+  private parentChangeSummary(
+    previousParent: WorkItemActivityParent | null,
+    nextParent: WorkItemActivityParent | null
+  ): string {
+    if (previousParent === null && nextParent !== null) {
+      return `Parent set to ${nextParent.displayKey}.`;
+    }
+
+    if (previousParent !== null && nextParent === null) {
+      return `Parent ${previousParent.displayKey} cleared.`;
+    }
+
+    return `Parent changed from ${previousParent?.displayKey} to ${nextParent?.displayKey}.`;
   }
 
   private async withWriteRepositories<T>(

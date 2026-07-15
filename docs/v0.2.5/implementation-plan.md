@@ -569,7 +569,48 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-14.
+- Extended transactional work item creation with optional parent assignment:
+  - generate the child ID before hierarchy validation;
+  - lock the proposed parent before project number allocation and insertion;
+  - require actor-workspace and same-project ownership;
+  - require the proposed parent to be top-level;
+  - allow terminal parents and parents that already contain child work;
+  - persist `parentWorkItemId` in the initial insert.
+- Extended `work_item.created` activity with stable parent ID, display key, and title in `newValue`
+  and metadata when a child is created.
+- Preserved existing reporter/assignee watches and assignment notifications during child creation.
+- Added transactional `WorkItemService.setParent` behavior for set, replace, clear, and matching
+  no-op commands.
+- Used unique ascending-ID repository locks for the current and proposed parent rows, then revalidated
+  hierarchy state after lock acquisition.
+- Enforced:
+  - self-parent rejection;
+  - actor-workspace visibility;
+  - same-project containment;
+  - top-level proposed parents;
+  - no parent assignment for work that already has children;
+  - archived-project read-only behavior.
+- Made matching set and clear commands idempotent without changing `updatedAt` or creating activity.
+- Added one `work_item.parent_changed` event for each real mutation with immutable old/new parent ID,
+  display key, and title values.
+- Kept parent activity unmirrored and added no hierarchy notification fan-out.
+- Added real-transaction integration coverage for:
+  - child creation under terminal and already-populated parents;
+  - invalid, missing, cross-project, cross-workspace, self, deep, and archived parent cases;
+  - set, replace, clear, and repeated no-op commands;
+  - activity payloads, timestamps, assignment notifications, and notification/activity absence;
+  - rollback of the parent update when activity insertion fails;
+  - concurrent inverse assignment without cycles;
+  - concurrent child creation versus assigning the proposed parent beneath another item.
+- Verified:
+  - `npm test --workspace @worktrail/api -- tests/work-items.test.ts` (70 tests passed);
+  - `npm test` (API 314, web 298, contracts 28 tests passed);
+  - `npm run typecheck` across API, web, and contracts;
+  - `npm run lint` across API, web, and contracts;
+  - `git diff --check`.
+- Kept HTTP handlers, Angular API/forms, bulk reparenting, and automatic workflow/planning changes out
+  of Phase 4.
 
 ## Phase 5: Endpoints, Express Routes, OpenAPI, And Angular API Client
 
