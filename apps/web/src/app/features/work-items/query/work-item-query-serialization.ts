@@ -4,6 +4,7 @@ import type {
   DependencyFilter,
   DueDateState,
   WorkItemPriority,
+  WorkItemHierarchyFilter,
   WorkItemQuery,
   WorkItemRiskFilter,
   WorkItemSort,
@@ -30,6 +31,8 @@ export interface ProjectWorkItemFilters {
   dueDateState?: DueDateState;
   dependency?: DependencyFilter;
   workRisk?: WorkItemRiskFilter;
+  hierarchy?: WorkItemHierarchyFilter;
+  parentKey?: string;
   search?: string;
   sort?: WorkItemSort;
 }
@@ -54,6 +57,8 @@ export function projectFiltersFromFormValue(
 }
 
 export function projectQueryFromFormValue(formValue: ProjectWorkItemFilterFormValue): WorkItemQuery {
+  const hierarchy = normalizeHierarchy(formValue.hierarchy);
+
   return compactWorkItemQuery({
     search: optionalFilterValue(formValue.search),
     status: optionalFilterValue(formValue.status) as WorkItemStatus | undefined,
@@ -67,6 +72,8 @@ export function projectQueryFromFormValue(formValue: ProjectWorkItemFilterFormVa
     dueDateState: optionalFilterValue(formValue.dueDateState) as DueDateState | undefined,
     dependency: optionalFilterValue(formValue.dependency) as DependencyFilter | undefined,
     workRisk: optionalFilterValue(formValue.workRisk) as WorkItemRiskFilter | undefined,
+    hierarchy,
+    parentKey: hierarchy === undefined ? normalizeParentKey(formValue.parentKey) : undefined,
     sort: formValue.sort as WorkItemSort
   });
 }
@@ -79,6 +86,7 @@ export function projectQueryParamsFromFilters(
 
 export function projectRouterQueryParamsFromQuery(query: WorkItemQuery): RouterQueryParams {
   const sort = query.sort ?? 'updated_desc';
+  const hierarchy = normalizeHierarchy(query.hierarchy);
 
   return {
     search: nonEmptyString(query.search) ?? null,
@@ -93,6 +101,8 @@ export function projectRouterQueryParamsFromQuery(query: WorkItemQuery): RouterQ
     dueDateState: query.dueDateState ?? null,
     dependency: query.dependency ?? null,
     workRisk: query.workRisk ?? null,
+    hierarchy: hierarchy ?? null,
+    parentKey: hierarchy === undefined ? normalizeParentKey(query.parentKey) ?? null : null,
     sort: sort === 'updated_desc' ? null : sort
   };
 }
@@ -100,6 +110,8 @@ export function projectRouterQueryParamsFromQuery(query: WorkItemQuery): RouterQ
 export function projectFormValueFromQueryParams(
   params: QueryParamReader
 ): ProjectWorkItemFilterFormValue {
+  const hierarchy = normalizeHierarchy(params.get('hierarchy'));
+
   return {
     search: params.get('search') ?? '',
     status: params.get('status') ?? '',
@@ -113,11 +125,15 @@ export function projectFormValueFromQueryParams(
     dueDateState: params.get('dueDateState') ?? '',
     dependency: params.get('dependency') ?? '',
     workRisk: params.get('workRisk') ?? '',
+    hierarchy: hierarchy ?? '',
+    parentKey: hierarchy === undefined ? normalizeParentKey(params.get('parentKey')) ?? '' : '',
     sort: params.get('sort') ?? 'updated_desc'
   };
 }
 
 export function projectFormValueFromQuery(query: WorkItemQuery): ProjectWorkItemFilterFormValue {
+  const hierarchy = normalizeHierarchy(query.hierarchy);
+
   return {
     search: query.search ?? '',
     status: query.status ?? '',
@@ -131,6 +147,8 @@ export function projectFormValueFromQuery(query: WorkItemQuery): ProjectWorkItem
     dueDateState: query.dueDateState ?? '',
     dependency: query.dependency ?? '',
     workRisk: query.workRisk ?? '',
+    hierarchy: hierarchy ?? '',
+    parentKey: hierarchy === undefined ? normalizeParentKey(query.parentKey) ?? '' : '',
     sort: query.sort ?? 'updated_desc'
   };
 }
@@ -142,6 +160,7 @@ export function workspaceQueryFromFormValue(
   const blocked = optionalFilterValue(formValue.blocked);
   const archivedProjects = optionalFilterValue(formValue.archivedProjects);
   const sort = optionalFilterValue(formValue.sort);
+  const hierarchy = normalizeHierarchy(formValue.hierarchy);
 
   return compactWorkItemQuery({
     search: optionalFilterValue(formValue.search),
@@ -162,6 +181,8 @@ export function workspaceQueryFromFormValue(
     dueDateState: optionalFilterValue(formValue.dueDateState) as DueDateState | undefined,
     blocked: blocked === undefined ? undefined : blocked === 'true',
     dependency: optionalFilterValue(formValue.dependency) as DependencyFilter | undefined,
+    hierarchy,
+    parentKey: hierarchy === undefined ? normalizeParentKey(formValue.parentKey) : undefined,
     archivedProjects:
       archivedProjects === undefined || archivedProjects === 'exclude'
         ? undefined
@@ -181,6 +202,7 @@ export function workspaceRouterQueryParamsFromQuery(query: WorkItemQuery): Route
   const assigneeId = optionalFilterValue(formValue.assigneeId);
   const sort = optionalFilterValue(formValue.sort) ?? 'updated_desc';
   const archivedProjects = optionalFilterValue(formValue.archivedProjects) ?? 'exclude';
+  const hierarchy = normalizeHierarchy(query.hierarchy);
 
   return {
     search: nonEmptyString(query.search) ?? null,
@@ -198,12 +220,16 @@ export function workspaceRouterQueryParamsFromQuery(query: WorkItemQuery): Route
     dueDateState: query.dueDateState ?? null,
     blocked: query.blocked === undefined ? null : String(query.blocked),
     dependency: query.dependency ?? null,
+    hierarchy: hierarchy ?? null,
+    parentKey: hierarchy === undefined ? normalizeParentKey(query.parentKey) ?? null : null,
     archivedProjects: archivedProjects === 'exclude' ? null : archivedProjects,
     sort: sort === 'updated_desc' ? null : sort
   };
 }
 
 export function workspaceFormValueFromQuery(query: WorkItemQuery): WorkspaceWorkItemFilterFormValue {
+  const hierarchy = normalizeHierarchy(query.hierarchy);
+
   return {
     search: query.search ?? '',
     projectId: query.projectId ?? '',
@@ -221,6 +247,8 @@ export function workspaceFormValueFromQuery(query: WorkItemQuery): WorkspaceWork
     blocked: query.blocked === undefined ? '' : String(query.blocked),
     dependency: query.dependency ?? '',
     workRisk: '',
+    hierarchy: hierarchy ?? '',
+    parentKey: hierarchy === undefined ? normalizeParentKey(query.parentKey) ?? '' : '',
     archivedProjects: query.archivedProjects ?? 'exclude',
     sort: query.sort ?? 'updated_desc'
   };
@@ -232,6 +260,7 @@ export function workspaceFormValueFromQueryParams(
   const status = params.get('status') ?? '';
   const assigneeId = params.get('assigneeId') ?? '';
   const assigneeState = params.get('assigneeState') ?? '';
+  const hierarchy = normalizeHierarchy(params.get('hierarchy'));
 
   return {
     search: params.get('search') ?? '',
@@ -250,6 +279,8 @@ export function workspaceFormValueFromQueryParams(
     blocked: params.get('blocked') ?? '',
     dependency: params.get('dependency') ?? '',
     workRisk: '',
+    hierarchy: hierarchy ?? '',
+    parentKey: hierarchy === undefined ? normalizeParentKey(params.get('parentKey')) ?? '' : '',
     archivedProjects: params.get('archivedProjects') ?? 'exclude',
     sort: params.get('sort') ?? 'updated_desc'
   };
@@ -305,4 +336,20 @@ function compactWorkItemQuery(query: WorkItemQuery): WorkItemQuery {
 
 function nonEmptyString(value: string | undefined): string | undefined {
   return value === undefined || value.trim() === '' ? undefined : value;
+}
+
+function normalizeHierarchy(
+  value: WorkItemHierarchyFilter | string | null | undefined
+): WorkItemHierarchyFilter | undefined {
+  return value === 'top_level' || value === 'children' || value === 'parents'
+    ? value
+    : undefined;
+}
+
+function normalizeParentKey(value: string | null | undefined): string | undefined {
+  const normalized = value?.trim().toUpperCase();
+
+  return normalized !== undefined && /^[A-Z0-9]{2,8}-[1-9]\d*$/.test(normalized)
+    ? normalized
+    : undefined;
 }

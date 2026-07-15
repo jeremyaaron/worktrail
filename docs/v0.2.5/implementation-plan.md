@@ -783,7 +783,43 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-15.
+- Extended the canonical project and workspace filter forms with:
+  - visible `hierarchy` state;
+  - hidden, readable `parentKey` state;
+  - `All work`, `Top-level work`, `Child work`, and `Parents with children` options.
+- Integrated hierarchy state across the complete work-list query lifecycle:
+  - form/query conversion and defaults;
+  - route parsing, canonical serialization, copied links, and detail return URLs;
+  - Angular HTTP parameters for list and CSV export requests;
+  - project/workspace query stores and pending/applied state;
+  - saved personal, shared, and pinned views;
+  - filter summaries, counts, chips, and chip clearing.
+- Canonicalized exact-parent keys by trimming and uppercasing valid work item keys, and discarded
+  malformed route or stored state before it could reach an API request.
+- Enforced hierarchy/parent mutual exclusion throughout the frontend:
+  - unrelated filter edits preserve an exact-parent drill-down;
+  - selecting a visible hierarchy mode replaces the hidden parent key;
+  - conflicting stored state resolves to the visible hierarchy mode.
+- Added project and workspace `Work breakdown` controls and applied-state labels, including exact
+  parent chips such as `Parent: WT-42`.
+- Kept chips and loaded results derived from active route state while draft navigation is pending.
+- Confirmed the backend saved-view normalization boundary rejects conflicting hierarchy state while
+  allowing and canonicalizing syntactically valid stale parent references.
+- Added focused coverage for:
+  - project/workspace parse and serialize round trips;
+  - malformed state, hidden-parent preservation, hierarchy replacement, and filter counts;
+  - personal/shared/pinned saved views and stale parent keys;
+  - copied/return URLs and list/export HTTP parameters;
+  - project/workspace controls, chips, clearing, and applied-route lifecycle parity.
+- Verified:
+  - `npm test` (API: 29 files/318 tests; web: 306 tests; contracts: 8 files/28 tests);
+  - `npm run typecheck` across API, web, and contracts;
+  - `npm run lint` across API, web, and contracts;
+  - `npm run build` across contracts, API, and the production Angular application;
+  - `git diff --check`.
+- Kept parent selection, child creation, and hierarchy rendering out of Phase 6 for Phase 7 and later
+  phases.
 
 ## Phase 7: Child Creation And Parent-Management UI
 

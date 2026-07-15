@@ -128,6 +128,28 @@ describe('SavedViewsStore', () => {
     expect(store.isSaving()).toBeFalse();
   });
 
+  it('preserves hierarchy queries across personal, shared, and pinned saved views', () => {
+    const gateway = new FakeSavedViewsGateway();
+    const store = new SavedViewsStore(gateway, {
+      scope: 'workspace',
+      canManageSharedViews: () => true
+    });
+
+    store.create('Child work', 'personal', { hierarchy: 'children' });
+    store.create('Parent drill-down', 'workspace', { parentKey: 'WT-42' });
+    const shared = store.sharedViews()[0]!;
+    store.setPinned(shared, true);
+
+    expect(gateway.createRequests.map((request) => request.query)).toEqual([
+      { hierarchy: 'children' },
+      { parentKey: 'WT-42' }
+    ]);
+    expect(gateway.updateRequests).toEqual([{ id: shared.id, input: { isPinned: true } }]);
+    expect(store.pinnedSharedViews()[0]?.query).toEqual({ parentKey: 'WT-42' });
+    expect(store.queryLabel(store.personalViews()[0]!)).toBe('1 applied filter');
+    expect(store.queryLabel(store.pinnedSharedViews()[0]!)).toBe('1 applied filter');
+  });
+
   it('blocks shared mutations when the current member cannot manage shared views', () => {
     const gateway = new FakeSavedViewsGateway();
     const sharedView = savedViewFixture({

@@ -1381,6 +1381,8 @@ describe('WorkItemListPageComponent', () => {
         dueDateState: 'overdue',
         dependency: 'blocking_open_work',
         workRisk: null,
+        hierarchy: null,
+        parentKey: null,
         sort: 'created_desc'
       }
     });
@@ -1433,6 +1435,45 @@ describe('WorkItemListPageComponent', () => {
         workRisk: null
       })
     });
+  });
+
+  it('preserves hidden parent state until a visible work-breakdown filter replaces it', () => {
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    const router = TestBed.inject(Router);
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    fixture.detectChanges();
+
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    flushProjectSavedViews(http);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([workItem]);
+
+    fixture.componentInstance.appliedFilterValues.set({
+      ...fixture.componentInstance.appliedFilterValues(),
+      parentKey: 'WT-42'
+    });
+    fixture.componentInstance.filterForm.patchValue(
+      { parentKey: 'WT-42' },
+      { emitEvent: false }
+    );
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Parent: WT-42');
+
+    fixture.componentInstance.filterForm.controls.priority.setValue('urgent');
+    expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
+      jasmine.objectContaining({ priority: 'urgent', parentKey: 'WT-42', hierarchy: null })
+    );
+
+    fixture.componentInstance.filterForm.controls.hierarchy.setValue('parents');
+    expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
+      jasmine.objectContaining({ hierarchy: 'parents', parentKey: null })
+    );
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Parent: WT-42');
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain(
+      'Work breakdown: Parents with children'
+    );
   });
 
   it('uses hidden work risk filters for project export and copied links', fakeAsync(() => {

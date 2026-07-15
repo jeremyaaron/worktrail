@@ -32,6 +32,8 @@ export function workItemQueryToHttpParams(query: WorkItemQuery): HttpParams {
     blocked: query.blocked,
     dependency: query.dependency,
     workRisk: query.workRisk,
+    hierarchy: query.hierarchy,
+    parentKey: query.parentKey,
     archivedProjects: query.archivedProjects,
     search: query.search,
     sort: query.sort

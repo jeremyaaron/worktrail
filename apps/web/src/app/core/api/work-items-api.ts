@@ -20,6 +20,7 @@ import type {
   WorkItemCsvImportPreviewDto,
   WorkItemChildrenDto,
   WorkItemDetailDto,
+  WorkItemHierarchyFilter,
   WorkItemListItemDto,
   WorkItemPriority,
   WorkItemParentCandidateDto,
@@ -52,6 +53,8 @@ export interface WorkItemListFilters {
   dueDateState?: DueDateState;
   dependency?: DependencyFilter;
   workRisk?: WorkItemRiskFilter;
+  hierarchy?: WorkItemHierarchyFilter;
+  parentKey?: string;
   search?: string;
   sort?: WorkItemSort;
 }

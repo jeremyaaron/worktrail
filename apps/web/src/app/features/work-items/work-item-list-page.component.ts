@@ -34,6 +34,7 @@ import { PinnedSavedViewsComponent } from './components/pinned-saved-views.compo
 import { SavedViewsToolbarComponent } from './components/saved-views-toolbar.component';
 import { WorkItemFilterPanelComponent } from './components/work-item-filter-panel.component';
 import { WorkItemResultListComponent } from './components/work-item-result-list.component';
+import { workItemHierarchyOptions } from './query/work-item-filter-options';
 import { ProjectBulkTriageStore } from './state/project-bulk-triage.store';
 import { WorkListQueryStore } from './state/work-list-query.store';
 
@@ -105,6 +106,8 @@ interface WorkItemFilterFormValue {
   dueDateState: string;
   dependency: string;
   workRisk: string;
+  hierarchy: string;
+  parentKey: string;
   sort: string;
 }
 
@@ -121,6 +124,8 @@ const defaultFilterValues: WorkItemFilterFormValue = {
   dueDateState: '',
   dependency: '',
   workRisk: '',
+  hierarchy: '',
+  parentKey: '',
   sort: 'updated_desc'
 };
 
@@ -324,6 +329,15 @@ const defaultFilterValues: WorkItemFilterFormValue = {
         <select formControlName="dependency">
           <option value="">Any dependency state</option>
           @for (option of dependencyOptions; track option.value) {
+            <option [value]="option.value">{{ option.label }}</option>
+          }
+        </select>
+      </label>
+
+      <label filterAdvanced>
+        <span>Work breakdown</span>
+        <select formControlName="hierarchy">
+          @for (option of hierarchyOptions; track option.value) {
             <option [value]="option.value">{{ option.label }}</option>
           }
         </select>
@@ -1211,6 +1225,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   readonly priorities = priorities;
   readonly dueDateStates = dueDateStates;
   readonly dependencyOptions = dependencyOptions;
+  readonly hierarchyOptions = workItemHierarchyOptions;
   readonly sorts = sorts;
   readonly bulkActionOptions = bulkActionOptions;
   readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
@@ -1306,6 +1321,8 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     dueDateState: [''],
     dependency: [''],
     workRisk: [''],
+    hierarchy: [''],
+    parentKey: [''],
     sort: ['updated_desc']
   });
 
@@ -1752,6 +1769,10 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
       updates.dependency = '';
     } else if (filterName === 'Risk') {
       updates.workRisk = '';
+    } else if (filterName === 'Work breakdown') {
+      updates.hierarchy = '';
+    } else if (filterName === 'Parent') {
+      updates.parentKey = '';
     } else if (filterName === 'Sort') {
       updates.sort = 'updated_desc';
     }
@@ -1852,6 +1873,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
       this.filterForm.controls.dueDateState,
       this.filterForm.controls.dependency,
       this.filterForm.controls.workRisk,
+      this.filterForm.controls.hierarchy,
       this.filterForm.controls.sort
     ];
 
@@ -2034,6 +2056,10 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
       this.dependencyLabel(value)
     );
     this.pushLookupLabel(labels, 'Risk', formValue.workRisk, (value) => this.workRiskLabel(value));
+    this.pushLookupLabel(labels, 'Work breakdown', formValue.hierarchy, (value) =>
+      workItemHierarchyOptions.find((option) => option.value === value)?.label ?? value
+    );
+    this.pushLookupLabel(labels, 'Parent', formValue.parentKey, (value) => value);
 
     if (formValue.sort !== 'updated_desc') {
       labels.push(`Sort: ${this.sortLabel(formValue.sort)}`);

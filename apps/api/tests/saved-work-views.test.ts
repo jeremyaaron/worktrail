@@ -1550,6 +1550,24 @@ describe('saved work view API', () => {
         expect(body.error.code).toBe('VALIDATION_ERROR');
       });
 
+    await request(app)
+      .post('/api/saved-work-views')
+      .set(fixture.headers)
+      .send({
+        name: 'Conflicting hierarchy query',
+        query: {
+          hierarchy: 'children',
+          parentKey: 'WT-42'
+        }
+      })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.error).toEqual({
+          code: 'VALIDATION_ERROR',
+          message: 'Work item queries cannot specify both hierarchy and parent key.'
+        });
+      });
+
     const staleLabelId = randomUUID();
 
     await request(app)
@@ -1565,6 +1583,24 @@ describe('saved work view API', () => {
       .expect(({ body }) => {
         expect(body.query).toMatchObject({
           labelId: staleLabelId,
+          archivedProjects: 'exclude',
+          sort: 'updated_desc'
+        });
+      });
+
+    await request(app)
+      .post('/api/saved-work-views')
+      .set(fixture.headers)
+      .send({
+        name: 'Stale parent reference',
+        query: {
+          parentKey: ' wt-999 '
+        }
+      })
+      .expect(201)
+      .expect(({ body }) => {
+        expect(body.query).toEqual({
+          parentKey: 'WT-999',
           archivedProjects: 'exclude',
           sort: 'updated_desc'
         });

@@ -11,6 +11,8 @@ export interface ProjectWorkItemFilterFormValue {
   dueDateState: string;
   dependency: string;
   workRisk: string;
+  hierarchy: string;
+  parentKey: string;
   sort: string;
 }
 
@@ -34,6 +36,8 @@ export const defaultProjectWorkItemFilterValues: ProjectWorkItemFilterFormValue 
   dueDateState: '',
   dependency: '',
   workRisk: '',
+  hierarchy: '',
+  parentKey: '',
   sort: 'updated_desc'
 };
 

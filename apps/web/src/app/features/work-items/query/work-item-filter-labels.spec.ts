@@ -99,6 +99,8 @@ describe('work item filter labels', () => {
           dueDateState: 'due_soon',
           dependency: 'blocking_open_work',
           workRisk: 'stale_in_progress',
+          hierarchy: 'parents',
+          parentKey: '',
           sort: 'priority_desc'
         },
         {
@@ -121,6 +123,7 @@ describe('work item filter labels', () => {
       'Due date: Due soon',
       'Dependency: Blocking open work',
       'Risk: Stale in progress',
+      'Work breakdown: Parents with children',
       'Sort: Priority high to low'
     ]);
   });
@@ -144,6 +147,8 @@ describe('work item filter labels', () => {
           blocked: 'true',
           dependency: '',
           workRisk: '',
+          hierarchy: '',
+          parentKey: 'WT-42',
           archivedProjects: 'only',
           sort: 'updated_desc'
         },
@@ -158,6 +163,7 @@ describe('work item filter labels', () => {
     ).toEqual([
       'Project: WT · Worktrail',
       'State: Open',
+      'Parent: WT-42',
       'Blocked: Blocked only',
       'Projects: Archived only'
     ]);

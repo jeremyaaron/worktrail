@@ -96,7 +96,33 @@ describe('WorkListQueryStore', () => {
       dueDateState: null,
       dependency: null,
       workRisk: null,
+      hierarchy: null,
+      parentKey: null,
       sort: null
     });
+  });
+
+  it('keeps exact-parent edits pending until applied and replaces them with visible hierarchy', () => {
+    const store = WorkListQueryStore.project();
+
+    store.applyRouteQueryParams(new URLSearchParams({ parentKey: 'wt-42', status: 'ready' }));
+    store.setPendingFilterValues({
+      ...store.pendingFilterValues(),
+      hierarchy: 'parents'
+    });
+
+    expect(store.activeQuery()).toEqual({
+      status: 'ready',
+      parentKey: 'WT-42',
+      sort: 'updated_desc'
+    });
+    expect(store.pendingQuery()).toEqual({
+      status: 'ready',
+      hierarchy: 'parents',
+      sort: 'updated_desc'
+    });
+    expect(store.pendingRouterQueryParams()).toEqual(
+      jasmine.objectContaining({ hierarchy: 'parents', parentKey: null })
+    );
   });
 });

@@ -3,6 +3,7 @@ import type {
   DependencyFilter,
   DueDateState,
   WorkItemPriority,
+  WorkItemHierarchyFilter,
   WorkItemSort,
   WorkItemState,
   WorkItemStatus,
@@ -44,6 +45,16 @@ export const blockedFilterOptions: Array<{ label: string; value: string }> = [
 export const dependencyFilterOptions: Array<{ label: string; value: DependencyFilter }> = [
   { label: dependencyFilterLabel('dependency_blocked'), value: 'dependency_blocked' },
   { label: dependencyFilterLabel('blocking_open_work'), value: 'blocking_open_work' }
+];
+
+export const workItemHierarchyOptions: Array<{
+  label: string;
+  value: WorkItemHierarchyFilter | '';
+}> = [
+  { label: 'All work', value: '' },
+  { label: 'Top-level work', value: 'top_level' },
+  { label: 'Child work', value: 'children' },
+  { label: 'Parents with children', value: 'parents' }
 ];
 
 export const archivedProjectModeOptions: Array<{ label: string; value: ArchivedProjectMode }> = [

@@ -36,6 +36,8 @@ describe('work item query serialization', () => {
     dueDateState: 'overdue',
     dependency: 'dependency_blocked',
     workRisk: 'stale_in_progress',
+    hierarchy: '',
+    parentKey: '',
     sort: 'priority_desc'
   };
 
@@ -80,6 +82,8 @@ describe('work item query serialization', () => {
       dueDateState: null,
       dependency: null,
       workRisk: null,
+      hierarchy: null,
+      parentKey: null,
       sort: null
     });
   });
@@ -113,6 +117,8 @@ describe('work item query serialization', () => {
       dueDateState: '',
       dependency: '',
       workRisk: 'unassigned_active',
+      hierarchy: '',
+      parentKey: '',
       sort: 'created_desc'
     });
   });
@@ -205,6 +211,8 @@ describe('work item query serialization', () => {
       dueDateState: 'overdue',
       blocked: null,
       dependency: 'dependency_blocked',
+      hierarchy: null,
+      parentKey: null,
       archivedProjects: null,
       sort: null
     });
@@ -249,6 +257,8 @@ describe('work item query serialization', () => {
       blocked: 'true',
       dependency: '',
       workRisk: '',
+      hierarchy: '',
+      parentKey: '',
       archivedProjects: 'exclude',
       sort: 'updated_desc'
     });
@@ -312,6 +322,65 @@ describe('work item query serialization', () => {
         'project'
       )
     ).toBe(1);
+  });
+
+  it('round-trips canonical exact-parent state while preserving unrelated edits', () => {
+    const routeForm = projectFormValueFromQueryParams(
+      new URLSearchParams({ parentKey: '  wt-42  ', status: 'ready' })
+    );
+
+    expect(routeForm).toEqual(
+      jasmine.objectContaining({ parentKey: 'WT-42', hierarchy: '', status: 'ready' })
+    );
+    expect(projectQueryFromFormValue({ ...routeForm, priority: 'high' })).toEqual({
+      status: 'ready',
+      priority: 'high',
+      parentKey: 'WT-42',
+      sort: 'updated_desc'
+    });
+    expect(
+      routerLinkQueryParamsFromWorkItemQuery(
+        { parentKey: 'wt-42', search: 'child work' },
+        'project'
+      )
+    ).toEqual({ search: 'child work', parentKey: 'WT-42' });
+  });
+
+  it('lets a visible hierarchy mode replace exact-parent state permanently', () => {
+    const exactParent = workspaceFormValueFromQuery({ parentKey: 'WT-42', projectId: 'project-1' });
+    const hierarchyQuery = workspaceQueryFromFormValue({
+      ...exactParent,
+      hierarchy: 'children'
+    });
+
+    expect(hierarchyQuery).toEqual({ projectId: 'project-1', hierarchy: 'children' });
+    const hierarchyForm = workspaceFormValueFromQuery(hierarchyQuery);
+    expect(hierarchyForm).toEqual(
+      jasmine.objectContaining({ hierarchy: 'children', parentKey: '' })
+    );
+    expect(workspaceQueryFromFormValue({ ...hierarchyForm, hierarchy: '' })).toEqual({
+      projectId: 'project-1'
+    });
+  });
+
+  it('normalizes supported hierarchy state and discards malformed route or saved-view values', () => {
+    expect(
+      projectFormValueFromQueryParams(
+        new URLSearchParams({ hierarchy: 'recursive', parentKey: 'not a key' })
+      )
+    ).toEqual(jasmine.objectContaining({ hierarchy: '', parentKey: '' }));
+    expect(
+      projectFormValueFromQuery({
+        hierarchy: 'parents',
+        parentKey: 'WT-42'
+      })
+    ).toEqual(jasmine.objectContaining({ hierarchy: 'parents', parentKey: '' }));
+    expect(
+      meaningfulWorkItemQueryFieldCount({ hierarchy: 'parents', parentKey: 'WT-42' }, 'workspace')
+    ).toBe(1);
+    expect(returnUrlFromWorkItemQuery('/work-items', { parentKey: 'wt-42' }, 'workspace')).toBe(
+      '/work-items?parentKey=WT-42'
+    );
   });
 });
 

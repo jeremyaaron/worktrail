@@ -134,6 +134,7 @@ describe('WorktrailApiService', () => {
         assigneeState: 'unassigned',
         blocked: false,
         dependency: 'dependency_blocked',
+        hierarchy: 'parents',
         archivedProjects: 'include',
         search: '  ',
         sort: 'priority_desc'
@@ -147,6 +148,7 @@ describe('WorktrailApiService', () => {
     expect(request.request.params.get('assigneeState')).toBe('unassigned');
     expect(request.request.params.get('blocked')).toBe('false');
     expect(request.request.params.get('dependency')).toBe('dependency_blocked');
+    expect(request.request.params.get('hierarchy')).toBe('parents');
     expect(request.request.params.get('archivedProjects')).toBe('include');
     expect(request.request.params.get('sort')).toBe('priority_desc');
     expect(request.request.params.has('search')).toBeFalse();
@@ -242,6 +244,7 @@ describe('WorktrailApiService', () => {
       .exportProjectWorkItems(projectId, {
         status: 'ready',
         dependency: 'blocking_open_work',
+        parentKey: 'WT-42',
         labelId: '10000000-0000-4000-8000-000000000301',
         search: '  ',
         sort: 'priority_desc'
@@ -256,6 +259,7 @@ describe('WorktrailApiService', () => {
     expect(request.request.responseType).toBe('blob');
     expect(request.request.params.get('status')).toBe('ready');
     expect(request.request.params.get('dependency')).toBe('blocking_open_work');
+    expect(request.request.params.get('parentKey')).toBe('WT-42');
     expect(request.request.params.get('labelId')).toBe('10000000-0000-4000-8000-000000000301');
     expect(request.request.params.get('sort')).toBe('priority_desc');
     expect(request.request.params.has('search')).toBeFalse();
@@ -270,6 +274,7 @@ describe('WorktrailApiService', () => {
         assigneeState: 'unassigned',
         blocked: false,
         dependency: 'dependency_blocked',
+        hierarchy: 'children',
         archivedProjects: 'include',
         search: 'import',
         sort: 'updated_desc'
@@ -284,6 +289,7 @@ describe('WorktrailApiService', () => {
     expect(request.request.params.get('assigneeState')).toBe('unassigned');
     expect(request.request.params.get('blocked')).toBe('false');
     expect(request.request.params.get('dependency')).toBe('dependency_blocked');
+    expect(request.request.params.get('hierarchy')).toBe('children');
     expect(request.request.params.get('archivedProjects')).toBe('include');
     expect(request.request.params.get('search')).toBe('import');
     expect(request.request.params.get('sort')).toBe('updated_desc');
