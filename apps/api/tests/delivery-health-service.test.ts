@@ -54,6 +54,7 @@ function workItem(input: Partial<WorkItem> & Pick<WorkItem, 'id' | 'title'>): Wo
     reporterId: input.reporterId ?? memberId,
     milestoneId: input.milestoneId ?? null,
     cycleId: input.cycleId ?? null,
+    parentWorkItemId: input.parentWorkItemId ?? null,
     boardPosition: input.boardPosition ?? itemNumber * 1024,
     dueDate: input.dueDate ?? null,
     estimatePoints: input.estimatePoints ?? null,

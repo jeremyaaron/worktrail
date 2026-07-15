@@ -166,6 +166,7 @@ function createWorkItem(input: Partial<WorkItem> & Pick<WorkItem, 'id' | 'title'
     reporterId: member.id,
     milestoneId: input.milestoneId === undefined ? milestone.id : input.milestoneId,
     cycleId: input.cycleId ?? null,
+    parentWorkItemId: input.parentWorkItemId ?? null,
     boardPosition: 0,
     dueDate: input.dueDate ?? null,
     estimatePoints: null,

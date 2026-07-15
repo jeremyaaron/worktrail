@@ -43,6 +43,9 @@ async function cleanupWorkspace(workspaceId: string) {
     [workspaceId]
   );
   await pool.query('delete from labels where workspace_id = $1', [workspaceId]);
+  await pool.query('update work_items set parent_work_item_id = null where workspace_id = $1', [
+    workspaceId
+  ]);
   await pool.query('delete from work_items where workspace_id = $1', [workspaceId]);
   await pool.query('delete from project_cycles where workspace_id = $1', [workspaceId]);
   await pool.query('delete from milestones where workspace_id = $1', [workspaceId]);
@@ -179,7 +182,11 @@ async function createRepositoryWorkItem(
     id?: string;
     itemNumber: number;
     status?: 'backlog' | 'ready' | 'in_progress' | 'blocked' | 'done' | 'canceled';
+    priority?: 'low' | 'medium' | 'high' | 'urgent';
+    parentWorkItemId?: string | null;
+    boardPosition?: number;
     title?: string;
+    updatedAt?: Date;
   }
 ) {
   const timestamp = now();
@@ -194,13 +201,15 @@ async function createRepositoryWorkItem(
     description: 'Created by repository relationship tests.',
     type: 'task',
     status: input.status ?? 'ready',
-    priority: 'medium',
+    priority: input.priority ?? 'medium',
     assigneeId: graph.id.contributorId,
     reporterId: graph.id.ownerId,
+    parentWorkItemId: input.parentWorkItemId ?? null,
+    boardPosition: input.boardPosition ?? input.itemNumber * 1024,
     dueDate: null,
     estimatePoints: null,
     createdAt: timestamp,
-    updatedAt: timestamp
+    updatedAt: input.updatedAt ?? timestamp
   });
 }
 
@@ -360,6 +369,204 @@ describe('Drizzle repositories', () => {
         status: 'blocked'
       })
     ).resolves.toHaveLength(0);
+  });
+
+  it('persists nullable parents and enforces hierarchy schema constraints', async () => {
+    const graph = await createRepositoryGraph(repositories);
+    const child = await createRepositoryWorkItem(repositories, graph, { itemNumber: 2 });
+
+    expect(graph.workItem.parentWorkItemId).toBeNull();
+    await expect(
+      repositories.workItems.update(child.id, {
+        parentWorkItemId: graph.workItem.id,
+        updatedAt: now()
+      })
+    ).resolves.toMatchObject({ parentWorkItemId: graph.workItem.id });
+    await expect(repositories.workItems.hasChildren(graph.workItem.id)).resolves.toBe(true);
+
+    await expect(
+      repositories.workItems.update(child.id, {
+        parentWorkItemId: null,
+        updatedAt: now()
+      })
+    ).resolves.toMatchObject({ parentWorkItemId: null });
+    await expect(repositories.workItems.hasChildren(graph.workItem.id)).resolves.toBe(false);
+
+    await expect(
+      repositories.workItems.update(child.id, {
+        parentWorkItemId: child.id,
+        updatedAt: now()
+      })
+    ).rejects.toMatchObject({ cause: { code: '23514' } });
+    await expect(
+      repositories.workItems.update(child.id, {
+        parentWorkItemId: randomUUID(),
+        updatedAt: now()
+      })
+    ).rejects.toMatchObject({ cause: { code: '23503' } });
+
+    await repositories.workItems.update(child.id, {
+      parentWorkItemId: graph.workItem.id,
+      updatedAt: now()
+    });
+    await expect(
+      pool.query('delete from work_items where id = $1', [graph.workItem.id])
+    ).rejects.toMatchObject({ code: '23503' });
+
+    const index = await pool.query<{ indexdef: string }>(
+      `select indexdef from pg_indexes
+       where schemaname = 'public'
+         and tablename = 'work_items'
+         and indexname = 'work_items_project_id_parent_work_item_id_idx'`
+    );
+    expect(index.rows[0]?.indexdef).toContain('(project_id, parent_work_item_id)');
+
+    await expect(
+      repositories.activityEvents.create({
+        id: randomUUID(),
+        workspaceId: graph.workspace.id,
+        projectId: graph.project.id,
+        workItemId: child.id,
+        actorId: graph.owner.id,
+        eventType: 'work_item.parent_changed',
+        summary: `Parent changed to ${graph.workItem.displayKey}.`,
+        previousValue: null,
+        newValue: { id: graph.workItem.id, displayKey: graph.workItem.displayKey },
+        metadata: {},
+        createdAt: now()
+      })
+    ).resolves.toMatchObject({ eventType: 'work_item.parent_changed' });
+  });
+
+  it('lists children in workflow, priority, board, and item order with a limit', async () => {
+    const graph = await createRepositoryGraph(repositories);
+    const medium = await createRepositoryWorkItem(repositories, graph, {
+      itemNumber: 2,
+      priority: 'medium',
+      parentWorkItemId: graph.workItem.id,
+      boardPosition: 1024
+    });
+    const highLater = await createRepositoryWorkItem(repositories, graph, {
+      itemNumber: 3,
+      status: 'blocked',
+      priority: 'high',
+      parentWorkItemId: graph.workItem.id,
+      boardPosition: 2048
+    });
+    const highEarlier = await createRepositoryWorkItem(repositories, graph, {
+      itemNumber: 4,
+      status: 'backlog',
+      priority: 'high',
+      parentWorkItemId: graph.workItem.id,
+      boardPosition: 1024
+    });
+    const terminal = await createRepositoryWorkItem(repositories, graph, {
+      itemNumber: 5,
+      status: 'done',
+      priority: 'urgent',
+      parentWorkItemId: graph.workItem.id,
+      boardPosition: 512
+    });
+
+    const children = await repositories.workItems.listChildren(graph.workItem.id, 3);
+
+    expect(children.map((item) => item.id)).toEqual([
+      highEarlier.id,
+      highLater.id,
+      medium.id
+    ]);
+    expect(children).not.toContainEqual(expect.objectContaining({ id: terminal.id }));
+    await expect(repositories.workItems.listChildren(graph.workItem.id, 0)).resolves.toEqual([]);
+  });
+
+  it('returns bounded same-project top-level parent candidates with deterministic ranking', async () => {
+    const graph = await createRepositoryGraph(repositories);
+    const child = await createRepositoryWorkItem(repositories, graph, {
+      itemNumber: 2,
+      parentWorkItemId: graph.workItem.id
+    });
+    const terminalExact = await createRepositoryWorkItem(repositories, graph, {
+      itemNumber: 3,
+      status: 'done',
+      title: 'Terminal exact candidate'
+    });
+    const openTitleMatch = await createRepositoryWorkItem(repositories, graph, {
+      itemNumber: 4,
+      title: `References ${terminalExact.displayKey}`
+    });
+
+    const otherProject = await repositories.projects.create({
+      id: randomUUID(),
+      workspaceId: graph.workspace.id,
+      key: 'OT',
+      nextWorkItemNumber: 2,
+      name: 'Other Repository Project',
+      description: '',
+      status: 'active',
+      createdAt: now(),
+      updatedAt: now()
+    });
+    await repositories.workItems.create({
+      id: randomUUID(),
+      workspaceId: graph.workspace.id,
+      projectId: otherProject.id,
+      itemNumber: 1,
+      displayKey: 'OT-1',
+      title: terminalExact.displayKey,
+      description: '',
+      type: 'task',
+      status: 'ready',
+      priority: 'medium',
+      assigneeId: null,
+      reporterId: graph.owner.id,
+      parentWorkItemId: null,
+      boardPosition: 1024,
+      dueDate: null,
+      estimatePoints: null,
+      createdAt: now(),
+      updatedAt: now()
+    });
+
+    const searchResults = await repositories.workItems.listEligibleParentCandidates({
+      workItem: child,
+      search: terminalExact.displayKey.toLowerCase(),
+      limit: 20
+    });
+    expect(searchResults.map((item) => item.id)).toEqual([openTitleMatch.id, terminalExact.id]);
+
+    for (let itemNumber = 5; itemNumber <= 26; itemNumber += 1) {
+      await createRepositoryWorkItem(repositories, graph, { itemNumber });
+    }
+
+    const cappedResults = await repositories.workItems.listEligibleParentCandidates({
+      workItem: graph.workItem,
+      limit: 100
+    });
+    expect(cappedResults).toHaveLength(20);
+    expect(cappedResults).not.toContainEqual(expect.objectContaining({ id: graph.workItem.id }));
+    expect(cappedResults).not.toContainEqual(expect.objectContaining({ id: child.id }));
+    expect(cappedResults.every((item) => item.projectId === graph.project.id)).toBe(true);
+    expect(cappedResults.every((item) => item.parentWorkItemId === null)).toBe(true);
+  });
+
+  it('locks unique work item ids in stable order', async () => {
+    const graph = await createRepositoryGraph(repositories);
+    const second = await createRepositoryWorkItem(repositories, graph, { itemNumber: 2 });
+    const third = await createRepositoryWorkItem(repositories, graph, { itemNumber: 3 });
+
+    const locked = await withRepositoriesTransaction(db, (transactionRepositories) =>
+      transactionRepositories.workItems.findManyByIdsForUpdate([
+        third.id,
+        graph.workItem.id,
+        second.id,
+        third.id
+      ])
+    );
+
+    expect(locked.map((item) => item.id)).toEqual(
+      [graph.workItem.id, second.id, third.id].sort((left, right) => left.localeCompare(right))
+    );
+    await expect(repositories.workItems.findManyByIdsForUpdate([])).resolves.toEqual([]);
   });
 
   it('updates project and work item statuses', async () => {

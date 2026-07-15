@@ -235,6 +235,10 @@ export const workItems = pgTable(
       .references(() => members.id),
     milestoneId: uuid('milestone_id').references(() => milestones.id),
     cycleId: uuid('cycle_id').references(() => projectCycles.id),
+    parentWorkItemId: uuid('parent_work_item_id').references(
+      (): AnyPgColumn => workItems.id,
+      { onDelete: 'restrict' }
+    ),
     boardPosition: integer('board_position').notNull().default(0),
     dueDate: date('due_date', { mode: 'string' }),
     estimatePoints: integer('estimate_points'),
@@ -245,12 +249,20 @@ export const workItems = pgTable(
     check('work_items_status_check', enumCheckSql('status', workItemStatuses)),
     check('work_items_priority_check', enumCheckSql('priority', workItemPriorities)),
     check('work_items_item_number_check', sql`${table.itemNumber} > 0`),
+    check(
+      'work_items_no_self_parent_check',
+      sql`${table.parentWorkItemId} is null or ${table.parentWorkItemId} <> ${table.id}`
+    ),
     index('work_items_project_id_status_idx').on(table.projectId, table.status),
     index('work_items_project_id_assignee_id_idx').on(table.projectId, table.assigneeId),
     index('work_items_project_id_type_idx').on(table.projectId, table.type),
     index('work_items_project_id_priority_idx').on(table.projectId, table.priority),
     index('work_items_project_id_milestone_id_idx').on(table.projectId, table.milestoneId),
     index('work_items_project_id_cycle_id_idx').on(table.projectId, table.cycleId),
+    index('work_items_project_id_parent_work_item_id_idx').on(
+      table.projectId,
+      table.parentWorkItemId
+    ),
     index('work_items_project_id_status_board_position_idx').on(
       table.projectId,
       table.status,

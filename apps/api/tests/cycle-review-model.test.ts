@@ -139,6 +139,7 @@ function createWorkItem(input: {
     reporterId: ids.member,
     milestoneId: null,
     cycleId: ids.cycle,
+    parentWorkItemId: null,
     boardPosition: 0,
     dueDate: input.dueDate ?? null,
     estimatePoints: input.estimatePoints,

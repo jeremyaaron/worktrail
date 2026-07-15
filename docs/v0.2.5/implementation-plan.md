@@ -344,7 +344,47 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-14.
+- Added nullable `work_items.parent_work_item_id` persistence with:
+  - a restrictive self-reference using the existing Drizzle `AnyPgColumn` pattern;
+  - `work_items_no_self_parent_check`;
+  - `work_items_project_id_parent_work_item_id_idx` on project and parent identity.
+- Generated and inspected additive migration `0015_silky_tyger_tiger.sql`, its Drizzle snapshot, and
+  journal entry. The migration contains no backfill, so existing work remains top-level.
+- Regenerated `activity_events_event_type_check` to accept `work_item.parent_changed`.
+- Extended repository mutation input with optional nullable `parentWorkItemId` without changing the
+  general update request contract or endpoint mapping.
+- Added hierarchy repository primitives for:
+  - unique, ascending-ID `findManyByIdsForUpdate` row locking and stable return order;
+  - bounded deterministic child reads ordered by open state, priority, board position, item number,
+    and ID;
+  - child-existence checks;
+  - same-project, top-level parent candidate reads with current-item exclusion, case-insensitive key/
+    title search, open-before-terminal and key-match ranking, and a hard 20-row cap.
+- Reused the existing `findById` parent lookup for future activity mapping rather than adding a
+  duplicate single-row repository method.
+- Added repository integration coverage for:
+  - null parent defaults, parent update, and clear;
+  - self-parent and dangling-parent rejection;
+  - restrictive parent deletion behavior;
+  - parent index presence;
+  - updated parent-change activity constraint;
+  - child order and limits;
+  - candidate project/child eligibility, terminal ranking, and cap;
+  - duplicate-free stable lock order and empty lock input.
+- Verified both database paths:
+  - incremental `npm run db:migrate` from the existing schema;
+  - guarded local reset followed by fresh migration through `0015`, focused repository tests, and
+    restoration of seed data.
+- Verified:
+  - `npm test --workspace @worktrail/api -- tests/repositories.test.ts` (17 tests passed);
+  - `npm test --workspace @worktrail/api` (29 files, 303 tests passed);
+  - `npm test` (API 303, web 298, contracts 28 tests passed);
+  - `npm run typecheck` across API, web, and contracts;
+  - `npm run lint` across API, web, and contracts;
+  - `git diff --check`.
+- Kept same-project/depth policy, hierarchy DTO enrichment, endpoints, and frontend behavior out of
+  Phase 2.
 
 ## Phase 3: Hierarchy Queries, Derived Summaries, And List Enrichment
 
