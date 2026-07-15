@@ -456,7 +456,44 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-14.
+- Added set-based hierarchy repository reads:
+  - `listParentsForChildren` uses one aliased self-join for the selected child IDs;
+  - `summarizeChildren` uses one grouped aggregate for the selected parent IDs;
+  - both methods de-duplicate input IDs and return immediately for empty sets.
+- Derived direct-child totals for total, open, done, canceled, estimated, and unestimated work plus
+  summed estimate points. No summary data is persisted.
+- Extended the central work item DTO mapper to accept shallow parent and child-summary context.
+- Added `WorkItemService.loadHierarchyContext`, which performs at most two hierarchy reads per
+  response and maps context before iterating through DTO rows.
+- Populated hierarchy context on:
+  - project work item lists;
+  - workspace work item lists;
+  - parent and child work item detail responses.
+- Added project/workspace repository query predicates for:
+  - top-level work;
+  - child work;
+  - parents with children;
+  - exact workspace-local parent display key.
+- Extended backend parsing and saved-query normalization with the three hierarchy modes and canonical
+  uppercase `parentKey` values. Malformed/overlong keys and `hierarchy` plus `parentKey` combinations
+  return validation errors, while a stale valid key returns an empty result.
+- Added focused repository, parser, and API integration coverage for:
+  - parent joins and grouped child-summary semantics;
+  - top-level rows with null hierarchy context;
+  - every hierarchy mode and exact/stale parent keys;
+  - project and workspace paths, including archived-project composition;
+  - composition with status, cycle, milestone, assignee, dependency, search, and sort;
+  - parent/child detail enrichment;
+  - one parent read and one summary read for multi-row list responses.
+- Verified:
+  - focused query/repository/work-item API suites (93 tests passed);
+  - `npm test` (API 307, web 298, contracts 28 tests passed);
+  - `npm run typecheck` across API, web, and contracts;
+  - `npm run lint` across API, web, and contracts;
+  - `git diff --check`.
+- Kept parent creation/mutation, child/candidate endpoints, frontend query controls, planning risk
+  rows, and CSV out of Phase 3.
 
 ## Phase 4: Transactional Create/Reparent Service And Activity
 

@@ -185,6 +185,7 @@ async function createRepositoryWorkItem(
     priority?: 'low' | 'medium' | 'high' | 'urgent';
     parentWorkItemId?: string | null;
     boardPosition?: number;
+    estimatePoints?: number | null;
     title?: string;
     updatedAt?: Date;
   }
@@ -207,7 +208,7 @@ async function createRepositoryWorkItem(
     parentWorkItemId: input.parentWorkItemId ?? null,
     boardPosition: input.boardPosition ?? input.itemNumber * 1024,
     dueDate: null,
-    estimatePoints: null,
+    estimatePoints: input.estimatePoints ?? null,
     createdAt: timestamp,
     updatedAt: input.updatedAt ?? timestamp
   });
@@ -477,6 +478,57 @@ describe('Drizzle repositories', () => {
     ]);
     expect(children).not.toContainEqual(expect.objectContaining({ id: terminal.id }));
     await expect(repositories.workItems.listChildren(graph.workItem.id, 0)).resolves.toEqual([]);
+  });
+
+  it('loads parents and direct child summaries in bounded sets', async () => {
+    const graph = await createRepositoryGraph(repositories);
+    const open = await createRepositoryWorkItem(repositories, graph, {
+      itemNumber: 2,
+      status: 'in_progress',
+      parentWorkItemId: graph.workItem.id,
+      estimatePoints: 3
+    });
+    const done = await createRepositoryWorkItem(repositories, graph, {
+      itemNumber: 3,
+      status: 'done',
+      parentWorkItemId: graph.workItem.id,
+      estimatePoints: 5
+    });
+    const canceled = await createRepositoryWorkItem(repositories, graph, {
+      itemNumber: 4,
+      status: 'canceled',
+      parentWorkItemId: graph.workItem.id
+    });
+
+    const parents = await repositories.workItems.listParentsForChildren([
+      canceled.id,
+      open.id,
+      open.id,
+      graph.workItem.id
+    ]);
+    expect(parents.map((record) => record.childWorkItemId)).toEqual(
+      [open.id, canceled.id].sort((left, right) => left.localeCompare(right))
+    );
+    expect(parents.every((record) => record.parent.id === graph.workItem.id)).toBe(true);
+
+    await expect(
+      repositories.workItems.summarizeChildren([graph.workItem.id, graph.workItem.id, done.id])
+    ).resolves.toEqual([
+      {
+        parentWorkItemId: graph.workItem.id,
+        summary: {
+          totalCount: 3,
+          openCount: 1,
+          doneCount: 1,
+          canceledCount: 1,
+          estimatedCount: 2,
+          unestimatedCount: 1,
+          estimatePoints: 8
+        }
+      }
+    ]);
+    await expect(repositories.workItems.listParentsForChildren([])).resolves.toEqual([]);
+    await expect(repositories.workItems.summarizeChildren([])).resolves.toEqual([]);
   });
 
   it('returns bounded same-project top-level parent candidates with deterministic ranking', async () => {

@@ -5,6 +5,8 @@ import {
   eq,
   ilike,
   inArray,
+  isNotNull,
+  isNull,
   or,
   sql,
   type SQL
@@ -35,6 +37,8 @@ export type ProjectWorkItemQuery = Pick<
   | 'blocked'
   | 'dependency'
   | 'workRisk'
+  | 'hierarchy'
+  | 'parentKey'
   | 'search'
   | 'sort'
 >;
@@ -131,6 +135,7 @@ function buildCommonWorkItemConditions(filters: ProjectWorkItemQuery): SQL[] {
   conditions.push(...dueDateConditions(filters.dueDateState));
   conditions.push(...dependencyConditions(filters.dependency));
   conditions.push(...workRiskConditions(filters.workRisk));
+  conditions.push(...hierarchyConditions(filters));
 
   if (filters.search !== undefined && filters.search.trim() !== '') {
     const search = `%${filters.search.trim()}%`;
@@ -144,6 +149,34 @@ function buildCommonWorkItemConditions(filters: ProjectWorkItemQuery): SQL[] {
   }
 
   return conditions;
+}
+
+function hierarchyConditions(filters: ProjectWorkItemQuery): SQL[] {
+  if (filters.hierarchy === 'top_level') {
+    return [isNull(workItems.parentWorkItemId)];
+  }
+
+  if (filters.hierarchy === 'children') {
+    return [isNotNull(workItems.parentWorkItemId)];
+  }
+
+  if (filters.hierarchy === 'parents') {
+    return [sql`exists (
+      select 1 from ${workItems} as hierarchy_child_work_items
+      where hierarchy_child_work_items.parent_work_item_id = ${workItems.id}
+    )`];
+  }
+
+  if (filters.parentKey !== undefined) {
+    return [sql`${workItems.parentWorkItemId} = (
+      select hierarchy_parent_work_items.id
+      from ${workItems} as hierarchy_parent_work_items
+      where hierarchy_parent_work_items.workspace_id = ${workItems.workspaceId}
+        and hierarchy_parent_work_items.display_key = ${filters.parentKey}
+    )`];
+  }
+
+  return [];
 }
 
 function workRiskConditions(workRisk: WorkItemQuery['workRisk']): SQL[] {

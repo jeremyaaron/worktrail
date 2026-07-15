@@ -10,6 +10,8 @@ import type {
   ProjectStatusReportSummaryDto,
   RecentWorkItemDto,
   SavedWorkViewDto,
+  WorkItemChildSummaryDto,
+  WorkItemParentDto,
   WorkItemQuery,
   WorkspaceActivityEventDto,
   WorkspaceDto,
@@ -250,6 +252,8 @@ export function toWorkItemListItemDto(input: {
   milestone?: Milestone | null;
   cycle?: ProjectCycle | null;
   dependencyCounts?: DependencyCounts;
+  parent?: WorkItemParentDto | null;
+  childSummary?: WorkItemChildSummaryDto | null;
 }): WorkItemListItemDto {
   const dependencyCounts = input.dependencyCounts ?? {
     openBlockerCount: 0,
@@ -274,8 +278,8 @@ export function toWorkItemListItemDto(input: {
     boardPosition: input.workItem.boardPosition,
     dueDate: input.workItem.dueDate,
     estimatePoints: input.workItem.estimatePoints,
-    parent: null,
-    childSummary: null,
+    parent: input.parent ?? null,
+    childSummary: input.childSummary ?? null,
     dependencyBlocked: dependencyCounts.openBlockerCount > 0,
     openBlockerCount: dependencyCounts.openBlockerCount,
     openBlockedWorkCount: dependencyCounts.openBlockedWorkCount,
@@ -292,6 +296,8 @@ export function toWorkspaceWorkItemListItemDto(input: {
   milestone?: Milestone | null;
   project: Pick<Project, 'id' | 'key' | 'name' | 'status'>;
   dependencyCounts?: DependencyCounts;
+  parent?: WorkItemParentDto | null;
+  childSummary?: WorkItemChildSummaryDto | null;
 }): WorkspaceWorkItemListItemDto {
   return {
     ...toWorkItemListItemDto(input),
@@ -322,6 +328,8 @@ export function toWorkItemDetailDto(input: {
   labels: Label[];
   milestone?: Milestone | null;
   dependencyCounts?: DependencyCounts;
+  parent?: WorkItemParentDto | null;
+  childSummary?: WorkItemChildSummaryDto | null;
   relationships?: WorkItemRelationshipSummaryDto;
   comments: CommentDto[];
   activity: ActivityEventDto[];

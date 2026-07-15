@@ -1,6 +1,7 @@
 import type { WorkItemQuery } from '@worktrail/contracts';
 import {
   and,
+  aliasedTable,
   asc,
   count,
   desc,
@@ -58,6 +59,16 @@ export interface EligibleParentCandidateInput {
   workItem: WorkItem;
   search?: string;
   limit: number;
+}
+
+export interface WorkItemChildSummaryRecord {
+  totalCount: number;
+  openCount: number;
+  doneCount: number;
+  canceledCount: number;
+  estimatedCount: number;
+  unestimatedCount: number;
+  estimatePoints: number;
 }
 
 const maximumParentCandidateLimit = 20;
@@ -162,6 +173,72 @@ export function createWorkItemRepository(db: WorktrailDb) {
           asc(workItems.id)
         )
         .limit(Math.min(maximumParentCandidateLimit, Math.max(0, input.limit)));
+    },
+
+    async listParentsForChildren(workItemIds: string[]) {
+      const uniqueIds = [...new Set(workItemIds)];
+
+      if (uniqueIds.length === 0) {
+        return [];
+      }
+
+      const parentWorkItems = aliasedTable(workItems, 'parent_work_items');
+      return db
+        .select({
+          childWorkItemId: workItems.id,
+          parent: parentWorkItems
+        })
+        .from(workItems)
+        .innerJoin(parentWorkItems, eq(parentWorkItems.id, workItems.parentWorkItemId))
+        .where(inArray(workItems.id, uniqueIds))
+        .orderBy(asc(workItems.id));
+    },
+
+    async summarizeChildren(parentWorkItemIds: string[]) {
+      const uniqueIds = [...new Set(parentWorkItemIds)];
+
+      if (uniqueIds.length === 0) {
+        return [];
+      }
+
+      const rows = await db
+        .select({
+          parentWorkItemId: workItems.parentWorkItemId,
+          totalCount: count(),
+          openCount: sql<number>`count(*) filter (
+            where ${workItems.status} not in ('done', 'canceled')
+          )`.mapWith(Number),
+          doneCount: sql<number>`count(*) filter (
+            where ${workItems.status} = 'done'
+          )`.mapWith(Number),
+          canceledCount: sql<number>`count(*) filter (
+            where ${workItems.status} = 'canceled'
+          )`.mapWith(Number),
+          estimatedCount: sql<number>`count(*) filter (
+            where ${workItems.estimatePoints} is not null
+          )`.mapWith(Number),
+          unestimatedCount: sql<number>`count(*) filter (
+            where ${workItems.estimatePoints} is null
+          )`.mapWith(Number),
+          estimatePoints: sql<number>`coalesce(sum(${workItems.estimatePoints}), 0)`.mapWith(Number)
+        })
+        .from(workItems)
+        .where(inArray(workItems.parentWorkItemId, uniqueIds))
+        .groupBy(workItems.parentWorkItemId)
+        .orderBy(asc(workItems.parentWorkItemId));
+
+      return rows.map((row) => ({
+        parentWorkItemId: row.parentWorkItemId!,
+        summary: {
+          totalCount: row.totalCount,
+          openCount: row.openCount,
+          doneCount: row.doneCount,
+          canceledCount: row.canceledCount,
+          estimatedCount: row.estimatedCount,
+          unestimatedCount: row.unestimatedCount,
+          estimatePoints: row.estimatePoints
+        } satisfies WorkItemChildSummaryRecord
+      }));
     },
 
     async listByProjectAndStatusForBoard(projectId: string, status: WorkItem['status']) {

@@ -11,8 +11,10 @@ import type {
   TransitionWorkItemRequest,
   UpdateWorkItemRequest,
   WorkItemQuery,
+  WorkItemChildSummaryDto,
   WorkItemDetailDto,
   WorkItemListItemDto,
+  WorkItemParentDto,
   WorkspaceWorkItemListItemDto
 } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
@@ -79,6 +81,11 @@ interface WorkItemBundle {
 interface WorkItemDependencyCounts {
   openBlockerCount: number;
   openBlockedWorkCount: number;
+}
+
+interface WorkItemHierarchyContext {
+  parentsByChildId: Map<string, WorkItemParentDto>;
+  childSummariesByParentId: Map<string, WorkItemChildSummaryDto>;
 }
 
 export interface WorkItemCreationInput extends CreateWorkItemRequest {
@@ -1073,11 +1080,14 @@ export class WorkItemService {
     const dependencyCountsById = await repositories.workItemRelationships.listDependencyCounts(
       workItems.map((workItem) => workItem.id)
     );
+    const hierarchy = await this.loadHierarchyContext(workItems, repositories);
 
     for (const workItem of workItems) {
       const bundle = await this.toBundle(workItem, repositories, labelsByWorkItem.get(workItem.id) ?? []);
       dtos.push(toWorkItemListItemDto({
         ...bundle,
+        parent: hierarchy.parentsByChildId.get(workItem.id) ?? null,
+        childSummary: hierarchy.childSummariesByParentId.get(workItem.id) ?? null,
         dependencyCounts: this.toDependencyCounts(dependencyCountsById.get(workItem.id))
       }));
     }
@@ -1101,6 +1111,10 @@ export class WorkItemService {
     const dependencyCountsById = await repositories.workItemRelationships.listDependencyCounts(
       records.map((record) => record.workItem.id)
     );
+    const hierarchy = await this.loadHierarchyContext(
+      records.map((record) => record.workItem),
+      repositories
+    );
 
     for (const record of records) {
       const bundle = await this.toBundle(
@@ -1111,6 +1125,8 @@ export class WorkItemService {
       dtos.push(toWorkspaceWorkItemListItemDto({
         ...bundle,
         project: record.project,
+        parent: hierarchy.parentsByChildId.get(record.workItem.id) ?? null,
+        childSummary: hierarchy.childSummariesByParentId.get(record.workItem.id) ?? null,
         dependencyCounts: this.toDependencyCounts(dependencyCountsById.get(record.workItem.id))
       }));
     }
@@ -1131,14 +1147,51 @@ export class WorkItemService {
       clock: this.clock,
       idGenerator: this.idGenerator
     }).getRelationshipSummaryWithRepositories(workItem.id, repositories);
+    const hierarchy = await this.loadHierarchyContext([workItem], repositories);
 
     return toWorkItemDetailDto({
       ...(await this.toBundle(workItem, repositories, labels)),
+      parent: hierarchy.parentsByChildId.get(workItem.id) ?? null,
+      childSummary: hierarchy.childSummariesByParentId.get(workItem.id) ?? null,
       dependencyCounts: relationships,
       relationships,
       comments: await this.toCommentDtos(comments, repositories),
       activity: await this.toActivityDtos(activity, repositories)
     });
+  }
+
+  private async loadHierarchyContext(
+    workItems: WorkItem[],
+    repositories: Repositories
+  ): Promise<WorkItemHierarchyContext> {
+    const workItemIds = workItems.map((workItem) => workItem.id);
+    const [parents, childSummaries] = await Promise.all([
+      repositories.workItems.listParentsForChildren(workItemIds),
+      repositories.workItems.summarizeChildren(workItemIds)
+    ]);
+
+    return {
+      parentsByChildId: new Map(
+        parents.map(({ childWorkItemId, parent }) => [
+          childWorkItemId,
+          this.toParentDto(parent)
+        ])
+      ),
+      childSummariesByParentId: new Map(
+        childSummaries.map(({ parentWorkItemId, summary }) => [parentWorkItemId, summary])
+      )
+    };
+  }
+
+  private toParentDto(workItem: WorkItem): WorkItemParentDto {
+    return {
+      id: workItem.id,
+      projectId: workItem.projectId,
+      displayKey: workItem.displayKey,
+      title: workItem.title,
+      type: workItem.type,
+      status: workItem.status
+    };
   }
 
   private toDependencyCounts(

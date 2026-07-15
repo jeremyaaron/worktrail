@@ -104,6 +104,18 @@ describe('work item query validation', () => {
     });
   });
 
+  it('parses hierarchy modes and canonical parent keys', () => {
+    expect(parseProjectWorkItemQuery({ hierarchy: 'parents' })).toMatchObject({
+      hierarchy: 'parents'
+    });
+    expect(parseWorkspaceWorkItemQuery({ parentKey: '  wt-42  ' })).toMatchObject({
+      parentKey: 'WT-42'
+    });
+    expect(normalizeWorkItemQuery({ parentKey: 'plan-7' })).toMatchObject({
+      parentKey: 'PLAN-7'
+    });
+  });
+
   it('normalizes unknown and empty saved-view query fields without preserving them', () => {
     expect(
       normalizeWorkItemQuery({
@@ -144,5 +156,16 @@ describe('work item query validation', () => {
 
   it('rejects unsupported work risk filters', () => {
     expect(() => parseWorkItemQuery({ workRisk: 'unowned' })).toThrow(ValidationError);
+  });
+
+  it('rejects invalid or contradictory hierarchy queries', () => {
+    expect(() => parseWorkItemQuery({ hierarchy: 'recursive' })).toThrow(ValidationError);
+    expect(() => parseWorkItemQuery({ parentKey: 'not a key' })).toThrow(ValidationError);
+    expect(() => parseWorkItemQuery({ parentKey: `WT-${'1'.repeat(79)}` })).toThrow(
+      ValidationError
+    );
+    expect(() => parseWorkItemQuery({ hierarchy: 'children', parentKey: 'WT-42' })).toThrow(
+      'Work item queries cannot specify both hierarchy and parent key.'
+    );
   });
 });
