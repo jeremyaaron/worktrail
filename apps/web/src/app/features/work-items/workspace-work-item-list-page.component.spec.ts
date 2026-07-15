@@ -136,6 +136,8 @@ const workItem: WorkspaceWorkItemListItemDto = {
   boardPosition: 1024,
   dueDate: '2026-07-08',
   estimatePoints: 5,
+  parent: null,
+  childSummary: null,
   dependencyBlocked: false,
   openBlockerCount: 0,
   openBlockedWorkCount: 0,

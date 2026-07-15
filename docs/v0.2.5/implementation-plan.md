@@ -240,7 +240,44 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-14.
+- Added shared Work Breakdown contracts in `packages/contracts/src/work-items.ts`:
+  - `WorkItemParentDto`;
+  - `WorkItemChildSummaryDto`;
+  - `WorkItemChildrenDto`;
+  - `WorkItemParentCandidateDto`;
+  - `SetWorkItemParentRequest`;
+  - `WorkItemHierarchyFilter`.
+- Extended shared work contracts with:
+  - required nullable `parent` and `childSummary` fields on `WorkItemListItemDto` and inherited detail/
+    workspace rows;
+  - optional nullable `parentWorkItemId` on `CreateWorkItemRequest`;
+  - `hierarchy` and `parentKey` on `WorkItemQuery`;
+  - optional nullable `parent` on `PlanningRiskItemDto` so existing stored report snapshot rows may
+    continue omitting it.
+- Added `work_item.parent_changed` to shared and backend activity event vocabularies.
+- Kept current runtime behavior compatible by making the central work item DTO mapper return explicit
+  `parent: null` and `childSummary: null` until persistence/read enrichment is implemented.
+- Updated the affected contract and Angular DTO fixtures with explicit null hierarchy state.
+- Added `packages/contracts/src/work-item-hierarchy.contract.test.ts` covering:
+  - shallow parent identity;
+  - child count and direct estimate summary fields;
+  - bounded child collection and parent candidate shapes;
+  - set/clear command and create request parent identity;
+  - hierarchy modes and readable exact-parent query state;
+  - legacy/new planning-risk parent compatibility;
+  - parent-change activity vocabulary.
+- Confirmed existing exports already expose `work-items.ts`, so no contracts index change was needed.
+- Made no schema, migration, repository, query parser, endpoint, API client, or hierarchy UI changes.
+- Verified:
+  - `npm run typecheck --workspace @worktrail/contracts`;
+  - `npm test --workspace @worktrail/contracts` (8 files, 28 tests passed);
+  - `npm test --workspace @worktrail/api` (29 files, 299 tests passed);
+  - `npm test --workspace @worktrail/web` (298 tests passed);
+  - `npm run typecheck` across API, web, and contracts;
+  - `npm run lint` across API, web, and contracts;
+  - `git diff --check`.
+- No Phase 2 persistence behavior was pulled forward.
 
 ## Phase 2: Schema, Migration, And Hierarchy Repository Primitives
 

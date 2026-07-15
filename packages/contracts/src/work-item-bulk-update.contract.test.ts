@@ -60,6 +60,8 @@ const workItem = {
   boardPosition: 1000,
   dueDate: '2026-07-20',
   estimatePoints: 3,
+  parent: null,
+  childSummary: null,
   dependencyBlocked: false,
   openBlockerCount: 0,
   openBlockedWorkCount: 0,

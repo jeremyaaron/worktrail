@@ -140,6 +140,8 @@ const workItem: WorkItemListItemDto = {
   boardPosition: 1024,
   dueDate: null,
   estimatePoints: 5,
+  parent: null,
+  childSummary: null,
   dependencyBlocked: false,
   openBlockerCount: 0,
   openBlockedWorkCount: 0,

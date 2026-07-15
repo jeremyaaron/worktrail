@@ -274,6 +274,8 @@ export function toWorkItemListItemDto(input: {
     boardPosition: input.workItem.boardPosition,
     dueDate: input.workItem.dueDate,
     estimatePoints: input.workItem.estimatePoints,
+    parent: null,
+    childSummary: null,
     dependencyBlocked: dependencyCounts.openBlockerCount > 0,
     openBlockerCount: dependencyCounts.openBlockerCount,
     openBlockedWorkCount: dependencyCounts.openBlockedWorkCount,
