@@ -574,6 +574,66 @@ describe('WorkItemDetailPageComponent', () => {
     expect(fixture.componentInstance.workItemId()).toBe(blockedWorkItemId);
   });
 
+  it('keeps parent and child navigation current across same-route transitions', () => {
+    const { fixture, http } = setup();
+    const compiled = fixture.nativeElement as HTMLElement;
+    const addChildLink = [...compiled.querySelectorAll<HTMLAnchorElement>('a')].find(
+      (link) => link.textContent?.trim() === 'Add child work item'
+    );
+
+    expect(addChildLink?.getAttribute('href')).toBe(
+      `/projects/${projectId}/work-items/new?parentWorkItemId=${workItemId}&returnUrl=%2Fwork-items%2F${workItemId}`
+    );
+
+    const childDetail: WorkItemDetailDto = {
+      ...detail,
+      id: blockedWorkItemId,
+      itemNumber: 5,
+      displayKey: 'WT-5',
+      title: 'Build detail controls',
+      parent: {
+        id: detail.id,
+        projectId,
+        displayKey: detail.displayKey,
+        title: detail.title,
+        type: detail.type,
+        status: detail.status
+      },
+      comments: [],
+      labels: []
+    };
+
+    routeParamMap.next(convertToParamMap({ workItemId: blockedWorkItemId }));
+    fixture.detectChanges();
+    http.expectOne(`/api/work-items/${blockedWorkItemId}`).flush(childDetail);
+    http.expectOne(`/api/work-items/${blockedWorkItemId}/watchers`).flush(unwatchedState);
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/labels`).flush([]);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([]);
+    http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([]);
+    fixture.detectChanges();
+
+    const parentLink = compiled.querySelector<HTMLAnchorElement>('app-work-item-parent-context a');
+    expect(parentLink?.textContent?.trim()).toBe('WT-3 Implement detail surface');
+    expect(parentLink?.getAttribute('href')).toBe(
+      `/work-items/${workItemId}?returnUrl=%2Fwork-items%2F${blockedWorkItemId}`
+    );
+    expect(compiled.textContent).not.toContain('Add child work item');
+
+    routeParamMap.next(convertToParamMap({ workItemId }));
+    fixture.detectChanges();
+    http.expectOne(`/api/work-items/${workItemId}`).flush(detail);
+    http.expectOne(`/api/work-items/${workItemId}/watchers`).flush(unwatchedState);
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/labels`).flush([]);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([]);
+    http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([]);
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain('Add child work item');
+    expect(compiled.querySelector('app-work-item-parent-context')).toBeNull();
+  });
+
   it('adds a blocker by posting from the selected blocker to the current work item', () => {
     const { fixture, http } = setup();
     const blocker = candidate({
@@ -1062,6 +1122,10 @@ describe('WorkItemDetailPageComponent', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Archived project');
+    expect(compiled.textContent).toContain(
+      'Parent changes are unavailable while this project is archived.'
+    );
+    expect(compiled.textContent).not.toContain('Add child work item');
     expect(compiled.querySelector('button[type="submit"]')?.hasAttribute('disabled')).toBeTrue();
     expect(compiled.querySelector('input[type="checkbox"]')?.hasAttribute('disabled')).toBeTrue();
     expect(fixture.componentInstance.relationshipForm.disabled).toBeTrue();

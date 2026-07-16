@@ -30,6 +30,8 @@ import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
 import { ActivityTimelineComponent } from './components/activity-timeline.component';
 import { WorkItemDetailSummaryComponent } from './components/work-item-detail-summary.component';
+import { WorkItemParentContextComponent } from './components/work-item-parent-context.component';
+import { WorkItemParentManagerComponent } from './components/work-item-parent-manager.component';
 
 const statuses: WorkItemStatus[] = [
   'backlog',
@@ -53,7 +55,9 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
     LoadingIndicatorComponent,
     ReactiveFormsModule,
     RouterLink,
-    WorkItemDetailSummaryComponent
+    WorkItemDetailSummaryComponent,
+    WorkItemParentContextComponent,
+    WorkItemParentManagerComponent
   ],
   template: `
     @if (isLoading()) {
@@ -66,11 +70,24 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
           <p class="section-eyebrow">Summary</p>
           <span id="work-item-summary-heading" class="visually-hidden">Work item summary</span>
           <app-work-item-detail-summary [item]="item" />
+          @if (item.parent; as parent) {
+            <app-work-item-parent-context [parent]="parent" [returnUrl]="detailSelfUrl()" />
+          }
         </div>
 
-        <a [routerLink]="returnTarget().path" [queryParams]="returnTarget().queryParams">
-          {{ returnTarget().label }}
-        </a>
+        <div class="detail-header__actions">
+          <a [routerLink]="returnTarget().path" [queryParams]="returnTarget().queryParams">
+            {{ returnTarget().label }}
+          </a>
+          @if (canAddChildWorkItem()) {
+            <a
+              [routerLink]="['/projects', item.projectId, 'work-items', 'new']"
+              [queryParams]="{ parentWorkItemId: item.id, returnUrl: detailSelfUrl() }"
+            >
+              Add child work item
+            </a>
+          }
+        </div>
       </section>
 
       @if (isArchivedProject()) {
@@ -93,6 +110,12 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
           </p>
         </section>
       }
+
+      <app-work-item-parent-manager
+        [item]="item"
+        [readOnly]="isArchivedProject()"
+        (parentChanged)="applyParentChange($event)"
+      />
 
       <section class="detail-grid">
         <section class="panel" aria-labelledby="edit-work-item-heading">
@@ -730,6 +753,13 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
       margin-bottom: 20px;
     }
 
+    .detail-header__actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
     .detail-grid,
     .collaboration-grid {
       grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
@@ -863,6 +893,11 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
       border-radius: 8px;
       padding: 18px;
       background: #ffffff;
+    }
+
+    app-work-item-parent-manager {
+      display: block;
+      margin-bottom: 18px;
     }
 
     .side-stack {
@@ -1176,6 +1211,10 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
       .label-options {
         grid-template-columns: 1fr;
       }
+
+      .detail-header__actions {
+        justify-content: flex-start;
+      }
     }
   `
 })
@@ -1263,6 +1302,10 @@ export class WorkItemDetailPageComponent implements OnInit {
       .sort((left, right) => left.name.localeCompare(right.name));
   });
   readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
+  readonly detailSelfUrl = computed(() => `/work-items/${this.workItemId()}`);
+  readonly canAddChildWorkItem = computed(
+    () => this.workItem()?.parent === null && !this.isArchivedProject()
+  );
   readonly isTerminalWorkItem = computed(() => terminalStatuses.has(this.workItem()?.status ?? 'backlog'));
   readonly canReopenTerminalWorkItem = computed(() => {
     const actor = this.currentUser.selectedMember();
@@ -1420,6 +1463,12 @@ export class WorkItemDetailPageComponent implements OnInit {
         this.isUpdating.set(false);
       }
     });
+  }
+
+  applyParentChange(workItem: WorkItemDetailDto): void {
+    if (workItem.id === this.workItemId()) {
+      this.applyWorkItem(workItem);
+    }
   }
 
   transitionStatus(): void {

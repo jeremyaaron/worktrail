@@ -893,7 +893,48 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-15.
+- Added focused standalone hierarchy components:
+  - `WorkItemParentContextComponent` for compact linked parent identity and status;
+  - `WorkItemParentManagerComponent` for bounded parent search and set/replace/clear commands.
+- Extended project-scoped work item detail with:
+  - linked parent context beside the summary for child work;
+  - an `Add child work item` action for writable top-level work;
+  - safe `parentWorkItemId` and parent-detail return state;
+  - parent management composed outside the existing detail editing, status, dependency,
+    collaboration, watcher, and activity sections.
+- Extended the existing complete create form to:
+  - observe and reload route parent state;
+  - load and validate same-project, top-level parent identity;
+  - show parent key, title, and status before submission;
+  - prevent invalid parent state from silently creating top-level work;
+  - submit `parentWorkItemId` without inheriting the parent's milestone or cycle;
+  - preserve all entered values and parent context after server conflicts;
+  - provide a direct return-to-parent action after success.
+- Implemented parent candidate search with:
+  - a 300 ms debounce and two-character threshold;
+  - exact-key/title API search;
+  - native keyboard-operable result buttons;
+  - loading, empty, terminal-status, recoverable error, selected, and stale-conflict states;
+  - request identity checks so same-route navigation cannot apply an obsolete result.
+- Implemented focused Save and Clear actions with disabled no-op saves, structured API error copy,
+  retained selection after rejection, and explicit retry behavior.
+- Removed parent mutation affordances for archived projects and work items that already have children;
+  child work cannot expose the add-child action.
+- Added Angular coverage for:
+  - parent context links and return state;
+  - search debounce/threshold, exact keys, result selection, terminal labels, empty/error states;
+  - initial set, replace, clear, no-op, stale conflict, archived, and has-children behavior;
+  - child-create route preselection/reload, valid request shape, planning-field independence,
+    parent mismatch/load errors, conflict state retention, and return-to-parent success;
+  - parent-to-child and child-to-parent navigation through the reused detail route component.
+- Verified:
+  - `npm test` (API: 29 files/318 tests; web: 317 tests; contracts: 8 files/28 tests);
+  - `npm run typecheck` across API, web, and contracts;
+  - `npm run lint` across API, web, and contracts;
+  - `npm run build --workspace @worktrail/web` with production budgets passing;
+  - `git diff --check`.
+- Kept child-row sections and list/board hierarchy rendering out of Phase 7 for Phase 8.
 
 ## Phase 8: Detail Child Section And Operating-Surface Hierarchy Context
 

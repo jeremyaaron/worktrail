@@ -236,12 +236,14 @@ const readOnlyCapabilities: WorkspaceCapabilitiesDto = {
 let clipboard: jasmine.SpyObj<ClipboardService>;
 
 function routeStub(query: Record<string, string> = {}, inputProjectId: string = projectId) {
+  const queryParamMap = new BehaviorSubject(convertToParamMap(query));
+
   return {
     snapshot: {
       paramMap: convertToParamMap(inputProjectId === '' ? {} : { projectId: inputProjectId }),
       queryParamMap: convertToParamMap(query)
     },
-    queryParamMap: new BehaviorSubject(convertToParamMap(query)).asObservable()
+    queryParamMap
   };
 }
 
@@ -2118,5 +2120,196 @@ describe('WorkItemCreatePageComponent global route', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Create unavailable');
     expect(compiled.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBeTrue();
+  });
+});
+
+describe('WorkItemCreatePageComponent child route', () => {
+  let childRoute: ReturnType<typeof routeStub>;
+
+  const parentDetail: WorkItemDetailDto = {
+    ...workItem,
+    description: 'Coordinate the child work.',
+    relationships: emptyRelationships,
+    comments: [],
+    activity: []
+  };
+
+  beforeEach(async () => {
+    childRoute = routeStub({
+      parentWorkItemId: workItemId,
+      returnUrl: `/work-items/${workItemId}`
+    });
+
+    await TestBed.configureTestingModule({
+      imports: [WorkItemCreatePageComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: childRoute
+        }
+      ]
+    }).compileComponents();
+
+    seedCurrentUser();
+  });
+
+  afterEach(() => {
+    const http = TestBed.inject(HttpTestingController);
+    flushPendingCycleRequests(http);
+    http.verify();
+  });
+
+  it('validates route parent context and creates a child without inheriting planning fields', () => {
+    const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    flushCreateContext(http);
+    http.expectOne(`/api/work-items/${workItemId}`).flush(parentDetail);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('WT-3 Implement work item API client');
+    expect(compiled.textContent).toContain('Milestone and cycle remain independent for this child.');
+    expect(fixture.componentInstance.workItemForm.controls.milestoneId.value).toBe('');
+    expect(fixture.componentInstance.workItemForm.controls.cycleId.value).toBe('');
+
+    fixture.componentInstance.workItemForm.patchValue({
+      title: 'Implement child creation',
+      description: 'Reuse the complete create form.',
+      type: 'story',
+      priority: 'high'
+    });
+    fixture.componentInstance.createWorkItem();
+    const create = http.expectOne(`/api/projects/${projectId}/work-items`);
+    expect(create.request.body).toEqual(
+      jasmine.objectContaining({
+        title: 'Implement child creation',
+        milestoneId: null,
+        cycleId: null,
+        parentWorkItemId: workItemId
+      })
+    );
+    create.flush({
+      ...parentDetail,
+      id: readyWorkItem.id,
+      displayKey: readyWorkItem.displayKey,
+      title: 'Implement child creation',
+      parent: {
+        id: parentDetail.id,
+        projectId,
+        displayKey: parentDetail.displayKey,
+        title: parentDetail.title,
+        type: parentDetail.type,
+        status: parentDetail.status
+      }
+    });
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain('WT-4 created');
+    expect(compiled.textContent).toContain('Back to WT-3');
+    expect(compiled.querySelector<HTMLAnchorElement>(`a[href="/work-items/${workItemId}"]`)).not.toBeNull();
+  });
+
+  it('reloads changed parent route state without clearing entered form values', () => {
+    const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    flushCreateContext(http);
+    http.expectOne(`/api/work-items/${workItemId}`).flush(parentDetail);
+    fixture.componentInstance.workItemForm.patchValue({ title: 'Keep this child title' });
+
+    childRoute.queryParamMap.next(
+      convertToParamMap({
+        parentWorkItemId: readyWorkItem.id,
+        returnUrl: `/work-items/${readyWorkItem.id}`
+      })
+    );
+    http.expectOne(`/api/work-items/${readyWorkItem.id}`).flush({
+      ...parentDetail,
+      id: readyWorkItem.id,
+      itemNumber: readyWorkItem.itemNumber,
+      displayKey: readyWorkItem.displayKey,
+      title: readyWorkItem.title
+    });
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.parentWorkItem()?.id).toBe(readyWorkItem.id);
+    expect(fixture.componentInstance.workItemForm.controls.title.value).toBe('Keep this child title');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'WT-4 Prepare bulk triage feedback'
+    );
+  });
+
+  it('preserves the complete child form when parent validation conflicts at create time', () => {
+    const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    flushCreateContext(http);
+    http.expectOne(`/api/work-items/${workItemId}`).flush(parentDetail);
+    fixture.componentInstance.workItemForm.patchValue({
+      title: 'Keep child draft',
+      description: 'Keep every entered field.',
+      type: 'bug',
+      priority: 'urgent',
+      estimatePoints: '5'
+    });
+    fixture.componentInstance.createWorkItem();
+    http.expectOne(`/api/projects/${projectId}/work-items`).flush(
+      {
+        error: {
+          code: 'CONFLICT',
+          message: 'A child work item cannot contain child work.'
+        }
+      },
+      { status: 409, statusText: 'Conflict' }
+    );
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'A child work item cannot contain child work.'
+    );
+    expect(fixture.componentInstance.workItemForm.getRawValue()).toEqual(
+      jasmine.objectContaining({
+        title: 'Keep child draft',
+        description: 'Keep every entered field.',
+        type: 'bug',
+        priority: 'urgent',
+        estimatePoints: '5'
+      })
+    );
+    expect(fixture.componentInstance.parentWorkItem()?.id).toBe(workItemId);
+  });
+
+  it('blocks submission for mismatched or unavailable parent context and preserves form state', () => {
+    const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    flushCreateContext(http);
+    http.expectOne(`/api/work-items/${workItemId}`).flush({
+      ...parentDetail,
+      projectId: '10000000-0000-4000-8000-000000000299'
+    });
+    fixture.componentInstance.workItemForm.patchValue({ title: 'Do not lose this title' });
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Parent work must belong to this project.'
+    );
+    expect(fixture.componentInstance.isCreateDisabled()).toBeTrue();
+    fixture.componentInstance.createWorkItem();
+    http.expectNone(`/api/projects/${projectId}/work-items`);
+    expect(fixture.componentInstance.workItemForm.controls.title.value).toBe('Do not lose this title');
+
+    fixture.componentInstance.retryParentLoad();
+    http.expectOne(`/api/work-items/${workItemId}`).flush(
+      { error: { code: 'NOT_FOUND', message: 'Parent work item not found.' } },
+      { status: 404, statusText: 'Not Found' }
+    );
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Parent work item not found.');
+    expect(fixture.componentInstance.workItemForm.controls.title.value).toBe('Do not lose this title');
   });
 });
