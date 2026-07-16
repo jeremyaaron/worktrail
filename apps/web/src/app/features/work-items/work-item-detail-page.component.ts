@@ -29,6 +29,7 @@ import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
 import { ActivityTimelineComponent } from './components/activity-timeline.component';
+import { WorkItemChildWorkComponent } from './components/work-item-child-work.component';
 import { WorkItemDetailSummaryComponent } from './components/work-item-detail-summary.component';
 import { WorkItemParentContextComponent } from './components/work-item-parent-context.component';
 import { WorkItemParentManagerComponent } from './components/work-item-parent-manager.component';
@@ -55,6 +56,7 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
     LoadingIndicatorComponent,
     ReactiveFormsModule,
     RouterLink,
+    WorkItemChildWorkComponent,
     WorkItemDetailSummaryComponent,
     WorkItemParentContextComponent,
     WorkItemParentManagerComponent
@@ -116,6 +118,10 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
         [readOnly]="isArchivedProject()"
         (parentChanged)="applyParentChange($event)"
       />
+
+      @if (item.childSummary !== null) {
+        <app-work-item-child-work [item]="item" [readOnly]="isArchivedProject()" />
+      }
 
       <section class="detail-grid">
         <section class="panel" aria-labelledby="edit-work-item-heading">
@@ -1304,7 +1310,10 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
   readonly detailSelfUrl = computed(() => `/work-items/${this.workItemId()}`);
   readonly canAddChildWorkItem = computed(
-    () => this.workItem()?.parent === null && !this.isArchivedProject()
+    () =>
+      this.workItem()?.parent === null &&
+      this.workItem()?.childSummary === null &&
+      !this.isArchivedProject()
   );
   readonly isTerminalWorkItem = computed(() => terminalStatuses.has(this.workItem()?.status ?? 'backlog'));
   readonly canReopenTerminalWorkItem = computed(() => {

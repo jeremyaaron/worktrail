@@ -8,6 +8,7 @@ import {
   workItemPriorityLabel,
   workItemStatusLabel
 } from '../../../shared/work-items/work-item-display';
+import { workItemChildSummaryLabel } from '../../../shared/work-items/work-item-hierarchy-display';
 
 export interface DailyQueueReason {
   key: MyWorkSummaryCountDto['key'];
@@ -53,6 +54,11 @@ export interface DailyQueueItem {
                     {{ projectBadge(queueItem.item.project) }}
                   </span>
                   <span class="key-pill">{{ queueItem.item.displayKey }}</span>
+                  @if (queueItem.item.parent; as parent) {
+                    <span class="hierarchy-pill">Child of {{ parent.displayKey }}</span>
+                  } @else if (queueItem.item.childSummary; as childSummary) {
+                    <span class="hierarchy-pill">{{ childSummaryLabel(childSummary) }}</span>
+                  }
                   @if (queueItem.item.openBlockerCount > 0) {
                     <span class="dependency-pill">Blocked by {{ queueItem.item.openBlockerCount }}</span>
                   }
@@ -185,6 +191,7 @@ export interface DailyQueueItem {
     .project-pill,
     .key-pill,
     .dependency-pill,
+    .hierarchy-pill,
     .status-pill,
     .priority-pill,
     .reason-pill {
@@ -217,6 +224,12 @@ export interface DailyQueueItem {
       background: #eff6ff;
       color: #1d4ed8;
       text-transform: uppercase;
+    }
+
+    .hierarchy-pill {
+      border-color: #bae6fd;
+      background: #f0f9ff;
+      color: #0369a1;
     }
 
     .reason-pill[data-tone='critical'] {
@@ -329,6 +342,7 @@ export class DailyQueueComponent {
   workItemMetadata = workItemMetadata;
   workItemStatusLabel = workItemStatusLabel;
   workItemPriorityLabel = workItemPriorityLabel;
+  childSummaryLabel = workItemChildSummaryLabel;
 
   detailQueryParams(): { returnUrl: string } | null {
     return this.returnUrl === null ? null : { returnUrl: this.returnUrl };

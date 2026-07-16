@@ -16,6 +16,7 @@ import {
   workItemPriorityLabel,
   workItemStatusLabel
 } from '../../../shared/work-items/work-item-display';
+import { workItemChildSummaryLabel } from '../../../shared/work-items/work-item-hierarchy-display';
 
 type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
 
@@ -89,6 +90,17 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
                   <span class="type-pill">{{ formatToken(item.type) }}</span>
                   @if (mode === 'workspace') {
                     <span>{{ workItemMetadata(item) }}</span>
+                  }
+                  @if (item.parent; as parent) {
+                    <a
+                      class="hierarchy-link"
+                      [routerLink]="['/work-items', parent.id]"
+                      [queryParams]="detailQueryParams()"
+                    >
+                      Child of {{ parent.displayKey }}
+                    </a>
+                  } @else if (item.childSummary; as childSummary) {
+                    <span class="hierarchy-pill">{{ childSummaryLabel(childSummary) }}</span>
                   }
                   @if (item.labels.length === 0) {
                     <span class="muted-pill">No labels</span>
@@ -191,6 +203,17 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
                       >
                         {{ projectBadge(workspaceItem.project) }}
                       </span>
+                    }
+                    @if (item.parent; as parent) {
+                      <a
+                        class="hierarchy-link"
+                        [routerLink]="['/work-items', parent.id]"
+                        [queryParams]="detailQueryParams()"
+                      >
+                        Child of {{ parent.displayKey }}
+                      </a>
+                    } @else if (item.childSummary; as childSummary) {
+                      <span class="hierarchy-pill">{{ childSummaryLabel(childSummary) }}</span>
                     }
                   </span>
                 </span>
@@ -394,7 +417,9 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
     .assignee-pill,
     .type-pill,
     .muted-pill,
-    .dependency-pill {
+    .dependency-pill,
+    .hierarchy-link,
+    .hierarchy-pill {
       display: inline-flex;
       align-items: center;
       width: fit-content;
@@ -423,7 +448,9 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
     .assignee-pill,
     .type-pill,
     .muted-pill,
-    .dependency-pill {
+    .dependency-pill,
+    .hierarchy-link,
+    .hierarchy-pill {
       min-height: 22px;
       border: 1px solid #cbd5e1;
       border-radius: 999px;
@@ -468,6 +495,20 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
       border-color: #fed7aa;
       background: #fff7ed;
       color: #c2410c;
+    }
+
+    .hierarchy-link,
+    .hierarchy-pill {
+      border-color: #bae6fd;
+      background: #f0f9ff;
+      color: #0369a1;
+      text-decoration: none;
+      text-transform: none;
+    }
+
+    .hierarchy-link:hover {
+      border-color: #7dd3fc;
+      text-decoration: underline;
     }
 
     .muted-pill,
@@ -645,6 +686,7 @@ export class WorkItemResultListComponent {
   workItemMetadata = workItemMetadata;
   workItemPriorityLabel = workItemPriorityLabel;
   workItemStatusLabel = workItemStatusLabel;
+  childSummaryLabel = workItemChildSummaryLabel;
 
   detailQueryParams(): { returnUrl: string } | null {
     return this.returnUrl === null ? null : { returnUrl: this.returnUrl };

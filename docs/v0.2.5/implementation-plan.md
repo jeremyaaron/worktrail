@@ -1004,7 +1004,38 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-15.
+- Added `WorkItemChildWorkComponent` to parent detail with:
+  - direct total/open/done/canceled and estimated/unestimated counts;
+  - direct child estimate totals;
+  - an independently recoverable loading/error/empty state;
+  - an eight-row bounded child result with truncation disclosure;
+  - child-detail return state, child creation preselection, and exact-parent list drill-down.
+- Limited child API loading to detail DTOs with a non-null child summary and guarded responses by
+  request identity and item/summary signature so reused-route navigation cannot apply stale rows.
+- Kept the compact detail-header add-child action for leaf work while moving parent add/view actions
+  into the full child-work section, avoiding duplicate commands.
+- Added shared hierarchy context to project and workspace result rows/cards:
+  - children link to `Child of KEY` with the originating return URL;
+  - parents show terminal-aware direct child completion;
+  - plain top-level leaf work remains free of hierarchy metadata;
+  - workspace project identity remains ahead of hierarchy context.
+- Added compact hierarchy context to board cards with a stable reserved metadata row and preserved
+  drag/drop and status-menu request behavior.
+- Added parent/child context to the My Work attention queue and secondary sections while retaining
+  project identity as the first compact badge.
+- Centralized direct-child progress wording in `workItemChildSummaryLabel`, treating done and
+  canceled children as terminal for completion display.
+- Added Angular coverage for child loading/error/empty/truncation states, counts, long titles,
+  create/view/detail links, project/workspace result modes, no-noise leaf rows, board rendering and
+  movement payloads, and My Work hierarchy context.
+- Verified:
+  - focused Phase 8 Angular suite: 22 tests;
+  - full web Angular suite: 322 tests;
+  - `npm run typecheck --workspace @worktrail/web`;
+  - `npm run build --workspace @worktrail/web` with production budgets passing;
+  - `npm run lint --workspace @worktrail/web`;
+  - `git diff --check`.
 
 ## Phase 9: Planning/Review Compatibility And CSV Export
 
