@@ -5,6 +5,7 @@ import type {
   MilestoneReviewRiskType,
   PlanningRiskItemDto,
   ProjectStatusReportRiskSnapshotDto,
+  WorkItemParentDto,
   WorkItemPriority,
   WorkItemQuery
 } from '@worktrail/contracts';
@@ -21,6 +22,7 @@ import {
   toDateString
 } from '../domain/work-risk-policy.js';
 import type { Member, Milestone, WorkItem } from '../repositories/types.js';
+import type { Repositories } from '../repositories/index.js';
 import { toMemberDto, toMilestoneDto } from './dto.js';
 
 const riskSectionPreviewLimit = 5;
@@ -146,6 +148,7 @@ export function createMilestoneReviewRiskSections(input: {
   workItems: WorkItem[];
   memberById: Map<string, Member>;
   milestoneById: Map<string, Milestone>;
+  parentByChildId: Map<string, WorkItemParentDto>;
   context: WorkRiskEvaluationContext;
 }): MilestoneReviewRiskSectionDto[] {
   return workRiskSectionDefinitions.map((definition) => {
@@ -160,7 +163,8 @@ export function createMilestoneReviewRiskSections(input: {
       items: toPlanningRiskItems(
         matchingItems.slice(0, riskSectionPreviewLimit),
         input.memberById,
-        input.milestoneById
+        input.milestoneById,
+        input.parentByChildId
       )
     };
   });
@@ -171,6 +175,7 @@ export function createCycleReviewRiskSections(input: {
   workItems: WorkItem[];
   memberById: Map<string, Member>;
   milestoneById: Map<string, Milestone>;
+  parentByChildId: Map<string, WorkItemParentDto>;
   context: WorkRiskEvaluationContext;
   isOverTarget: boolean;
 }): CycleReviewRiskSectionDto[] {
@@ -186,7 +191,8 @@ export function createCycleReviewRiskSections(input: {
       items: toPlanningRiskItems(
         matchingItems.slice(0, riskSectionPreviewLimit),
         input.memberById,
-        input.milestoneById
+        input.milestoneById,
+        input.parentByChildId
       )
     };
   });
@@ -206,7 +212,12 @@ export function createCycleReviewRiskSections(input: {
       description: 'Estimated cycle scope exceeds the target points.',
       count: input.isOverTarget ? 1 : 0,
       query: { cycleId: input.cycleId, sort: 'priority_desc' },
-      items: toPlanningRiskItems(overTargetItems, input.memberById, input.milestoneById)
+      items: toPlanningRiskItems(
+        overTargetItems,
+        input.memberById,
+        input.milestoneById,
+        input.parentByChildId
+      )
     }
   ];
 }
@@ -215,6 +226,7 @@ export function createProjectStatusReportRiskSnapshots(input: {
   workItems: WorkItem[];
   memberById: Map<string, Member>;
   milestoneById: Map<string, Milestone>;
+  parentByChildId: Map<string, WorkItemParentDto>;
   context: WorkRiskEvaluationContext;
 }): ProjectStatusReportRiskSnapshotDto[] {
   return workRiskSectionDefinitions.map((definition) => {
@@ -228,7 +240,8 @@ export function createProjectStatusReportRiskSnapshots(input: {
       items: toPlanningRiskItems(
         matchingItems.slice(0, riskSectionPreviewLimit),
         input.memberById,
-        input.milestoneById
+        input.milestoneById,
+        input.parentByChildId
       )
     };
   });
@@ -237,7 +250,8 @@ export function createProjectStatusReportRiskSnapshots(input: {
 export function toPlanningRiskItems(
   workItems: WorkItem[],
   memberById: Map<string, Member>,
-  milestoneById: Map<string, Milestone>
+  milestoneById: Map<string, Milestone>,
+  parentByChildId: Map<string, WorkItemParentDto>
 ): PlanningRiskItemDto[] {
   return workItems.map((workItem) => {
     const assignee =
@@ -254,9 +268,37 @@ export function toPlanningRiskItems(
       assignee: assignee === null ? null : toMemberDto(assignee),
       dueDate: workItem.dueDate,
       milestone: milestone === null ? null : toMilestoneDto(milestone),
-      updatedAt: workItem.updatedAt.toISOString()
+      updatedAt: workItem.updatedAt.toISOString(),
+      parent: parentByChildId.get(workItem.id) ?? null
     };
   });
+}
+
+export async function loadPlanningRiskParents(
+  workItems: WorkItem[],
+  repositories: Repositories
+): Promise<Map<string, WorkItemParentDto>> {
+  const workItemIds = [...new Set(workItems.map((workItem) => workItem.id))];
+
+  if (workItemIds.length === 0) {
+    return new Map();
+  }
+
+  const parentRecords = await repositories.workItems.listParentsForChildren(workItemIds);
+
+  return new Map(
+    parentRecords.map(({ childWorkItemId, parent }) => [
+      childWorkItemId,
+      {
+        id: parent.id,
+        projectId: parent.projectId,
+        displayKey: parent.displayKey,
+        title: parent.title,
+        type: parent.type,
+        status: parent.status
+      }
+    ])
+  );
 }
 
 export function compareByDueDateThenPriority(left: WorkItem, right: WorkItem): number {

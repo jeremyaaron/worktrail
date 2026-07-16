@@ -279,7 +279,7 @@ Import is a two-step flow:
 1. Preview validates a CSV file and returns normalized rows without creating work.
 2. Apply revalidates the same CSV and creates all rows transactionally.
 
-If any row is invalid during apply, no work items are created. Project and workspace exports use the same applied filters as the visible list or discovery view, so exported CSV matches the current result set rather than pending draft search input. v0.2.1 exports cycle context for assigned work and cycle-filtered views, but CSV import does not assign cycles yet.
+If any row is invalid during apply, no work items are created. Project and workspace exports use the same applied filters as the visible list or discovery view, so exported CSV matches the current result set rather than pending draft search input. Exports include cycle context and direct parent key/title context where present. CSV import does not assign cycles or parent relationships.
 
 The detailed CSV guide is in [docs/v0.0.X/v0.0.7/csv-import-export.md](docs/v0.0.X/v0.0.7/csv-import-export.md).
 

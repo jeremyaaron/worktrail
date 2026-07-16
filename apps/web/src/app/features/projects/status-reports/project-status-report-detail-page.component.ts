@@ -18,13 +18,14 @@ import {
 import { formatToken } from '../../../shared/display/token-format';
 import { ErrorPanelComponent } from '../../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../../shared/ui/loading-indicator.component';
+import { WorkItemParentPillComponent } from '../../../shared/work-items/work-item-parent-pill.component';
 import { ClipboardService } from '../../../shared/clipboard.service';
 import { routerLinkQueryParamsFromWorkItemQuery } from '../../work-items/query/work-item-query-serialization';
 import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/download-file';
 
 @Component({
   selector: 'app-project-status-report-detail-page',
-  imports: [ErrorPanelComponent, LoadingIndicatorComponent, RouterLink],
+  imports: [ErrorPanelComponent, LoadingIndicatorComponent, RouterLink, WorkItemParentPillComponent],
   template: `
     <section class="status-page">
       <div class="status-page__heading">
@@ -284,7 +285,10 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
                             [queryParams]="workItemQueryParams()"
                           >
                             <strong>{{ item.displayKey }} · {{ item.title }}</strong>
-                            <span>{{ formatToken(item.status) }} · {{ formatToken(item.priority) }}</span>
+                            <span>
+                              {{ formatToken(item.status) }} · {{ formatToken(item.priority) }}
+                              <app-work-item-parent-pill [parent]="item.parent" />
+                            </span>
                           </a>
                         }
                       </div>
@@ -339,7 +343,10 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
                       [queryParams]="workItemQueryParams()"
                     >
                       <strong>{{ item.displayKey }} · {{ item.title }}</strong>
-                      <span>{{ formatToken(item.status) }} · Updated {{ formatDateTime(item.updatedAt) }}</span>
+                      <span>
+                        {{ formatToken(item.status) }} · Updated {{ formatDateTime(item.updatedAt) }}
+                        <app-work-item-parent-pill [parent]="item.parent" />
+                      </span>
                     </a>
                   }
                 </div>

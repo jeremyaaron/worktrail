@@ -189,6 +189,7 @@ async function createWorkItem(
     cycleId?: string | null;
     dueDate?: string | null;
     estimatePoints?: number | null;
+    parentWorkItemId?: string | null;
     updatedAt?: Date;
   }
 ) {
@@ -210,6 +211,7 @@ async function createWorkItem(
     reporterId: fixture.actorId,
     milestoneId: input.milestoneId ?? null,
     cycleId: input.cycleId ?? null,
+    parentWorkItemId: input.parentWorkItemId ?? null,
     boardPosition: itemNumber * 1024,
     dueDate: input.dueDate ?? null,
     estimatePoints: input.estimatePoints ?? null,
@@ -304,7 +306,8 @@ describe('project status reports', () => {
       milestoneId: activeMilestone.id,
       cycleId: activeCycle.id,
       estimatePoints: 3,
-      dueDate: '2026-07-12'
+      dueDate: '2026-07-12',
+      parentWorkItemId: blocker.id
     });
     await createWorkItem(fixture, {
       title: 'Unassigned ready work',
@@ -358,7 +361,13 @@ describe('project status reports', () => {
     ]);
     expect(draft.snapshot.risks.find((risk) => risk.type === 'dependency_blocked')).toMatchObject({
       count: 1,
-      query: { dependency: 'dependency_blocked', sort: 'priority_desc' }
+      query: { dependency: 'dependency_blocked', sort: 'priority_desc' },
+      items: [
+        expect.objectContaining({
+          id: blocked.id,
+          parent: expect.objectContaining({ id: blocker.id, displayKey: blocker.displayKey })
+        })
+      ]
     });
     expect(draft.snapshot.cycle).toMatchObject({
       id: activeCycle.id,
@@ -396,6 +405,9 @@ describe('project status reports', () => {
       })
     ]));
     expect(draft.snapshot.recentWork).toHaveLength(4);
+    expect(draft.snapshot.recentWork.find((item) => item.id === blocked.id)?.parent).toMatchObject({
+      id: blocker.id
+    });
   });
 
   it('publishes, lists, and returns immutable report snapshots with activity', async () => {
@@ -581,6 +593,10 @@ describe('project status reports', () => {
 
   it('accepts legacy stored report snapshots without cycle data', async () => {
     const fixture = await createFixture();
+    await createWorkItem(fixture, {
+      title: 'Legacy top-level report work',
+      status: 'ready'
+    });
     const service = createService(fixture);
     const draft = await service.getProjectStatusReportDraft(fixture.projectId);
     const published = await service.publishProjectStatusReport(fixture.projectId, {
@@ -590,8 +606,23 @@ describe('project status reports', () => {
       snapshot: draft.snapshot
     });
 
-    await pool.query('update project_status_reports set snapshot = snapshot - $1 where id = $2', [
-      'cycle',
+    const withoutParent = <T extends { parent?: unknown }>(item: T): Omit<T, 'parent'> => {
+      const { parent: _parent, ...legacyItem } = item;
+      return legacyItem;
+    };
+    const legacySnapshot = {
+      ...draft.snapshot,
+      cycle: undefined,
+      risks: draft.snapshot.risks.map((risk) => ({
+        ...risk,
+        items: risk.items.map(withoutParent)
+      })),
+      recentWork: draft.snapshot.recentWork.map(withoutParent)
+    };
+    const { cycle: _cycle, ...storedLegacySnapshot } = legacySnapshot;
+
+    await pool.query('update project_status_reports set snapshot = $1::jsonb where id = $2', [
+      JSON.stringify(storedLegacySnapshot),
       published.id
     ]);
 
@@ -600,6 +631,7 @@ describe('project status reports', () => {
     const exportResult = await service.exportProjectStatusReportMarkdown(fixture.projectId, published.id);
 
     expect(detail.snapshot.cycle).toBeUndefined();
+    expect(detail.snapshot.recentWork[0]?.parent).toBeUndefined();
     expect(listed?.id).toBe(published.id);
     expect(exportResult.markdown).toContain('No active cycle captured.');
   });

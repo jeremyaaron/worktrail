@@ -24,6 +24,7 @@ import { toMilestoneDto, toProjectDto } from './dto.js';
 import {
   createMilestoneReviewRiskSections,
   createWorkRiskEvaluationContext,
+  loadPlanningRiskParents,
   toPlanningRiskItems
 } from './work-risk-sections.js';
 
@@ -89,6 +90,10 @@ export class MilestoneReviewService {
     const memberById = new Map(members.map((member) => [member.id, member]));
     const milestoneById = new Map(milestones.map((candidate) => [candidate.id, candidate]));
     const scopedWorkItems = workItems.filter((workItem) => workItem.milestoneId === milestoneId);
+    const parentByChildId = await loadPlanningRiskParents(
+      scopedWorkItems,
+      this.context.repositories
+    );
     const progress =
       healthSummary.milestoneProgress.find((item) => item.milestone.id === milestoneId) ??
       createEmptyMilestoneProgress(milestone);
@@ -107,6 +112,7 @@ export class MilestoneReviewService {
         workItems: scopedWorkItems,
         memberById,
         milestoneById,
+        parentByChildId,
         context: evaluationContext
       }),
       recentlyChangedWork: toPlanningRiskItems(
@@ -114,7 +120,8 @@ export class MilestoneReviewService {
           .sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime())
           .slice(0, recentMovementLimit),
         memberById,
-        milestoneById
+        milestoneById,
+        parentByChildId
       )
     };
   }

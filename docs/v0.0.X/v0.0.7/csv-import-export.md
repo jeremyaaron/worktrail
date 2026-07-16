@@ -167,10 +167,17 @@ Export columns:
 - `reporter_email`
 - `label_names`
 - `milestone_name`
+- `cycle_name`
 - `due_date`
 - `estimate_points`
 - `created_at`
 - `updated_at`
+- `parent_key`
+- `parent_title`
+
+`cycle_name`, `parent_key`, and `parent_title` are export context only. CSV import does not assign
+cycles or parent relationships. Top-level work exports empty parent values; child work includes its
+direct parent key and title.
 
 ## Troubleshooting
 

@@ -415,7 +415,8 @@ describe('ProjectCycleService', () => {
       status: 'blocked',
       priority: 'high',
       dueDate: '2026-07-08',
-      estimatePoints: 3
+      estimatePoints: 3,
+      parentWorkItemId: blocker.id
     });
     await createWorkItem(fixture, {
       cycleId: cycle.id,
@@ -488,6 +489,10 @@ describe('ProjectCycleService', () => {
       count: 1,
       query: { cycleId: cycle.id, sort: 'priority_desc' }
     });
+    expect(review.riskSections.find((section) => section.type === 'blocked')?.items[0]?.parent)
+      .toMatchObject({ id: blocker.id, displayKey: blocker.displayKey });
+    expect(review.recentlyChangedWork.find((item) => item.id === blocked.id)?.parent)
+      .toMatchObject({ id: blocker.id });
     expect(review.recentlyChangedWork).toHaveLength(4);
   });
 
@@ -617,6 +622,7 @@ async function createWorkItem(
     assigneeId?: string | null;
     dueDate?: string | null;
     estimatePoints?: number | null;
+    parentWorkItemId?: string | null;
     updatedAt?: Date;
   }
 ) {
@@ -640,6 +646,7 @@ async function createWorkItem(
     reporterId: fixture.actorId,
     milestoneId: null,
     cycleId: input.cycleId,
+    parentWorkItemId: input.parentWorkItemId ?? null,
     boardPosition: 0,
     dueDate: input.dueDate ?? null,
     estimatePoints: input.estimatePoints === undefined ? 1 : input.estimatePoints,

@@ -28,6 +28,7 @@ import { toProjectCycleCloseoutDto } from './project-cycle-closeout-mapper.js';
 import {
   createCycleReviewRiskSections,
   createWorkRiskEvaluationContext,
+  loadPlanningRiskParents,
   toPlanningRiskItems
 } from './work-risk-sections.js';
 
@@ -100,6 +101,10 @@ export class ProjectCycleService {
       this.context.actor.workspaceId
     );
     const scopedWorkItems = workItems.filter((workItem) => workItem.cycleId === cycleId);
+    const parentByChildId = await loadPlanningRiskParents(
+      scopedWorkItems,
+      this.context.repositories
+    );
     const now = this.clock();
     const evaluationContext = createWorkRiskEvaluationContext({
       now,
@@ -145,6 +150,7 @@ export class ProjectCycleService {
         workItems: scopedWorkItems,
         memberById,
         milestoneById,
+        parentByChildId,
         context: evaluationContext,
         isOverTarget: evaluation.isOverTarget
       }),
@@ -153,7 +159,8 @@ export class ProjectCycleService {
           .sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime())
           .slice(0, recentMovementLimit),
         memberById,
-        milestoneById
+        milestoneById,
+        parentByChildId
       ),
       closeout
     };

@@ -22,6 +22,7 @@ import {
 } from '../../shared/delivery-health/delivery-health-display';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
+import { WorkItemParentPillComponent } from '../../shared/work-items/work-item-parent-pill.component';
 
 const visibleRiskItemLimit = 4;
 const workItemStatuses: WorkItemStatus[] = [
@@ -55,7 +56,12 @@ interface BreakdownMetric {
 
 @Component({
   selector: 'app-project-milestone-review-page',
-  imports: [ErrorPanelComponent, LoadingIndicatorComponent, RouterLink],
+  imports: [
+    ErrorPanelComponent,
+    LoadingIndicatorComponent,
+    RouterLink,
+    WorkItemParentPillComponent
+  ],
   template: `
     @if (isLoading()) {
       <app-loading-indicator label="Loading milestone review" />
@@ -264,6 +270,7 @@ interface BreakdownMetric {
                           <small>
                             {{ statusLabel(item.status) }} · {{ priorityLabel(item.priority) }}
                             · {{ item.assignee?.name ?? 'Unassigned' }}
+                            <app-work-item-parent-pill [parent]="item.parent" />
                           </small>
                         </span>
                         <span class="work-row__meta">
@@ -316,6 +323,7 @@ interface BreakdownMetric {
                   <small>
                     {{ statusLabel(item.status) }} · {{ priorityLabel(item.priority) }}
                     · {{ item.assignee?.name ?? 'Unassigned' }}
+                    <app-work-item-parent-pill [parent]="item.parent" />
                   </small>
                 </span>
                 <span class="work-row__meta">

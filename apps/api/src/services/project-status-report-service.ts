@@ -37,6 +37,7 @@ import {
 import {
   createProjectStatusReportRiskSnapshots,
   createWorkRiskEvaluationContext,
+  loadPlanningRiskParents,
   toPlanningRiskItems
 } from './work-risk-sections.js';
 import {
@@ -307,6 +308,7 @@ export class ProjectStatusReportService {
     });
     const memberById = new Map(members.map((member) => [member.id, member]));
     const milestoneById = new Map(milestones.map((milestone) => [milestone.id, milestone]));
+    const parentByChildId = await loadPlanningRiskParents(workItems, input.repositories);
     const evaluationContext = createWorkRiskEvaluationContext({
       now: input.generatedAt,
       dependencyBlockedWorkItems,
@@ -343,6 +345,7 @@ export class ProjectStatusReportService {
         workItems,
         memberById,
         milestoneById,
+        parentByChildId,
         context: evaluationContext
       }),
       recentWork: toPlanningRiskItems(
@@ -350,7 +353,8 @@ export class ProjectStatusReportService {
           .sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime())
           .slice(0, recentWorkLimit),
         memberById,
-        milestoneById
+        milestoneById,
+        parentByChildId
       )
     };
   }

@@ -29,6 +29,7 @@ import {
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
+import { WorkItemParentPillComponent } from '../../shared/work-items/work-item-parent-pill.component';
 import { routerLinkQueryParamsFromWorkItemQuery } from '../work-items/query/work-item-query-serialization';
 import { CycleCloseoutResultComponent } from './cycle-closeout/cycle-closeout-result.component';
 
@@ -69,7 +70,8 @@ interface BreakdownMetric {
     EmptyStateComponent,
     ErrorPanelComponent,
     LoadingIndicatorComponent,
-    RouterLink
+    RouterLink,
+    WorkItemParentPillComponent
   ],
   template: `
     <section class="cycle-review-page">
@@ -342,6 +344,7 @@ interface BreakdownMetric {
                             <small>
                               {{ workStatusLabel(item.status) }} · {{ priorityLabel(item.priority) }}
                               · {{ item.assignee?.name ?? 'Unassigned' }}
+                              <app-work-item-parent-pill [parent]="item.parent" />
                             </small>
                           </span>
                           <span class="work-row__meta">
@@ -394,6 +397,7 @@ interface BreakdownMetric {
                     <small>
                       {{ workStatusLabel(item.status) }} · {{ priorityLabel(item.priority) }}
                       · {{ item.assignee?.name ?? 'Unassigned' }}
+                      <app-work-item-parent-pill [parent]="item.parent" />
                     </small>
                   </span>
                   <span class="work-row__meta">

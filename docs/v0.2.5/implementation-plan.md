@@ -1096,7 +1096,39 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-15.
+- Added shared, set-based parent enrichment for live `PlanningRiskItemDto` mapping:
+  - each service resolves parent rows through one `listParentsForChildren` batch;
+  - the resulting child-to-parent map is reused across risk sections and recent-work rows;
+  - live rows always emit `parent`, using `null` for top-level work;
+  - risk predicates, sorting, preview limits, counts, and planning totals remain unchanged.
+- Populated parent context in project Planning, Milestone Review, Cycle Review, generated report
+  drafts, and newly published status-report risk/recent-work snapshot rows.
+- Added a compact shared `WorkItemParentPillComponent` and rendered parent keys after primary status,
+  priority, assignee, due-date, and risk context on live review surfaces.
+- Extended status-report snapshot validation with optional nullable parent rows so legacy snapshot v1
+  payloads may omit the field while newly generated snapshots retain it.
+- Rendered optional parent context defensively in published report detail and Markdown exports.
+- Left cycle closeout snapshot v1 contracts, parsing, mapping, and rendering unchanged.
+- Appended `parent_key` and `parent_title` to project and workspace CSV exports:
+  - child rows include direct parent key/title;
+  - top-level rows emit empty values;
+  - exact-parent and hierarchy-mode exports continue through canonical applied query filters.
+- Kept CSV import schemas and transactional apply behavior unchanged; hierarchy export columns remain
+  explicitly unsupported on import.
+- Updated the CSV guide and README to document cycle and hierarchy fields as export-only context.
+- Added coverage for batched parent reads, Planning/Milestone/Cycle live context, new and legacy report
+  snapshots, report detail and Markdown rendering, unchanged closeout parsing, CSV headers/order and
+  values, hierarchy-filtered project/workspace exports, and import rejection of hierarchy columns.
+- Verified:
+  - focused API unit suites: 3 files/22 tests;
+  - focused database-backed API suites: 5 files/116 tests;
+  - focused project Angular suite: 79 tests;
+  - `npm test`: API 29 files/320 tests, web 322 tests, contracts 8 files/28 tests;
+  - `npm run typecheck` across API, web, and contracts;
+  - `npm run lint` across API, web, and contracts;
+  - `npm run build --workspace @worktrail/web` with production budgets passing;
+  - `git diff --check`.
 
 ## Phase 10: Seed Data, Browser Smoke, And Responsive/Accessibility Verification
 

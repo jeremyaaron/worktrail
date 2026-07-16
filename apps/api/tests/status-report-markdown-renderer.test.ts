@@ -75,7 +75,15 @@ const riskItem = {
   assignee: author,
   dueDate: '2026-07-20',
   milestone,
-  updatedAt: '2026-07-06T00:00:00.000Z'
+  updatedAt: '2026-07-06T00:00:00.000Z',
+  parent: {
+    id: 'parent-work-item-id',
+    projectId: project.id,
+    displayKey: 'WT-40',
+    title: 'Coordinate status reporting',
+    type: 'story',
+    status: 'in_progress'
+  }
 } satisfies PlanningRiskItemDto;
 
 const snapshot = {
@@ -227,6 +235,7 @@ describe('renderStatusReportMarkdown', () => {
     expect(markdown).toContain(
       '[WT-42 - Stabilize status report publish flow](/work-items/work-item-id)'
     );
+    expect(markdown).toContain('child of: WT-40 - Coordinate status reporting');
   });
 
   it('renders active cycle context when captured', () => {

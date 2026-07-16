@@ -1651,8 +1651,8 @@ describe('work item API', () => {
       .expect(({ text }) => {
         expect(text).toBe(
           [
-            'project_key,display_key,title,type,status,priority,assignee_name,assignee_email,reporter_name,reporter_email,label_names,milestone_name,cycle_name,due_date,estimate_points,created_at,updated_at',
-            `WI,${ready.displayKey},"Exported, ready work",task,ready,urgent,API Contributor,${fixture.contributorId}@example.com,API Maintainer,${fixture.maintainerId}@example.com,backend,,CSV export cycle,2026-07-12,8,2026-07-01T12:00:00.000Z,2026-07-03T12:00:00.000Z`,
+            'project_key,display_key,title,type,status,priority,assignee_name,assignee_email,reporter_name,reporter_email,label_names,milestone_name,cycle_name,due_date,estimate_points,created_at,updated_at,parent_key,parent_title',
+            `WI,${ready.displayKey},"Exported, ready work",task,ready,urgent,API Contributor,${fixture.contributorId}@example.com,API Maintainer,${fixture.maintainerId}@example.com,backend,,CSV export cycle,2026-07-12,8,2026-07-01T12:00:00.000Z,2026-07-03T12:00:00.000Z,,`,
             ''
           ].join('\n')
         );
@@ -1709,6 +1709,47 @@ describe('work item API', () => {
       });
   });
 
+  it('exports parent context through project and workspace hierarchy filters', async () => {
+    const fixture = await createFixture('owner');
+    const parent = await createWorkItem(fixture, {
+      title: 'CSV hierarchy parent',
+      status: 'in_progress'
+    });
+    const child = await createWorkItem(fixture, {
+      title: 'CSV hierarchy child',
+      status: 'ready',
+      parentWorkItemId: parent.id
+    });
+    await createWorkItem(fixture, {
+      title: 'CSV hierarchy unrelated',
+      status: 'ready'
+    });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items/export`)
+      .query({ parentKey: parent.displayKey })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ text }) => {
+        expect(text).toContain(`WI,${child.displayKey},CSV hierarchy child`);
+        expect(text).toContain(`,${parent.displayKey},CSV hierarchy parent\n`);
+        expect(text).not.toContain(`WI,${parent.displayKey},CSV hierarchy parent`);
+        expect(text).not.toContain('CSV hierarchy unrelated');
+      });
+
+    await request(app)
+      .get('/api/work-items/export')
+      .query({ hierarchy: 'children' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ text }) => {
+        expect(text).toContain(`WI,${child.displayKey},CSV hierarchy child`);
+        expect(text).toContain(`,${parent.displayKey},CSV hierarchy parent\n`);
+        expect(text).not.toContain(`WI,${parent.displayKey},CSV hierarchy parent`);
+        expect(text).not.toContain('CSV hierarchy unrelated');
+      });
+  });
+
   it('exports header-only CSV for empty project work item results', async () => {
     const fixture = await createFixture('owner');
     await createWorkItem(fixture, {
@@ -1724,7 +1765,7 @@ describe('work item API', () => {
       .expect('Content-Type', /text\/csv/)
       .expect(({ text }) => {
         expect(text).toBe(
-          'project_key,display_key,title,type,status,priority,assignee_name,assignee_email,reporter_name,reporter_email,label_names,milestone_name,cycle_name,due_date,estimate_points,created_at,updated_at\n'
+          'project_key,display_key,title,type,status,priority,assignee_name,assignee_email,reporter_name,reporter_email,label_names,milestone_name,cycle_name,due_date,estimate_points,created_at,updated_at,parent_key,parent_title\n'
         );
       });
   });

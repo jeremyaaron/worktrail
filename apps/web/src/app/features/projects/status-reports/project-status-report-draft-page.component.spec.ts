@@ -51,7 +51,15 @@ const recentWorkItem: PlanningRiskItemDto = {
   assignee: owner,
   dueDate: '2026-07-12',
   milestone,
-  updatedAt: '2026-07-10T12:00:00.000Z'
+  updatedAt: '2026-07-10T12:00:00.000Z',
+  parent: {
+    id: '10000000-0000-4000-8000-000000000399',
+    projectId,
+    displayKey: 'WT-40',
+    title: 'Coordinate reporting work',
+    type: 'story',
+    status: 'in_progress'
+  }
 };
 
 function snapshot(): ProjectStatusReportSnapshotDto {
@@ -294,6 +302,7 @@ describe('ProjectStatusReportDraftPageComponent', () => {
     expect(compiled.textContent).toContain('v0.1.8');
     expect(compiled.textContent).toContain('Blocked work');
     expect(compiled.textContent).toContain('WT-1');
+    expect(compiled.textContent).toContain('Child of WT-40');
   });
 
   it('does not publish an invalid form', () => {

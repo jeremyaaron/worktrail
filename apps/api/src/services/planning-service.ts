@@ -21,6 +21,7 @@ import { ProjectCycleService } from './project-cycle-service.js';
 import {
   compareByDueDateThenPriority,
   compareByUpdatedAsc,
+  loadPlanningRiskParents,
   toPlanningRiskItems
 } from './work-risk-sections.js';
 
@@ -79,6 +80,10 @@ export class PlanningService {
     });
     const memberById = new Map(members.map((member) => [member.id, member]));
     const milestoneById = new Map(milestones.map((milestone) => [milestone.id, milestone]));
+    const parentByChildId = await loadPlanningRiskParents(
+      workItems,
+      this.context.repositories
+    );
     const cycleService = new ProjectCycleService({
       actor: this.context.actor,
       repositories: this.context.repositories,
@@ -100,21 +105,24 @@ export class PlanningService {
       blockedWork: this.toRiskItems(
         workItems.filter((workItem) => workItem.status === 'blocked'),
         memberById,
-        milestoneById
+        milestoneById,
+        parentByChildId
       ),
       overdueWork: this.toRiskItems(
         workItems
           .filter((workItem) => isOpenWorkItem(workItem) && isOverdue(workItem, today))
           .sort(compareByDueDateThenPriority),
         memberById,
-        milestoneById
+        milestoneById,
+        parentByChildId
       ),
       dueSoonWork: this.toRiskItems(
         workItems
           .filter((workItem) => isOpenWorkItem(workItem) && isDueSoon(workItem, today, dueSoonEnd))
           .sort(compareByDueDateThenPriority),
         memberById,
-        milestoneById
+        milestoneById,
+        parentByChildId
       ),
       unassignedActiveWork: this.toRiskItems(
         workItems.filter(
@@ -122,7 +130,8 @@ export class PlanningService {
             workItem.assigneeId === null && isActiveUnassignedWorkItemStatus(workItem.status)
         ),
         memberById,
-        milestoneById
+        milestoneById,
+        parentByChildId
       ),
       staleInProgressWork: this.toRiskItems(
         workItems
@@ -132,17 +141,20 @@ export class PlanningService {
           )
           .sort(compareByUpdatedAsc),
         memberById,
-        milestoneById
+        milestoneById,
+        parentByChildId
       ),
       dependencyBlockedWork: this.toRiskItems(
         dependencyBlockedWorkItems.filter((workItem) => isOpenWorkItem(workItem)),
         memberById,
-        milestoneById
+        milestoneById,
+        parentByChildId
       ),
       blockingOpenWork: this.toRiskItems(
         blockingOpenWorkItems.filter((workItem) => isOpenWorkItem(workItem)),
         memberById,
-        milestoneById
+        milestoneById,
+        parentByChildId
       )
     };
   }

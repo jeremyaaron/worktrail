@@ -531,6 +531,30 @@ describe('work item CSV import validation', () => {
       });
   });
 
+  it('keeps hierarchy export columns unsupported during import', async () => {
+    const fixture = await createFixture();
+    const service = createService(fixture.actor);
+
+    const preview = await service.preview(
+      fixture.projectId,
+      'title,type,priority,parent_key,parent_title\nChild,task,medium,WT-1,Parent\n'
+    );
+
+    expect(preview.errors).toEqual([
+      {
+        rowNumber: 1,
+        field: 'parent_key',
+        message: 'CSV header "parent_key" is not supported.'
+      },
+      {
+        rowNumber: 1,
+        field: 'parent_title',
+        message: 'CSV header "parent_title" is not supported.'
+      }
+    ]);
+    expect(await repositories.workItems.listByProject(fixture.projectId)).toEqual([]);
+  });
+
   it('enforces import size, row, label, and cell limits', async () => {
     const fixture = await createFixture();
     const service = createService(fixture.actor);

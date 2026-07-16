@@ -60,7 +60,15 @@ const recentWorkItem: PlanningRiskItemDto = {
   assignee: owner,
   dueDate: '2026-07-12',
   milestone,
-  updatedAt: '2026-07-10T12:00:00.000Z'
+  updatedAt: '2026-07-10T12:00:00.000Z',
+  parent: {
+    id: '10000000-0000-4000-8000-000000000399',
+    projectId,
+    displayKey: 'WT-40',
+    title: 'Coordinate report delivery',
+    type: 'story',
+    status: 'in_progress'
+  }
 };
 
 function snapshot(): ProjectStatusReportSnapshotDto {
@@ -315,6 +323,7 @@ describe('ProjectStatusReportDetailPageComponent', () => {
     expect(compiled.textContent).toContain('Open');
     expect(compiled.textContent).toContain('5');
     expect(compiled.textContent).toContain('Dependency blocked');
+    expect(compiled.textContent).toContain('Child of WT-40');
     expect(compiled.textContent).toContain('Active cycle snapshot');
     expect(compiled.textContent).toContain('v0.2.1 Cycle Planning');
     expect(compiled.textContent).toContain('8/23 points, 20 target');
