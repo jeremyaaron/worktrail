@@ -1321,7 +1321,27 @@ git status --short --branch
 
 Status:
 
-- Not started.
+- Completed on 2026-07-16.
+- Updated the README for the v0.2.5 baseline, repository layout, Work Breakdown behavior, hierarchy
+  query and CSV export semantics, seeded walkthrough, containment-versus-dependency distinction, and
+  deliberately bounded limitations.
+- Added release notes and destination-neutral pattern notes covering the delivered product behavior,
+  compatibility boundary, implementation evidence, and deferred opportunities without prescribing a
+  future pattern destination.
+- Marked the PRD and technical design implemented, updated the OpenAPI version to `0.2.5`, and aligned
+  root/workspace package versions, local workspace dependency metadata, and lockfile workspace metadata.
+- Updated the static product site and its current board image to present the bounded Work Breakdown
+  capability and limitations accurately; inspected the result at desktop and mobile widths.
+- Audited Phase 0-10 completion records, v0.2.4 references, hierarchy claims, documentation links, and
+  discontinued destination references. Remaining v0.2.4 references describe historical capability or
+  the implementation-plan baseline and are intentional.
+- Verified lockfile regeneration with `npm install --package-lock-only`; fresh database reset, migration,
+  and seed; lint; typecheck; API tests (320), web tests (322), contracts tests (28), Playwright tests (21),
+  production build, production dependency audit, and `git diff --check`.
+- The production web build completed without a budget warning at 369.77 kB initial raw size, and
+  `npm audit --omit=dev --audit-level=low` reported zero vulnerabilities.
+- Recursive trees, hierarchy rollups, bulk hierarchy edits, hierarchy-aware CSV import, and hierarchy
+  automation remain deferred. No tag, GitHub release, or deployment was created as part of this phase.
 
 ## Phase Completion Protocol
 

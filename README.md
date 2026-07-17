@@ -1,6 +1,6 @@
 # Worktrail
 
-Worktrail is a project management reference app. The v0.2.4 baseline is a local-first Angular + TypeScript API + Postgres application focused on daily team workflow, workspace portfolio review, collaboration updates, reliable filtered work views, pinned workspace and project operating lenses, explicit project batch triage, milestone review, cycle planning and closeout, published project reports and Markdown sharing, cross-project discovery, dependency-aware planning, workspace governance, data portability, and production-shaped application boundaries.
+Worktrail is a project management reference app. The v0.2.5 baseline is a local-first Angular + TypeScript API + Postgres application focused on daily team workflow, two-level work breakdown, workspace portfolio review, collaboration updates, reliable filtered work views, pinned workspace and project operating lenses, explicit project batch triage, milestone review, cycle planning and closeout, published project reports and Markdown sharing, cross-project discovery, dependency-aware planning, workspace governance, data portability, and production-shaped application boundaries.
 
 The app includes My Work, Portfolio review, Action Inbox, top-level Work Items discovery, URL-backed filters, copyable filtered-view links, personal saved views, workspace-shared saved views, project-scoped personal and shared saved views, pinned saved-view shortcuts, project-scoped bulk updates, quick work capture, persistent project workspaces, live planning review, live milestone review, cycle management and review, generated report drafts, immutable published report snapshots with cycle context, Markdown copy/download for published reports, print-friendly report detail pages, milestone/cycle/work links from reports, milestone management, durable boards, work item relationships, dependency-blocked signals, project delivery health, comments, mentions, work item watchers, activity, CSV import/export, production-like preview, health/readiness checks, checked-in API documentation, CI, lint, and responsive work item scanning.
 
@@ -23,6 +23,7 @@ docs/
   v0.2.2/  Saved Views Ergonomics PRD, technical design, implementation plan, release notes, and pattern notes
   v0.2.3/  Portfolio Review PRD, technical design, implementation plan, release notes, and pattern notes
   v0.2.4/  Cycle Closeout PRD, technical design, implementation plan, release notes, and pattern notes
+  v0.2.5/  Work Breakdown PRD, technical design, implementation plan, release notes, and pattern notes
   api/     OpenAPI reference
 site/       Static GitHub Pages product site
 e2e/        Playwright smoke tests
@@ -191,6 +192,36 @@ Supported project batch actions:
 Batch triage is intentionally project-only in v0.1.6. It does not operate across workspace discovery results, board columns, archived projects, or custom query-wide selection sets. Contributors can still open project work and shared project views, but selection and bulk mutation controls are hidden. Archived projects remain readable and keep existing project views openable, but project bulk mutation is blocked in both the UI and API.
 
 The bulk API uses `POST /api/projects/{projectId}/work-items/bulk-update` with an explicit action request. One request can include up to 50 work item ids. Invalid request shape, invalid action references, archived projects, and missing permission reject the request. Item-specific failures return per-row results, so successful and unchanged rows can clear while failed rows remain recoverable in the current visible list.
+
+## Work Breakdown
+
+v0.2.5 adds a bounded parent/child model for decomposing a project deliverable into independently
+operated work. A top-level work item may contain direct children, and a child may have one parent in
+the same project. A child cannot contain children, so Worktrail never presents or accepts a recursive
+tree.
+
+Work Breakdown support includes:
+
+- creating child work directly from an eligible parent with the project and parent preselected;
+- assigning, replacing, or clearing a parent from child detail with idempotent no-op handling;
+- same-workspace, same-project, self-parent, and exactly-two-level validation under transactional row
+  locks;
+- parent detail summaries for total, open, done, canceled, estimated, unestimated, and direct child
+  estimate points;
+- bounded direct-child rows with status, assignee, estimate, and parent/child return navigation;
+- compact `Child of` or child-summary context on project/workspace lists, board cards, My Work, live
+  Planning, Milestone Review, Cycle Review, report drafts, published report detail, and Markdown;
+- canonical `hierarchy=top_level|children|parents` filters and exact `parentKey=WT-12` drill-downs;
+- hierarchy query state preserved through applied URLs, filter chips, copy links, saved views, pinned
+  views, return URLs, and project/workspace CSV export;
+- `parent_key` and `parent_title` export columns for direct hierarchy context;
+- activity only for real parent changes, with no hierarchy-specific notification category.
+
+Containment and dependency are intentionally separate. Parent assignment does not block a child,
+make a parent depend on its children, move workflow status, assign a milestone or cycle, or roll child
+estimates into the parent's own estimate. Every parent and child keeps independent workflow and
+planning fields. Child summary points are a derived total shown alongside, not a replacement for, the
+parent's direct estimate.
 
 ## Milestone Review
 
@@ -398,6 +429,9 @@ Suggested walkthrough:
 1. Switch to a contributor and confirm member administration is unavailable with clear helper copy.
 1. Open the Worktrail App project.
 1. Review the project key, status counts, recently updated work, and activity.
+1. Open seeded parent `WT-12`, review its five direct children and derived summary, and use `Add child work item` to create another child with the parent preselected.
+1. Open a seeded child, replace and restore its parent, and confirm parent-change activity without dependency or workflow changes.
+1. Use `View all child work`, the pinned `Child work` view, and the board to inspect exact-parent filters and compact hierarchy context.
 1. Open Planning and review delivery health, cycle context, milestone progress, overdue/due-soon work, blocked work, unassigned work, and stale work.
 1. Open the Cycles planning view, review the seeded active cycle, and open the cycle review page.
 1. Follow a cycle risk link into filtered project work and confirm the cycle chip remains applied.
@@ -483,6 +517,14 @@ Suggested walkthrough:
 - Bulk update result summaries for updated, unchanged, and failed rows.
 - Partial-success handling that clears successful and unchanged selections while retaining failed visible rows.
 - Contributor and archived-project absence paths for project bulk mutation controls.
+- Same-project, exactly-two-level Work Breakdown with one optional direct parent per work item.
+- Parent-aware child creation and focused assign, replace, clear, no-op, conflict, and archived-project paths.
+- Transactional hierarchy validation with deterministic row-lock ordering.
+- Parent detail summaries and bounded direct-child rows with parent/child return navigation.
+- Compact parent and child-summary context on lists, board cards, My Work, and live review/report surfaces.
+- Canonical top-level, child, parent-with-children, and exact-parent query state across URLs, chips, copy links, saved/pinned views, return URLs, and CSV export.
+- Direct parent key/title columns in project and workspace CSV exports.
+- Seeded `WT-12` through `WT-18` Work Breakdown walkthrough and pinned shared `Child work` view.
 - Milestone review pages for focused progress, health, scope, risk, and recent movement.
 - Query-backed milestone review risk links into project Work.
 - Project cycle lifecycle management for planned, active, completed, and canceled cycles.
@@ -535,7 +577,7 @@ Suggested walkthrough:
 - Planning links from milestone rows and milestone review items to focused milestone review pages.
 - Project work item list search and filters for status, type, priority, assignee, reporter, label, milestone, cycle, due date, dependency state, and sort.
 - Project-scoped CSV import with dry-run preview, normalized rows, row-level validation errors, and transactional apply.
-- Project and workspace CSV export that serializes the currently applied filters through canonical query params and includes cycle data for assigned work.
+- Project and workspace CSV export that serializes the currently applied filters through canonical query params and includes cycle and direct-parent context where present.
 - CSV import/export guide under `docs/v0.0.X/v0.0.7/csv-import-export.md`.
 - Work item relationships with directional `blocks` and symmetric `relates_to` semantics.
 - Cross-project relationships inside the same workspace with project identity shown in relationship rows.
@@ -591,9 +633,10 @@ Suggested walkthrough:
 - Copy-link support uses browser clipboard APIs and a textarea fallback. Native share sheets, short links, and permission customization are deferred.
 - CSV import is project-scoped and limited to 1 MiB and 250 data rows per file.
 - CSV import supports Worktrail's current columns only; third-party tracker migration mappings are deferred.
-- CSV import does not assign cycles yet; cycle data is currently export-only.
+- CSV import does not assign cycles or parent relationships; cycle and hierarchy data are currently export-only.
 - CSV and status report Markdown export are direct file downloads; export history, scheduled exports, and additional report formats are deferred.
-- Relationships support only `blocks` and `relates_to`; custom relationship types, hierarchy, and graph visualization are deferred.
+- Work Breakdown is limited to one same-project parent and one child level. Recursive trees, epics, child ordering, hierarchy automation, bulk reparenting, hierarchy import, and automatic status or estimate rollups are deferred.
+- Relationships support only `blocks` and `relates_to`; custom relationship types and graph visualization are deferred. Containment is modeled separately and never changes dependency state.
 - Dependency-blocked state is derived from current open blockers; critical path analysis, external dependency alerts, and automation rules are deferred.
 - Relationship activity is recorded on the command context item only to avoid noisy cross-project activity.
 - Custom workflows, file attachments, and production auth are intentionally out of scope.
@@ -604,7 +647,7 @@ Suggested walkthrough:
 
 ## Database Status
 
-The current schema includes workspace activity, member lifecycle metadata, project keys, scoped work item display keys, labels, milestones, project cycles, immutable project cycle closeouts with versioned JSONB evidence, work item cycle assignments, comments, comment mentions, project activity, due dates, durable board positions, work item relationships, work item watchers, notifications, workspace-scoped saved work views, project-scoped saved work views, saved-view pinned state, and immutable project status report snapshots.
+The current schema includes workspace activity, member lifecycle metadata, project keys, scoped work item display keys, labels, milestones, project cycles, immutable project cycle closeouts with versioned JSONB evidence, work item cycle assignments, an indexed nullable work item parent self-reference, comments, comment mentions, project activity, due dates, durable board positions, work item relationships, work item watchers, notifications, workspace-scoped saved work views, project-scoped saved work views, saved-view pinned state, and immutable project status report snapshots.
 
 Useful database commands:
 
