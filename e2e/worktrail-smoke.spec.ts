@@ -7,6 +7,8 @@ import { expect, test } from '@playwright/test';
 import type { APIRequestContext, Download, Locator, Page } from '@playwright/test';
 
 const demoProjectId = '10000000-0000-4000-8000-000000000201';
+const hierarchyParentId = '10000000-0000-4000-8000-000000000420';
+const hierarchyReadyChildId = '10000000-0000-4000-8000-000000000421';
 const childEnv: NodeJS.ProcessEnv = { ...process.env };
 
 delete childEnv.NO_COLOR;
@@ -578,7 +580,7 @@ test('opens and saves v0.1.4 project saved views as owner and contributor', asyn
   await page.locator('#current-member').selectOption({ label: 'Avery Owner · owner' });
 
   const savedViews = savedViewsRegion(page);
-  await expect(savedViews).toContainText(/6 shared · \d+ personal/);
+  await expect(savedViews).toContainText(/7 shared · \d+ personal/);
   await openSaveViewForm(page);
   await expect(page.getByRole('button', { name: 'Save shared view' })).toBeVisible();
 
@@ -599,7 +601,7 @@ test('opens and saves v0.1.4 project saved views as owner and contributor', asyn
   await openSaveViewForm(page);
   await page.locator('form.saved-view-form').getByLabel('Name').fill(personalViewName);
   await page.getByRole('button', { name: 'Save personal view' }).click();
-  await expect(savedViews).toContainText(/6 shared · \d+ personal/);
+  await expect(savedViews).toContainText(/7 shared · \d+ personal/);
 
   await selectManagedSavedView(page, personalViewName);
   await expect(savedViews.locator('.saved-view-management-panel')).toContainText('2 applied filters');
@@ -615,7 +617,7 @@ test('opens and saves v0.1.4 project saved views as owner and contributor', asyn
   await page.locator('#current-member').selectOption({ label: 'Casey Contributor · contributor' });
   await page.goto(`/projects/${demoProjectId}/work-items`);
   await expect(page.getByRole('heading', { name: 'Project work items' })).toBeVisible();
-  await expect(savedViews).toContainText('6 shared');
+  await expect(savedViews).toContainText('7 shared');
   await expect(page.getByText('Owners and maintainers manage shared project views.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save shared view' })).toHaveCount(0);
 
@@ -705,8 +707,8 @@ test('bulk triages seeded project work and hides controls for contributors', asy
   await expect(workItemTable.getByLabel('Select WT-2')).toHaveCount(0);
   await page.getByRole('button', { name: 'Bulk edit' }).click();
   await expect(page.getByRole('button', { name: 'Exit bulk edit' })).toBeVisible();
-  await workItemTable.getByLabel('Select WT-2').check();
-  await workItemTable.getByLabel('Select WT-3').check();
+  await workItemTable.getByLabel('Select WT-2', { exact: true }).check();
+  await workItemTable.getByLabel('Select WT-3', { exact: true }).check();
   const bulkActions = page.getByLabel('Bulk work item actions');
   await expect(bulkActions).toContainText('2 selected');
 
@@ -1314,6 +1316,198 @@ test('imports project work items from CSV and exports filtered results', async (
       name: secondTitle
     })
   ).toBeVisible();
+});
+
+test('completes the v0.2.5 work breakdown workflow', async ({ page, request }, testInfo) => {
+  test.setTimeout(120_000);
+
+  const parentTitle = 'Coordinate the Work Breakdown launch across product and platform teams';
+  const readyChildTitle = 'Prepare concise launch guidance for teams adopting child work';
+  const createdChildTitle = `E2E hierarchy child ${Date.now()}`;
+  const parentPath = `/work-items/${hierarchyParentId}`;
+
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(parentPath);
+    await expect(page.getByRole('heading', { level: 1, name: parentTitle })).toBeVisible();
+
+    const childSummary = page.getByLabel('Direct child work summary');
+    await expect(childSummary).toContainText('Total');
+    await expect(childSummary).toContainText('5');
+    await expect(childSummary).toContainText('Open');
+    await expect(childSummary).toContainText('3');
+    await expect(childSummary).toContainText('Done');
+    await expect(childSummary).toContainText('Canceled');
+    await expect(childSummary).toContainText('Unestimated');
+    await expect(childSummary).toContainText('1');
+    await expect(childSummary).toContainText('Child points');
+    await expect(childSummary).toContainText('13');
+
+    const seededChildLink = page.getByRole('link', { name: new RegExp(`WT-13.*${readyChildTitle}`) });
+    await seededChildLink.focus();
+    await expectFocused(seededChildLink);
+    await expect(page.getByLabel('Direct child work items')).toContainText('Unassigned');
+
+    await testInfo.attach('work-breakdown-parent-desktop', {
+      body: await page.screenshot({ fullPage: true }),
+      contentType: 'image/png'
+    });
+
+    const addChildLink = page.getByRole('link', { name: 'Add child work item' }).first();
+    await addChildLink.focus();
+    await expectFocused(addChildLink);
+    await addChildLink.click();
+    await expect(page).toHaveURL(
+      new RegExp(`/projects/${demoProjectId}/work-items/new\\?parentWorkItemId=${hierarchyParentId}`)
+    );
+    await expect(page.getByLabel('Child work parent')).toContainText('Child of');
+    await expect(page.getByLabel('Child work parent')).toContainText('WT-12');
+
+    await page.getByLabel('Title').fill(createdChildTitle);
+    await page.getByLabel('Description').fill(
+      'Created from the seeded parent by the Work Breakdown browser workflow.'
+    );
+    await page.getByLabel('Priority').selectOption('high');
+    await page.getByLabel('Assignee').selectOption({ label: 'Morgan Maintainer' });
+    await page.getByLabel('Estimate').fill('2');
+    await page.getByRole('button', { name: 'Create work item' }).click();
+    await expect(page.getByLabel('Work item created')).toContainText(createdChildTitle);
+    await page.getByLabel('Work item created').getByRole('link', { name: 'Back to WT-12' }).click();
+
+    await expect(page.getByRole('heading', { level: 1, name: parentTitle })).toBeVisible();
+    await expect(page.getByLabel('Direct child work summary')).toContainText('6');
+    const createdChildLink = page.getByRole('link', { name: new RegExp(createdChildTitle) });
+    await expect(createdChildLink).toBeVisible();
+    await createdChildLink.click();
+    await expect(page.getByRole('heading', { level: 1, name: createdChildTitle })).toBeVisible();
+
+    const parentContextLink = page.getByLabel('Parent work item').getByRole('link', {
+      name: new RegExp(`WT-12 ${parentTitle}`)
+    });
+    await parentContextLink.focus();
+    await expectFocused(parentContextLink);
+    await parentContextLink.click();
+    await expect(page.getByRole('heading', { level: 1, name: parentTitle })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: createdChildTitle })).toHaveCount(0);
+
+    await page.goto(`/work-items/${hierarchyReadyChildId}`);
+    await expect(page.getByRole('heading', { level: 1, name: readyChildTitle })).toBeVisible();
+    const parentSearch = page.getByLabel('Find a parent');
+    await parentSearch.focus();
+    await expectFocused(parentSearch);
+    await parentSearch.fill('WT-18');
+
+    const terminalCandidate = page
+      .getByLabel('Eligible parent work')
+      .getByRole('button', { name: /WT-18 Archive the completed Work Breakdown discovery spike/ });
+    await expect(terminalCandidate).toContainText('Done');
+    await testInfo.attach('work-breakdown-parent-picker-desktop', {
+      body: await page.screenshot({ fullPage: true }),
+      contentType: 'image/png'
+    });
+    await terminalCandidate.focus();
+    await expectFocused(terminalCandidate);
+    await terminalCandidate.press('Enter');
+    await expect(terminalCandidate).toHaveAttribute('aria-pressed', 'true');
+
+    const saveParent = page.getByRole('button', { name: 'Save parent' });
+    await saveParent.focus();
+    await expectFocused(saveParent);
+    await saveParent.click();
+    await expect(page.getByLabel('Parent work item')).toContainText('WT-18');
+    await expect(page.getByText('Parent changed from WT-12 to WT-18.')).toBeVisible();
+    const clearParent = page.getByRole('button', { name: 'Clear parent' });
+    await clearParent.focus();
+    await expectFocused(clearParent);
+
+    await parentSearch.fill('WT-12');
+    const originalParentCandidate = page
+      .getByLabel('Eligible parent work')
+      .getByRole('button', { name: new RegExp(`WT-12 ${parentTitle}`) });
+    await expect(originalParentCandidate).toBeVisible();
+    await originalParentCandidate.click();
+    await saveParent.click();
+    await expect(page.getByLabel('Parent work item')).toContainText('WT-12');
+    await expect(page.getByText('Parent changed from WT-18 to WT-12.')).toBeVisible();
+
+    await page.goto(parentPath);
+    const viewChildrenLink = page.getByRole('link', { name: 'View all child work' });
+    await viewChildrenLink.focus();
+    await expectFocused(viewChildrenLink);
+    await viewChildrenLink.click();
+    await expect(page).toHaveURL(new RegExp(`parentKey=WT-12`));
+    await expect(page.getByLabel('Active filters')).toContainText('Parent: WT-12');
+    await expect(page.getByRole('button', { name: 'Remove Parent: WT-12' })).toBeVisible();
+    await expect(page.getByRole('row', { name: new RegExp(readyChildTitle) })).toBeVisible();
+    await expect(page.getByRole('row', { name: new RegExp('Archive the completed Work Breakdown discovery spike') })).toHaveCount(0);
+
+    await openSavedViewFromCompactControl(page, 'Child work');
+    await expect(page).toHaveURL(/hierarchy=children/);
+    await expect(page.getByLabel('Active filters')).toContainText('Work breakdown: Child work');
+    await expect(page.getByRole('row', { name: new RegExp(readyChildTitle) })).toContainText(
+      'Child of WT-12'
+    );
+
+    await page.goto('/work-items?parentKey=WT-12');
+    await expect(page.getByRole('heading', { name: 'Work items', exact: true })).toBeVisible();
+    await expect(page.getByLabel('Active filters')).toContainText('Parent: WT-12');
+    await expect(page.getByRole('row', { name: new RegExp(readyChildTitle) })).toContainText(
+      'Child of WT-12'
+    );
+    await testInfo.attach('work-breakdown-workspace-list-desktop', {
+      body: await page.screenshot({ fullPage: true }),
+      contentType: 'image/png'
+    });
+
+    await page.goto(`/projects/${demoProjectId}/board`);
+    const boardChildCard = page.locator('article.work-card').filter({ hasText: readyChildTitle });
+    await expect(boardChildCard).toContainText('Child of WT-12');
+    await expect(boardChildCard.getByRole('link', { name: 'Child of WT-12' })).toBeVisible();
+
+    await page.goto('/my-work');
+    const myWorkParent = page
+      .locator('a.queue-row, a.work-row')
+      .filter({ hasText: parentTitle })
+      .first();
+    await expect(myWorkParent).toBeVisible();
+    await expect(myWorkParent).toContainText('6 children · 2/6 complete');
+
+    await page.goto(parentPath);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole('heading', { level: 1, name: parentTitle })).toBeVisible();
+    await expect(page.getByLabel('Direct child work summary')).toBeVisible();
+    await expectNoPageOverflow(page);
+    await testInfo.attach('work-breakdown-parent-mobile', {
+      body: await page.screenshot({ fullPage: true }),
+      contentType: 'image/png'
+    });
+
+    await page.goto(`/projects/${demoProjectId}/work-items?parentKey=WT-12`);
+    await expect(page.getByLabel('Active filters')).toContainText('Parent: WT-12');
+    await expect(page.getByLabel('Work items cards')).toContainText(readyChildTitle);
+    await expectNoPageOverflow(page);
+    await testInfo.attach('work-breakdown-list-mobile', {
+      body: await page.screenshot({ fullPage: true }),
+      contentType: 'image/png'
+    });
+
+    // A 640 CSS-pixel viewport exercises the layout produced by 200% browser zoom at 1280px.
+    await page.setViewportSize({ width: 640, height: 900 });
+    await page.goto(parentPath);
+    await expect(page.getByRole('heading', { level: 1, name: parentTitle })).toBeVisible();
+    await expectNoPageOverflow(page);
+  } finally {
+    const restoreResponse = await request.put(
+      `${apiBaseURL()}/api/work-items/${hierarchyReadyChildId}/parent`,
+      { data: { parentWorkItemId: hierarchyParentId } }
+    );
+
+    if (!restoreResponse.ok()) {
+      throw new Error(
+        `Failed to restore seeded hierarchy parent: ${restoreResponse.status()} ${await restoreResponse.text()}`
+      );
+    }
+  }
 });
 
 test('keeps core pages usable at common desktop widths', async ({ page }) => {

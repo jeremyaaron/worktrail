@@ -1200,7 +1200,52 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-15.
+- Added an isolated, deterministic Work Breakdown scenario to the Worktrail App seed:
+  - `WT-12` is a directly estimated parent story in the active cycle and planning milestone;
+  - `WT-13` through `WT-17` are direct children spanning ready, in-progress, done, canceled,
+    and dependency-blocked states;
+  - children use mixed assignees, priorities, estimates, milestone placement, and active,
+    planned, completed, or no-cycle placement;
+  - `WT-16` is intentionally unestimated;
+  - `WT-17` is blocked by open top-level work through a normal dependency relationship;
+  - `WT-18` is terminal top-level work available as a replacement-parent candidate;
+  - existing top-level project work remains available without hierarchy context.
+- Kept the hierarchy scenario in the Worktrail App project and left all Closeout Lab records and
+  assumptions unchanged.
+- Added seed-time integrity assertions that require all five children to share the parent's project,
+  point directly to the seeded parent, and have no nested children.
+- Advanced the Worktrail App item-number counter beyond the new deterministic keys so fresh child
+  creation cannot collide with `WT-12` through `WT-18`.
+- Added the pinned shared `Child work` project view for immediate hierarchy discovery on a clean seed.
+- Added a focused serial Playwright workflow that:
+  - opens the seeded parent and verifies direct child counts, points, and child-row context;
+  - creates a child from the parent-aware route and returns to the refreshed parent summary;
+  - navigates child-to-parent on the same detail route without stale content;
+  - replaces a seeded child's parent with terminal `WT-18`, verifies activity, and restores `WT-12`;
+  - protects deterministic state with an API restore in `finally`;
+  - opens exact-parent project and workspace drill-downs and verifies URL, chip, remove label, and
+    result isolation;
+  - opens the seeded hierarchy view and verifies its canonical `hierarchy=children` state;
+  - verifies hierarchy context on project list, workspace list, board cards, and My Work.
+- Added keyboard focus and accessible-name assertions for child and parent links, Add/View actions,
+  candidate search and selection, Save parent, and exact-parent filter removal.
+- Captured and inspected desktop and 390px mobile screenshots for parent detail, parent picker,
+  child summary/rows, project/workspace filtered lists, and the six-column project board. Long seeded titles wrap without overlap,
+  card dimensions remain stable, and page-level overflow checks pass at mobile and 200%-zoom-equivalent
+  layout widths.
+- Updated existing saved-view count assertions for the new shared view and made bulk-selection
+  accessible-name locators exact so `WT-2` cannot be confused with `WT-20` or later keys.
+- No hierarchy component CSS changes were required after visual inspection.
+- Verified:
+  - reset, migrations, seed, and seed integrity assertions;
+  - focused Work Breakdown Playwright workflow;
+  - focused saved-view and bulk-triage regression workflows;
+  - `npm run test:e2e`: 21 serial Chromium scenarios;
+  - `npm run lint` across API, web, and contracts;
+  - `npm run typecheck` across API, web, and contracts;
+  - `npm run build` across contracts, API, and web with no budget warnings;
+  - `git diff --check`.
 
 ## Phase 11: Documentation, Metadata, And Final Verification
 
