@@ -8,11 +8,16 @@ import type {
   CommentDto,
   CreateWorkItemRequest,
   MoveWorkItemOnBoardRequest,
+  SetWorkItemParentRequest,
   TransitionWorkItemRequest,
   UpdateWorkItemRequest,
   WorkItemQuery,
+  WorkItemChildSummaryDto,
+  WorkItemChildrenDto,
   WorkItemDetailDto,
   WorkItemListItemDto,
+  WorkItemParentCandidateDto,
+  WorkItemParentDto,
   WorkspaceWorkItemListItemDto
 } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
@@ -79,6 +84,17 @@ interface WorkItemBundle {
 interface WorkItemDependencyCounts {
   openBlockerCount: number;
   openBlockedWorkCount: number;
+}
+
+interface WorkItemHierarchyContext {
+  parentsByChildId: Map<string, WorkItemParentDto>;
+  childSummariesByParentId: Map<string, WorkItemChildSummaryDto>;
+}
+
+interface WorkItemActivityParent {
+  id: string;
+  displayKey: string;
+  title: string;
 }
 
 export interface WorkItemCreationInput extends CreateWorkItemRequest {
@@ -188,6 +204,13 @@ export class WorkItemService {
     await this.validateCycle(projectId, input.cycleId ?? null, repositories);
     await this.validateAssignee(input.assigneeId ?? null, repositories);
     await this.validateReporter(reporterId, repositories);
+    const workItemId = this.idGenerator();
+    const parent = await this.lockAndValidateParentForCreate({
+      workItemId,
+      projectId,
+      parentWorkItemId: input.parentWorkItemId ?? null,
+      repositories
+    });
     const status = input.status ?? 'backlog';
     const boardPosition = await this.getTopInsertionPosition(projectId, status, repositories);
     const numberedProject = await repositories.projects.allocateWorkItemNumber(projectId, timestamp);
@@ -201,7 +224,7 @@ export class WorkItemService {
     const itemNumber = numberedProject.nextWorkItemNumber - 1;
 
     const workItem = await repositories.workItems.create({
-      id: this.idGenerator(),
+      id: workItemId,
       workspaceId: this.context.actor.workspaceId,
       projectId,
       title: input.title,
@@ -215,6 +238,7 @@ export class WorkItemService {
       reporterId,
       milestoneId: input.milestoneId ?? null,
       cycleId: input.cycleId ?? null,
+      parentWorkItemId: parent?.id ?? null,
       boardPosition,
       dueDate: input.dueDate ?? null,
       estimatePoints: input.estimatePoints ?? null,
@@ -223,6 +247,7 @@ export class WorkItemService {
     });
 
     await repositories.labels.replaceForWorkItem(workItem.id, labelIds);
+    const activityParent = parent === null ? null : this.toActivityParent(parent);
     const activityEvent = await repositories.activityEvents.create({
       id: this.idGenerator(),
       workspaceId: workItem.workspaceId,
@@ -232,8 +257,11 @@ export class WorkItemService {
       eventType: 'work_item.created',
       summary: 'Work item created.',
       previousValue: null,
-      newValue: { status: workItem.status },
-      metadata: {},
+      newValue: {
+        status: workItem.status,
+        ...(activityParent === null ? {} : { parent: activityParent })
+      },
+      metadata: activityParent === null ? {} : { parent: activityParent },
       createdAt: timestamp
     });
 
@@ -250,6 +278,121 @@ export class WorkItemService {
   async getWorkItem(workItemId: string): Promise<WorkItemDetailDto> {
     const workItem = await this.requireWorkItem(workItemId, this.context.repositories);
     return this.toDetailDto(workItem, this.context.repositories);
+  }
+
+  async listChildren(workItemId: string, limit: number): Promise<WorkItemChildrenDto> {
+    const workItem = await this.requireWorkItem(workItemId, this.context.repositories);
+    const [children, childSummaries] = await Promise.all([
+      this.context.repositories.workItems.listChildren(workItem.id, limit),
+      this.context.repositories.workItems.summarizeChildren([workItem.id])
+    ]);
+    const totalCount = childSummaries[0]?.summary.totalCount ?? 0;
+
+    return {
+      items: await this.toListDtos(children, this.context.repositories),
+      totalCount,
+      hasMore: totalCount > children.length
+    };
+  }
+
+  async listParentCandidates(
+    workItemId: string,
+    search?: string
+  ): Promise<WorkItemParentCandidateDto[]> {
+    const workItem = await this.requireWorkItem(workItemId, this.context.repositories);
+
+    if (await this.context.repositories.workItems.hasChildren(workItem.id)) {
+      return [];
+    }
+
+    const candidates = await this.context.repositories.workItems.listEligibleParentCandidates({
+      workItem,
+      search,
+      limit: 20
+    });
+
+    return candidates.map((candidate) => ({
+      ...this.toParentDto(candidate),
+      priority: candidate.priority,
+      updatedAt: candidate.updatedAt.toISOString()
+    }));
+  }
+
+  async setParent(
+    workItemId: string,
+    input: SetWorkItemParentRequest
+  ): Promise<WorkItemDetailDto> {
+    if (input.parentWorkItemId === workItemId) {
+      throw new ValidationError('A work item cannot be its own parent.');
+    }
+
+    return this.withWriteRepositories(async (repositories) => {
+      const lockIds = [workItemId];
+
+      if (input.parentWorkItemId !== null) {
+        lockIds.push(input.parentWorkItemId);
+      }
+
+      const lockedById = new Map(
+        (await repositories.workItems.findManyByIdsForUpdate(lockIds)).map((item) => [item.id, item])
+      );
+      const current = lockedById.get(workItemId);
+
+      if (current === undefined || current.workspaceId !== this.context.actor.workspaceId) {
+        throw new NotFoundError('Work item not found.');
+      }
+
+      const project = await this.requireProjectFromRepositories(current.projectId, repositories);
+      this.assertProjectWritable(project);
+
+      if (current.parentWorkItemId === input.parentWorkItemId) {
+        return this.toDetailDto(current, repositories);
+      }
+
+      const previousParent =
+        current.parentWorkItemId === null
+          ? null
+          : await repositories.workItems.findById(current.parentWorkItemId);
+      let nextParent: WorkItem | null = null;
+
+      if (input.parentWorkItemId !== null) {
+        nextParent = lockedById.get(input.parentWorkItemId) ?? null;
+        this.validateProposedParent(current, nextParent);
+
+        if (await repositories.workItems.hasChildren(current.id)) {
+          throw new ConflictError('Work with children cannot be assigned a parent.');
+        }
+      }
+
+      const timestamp = this.clock();
+      const updated = await repositories.workItems.update(current.id, {
+        parentWorkItemId: input.parentWorkItemId,
+        updatedAt: timestamp
+      });
+
+      if (updated === null) {
+        throw new NotFoundError('Work item not found.');
+      }
+
+      const previousActivityParent =
+        previousParent === null ? null : this.toActivityParent(previousParent);
+      const nextActivityParent = nextParent === null ? null : this.toActivityParent(nextParent);
+      await repositories.activityEvents.create({
+        id: this.idGenerator(),
+        workspaceId: updated.workspaceId,
+        projectId: updated.projectId,
+        workItemId: updated.id,
+        actorId: this.context.actor.memberId,
+        eventType: 'work_item.parent_changed',
+        summary: this.parentChangeSummary(previousActivityParent, nextActivityParent),
+        previousValue: { parent: previousActivityParent },
+        newValue: { parent: nextActivityParent },
+        metadata: {},
+        createdAt: timestamp
+      });
+
+      return this.toDetailDto(updated, repositories);
+    });
   }
 
   async updateWorkItem(
@@ -468,6 +611,80 @@ export class WorkItemService {
 
       return this.toDetailDto(updated, repositories);
     });
+  }
+
+  private async lockAndValidateParentForCreate(input: {
+    workItemId: string;
+    projectId: string;
+    parentWorkItemId: string | null;
+    repositories: Repositories;
+  }): Promise<WorkItem | null> {
+    if (input.parentWorkItemId === null) {
+      return null;
+    }
+
+    if (input.parentWorkItemId === input.workItemId) {
+      throw new ValidationError('A work item cannot be its own parent.');
+    }
+
+    const [parent] = await input.repositories.workItems.findManyByIdsForUpdate([
+      input.parentWorkItemId
+    ]);
+
+    if (parent === undefined || parent.workspaceId !== this.context.actor.workspaceId) {
+      throw new NotFoundError('Parent work item not found.');
+    }
+
+    if (parent.projectId !== input.projectId) {
+      throw new ValidationError('Parent work must belong to the same project.');
+    }
+
+    if (parent.parentWorkItemId !== null) {
+      throw new ConflictError('A child work item cannot contain child work.');
+    }
+
+    return parent;
+  }
+
+  private validateProposedParent(current: WorkItem, parent: WorkItem | null): asserts parent is WorkItem {
+    if (parent === null || parent.workspaceId !== this.context.actor.workspaceId) {
+      throw new NotFoundError('Parent work item not found.');
+    }
+
+    if (parent.id === current.id) {
+      throw new ValidationError('A work item cannot be its own parent.');
+    }
+
+    if (parent.projectId !== current.projectId) {
+      throw new ValidationError('Parent work must belong to the same project.');
+    }
+
+    if (parent.parentWorkItemId !== null) {
+      throw new ConflictError('A child work item cannot contain child work.');
+    }
+  }
+
+  private toActivityParent(workItem: WorkItem): WorkItemActivityParent {
+    return {
+      id: workItem.id,
+      displayKey: workItem.displayKey,
+      title: workItem.title
+    };
+  }
+
+  private parentChangeSummary(
+    previousParent: WorkItemActivityParent | null,
+    nextParent: WorkItemActivityParent | null
+  ): string {
+    if (previousParent === null && nextParent !== null) {
+      return `Parent set to ${nextParent.displayKey}.`;
+    }
+
+    if (previousParent !== null && nextParent === null) {
+      return `Parent ${previousParent.displayKey} cleared.`;
+    }
+
+    return `Parent changed from ${previousParent?.displayKey} to ${nextParent?.displayKey}.`;
   }
 
   private async withWriteRepositories<T>(
@@ -1073,11 +1290,14 @@ export class WorkItemService {
     const dependencyCountsById = await repositories.workItemRelationships.listDependencyCounts(
       workItems.map((workItem) => workItem.id)
     );
+    const hierarchy = await this.loadHierarchyContext(workItems, repositories);
 
     for (const workItem of workItems) {
       const bundle = await this.toBundle(workItem, repositories, labelsByWorkItem.get(workItem.id) ?? []);
       dtos.push(toWorkItemListItemDto({
         ...bundle,
+        parent: hierarchy.parentsByChildId.get(workItem.id) ?? null,
+        childSummary: hierarchy.childSummariesByParentId.get(workItem.id) ?? null,
         dependencyCounts: this.toDependencyCounts(dependencyCountsById.get(workItem.id))
       }));
     }
@@ -1101,6 +1321,10 @@ export class WorkItemService {
     const dependencyCountsById = await repositories.workItemRelationships.listDependencyCounts(
       records.map((record) => record.workItem.id)
     );
+    const hierarchy = await this.loadHierarchyContext(
+      records.map((record) => record.workItem),
+      repositories
+    );
 
     for (const record of records) {
       const bundle = await this.toBundle(
@@ -1111,6 +1335,8 @@ export class WorkItemService {
       dtos.push(toWorkspaceWorkItemListItemDto({
         ...bundle,
         project: record.project,
+        parent: hierarchy.parentsByChildId.get(record.workItem.id) ?? null,
+        childSummary: hierarchy.childSummariesByParentId.get(record.workItem.id) ?? null,
         dependencyCounts: this.toDependencyCounts(dependencyCountsById.get(record.workItem.id))
       }));
     }
@@ -1131,14 +1357,51 @@ export class WorkItemService {
       clock: this.clock,
       idGenerator: this.idGenerator
     }).getRelationshipSummaryWithRepositories(workItem.id, repositories);
+    const hierarchy = await this.loadHierarchyContext([workItem], repositories);
 
     return toWorkItemDetailDto({
       ...(await this.toBundle(workItem, repositories, labels)),
+      parent: hierarchy.parentsByChildId.get(workItem.id) ?? null,
+      childSummary: hierarchy.childSummariesByParentId.get(workItem.id) ?? null,
       dependencyCounts: relationships,
       relationships,
       comments: await this.toCommentDtos(comments, repositories),
       activity: await this.toActivityDtos(activity, repositories)
     });
+  }
+
+  private async loadHierarchyContext(
+    workItems: WorkItem[],
+    repositories: Repositories
+  ): Promise<WorkItemHierarchyContext> {
+    const workItemIds = workItems.map((workItem) => workItem.id);
+    const [parents, childSummaries] = await Promise.all([
+      repositories.workItems.listParentsForChildren(workItemIds),
+      repositories.workItems.summarizeChildren(workItemIds)
+    ]);
+
+    return {
+      parentsByChildId: new Map(
+        parents.map(({ childWorkItemId, parent }) => [
+          childWorkItemId,
+          this.toParentDto(parent)
+        ])
+      ),
+      childSummariesByParentId: new Map(
+        childSummaries.map(({ parentWorkItemId, summary }) => [parentWorkItemId, summary])
+      )
+    };
+  }
+
+  private toParentDto(workItem: WorkItem): WorkItemParentDto {
+    return {
+      id: workItem.id,
+      projectId: workItem.projectId,
+      displayKey: workItem.displayKey,
+      title: workItem.title,
+      type: workItem.type,
+      status: workItem.status
+    };
   }
 
   private toDependencyCounts(

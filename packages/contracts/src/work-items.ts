@@ -20,6 +20,7 @@ export type AssigneeState = 'assigned' | 'unassigned';
 export type WorkItemState = 'open' | 'terminal';
 export type DependencyFilter = 'dependency_blocked' | 'blocking_open_work';
 export type WorkItemRiskFilter = 'unassigned_active' | 'stale_in_progress';
+export type WorkItemHierarchyFilter = 'top_level' | 'children' | 'parents';
 export type WorkItemSort =
   | 'updated_desc'
   | 'updated_asc'
@@ -45,6 +46,8 @@ export interface WorkItemQuery {
   blocked?: boolean;
   dependency?: DependencyFilter;
   workRisk?: WorkItemRiskFilter;
+  hierarchy?: WorkItemHierarchyFilter;
+  parentKey?: string;
   archivedProjects?: ArchivedProjectMode;
   search?: string;
   sort?: WorkItemSort;
@@ -68,6 +71,25 @@ export interface UpdateLabelRequest {
   color?: string | null;
 }
 
+export interface WorkItemParentDto {
+  id: string;
+  projectId: string;
+  displayKey: string;
+  title: string;
+  type: WorkItemType;
+  status: WorkItemStatus;
+}
+
+export interface WorkItemChildSummaryDto {
+  totalCount: number;
+  openCount: number;
+  doneCount: number;
+  canceledCount: number;
+  estimatedCount: number;
+  unestimatedCount: number;
+  estimatePoints: number;
+}
+
 export interface WorkItemListItemDto {
   id: string;
   workspaceId: string;
@@ -86,6 +108,8 @@ export interface WorkItemListItemDto {
   boardPosition: number;
   dueDate: string | null;
   estimatePoints: number | null;
+  parent: WorkItemParentDto | null;
+  childSummary: WorkItemChildSummaryDto | null;
   dependencyBlocked: boolean;
   openBlockerCount: number;
   openBlockedWorkCount: number;
@@ -102,6 +126,17 @@ export interface WorkItemDetailDto extends WorkItemListItemDto {
 
 export interface WorkspaceWorkItemListItemDto extends WorkItemListItemDto {
   project: Pick<ProjectDto, 'id' | 'key' | 'name' | 'status'>;
+}
+
+export interface WorkItemChildrenDto {
+  items: WorkItemListItemDto[];
+  totalCount: number;
+  hasMore: boolean;
+}
+
+export interface WorkItemParentCandidateDto extends WorkItemParentDto {
+  priority: WorkItemPriority;
+  updatedAt: string;
 }
 
 export interface WorkItemRelationshipWorkItemDto {
@@ -188,6 +223,7 @@ export interface CreateWorkItemRequest {
   cycleId?: string | null;
   dueDate?: string | null;
   estimatePoints?: number | null;
+  parentWorkItemId?: string | null;
 }
 
 export interface UpdateWorkItemRequest {
@@ -201,6 +237,10 @@ export interface UpdateWorkItemRequest {
   cycleId?: string | null;
   dueDate?: string | null;
   estimatePoints?: number | null;
+}
+
+export interface SetWorkItemParentRequest {
+  parentWorkItemId: string | null;
 }
 
 export interface TransitionWorkItemRequest {

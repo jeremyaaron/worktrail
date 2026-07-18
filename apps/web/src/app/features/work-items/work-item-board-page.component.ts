@@ -18,6 +18,7 @@ import { WorktrailApiService } from '../../core/worktrail-api.service';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
+import { workItemChildSummaryLabel } from '../../shared/work-items/work-item-hierarchy-display';
 
 const statuses: WorkItemStatus[] = [
   'backlog',
@@ -139,6 +140,20 @@ const terminalStatuses = new Set<WorkItemStatus>(['done', 'canceled']);
                         {{ item.assignee === null ? 'Unassigned' : memberDisplayName(item.assignee) }}
                       </span>
                     </p>
+
+                    <div class="work-card__hierarchy">
+                      @if (item.parent; as parent) {
+                        <a
+                          class="hierarchy-pill"
+                          [routerLink]="['/work-items', parent.id]"
+                          [queryParams]="detailQueryParams()"
+                        >
+                          Child of {{ parent.displayKey }}
+                        </a>
+                      } @else if (item.childSummary; as childSummary) {
+                        <span class="hierarchy-pill">{{ childSummaryLabel(childSummary) }}</span>
+                      }
+                    </div>
 
                     @if (item.labels.length > 0) {
                       <div class="labels" aria-label="Labels">
@@ -422,7 +437,8 @@ const terminalStatuses = new Set<WorkItemStatus>(['done', 'canceled']);
     .priority-pill,
     .type-pill,
     .assignee-pill,
-    .labels span {
+    .labels span,
+    .hierarchy-pill {
       width: fit-content;
       border: 1px solid #cbd5e1;
       border-radius: 999px;
@@ -431,6 +447,28 @@ const terminalStatuses = new Set<WorkItemStatus>(['done', 'canceled']);
       font-size: 0.6875rem;
       font-weight: 800;
       text-transform: capitalize;
+    }
+
+    .work-card .hierarchy-pill {
+      min-height: 22px;
+      border-color: #bae6fd;
+      background: #f0f9ff;
+      color: #0369a1;
+      font-size: 0.6875rem;
+      line-height: 1.35;
+      text-decoration: none;
+      text-transform: none;
+    }
+
+    .work-card__hierarchy {
+      display: flex;
+      align-items: flex-start;
+      min-height: 22px;
+    }
+
+    .work-card a.hierarchy-pill:hover {
+      border-color: #7dd3fc;
+      text-decoration: underline;
     }
 
     .work-card p {
@@ -531,6 +569,7 @@ export class WorkItemBoardPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
 
   readonly statuses = statuses;
+  readonly childSummaryLabel = workItemChildSummaryLabel;
   readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
   readonly project = signal<ProjectDto | null>(null);
   readonly workItems = signal<WorkItemListItemDto[]>([]);

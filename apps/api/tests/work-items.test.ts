@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
 
 import request from 'supertest';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { createExpressApp } from '../src/adapters/express/server.js';
 import { createDb, createPool } from '../src/db/client.js';
 import { createRepositories, type Repositories } from '../src/repositories/index.js';
+import { WorkItemService } from '../src/services/work-item-service.js';
 
 const workspaceIds = new Set<string>();
 let pool: ReturnType<typeof createPool>;
@@ -38,6 +39,9 @@ async function cleanupWorkspace(workspaceId: string) {
     [workspaceId]
   );
   await pool.query('delete from labels where workspace_id = $1', [workspaceId]);
+  await pool.query('update work_items set parent_work_item_id = null where workspace_id = $1', [
+    workspaceId
+  ]);
   await pool.query('delete from work_items where workspace_id = $1', [workspaceId]);
   await pool.query('delete from project_cycles where workspace_id = $1', [workspaceId]);
   await pool.query('delete from milestones where workspace_id = $1', [workspaceId]);
@@ -231,6 +235,22 @@ async function createProject(
   });
 }
 
+function createService(
+  fixture: Awaited<ReturnType<typeof createFixture>>,
+  overrides: Partial<ConstructorParameters<typeof WorkItemService>[0]> = {}
+) {
+  return new WorkItemService({
+    actor: {
+      workspaceId: fixture.workspaceId,
+      memberId: fixture.actorId,
+      role: 'owner'
+    },
+    repositories,
+    db,
+    ...overrides
+  });
+}
+
 beforeAll(() => {
   pool = createPool();
   db = createDb(pool);
@@ -239,6 +259,7 @@ beforeAll(() => {
 });
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await cleanupAllWorkspaces();
 });
 
@@ -351,6 +372,865 @@ describe('work item API', () => {
         expect(body).toMatchObject({
           itemNumber: 1,
           displayKey: 'WI-1'
+        });
+      });
+  });
+
+  it('enriches and filters two-level work hierarchy with bounded batch reads', async () => {
+    const fixture = await createFixture('owner');
+    const milestone = await createMilestone(fixture);
+    const cycle = await createProjectCycle(fixture);
+    const parent = await createWorkItem(fixture, {
+      title: 'Release parent',
+      priority: 'urgent',
+      estimatePoints: 13
+    });
+    const openChild = await createWorkItem(fixture, {
+      title: 'Blocked child implementation',
+      status: 'blocked',
+      priority: 'high',
+      parentWorkItemId: parent.id,
+      milestoneId: milestone.id,
+      cycleId: cycle.id,
+      estimatePoints: 3
+    });
+    const doneChild = await createWorkItem(fixture, {
+      title: 'Completed child',
+      status: 'done',
+      parentWorkItemId: parent.id,
+      estimatePoints: 5
+    });
+    const canceledChild = await createWorkItem(fixture, {
+      title: 'Canceled child',
+      status: 'canceled',
+      parentWorkItemId: parent.id,
+      estimatePoints: null
+    });
+    const unrelated = await createWorkItem(fixture, { title: 'Unrelated top-level work' });
+    const blocker = await createWorkItem(fixture, { title: 'Open dependency blocker' });
+
+    await repositories.workItemRelationships.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      relationshipType: 'blocks',
+      sourceWorkItemId: blocker.id,
+      targetWorkItemId: openChild.id,
+      createdById: fixture.actorId,
+      createdAt: now()
+    });
+
+    const parentReads = vi.spyOn(repositories.workItems, 'listParentsForChildren');
+    const summaryReads = vi.spyOn(repositories.workItems, 'summarizeChildren');
+    const listResponse = await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items`)
+      .set(fixture.headers)
+      .expect(200);
+
+    expect(parentReads).toHaveBeenCalledTimes(1);
+    expect(summaryReads).toHaveBeenCalledTimes(1);
+    expect(listResponse.body.find((item: { id: string }) => item.id === parent.id)).toMatchObject({
+      parent: null,
+      childSummary: {
+        totalCount: 3,
+        openCount: 1,
+        doneCount: 1,
+        canceledCount: 1,
+        estimatedCount: 2,
+        unestimatedCount: 1,
+        estimatePoints: 8
+      }
+    });
+    expect(listResponse.body.find((item: { id: string }) => item.id === openChild.id)).toMatchObject({
+      parent: {
+        id: parent.id,
+        projectId: fixture.projectId,
+        displayKey: parent.displayKey,
+        title: parent.title,
+        type: parent.type,
+        status: parent.status
+      },
+      childSummary: null
+    });
+    expect(listResponse.body.find((item: { id: string }) => item.id === unrelated.id)).toMatchObject({
+      parent: null,
+      childSummary: null
+    });
+
+    const topLevel = await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items`)
+      .query({ hierarchy: 'top_level' })
+      .set(fixture.headers)
+      .expect(200);
+    expect(topLevel.body.map((item: { id: string }) => item.id)).toEqual(
+      expect.arrayContaining([parent.id, unrelated.id, blocker.id])
+    );
+    expect(topLevel.body).toHaveLength(3);
+
+    const children = await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items`)
+      .query({ hierarchy: 'children' })
+      .set(fixture.headers)
+      .expect(200);
+    expect(children.body.map((item: { id: string }) => item.id)).toEqual(
+      expect.arrayContaining([openChild.id, doneChild.id, canceledChild.id])
+    );
+    expect(children.body).toHaveLength(3);
+
+    const parents = await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items`)
+      .query({ hierarchy: 'parents' })
+      .set(fixture.headers)
+      .expect(200);
+    expect(parents.body.map((item: { id: string }) => item.id)).toEqual([parent.id]);
+
+    const exactChildren = await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items`)
+      .query({ parentKey: parent.displayKey.toLowerCase() })
+      .set(fixture.headers)
+      .expect(200);
+    expect(exactChildren.body).toHaveLength(3);
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items`)
+      .query({ parentKey: 'WI-999' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect([]);
+
+    const composed = await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items`)
+      .query({
+        parentKey: parent.displayKey,
+        status: 'blocked',
+        assigneeId: fixture.contributorId,
+        milestoneId: milestone.id,
+        cycleId: cycle.id,
+        dependency: 'dependency_blocked',
+        search: 'implementation',
+        sort: 'priority_desc'
+      })
+      .set(fixture.headers)
+      .expect(200);
+    expect(composed.body.map((item: { id: string }) => item.id)).toEqual([openChild.id]);
+
+    const workspaceChildren = await request(app)
+      .get('/api/work-items')
+      .query({
+        projectId: fixture.projectId,
+        parentKey: parent.displayKey,
+        archivedProjects: 'include'
+      })
+      .set(fixture.headers)
+      .expect(200);
+    expect(workspaceChildren.body).toHaveLength(3);
+    expect(workspaceChildren.body[0]).toMatchObject({
+      project: { id: fixture.projectId },
+      parent: { id: parent.id }
+    });
+
+    const archivedProject = await createProject(fixture, {
+      key: 'ARC',
+      status: 'archived'
+    });
+    const archivedParent = await repositories.workItems.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      projectId: archivedProject.id,
+      itemNumber: 1,
+      displayKey: 'ARC-1',
+      title: 'Archived parent',
+      description: '',
+      type: 'task',
+      status: 'done',
+      priority: 'medium',
+      assigneeId: null,
+      reporterId: fixture.actorId,
+      parentWorkItemId: null,
+      boardPosition: 1024,
+      dueDate: null,
+      estimatePoints: null,
+      createdAt: now(),
+      updatedAt: now()
+    });
+    const archivedChild = await repositories.workItems.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      projectId: archivedProject.id,
+      itemNumber: 2,
+      displayKey: 'ARC-2',
+      title: 'Archived child',
+      description: '',
+      type: 'task',
+      status: 'done',
+      priority: 'medium',
+      assigneeId: null,
+      reporterId: fixture.actorId,
+      parentWorkItemId: archivedParent.id,
+      boardPosition: 2048,
+      dueDate: null,
+      estimatePoints: null,
+      createdAt: now(),
+      updatedAt: now()
+    });
+    const archivedChildren = await request(app)
+      .get('/api/work-items')
+      .query({ archivedProjects: 'only', hierarchy: 'children' })
+      .set(fixture.headers)
+      .expect(200);
+    expect(archivedChildren.body.map((item: { id: string }) => item.id)).toEqual([
+      archivedChild.id
+    ]);
+
+    parentReads.mockClear();
+    summaryReads.mockClear();
+    await request(app)
+      .get(`/api/work-items/${parent.id}`)
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.childSummary).toMatchObject({ totalCount: 3, estimatePoints: 8 });
+      });
+    expect(parentReads).toHaveBeenCalledTimes(1);
+    expect(summaryReads).toHaveBeenCalledTimes(1);
+
+    await request(app)
+      .get(`/api/work-items/${openChild.id}`)
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          parent: { id: parent.id, displayKey: parent.displayKey },
+          childSummary: null
+        });
+      });
+  });
+
+  it('creates child work atomically under open or terminal parents without hierarchy notifications', async () => {
+    const fixture = await createFixture('owner');
+    const terminalParent = await createWorkItem(fixture, {
+      title: 'Terminal release parent',
+      status: 'done'
+    });
+    const service = createService(fixture);
+
+    const child = await service.createWorkItem(fixture.projectId, {
+      title: 'First child',
+      type: 'story',
+      priority: 'high',
+      assigneeId: fixture.contributorId,
+      parentWorkItemId: terminalParent.id
+    });
+    expect(child).toMatchObject({
+      parent: {
+        id: terminalParent.id,
+        displayKey: terminalParent.displayKey,
+        title: terminalParent.title,
+        status: 'done'
+      },
+      childSummary: null
+    });
+    await expect(repositories.workItems.findById(child.id)).resolves.toMatchObject({
+      parentWorkItemId: terminalParent.id
+    });
+
+    const [createdActivity] = await repositories.activityEvents.findByWorkItem(child.id);
+    expect(createdActivity).toMatchObject({
+      eventType: 'work_item.created',
+      newValue: {
+        status: 'backlog',
+        parent: {
+          id: terminalParent.id,
+          displayKey: terminalParent.displayKey,
+          title: terminalParent.title
+        }
+      },
+      metadata: {
+        parent: {
+          id: terminalParent.id,
+          displayKey: terminalParent.displayKey,
+          title: terminalParent.title
+        }
+      }
+    });
+    await expect(
+      repositories.notifications.listByRecipient({
+        workspaceId: fixture.workspaceId,
+        recipientMemberId: fixture.contributorId,
+        state: 'all'
+      })
+    ).resolves.toMatchObject([{ notificationType: 'assignment', workItemId: child.id }]);
+
+    const secondChild = await service.createWorkItem(fixture.projectId, {
+      title: 'Second child',
+      type: 'task',
+      priority: 'medium',
+      parentWorkItemId: terminalParent.id
+    });
+    expect(secondChild.parent?.id).toBe(terminalParent.id);
+    await expect(repositories.workItems.hasChildren(terminalParent.id)).resolves.toBe(true);
+    await expect(repositories.activityEvents.findByWorkItem(terminalParent.id)).resolves.toEqual([]);
+  });
+
+  it('rejects invalid parents during child creation', async () => {
+    const fixture = await createFixture('owner');
+    const service = createService(fixture);
+    const topLevel = await createWorkItem(fixture, { title: 'Top-level parent' });
+    const child = await createWorkItem(fixture, {
+      title: 'Existing child',
+      parentWorkItemId: topLevel.id
+    });
+    const otherProject = await createProject(fixture, { key: 'ALT' });
+    const crossProjectParent = await createWorkItem(fixture, {
+      projectId: otherProject.id,
+      itemNumber: 1,
+      displayKey: 'ALT-1',
+      title: 'Cross-project parent'
+    });
+    const otherWorkspace = await createFixture('owner');
+    const crossWorkspaceParent = await createWorkItem(otherWorkspace, {
+      title: 'Cross-workspace parent'
+    });
+    const input = {
+      title: 'Rejected child',
+      type: 'task' as const,
+      priority: 'medium' as const
+    };
+
+    await expect(
+      service.createWorkItem(fixture.projectId, { ...input, parentWorkItemId: randomUUID() })
+    ).rejects.toMatchObject({ code: 'NOT_FOUND', message: 'Parent work item not found.' });
+    await expect(
+      service.createWorkItem(fixture.projectId, {
+        ...input,
+        parentWorkItemId: crossProjectParent.id
+      })
+    ).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      message: 'Parent work must belong to the same project.'
+    });
+    await expect(
+      service.createWorkItem(fixture.projectId, {
+        ...input,
+        parentWorkItemId: crossWorkspaceParent.id
+      })
+    ).rejects.toMatchObject({ code: 'NOT_FOUND', message: 'Parent work item not found.' });
+    await expect(
+      service.createWorkItem(fixture.projectId, { ...input, parentWorkItemId: child.id })
+    ).rejects.toMatchObject({
+      code: 'CONFLICT',
+      message: 'A child work item cannot contain child work.'
+    });
+    await expect(
+      createService(fixture, { idGenerator: () => topLevel.id }).createWorkItem(
+        fixture.projectId,
+        { ...input, parentWorkItemId: topLevel.id }
+      )
+    ).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      message: 'A work item cannot be its own parent.'
+    });
+
+    await repositories.projects.updateStatus(fixture.projectId, 'archived', now());
+    await expect(
+      service.createWorkItem(fixture.projectId, { ...input, parentWorkItemId: topLevel.id })
+    ).rejects.toMatchObject({ code: 'CONFLICT', message: 'Archived projects are read-only.' });
+  });
+
+  it('sets, replaces, clears, and idempotently replays parent commands with stable activity', async () => {
+    const fixture = await createFixture('owner');
+    const current = await createWorkItem(fixture, { title: 'Reparented work' });
+    const firstParent = await createWorkItem(fixture, { title: 'First parent' });
+    const secondParent = await createWorkItem(fixture, {
+      title: 'Second parent',
+      status: 'canceled'
+    });
+    const timestamp = new Date('2026-07-14T18:00:00.000Z');
+    const service = createService(fixture, { clock: () => timestamp });
+
+    await expect(
+      service.setParent(current.id, { parentWorkItemId: firstParent.id })
+    ).resolves.toMatchObject({ parent: { id: firstParent.id } });
+    let events = await repositories.activityEvents.findByWorkItem(current.id);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      eventType: 'work_item.parent_changed',
+      previousValue: { parent: null },
+      newValue: {
+        parent: {
+          id: firstParent.id,
+          displayKey: firstParent.displayKey,
+          title: firstParent.title
+        }
+      },
+      metadata: {}
+    });
+
+    const afterSet = await repositories.workItems.findById(current.id);
+    await service.setParent(current.id, { parentWorkItemId: firstParent.id });
+    expect((await repositories.workItems.findById(current.id))?.updatedAt).toEqual(
+      afterSet?.updatedAt
+    );
+    expect(await repositories.activityEvents.findByWorkItem(current.id)).toHaveLength(1);
+
+    await expect(
+      service.setParent(current.id, { parentWorkItemId: secondParent.id })
+    ).resolves.toMatchObject({ parent: { id: secondParent.id } });
+    events = await repositories.activityEvents.findByWorkItem(current.id);
+    expect(events).toHaveLength(2);
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        previousValue: {
+          parent: {
+            id: firstParent.id,
+            displayKey: firstParent.displayKey,
+            title: firstParent.title
+          }
+        },
+        newValue: {
+          parent: {
+            id: secondParent.id,
+            displayKey: secondParent.displayKey,
+            title: secondParent.title
+          }
+        }
+      })
+    );
+
+    await expect(
+      service.setParent(current.id, { parentWorkItemId: null })
+    ).resolves.toMatchObject({ parent: null });
+    events = await repositories.activityEvents.findByWorkItem(current.id);
+    expect(events).toHaveLength(3);
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        previousValue: {
+          parent: {
+            id: secondParent.id,
+            displayKey: secondParent.displayKey,
+            title: secondParent.title
+          }
+        },
+        newValue: { parent: null }
+      })
+    );
+    await service.setParent(current.id, { parentWorkItemId: null });
+    expect(await repositories.activityEvents.findByWorkItem(current.id)).toHaveLength(3);
+
+    const notifications = await pool.query<{ count: string }>(
+      'select count(*)::text as count from notifications where workspace_id = $1',
+      [fixture.workspaceId]
+    );
+    expect(notifications.rows[0]?.count).toBe('0');
+  });
+
+  it('rejects invalid, deep, and archived reparenting commands', async () => {
+    const fixture = await createFixture('owner');
+    const service = createService(fixture);
+    const current = await createWorkItem(fixture, { title: 'Current item' });
+    const topLevel = await createWorkItem(fixture, { title: 'Valid top-level item' });
+    const proposedChild = await createWorkItem(fixture, {
+      title: 'Proposed child parent',
+      parentWorkItemId: topLevel.id
+    });
+    const container = await createWorkItem(fixture, { title: 'Container item' });
+    await createWorkItem(fixture, { title: 'Container child', parentWorkItemId: container.id });
+    const otherProject = await createProject(fixture, { key: 'EXT' });
+    const crossProject = await createWorkItem(fixture, {
+      projectId: otherProject.id,
+      itemNumber: 1,
+      displayKey: 'EXT-1',
+      title: 'Cross-project item'
+    });
+    const otherWorkspace = await createFixture('owner');
+    const crossWorkspace = await createWorkItem(otherWorkspace, { title: 'Cross-workspace item' });
+
+    await expect(service.setParent(current.id, { parentWorkItemId: current.id })).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      message: 'A work item cannot be its own parent.'
+    });
+    await expect(service.setParent(current.id, { parentWorkItemId: randomUUID() })).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+      message: 'Parent work item not found.'
+    });
+    await expect(service.setParent(current.id, { parentWorkItemId: crossProject.id })).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      message: 'Parent work must belong to the same project.'
+    });
+    await expect(service.setParent(current.id, { parentWorkItemId: crossWorkspace.id })).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+      message: 'Parent work item not found.'
+    });
+    await expect(service.setParent(crossWorkspace.id, { parentWorkItemId: topLevel.id })).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+      message: 'Work item not found.'
+    });
+    await expect(service.setParent(current.id, { parentWorkItemId: proposedChild.id })).rejects.toMatchObject({
+      code: 'CONFLICT',
+      message: 'A child work item cannot contain child work.'
+    });
+    await expect(service.setParent(container.id, { parentWorkItemId: topLevel.id })).rejects.toMatchObject({
+      code: 'CONFLICT',
+      message: 'Work with children cannot be assigned a parent.'
+    });
+
+    await repositories.projects.updateStatus(fixture.projectId, 'archived', now());
+    await expect(service.setParent(current.id, { parentWorkItemId: topLevel.id })).rejects.toMatchObject({
+      code: 'CONFLICT',
+      message: 'Archived projects are read-only.'
+    });
+  });
+
+  it('rolls back a parent update when activity persistence fails', async () => {
+    const fixture = await createFixture('owner');
+    const current = await createWorkItem(fixture, { title: 'Rollback current' });
+    const parent = await createWorkItem(fixture, { title: 'Rollback parent' });
+    const duplicateActivityId = randomUUID();
+    await repositories.activityEvents.create({
+      id: duplicateActivityId,
+      workspaceId: fixture.workspaceId,
+      projectId: fixture.projectId,
+      workItemId: current.id,
+      actorId: fixture.actorId,
+      eventType: 'work_item.created',
+      summary: 'Existing activity.',
+      previousValue: null,
+      newValue: { status: current.status },
+      metadata: {},
+      createdAt: now()
+    });
+    const service = createService(fixture, { idGenerator: () => duplicateActivityId });
+
+    await expect(
+      service.setParent(current.id, { parentWorkItemId: parent.id })
+    ).rejects.toMatchObject({ cause: { code: '23505' } });
+    await expect(repositories.workItems.findById(current.id)).resolves.toMatchObject({
+      parentWorkItemId: null
+    });
+    await expect(repositories.activityEvents.findByWorkItem(current.id)).resolves.toHaveLength(1);
+  });
+
+  it('serializes inverse concurrent parent assignments without creating a cycle', async () => {
+    const fixture = await createFixture('owner');
+    const first = await createWorkItem(fixture, { title: 'Concurrent first' });
+    const second = await createWorkItem(fixture, { title: 'Concurrent second' });
+    const service = createService(fixture);
+
+    const results = await Promise.allSettled([
+      service.setParent(first.id, { parentWorkItemId: second.id }),
+      service.setParent(second.id, { parentWorkItemId: first.id })
+    ]);
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    expect(results.find((result) => result.status === 'rejected')).toMatchObject({
+      reason: { code: 'CONFLICT' }
+    });
+
+    const [storedFirst, storedSecond] = await Promise.all([
+      repositories.workItems.findById(first.id),
+      repositories.workItems.findById(second.id)
+    ]);
+    expect(
+      storedFirst?.parentWorkItemId === second.id && storedSecond?.parentWorkItemId === null ||
+      storedSecond?.parentWorkItemId === first.id && storedFirst?.parentWorkItemId === null
+    ).toBe(true);
+  });
+
+  it('serializes child creation against assigning its proposed parent beneath other work', async () => {
+    const fixture = await createFixture('owner');
+    const proposedParent = await createWorkItem(fixture, { title: 'Contended parent' });
+    const otherParent = await createWorkItem(fixture, { title: 'Other parent' });
+    const service = createService(fixture);
+
+    const results = await Promise.allSettled([
+      service.createWorkItem(fixture.projectId, {
+        title: 'Concurrent child',
+        type: 'task',
+        priority: 'medium',
+        parentWorkItemId: proposedParent.id
+      }),
+      service.setParent(proposedParent.id, { parentWorkItemId: otherParent.id })
+    ]);
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    expect(results.find((result) => result.status === 'rejected')).toMatchObject({
+      reason: { code: 'CONFLICT' }
+    });
+
+    const storedParent = await repositories.workItems.findById(proposedParent.id);
+    const hasChildren = await repositories.workItems.hasChildren(proposedParent.id);
+    expect(
+      storedParent?.parentWorkItemId === otherParent.id && !hasChildren ||
+      storedParent?.parentWorkItemId === null && hasChildren
+    ).toBe(true);
+  });
+
+  it('creates, sets, replays, and clears hierarchy through the API', async () => {
+    const fixture = await createFixture('owner');
+    const parent = await createWorkItem(fixture, { title: 'HTTP parent' });
+
+    const created = await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items`)
+      .set(fixture.headers)
+      .send({
+        title: 'HTTP child',
+        type: 'task',
+        priority: 'medium',
+        parentWorkItemId: parent.id
+      })
+      .expect(201);
+    expect(created.body.parent).toMatchObject({ id: parent.id, displayKey: parent.displayKey });
+    fixture.nextFixtureWorkItemNumber += 1;
+
+    const topLevel = await createWorkItem(fixture, { title: 'HTTP reparented item' });
+    await request(app)
+      .put(`/api/work-items/${topLevel.id}/parent`)
+      .set(fixture.headers)
+      .send({ parentWorkItemId: parent.id })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.parent).toMatchObject({ id: parent.id });
+      });
+
+    const afterSet = await repositories.workItems.findById(topLevel.id);
+    await request(app)
+      .put(`/api/work-items/${topLevel.id}/parent`)
+      .set(fixture.headers)
+      .send({ parentWorkItemId: parent.id })
+      .expect(200);
+    expect((await repositories.workItems.findById(topLevel.id))?.updatedAt).toEqual(
+      afterSet?.updatedAt
+    );
+    expect(await repositories.activityEvents.findByWorkItem(topLevel.id)).toHaveLength(1);
+
+    await request(app)
+      .put(`/api/work-items/${topLevel.id}/parent`)
+      .set(fixture.headers)
+      .send({ parentWorkItemId: null })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.parent).toBeNull();
+      });
+  });
+
+  it('lists bounded children and eligible parent candidates through the API', async () => {
+    const fixture = await createFixture('owner');
+    const parent = await createWorkItem(fixture, { title: 'Children endpoint parent' });
+    const high = await createWorkItem(fixture, {
+      title: 'High child',
+      priority: 'high',
+      parentWorkItemId: parent.id
+    });
+    const medium = await createWorkItem(fixture, {
+      title: 'Medium child',
+      priority: 'medium',
+      parentWorkItemId: parent.id
+    });
+    await createWorkItem(fixture, {
+      title: 'Done child',
+      status: 'done',
+      priority: 'urgent',
+      parentWorkItemId: parent.id
+    });
+
+    await request(app)
+      .get(`/api/work-items/${parent.id}/children`)
+      .query({ limit: 2 })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({ totalCount: 3, hasMore: true });
+        expect(body.items.map((item: { id: string }) => item.id)).toEqual([high.id, medium.id]);
+        expect(body.items[0]).toMatchObject({
+          parent: { id: parent.id },
+          childSummary: null
+        });
+      });
+
+    await request(app)
+      .get(`/api/work-items/${high.id}/children`)
+      .set(fixture.headers)
+      .expect(200)
+      .expect({ items: [], totalCount: 0, hasMore: false });
+
+    const current = await createWorkItem(fixture, { title: 'Candidate target' });
+    const matching = await createWorkItem(fixture, {
+      title: 'Candidate alpha',
+      status: 'in_progress',
+      priority: 'high'
+    });
+    const populated = await createWorkItem(fixture, { title: 'Candidate populated' });
+    await createWorkItem(fixture, {
+      title: 'Candidate nested',
+      parentWorkItemId: populated.id
+    });
+    const otherProject = await createProject(fixture, { key: 'CAN' });
+    await createWorkItem(fixture, {
+      projectId: otherProject.id,
+      itemNumber: 1,
+      displayKey: 'CAN-1',
+      title: 'Candidate other project'
+    });
+
+    await request(app)
+      .get(`/api/work-items/${current.id}/parent-candidates`)
+      .query({ search: '  Candidate  ' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        const ids = body.map((item: { id: string }) => item.id);
+        expect(ids).toContain(matching.id);
+        expect(ids).toContain(populated.id);
+        expect(ids).not.toContain(current.id);
+        expect(ids).not.toContain(high.id);
+        expect(body).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              id: matching.id,
+              priority: 'high',
+              updatedAt: expect.any(String)
+            })
+          ])
+        );
+      });
+
+    await request(app)
+      .get(`/api/work-items/${parent.id}/parent-candidates`)
+      .set(fixture.headers)
+      .expect(200)
+      .expect([]);
+  });
+
+  it('rejects malformed hierarchy endpoint requests', async () => {
+    const fixture = await createFixture('owner');
+    const workItem = await createWorkItem(fixture);
+
+    await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items`)
+      .set(fixture.headers)
+      .send({
+        title: 'Malformed parent',
+        type: 'task',
+        priority: 'medium',
+        parentWorkItemId: 'not-a-uuid'
+      })
+      .expect(400);
+
+    for (const body of [
+      {},
+      { parentWorkItemId: 'not-a-uuid' },
+      { parentWorkItemId: null, unexpected: true }
+    ]) {
+      await request(app)
+        .put(`/api/work-items/${workItem.id}/parent`)
+        .set(fixture.headers)
+        .send(body)
+        .expect(400);
+    }
+
+    for (const limit of ['0', '101', '1.5', 'many']) {
+      await request(app)
+        .get(`/api/work-items/${workItem.id}/children`)
+        .query({ limit })
+        .set(fixture.headers)
+        .expect(400);
+    }
+
+    await request(app)
+      .get(`/api/work-items/${workItem.id}/parent-candidates`)
+      .query({ search: 'x'.repeat(121) })
+      .set(fixture.headers)
+      .expect(400);
+    await request(app).get('/api/work-items/not-a-uuid/children').set(fixture.headers).expect(400);
+  });
+
+  it('maps hierarchy domain errors and preserves workspace isolation through the API', async () => {
+    const fixture = await createFixture('owner');
+    const current = await createWorkItem(fixture, { title: 'Hierarchy error target' });
+    const parent = await createWorkItem(fixture, { title: 'Hierarchy error parent' });
+    const child = await createWorkItem(fixture, {
+      title: 'Hierarchy error child',
+      parentWorkItemId: parent.id
+    });
+    const otherProject = await createProject(fixture, { key: 'ERR' });
+    const crossProject = await createWorkItem(fixture, {
+      projectId: otherProject.id,
+      itemNumber: 1,
+      displayKey: 'ERR-1',
+      title: 'Cross-project hierarchy item'
+    });
+    const otherWorkspace = await createFixture('owner');
+    const hidden = await createWorkItem(otherWorkspace, { title: 'Hidden hierarchy item' });
+
+    await request(app)
+      .put(`/api/work-items/${current.id}/parent`)
+      .set(fixture.headers)
+      .send({ parentWorkItemId: current.id })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.error).toMatchObject({
+          code: 'VALIDATION_ERROR',
+          message: 'A work item cannot be its own parent.'
+        });
+      });
+    await request(app)
+      .put(`/api/work-items/${current.id}/parent`)
+      .set(fixture.headers)
+      .send({ parentWorkItemId: randomUUID() })
+      .expect(404)
+      .expect(({ body }) => {
+        expect(body.error.code).toBe('NOT_FOUND');
+      });
+    await request(app)
+      .put(`/api/work-items/${current.id}/parent`)
+      .set(fixture.headers)
+      .send({ parentWorkItemId: crossProject.id })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.error).toMatchObject({
+          code: 'VALIDATION_ERROR',
+          message: 'Parent work must belong to the same project.'
+        });
+      });
+    await request(app)
+      .put(`/api/work-items/${current.id}/parent`)
+      .set(fixture.headers)
+      .send({ parentWorkItemId: child.id })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error).toMatchObject({
+          code: 'CONFLICT',
+          message: 'A child work item cannot contain child work.'
+        });
+      });
+
+    await request(app)
+      .get(`/api/work-items/${hidden.id}/children`)
+      .set(fixture.headers)
+      .expect(404);
+    await request(app)
+      .get(`/api/work-items/${hidden.id}/parent-candidates`)
+      .set(fixture.headers)
+      .expect(404);
+    await request(app)
+      .put(`/api/work-items/${hidden.id}/parent`)
+      .set(fixture.headers)
+      .send({ parentWorkItemId: null })
+      .expect(404);
+
+    await repositories.projects.updateStatus(fixture.projectId, 'archived', now());
+    await request(app)
+      .get(`/api/work-items/${current.id}/parent-candidates`)
+      .set(fixture.headers)
+      .expect(200);
+    await request(app)
+      .put(`/api/work-items/${current.id}/parent`)
+      .set(fixture.headers)
+      .send({ parentWorkItemId: parent.id })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body.error).toMatchObject({
+          code: 'CONFLICT',
+          message: 'Archived projects are read-only.'
         });
       });
   });
@@ -771,8 +1651,8 @@ describe('work item API', () => {
       .expect(({ text }) => {
         expect(text).toBe(
           [
-            'project_key,display_key,title,type,status,priority,assignee_name,assignee_email,reporter_name,reporter_email,label_names,milestone_name,cycle_name,due_date,estimate_points,created_at,updated_at',
-            `WI,${ready.displayKey},"Exported, ready work",task,ready,urgent,API Contributor,${fixture.contributorId}@example.com,API Maintainer,${fixture.maintainerId}@example.com,backend,,CSV export cycle,2026-07-12,8,2026-07-01T12:00:00.000Z,2026-07-03T12:00:00.000Z`,
+            'project_key,display_key,title,type,status,priority,assignee_name,assignee_email,reporter_name,reporter_email,label_names,milestone_name,cycle_name,due_date,estimate_points,created_at,updated_at,parent_key,parent_title',
+            `WI,${ready.displayKey},"Exported, ready work",task,ready,urgent,API Contributor,${fixture.contributorId}@example.com,API Maintainer,${fixture.maintainerId}@example.com,backend,,CSV export cycle,2026-07-12,8,2026-07-01T12:00:00.000Z,2026-07-03T12:00:00.000Z,,`,
             ''
           ].join('\n')
         );
@@ -829,6 +1709,47 @@ describe('work item API', () => {
       });
   });
 
+  it('exports parent context through project and workspace hierarchy filters', async () => {
+    const fixture = await createFixture('owner');
+    const parent = await createWorkItem(fixture, {
+      title: 'CSV hierarchy parent',
+      status: 'in_progress'
+    });
+    const child = await createWorkItem(fixture, {
+      title: 'CSV hierarchy child',
+      status: 'ready',
+      parentWorkItemId: parent.id
+    });
+    await createWorkItem(fixture, {
+      title: 'CSV hierarchy unrelated',
+      status: 'ready'
+    });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items/export`)
+      .query({ parentKey: parent.displayKey })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ text }) => {
+        expect(text).toContain(`WI,${child.displayKey},CSV hierarchy child`);
+        expect(text).toContain(`,${parent.displayKey},CSV hierarchy parent\n`);
+        expect(text).not.toContain(`WI,${parent.displayKey},CSV hierarchy parent`);
+        expect(text).not.toContain('CSV hierarchy unrelated');
+      });
+
+    await request(app)
+      .get('/api/work-items/export')
+      .query({ hierarchy: 'children' })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ text }) => {
+        expect(text).toContain(`WI,${child.displayKey},CSV hierarchy child`);
+        expect(text).toContain(`,${parent.displayKey},CSV hierarchy parent\n`);
+        expect(text).not.toContain(`WI,${parent.displayKey},CSV hierarchy parent`);
+        expect(text).not.toContain('CSV hierarchy unrelated');
+      });
+  });
+
   it('exports header-only CSV for empty project work item results', async () => {
     const fixture = await createFixture('owner');
     await createWorkItem(fixture, {
@@ -844,7 +1765,7 @@ describe('work item API', () => {
       .expect('Content-Type', /text\/csv/)
       .expect(({ text }) => {
         expect(text).toBe(
-          'project_key,display_key,title,type,status,priority,assignee_name,assignee_email,reporter_name,reporter_email,label_names,milestone_name,cycle_name,due_date,estimate_points,created_at,updated_at\n'
+          'project_key,display_key,title,type,status,priority,assignee_name,assignee_email,reporter_name,reporter_email,label_names,milestone_name,cycle_name,due_date,estimate_points,created_at,updated_at,parent_key,parent_title\n'
         );
       });
   });

@@ -7,7 +7,12 @@ import type {
 import type { DeliveryHealthReasonDto, DeliveryHealthSeverity, DeliveryHealthState, ProjectDeliveryHealthDto } from './health.js';
 import type { MemberDto } from './members.js';
 import type { ProjectDto } from './projects.js';
-import type { WorkItemPriority, WorkItemQuery, WorkItemStatus } from './work-items.js';
+import type {
+  WorkItemParentDto,
+  WorkItemPriority,
+  WorkItemQuery,
+  WorkItemStatus
+} from './work-items.js';
 
 export type MilestoneStatus = 'planned' | 'active' | 'completed' | 'canceled';
 export type PlanningReviewItemKind = 'work_item' | 'milestone' | 'activity';
@@ -73,6 +78,7 @@ export interface PlanningRiskItemDto {
   dueDate: string | null;
   milestone: MilestoneDto | null;
   updatedAt: string;
+  parent?: WorkItemParentDto | null;
 }
 
 export interface PlanningReviewItemDto {

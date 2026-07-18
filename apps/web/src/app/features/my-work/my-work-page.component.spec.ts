@@ -72,6 +72,8 @@ const workItem: WorkspaceWorkItemListItemDto = {
   boardPosition: 1024,
   dueDate: '2026-07-08',
   estimatePoints: 5,
+  parent: null,
+  childSummary: null,
   dependencyBlocked: false,
   openBlockerCount: 0,
   openBlockedWorkCount: 0,
@@ -186,16 +188,39 @@ describe('MyWorkPageComponent', () => {
 
   it('renders a deduped attention queue and secondary reported work', () => {
     const { fixture, http } = setup();
+    const childWorkItem: WorkspaceWorkItemListItemDto = {
+      ...workItem,
+      parent: {
+        id: '10000000-0000-4000-8000-000000000409',
+        projectId,
+        displayKey: 'WT-9',
+        title: 'Dashboard parent',
+        type: 'story',
+        status: 'in_progress'
+      }
+    };
+    const parentReportedWorkItem: WorkspaceWorkItemListItemDto = {
+      ...reportedWorkItem,
+      childSummary: {
+        totalCount: 2,
+        openCount: 1,
+        doneCount: 1,
+        canceledCount: 0,
+        estimatedCount: 1,
+        unestimatedCount: 1,
+        estimatePoints: 3
+      }
+    };
     const request = http.expectOne('/api/my-work');
     expect(request.request.headers.get('x-worktrail-member-id')).toBe(owner.id);
     flushInboxCount(http, 2);
     request.flush(
       dashboard({
-        assignedToMe: [workItem, dependencyBlockedWorkItem],
-        dueSoonOrOverdue: [workItem],
+        assignedToMe: [childWorkItem, dependencyBlockedWorkItem],
+        dueSoonOrOverdue: [childWorkItem],
         dependencyBlockedAssigned: [dependencyBlockedWorkItem],
-        reportedByMe: [reportedWorkItem],
-        recentlyUpdated: [workItem, dependencyBlockedWorkItem, reportedWorkItem]
+        reportedByMe: [parentReportedWorkItem],
+        recentlyUpdated: [childWorkItem, dependencyBlockedWorkItem, parentReportedWorkItem]
       })
     );
     fixture.detectChanges();
@@ -222,6 +247,8 @@ describe('MyWorkPageComponent', () => {
     expect(compiled.textContent).toContain('Story · In progress · High');
     expect(compiled.textContent).toContain('v0.0.5');
     expect(compiled.textContent).toContain('Due Jul 8');
+    expect(compiled.textContent).toContain('Child of WT-9');
+    expect(compiled.textContent).toContain('2 children · 1/2 complete');
     expect(summaryButtons[0].textContent).toContain('Assigned open');
     expect(queueRows.map((row) => row.getAttribute('href'))).toEqual([
       `/work-items/${dependencyBlockedWorkItem.id}?returnUrl=%2Fmy-work`,

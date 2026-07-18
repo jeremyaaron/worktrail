@@ -64,7 +64,15 @@ const blockedWorkItem: PlanningRiskItemDto = {
   assignee: owner,
   dueDate: '2026-07-19',
   milestone: activeMilestone,
-  updatedAt: '2026-07-04T10:30:00.000Z'
+  updatedAt: '2026-07-04T10:30:00.000Z',
+  parent: {
+    id: '10000000-0000-4000-8000-000000000499',
+    projectId,
+    displayKey: 'WT-40',
+    title: 'Coordinate milestone readiness',
+    type: 'story',
+    status: 'in_progress'
+  }
 };
 
 const staleWorkItem: PlanningRiskItemDto = {
@@ -221,6 +229,7 @@ describe('ProjectMilestoneReviewPageComponent', () => {
     expect(compiled.textContent).toContain('Assigned');
     expect(compiled.textContent).toContain('Blocked work');
     expect(compiled.textContent).toContain('Recently changed work');
+    expect(compiled.textContent).toContain('Child of WT-40');
 
     const scopedWorkLink = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('a')).find(
       (link) => link.textContent?.trim() === 'Open scoped work'

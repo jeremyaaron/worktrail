@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import request from 'supertest';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { createExpressApp } from '../src/adapters/express/server.js';
 import { createDb, createPool } from '../src/db/client.js';
@@ -187,6 +187,7 @@ async function createWorkItem(
     cycleId?: string | null;
     dueDate?: string | null;
     estimatePoints?: number | null;
+    parentWorkItemId?: string | null;
     updatedAt?: Date;
   }
 ) {
@@ -208,6 +209,7 @@ async function createWorkItem(
     reporterId: fixture.actorId,
     milestoneId: input.milestoneId ?? null,
     cycleId: input.cycleId ?? null,
+    parentWorkItemId: input.parentWorkItemId ?? null,
     boardPosition: itemNumber * 1024,
     dueDate: input.dueDate ?? null,
     estimatePoints: input.estimatePoints ?? null,
@@ -242,6 +244,7 @@ beforeAll(() => {
 });
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   nextItemNumber = 1;
   await cleanupAllWorkspaces();
 });
@@ -315,6 +318,10 @@ describe('planning summary', () => {
       status: 'in_progress',
       priority: 'urgent'
     });
+    await repositories.workItems.update(blocked.id, {
+      parentWorkItemId: dependencyBlocker.id,
+      updatedAt: blocked.updatedAt
+    });
     await createBlockingRelationship(fixture, {
       sourceWorkItemId: dependencyBlocker.id,
       targetWorkItemId: dependencyBlocked.id
@@ -327,6 +334,7 @@ describe('planning summary', () => {
       dueDate: '2026-07-01'
     });
 
+    const parentReads = vi.spyOn(repositories.workItems, 'listParentsForChildren');
     const service = new PlanningService({
       actor: fixture.actor,
       repositories,
@@ -503,8 +511,14 @@ describe('planning summary', () => {
     expect(summary.blockedWork[0]).toMatchObject({
       assignee: expect.objectContaining({ id: fixture.assigneeId }),
       milestone: expect.objectContaining({ id: activeMilestone.id }),
-      dueDate: '2026-07-09'
+      dueDate: '2026-07-09',
+      parent: expect.objectContaining({
+        id: dependencyBlocker.id,
+        displayKey: dependencyBlocker.displayKey,
+        title: dependencyBlocker.title
+      })
     });
+    expect(parentReads).toHaveBeenCalledTimes(1);
     expect(summary.dependencyBlockedWork[0]).toMatchObject({
       assignee: expect.objectContaining({ id: fixture.assigneeId }),
       milestone: null
@@ -678,6 +692,10 @@ describe('planning summary', () => {
       milestoneId: milestone.id,
       updatedAt: new Date('2026-07-08T12:00:00.000Z')
     });
+    await repositories.workItems.update(dependencyBlocked.id, {
+      parentWorkItemId: openBlocker.id,
+      updatedAt: dependencyBlocked.updatedAt
+    });
     const dueSoonUnassigned = await createWorkItem(fixture, {
       title: 'Due soon unassigned milestone work',
       status: 'ready',
@@ -825,6 +843,12 @@ describe('planning summary', () => {
         items: [expect.objectContaining({ id: openBlocker.id })]
       })
     ]));
+    expect(
+      review.riskSections.find((section) => section.type === 'dependency_blocked')?.items[0]
+        ?.parent
+    ).toMatchObject({ id: openBlocker.id, displayKey: openBlocker.displayKey });
+    expect(review.recentlyChangedWork.find((item) => item.id === dependencyBlocked.id)?.parent)
+      .toMatchObject({ id: openBlocker.id });
     expect(review.recentlyChangedWork.map((item) => item.id)).toEqual([
       blocked.id,
       openBlocker.id,

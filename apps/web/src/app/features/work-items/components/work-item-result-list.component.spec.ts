@@ -56,6 +56,8 @@ const workspaceWorkItem: WorkspaceWorkItemListItemDto = {
   boardPosition: 1,
   dueDate: '2026-07-20',
   estimatePoints: 5,
+  parent: null,
+  childSummary: null,
   dependencyBlocked: true,
   openBlockerCount: 2,
   openBlockedWorkCount: 1,
@@ -112,6 +114,69 @@ describe('WorkItemResultListComponent', () => {
     expect(rowLink?.getAttribute('href')).toContain('returnUrl=');
     expect(cardLink?.getAttribute('href')).toContain('/work-items/work-item-1');
     expect(cardLink?.getAttribute('href')).toContain('returnUrl=');
+  });
+
+  it('shows child and parent progress context without adding noise to leaf items', () => {
+    const childItem: WorkspaceWorkItemListItemDto = {
+      ...workspaceWorkItem,
+      id: 'work-item-child',
+      displayKey: 'WT-43',
+      title: 'Child result',
+      parent: {
+        id: 'work-item-parent',
+        projectId: 'project-1',
+        displayKey: 'WT-40',
+        title: 'Parent result',
+        type: 'story',
+        status: 'in_progress'
+      }
+    };
+    const parentItem: WorkspaceWorkItemListItemDto = {
+      ...workspaceWorkItem,
+      id: 'work-item-parent',
+      displayKey: 'WT-40',
+      title: 'Parent result',
+      childSummary: {
+        totalCount: 3,
+        openCount: 1,
+        doneCount: 1,
+        canceledCount: 1,
+        estimatedCount: 2,
+        unestimatedCount: 1,
+        estimatePoints: 8
+      }
+    };
+    fixture.componentInstance.items = [childItem, parentItem, workspaceWorkItem];
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const rows = Array.from(
+      compiled.querySelectorAll<HTMLElement>('.work-item-row')
+    );
+    const parentLinks = Array.from(
+      compiled.querySelectorAll<HTMLAnchorElement>('.hierarchy-link')
+    );
+
+    expect(rows[0].textContent).toContain('Child of WT-40');
+    expect(rows[1].textContent).toContain('3 children · 2/3 complete');
+    expect(rows[2].querySelector('.hierarchy-link, .hierarchy-pill')).toBeNull();
+    expect(parentLinks[0].getAttribute('href')).toContain('/work-items/work-item-parent');
+    expect(parentLinks[0].getAttribute('href')).toContain('returnUrl=');
+    expect(compiled.textContent).toContain('Child of WT-40');
+
+    const { project: _childProject, ...projectChildItem } = childItem;
+    const { project: _parentProject, ...projectParentItem } = parentItem;
+    const { project: _leafProject, ...projectLeafItem } = workspaceWorkItem;
+    fixture.componentInstance.mode = 'project';
+    fixture.componentInstance.items = [projectChildItem, projectParentItem, projectLeafItem];
+    fixture.detectChanges();
+
+    const projectRows = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.work-item-row')
+    );
+    expect(projectRows[0].textContent).toContain('Child of WT-40');
+    expect(projectRows[1].textContent).toContain('3 children · 2/3 complete');
+    expect(projectRows[2].querySelector('.hierarchy-link, .hierarchy-pill')).toBeNull();
   });
 
   it('renders selection controls and emits item and visible-toggle events', () => {

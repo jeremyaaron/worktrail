@@ -212,7 +212,15 @@ const blockedWorkItem: PlanningRiskItemDto = {
   assignee: owner,
   dueDate: '2026-07-06',
   milestone: activeMilestone,
-  updatedAt: '2026-07-04T11:00:00.000Z'
+  updatedAt: '2026-07-04T11:00:00.000Z',
+  parent: {
+    id: '10000000-0000-4000-8000-000000000399',
+    projectId,
+    displayKey: 'WT-40',
+    title: 'Coordinate deployment readiness',
+    type: 'story',
+    status: 'in_progress'
+  }
 };
 
 const overdueWorkItem: PlanningRiskItemDto = {
@@ -442,6 +450,7 @@ describe('ProjectPlanningPageComponent', () => {
     expect(compiled.textContent).toContain('Planning dashboard');
     expect(compiled.textContent).toContain('6 risks');
     expect(compiled.textContent).toContain('Delivery health');
+    expect(compiled.textContent).toContain('Child of WT-40');
     expect(compiled.textContent).toContain('Cycle planning');
     expect(compiled.textContent).toContain('v0.2.1 Cycle Planning');
     expect(compiled.textContent).toContain('Blocked');

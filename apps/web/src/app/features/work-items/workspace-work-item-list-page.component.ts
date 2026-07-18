@@ -41,7 +41,10 @@ import { PinnedSavedViewsComponent } from './components/pinned-saved-views.compo
 import { SavedViewsToolbarComponent } from './components/saved-views-toolbar.component';
 import { WorkItemFilterPanelComponent } from './components/work-item-filter-panel.component';
 import { WorkItemResultListComponent } from './components/work-item-result-list.component';
-import { unassignedAssigneeValue } from './query/work-item-filter-options';
+import {
+  unassignedAssigneeValue,
+  workItemHierarchyOptions
+} from './query/work-item-filter-options';
 import { WorkListQueryStore } from './state/work-list-query.store';
 const statuses: WorkItemStatus[] = [
   'backlog',
@@ -101,6 +104,8 @@ interface WorkspaceFilterFormValue {
   blocked: string;
   dependency: string;
   workRisk: string;
+  hierarchy: string;
+  parentKey: string;
   archivedProjects: string;
   sort: string;
 }
@@ -319,6 +324,15 @@ interface WorkspaceFilterFormValue {
         <select formControlName="dependency">
           <option value="">Any dependency state</option>
           @for (option of dependencyOptions; track option.value) {
+            <option [value]="option.value">{{ option.label }}</option>
+          }
+        </select>
+      </label>
+
+      <label filterAdvanced>
+        <span>Work breakdown</span>
+        <select formControlName="hierarchy">
+          @for (option of hierarchyOptions; track option.value) {
             <option [value]="option.value">{{ option.label }}</option>
           }
         </select>
@@ -833,6 +847,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   readonly dueDateStates = dueDateStates;
   readonly blockedOptions = blockedOptions;
   readonly dependencyOptions = dependencyOptions;
+  readonly hierarchyOptions = workItemHierarchyOptions;
   readonly archivedProjectModes = archivedProjectModes;
   readonly sorts = sorts;
   readonly unassignedAssigneeValue = unassignedAssigneeValue;
@@ -904,6 +919,8 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     blocked: [''],
     dependency: [''],
     workRisk: [''],
+    hierarchy: [''],
+    parentKey: [''],
     archivedProjects: ['exclude'],
     sort: ['updated_desc']
   });
@@ -1090,6 +1107,10 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       updates.blocked = '';
     } else if (filterName === 'Dependency') {
       updates.dependency = '';
+    } else if (filterName === 'Work breakdown') {
+      updates.hierarchy = '';
+    } else if (filterName === 'Parent') {
+      updates.parentKey = '';
     } else if (filterName === 'Projects') {
       updates.archivedProjects = 'exclude';
     } else if (filterName === 'Sort') {
@@ -1364,6 +1385,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       this.filterForm.controls.dueDateState,
       this.filterForm.controls.blocked,
       this.filterForm.controls.dependency,
+      this.filterForm.controls.hierarchy,
       this.filterForm.controls.archivedProjects,
       this.filterForm.controls.sort
     ];
@@ -1440,6 +1462,12 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       'Dependency',
       this.optionLabel(dependencyOptions, filters.dependency)
     );
+    this.pushFilterLabel(
+      labels,
+      'Work breakdown',
+      filters.hierarchy === '' ? '' : this.optionLabel(workItemHierarchyOptions, filters.hierarchy)
+    );
+    this.pushFilterLabel(labels, 'Parent', filters.parentKey);
     this.pushFilterLabel(
       labels,
       'Projects',

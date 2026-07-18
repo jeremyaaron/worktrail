@@ -16,6 +16,7 @@ import {
   workItemPriorityLabel,
   workItemStatusLabel
 } from '../../shared/work-items/work-item-display';
+import { workItemChildSummaryLabel } from '../../shared/work-items/work-item-hierarchy-display';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
@@ -153,6 +154,11 @@ const priorityOrder = new Map([
                           {{ projectBadge(item.project) }}
                         </span>
                         <span class="key-pill">{{ item.displayKey }}</span>
+                        @if (item.parent; as parent) {
+                          <span class="hierarchy-pill">Child of {{ parent.displayKey }}</span>
+                        } @else if (item.childSummary; as childSummary) {
+                          <span class="hierarchy-pill">{{ childSummaryLabel(childSummary) }}</span>
+                        }
                         @if (item.openBlockerCount > 0) {
                           <span class="dependency-pill">Blocked by {{ item.openBlockerCount }}</span>
                         }
@@ -393,6 +399,7 @@ const priorityOrder = new Map([
 
     .project-pill,
     .key-pill,
+    .hierarchy-pill,
     .status-pill,
     .priority-pill {
       display: inline-flex;
@@ -424,6 +431,12 @@ const priorityOrder = new Map([
       background: #eff6ff;
       color: #1d4ed8;
       text-transform: uppercase;
+    }
+
+    .hierarchy-pill {
+      border-color: #bae6fd;
+      background: #f0f9ff;
+      color: #0369a1;
     }
 
     .status-pill,
@@ -688,6 +701,7 @@ export class MyWorkPageComponent implements OnDestroy {
 
   workItemStatusLabel = workItemStatusLabel;
   workItemPriorityLabel = workItemPriorityLabel;
+  childSummaryLabel = workItemChildSummaryLabel;
 
   toggleSummaryFilter(key: MyWorkSummaryCountDto['key']): void {
     this.selectedSummaryKey.update((currentKey) => (currentKey === key ? null : key));

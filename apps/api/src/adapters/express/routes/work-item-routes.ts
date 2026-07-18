@@ -17,11 +17,14 @@ import {
   exportWorkspaceWorkItemsHandler,
   getWorkItemHandler,
   getWorkItemWatchStateHandler,
+  listWorkItemChildrenHandler,
+  listWorkItemParentCandidatesHandler,
   listWorkItemRelationshipsHandler,
   listWorkspaceWorkItemsHandler,
   listWorkItemsHandler,
   moveWorkItemOnBoardHandler,
   previewWorkItemCsvImportHandler,
+  setWorkItemParentHandler,
   transitionWorkItemHandler,
   updateWorkItemHandler,
   unwatchWorkItemHandler,
@@ -124,6 +127,27 @@ export function registerWorkItemRoutes(app: Express, context: ExpressRouteContex
     '/api/work-items/:workItemId/relationships/:relationshipId',
     adaptEndpoint(
       deleteWorkItemRelationshipHandler({ repositories: context.repositories, db: context.db }),
+      options
+    )
+  );
+  app.get(
+    '/api/work-items/:workItemId/children',
+    adaptEndpoint(
+      listWorkItemChildrenHandler({ repositories: context.repositories, db: context.db }),
+      options
+    )
+  );
+  app.get(
+    '/api/work-items/:workItemId/parent-candidates',
+    adaptEndpoint(
+      listWorkItemParentCandidatesHandler({ repositories: context.repositories, db: context.db }),
+      options
+    )
+  );
+  app.put(
+    '/api/work-items/:workItemId/parent',
+    adaptEndpoint(
+      setWorkItemParentHandler({ repositories: context.repositories, db: context.db }),
       options
     )
   );

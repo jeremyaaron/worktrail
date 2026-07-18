@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import type { WorkItemParentDto } from '@worktrail/contracts';
+
 import type { Member, Milestone, WorkItem } from '../src/repositories/types.js';
 import {
   createCycleReviewRiskSections,
@@ -81,12 +83,26 @@ describe('work risk sections', () => {
     });
     const memberById = new Map([[member.id, member]]);
     const milestoneById = new Map([[milestone.id, milestone]]);
+    const parentByChildId = new Map<string, WorkItemParentDto>([
+      [
+        blocked.id,
+        {
+          id: 'parent-1',
+          projectId: blocked.projectId,
+          displayKey: 'WT-100',
+          title: 'Coordinate launch readiness',
+          type: 'story',
+          status: 'in_progress'
+        }
+      ]
+    ]);
 
     const reviewSections = createMilestoneReviewRiskSections({
       milestoneId: milestone.id,
       workItems,
       memberById,
       milestoneById,
+      parentByChildId,
       context
     });
     const cycleSections = createCycleReviewRiskSections({
@@ -94,6 +110,7 @@ describe('work risk sections', () => {
       workItems,
       memberById,
       milestoneById,
+      parentByChildId,
       context,
       isOverTarget: true
     });
@@ -101,6 +118,7 @@ describe('work risk sections', () => {
       workItems,
       memberById,
       milestoneById,
+      parentByChildId,
       context
     });
 
@@ -127,7 +145,8 @@ describe('work risk sections', () => {
         expect.objectContaining({
           id: blocked.id,
           assignee: expect.objectContaining({ id: member.id }),
-          milestone: expect.objectContaining({ id: milestone.id })
+          milestone: expect.objectContaining({ id: milestone.id }),
+          parent: expect.objectContaining({ displayKey: 'WT-100' })
         })
       ]
     });
@@ -166,6 +185,7 @@ function createWorkItem(input: Partial<WorkItem> & Pick<WorkItem, 'id' | 'title'
     reporterId: member.id,
     milestoneId: input.milestoneId === undefined ? milestone.id : input.milestoneId,
     cycleId: input.cycleId ?? null,
+    parentWorkItemId: input.parentWorkItemId ?? null,
     boardPosition: 0,
     dueDate: input.dueDate ?? null,
     estimatePoints: null,

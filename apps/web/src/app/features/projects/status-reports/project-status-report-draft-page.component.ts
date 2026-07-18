@@ -19,12 +19,19 @@ import {
 import { formatToken } from '../../../shared/display/token-format';
 import { ErrorPanelComponent } from '../../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../../shared/ui/loading-indicator.component';
+import { WorkItemParentPillComponent } from '../../../shared/work-items/work-item-parent-pill.component';
 
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 @Component({
   selector: 'app-project-status-report-draft-page',
-  imports: [ErrorPanelComponent, LoadingIndicatorComponent, ReactiveFormsModule, RouterLink],
+  imports: [
+    ErrorPanelComponent,
+    LoadingIndicatorComponent,
+    ReactiveFormsModule,
+    RouterLink,
+    WorkItemParentPillComponent
+  ],
   template: `
     <section class="status-page">
       <div class="status-page__heading">
@@ -224,7 +231,10 @@ const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
                   @for (item of recentWork(); track item.id) {
                     <article class="compact-row">
                       <strong>{{ item.displayKey }} · {{ item.title }}</strong>
-                      <span>{{ formatToken(item.status) }} · {{ formatToken(item.priority) }}</span>
+                      <span>
+                        {{ formatToken(item.status) }} · {{ formatToken(item.priority) }}
+                        <app-work-item-parent-pill [parent]="item.parent" />
+                      </span>
                     </article>
                   }
                 </div>

@@ -259,6 +259,10 @@ function renderWorkItemSummary(item: PlanningRiskItemDto, basePath: string): str
     `updated: ${formatDateTime(item.updatedAt)}`
   ];
 
+  if (item.parent !== null && item.parent !== undefined) {
+    details.push(`child of: ${item.parent.displayKey} - ${item.parent.title}`);
+  }
+
   return `${link} - ${escapeMarkdownInline(details.join(', '))}`;
 }
 

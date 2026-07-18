@@ -1,5 +1,19 @@
 import type { WorkItemQuery } from '@worktrail/contracts';
-import { and, asc, count, desc, eq, inArray } from 'drizzle-orm';
+import {
+  and,
+  aliasedTable,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  ne,
+  or,
+  sql,
+  type SQL
+} from 'drizzle-orm';
 
 import type { WorktrailDb } from '../db/client.js';
 import { projects, workItems } from '../db/schema.js';
@@ -23,6 +37,7 @@ export interface UpdateWorkItemInput {
   assigneeId?: string | null;
   milestoneId?: string | null;
   cycleId?: string | null;
+  parentWorkItemId?: string | null;
   boardPosition?: number;
   dueDate?: string | null;
   estimatePoints?: number | null;
@@ -40,6 +55,38 @@ export interface WorkspaceWorkItemRecord {
   project: Pick<Project, 'id' | 'key' | 'name' | 'status'>;
 }
 
+export interface EligibleParentCandidateInput {
+  workItem: WorkItem;
+  search?: string;
+  limit: number;
+}
+
+export interface WorkItemChildSummaryRecord {
+  totalCount: number;
+  openCount: number;
+  doneCount: number;
+  canceledCount: number;
+  estimatedCount: number;
+  unestimatedCount: number;
+  estimatePoints: number;
+}
+
+const maximumParentCandidateLimit = 20;
+
+function terminalRankSql(): SQL {
+  return sql`case when ${workItems.status} in ('done', 'canceled') then 1 else 0 end`;
+}
+
+function priorityRankSql(): SQL {
+  return sql`case ${workItems.priority}
+    when 'urgent' then 4
+    when 'high' then 3
+    when 'medium' then 2
+    when 'low' then 1
+    else 0
+  end`;
+}
+
 export function createWorkItemRepository(db: WorktrailDb) {
   return {
     async create(input: NewWorkItem) {
@@ -50,6 +97,148 @@ export function createWorkItemRepository(db: WorktrailDb) {
     async findById(id: string) {
       const [workItem] = await db.select().from(workItems).where(eq(workItems.id, id)).limit(1);
       return workItem ?? null;
+    },
+
+    async findManyByIdsForUpdate(ids: string[]) {
+      const sortedIds = [...new Set(ids)].sort((left, right) => left.localeCompare(right));
+
+      if (sortedIds.length === 0) {
+        return [];
+      }
+
+      return db
+        .select()
+        .from(workItems)
+        .where(inArray(workItems.id, sortedIds))
+        .orderBy(asc(workItems.id))
+        .for('update');
+    },
+
+    async listChildren(parentWorkItemId: string, limit: number) {
+      return db
+        .select()
+        .from(workItems)
+        .where(eq(workItems.parentWorkItemId, parentWorkItemId))
+        .orderBy(
+          asc(terminalRankSql()),
+          desc(priorityRankSql()),
+          asc(workItems.boardPosition),
+          asc(workItems.itemNumber),
+          asc(workItems.id)
+        )
+        .limit(Math.max(0, limit));
+    },
+
+    async hasChildren(parentWorkItemId: string) {
+      const [child] = await db
+        .select({ id: workItems.id })
+        .from(workItems)
+        .where(eq(workItems.parentWorkItemId, parentWorkItemId))
+        .limit(1);
+      return child !== undefined;
+    },
+
+    async listEligibleParentCandidates(input: EligibleParentCandidateInput) {
+      const search = input.search?.trim();
+      const conditions = [
+        eq(workItems.projectId, input.workItem.projectId),
+        ne(workItems.id, input.workItem.id),
+        isNull(workItems.parentWorkItemId)
+      ];
+
+      if (search !== undefined && search !== '') {
+        const pattern = `%${search}%`;
+        conditions.push(or(ilike(workItems.displayKey, pattern), ilike(workItems.title, pattern))!);
+      }
+
+      const keyMatchOrder = search === undefined || search === ''
+        ? []
+        : [
+            desc(sql`case
+              when lower(${workItems.displayKey}) = lower(${search}) then 2
+              when lower(${workItems.displayKey}) like lower(${`${search}%`}) then 1
+              else 0
+            end`)
+          ];
+
+      return db
+        .select()
+        .from(workItems)
+        .where(and(...conditions))
+        .orderBy(
+          asc(terminalRankSql()),
+          ...keyMatchOrder,
+          desc(workItems.updatedAt),
+          asc(workItems.itemNumber),
+          asc(workItems.id)
+        )
+        .limit(Math.min(maximumParentCandidateLimit, Math.max(0, input.limit)));
+    },
+
+    async listParentsForChildren(workItemIds: string[]) {
+      const uniqueIds = [...new Set(workItemIds)];
+
+      if (uniqueIds.length === 0) {
+        return [];
+      }
+
+      const parentWorkItems = aliasedTable(workItems, 'parent_work_items');
+      return db
+        .select({
+          childWorkItemId: workItems.id,
+          parent: parentWorkItems
+        })
+        .from(workItems)
+        .innerJoin(parentWorkItems, eq(parentWorkItems.id, workItems.parentWorkItemId))
+        .where(inArray(workItems.id, uniqueIds))
+        .orderBy(asc(workItems.id));
+    },
+
+    async summarizeChildren(parentWorkItemIds: string[]) {
+      const uniqueIds = [...new Set(parentWorkItemIds)];
+
+      if (uniqueIds.length === 0) {
+        return [];
+      }
+
+      const rows = await db
+        .select({
+          parentWorkItemId: workItems.parentWorkItemId,
+          totalCount: count(),
+          openCount: sql<number>`count(*) filter (
+            where ${workItems.status} not in ('done', 'canceled')
+          )`.mapWith(Number),
+          doneCount: sql<number>`count(*) filter (
+            where ${workItems.status} = 'done'
+          )`.mapWith(Number),
+          canceledCount: sql<number>`count(*) filter (
+            where ${workItems.status} = 'canceled'
+          )`.mapWith(Number),
+          estimatedCount: sql<number>`count(*) filter (
+            where ${workItems.estimatePoints} is not null
+          )`.mapWith(Number),
+          unestimatedCount: sql<number>`count(*) filter (
+            where ${workItems.estimatePoints} is null
+          )`.mapWith(Number),
+          estimatePoints: sql<number>`coalesce(sum(${workItems.estimatePoints}), 0)`.mapWith(Number)
+        })
+        .from(workItems)
+        .where(inArray(workItems.parentWorkItemId, uniqueIds))
+        .groupBy(workItems.parentWorkItemId)
+        .orderBy(asc(workItems.parentWorkItemId));
+
+      return rows.map((row) => ({
+        parentWorkItemId: row.parentWorkItemId!,
+        summary: {
+          totalCount: row.totalCount,
+          openCount: row.openCount,
+          doneCount: row.doneCount,
+          canceledCount: row.canceledCount,
+          estimatedCount: row.estimatedCount,
+          unestimatedCount: row.unestimatedCount,
+          estimatePoints: row.estimatePoints
+        } satisfies WorkItemChildSummaryRecord
+      }));
     },
 
     async listByProjectAndStatusForBoard(projectId: string, status: WorkItem['status']) {

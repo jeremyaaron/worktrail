@@ -23,7 +23,9 @@ const exportColumns = [
   { key: 'dueDate', header: 'due_date' },
   { key: 'estimatePoints', header: 'estimate_points' },
   { key: 'createdAt', header: 'created_at' },
-  { key: 'updatedAt', header: 'updated_at' }
+  { key: 'updatedAt', header: 'updated_at' },
+  { key: 'parentKey', header: 'parent_key' },
+  { key: 'parentTitle', header: 'parent_title' }
 ] as const;
 
 export interface WorkItemCsvExportResult {
@@ -102,6 +104,8 @@ function toExportRow(
     dueDate: item.dueDate ?? '',
     estimatePoints: item.estimatePoints ?? '',
     createdAt: item.createdAt,
-    updatedAt: item.updatedAt
+    updatedAt: item.updatedAt,
+    parentKey: item.parent?.displayKey ?? '',
+    parentTitle: item.parent?.title ?? ''
   };
 }

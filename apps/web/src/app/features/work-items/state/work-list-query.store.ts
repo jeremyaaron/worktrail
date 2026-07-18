@@ -66,6 +66,8 @@ export class WorkListQueryStore<TFormValue extends WorkListFilterFormValue> {
         dueDateState: '',
         dependency: '',
         workRisk: '',
+        hierarchy: '',
+        parentKey: '',
         sort: 'updated_desc'
       },
       formValueFromQuery: projectFormValueFromQuery,
@@ -91,6 +93,8 @@ export class WorkListQueryStore<TFormValue extends WorkListFilterFormValue> {
         dueDateState: '',
         dependency: '',
         workRisk: '',
+        hierarchy: '',
+        parentKey: '',
         sort: 'updated_desc',
         projectId: '',
         workState: '',

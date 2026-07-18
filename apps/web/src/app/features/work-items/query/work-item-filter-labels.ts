@@ -21,6 +21,7 @@ import {
   blockedFilterOptions,
   dependencyFilterOptions,
   dueDateStateOptions,
+  workItemHierarchyOptions,
   workItemSortOptions,
   workItemStateOptions
 } from './work-item-filter-options';
@@ -73,6 +74,12 @@ export function projectWorkItemFilterLabels(
   pushFilterLabel(labels, 'Risk', workRiskLabels[formValue.workRisk] ?? formValue.workRisk);
   pushFilterLabel(
     labels,
+    'Work breakdown',
+    formValue.hierarchy === '' ? '' : optionLabel(workItemHierarchyOptions, formValue.hierarchy)
+  );
+  pushFilterLabel(labels, 'Parent', formValue.parentKey);
+  pushFilterLabel(
+    labels,
     'Sort',
     formValue.sort === 'updated_desc' ? '' : optionLabel(workItemSortOptions, formValue.sort)
   );
@@ -86,13 +93,16 @@ export function workspaceWorkItemFilterLabels(
 ): string[] {
   const labels = projectWorkItemFilterLabels(formValue, lookups);
 
+  const projectIndex = labels[0]?.startsWith('Search:') === true ? 1 : 0;
   insertFilterLabel(
     labels,
-    1,
+    projectIndex,
     'Project',
     projectName(formValue.projectId, lookups.projectSummaries)
   );
-  insertFilterLabel(labels, 3, 'State', optionLabel(workItemStateOptions, formValue.workState));
+  const statusIndex = labels.findIndex((label) => label.startsWith('Status:'));
+  const stateIndex = statusIndex === -1 ? projectIndex + 1 : statusIndex + 1;
+  insertFilterLabel(labels, stateIndex, 'State', optionLabel(workItemStateOptions, formValue.workState));
   pushFilterLabel(labels, 'Blocked', optionLabel(blockedFilterOptions, formValue.blocked));
   pushFilterLabel(
     labels,

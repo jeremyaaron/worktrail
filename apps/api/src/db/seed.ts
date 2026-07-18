@@ -1,6 +1,6 @@
 import 'dotenv/config';
 
-import { eq, sql } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 
 import { createDb, createPool } from './client.js';
 import {
@@ -83,14 +83,22 @@ const ids = {
     closeoutCanceled: '10000000-0000-4000-8000-000000000416',
     closeoutEstimated: '10000000-0000-4000-8000-000000000417',
     closeoutUnestimated: '10000000-0000-4000-8000-000000000418',
-    closeoutBlocker: '10000000-0000-4000-8000-000000000419'
+    closeoutBlocker: '10000000-0000-4000-8000-000000000419',
+    hierarchyParent: '10000000-0000-4000-8000-000000000420',
+    hierarchyReady: '10000000-0000-4000-8000-000000000421',
+    hierarchyInProgress: '10000000-0000-4000-8000-000000000422',
+    hierarchyDone: '10000000-0000-4000-8000-000000000423',
+    hierarchyCanceled: '10000000-0000-4000-8000-000000000424',
+    hierarchyBlocked: '10000000-0000-4000-8000-000000000425',
+    hierarchyTerminalCandidate: '10000000-0000-4000-8000-000000000426'
   },
   workItemRelationships: {
     sameProjectBlock: '10000000-0000-4000-8000-000000000451',
     crossProjectBlock: '10000000-0000-4000-8000-000000000452',
     relatedWork: '10000000-0000-4000-8000-000000000453',
     terminalBlocker: '10000000-0000-4000-8000-000000000454',
-    closeoutBlock: '10000000-0000-4000-8000-000000000455'
+    closeoutBlock: '10000000-0000-4000-8000-000000000455',
+    hierarchyBlock: '10000000-0000-4000-8000-000000000456'
   },
   comments: {
     first: '10000000-0000-4000-8000-000000000501',
@@ -152,7 +160,8 @@ const ids = {
     ownerAppOpenWork: '10000000-0000-4000-8000-000000000823',
     platformReleaseBlockers: '10000000-0000-4000-8000-000000000824',
     platformReadyForQa: '10000000-0000-4000-8000-000000000825',
-    appCurrentCycleRisk: '10000000-0000-4000-8000-000000000826'
+    appCurrentCycleRisk: '10000000-0000-4000-8000-000000000826',
+    appChildWork: '10000000-0000-4000-8000-000000000827'
   },
   notifications: {
     ownerWatchedStatus: '10000000-0000-4000-8000-000000000901',
@@ -266,7 +275,7 @@ try {
           id: ids.projects.app,
           workspaceId: ids.workspace,
           key: 'WT',
-          nextWorkItemNumber: 12,
+          nextWorkItemNumber: 19,
           name: 'Worktrail App',
           description: 'MVP project management reference application.',
           status: 'active',
@@ -875,6 +884,161 @@ try {
           updatedAt: now
         },
         {
+          id: ids.workItems.hierarchyParent,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.app,
+          itemNumber: 12,
+          displayKey: 'WT-12',
+          title: 'Coordinate the Work Breakdown launch across product and platform teams',
+          description:
+            'Seeded parent story for demonstrating direct child summaries, navigation, filtering, and delivery context.',
+          type: 'story',
+          status: 'in_progress',
+          priority: 'high',
+          assigneeId: ids.members.owner,
+          reporterId: ids.members.owner,
+          milestoneId: ids.milestones.planning,
+          cycleId: ids.cycles.active,
+          boardPosition: 3072,
+          dueDate: '2026-07-12',
+          estimatePoints: 8,
+          parentWorkItemId: null,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.workItems.hierarchyReady,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.app,
+          itemNumber: 13,
+          displayKey: 'WT-13',
+          title: 'Prepare concise launch guidance for teams adopting child work',
+          description: 'Ready child work assigned to the current delivery cycle.',
+          type: 'task',
+          status: 'ready',
+          priority: 'medium',
+          assigneeId: ids.members.contributor,
+          reporterId: ids.members.owner,
+          milestoneId: ids.milestones.planning,
+          cycleId: ids.cycles.active,
+          boardPosition: 6144,
+          dueDate: '2026-07-10',
+          estimatePoints: 3,
+          parentWorkItemId: ids.workItems.hierarchyParent,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.workItems.hierarchyInProgress,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.app,
+          itemNumber: 14,
+          displayKey: 'WT-14',
+          title: 'Validate hierarchy context across detailed planning and review surfaces',
+          description: 'In-progress child work planned for the next adoption cycle.',
+          type: 'story',
+          status: 'in_progress',
+          priority: 'urgent',
+          assigneeId: ids.members.maintainer,
+          reporterId: ids.members.owner,
+          milestoneId: ids.milestones.atRisk,
+          cycleId: ids.cycles.upcoming,
+          boardPosition: 3072,
+          dueDate: '2026-07-20',
+          estimatePoints: 5,
+          parentWorkItemId: ids.workItems.hierarchyParent,
+          createdAt: earlier,
+          updatedAt: stale
+        },
+        {
+          id: ids.workItems.hierarchyDone,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.app,
+          itemNumber: 15,
+          displayKey: 'WT-15',
+          title: 'Confirm the bounded two-level model with delivery stakeholders',
+          description: 'Completed child work retained in the completed cycle and milestone.',
+          type: 'chore',
+          status: 'done',
+          priority: 'low',
+          assigneeId: ids.members.owner,
+          reporterId: ids.members.maintainer,
+          milestoneId: ids.milestones.completed,
+          cycleId: ids.cycles.completed,
+          boardPosition: 2048,
+          dueDate: null,
+          estimatePoints: 2,
+          parentWorkItemId: ids.workItems.hierarchyParent,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.workItems.hierarchyCanceled,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.app,
+          itemNumber: 16,
+          displayKey: 'WT-16',
+          title: 'Retire the recursive hierarchy prototype from launch scope',
+          description: 'Canceled, unestimated child work with no cycle or milestone placement.',
+          type: 'chore',
+          status: 'canceled',
+          priority: 'low',
+          assigneeId: null,
+          reporterId: ids.members.maintainer,
+          milestoneId: null,
+          cycleId: null,
+          boardPosition: 2048,
+          dueDate: null,
+          estimatePoints: null,
+          parentWorkItemId: ids.workItems.hierarchyParent,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.workItems.hierarchyBlocked,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.app,
+          itemNumber: 17,
+          displayKey: 'WT-17',
+          title: 'Publish the dependency-aware rollout checklist for the Work Breakdown release',
+          description: 'Open child work blocked by a separate prerequisite in the same project.',
+          type: 'bug',
+          status: 'blocked',
+          priority: 'high',
+          assigneeId: ids.members.contributor,
+          reporterId: ids.members.owner,
+          milestoneId: ids.milestones.planning,
+          cycleId: null,
+          boardPosition: 2048,
+          dueDate: '2026-07-11',
+          estimatePoints: 3,
+          parentWorkItemId: ids.workItems.hierarchyParent,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.workItems.hierarchyTerminalCandidate,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.app,
+          itemNumber: 18,
+          displayKey: 'WT-18',
+          title: 'Archive the completed Work Breakdown discovery spike',
+          description: 'Terminal top-level work available as an intentional replacement-parent candidate.',
+          type: 'story',
+          status: 'done',
+          priority: 'medium',
+          assigneeId: ids.members.maintainer,
+          reporterId: ids.members.owner,
+          milestoneId: ids.milestones.completed,
+          cycleId: ids.cycles.completed,
+          boardPosition: 3072,
+          dueDate: null,
+          estimatePoints: 1,
+          parentWorkItemId: null,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
           id: ids.workItems.operationsReady,
           workspaceId: ids.workspace,
           projectId: ids.projects.operations,
@@ -1011,9 +1175,53 @@ try {
           boardPosition: sql`excluded.board_position`,
           dueDate: sql`excluded.due_date`,
           estimatePoints: sql`excluded.estimate_points`,
+          parentWorkItemId: sql`excluded.parent_work_item_id`,
           updatedAt: sql`excluded.updated_at`
         }
       });
+
+    const hierarchyChildIds = [
+      ids.workItems.hierarchyReady,
+      ids.workItems.hierarchyInProgress,
+      ids.workItems.hierarchyDone,
+      ids.workItems.hierarchyCanceled,
+      ids.workItems.hierarchyBlocked
+    ];
+    const hierarchyRows = await tx
+      .select({
+        id: workItems.id,
+        projectId: workItems.projectId,
+        parentWorkItemId: workItems.parentWorkItemId
+      })
+      .from(workItems)
+      .where(inArray(workItems.id, [ids.workItems.hierarchyParent, ...hierarchyChildIds]));
+    const hierarchyRowsById = new Map(hierarchyRows.map((row) => [row.id, row]));
+    const hierarchyParent = hierarchyRowsById.get(ids.workItems.hierarchyParent);
+
+    if (
+      hierarchyParent === undefined ||
+      hierarchyParent.projectId !== ids.projects.app ||
+      hierarchyParent.parentWorkItemId !== null ||
+      hierarchyChildIds.some((childId) => {
+        const child = hierarchyRowsById.get(childId);
+        return (
+          child === undefined ||
+          child.projectId !== hierarchyParent.projectId ||
+          child.parentWorkItemId !== hierarchyParent.id
+        );
+      })
+    ) {
+      throw new Error('Seed hierarchy must contain one same-project parent with five direct children.');
+    }
+
+    const nestedSeedChildren = await tx
+      .select({ id: workItems.id })
+      .from(workItems)
+      .where(inArray(workItems.parentWorkItemId, hierarchyChildIds));
+
+    if (nestedSeedChildren.length > 0) {
+      throw new Error('Seed hierarchy must remain bounded to two levels.');
+    }
 
     await tx
       .insert(workItemLabels)
@@ -1077,6 +1285,15 @@ try {
           relationshipType: 'blocks',
           sourceWorkItemId: ids.workItems.closeoutBlocker,
           targetWorkItemId: ids.workItems.closeoutUnestimated,
+          createdById: ids.members.maintainer,
+          createdAt: now
+        },
+        {
+          id: ids.workItemRelationships.hierarchyBlock,
+          workspaceId: ids.workspace,
+          relationshipType: 'blocks',
+          sourceWorkItemId: ids.workItems.inProgress,
+          targetWorkItemId: ids.workItems.hierarchyBlocked,
           createdById: ids.members.maintainer,
           createdAt: now
         }
@@ -1785,6 +2002,22 @@ try {
             cycleId: ids.cycles.active,
             workState: 'open',
             sort: 'priority_desc'
+          },
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.savedWorkViews.appChildWork,
+          workspaceId: ids.workspace,
+          ownerMemberId: ids.members.owner,
+          projectId: ids.projects.app,
+          scope: 'project',
+          name: 'Child work',
+          visibility: 'workspace',
+          isPinned: true,
+          query: {
+            hierarchy: 'children',
+            sort: 'updated_desc'
           },
           createdAt: earlier,
           updatedAt: now

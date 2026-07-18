@@ -128,6 +128,15 @@ const milestoneSchema = z.object({
   updatedAt: z.string()
 });
 
+const workItemParentSchema = z.object({
+  id: z.string().min(1),
+  projectId: z.string().min(1),
+  displayKey: z.string(),
+  title: z.string(),
+  type: z.enum(['task', 'bug', 'story', 'chore']),
+  status: z.enum(workItemStatuses)
+});
+
 const planningRiskItemSchema = z.object({
   id: z.string().min(1),
   displayKey: z.string(),
@@ -137,7 +146,8 @@ const planningRiskItemSchema = z.object({
   assignee: z.union([memberSchema, z.null()]),
   dueDate: z.union([z.string().regex(isoDatePattern), z.null()]),
   milestone: z.union([milestoneSchema, z.null()]),
-  updatedAt: z.string()
+  updatedAt: z.string(),
+  parent: z.union([workItemParentSchema, z.null()]).optional()
 });
 
 const milestoneSnapshotSchema = z.object({

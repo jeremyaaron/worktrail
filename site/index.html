@@ -6,12 +6,12 @@
     <title>Worktrail | Project management reference app</title>
     <meta
       name="description"
-      content="Worktrail is a project management reference app for daily team work, workspace portfolio review, reliable project operation, cycle planning and closeout, planning review, and published status snapshots, built as an Angular, TypeScript API, and Postgres reference baseline."
+      content="Worktrail is a project management reference app for daily team work, two-level work breakdown, workspace portfolio review, reliable project operation, cycle planning and closeout, and published status snapshots, built as an Angular, TypeScript API, and Postgres reference baseline."
     >
     <meta property="og:title" content="Worktrail">
     <meta
       property="og:description"
-      content="A project management reference app for daily team work, workspace portfolio review, cycle planning and closeout, published status snapshots, and production-shaped TypeScript architecture."
+      content="A project management reference app for daily team work, bounded work breakdown, workspace portfolio review, cycle planning and closeout, published status snapshots, and production-shaped TypeScript architecture."
     >
     <meta property="og:type" content="website">
     <meta name="theme-color" content="#f6f8fb">
@@ -47,7 +47,8 @@
           <h1 id="hero-title">Worktrail</h1>
           <p class="hero-copy">
             Worktrail is a focused project management app for daily execution, project operation,
-            workspace portfolio review, cycle planning and closeout, collaboration, dependencies, and published status snapshots.
+            bounded work breakdown, workspace portfolio review, cycle planning and closeout,
+            collaboration, dependencies, and published status snapshots.
           </p>
           <p class="hero-copy hero-copy-secondary">
             It is also a reference implementation for an Angular static frontend, a TypeScript API
@@ -65,7 +66,7 @@
       <section class="signal-band" aria-label="Project signals">
         <div class="signal">
           <span class="signal-value">Users</span>
-          <span class="signal-label">Daily queue, portfolio review, inbox, saved views, project boards, milestones, cycle closeout, comments, and reports</span>
+          <span class="signal-label">Daily queue, work breakdown, portfolio review, inbox, saved views, project boards, milestones, cycle closeout, comments, and reports</span>
         </div>
         <div class="signal">
           <span class="signal-value">Builders</span>
@@ -127,6 +128,17 @@
           </article>
 
           <article class="feature">
+            <span class="feature-kicker">Break down outcomes</span>
+            <h3>Turn a deliverable into independently operated child work.</h3>
+            <ul>
+              <li>Top-level work can contain one direct child level inside the same project.</li>
+              <li>Parent summaries show direct child state and estimate context without changing the parent's own fields.</li>
+              <li>Parent and child context stays visible on detail, lists, board cards, My Work, reviews, reports, and exports.</li>
+              <li>Containment remains separate from blockers, workflow status, cycles, milestones, and dependencies.</li>
+            </ul>
+          </article>
+
+          <article class="feature">
             <span class="feature-kicker">Operate projects</span>
             <h3>Keep project decisions close to delivery state.</h3>
             <ul>
@@ -154,28 +166,28 @@
 
       <section class="section" id="baseline" aria-labelledby="baseline-title">
         <div class="section-heading">
-          <p class="eyebrow">v0.2.4 baseline</p>
-          <h2 id="baseline-title">A complete cycle operating loop.</h2>
+          <p class="eyebrow">v0.2.5 baseline</p>
+          <h2 id="baseline-title">Operational work with bounded decomposition.</h2>
           <p>
-            The v0.2.4 baseline closes the loop from cycle planning through durable results.
-            Maintainers can preview closeout, choose one carryover destination, complete the cycle
-            and move unfinished work in one operation, then review immutable closing evidence
-            without confusing it with current linked work.
+            The v0.2.5 baseline lets teams decompose a project outcome into direct child work while
+            preserving Worktrail's flat operational surfaces. Parent assignment is transactional,
+            hierarchy query state is reusable, and compact context follows children through daily
+            work, planning, reports, and exports without becoming dependency state.
           </p>
         </div>
 
         <div class="baseline-grid">
           <div>
             <strong>For product users</strong>
-            <span>Daily work, portfolio review, inbox updates, reliable filters, saved/pinned views, project boards, planning review, milestone review, cycle review and closeout, dependency signals, comments, watchers, activity, CSV flows, and portable status reports.</span>
+            <span>Daily work, two-level work breakdown, portfolio review, inbox updates, reliable filters, saved/pinned views, project boards, planning review, milestone review, cycle review and closeout, dependency signals, comments, watchers, activity, CSV flows, and portable status reports.</span>
           </div>
           <div>
             <strong>For builders</strong>
-            <span>Shared contracts, typed Angular API clients, query helpers, route-level code splitting, endpoint handlers, transactional lifecycle commands, versioned snapshot validation, derived read models, and focused test coverage.</span>
+            <span>Shared contracts, typed Angular API clients, canonical query helpers, route-level code splitting, endpoint handlers, transactionally locked hierarchy and lifecycle commands, versioned snapshot validation, derived read models, and focused test coverage.</span>
           </div>
           <div>
             <strong>For operators</strong>
-            <span>Postgres migrations and closeout-ready seed data, production preview, runtime configuration checks, health/readiness endpoints, checked-in OpenAPI, CI verification, and documented local run paths.</span>
+            <span>Postgres migrations and hierarchy-aware deterministic seed data, production preview, runtime configuration checks, health/readiness endpoints, checked-in OpenAPI, CI verification, and documented local run paths.</span>
           </div>
         </div>
       </section>
@@ -195,8 +207,8 @@
           <div class="stack-panel" aria-label="Architecture layers">
             <div><strong>Frontend</strong><span>Angular standalone route components, lazy route chunks, static build output, URL-backed query state, and responsive work surfaces suitable for S3/CloudFront hosting.</span></div>
             <div><strong>API boundary</strong><span>Shared DTO contracts, explicit request validation, transport-neutral endpoint handlers, Express local adapter, OpenAPI documentation, and non-JSON export responses.</span></div>
-            <div><strong>Domain</strong><span>Project planning, cycle review, delivery health, risk sections, relationships, notifications, saved views, CSV flows, report snapshots, and permission paths in service-level code.</span></div>
-            <div><strong>Persistence</strong><span>Postgres with Drizzle schema and migrations, deterministic seed data, project cycles, immutable cycle closeout and report snapshots, activity records, notifications, relationships, and saved view state.</span></div>
+            <div><strong>Domain</strong><span>Project planning, bounded work hierarchy, cycle review, delivery health, risk sections, relationships, notifications, saved views, CSV flows, report snapshots, and permission paths in service-level code.</span></div>
+            <div><strong>Persistence</strong><span>Postgres with Drizzle schema and migrations, indexed self-references, deterministic seed data, project cycles, immutable cycle closeout and report snapshots, activity records, notifications, relationships, and saved view state.</span></div>
             <div><strong>Operations</strong><span>Production preview, runtime config validation, liveness/readiness endpoints, CI lint/typecheck/test/build, and local smoke-test guidance.</span></div>
           </div>
         </div>
@@ -256,7 +268,7 @@
           </div>
           <div>
             <strong>No enterprise workflow suite yet</strong>
-            <span>Custom workflows, attachments, roadmap forecasting, portfolio charts, cycle capacity planning, automatic closeout, reopen/undo, report approvals, public report links, critical path analysis, and third-party migrations remain outside the baseline.</span>
+            <span>Recursive work trees, epics, automatic hierarchy rollups, custom workflows, attachments, roadmap forecasting, portfolio charts, cycle capacity planning, automatic closeout, reopen/undo, report approvals, public report links, critical path analysis, and third-party migrations remain outside the baseline.</span>
           </div>
         </div>
       </section>
@@ -285,9 +297,9 @@ DATABASE_URL=postgres://worktrail:worktrail@localhost:5432/worktrail npm run pre
       <span>Worktrail</span>
       <a href="https://github.com/jeremyaaron/worktrail">GitHub</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/README.md">README</a>
-      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.4/prd.md">v0.2.4 PRD</a>
-      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.4/technical-design.md">Technical design</a>
-      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.4/release-notes.md">Release notes</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.5/prd.md">v0.2.5 PRD</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.5/technical-design.md">Technical design</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.5/release-notes.md">Release notes</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/api/openapi.yaml">OpenAPI</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.0.X/v0.0.6/operations-runbook.md">Runbook</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.0.X/v0.0.7/csv-import-export.md">CSV guide</a>

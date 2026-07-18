@@ -54,6 +54,7 @@ export const activityEventTypes = [
   'work_item.due_date_changed',
   'work_item.milestone_changed',
   'work_item.cycle_changed',
+  'work_item.parent_changed',
   'work_item.label_added',
   'work_item.label_removed',
   'work_item.relationship_added',

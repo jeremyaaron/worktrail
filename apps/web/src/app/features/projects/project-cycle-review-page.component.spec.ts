@@ -75,7 +75,15 @@ const blockedWorkItem: PlanningRiskItemDto = {
   assignee: owner,
   dueDate: '2026-07-19',
   milestone: null,
-  updatedAt: '2026-07-04T10:30:00.000Z'
+  updatedAt: '2026-07-04T10:30:00.000Z',
+  parent: {
+    id: '10000000-0000-4000-8000-000000000499',
+    projectId,
+    displayKey: 'WT-40',
+    title: 'Coordinate cycle readiness',
+    type: 'story',
+    status: 'in_progress'
+  }
 };
 
 function cycleCloseout(): ProjectCycleCloseoutDto {
@@ -297,6 +305,7 @@ describe('ProjectCycleReviewPageComponent', () => {
     expect(compiled.textContent).toContain('Blocked work');
     expect(compiled.textContent).toContain('Resolve active cycle blocker');
     expect(compiled.textContent).toContain('Recently changed work');
+    expect(compiled.textContent).toContain('Child of WT-40');
     expect(compiled.textContent).toContain('Cycle estimate is 3 points over target.');
 
     const closeLink = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('a')).find(

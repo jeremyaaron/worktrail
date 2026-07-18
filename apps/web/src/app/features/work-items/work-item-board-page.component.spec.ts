@@ -102,6 +102,8 @@ const readyItem: WorkItemListItemDto = {
   boardPosition: 1024,
   dueDate: null,
   estimatePoints: 3,
+  parent: null,
+  childSummary: null,
   dependencyBlocked: false,
   openBlockerCount: 0,
   openBlockedWorkCount: 0,
@@ -199,6 +201,71 @@ describe('WorkItemBoardPageComponent', () => {
     expect(compiled.textContent).toContain('Ready board item');
     expect(compiled.textContent).toContain('No cards');
     expect(compiled.querySelector('select')?.value).toBe('ready');
+  });
+
+  it('shows hierarchy context without changing child card movement', () => {
+    const childItem: WorkItemListItemDto = {
+      ...readyItem,
+      parent: {
+        id: '10000000-0000-4000-8000-000000000410',
+        projectId,
+        displayKey: 'WT-10',
+        title: 'Board parent',
+        type: 'story',
+        status: 'in_progress'
+      }
+    };
+    const parentItem: WorkItemListItemDto = {
+      ...readyItem,
+      id: '10000000-0000-4000-8000-000000000410',
+      displayKey: 'WT-10',
+      title: 'Board parent',
+      status: 'backlog',
+      childSummary: {
+        totalCount: 2,
+        openCount: 1,
+        doneCount: 1,
+        canceledCount: 0,
+        estimatedCount: 2,
+        unestimatedCount: 0,
+        estimatePoints: 5
+      }
+    };
+    const { fixture, http } = setup();
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
+      childItem,
+      parentItem
+    ]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const parentLink = compiled.querySelector<HTMLAnchorElement>('a.hierarchy-pill');
+    expect(compiled.textContent).toContain('Child of WT-10');
+    expect(compiled.textContent).toContain('2 children · 1/2 complete');
+    expect(parentLink?.getAttribute('href')).toContain('returnUrl=');
+
+    fixture.componentInstance.transitionCard(childItem, {
+      target: { value: 'in_progress' }
+    } as unknown as Event);
+    const move = http.expectOne(`/api/work-items/${childItem.id}/board-move`);
+    expect(move.request.body).toEqual({
+      status: 'in_progress',
+      beforeWorkItemId: null,
+      afterWorkItemId: null
+    });
+    move.flush({
+      ...childItem,
+      status: 'in_progress',
+      description: '',
+      relationships: emptyRelationships,
+      comments: [],
+      activity: []
+    } satisfies WorkItemDetailDto);
+    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
+      { ...childItem, status: 'in_progress' },
+      parentItem
+    ]);
   });
 
   it('moves a card through the status menu and refreshes board state', () => {

@@ -136,6 +136,8 @@ const workItem: WorkspaceWorkItemListItemDto = {
   boardPosition: 1024,
   dueDate: '2026-07-08',
   estimatePoints: 5,
+  parent: null,
+  childSummary: null,
   dependencyBlocked: false,
   openBlockerCount: 0,
   openBlockedWorkCount: 0,
@@ -553,6 +555,50 @@ describe('WorkspaceWorkItemListPageComponent', () => {
       (fixture.nativeElement as HTMLElement).querySelectorAll('.active-filters span')
     ).map((item) => item.textContent?.trim());
     expect(activeFilters).toEqual(['Status: Ready']);
+  });
+
+  it('preserves exact-parent state and replaces it only after hierarchy navigation applies', () => {
+    const { fixture, http } = setup({ parentKey: 'wt-42' });
+    flushProjectSummaries(http);
+    flushSavedViews(http);
+    http.expectOne((candidate) => {
+      return candidate.url === '/api/work-items' && candidate.params.get('parentKey') === 'WT-42';
+    }).flush([]);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Parent: WT-42');
+    const router = TestBed.inject(Router);
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+
+    fixture.componentInstance.filterForm.controls.priority.setValue('urgent');
+    expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
+      jasmine.objectContaining({ priority: 'urgent', parentKey: 'WT-42', hierarchy: null })
+    );
+
+    fixture.componentInstance.filterForm.controls.hierarchy.setValue('children');
+    expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
+      jasmine.objectContaining({ hierarchy: 'children', parentKey: null })
+    );
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Parent: WT-42');
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain(
+      'Work breakdown: Child work'
+    );
+
+    route.setQuery({ hierarchy: 'children' });
+    http.expectOne((candidate) => {
+      return candidate.url === '/api/work-items' && candidate.params.get('hierarchy') === 'children';
+    }).flush([]);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Parent: WT-42');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Work breakdown: Child work'
+    );
+
+    fixture.componentInstance.removeActiveFilter('Work breakdown: Child work');
+    expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
+      jasmine.objectContaining({ hierarchy: null, parentKey: null })
+    );
   });
 
   it('debounces search before updating URL query params', fakeAsync(() => {

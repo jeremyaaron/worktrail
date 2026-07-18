@@ -29,6 +29,16 @@ const workItemQuerySchema = z.object({
   blocked: queryBooleanSchema,
   dependency: z.enum(['dependency_blocked', 'blocking_open_work']).optional(),
   workRisk: z.enum(['unassigned_active', 'stale_in_progress']).optional(),
+  hierarchy: z.enum(['top_level', 'children', 'parents']).optional(),
+  parentKey: z
+    .string()
+    .trim()
+    .max(80)
+    .transform((value) => value.toUpperCase())
+    .refine((value) => /^[A-Z0-9]{2,8}-[1-9]\d*$/.test(value), {
+      message: 'Parent key must be a valid work item key.'
+    })
+    .optional(),
   archivedProjects: z.enum(['exclude', 'include', 'only']).default('exclude'),
   search: z.string().trim().max(120).optional(),
   sort: z
@@ -75,6 +85,8 @@ export function parseWorkspaceWorkItemQuery(
     blocked: emptyToUndefined(firstQueryValue(query.blocked)),
     dependency: emptyToUndefined(firstQueryValue(query.dependency)),
     workRisk: emptyToUndefined(firstQueryValue(query.workRisk)),
+    hierarchy: emptyToUndefined(firstQueryValue(query.hierarchy)),
+    parentKey: emptyToUndefined(firstQueryValue(query.parentKey)),
     archivedProjects: emptyToUndefined(firstQueryValue(query.archivedProjects)),
     search: emptyToUndefined(firstQueryValue(query.search)),
     sort: emptyToUndefined(firstQueryValue(query.sort))
@@ -103,6 +115,8 @@ export function parseProjectWorkItemQuery(
     blocked: emptyToUndefined(firstQueryValue(query.blocked)),
     dependency: emptyToUndefined(firstQueryValue(query.dependency)),
     workRisk: emptyToUndefined(firstQueryValue(query.workRisk)),
+    hierarchy: emptyToUndefined(firstQueryValue(query.hierarchy)),
+    parentKey: emptyToUndefined(firstQueryValue(query.parentKey)),
     search: emptyToUndefined(firstQueryValue(query.search)),
     sort: emptyToUndefined(firstQueryValue(query.sort))
   });
@@ -146,5 +160,9 @@ function validateWorkItemQuery(query: WorkItemQuery): void {
 
   if (query.assigneeId !== undefined && query.assigneeState === 'unassigned') {
     throw new ValidationError('Unassigned work item queries cannot specify an assignee.');
+  }
+
+  if (query.hierarchy !== undefined && query.parentKey !== undefined) {
+    throw new ValidationError('Work item queries cannot specify both hierarchy and parent key.');
   }
 }

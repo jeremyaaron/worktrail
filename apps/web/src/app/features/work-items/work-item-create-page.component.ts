@@ -14,7 +14,7 @@ import type {
   WorkItemType,
   WorkspaceCapabilitiesDto
 } from '@worktrail/contracts';
-import { Subscription, distinctUntilChanged } from 'rxjs';
+import { Subscription, distinctUntilChanged, map } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { CyclesApi } from '../../core/api/cycles-api';
@@ -22,6 +22,7 @@ import { WorktrailApiService } from '../../core/worktrail-api.service';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
+import { WorkItemParentContextComponent } from './components/work-item-parent-context.component';
 
 const types: WorkItemType[] = ['task', 'bug', 'story', 'chore'];
 const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
@@ -33,7 +34,8 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
     ErrorPanelComponent,
     LoadingIndicatorComponent,
     ReactiveFormsModule,
-    RouterLink
+    RouterLink,
+    WorkItemParentContextComponent
   ],
   template: `
     <section class="page-header">
@@ -49,7 +51,9 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
         </p>
       </div>
 
-      <a [routerLink]="returnCommands()">{{ returnLabel() }}</a>
+      <a [routerLink]="returnTarget().path" [queryParams]="returnTarget().queryParams">
+        {{ returnTarget().label }}
+      </a>
     </section>
 
     @if (projectLoadError()) {
@@ -74,6 +78,28 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
       </section>
     }
 
+    @if (hasParentRequest()) {
+      <section class="parent-preview" aria-label="Child work parent">
+        <div>
+          <p class="eyebrow">Child work</p>
+          <h2>Parent</h2>
+        </div>
+
+        @if (isParentLoading()) {
+          <app-loading-indicator label="Loading parent work" />
+        } @else if (parentLoadError()) {
+          <app-error-panel
+            title="Parent unavailable"
+            [message]="parentLoadError() ?? ''"
+            (retry)="retryParentLoad()"
+          />
+        } @else if (parentWorkItem(); as parent) {
+          <app-work-item-parent-context [parent]="parent" />
+          <p class="parent-preview__note">Milestone and cycle remain independent for this child.</p>
+        }
+      </section>
+    }
+
     @if (createdWorkItem(); as created) {
       <section class="success-panel" aria-label="Work item created">
         <div>
@@ -84,7 +110,9 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
         <div class="success-actions">
           <a [routerLink]="['/work-items', created.id]">Open work item</a>
           <button type="button" class="secondary-action" (click)="createAnother()">Create another</button>
-          <a [routerLink]="returnCommands()">{{ returnLabel() }}</a>
+          <a [routerLink]="returnTarget().path" [queryParams]="returnTarget().queryParams">
+            {{ returnTarget().label }}
+          </a>
         </div>
       </section>
     }
@@ -267,7 +295,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
         <button type="submit" [disabled]="isCreateDisabled()">
           {{ isCreating() ? 'Creating...' : 'Create work item' }}
         </button>
-        <a [routerLink]="returnCommands()">Cancel</a>
+        <a [routerLink]="returnTarget().path" [queryParams]="returnTarget().queryParams">Cancel</a>
       </div>
     </form>
   `,
@@ -328,6 +356,28 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
       border-radius: 8px;
       padding: 18px;
       background: #ffffff;
+    }
+
+    .parent-preview {
+      display: grid;
+      gap: 12px;
+      max-width: 820px;
+      margin-bottom: 18px;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 16px 18px;
+      background: #eff6ff;
+    }
+
+    .parent-preview h2 {
+      margin: 0;
+      color: #111827;
+      font-size: 1rem;
+    }
+
+    .parent-preview__note {
+      color: #475569;
+      font-size: 0.8125rem;
     }
 
     .work-item-form--readonly {
@@ -532,6 +582,8 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
   private readonly subscriptions = new Subscription();
   private readonly routeProjectId = this.route.snapshot.paramMap.get('projectId') ?? '';
   private readonly routeCycleId = this.route.snapshot.queryParamMap?.get('cycleId') ?? '';
+  private readonly initialParentWorkItemId =
+    this.route.snapshot.queryParamMap?.get('parentWorkItemId') ?? '';
 
   readonly types = types;
   readonly priorities = priorities;
@@ -546,7 +598,11 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
   readonly availableCycles = signal<ProjectCycleDto[]>([]);
   readonly selectedLabelIds = signal<string[]>([]);
   readonly createdWorkItem = signal<WorkItemDetailDto | null>(null);
+  readonly parentWorkItem = signal<WorkItemDetailDto | null>(null);
+  readonly requestedParentWorkItemId = signal(this.initialParentWorkItemId);
+  readonly routeReturnUrl = signal(this.route.snapshot.queryParamMap?.get('returnUrl') ?? '');
   readonly isCreating = signal(false);
+  readonly isParentLoading = signal(false);
   readonly hasSubmitted = signal(false);
   readonly isProjectListLoading = signal(false);
   readonly createError = signal<string | null>(null);
@@ -555,6 +611,8 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
   readonly labelLoadError = signal<string | null>(null);
   readonly milestoneLoadError = signal<string | null>(null);
   readonly cycleLoadError = signal<string | null>(null);
+  readonly parentLoadError = signal<string | null>(null);
+  readonly hasParentRequest = computed(() => this.requestedParentWorkItemId() !== '');
   readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
   readonly canCreateWorkItems = computed(() => this.capabilities()?.canCreateWorkItems !== false);
   readonly isCreateDisabled = computed(
@@ -562,8 +620,30 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
       this.selectedProjectId() === '' ||
       this.isArchivedProject() ||
       !this.canCreateWorkItems() ||
+      (this.hasParentRequest() && this.parentWorkItem() === null) ||
+      this.isParentLoading() ||
       this.isCreating()
   );
+  readonly returnTarget = computed(() => {
+    const parsedReturnUrl = this.parseSafeReturnUrl(this.routeReturnUrl());
+
+    if (parsedReturnUrl !== null) {
+      return {
+        ...parsedReturnUrl,
+        label: this.parentWorkItem() === null
+          ? 'Back'
+          : `Back to ${this.parentWorkItem()!.displayKey}`
+      };
+    }
+
+    return this.isProjectScoped()
+      ? {
+          path: `/projects/${this.routeProjectId}/work-items`,
+          queryParams: null,
+          label: 'Back to list'
+        }
+      : { path: '/my-work', queryParams: null, label: 'Back to My Work' };
+  });
 
   readonly workItemForm = this.formBuilder.nonNullable.group({
     projectId: [this.routeProjectId, [Validators.required]],
@@ -585,6 +665,7 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
 
     this.loadCapabilities();
     this.watchProjectSelection();
+    this.watchParentRouteState();
 
     if (this.isProjectScoped()) {
       this.workItemForm.controls.projectId.setValue(this.routeProjectId, { emitEvent: false });
@@ -606,6 +687,11 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
     if (this.selectedProjectId() === '') {
       this.workItemForm.controls.projectId.markAsTouched();
       this.createError.set('Select an active project before creating work.');
+      return;
+    }
+
+    if (this.hasParentRequest() && this.parentWorkItem() === null) {
+      this.createError.set('Resolve the parent work item before creating this child.');
       return;
     }
 
@@ -663,16 +749,6 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
 
   formatToken(value: string): string {
     return value.replaceAll('_', ' ');
-  }
-
-  returnCommands(): string[] {
-    return this.isProjectScoped()
-      ? ['/projects', this.routeProjectId, 'work-items']
-      : ['/my-work'];
-  }
-
-  returnLabel(): string {
-    return this.isProjectScoped() ? 'Back to list' : 'Back to My Work';
   }
 
   loadProjects(): void {
@@ -764,6 +840,14 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
     }
   }
 
+  retryParentLoad(): void {
+    const parentWorkItemId = this.requestedParentWorkItemId();
+
+    if (parentWorkItemId !== '') {
+      this.loadParentContext(parentWorkItemId);
+    }
+  }
+
   toggleLabel(labelId: string, event: Event): void {
     if (this.isArchivedProject() || !this.canCreateWorkItems()) {
       return;
@@ -812,6 +896,74 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
           this.loadProjectContext(projectId);
         })
     );
+  }
+
+  private watchParentRouteState(): void {
+    this.subscriptions.add(
+      this.route.queryParamMap
+        .pipe(
+          map((params) => ({
+            parentWorkItemId: params.get('parentWorkItemId') ?? '',
+            returnUrl: params.get('returnUrl') ?? ''
+          })),
+          distinctUntilChanged(
+            (left, right) =>
+              left.parentWorkItemId === right.parentWorkItemId && left.returnUrl === right.returnUrl
+          )
+        )
+        .subscribe(({ parentWorkItemId, returnUrl }) => {
+          this.routeReturnUrl.set(returnUrl);
+          this.requestedParentWorkItemId.set(parentWorkItemId);
+          this.parentWorkItem.set(null);
+          this.parentLoadError.set(null);
+
+          if (parentWorkItemId === '') {
+            this.isParentLoading.set(false);
+            return;
+          }
+
+          if (!this.isProjectScoped()) {
+            this.parentLoadError.set('Child creation must be opened from a project work item.');
+            this.isParentLoading.set(false);
+            return;
+          }
+
+          this.loadParentContext(parentWorkItemId);
+        })
+    );
+  }
+
+  private loadParentContext(parentWorkItemId: string): void {
+    this.isParentLoading.set(true);
+    this.parentLoadError.set(null);
+
+    this.api.getWorkItem(parentWorkItemId).subscribe({
+      next: (parent) => {
+        if (parentWorkItemId !== this.requestedParentWorkItemId()) {
+          return;
+        }
+
+        if (parent.projectId !== this.routeProjectId) {
+          this.parentLoadError.set('Parent work must belong to this project.');
+        } else if (parent.parent !== null) {
+          this.parentLoadError.set('A child work item cannot contain child work.');
+        } else {
+          this.parentWorkItem.set(parent);
+        }
+
+        this.isParentLoading.set(false);
+      },
+      error: (error: HttpErrorResponse) => {
+        if (parentWorkItemId !== this.requestedParentWorkItemId()) {
+          return;
+        }
+
+        this.parentLoadError.set(
+          this.toErrorMessage(error, 'Parent work item could not be loaded from the API.')
+        );
+        this.isParentLoading.set(false);
+      }
+    });
   }
 
   private loadProjectContext(projectId: string): void {
@@ -869,7 +1021,10 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
       milestoneId: formValue.milestoneId === '' ? null : formValue.milestoneId,
       cycleId: formValue.cycleId === '' ? null : formValue.cycleId,
       dueDate: formValue.dueDate === '' ? null : formValue.dueDate,
-      estimatePoints: estimate === '' ? null : Number.parseInt(estimate, 10)
+      estimatePoints: estimate === '' ? null : Number.parseInt(estimate, 10),
+      ...(this.parentWorkItem() === null
+        ? {}
+        : { parentWorkItemId: this.parentWorkItem()!.id })
     };
   }
 
@@ -891,5 +1046,39 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
     const message = (error.error as { error?: { message?: unknown } } | null)?.error?.message;
 
     return typeof message === 'string' ? message : fallback;
+  }
+
+  private parseSafeReturnUrl(rawReturnUrl: string): {
+    path: string;
+    queryParams: Record<string, string> | null;
+  } | null {
+    if (
+      rawReturnUrl.trim() === '' ||
+      !rawReturnUrl.startsWith('/') ||
+      rawReturnUrl.startsWith('//') ||
+      /^[a-z][a-z0-9+.-]*:/i.test(rawReturnUrl) ||
+      rawReturnUrl.includes('\\')
+    ) {
+      return null;
+    }
+
+    for (const character of rawReturnUrl) {
+      const code = character.charCodeAt(0);
+      if (code <= 31 || code === 127) {
+        return null;
+      }
+    }
+
+    const [pathAndQuery] = rawReturnUrl.split('#', 1);
+    const [path, queryString = ''] = pathAndQuery.split('?', 2);
+    const queryParams: Record<string, string> = {};
+    new URLSearchParams(queryString).forEach((value, key) => {
+      queryParams[key] = value;
+    });
+
+    return {
+      path,
+      queryParams: Object.keys(queryParams).length === 0 ? null : queryParams
+    };
   }
 }
