@@ -8,6 +8,7 @@ import {
 } from '../domain/constants.js';
 import { ValidationError } from '../errors/app-error.js';
 import { parseWithSchema } from './parse.js';
+import { emptyToUndefined, firstQueryValue } from './query-value.js';
 
 const queryBooleanSchema = z
   .union([z.boolean(), z.enum(['true', 'false']).transform((value) => value === 'true')])
@@ -53,14 +54,6 @@ const workItemQuerySchema = z.object({
     ])
     .default('updated_desc')
 }) satisfies z.ZodType<WorkItemQuery>;
-
-function firstQueryValue(value: string | string[] | undefined): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-function emptyToUndefined(value: string | undefined): string | undefined {
-  return value === undefined || value.trim() === '' ? undefined : value;
-}
 
 export function parseWorkItemQuery(query: Record<string, string | string[] | undefined>): WorkItemQuery {
   return parseWorkspaceWorkItemQuery(query);

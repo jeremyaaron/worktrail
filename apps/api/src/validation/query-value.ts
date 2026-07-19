@@ -1,0 +1,7 @@
+export function firstQueryValue(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export function emptyToUndefined(value: string | undefined): string | undefined {
+  return value === undefined || value.trim() === '' ? undefined : value;
+}

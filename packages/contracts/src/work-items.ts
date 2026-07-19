@@ -53,6 +53,26 @@ export interface WorkItemQuery {
   sort?: WorkItemSort;
 }
 
+export const workItemPageSizes = [10, 25, 50, 100] as const;
+export type WorkItemPageSize = (typeof workItemPageSizes)[number];
+
+export interface WorkItemPageQuery {
+  page?: number;
+  pageSize?: WorkItemPageSize;
+}
+
+export interface ResolvedWorkItemPageQuery {
+  page: number;
+  pageSize: WorkItemPageSize;
+}
+
+export interface WorkItemPageMetadataDto extends ResolvedWorkItemPageQuery {
+  totalCount: number;
+  totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+}
+
 export interface LabelDto {
   id: string;
   name: string;
@@ -126,6 +146,14 @@ export interface WorkItemDetailDto extends WorkItemListItemDto {
 
 export interface WorkspaceWorkItemListItemDto extends WorkItemListItemDto {
   project: Pick<ProjectDto, 'id' | 'key' | 'name' | 'status'>;
+}
+
+export interface WorkItemListPageDto extends WorkItemPageMetadataDto {
+  items: WorkItemListItemDto[];
+}
+
+export interface WorkspaceWorkItemListPageDto extends WorkItemPageMetadataDto {
+  items: WorkspaceWorkItemListItemDto[];
 }
 
 export interface WorkItemChildrenDto {

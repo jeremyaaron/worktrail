@@ -271,7 +271,37 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-19.
+- Added shared paging contracts in `packages/contracts/src/work-items.ts`:
+  - the supported `10 | 25 | 50 | 100` page-size set;
+  - optional request and resolved page-query shapes;
+  - shared metadata plus concrete project and workspace page envelopes.
+- Kept `WorkItemQuery` and saved-view query contracts unchanged so paging remains transient window state.
+- Added `packages/contracts/src/work-item-page.contract.test.ts` covering the allowed sizes, optional and
+  resolved inputs, concrete item arrays, exact empty metadata, metadata types, and compile-time absence
+  of paging keys from durable queries.
+- Extracted `firstQueryValue` and empty-value normalization to
+  `apps/api/src/validation/query-value.ts` without broadening the validation abstraction.
+- Added `apps/api/src/validation/work-item-page-query.ts` with defaults of page `1` and page size `25`,
+  strict positive-integer and supported-size validation, first-value handling for repeated parameters,
+  and separation from project/workspace filter parsing.
+- Added `EXPORT_LIMIT_EXCEEDED` and `ExportLimitExceededError` with status `422`, the bounded-export
+  message, and `{ limit }` details; export behavior remains unwired until Phase 4.
+- Added focused API tests for page defaults and supported sizes, malformed values, repeated values,
+  parser composition/separation, and API error response mapping.
+- Preserved current list endpoint and service array responses; no runtime endpoint, repository,
+  migration, export, or Angular behavior changed.
+- Verification completed:
+  - `npm run typecheck --workspace @worktrail/contracts`;
+  - `npm run build --workspace @worktrail/contracts`;
+  - `npm run test --workspace @worktrail/contracts` (9 files, 34 tests);
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run test --workspace @worktrail/api -- work-item-page-query.test.ts app-error.test.ts work-item-query.test.ts`
+    (3 files, 29 tests);
+  - `npm run test --workspace @worktrail/api` (31 files, 337 tests);
+  - `npm run lint --workspace @worktrail/contracts`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `git diff --check`.
 
 ## Phase 2: Search Migration And Repository Paging Primitives
 

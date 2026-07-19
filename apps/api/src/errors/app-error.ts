@@ -5,6 +5,7 @@ export type AppErrorCode =
   | 'NOT_FOUND'
   | 'CONFLICT'
   | 'WORKFLOW_TRANSITION_ERROR'
+  | 'EXPORT_LIMIT_EXCEEDED'
   | 'INTERNAL_ERROR';
 
 export class AppError extends Error {
@@ -57,6 +58,18 @@ export class WorkflowTransitionError extends AppError {
   }
 }
 
+export class ExportLimitExceededError extends AppError {
+  constructor(limit: number) {
+    const formattedLimit = String(limit).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    super({
+      code: 'EXPORT_LIMIT_EXCEEDED',
+      status: 422,
+      message: `More than ${formattedLimit} work items match. Narrow the applied filters and retry.`,
+      details: { limit }
+    });
+  }
+}
+
 export interface ApiErrorResponse {
   error: {
     code: AppErrorCode;
@@ -89,4 +102,3 @@ export function toApiErrorResponse(error: unknown): { status: number; body: ApiE
     }
   };
 }
-
