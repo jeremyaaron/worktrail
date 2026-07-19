@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type {
   WorkItemPageMetadataDto,
@@ -32,7 +32,7 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
       [attr.aria-busy]="isLoading"
     >
       <div class="list-heading">
-        <h2>{{ isLoading ? 'Work items' : resultSummary() }}</h2>
+        <h2 #resultHeading tabindex="-1">{{ isLoading ? 'Work items' : resultSummary() }}</h2>
       </div>
 
       @if (isLoading) {
@@ -667,6 +667,7 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
   `
 })
 export class WorkItemResultListComponent {
+  @ViewChild('resultHeading', { static: true }) private resultHeading?: ElementRef<HTMLHeadingElement>;
   @Input({ required: true }) items: ResultItem[] = [];
   @Input({ required: true }) metadata: WorkItemPageMetadataDto = {
     page: 1,
@@ -726,6 +727,10 @@ export class WorkItemResultListComponent {
     const rangeStart = (this.metadata.page - 1) * this.metadata.pageSize + 1;
     const rangeEnd = rangeStart + this.items.length - 1;
     return `${rangeStart}-${rangeEnd} of ${this.metadata.totalCount} work items`;
+  }
+
+  focusResultHeading(): void {
+    this.resultHeading?.nativeElement.focus();
   }
 
   workspaceItem(item: ResultItem): WorkspaceWorkItemListItemDto | null {

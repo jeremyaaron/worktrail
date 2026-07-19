@@ -121,6 +121,17 @@ describe('WorkItemResultListComponent', () => {
     );
   });
 
+  it('exposes a programmatically focusable result heading', () => {
+    fixture.detectChanges();
+
+    const heading = (fixture.nativeElement as HTMLElement).querySelector<HTMLHeadingElement>('h2');
+    expect(heading?.getAttribute('tabindex')).toBe('-1');
+
+    fixture.componentInstance.focusResultHeading();
+
+    expect(document.activeElement).toBe(heading);
+  });
+
   it('keeps detail links wired with the return URL on table rows and mobile cards', () => {
     fixture.detectChanges();
 

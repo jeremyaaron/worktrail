@@ -237,13 +237,26 @@ let clipboard: jasmine.SpyObj<ClipboardService>;
 
 function routeStub(query: Record<string, string> = {}, inputProjectId: string = projectId) {
   const queryParamMap = new BehaviorSubject(convertToParamMap(query));
+  const paramMap = new BehaviorSubject(
+    convertToParamMap(inputProjectId === '' ? {} : { projectId: inputProjectId })
+  );
+  const snapshot = {
+    paramMap: paramMap.value,
+    queryParamMap: queryParamMap.value
+  };
 
   return {
-    snapshot: {
-      paramMap: convertToParamMap(inputProjectId === '' ? {} : { projectId: inputProjectId }),
-      queryParamMap: convertToParamMap(query)
+    snapshot,
+    paramMap,
+    queryParamMap,
+    setQuery(nextQuery: Record<string, string>): void {
+      snapshot.queryParamMap = convertToParamMap(nextQuery);
+      queryParamMap.next(snapshot.queryParamMap);
     },
-    queryParamMap
+    setProjectId(nextProjectId: string): void {
+      snapshot.paramMap = convertToParamMap(nextProjectId === '' ? {} : { projectId: nextProjectId });
+      paramMap.next(snapshot.paramMap);
+    }
   };
 }
 
@@ -283,12 +296,13 @@ function flushCreateContext(
 
 function flushProjectSavedViews(
   http: HttpTestingController,
-  savedViews: SavedWorkViewDto[] = []
+  savedViews: SavedWorkViewDto[] = [],
+  inputProjectId = projectId
 ): void {
   const request = http.expectOne((candidate) => candidate.url === '/api/saved-work-views');
   expect(request.request.method).toBe('GET');
   expect(request.request.params.get('scope')).toBe('project');
-  expect(request.request.params.get('projectId')).toBe(projectId);
+  expect(request.request.params.get('projectId')).toBe(inputProjectId);
   request.flush(savedViews);
 }
 
@@ -328,16 +342,33 @@ function projectWorkItemPage(
   };
 }
 
-function flushProjectWorkPage(
-  http: HttpTestingController,
-  workItems: WorkItemListItemDto[] = [workItem]
-): void {
+function projectPageItems(count: number, startItemNumber = 1): WorkItemListItemDto[] {
+  return Array.from({ length: count }, (_, index) => {
+    const itemNumber = startItemNumber + index;
+    return {
+      ...workItem,
+      id: `page-work-item-${itemNumber}`,
+      itemNumber,
+      displayKey: `WT-${itemNumber}`,
+      title: `Paged work item ${itemNumber}`
+    };
+  });
+}
+
+function flushProjectWorkContext(http: HttpTestingController): void {
   http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
   http
     .expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`)
     .flush([activeMilestone]);
   http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([activeCycle]);
   flushProjectSavedViews(http);
+}
+
+function flushProjectWorkPage(
+  http: HttpTestingController,
+  workItems: WorkItemListItemDto[] = [workItem]
+): void {
+  flushProjectWorkContext(http);
   http
     .expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`)
     .flush(projectWorkItemPage(workItems));
@@ -386,7 +417,19 @@ function bulkResultCounts(compiled: HTMLElement): string[] {
 }
 
 describe('WorkItemListPageComponent', () => {
+  let projectRoute: ReturnType<typeof routeStub>;
+
   beforeEach(async () => {
+    projectRoute = routeStub({
+      status: 'in_progress',
+      assigneeId: contributorId,
+      reporterId: contributorId,
+      milestoneId: activeMilestone.id,
+      dueDateState: 'due_soon',
+      dependency: 'dependency_blocked',
+      search: 'api',
+      sort: 'due_date_asc'
+    });
     clipboard = jasmine.createSpyObj<ClipboardService>('ClipboardService', ['copyText']);
     clipboard.copyText.and.resolveTo();
 
@@ -398,16 +441,7 @@ describe('WorkItemListPageComponent', () => {
         provideRouter([]),
         {
           provide: ActivatedRoute,
-          useValue: routeStub({
-            status: 'in_progress',
-            assigneeId: contributorId,
-            reporterId: contributorId,
-            milestoneId: activeMilestone.id,
-            dueDateState: 'due_soon',
-            dependency: 'dependency_blocked',
-            search: 'api',
-            sort: 'due_date_asc'
-          })
+          useValue: projectRoute
         },
         {
           provide: ClipboardService,
@@ -495,6 +529,277 @@ describe('WorkItemListPageComponent', () => {
       )
     ).not.toBeNull();
   });
+
+  it('restores first, middle, and final project pages from route state without stealing focus', () => {
+    seedCurrentUser(ownerMember);
+    projectRoute.setQuery({ status: 'ready', page: '2', pageSize: '10' });
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    flushProjectWorkContext(http);
+
+    const middlePage = http.expectOne((candidate) => {
+      return (
+        candidate.url === `/api/projects/${projectId}/work-items` &&
+        candidate.params.get('status') === 'ready' &&
+        candidate.params.get('page') === '2' &&
+        candidate.params.get('pageSize') === '10'
+      );
+    });
+    middlePage.flush(
+      projectWorkItemPage(projectPageItems(10, 11), {
+        page: 2,
+        pageSize: 10,
+        totalCount: 21,
+        totalPages: 3,
+        hasPreviousPage: true,
+        hasNextPage: true
+      })
+    );
+    fixture.detectChanges();
+
+    let compiled = fixture.nativeElement as HTMLElement;
+    const resultHeading = compiled.querySelector<HTMLHeadingElement>('.list-heading h2');
+    expect(resultHeading?.textContent?.trim()).toBe('11-20 of 21 work items');
+    expect(compiled.querySelector('.pagination__status')?.textContent?.trim()).toBe('Page 2 of 3');
+    expect(document.activeElement).not.toBe(resultHeading);
+
+    fixture.componentInstance.enterBulkEdit();
+    fixture.componentInstance.toggleWorkItemSelection('page-work-item-11');
+    fixture.componentInstance.bulkActionForm.patchValue({
+      actionType: 'set_priority',
+      priority: 'urgent'
+    });
+
+    projectRoute.setQuery({ status: 'ready', page: '3', pageSize: '10' });
+    http
+      .expectOne((candidate) => {
+        return (
+          candidate.url === `/api/projects/${projectId}/work-items` &&
+          candidate.params.get('page') === '3' &&
+          candidate.params.get('pageSize') === '10'
+        );
+      })
+      .flush(
+        projectWorkItemPage(projectPageItems(1, 21), {
+          page: 3,
+          pageSize: 10,
+          totalCount: 21,
+          totalPages: 3,
+          hasPreviousPage: true,
+          hasNextPage: false
+        })
+      );
+    fixture.detectChanges();
+
+    compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.list-heading h2')?.textContent?.trim()).toBe(
+      '21-21 of 21 work items'
+    );
+    expect(compiled.querySelector('.pagination__status')?.textContent?.trim()).toBe('Page 3 of 3');
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([]);
+    expect(fixture.componentInstance.bulkActionForm.controls.actionType.value).toBe('');
+
+    projectRoute.setQuery({ status: 'ready', pageSize: '10' });
+    http
+      .expectOne((candidate) => {
+        return (
+          candidate.url === `/api/projects/${projectId}/work-items` &&
+          candidate.params.get('page') === '1' &&
+          candidate.params.get('pageSize') === '10'
+        );
+      })
+      .flush(
+        projectWorkItemPage(projectPageItems(10), {
+          pageSize: 10,
+          totalCount: 21,
+          totalPages: 3,
+          hasNextPage: true
+        })
+      );
+    fixture.detectChanges();
+
+    compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.list-heading h2')?.textContent?.trim()).toBe(
+      '1-10 of 21 work items'
+    );
+    expect(compiled.querySelector('.pagination__status')?.textContent?.trim()).toBe('Page 1 of 3');
+    expect(fixture.componentInstance.appliedFilterValues().status).toBe('ready');
+  });
+
+  it('keeps draft filters independent and focuses results after user paging', fakeAsync(() => {
+    seedCurrentUser(ownerMember);
+    projectRoute.setQuery({ status: 'ready', pageSize: '10' });
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    const router = TestBed.inject(Router);
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    fixture.detectChanges();
+    flushProjectWorkContext(http);
+    http
+      .expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`)
+      .flush(
+        projectWorkItemPage(projectPageItems(10), {
+          pageSize: 10,
+          totalCount: 21,
+          totalPages: 3,
+          hasNextPage: true
+        })
+      );
+    fixture.detectChanges();
+
+    const initialHeading = (fixture.nativeElement as HTMLElement).querySelector<HTMLHeadingElement>(
+      '.list-heading h2'
+    );
+    expect(document.activeElement).not.toBe(initialHeading);
+
+    fixture.componentInstance.filterForm.patchValue(
+      { search: 'draft only', sort: 'created_desc' },
+      { emitEvent: false }
+    );
+    fixture.componentInstance.enterBulkEdit();
+    fixture.componentInstance.toggleWorkItemSelection('page-work-item-1');
+    fixture.componentInstance.bulkActionForm.patchValue({
+      actionType: 'set_priority',
+      priority: 'urgent'
+    });
+
+    fixture.componentInstance.goToPage(2);
+
+    expect(navigate).toHaveBeenCalledWith([], {
+      relativeTo: TestBed.inject(ActivatedRoute),
+      queryParams: jasmine.objectContaining({ status: 'ready', page: '2', pageSize: '10' })
+    });
+    const navigationQuery = navigate.calls.mostRecent().args[1]?.queryParams as Record<
+      string,
+      unknown
+    >;
+    expect(navigationQuery['search']).toBeNull();
+    expect(navigationQuery['sort']).toBeNull();
+    expect(fixture.componentInstance.filterForm.controls.search.value).toBe('draft only');
+    expect(fixture.componentInstance.filterForm.controls.sort.value).toBe('created_desc');
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([]);
+    expect(fixture.componentInstance.bulkActionForm.controls.actionType.value).toBe('');
+
+    projectRoute.setQuery({ status: 'ready', page: '2', pageSize: '10' });
+    http
+      .expectOne((candidate) => {
+        return (
+          candidate.url === `/api/projects/${projectId}/work-items` &&
+          candidate.params.get('page') === '2'
+        );
+      })
+      .flush(
+        projectWorkItemPage(projectPageItems(10, 11), {
+          page: 2,
+          pageSize: 10,
+          totalCount: 21,
+          totalPages: 3,
+          hasPreviousPage: true,
+          hasNextPage: true
+        })
+      );
+    fixture.detectChanges();
+    tick();
+
+    const focusedHeading = (fixture.nativeElement as HTMLElement).querySelector<HTMLHeadingElement>(
+      '.list-heading h2'
+    );
+    expect(document.activeElement).toBe(focusedHeading);
+    expect(focusedHeading?.textContent?.trim()).toBe('11-20 of 21 work items');
+    expect(fixture.componentInstance.filterForm.controls.search.value).toBe('draft only');
+    expect(fixture.componentInstance.filterForm.controls.sort.value).toBe('created_desc');
+    expect(fixture.componentInstance.appliedFilterValues().status).toBe('ready');
+    expect(fixture.componentInstance.appliedFilterValues().search).toBe('');
+
+    navigate.calls.reset();
+    fixture.componentInstance.enterBulkEdit();
+    fixture.componentInstance.toggleWorkItemSelection('page-work-item-11');
+    fixture.componentInstance.bulkActionForm.patchValue({
+      actionType: 'set_priority',
+      priority: 'urgent'
+    });
+    fixture.componentInstance.changePageSize(25);
+
+    expect(navigate).toHaveBeenCalledWith([], {
+      relativeTo: TestBed.inject(ActivatedRoute),
+      queryParams: jasmine.objectContaining({
+        status: 'ready',
+        page: null,
+        pageSize: null
+      })
+    });
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([]);
+    expect(fixture.componentInstance.bulkActionForm.controls.actionType.value).toBe('');
+  }));
+
+  it('retains a paging focus request through an error and retry', fakeAsync(() => {
+    projectRoute.setQuery({ pageSize: '10' });
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    const router = TestBed.inject(Router);
+    spyOn(router, 'navigate').and.resolveTo(true);
+    fixture.detectChanges();
+    flushProjectWorkContext(http);
+    http
+      .expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`)
+      .flush(
+        projectWorkItemPage(projectPageItems(10), {
+          pageSize: 10,
+          totalCount: 12,
+          totalPages: 2,
+          hasNextPage: true
+        })
+      );
+    fixture.detectChanges();
+
+    fixture.componentInstance.goToPage(2);
+    projectRoute.setQuery({ page: '2', pageSize: '10' });
+    http
+      .expectOne((candidate) => {
+        return (
+          candidate.url === `/api/projects/${projectId}/work-items` &&
+          candidate.params.get('page') === '2'
+        );
+      })
+      .flush('failed', { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+    tick();
+
+    let heading = (fixture.nativeElement as HTMLElement).querySelector<HTMLHeadingElement>(
+      '.list-heading h2'
+    );
+    expect(document.activeElement).not.toBe(heading);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Work items could not be loaded from the API.'
+    );
+
+    fixture.componentInstance.loadWorkItems();
+    http
+      .expectOne((candidate) => {
+        return (
+          candidate.url === `/api/projects/${projectId}/work-items` &&
+          candidate.params.get('page') === '2'
+        );
+      })
+      .flush(
+        projectWorkItemPage(projectPageItems(2, 11), {
+          page: 2,
+          pageSize: 10,
+          totalCount: 12,
+          totalPages: 2,
+          hasPreviousPage: true
+        })
+      );
+    fixture.detectChanges();
+    tick();
+
+    heading = (fixture.nativeElement as HTMLElement).querySelector<HTMLHeadingElement>(
+      '.list-heading h2'
+    );
+    expect(document.activeElement).toBe(heading);
+    expect(heading?.textContent?.trim()).toBe('11-12 of 12 work items');
+  }));
 
   it('lets owners select visible project work items locally', () => {
     seedCurrentUser(ownerMember);
@@ -635,8 +940,103 @@ describe('WorkItemListPageComponent', () => {
       relativeTo: TestBed.inject(ActivatedRoute),
       queryParams: jasmine.objectContaining({
         status: 'ready',
-        sort: 'board_order'
+        sort: 'board_order',
+        page: null,
+        pageSize: null
       })
+    });
+  });
+
+  it('resets paging and bulk state when the active project changes', () => {
+    const nextProjectId = '10000000-0000-4000-8000-000000000202';
+    seedCurrentUser(ownerMember);
+    projectRoute.setQuery({ page: '3', pageSize: '10' });
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    const router = TestBed.inject(Router);
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    fixture.detectChanges();
+    flushProjectWorkContext(http);
+    http
+      .expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`)
+      .flush(
+        projectWorkItemPage([workItem], {
+          page: 3,
+          pageSize: 10,
+          totalCount: 21,
+          totalPages: 3,
+          hasPreviousPage: true
+        })
+      );
+
+    fixture.componentInstance.enterBulkEdit();
+    fixture.componentInstance.toggleWorkItemSelection(workItem.id);
+    fixture.componentInstance.bulkActionForm.patchValue({
+      actionType: 'set_priority',
+      priority: 'urgent'
+    });
+    projectRoute.setProjectId(nextProjectId);
+
+    http.expectOne(`/api/projects/${nextProjectId}`).flush({
+      ...activeProject,
+      id: nextProjectId,
+      key: 'NX',
+      name: 'Next project'
+    });
+    http
+      .expectOne(`/api/projects/${nextProjectId}/milestones?includeArchived=true`)
+      .flush([]);
+    http.expectOne(`/api/projects/${nextProjectId}/cycles?includeArchived=true`).flush([]);
+    flushProjectSavedViews(http, [], nextProjectId);
+
+    expect(fixture.componentInstance.projectId()).toBe(nextProjectId);
+    expect(fixture.componentInstance.activePageQuery()).toEqual({ page: 1, pageSize: 25 });
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([]);
+    expect(fixture.componentInstance.isBulkEditActive()).toBeFalse();
+    expect(fixture.componentInstance.bulkActionForm.controls.actionType.value).toBe('');
+    expect(navigate).toHaveBeenCalledWith([], {
+      relativeTo: TestBed.inject(ActivatedRoute),
+      queryParams: jasmine.objectContaining({ page: null, pageSize: null })
+    });
+  });
+
+  it('resets paging and bulk state when the active actor changes', () => {
+    seedCurrentUser(ownerMember);
+    projectRoute.setQuery({ page: '3', pageSize: '10' });
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    const router = TestBed.inject(Router);
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    fixture.detectChanges();
+    flushProjectWorkContext(http);
+    http
+      .expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`)
+      .flush(
+        projectWorkItemPage([workItem], {
+          page: 3,
+          pageSize: 10,
+          totalCount: 21,
+          totalPages: 3,
+          hasPreviousPage: true
+        })
+      );
+
+    fixture.componentInstance.enterBulkEdit();
+    fixture.componentInstance.toggleWorkItemSelection(workItem.id);
+    fixture.componentInstance.bulkActionForm.patchValue({
+      actionType: 'set_priority',
+      priority: 'urgent'
+    });
+    TestBed.inject(CurrentUserService).selectMember(member.id);
+    fixture.detectChanges();
+    flushProjectWorkContext(http);
+
+    expect(fixture.componentInstance.activePageQuery()).toEqual({ page: 1, pageSize: 25 });
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([]);
+    expect(fixture.componentInstance.bulkActionForm.controls.actionType.value).toBe('');
+    expect(navigate).toHaveBeenCalledWith([], {
+      relativeTo: TestBed.inject(ActivatedRoute),
+      queryParams: jasmine.objectContaining({ page: null, pageSize: null })
     });
   });
 
@@ -967,6 +1367,127 @@ describe('WorkItemListPageComponent', () => {
     expect(compiled.textContent).toContain('Failed work items');
     expect(compiled.textContent).toContain(
       'WT-4 cannot be updated while blocked by workflow policy.'
+    );
+  });
+
+  it('blocks paging during bulk apply and retains visible failures after stale-page recovery', () => {
+    seedCurrentUser(ownerMember);
+    projectRoute.setQuery({ page: '3', pageSize: '10' });
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    const router = TestBed.inject(Router);
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    fixture.detectChanges();
+    flushProjectWorkContext(http);
+    http
+      .expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`)
+      .flush(
+        projectWorkItemPage([workItem, readyWorkItem], {
+          page: 3,
+          pageSize: 10,
+          totalCount: 22,
+          totalPages: 3,
+          hasPreviousPage: true
+        })
+      );
+    fixture.detectChanges();
+
+    fixture.componentInstance.enterBulkEdit();
+    fixture.componentInstance.toggleAllVisibleSelection();
+    fixture.componentInstance.bulkActionForm.patchValue({
+      actionType: 'set_priority',
+      priority: 'urgent'
+    });
+    fixture.componentInstance.applyBulkAction();
+    fixture.detectChanges();
+
+    expect(
+      Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll<
+          HTMLButtonElement | HTMLSelectElement
+        >('app-work-item-pagination button, app-work-item-pagination select')
+      ).every((control) => control.disabled)
+    ).toBeTrue();
+    fixture.componentInstance.goToPage(2);
+    fixture.componentInstance.changePageSize(25);
+    expect(navigate).not.toHaveBeenCalled();
+
+    http.expectOne(`/api/projects/${projectId}/work-items/bulk-update`).flush({
+      requestedCount: 2,
+      succeededCount: 1,
+      unchangedCount: 0,
+      failedCount: 1,
+      results: [
+        {
+          workItemId: workItem.id,
+          displayKey: workItem.displayKey,
+          status: 'updated',
+          workItem,
+          error: null
+        },
+        {
+          workItemId: readyWorkItem.id,
+          displayKey: readyWorkItem.displayKey,
+          status: 'failed',
+          workItem: null,
+          error: {
+            code: 'WORKFLOW_TRANSITION_ERROR',
+            message: 'WT-4 remains blocked by workflow policy.'
+          }
+        }
+      ]
+    });
+    http
+      .expectOne((candidate) => {
+        return (
+          candidate.url === `/api/projects/${projectId}/work-items` &&
+          candidate.params.get('page') === '3'
+        );
+      })
+      .flush(
+        projectWorkItemPage([readyWorkItem], {
+          page: 2,
+          pageSize: 10,
+          totalCount: 11,
+          totalPages: 2,
+          hasPreviousPage: true
+        })
+      );
+
+    expect(navigate).toHaveBeenCalledWith([], {
+      relativeTo: TestBed.inject(ActivatedRoute),
+      queryParams: jasmine.objectContaining({ page: '2', pageSize: '10' }),
+      replaceUrl: true
+    });
+
+    projectRoute.setQuery({ page: '2', pageSize: '10' });
+    http
+      .expectOne((candidate) => {
+        return (
+          candidate.url === `/api/projects/${projectId}/work-items` &&
+          candidate.params.get('page') === '2'
+        );
+      })
+      .flush(
+        projectWorkItemPage([readyWorkItem], {
+          page: 2,
+          pageSize: 10,
+          totalCount: 11,
+          totalPages: 2,
+          hasPreviousPage: true
+        })
+      );
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([readyWorkItem.id]);
+    expect(fixture.componentInstance.bulkActionForm.controls.actionType.value).toBe(
+      'set_priority'
+    );
+    expect(bulkResultCounts(compiled)).toEqual(['1', '0', '1']);
+    expect(compiled.textContent).toContain('WT-4 remains blocked by workflow policy.');
+    expect(compiled.querySelector('.list-heading h2')?.textContent?.trim()).toBe(
+      '11-11 of 11 work items'
     );
   });
 
@@ -1422,6 +1943,35 @@ describe('WorkItemListPageComponent', () => {
     http
       .expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`)
       .flush(projectWorkItemPage([workItem]));
+    projectRoute.setQuery({
+      status: 'in_progress',
+      assigneeId: contributorId,
+      reporterId: contributorId,
+      milestoneId: activeMilestone.id,
+      dueDateState: 'due_soon',
+      dependency: 'dependency_blocked',
+      search: 'api',
+      sort: 'due_date_asc',
+      page: '3',
+      pageSize: '10'
+    });
+    http
+      .expectOne((candidate) => {
+        return (
+          candidate.url === `/api/projects/${projectId}/work-items` &&
+          candidate.params.get('page') === '3' &&
+          candidate.params.get('pageSize') === '10'
+        );
+      })
+      .flush(
+        projectWorkItemPage([workItem], {
+          page: 3,
+          pageSize: 10,
+          totalCount: 21,
+          totalPages: 3,
+          hasPreviousPage: true
+        })
+      );
     fixture.componentInstance.filterForm.patchValue(
       {
         search: 'draft search',
@@ -1442,7 +1992,16 @@ describe('WorkItemListPageComponent', () => {
     expect(copiedUrl.searchParams.get('assigneeId')).toBe(contributorId);
     expect(copiedUrl.searchParams.get('dependency')).toBe('dependency_blocked');
     expect(copiedUrl.searchParams.get('sort')).toBe('due_date_asc');
+    expect(copiedUrl.searchParams.get('page')).toBe('3');
+    expect(copiedUrl.searchParams.get('pageSize')).toBe('10');
     expect(copiedUrl.searchParams.get('priority')).toBeNull();
+    expect(fixture.componentInstance.detailReturnUrl()).toContain('page=3');
+    expect(fixture.componentInstance.detailReturnUrl()).toContain('pageSize=10');
+    expect(
+      (fixture.nativeElement as HTMLElement)
+        .querySelector<HTMLAnchorElement>('.work-item-title-link')
+        ?.getAttribute('href')
+    ).toContain('returnUrl=');
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Link copied');
 
     tick(2500);

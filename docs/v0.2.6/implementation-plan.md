@@ -972,7 +972,41 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-19.
+- Hardened project Work paging around route and interaction boundaries:
+  - first, middle, final, and server-normalized pages render server-derived ranges and controls;
+  - user page and page-size changes focus the result heading after a successful load without taking
+    focus on initial load, history restoration, or a failed request;
+  - a retry retains the pending focus request and focuses only after rows load successfully;
+  - page navigation preserves unapplied filter-form drafts while Back/Forward restores applied URL
+    filters.
+- Made route reuse explicit by reacting to project parameter changes, clearing prior project state,
+  reloading actor-sensitive project context, and resetting project and actor boundaries to page 1 at
+  size 25.
+- Hardened visible-page bulk triage:
+  - selected copy now says `selected on this page`;
+  - every bulk request is composed only from selected rows still visible in the current response;
+  - page controls and handlers are disabled during list loads and bulk mutations;
+  - page, size, filter, saved-view, project, and actor boundaries clear selection, action drafts, and
+    feedback;
+  - successful and unchanged IDs clear after apply, while failed IDs survive only when returned on the
+    resolved current page;
+  - a count-shrinking mutation replaces an invalid page with the server-resolved final page without
+    discarding partial-failure feedback.
+- Preserved non-default page and size state in copied project links, row/detail return URLs, and
+  hierarchy links while keeping saved-view opens and filter Apply on default paging.
+- Added focused coverage for route restoration, result ranges, draft-filter independence, heading
+  focus, error/retry behavior, page-size changes, saved-view resets, actor/project resets, in-flight
+  bulk locks, partial failures, stale-page recovery, and visible-selection pruning.
+- Verified Phase 7 with:
+  - focused project paging, result-list, pagination, and bulk-triage tests: 74 passed;
+  - full Angular tests: 357 passed;
+  - Angular development typecheck, ESLint, production build, diff, and trailing-whitespace checks;
+  - production initial bundle: 370.19 kB raw / 98.97 kB estimated transfer, with no budget warning.
+- Live seeded desktop, narrow, mobile, and 200 percent browser inspection could not run in this
+  session because no browser backend was available and the local Docker/Postgres service was stopped.
+  Responsive pager contracts remain covered by component tests and existing breakpoint styles; no
+  screenshot claim is made for this phase.
 
 ## Phase 8: Workspace Work Items And Cross-Surface Compatibility
 
