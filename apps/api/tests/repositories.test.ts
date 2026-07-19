@@ -8,7 +8,12 @@ import type {
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { createDb, createPool } from '../src/db/client.js';
-import { createRepositories, withRepositoriesTransaction, type Repositories } from '../src/repositories/index.js';
+import {
+  createRepositories,
+  withRepositoriesReadTransaction,
+  withRepositoriesTransaction,
+  type Repositories
+} from '../src/repositories/index.js';
 
 const workspaceIds = new Set<string>();
 let pool: ReturnType<typeof createPool>;
@@ -966,6 +971,22 @@ describe('Drizzle repositories', () => {
       id: id.workItemId,
       title: 'Repository work item'
     });
+  });
+
+  it('enforces read-only repository transactions', async () => {
+    const workspaceId = randomUUID();
+
+    await expect(
+      withRepositoriesReadTransaction(db, (transactionRepositories) =>
+        transactionRepositories.workspaces.create({
+          id: workspaceId,
+          name: 'Rejected Read Transaction Write',
+          createdAt: now(),
+          updatedAt: now()
+        })
+      )
+    ).rejects.toMatchObject({ cause: { code: '25006' } });
+    await expect(repositories.workspaces.findById(workspaceId)).resolves.toBeNull();
   });
 
   it('locks cycle scope and updates cycle assignments and activity in sets', async () => {

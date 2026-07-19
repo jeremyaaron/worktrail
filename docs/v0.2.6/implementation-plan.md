@@ -508,7 +508,49 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-19.
+- Added `withRepositoriesReadTransaction` beside the unchanged write helper with explicit PostgreSQL
+  `repeatable read` isolation and `read only` access mode.
+- Added `resolveWorkItemPage` as a focused metadata/window resolver:
+  - exact total-page calculation;
+  - page `1` for empty results;
+  - deterministic high-page clamping;
+  - previous/next booleans;
+  - nonnegative safe-integer offset calculation;
+  - rejection of invalid repository totals.
+- Added `WorkItemService.listWorkItemPage` and `listWorkspaceWorkItemPage` with default and explicit
+  resolved windows, exact metadata, canonical count/page repositories, and enrichment restricted to
+  the returned raw rows.
+- Project page reads authorize actor workspace scope before running the count, preventing totals from
+  being disclosed for missing or cross-workspace projects.
+- Authorization, count, clamped page selection, and DTO enrichment share one read-only repeatable-read
+  transaction whenever `db` is available. Repository-only construction remains supported for focused
+  unit tests and non-production test contexts.
+- Added `WorkItemService.listProjectBoardWorkItems` with project authorization, the explicit complete
+  board repository method, fixed repository ordering, and existing DTO enrichment. It accepts no
+  filters or page window.
+- Preserved existing complete `listWorkItems` and `listWorkspaceWorkItems` behavior for current HTTP,
+  export, My Work, planning, health, and other internal consumers. No endpoint contract changed.
+- Added focused tests for:
+  - exact, default, explicit, partial-final, stale, and empty page metadata;
+  - transaction configuration and repository binding;
+  - PostgreSQL enforcement of read-only transactions (`25006` on attempted writes);
+  - one configured read transaction around each count/page/enrichment service read;
+  - repository-only fallback and page-only label, dependency, parent, and child-summary IDs;
+  - project authorization before count;
+  - actor-workspace isolation and active/archived workspace project context;
+  - labels, milestone, cycle, hierarchy, project, and dependency DTO context;
+  - complete fixed-order board enrichment for 101 work items.
+- Verification completed:
+  - `npm run test --workspace @worktrail/api -- work-item-page.test.ts repository-read-transaction.test.ts work-items.test.ts`
+    (3 files, 86 tests);
+  - `npm run test --workspace @worktrail/api -- repositories.test.ts work-items.test.ts`
+    (2 files, 104 tests);
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm run test --workspace @worktrail/api` (34 files, 368 tests);
+  - `npm run build --workspace @worktrail/api`;
+  - `git diff --check`.
 
 ## Phase 4: Bounded Full-Result CSV Export
 

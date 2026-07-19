@@ -47,3 +47,16 @@ export async function withRepositoriesTransaction<T>(
 ): Promise<T> {
   return db.transaction((tx) => callback(createRepositories(tx as unknown as WorktrailDb)));
 }
+
+export async function withRepositoriesReadTransaction<T>(
+  db: WorktrailDb,
+  callback: (repositories: Repositories) => Promise<T>
+): Promise<T> {
+  return db.transaction(
+    (tx) => callback(createRepositories(tx as unknown as WorktrailDb)),
+    {
+      isolationLevel: 'repeatable read',
+      accessMode: 'read only'
+    }
+  );
+}

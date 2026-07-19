@@ -8,6 +8,7 @@ import type {
   CommentDto,
   CreateWorkItemRequest,
   MoveWorkItemOnBoardRequest,
+  ResolvedWorkItemPageQuery,
   SetWorkItemParentRequest,
   TransitionWorkItemRequest,
   UpdateWorkItemRequest,
@@ -16,9 +17,11 @@ import type {
   WorkItemChildrenDto,
   WorkItemDetailDto,
   WorkItemListItemDto,
+  WorkItemListPageDto,
   WorkItemParentCandidateDto,
   WorkItemParentDto,
-  WorkspaceWorkItemListItemDto
+  WorkspaceWorkItemListItemDto,
+  WorkspaceWorkItemListPageDto
 } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
@@ -36,6 +39,7 @@ import {
 } from '../errors/app-error.js';
 import {
   type Repositories,
+  withRepositoriesReadTransaction,
   withRepositoriesTransaction
 } from '../repositories/index.js';
 import type { ProjectWorkItemQuery } from '../repositories/work-item-query-builder.js';
@@ -57,6 +61,7 @@ import {
   toWorkspaceWorkItemListItemDto
 } from './dto.js';
 import { createWorkItemCycleChangedActivity } from './work-item-cycle-activity.js';
+import { resolveWorkItemPage } from './work-item-page.js';
 import { NotificationService } from './notification-service.js';
 import { WorkItemRelationshipService } from './work-item-relationship-service.js';
 
@@ -127,6 +132,59 @@ export class WorkItemService {
       filters
     );
     return this.toWorkspaceListDtos(records, this.context.repositories);
+  }
+
+  async listWorkItemPage(
+    projectId: string,
+    filters: WorkItemListFilters = {},
+    pageQuery: ResolvedWorkItemPageQuery = { page: 1, pageSize: 25 }
+  ): Promise<WorkItemListPageDto> {
+    return this.withReadRepositories(async (repositories) => {
+      await this.requireProjectFromRepositories(projectId, repositories);
+      const totalCount = await repositories.workItems.countByProjectQuery(projectId, filters);
+      const resolution = resolveWorkItemPage(pageQuery, totalCount);
+      const workItems = await repositories.workItems.listPageByProject(projectId, filters, {
+        limit: resolution.metadata.pageSize,
+        offset: resolution.offset
+      });
+
+      return {
+        items: await this.toListDtos(workItems, repositories),
+        ...resolution.metadata
+      };
+    });
+  }
+
+  async listWorkspaceWorkItemPage(
+    filters: WorkItemQuery = {},
+    pageQuery: ResolvedWorkItemPageQuery = { page: 1, pageSize: 25 }
+  ): Promise<WorkspaceWorkItemListPageDto> {
+    return this.withReadRepositories(async (repositories) => {
+      const workspaceId = this.context.actor.workspaceId;
+      const totalCount = await repositories.workItems.countByWorkspaceQuery(workspaceId, filters);
+      const resolution = resolveWorkItemPage(pageQuery, totalCount);
+      const records = await repositories.workItems.listPageByWorkspace(
+        workspaceId,
+        filters,
+        {
+          limit: resolution.metadata.pageSize,
+          offset: resolution.offset
+        }
+      );
+
+      return {
+        items: await this.toWorkspaceListDtos(records, repositories),
+        ...resolution.metadata
+      };
+    });
+  }
+
+  async listProjectBoardWorkItems(projectId: string): Promise<WorkItemListItemDto[]> {
+    return this.withReadRepositories(async (repositories) => {
+      await this.requireProjectFromRepositories(projectId, repositories);
+      const workItems = await repositories.workItems.listByProjectForBoard(projectId);
+      return this.toListDtos(workItems, repositories);
+    });
   }
 
   async createWorkItem(projectId: string, input: CreateWorkItemRequest): Promise<WorkItemDetailDto> {
@@ -695,6 +753,16 @@ export class WorkItemService {
     }
 
     return withRepositoriesTransaction(this.context.db, callback);
+  }
+
+  private async withReadRepositories<T>(
+    callback: (repositories: Repositories) => Promise<T>
+  ): Promise<T> {
+    if (this.context.db === undefined) {
+      return callback(this.context.repositories);
+    }
+
+    return withRepositoriesReadTransaction(this.context.db, callback);
   }
 
   private notificationService(repositories: Repositories): NotificationService {

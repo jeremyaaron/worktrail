@@ -269,6 +269,225 @@ afterAll(async () => {
 });
 
 describe('work item API', () => {
+  it('returns default, explicit, partial, stale, and empty project pages in one read transaction', async () => {
+    const fixture = await createFixture('owner');
+    await Promise.all(
+      Array.from({ length: 27 }, (_, index) =>
+        createWorkItem(fixture, {
+          title: `Paged work item ${index + 1}`,
+          boardPosition: (index + 1) * 1024
+        })
+      )
+    );
+    const transactionSpy = vi.spyOn(db, 'transaction');
+    const service = createService(fixture);
+
+    const firstPage = await service.listWorkItemPage(fixture.projectId);
+    const secondPage = await service.listWorkItemPage(
+      fixture.projectId,
+      { sort: 'updated_asc' },
+      { page: 2, pageSize: 10 }
+    );
+    const stalePage = await service.listWorkItemPage(
+      fixture.projectId,
+      { sort: 'updated_asc' },
+      { page: 99, pageSize: 10 }
+    );
+    const emptyPage = await service.listWorkItemPage(
+      fixture.projectId,
+      { status: 'done' },
+      { page: 99, pageSize: 25 }
+    );
+
+    expect(firstPage).toMatchObject({
+      page: 1,
+      pageSize: 25,
+      totalCount: 27,
+      totalPages: 2,
+      hasPreviousPage: false,
+      hasNextPage: true
+    });
+    expect(firstPage.items).toHaveLength(25);
+    expect(secondPage).toMatchObject({
+      page: 2,
+      pageSize: 10,
+      totalCount: 27,
+      totalPages: 3,
+      hasPreviousPage: true,
+      hasNextPage: true
+    });
+    expect(secondPage.items.map(({ itemNumber }) => itemNumber)).toEqual(
+      Array.from({ length: 10 }, (_, index) => index + 11)
+    );
+    expect(stalePage).toMatchObject({
+      page: 3,
+      pageSize: 10,
+      totalCount: 27,
+      totalPages: 3,
+      hasPreviousPage: true,
+      hasNextPage: false
+    });
+    expect(stalePage.items.map(({ itemNumber }) => itemNumber)).toEqual([21, 22, 23, 24, 25, 26, 27]);
+    expect(emptyPage).toEqual({
+      items: [],
+      page: 1,
+      pageSize: 25,
+      totalCount: 0,
+      totalPages: 0,
+      hasPreviousPage: false,
+      hasNextPage: false
+    });
+    expect(transactionSpy).toHaveBeenCalledTimes(4);
+    expect(transactionSpy.mock.calls.every((call) =>
+      expect.objectContaining({
+        isolationLevel: 'repeatable read',
+        accessMode: 'read only'
+      }).asymmetricMatch(call[1])
+    )).toBe(true);
+  });
+
+  it('uses repository-only paging and enriches only returned page ids', async () => {
+    const fixture = await createFixture('owner');
+    await Promise.all(
+      Array.from({ length: 16 }, (_, index) =>
+        createWorkItem(fixture, { title: `Fallback page item ${index + 1}` })
+      )
+    );
+    const listPageSpy = vi.spyOn(repositories.workItems, 'listPageByProject');
+    const labelSpy = vi.spyOn(repositories.labels, 'listByWorkItems');
+    const dependencySpy = vi.spyOn(repositories.workItemRelationships, 'listDependencyCounts');
+    const parentSpy = vi.spyOn(repositories.workItems, 'listParentsForChildren');
+    const childSummarySpy = vi.spyOn(repositories.workItems, 'summarizeChildren');
+    const service = createService(fixture, { db: undefined });
+
+    const page = await service.listWorkItemPage(
+      fixture.projectId,
+      { sort: 'updated_asc' },
+      { page: 2, pageSize: 10 }
+    );
+    const pageIds = page.items.map(({ id }) => id);
+
+    expect(page.items.map(({ itemNumber }) => itemNumber)).toEqual([11, 12, 13, 14, 15, 16]);
+    expect(listPageSpy).toHaveBeenCalledWith(
+      fixture.projectId,
+      { sort: 'updated_asc' },
+      { limit: 10, offset: 10 }
+    );
+    expect(labelSpy).toHaveBeenCalledWith(pageIds);
+    expect(dependencySpy).toHaveBeenCalledWith(pageIds);
+    expect(parentSpy).toHaveBeenCalledWith(pageIds);
+    expect(childSummarySpy).toHaveBeenCalledWith(pageIds);
+  });
+
+  it('authorizes project scope before exposing page counts', async () => {
+    const fixture = await createFixture('owner');
+    await createWorkItem(fixture);
+    const countSpy = vi.spyOn(repositories.workItems, 'countByProjectQuery');
+    const service = new WorkItemService({
+      actor: {
+        workspaceId: randomUUID(),
+        memberId: randomUUID(),
+        role: 'owner'
+      },
+      repositories
+    });
+
+    await expect(service.listWorkItemPage(fixture.projectId)).rejects.toMatchObject({
+      code: 'NOT_FOUND'
+    });
+    expect(countSpy).not.toHaveBeenCalled();
+  });
+
+  it('returns workspace page context across active and archived projects', async () => {
+    const fixture = await createFixture('owner');
+    const milestone = await createMilestone(fixture);
+    const cycle = await createProjectCycle(fixture);
+    const parent = await createWorkItem(fixture, {
+      title: 'Workspace rich parent',
+      milestoneId: milestone.id,
+      cycleId: cycle.id
+    });
+    await repositories.labels.replaceForWorkItem(parent.id, [fixture.backendLabelId]);
+    const child = await createWorkItem(fixture, {
+      title: 'Workspace rich child',
+      parentWorkItemId: parent.id
+    });
+    const blocker = await createWorkItem(fixture, {
+      title: 'Workspace blocker',
+      status: 'in_progress'
+    });
+    await repositories.workItemRelationships.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      relationshipType: 'blocks',
+      sourceWorkItemId: blocker.id,
+      targetWorkItemId: child.id,
+      createdById: fixture.actorId,
+      createdAt: now()
+    });
+    const archivedProject = await createProject(fixture, {
+      key: 'ARC',
+      status: 'archived'
+    });
+    const archived = await createWorkItem(fixture, {
+      projectId: archivedProject.id,
+      itemNumber: 1,
+      displayKey: 'ARC-1',
+      title: 'Workspace archived item'
+    });
+    const otherWorkspace = await createFixture('owner');
+    await createWorkItem(otherWorkspace, { title: 'Hidden workspace item' });
+
+    const page = await createService(fixture).listWorkspaceWorkItemPage(
+      { archivedProjects: 'include', sort: 'updated_asc' },
+      { page: 1, pageSize: 10 }
+    );
+
+    expect(page).toMatchObject({
+      page: 1,
+      pageSize: 10,
+      totalCount: 4,
+      totalPages: 1,
+      hasPreviousPage: false,
+      hasNextPage: false
+    });
+    expect(page.items.find(({ id }) => id === parent.id)).toMatchObject({
+      labels: [{ id: fixture.backendLabelId }],
+      milestone: { id: milestone.id },
+      cycle: { id: cycle.id },
+      childSummary: { totalCount: 1 },
+      project: { id: fixture.projectId, status: 'active' }
+    });
+    expect(page.items.find(({ id }) => id === child.id)).toMatchObject({
+      parent: { id: parent.id },
+      dependencyBlocked: true,
+      openBlockerCount: 1
+    });
+    expect(page.items.find(({ id }) => id === archived.id)).toMatchObject({
+      project: { id: archivedProject.id, status: 'archived' }
+    });
+  });
+
+  it('returns complete fixed-order project boards beyond the interactive page maximum', async () => {
+    const fixture = await createFixture('owner');
+    await Promise.all(
+      Array.from({ length: 101 }, (_, index) =>
+        createWorkItem(fixture, {
+          title: `Board service item ${index + 1}`,
+          status: 'ready',
+          boardPosition: (index + 1) * 1024
+        })
+      )
+    );
+
+    const items = await createService(fixture).listProjectBoardWorkItems(fixture.projectId);
+
+    expect(items).toHaveLength(101);
+    expect(items.map(({ itemNumber }) => itemNumber)).toEqual(
+      Array.from({ length: 101 }, (_, index) => index + 1)
+    );
+  });
+
   it('creates work items with labels and records creation activity', async () => {
     const fixture = await createFixture('owner');
 
