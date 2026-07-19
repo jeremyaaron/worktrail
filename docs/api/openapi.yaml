@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Worktrail API
-  version: 0.2.5
+  version: 0.2.6
   summary: HTTP API reference for the Worktrail local-first project management app.
   description: |
     This document describes the implemented Worktrail API routes. It is intentionally
@@ -987,7 +987,7 @@ paths:
     get:
       tags: [Work Items]
       summary: Export workspace work items as CSV.
-      description: Exports up to 10,000 matching workspace discovery results using the same applied query parameters as `GET /api/work-items`. Paging parameters do not affect exports. CSV columns include `cycle_name`.
+      description: Exports up to 10,000 matching workspace discovery results using the same applied query parameters as `GET /api/work-items`. Paging parameters do not affect exports. CSV columns include `cycle_name`, `parent_key`, and `parent_title` context.
       parameters:
         - $ref: "#/components/parameters/WorkItemProjectIdQuery"
         - $ref: "#/components/parameters/WorkItemStatusQuery"
@@ -1177,7 +1177,7 @@ paths:
     get:
       tags: [Work Items]
       summary: Export project work items as CSV.
-      description: Exports up to 10,000 matching project work items using the same applied query parameters as `GET /api/projects/{projectId}/work-items`. Paging parameters do not affect exports. CSV columns include `cycle_name`.
+      description: Exports up to 10,000 matching project work items using the same applied query parameters as `GET /api/projects/{projectId}/work-items`. Paging parameters do not affect exports. CSV columns include `cycle_name`, `parent_key`, and `parent_title` context.
       parameters:
         - $ref: "#/components/parameters/ProjectId"
         - $ref: "#/components/parameters/WorkItemStatusQuery"

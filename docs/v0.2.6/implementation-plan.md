@@ -1363,7 +1363,39 @@ git status --short --branch
 
 Status:
 
-- Not started.
+- Completed on 2026-07-19.
+- Updated the README to identify the v0.2.6 baseline and document Scalable Work Discovery, supported
+  page sizes, canonical URL and saved-view behavior, visible-page batch selection, all-matching export
+  semantics, the 10,000-row export limit, `pg_trgm` migration privileges, a seeded page-size-10
+  walkthrough, and the remaining board/internal-read/count/offset/export limits.
+- Added destination-neutral v0.2.6 release notes and pattern notes covering durable query versus
+  transient page state, server-owned metadata, repeatable-read consistency, deterministic ordering,
+  bounded enrichment, explicit complete-read exceptions, page-scoped selection, `limit + 1` export
+  guards, search-index evidence, and deliberate non-abstraction.
+- Marked the v0.2.6 PRD and technical design implemented. Updated OpenAPI to `0.2.6`, retained all
+  paging/page-envelope/complete-board/export-limit routes and schemas, clarified cycle and parent CSV
+  columns, and strengthened the OpenAPI test with version and board-route assertions.
+- Updated the static product site to present server-backed paging, exact counts, all-matching bounded
+  export, trigram indexes, and the remaining scale limitations without changing imagery that still
+  represents the current board accurately.
+- Updated root, API, web, contracts, local contracts dependency, and lockfile workspace metadata to
+  `0.2.6`; `npm install --package-lock-only` completed successfully.
+- Reviewed Phase 0-10 records, release-facing v0.2.5 claims, unbounded-list wording, scale claims, and
+  discontinued pattern-destination references. All phase statuses are accurate and no release-facing
+  stale claim remains.
+- Fresh database reset, all 17 migrations including `0016_scalable_search.sql`, and deterministic seed
+  completed successfully.
+- Final verification passed: repository lint and typecheck; API 375 tests; Angular 368 tests;
+  contracts 35 tests; Playwright 22 tests; and `git diff --check`.
+- Production build completed without a budget warning. The initial bundle remains 370.23 kB raw /
+  99.01 kB estimated transfer.
+- `npm audit --omit=dev --audit-level=low` reports zero production vulnerabilities. The full
+  development tree reports two low and four moderate advisories: the low findings are Babel tooling
+  reached through Angular compiler tooling, and the moderate findings are the legacy esbuild loader
+  chain reached through Drizzle Kit. They do not ship in the runtime graph; the suggested Drizzle fix
+  is an incompatible downgrade, so no forced audit rewrite was applied.
+- Confirmed no Worktrail API, Angular dev server, or Playwright web-server process remains and ports
+  3000 and 4200 have no listener.
 
 ## Phase Completion Protocol
 

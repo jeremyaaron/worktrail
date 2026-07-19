@@ -51,6 +51,7 @@ describe('OpenAPI reference', () => {
       '/api/work-items',
       '/api/work-items/export',
       '/api/projects/{projectId}/work-items',
+      '/api/projects/{projectId}/board/work-items',
       '/api/projects/{projectId}/work-items/bulk-update',
       '/api/projects/{projectId}/work-items/imports/preview',
       '/api/projects/{projectId}/work-items/imports',
@@ -77,6 +78,7 @@ describe('OpenAPI reference', () => {
       expect(openApi, `missing ${path}`).toContain(`  ${path}:`);
     }
 
+    expect(openApi).toContain('version: 0.2.6');
     expect(openApi).toContain('x-worktrail-member-id');
     expect(openApi).toContain('x-worktrail-workspace-id');
     expect(openApi).toContain('x-worktrail-role');

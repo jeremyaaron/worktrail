@@ -6,12 +6,12 @@
     <title>Worktrail | Project management reference app</title>
     <meta
       name="description"
-      content="Worktrail is a project management reference app for daily team work, two-level work breakdown, workspace portfolio review, reliable project operation, cycle planning and closeout, and published status snapshots, built as an Angular, TypeScript API, and Postgres reference baseline."
+      content="Worktrail is a project management reference app for scalable work discovery, daily team work, two-level work breakdown, workspace portfolio review, cycle planning and closeout, and published status snapshots, built as an Angular, TypeScript API, and Postgres reference baseline."
     >
     <meta property="og:title" content="Worktrail">
     <meta
       property="og:description"
-      content="A project management reference app for daily team work, bounded work breakdown, workspace portfolio review, cycle planning and closeout, published status snapshots, and production-shaped TypeScript architecture."
+      content="A project management reference app for scalable work discovery, daily team work, bounded work breakdown, workspace portfolio review, cycle planning and closeout, published status snapshots, and production-shaped TypeScript architecture."
     >
     <meta property="og:type" content="website">
     <meta name="theme-color" content="#f6f8fb">
@@ -120,10 +120,10 @@
             <span class="feature-kicker">Find and shape work</span>
             <h3>Use applied filters as a product contract.</h3>
             <ul>
-              <li>Workspace and project work lists use URL-backed filters, active chips, and copyable links.</li>
+              <li>Workspace and project work lists use URL-backed filters, active chips, exact counts, and server-backed pages.</li>
               <li>Saved views support personal, workspace-shared, and project-scoped operating lenses.</li>
               <li>Pinned shortcuts keep the most important saved views visible.</li>
-              <li>CSV import, dry-run validation, transactional apply, and filtered exports support portability.</li>
+              <li>Filtered CSV exports include all matching rows under a 10,000-row synchronous limit, independent of the visible page.</li>
             </ul>
           </article>
 
@@ -166,28 +166,27 @@
 
       <section class="section" id="baseline" aria-labelledby="baseline-title">
         <div class="section-heading">
-          <p class="eyebrow">v0.2.5 baseline</p>
-          <h2 id="baseline-title">Operational work with bounded decomposition.</h2>
+          <p class="eyebrow">v0.2.6 baseline</p>
+          <h2 id="baseline-title">Bounded discovery for growing work histories.</h2>
           <p>
-            The v0.2.5 baseline lets teams decompose a project outcome into direct child work while
-            preserving Worktrail's flat operational surfaces. Parent assignment is transactional,
-            hierarchy query state is reusable, and compact context follows children through daily
-            work, planning, reports, and exports without becoming dependency state.
+            The v0.2.6 baseline adds exact, server-backed pages to project and workspace work lists
+            while preserving URL-backed filters, saved-view intent, return navigation, complete
+            filtered exports, page-scoped batch selection, and the intentionally complete project board.
           </p>
         </div>
 
         <div class="baseline-grid">
           <div>
             <strong>For product users</strong>
-            <span>Daily work, two-level work breakdown, portfolio review, inbox updates, reliable filters, saved/pinned views, project boards, planning review, milestone review, cycle review and closeout, dependency signals, comments, watchers, activity, CSV flows, and portable status reports.</span>
+            <span>Paginated project and workspace discovery, daily work, two-level work breakdown, portfolio review, inbox updates, reliable filters, saved/pinned views, project boards, planning review, cycle closeout, collaboration, CSV flows, and portable status reports.</span>
           </div>
           <div>
             <strong>For builders</strong>
-            <span>Shared contracts, typed Angular API clients, canonical query helpers, route-level code splitting, endpoint handlers, transactionally locked hierarchy and lifecycle commands, versioned snapshot validation, derived read models, and focused test coverage.</span>
+            <span>Shared page contracts, durable query and transient window separation, repeatable-read list services, bounded enrichment, typed Angular clients, endpoint handlers, versioned snapshot validation, derived read models, and focused test coverage.</span>
           </div>
           <div>
             <strong>For operators</strong>
-            <span>Postgres migrations and hierarchy-aware deterministic seed data, production preview, runtime configuration checks, health/readiness endpoints, checked-in OpenAPI, CI verification, and documented local run paths.</span>
+            <span>Postgres migrations with trigram search indexes, deterministic seed data, production preview, runtime configuration checks, health/readiness endpoints, checked-in OpenAPI, CI verification, and documented local run paths.</span>
           </div>
         </div>
       </section>
@@ -208,7 +207,7 @@
             <div><strong>Frontend</strong><span>Angular standalone route components, lazy route chunks, static build output, URL-backed query state, and responsive work surfaces suitable for S3/CloudFront hosting.</span></div>
             <div><strong>API boundary</strong><span>Shared DTO contracts, explicit request validation, transport-neutral endpoint handlers, Express local adapter, OpenAPI documentation, and non-JSON export responses.</span></div>
             <div><strong>Domain</strong><span>Project planning, bounded work hierarchy, cycle review, delivery health, risk sections, relationships, notifications, saved views, CSV flows, report snapshots, and permission paths in service-level code.</span></div>
-            <div><strong>Persistence</strong><span>Postgres with Drizzle schema and migrations, indexed self-references, deterministic seed data, project cycles, immutable cycle closeout and report snapshots, activity records, notifications, relationships, and saved view state.</span></div>
+            <div><strong>Persistence</strong><span>Postgres with Drizzle schema and migrations, trigram search indexes, repeatable-read page windows, indexed self-references, deterministic seed data, immutable lifecycle snapshots, activity records, notifications, relationships, and saved view state.</span></div>
             <div><strong>Operations</strong><span>Production preview, runtime config validation, liveness/readiness endpoints, CI lint/typecheck/test/build, and local smoke-test guidance.</span></div>
           </div>
         </div>
@@ -264,7 +263,7 @@
           </div>
           <div>
             <strong>No hosted infrastructure yet</strong>
-            <span>The production preview is for local operational inspection. Managed deployment, secrets, observability, background workers, and internet-safe hosting are not included.</span>
+            <span>The production preview is for local operational inspection. Managed deployment, secrets, observability, background workers, and internet-safe hosting are not included. Interactive work lists are paged, but exact counts and deep offsets have a cost; complete boards, aggregate reads, and synchronous exports retain documented limits.</span>
           </div>
           <div>
             <strong>No enterprise workflow suite yet</strong>
@@ -297,9 +296,9 @@ DATABASE_URL=postgres://worktrail:worktrail@localhost:5432/worktrail npm run pre
       <span>Worktrail</span>
       <a href="https://github.com/jeremyaaron/worktrail">GitHub</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/README.md">README</a>
-      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.5/prd.md">v0.2.5 PRD</a>
-      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.5/technical-design.md">Technical design</a>
-      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.5/release-notes.md">Release notes</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.6/prd.md">v0.2.6 PRD</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.6/technical-design.md">Technical design</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.6/release-notes.md">Release notes</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/api/openapi.yaml">OpenAPI</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.0.X/v0.0.6/operations-runbook.md">Runbook</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.0.X/v0.0.7/csv-import-export.md">CSV guide</a>
