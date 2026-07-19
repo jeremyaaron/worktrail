@@ -1,5 +1,14 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit, computed, effect, inject, signal } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  OnInit,
+  ViewChild,
+  computed,
+  effect,
+  inject,
+  signal
+} from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type {
@@ -50,6 +59,7 @@ import {
   unassignedAssigneeValue,
   workItemHierarchyOptions
 } from './query/work-item-filter-options';
+import { defaultWorkItemPageQuery } from './query/work-item-page-query-serialization';
 import { WorkListQueryStore } from './state/work-list-query.store';
 const statuses: WorkItemStatus[] = [
   'backlog',
@@ -842,6 +852,8 @@ interface WorkspaceFilterFormValue {
   `
 })
 export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
+  @ViewChild(WorkItemResultListComponent) private resultList?: WorkItemResultListComponent;
+
   private readonly api = inject(WorktrailApiService);
   private readonly cyclesApi = inject(CyclesApi);
   private readonly clipboard = inject(ClipboardService);
@@ -855,6 +867,8 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   private selectedActorId = this.currentUser.selectedMemberId();
   private hasInitialized = false;
   private loadedProjectFilterId: string | null = null;
+  private focusAfterLoadPageKey: string | null = null;
+  private focusResultTimer: ReturnType<typeof setTimeout> | null = null;
   private copyLinkStatusTimer: ReturnType<typeof setTimeout> | null = null;
 
   private readonly actorChangeEffect = effect(() => {
@@ -869,10 +883,18 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       return;
     }
 
+    this.workItemsSubscription?.unsubscribe();
+    this.clearResultFocusRequest();
+    this.activePageQuery.set({ ...defaultWorkItemPageQuery });
+    this.workItems.set([]);
+    this.pageMetadata.set(emptyPageMetadata());
+    this.error.set(null);
+    this.isLoading.set(false);
+    this.reloadActorContext();
     void this.router
       .navigate([], {
         relativeTo: this.route,
-        queryParams: this.queryState.routerQueryParamsForResolvedPage({ page: 1, pageSize: 25 })
+        queryParams: this.queryState.routerQueryParamsForResolvedPage(defaultWorkItemPageQuery)
       })
       .then((navigated) => {
         if (!navigated) {
@@ -984,8 +1006,26 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
 
     this.subscriptions.add(
       this.route.queryParamMap.subscribe((params) => {
+        const previousFilters = this.appliedFilterValues();
+        const pendingFilterDraft = this.filterForm.getRawValue();
         const nextFilters = this.queryState.applyRouteQueryParams(params);
-        this.filterForm.patchValue(nextFilters, { emitEvent: false });
+        const activePage = this.activePageQuery();
+        const preservePendingFilterDraft =
+          this.focusAfterLoadPageKey !== null &&
+          sameFilterValues(previousFilters, nextFilters);
+
+        if (
+          this.focusAfterLoadPageKey !== null &&
+          this.focusAfterLoadPageKey !== pageKey(activePage)
+        ) {
+          this.clearResultFocusRequest();
+        }
+
+        if (preservePendingFilterDraft) {
+          this.queryState.setPendingFilterValues(pendingFilterDraft);
+        } else {
+          this.filterForm.patchValue(nextFilters, { emitEvent: false });
+        }
         if (!this.queryState.isCanonicalPageQuery(params)) {
           void this.router.navigate([], {
             relativeTo: this.route,
@@ -1004,10 +1044,12 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     this.hasInitialized = false;
     this.workItemsSubscription?.unsubscribe();
     this.subscriptions.unsubscribe();
+    this.clearResultFocusTimer();
     this.clearCopyLinkStatusTimer();
   }
 
   applyFilters(): void {
+    this.clearResultFocusRequest();
     this.queryState.setPendingFilterValues(this.filterForm.getRawValue());
     void this.router.navigate([], {
       relativeTo: this.route,
@@ -1033,6 +1075,9 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       .subscribe({
       next: (response) => {
         if (response.page !== requestedPage.page || response.pageSize !== requestedPage.pageSize) {
+          if (this.focusAfterLoadPageKey === pageKey(requestedPage)) {
+            this.focusAfterLoadPageKey = pageKey(response);
+          }
           void this.router.navigate([], {
             relativeTo: this.route,
             queryParams: this.queryState.routerQueryParamsForResolvedPage({
@@ -1048,6 +1093,10 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
         this.pageMetadata.set(pageMetadataFromResponse(response));
         this.mergeResultLabels(response.items);
         this.isLoading.set(false);
+        if (this.focusAfterLoadPageKey === pageKey(response)) {
+          this.focusAfterLoadPageKey = null;
+          this.scheduleResultHeadingFocus();
+        }
       },
       error: () => {
         this.error.set('Workspace work items could not be loaded from the API.');
@@ -1057,16 +1106,45 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   goToPage(page: number): void {
+    if (this.isLoading() || this.pageMetadata().totalPages === 0) {
+      return;
+    }
+
+    const targetPage = Math.min(Math.max(1, page), this.pageMetadata().totalPages);
+    if (targetPage === this.activePageQuery().page) {
+      return;
+    }
+
+    this.requestResultHeadingFocus({
+      page: targetPage,
+      pageSize: this.activePageQuery().pageSize
+    });
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: this.queryState.routerQueryParamsForPage(page)
+      queryParams: this.queryState.routerQueryParamsForPage(targetPage)
+    }).then((navigated) => {
+      if (!navigated) {
+        this.clearResultFocusRequest();
+      }
     });
   }
 
   changePageSize(pageSize: WorkItemPageSize): void {
+    if (
+      this.isLoading() ||
+      (this.activePageQuery().page === 1 && pageSize === this.activePageQuery().pageSize)
+    ) {
+      return;
+    }
+
+    this.requestResultHeadingFocus({ page: 1, pageSize });
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: this.queryState.routerQueryParamsForPageSize(pageSize)
+    }).then((navigated) => {
+      if (!navigated) {
+        this.clearResultFocusRequest();
+      }
     });
   }
 
@@ -1285,6 +1363,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   openSavedView(savedView: SavedWorkViewDto): void {
+    this.clearResultFocusRequest();
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: this.queryState.routerQueryParamsFromQuery(savedView.query)
@@ -1425,6 +1504,38 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
 
   private appliedQuery(): WorkItemQuery {
     return this.queryState.activeQuery();
+  }
+
+  private reloadActorContext(): void {
+    this.loadProjectSummaries();
+    this.loadSavedViews();
+    this.loadedProjectFilterId = null;
+    this.loadProjectScopedFilters(this.appliedFilterValues().projectId);
+  }
+
+  private requestResultHeadingFocus(pageQuery: ResolvedWorkItemPageQuery): void {
+    this.clearResultFocusTimer();
+    this.focusAfterLoadPageKey = pageKey(pageQuery);
+  }
+
+  private scheduleResultHeadingFocus(): void {
+    this.clearResultFocusTimer();
+    this.focusResultTimer = setTimeout(() => {
+      this.focusResultTimer = null;
+      this.resultList?.focusResultHeading();
+    });
+  }
+
+  private clearResultFocusRequest(): void {
+    this.focusAfterLoadPageKey = null;
+    this.clearResultFocusTimer();
+  }
+
+  private clearResultFocusTimer(): void {
+    if (this.focusResultTimer !== null) {
+      clearTimeout(this.focusResultTimer);
+      this.focusResultTimer = null;
+    }
   }
 
   private currentFilteredViewUrl(): string {
@@ -1761,4 +1872,18 @@ function pageMetadataFromResponse(
     hasPreviousPage: response.hasPreviousPage,
     hasNextPage: response.hasNextPage
   };
+}
+
+function pageKey(pageQuery: ResolvedWorkItemPageQuery): string {
+  return `${pageQuery.page}:${pageQuery.pageSize}`;
+}
+
+function sameFilterValues(
+  left: WorkspaceFilterFormValue,
+  right: WorkspaceFilterFormValue
+): boolean {
+  return Object.keys(left).every((key) => {
+    const filterKey = key as keyof WorkspaceFilterFormValue;
+    return left[filterKey] === right[filterKey];
+  });
 }

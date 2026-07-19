@@ -3,6 +3,9 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import { workItemPageSizes } from './work-items.js';
 import type {
   CreateSavedWorkViewRequest,
+  ProjectCycleCloseoutItemSnapshotDto,
+  ProjectCycleCloseoutSnapshotDto,
+  ProjectStatusReportSnapshotDto,
   ResolvedWorkItemPageQuery,
   SavedWorkViewDto,
   UpdateSavedWorkViewRequest,
@@ -83,5 +86,22 @@ describe('work item page contracts', () => {
     expectTypeOf<UpdateSavedWorkViewRequest['query']>().toEqualTypeOf<
       WorkItemQuery | undefined
     >();
+  });
+
+  it('keeps page metadata out of immutable report and closeout snapshots', () => {
+    type PageMetadataField = keyof WorkItemPageMetadataDto;
+
+    expectTypeOf<
+      Extract<PageMetadataField, keyof ProjectStatusReportSnapshotDto>
+    >().toEqualTypeOf<never>();
+    expectTypeOf<
+      Extract<PageMetadataField, keyof ProjectStatusReportSnapshotDto['recentWork'][number]>
+    >().toEqualTypeOf<never>();
+    expectTypeOf<
+      Extract<PageMetadataField, keyof ProjectCycleCloseoutSnapshotDto>
+    >().toEqualTypeOf<never>();
+    expectTypeOf<
+      Extract<PageMetadataField, keyof ProjectCycleCloseoutItemSnapshotDto>
+    >().toEqualTypeOf<never>();
   });
 });

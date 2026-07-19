@@ -200,6 +200,30 @@ describe('WorkItemBoardPageComponent', () => {
     expect(compiled.querySelector('select')?.value).toBe('ready');
   });
 
+  it('keeps complete boards beyond interactive list page sizes', () => {
+    const boardItems = Array.from({ length: 101 }, (_, index): WorkItemListItemDto => ({
+      ...readyItem,
+      id: `board-item-${index + 1}`,
+      itemNumber: index + 1,
+      displayKey: `WT-${index + 1}`,
+      title: `Complete board item ${index + 1}`,
+      boardPosition: (index + 1) * 1024
+    }));
+    const { fixture, http } = setup();
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    const request = http.expectOne(`/api/projects/${projectId}/board/work-items`);
+    expect(request.request.params.keys()).toEqual([]);
+    request.flush(boardItems);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.workItems()).toHaveSize(101);
+    expect(fixture.componentInstance.itemsByStatus().get('ready')).toHaveSize(101);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Complete board item 101'
+    );
+    http.expectNone(`/api/projects/${projectId}/work-items`);
+  });
+
   it('shows hierarchy context without changing child card movement', () => {
     const childItem: WorkItemListItemDto = {
       ...readyItem,

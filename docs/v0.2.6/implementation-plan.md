@@ -1086,7 +1086,53 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-19.
+- Brought workspace Work Items to project paging parity:
+  - user page and page-size navigation clamps known bounds, ignores duplicate/loading requests, and
+    focuses the result heading only after a successful response;
+  - initial load, Back/Forward restoration, and failed requests do not steal focus;
+  - retry retains a pending paging-focus request;
+  - page-only navigation preserves pending filter-form input while URL filter changes remain
+    authoritative;
+  - server-normalized stale pages continue replacing the URL before rows render;
+  - actor changes cancel an in-flight list request, clear prior rows and metadata, reset to page 1 at
+    size 25, and reload project navigation, saved views, and project-scoped filter context.
+- Preserved workspace-specific query composition and reset behavior for project, archive mode, work
+  state, assignee, planning, hierarchy, dependency, and sort filters. Added first, middle, final,
+  empty, stale, and `exclude`/`include`/`only` archive-mode route coverage with project identity kept
+  visible in results.
+- Verified non-default workspace page and size state in copied links, detail links, hierarchy links,
+  and return URLs while keeping CSV requests and saved-view create/update payloads paging-free.
+  Saved and pinned views reopen with default paging.
+- Strengthened cross-surface compatibility evidence:
+  - relationship candidate search remains bounded to the first 25 workspace matches, excludes the
+    current item, preserves linked-item protection, and now has loading, error, retry, empty, and
+    additional-match coverage;
+  - board component coverage proves 101 cards remain on the dedicated complete board endpoint with no
+    page parameters, while existing service/repository coverage proves fixed-order results beyond 100
+    and existing drag/drop tests retain same-column, cross-column, neighbor, and validation behavior;
+  - type-level contract checks prevent page metadata from entering immutable status-report and cycle-
+    closeout snapshots;
+  - full Angular coverage retains My Work, Planning, Cycle Review, Milestone Review, Portfolio,
+    reports, closeout, parent-candidate, and child-work DTO behavior.
+- Changed active-filter chip tracking from mutable string identity to stable position, removing the
+  Angular `NG0956` warning during filter transitions.
+- Recorded Phase 10 scalability limits: the board endpoint intentionally loads and enriches the full
+  project board in memory, and focused internal operating reads remain complete unpaged projections.
+  Both scale linearly with their project/workspace data and require later measurement before any
+  pagination, virtualization, or aggregate read-model redesign.
+- Verified Phase 8 with:
+  - focused workspace, relationship, board, and saved-view Angular tests: 75 passed;
+  - final focused workspace route tests after actor cancellation hardening: 30 passed;
+  - full Angular tests: 368 passed with no Angular tracking warning;
+  - contracts tests: 35 passed;
+  - database-free API paging, OpenAPI, route-manifest, snapshot, and renderer tests: 62 passed;
+  - repository typecheck, lint, production build, diff, and trailing-whitespace checks;
+  - production initial bundle: 370.23 kB raw / 99.01 kB estimated transfer, with no budget warning.
+- Database-backed API work-item and focused-operating-surface integration suites were not rerun because
+  no local Postgres service was listening and Docker was unavailable. Phase 8 changes no API production
+  code; the relevant database behavior remains covered by the Phase 6 integration results and committed
+  board/repository tests, including complete 101/113-card fixtures.
 
 ## Phase 9: Performance Evidence, Seeded Browser Coverage, And Responsive/Accessibility Verification
 
