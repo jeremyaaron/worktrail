@@ -1903,7 +1903,7 @@ describe('WorkItemListPageComponent', () => {
       .expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`)
       .flush(projectWorkItemPage([workItem]));
 
-    fixture.componentInstance.exportCsv();
+    const exportCompleted = fixture.componentInstance.exportCsv();
     http
       .expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items/export`)
       .flush(
@@ -1920,8 +1920,7 @@ describe('WorkItemListPageComponent', () => {
         ),
         { status: 422, statusText: 'Unprocessable Entity' }
       );
-    await fixture.whenStable();
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await exportCompleted;
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(

@@ -1580,35 +1580,39 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     });
   }
 
-  exportCsv(): void {
+  exportCsv(): Promise<void> {
     if (this.isExporting()) {
-      return;
+      return Promise.resolve();
     }
 
     this.isExporting.set(true);
     this.exportError.set(null);
 
-    this.api.exportProjectWorkItems(this.projectId(), this.appliedQuery()).subscribe({
-      next: (response) => {
-        const fileName = fileNameFromContentDisposition(
-          response.headers.get('content-disposition'),
-          'worktrail-project-work-items.csv'
-        );
+    return new Promise((resolve) => {
+      this.api.exportProjectWorkItems(this.projectId(), this.appliedQuery()).subscribe({
+        next: (response) => {
+          const fileName = fileNameFromContentDisposition(
+            response.headers.get('content-disposition'),
+            'worktrail-project-work-items.csv'
+          );
 
-        downloadBlob({
-          blob: response.body ?? new Blob([''], { type: 'text/csv' }),
-          fileName
-        });
-        this.isExporting.set(false);
-      },
-      error: (error: HttpErrorResponse) => {
-        const fallback = 'CSV export could not be downloaded.';
-        this.exportError.set(fallback);
-        this.isExporting.set(false);
-        void apiErrorMessageFromBody(error.error, fallback).then((message) => {
-          this.exportError.set(message);
-        });
-      }
+          downloadBlob({
+            blob: response.body ?? new Blob([''], { type: 'text/csv' }),
+            fileName
+          });
+          this.isExporting.set(false);
+          resolve();
+        },
+        error: (error: HttpErrorResponse) => {
+          const fallback = 'CSV export could not be downloaded.';
+          this.exportError.set(fallback);
+          this.isExporting.set(false);
+          void apiErrorMessageFromBody(error.error, fallback).then((message) => {
+            this.exportError.set(message);
+            resolve();
+          });
+        }
+      });
     });
   }
 
