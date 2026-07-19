@@ -1238,7 +1238,40 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-19.
+- Added `npm run db:performance-evidence`, which creates 10,000 representative active-project work
+  items plus 100 archived-project items inside one PostgreSQL transaction, exercises labels,
+  dependencies, hierarchy, assignees, cycles, milestones, and dates, then rolls back and re-analyzes
+  the deterministic seed tables. No large fixture is retained.
+- PostgreSQL 14 `EXPLAIN (ANALYZE, BUFFERS)` evidence recorded these representative local execution
+  times: project first page 3.076 ms, workspace first page 3.572 ms, selective substring search
+  11.120 ms, broad exact count 2.496 ms, label filter 2.037 ms, dependency filter 0.223 ms,
+  hierarchy filter 0.046 ms, archived-project filter 1.960 ms, and offset-7,500 page 3.263 ms.
+- Every interactive page plan contained a finite `Limit`. At this fixture size the default local cost
+  model preferred sequential scans for broad single-project/workspace reads; the benchmark therefore
+  avoids speculative compound indexes and documents the choice. For the selective current
+  display-key/title/description `OR`/`ILIKE` semantics, disabling sequential and plain index scans for
+  that one evidence query produced a `BitmapOr` across all three `*_trgm_idx` GIN indexes, proving the
+  supported bitmap path while leaving runtime planner settings unchanged.
+- Added seed-time assertions that the main project and active workspace each contain more than 10
+  work items. Fresh seed confirms 18 main-project items and 26 active-workspace items, producing exact
+  `1-10`/`11-18` and `1-10`/`21-26` ranges at page size 10 without filler data.
+- Added a consolidated Playwright workflow covering project first/final/direct/previous/next paging,
+  reload and Back/Forward restoration, filter and pinned-view page reset, copied paging links, detail
+  return, visible-page bulk-selection clearing, all-filtered-row export from page 2, workspace paging
+  with project identity, relationship-candidate overflow guidance, complete 18-card board loading, and
+  a reversible cross-column drag/drop move.
+- The browser workflow verifies pager labels, `aria-current`, disabled directions, keyboard activation,
+  result-heading focus, live copy feedback, and page-size labeling. It captures wide 1440px, laptop
+  1024px, mobile 390px, and 640px 200-percent-zoom-equivalent screenshots and asserts no horizontal
+  page overflow plus mobile numeric-token reduction. Screenshots remain run artifacts only.
+- Hardened older browser expectations exposed by the broader run: workspace assertions now identify
+  the level-one page heading, and the fixed July 3 seeded report correctly exercises the current stale
+  state under the 14-day portfolio policy.
+- Verification passed: database reset/migrate/seed; PostgreSQL performance assertions; API 375 tests;
+  contracts 35 tests; Angular 368 tests; Playwright 22 tests; repository lint and typecheck; production
+  build; and `git diff --check`. Production initial bundle remains 370.23 kB raw / 99.01 kB estimated
+  transfer with no budget warning.
 
 ## Phase 10: Documentation, Metadata, And Final Verification
 

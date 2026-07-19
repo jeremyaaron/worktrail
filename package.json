@@ -31,7 +31,8 @@
     "db:generate": "npm run db:generate --workspace @worktrail/api",
     "db:migrate": "npm run db:migrate --workspace @worktrail/api",
     "db:reset": "npm run db:reset --workspace @worktrail/api",
-    "db:seed": "npm run db:seed --workspace @worktrail/api"
+    "db:seed": "npm run db:seed --workspace @worktrail/api",
+    "db:performance-evidence": "npm run db:performance-evidence --workspace @worktrail/api"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
