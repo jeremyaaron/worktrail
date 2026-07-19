@@ -1,4 +1,4 @@
-import type { WorkItemQuery } from '@worktrail/contracts';
+import type { WorkItemPageSize, WorkItemQuery } from '@worktrail/contracts';
 import {
   and,
   aliasedTable,
@@ -71,7 +71,31 @@ export interface WorkItemChildSummaryRecord {
   estimatePoints: number;
 }
 
+export interface WorkItemPageWindow {
+  limit: WorkItemPageSize;
+  offset: number;
+}
+
 const maximumParentCandidateLimit = 20;
+const repositoryPageSizes = new Set<number>(
+  [10, 25, 50, 100] as const satisfies readonly WorkItemPageSize[]
+);
+
+function assertPageWindow(window: WorkItemPageWindow): void {
+  if (!Number.isSafeInteger(window.limit) || !repositoryPageSizes.has(window.limit)) {
+    throw new RangeError('Work item page limit must be 10, 25, 50, or 100.');
+  }
+
+  if (!Number.isSafeInteger(window.offset) || window.offset < 0) {
+    throw new RangeError('Work item page offset must be a nonnegative integer.');
+  }
+}
+
+function assertFinitePositiveLimit(limit: number): void {
+  if (!Number.isSafeInteger(limit) || limit <= 0) {
+    throw new RangeError('Work item query limit must be a positive integer.');
+  }
+}
 
 function terminalRankSql(): SQL {
   return sql`case when ${workItems.status} in ('done', 'canceled') then 1 else 0 end`;
@@ -260,6 +284,7 @@ export function createWorkItemRepository(db: WorktrailDb) {
     },
 
     async listByProject(projectId: string, filters: WorkItemFilters = {}) {
+      // Complete internal domain read; interactive HTTP lists use listPageByProject.
       const conditions = buildProjectWorkItemConditions(projectId, filters);
       const orderBy = buildProjectWorkItemOrderBy(filters.sort);
 
@@ -268,6 +293,61 @@ export function createWorkItemRepository(db: WorktrailDb) {
         .from(workItems)
         .where(and(...conditions))
         .orderBy(...orderBy);
+    },
+
+    async countByProjectQuery(projectId: string, filters: WorkItemFilters = {}) {
+      const conditions = buildProjectWorkItemConditions(projectId, filters);
+      const [result] = await db
+        .select({ value: count() })
+        .from(workItems)
+        .where(and(...conditions));
+
+      return result?.value ?? 0;
+    },
+
+    async listPageByProject(
+      projectId: string,
+      filters: WorkItemFilters,
+      window: WorkItemPageWindow
+    ) {
+      assertPageWindow(window);
+      const conditions = buildProjectWorkItemConditions(projectId, filters);
+      const orderBy = buildProjectWorkItemOrderBy(filters.sort);
+
+      return db
+        .select()
+        .from(workItems)
+        .where(and(...conditions))
+        .orderBy(...orderBy)
+        .limit(window.limit)
+        .offset(window.offset);
+    },
+
+    async listByProjectForBoard(projectId: string) {
+      const conditions = buildProjectWorkItemConditions(projectId);
+
+      return db
+        .select()
+        .from(workItems)
+        .where(and(...conditions))
+        .orderBy(...buildProjectWorkItemOrderBy('board_order'));
+    },
+
+    async listByProjectForExport(
+      projectId: string,
+      filters: WorkItemFilters,
+      limit: number
+    ) {
+      assertFinitePositiveLimit(limit);
+      const conditions = buildProjectWorkItemConditions(projectId, filters);
+      const orderBy = buildProjectWorkItemOrderBy(filters.sort);
+
+      return db
+        .select()
+        .from(workItems)
+        .where(and(...conditions))
+        .orderBy(...orderBy)
+        .limit(limit);
     },
 
     async listByCycleForUpdate(projectId: string, cycleId: string) {
@@ -283,6 +363,7 @@ export function createWorkItemRepository(db: WorktrailDb) {
       workspaceId: string,
       filters: WorkItemQuery = {}
     ): Promise<WorkspaceWorkItemRecord[]> {
+      // Complete internal domain read; interactive HTTP lists use listPageByWorkspace.
       const conditions = buildWorkspaceWorkItemConditions(workspaceId, filters);
       const orderBy = buildWorkspaceWorkItemOrderBy(filters.sort);
 
@@ -300,6 +381,70 @@ export function createWorkItemRepository(db: WorktrailDb) {
         .innerJoin(projects, eq(projects.id, workItems.projectId))
         .where(and(...conditions))
         .orderBy(...orderBy);
+    },
+
+    async countByWorkspaceQuery(workspaceId: string, filters: WorkItemQuery = {}) {
+      const conditions = buildWorkspaceWorkItemConditions(workspaceId, filters);
+      const [result] = await db
+        .select({ value: count() })
+        .from(workItems)
+        .innerJoin(projects, eq(projects.id, workItems.projectId))
+        .where(and(...conditions));
+
+      return result?.value ?? 0;
+    },
+
+    async listPageByWorkspace(
+      workspaceId: string,
+      filters: WorkItemQuery,
+      window: WorkItemPageWindow
+    ): Promise<WorkspaceWorkItemRecord[]> {
+      assertPageWindow(window);
+      const conditions = buildWorkspaceWorkItemConditions(workspaceId, filters);
+      const orderBy = buildWorkspaceWorkItemOrderBy(filters.sort);
+
+      return db
+        .select({
+          workItem: workItems,
+          project: {
+            id: projects.id,
+            key: projects.key,
+            name: projects.name,
+            status: projects.status
+          }
+        })
+        .from(workItems)
+        .innerJoin(projects, eq(projects.id, workItems.projectId))
+        .where(and(...conditions))
+        .orderBy(...orderBy)
+        .limit(window.limit)
+        .offset(window.offset);
+    },
+
+    async listByWorkspaceForExport(
+      workspaceId: string,
+      filters: WorkItemQuery,
+      limit: number
+    ): Promise<WorkspaceWorkItemRecord[]> {
+      assertFinitePositiveLimit(limit);
+      const conditions = buildWorkspaceWorkItemConditions(workspaceId, filters);
+      const orderBy = buildWorkspaceWorkItemOrderBy(filters.sort);
+
+      return db
+        .select({
+          workItem: workItems,
+          project: {
+            id: projects.id,
+            key: projects.key,
+            name: projects.name,
+            status: projects.status
+          }
+        })
+        .from(workItems)
+        .innerJoin(projects, eq(projects.id, workItems.projectId))
+        .where(and(...conditions))
+        .orderBy(...orderBy)
+        .limit(limit);
     },
 
     async countByStatus(projectId: string) {

@@ -388,7 +388,52 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-19.
+- Appended ascending `work_items.id` to all seven project and workspace sort sequences while preserving
+  every existing semantic key, project-key tie-breaker, direction, and null-order rule.
+- Added repository paging primitives with runtime guards:
+  - `WorkItemPageWindow` with a contract-supported `10 | 25 | 50 | 100` limit;
+  - `listPageByProject` and `listPageByWorkspace` with mandatory finite limits and nonnegative integer
+    offsets;
+  - invalid, fractional, infinite, and unsupported windows fail before database execution.
+- Added exact `countByProjectQuery` and `countByWorkspaceQuery` methods using the same canonical
+  condition builders as row reads. Workspace counts retain the project join for archive scope.
+- Confirmed labels, dependency relationships, hierarchy parents, and parent-key filters remain
+  `exists`/scalar-subquery predicates, so exact `count(*)` does not multiply matching rows.
+- Added explicit complete and bounded exceptional reads:
+  - `listByProjectForBoard` uses complete fixed `board_order` results;
+  - existing status-scoped board move reads remain unchanged;
+  - project/workspace export methods require a positive safe-integer limit and preserve canonical
+    filters and deterministic ordering.
+- Kept complete `listByProject` and `listByWorkspace` methods for internal derivations and documented
+  that interactive HTTP collections must use the page methods. No current caller was cut over in this
+  phase.
+- Added Drizzle schema declarations for GIN `gin_trgm_ops` indexes on `display_key`, `title`, and
+  `description`.
+- Generated `apps/api/drizzle/0016_scalable_search.sql` and its snapshot/journal metadata, then added
+  `CREATE EXTENSION IF NOT EXISTS pg_trgm` before the generated indexes. No work-item row rewrite or
+  backfill is present.
+- Added repository coverage for first, middle, partial-final, and empty windows; all four supported
+  sizes; exact project/workspace counts; active/include/only archive scopes; canonical filter families;
+  duplicate-proof label/dependency/hierarchy counts; complete 113-item board reads; bounded exports;
+  and malformed runtime windows.
+- Added focused SQL-rendering tests proving every project/workspace sort ends in the ascending UUID
+  tie-breaker.
+- Migration verification completed without resetting user data:
+  - incremental `npm run db:migrate --workspace @worktrail/api` applied `0016` successfully;
+  - repository tests confirmed `pg_trgm` and all three public GIN indexes;
+  - all 17 migrations applied successfully in order to an isolated temporary schema and produced all
+    three indexes; the schema was removed afterward;
+  - the local role does not have `CREATEDB`, so a temporary database was not used;
+  - a subsequent `npm run db:generate --workspace @worktrail/api` reported no schema changes.
+- Verification completed:
+  - `npm run test --workspace @worktrail/api -- repositories.test.ts work-item-query-builder.test.ts`
+    (2 files, 37 tests);
+  - `npm run typecheck --workspace @worktrail/api`;
+  - `npm run lint --workspace @worktrail/api`;
+  - `npm run test --workspace @worktrail/api` (32 files, 356 tests);
+  - `npm run build --workspace @worktrail/api`;
+  - `git diff --check`.
 
 ## Phase 3: Read Transactions, Page Services, And Complete Board Service
 

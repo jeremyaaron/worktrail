@@ -265,23 +265,50 @@ function buildWorkItemOrderBy(
   const projectTieBreakers = input.includeProjectKey ? [asc(projects.key)] : [];
 
   if (sort === 'updated_asc') {
-    return [asc(workItems.updatedAt), ...projectTieBreakers, asc(workItems.itemNumber)];
+    return [
+      asc(workItems.updatedAt),
+      ...projectTieBreakers,
+      asc(workItems.itemNumber),
+      asc(workItems.id)
+    ];
   }
 
   if (sort === 'priority_desc') {
-    return [desc(priorityRankSql()), desc(workItems.updatedAt), ...projectTieBreakers, asc(workItems.itemNumber)];
+    return [
+      desc(priorityRankSql()),
+      desc(workItems.updatedAt),
+      ...projectTieBreakers,
+      asc(workItems.itemNumber),
+      asc(workItems.id)
+    ];
   }
 
   if (sort === 'priority_asc') {
-    return [asc(priorityRankSql()), desc(workItems.updatedAt), ...projectTieBreakers, asc(workItems.itemNumber)];
+    return [
+      asc(priorityRankSql()),
+      desc(workItems.updatedAt),
+      ...projectTieBreakers,
+      asc(workItems.itemNumber),
+      asc(workItems.id)
+    ];
   }
 
   if (sort === 'due_date_asc') {
-    return [sql`${workItems.dueDate} asc nulls last`, ...projectTieBreakers, asc(workItems.itemNumber)];
+    return [
+      sql`${workItems.dueDate} asc nulls last`,
+      ...projectTieBreakers,
+      asc(workItems.itemNumber),
+      asc(workItems.id)
+    ];
   }
 
   if (sort === 'created_desc') {
-    return [desc(workItems.createdAt), ...projectTieBreakers, asc(workItems.itemNumber)];
+    return [
+      desc(workItems.createdAt),
+      ...projectTieBreakers,
+      asc(workItems.itemNumber),
+      asc(workItems.id)
+    ];
   }
 
   if (sort === 'board_order') {
@@ -289,11 +316,17 @@ function buildWorkItemOrderBy(
       ...projectTieBreakers,
       asc(workItems.status),
       asc(workItems.boardPosition),
-      asc(workItems.itemNumber)
+      asc(workItems.itemNumber),
+      asc(workItems.id)
     ];
   }
 
-  return [desc(workItems.updatedAt), ...projectTieBreakers, asc(workItems.itemNumber)];
+  return [
+    desc(workItems.updatedAt),
+    ...projectTieBreakers,
+    asc(workItems.itemNumber),
+    asc(workItems.id)
+  ];
 }
 
 function priorityRankSql(): SQL {
