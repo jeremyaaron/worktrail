@@ -1149,6 +1149,8 @@ describe('work item API', () => {
     const fixture = await createFixture('owner');
     const proposedParent = await createWorkItem(fixture, { title: 'Contended parent' });
     const otherParent = await createWorkItem(fixture, { title: 'Other parent' });
+    // Direct fixture inserts bypass allocation, so reserve WI-2 before production creation runs.
+    await repositories.projects.allocateWorkItemNumber(fixture.projectId, now());
     const service = createService(fixture);
 
     const results = await Promise.allSettled([
