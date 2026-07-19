@@ -520,16 +520,29 @@ describe('WorkItemDetailPageComponent', () => {
     expect(request.request.method).toBe('GET');
     expect(request.request.params.get('search')).toBe('api');
     expect(request.request.params.get('archivedProjects')).toBe('exclude');
-    request.flush([
-      candidate({ id: workItemId, displayKey: 'WT-3', title: 'Implement detail surface' }),
-      candidate({ id: blockerWorkItemId, displayKey: 'WT-4', title: 'Finish API contract' })
-    ]);
+    expect(request.request.params.get('page')).toBe('1');
+    expect(request.request.params.get('pageSize')).toBe('25');
+    request.flush({
+      items: [
+        candidate({ id: workItemId, displayKey: 'WT-3', title: 'Implement detail surface' }),
+        candidate({ id: blockerWorkItemId, displayKey: 'WT-4', title: 'Finish API contract' })
+      ],
+      page: 1,
+      pageSize: 25,
+      totalCount: 30,
+      totalPages: 2,
+      hasPreviousPage: false,
+      hasNextPage: true
+    });
     fixture.detectChanges();
 
     expect(fixture.componentInstance.relationshipCandidates().map((item) => item.id)).toEqual([
       blockerWorkItemId
     ]);
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('WT-4 Finish API contract');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'More matches are available. Refine the search to narrow the results.'
+    );
     expect((fixture.nativeElement as HTMLElement).textContent).not.toContain(
       'WT-3 Implement detail surface'
     );

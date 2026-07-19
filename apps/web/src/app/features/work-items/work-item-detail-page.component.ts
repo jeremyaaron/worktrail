@@ -507,6 +507,10 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
             <p class="muted">No matching work items found.</p>
           }
 
+          @if (relationshipCandidatesHaveMore()) {
+            <p class="muted">More matches are available. Refine the search to narrow the results.</p>
+          }
+
           @if (relationshipError()) {
             <app-error-panel
               title="Relationship not changed"
@@ -1289,6 +1293,7 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly availableMilestones = signal<MilestoneDto[]>([]);
   readonly availableCycles = signal<ProjectCycleDto[]>([]);
   readonly relationshipCandidates = signal<WorkspaceWorkItemListItemDto[]>([]);
+  readonly relationshipCandidatesHaveMore = signal(false);
   readonly watchState = signal<WorkItemWatchStateDto | null>(null);
   readonly selectedMentionMemberIds = signal<string[]>([]);
   readonly watchers = computed(() => this.watchState()?.watchers ?? []);
@@ -1672,6 +1677,7 @@ export class WorkItemDetailPageComponent implements OnInit {
   searchRelationshipCandidates(): void {
     this.candidateSearchError.set(null);
     this.relationshipError.set(null);
+    this.relationshipCandidatesHaveMore.set(false);
     this.hasSearchedRelationshipCandidates.set(true);
     this.relationshipForm.patchValue({ targetWorkItemId: '' }, { emitEvent: false });
 
@@ -1687,17 +1693,19 @@ export class WorkItemDetailPageComponent implements OnInit {
         search,
         archivedProjects: 'exclude',
         sort: 'updated_desc'
-      })
+      }, { page: 1, pageSize: 25 })
       .subscribe({
-        next: (candidates) => {
+        next: (response) => {
           this.relationshipCandidates.set(
-            candidates.filter((candidate) => candidate.id !== this.workItemId())
+            response.items.filter((candidate) => candidate.id !== this.workItemId())
           );
+          this.relationshipCandidatesHaveMore.set(response.hasNextPage);
           this.isSearchingCandidates.set(false);
         },
         error: () => {
           this.candidateSearchError.set('Work item candidates could not be loaded.');
           this.relationshipCandidates.set([]);
+          this.relationshipCandidatesHaveMore.set(false);
           this.isSearchingCandidates.set(false);
         }
       });
@@ -2054,6 +2062,7 @@ export class WorkItemDetailPageComponent implements OnInit {
     this.availableMilestones.set([]);
     this.availableCycles.set([]);
     this.relationshipCandidates.set([]);
+    this.relationshipCandidatesHaveMore.set(false);
     this.watchState.set(null);
     this.selectedMentionMemberIds.set([]);
     this.isUpdating.set(false);

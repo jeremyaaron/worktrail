@@ -250,10 +250,9 @@ function setup(
 }
 
 function flushProjectSummaries(http: HttpTestingController): void {
-  http.expectOne('/api/projects/navigation-summary').flush([
-    projectSummary,
-    archivedProjectSummary
-  ]);
+  http
+    .expectOne('/api/projects/navigation-summary')
+    .flush([projectSummary, archivedProjectSummary]);
 }
 
 function flushSavedViews(http: HttpTestingController, views: SavedWorkViewDto[] = []): void {
@@ -262,6 +261,29 @@ function flushSavedViews(http: HttpTestingController, views: SavedWorkViewDto[] 
   expect(request.request.params.get('scope')).toBe('workspace');
   expect(request.request.params.has('projectId')).toBeFalse();
   request.flush(views);
+}
+
+function workItemPage(
+  items: WorkspaceWorkItemListItemDto[],
+  overrides: Partial<{
+    page: number;
+    pageSize: 10 | 25 | 50 | 100;
+    totalCount: number;
+    totalPages: number;
+    hasPreviousPage: boolean;
+    hasNextPage: boolean;
+  }> = {}
+) {
+  return {
+    items,
+    page: 1,
+    pageSize: 25 as const,
+    totalCount: items.length,
+    totalPages: items.length === 0 ? 0 : 1,
+    hasPreviousPage: false,
+    hasNextPage: false,
+    ...overrides
+  };
 }
 
 function openSavedViewFromToolbar(
@@ -294,9 +316,7 @@ function selectManagedSavedView(
 }
 
 function managementButtons(compiled: HTMLElement): HTMLButtonElement[] {
-  return [
-    ...compiled.querySelectorAll<HTMLButtonElement>('.saved-view-management-actions button')
-  ];
+  return [...compiled.querySelectorAll<HTMLButtonElement>('.saved-view-management-actions button')];
 }
 
 describe('WorkspaceWorkItemListPageComponent', () => {
@@ -364,7 +384,11 @@ describe('WorkspaceWorkItemListPageComponent', () => {
         candidate.params.get('sort') === 'due_date_asc'
       );
     });
-    request.flush([{ ...workItem, dependencyBlocked: true, openBlockerCount: 2, openBlockedWorkCount: 1 }]);
+    request.flush(
+      workItemPage([
+        { ...workItem, dependencyBlocked: true, openBlockerCount: 2, openBlockedWorkCount: 1 }
+      ])
+    );
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
@@ -382,13 +406,18 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect(chipsElement).not.toBeNull();
     expect(filterPanelElement).not.toBeNull();
     expect(
-      Boolean(chipsElement!.compareDocumentPosition(filterPanelElement!) & Node.DOCUMENT_POSITION_FOLLOWING)
+      Boolean(
+        chipsElement!.compareDocumentPosition(filterPanelElement!) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+      )
     ).toBeTrue();
     expect(compiled.textContent).toContain('Design workspace discovery');
     expect(compiled.textContent).toContain('Export CSV');
     expect(
       compiled
-        .querySelector<HTMLButtonElement>('button[aria-label="Export applied workspace filters as CSV"]')
+        .querySelector<HTMLButtonElement>(
+          'button[aria-label="Export applied workspace filters as CSV"]'
+        )
         ?.getAttribute('title')
     ).toBe('Export the applied workspace filters as CSV');
     expect(compiled.textContent).toContain('WT-12');
@@ -413,6 +442,81 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect(activeFilters).toContain('Sort: Due date');
   });
 
+  it('loads a non-default workspace page and exposes server totals to the pager', () => {
+    const { fixture, http } = setup({ page: '2', pageSize: '10' });
+    flushProjectSummaries(http);
+    flushSavedViews(http);
+    const request = http.expectOne((candidate) => candidate.url === '/api/work-items');
+
+    expect(request.request.params.get('page')).toBe('2');
+    expect(request.request.params.get('pageSize')).toBe('10');
+    request.flush(
+      workItemPage([workItem], {
+        page: 2,
+        pageSize: 10,
+        totalCount: 21,
+        totalPages: 3,
+        hasPreviousPage: true,
+        hasNextPage: true
+      })
+    );
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.list-heading')?.textContent).toContain('11-11 of 21 work items');
+    expect(compiled.querySelector('.pagination__status')?.textContent).toContain('Page 2 of 3');
+    expect(compiled.querySelector<HTMLSelectElement>('.pagination__size select')?.value).toBe('10');
+  });
+
+  it('replaces a stale page URL without rendering rows under the stale route', () => {
+    seedCurrentUser();
+    route.setQuery({ page: '9', pageSize: '10' });
+    const router = TestBed.inject(Router);
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const fixture = TestBed.createComponent(WorkspaceWorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    flushProjectSummaries(http);
+    flushSavedViews(http);
+    http.expectOne((candidate) => candidate.url === '/api/work-items').flush(
+      workItemPage([workItem], {
+        page: 2,
+        pageSize: 10,
+        totalCount: 11,
+        totalPages: 2,
+        hasPreviousPage: true
+      })
+    );
+    fixture.detectChanges();
+
+    expect(navigate).toHaveBeenCalledWith([], {
+      relativeTo: TestBed.inject(ActivatedRoute),
+      queryParams: jasmine.objectContaining({ page: '2', pageSize: '10' }),
+      replaceUrl: true
+    });
+    expect(fixture.componentInstance.workItems()).toEqual([]);
+    expect(fixture.componentInstance.isLoading()).toBeTrue();
+  });
+
+  it('cancels the previous workspace page request when route state changes', () => {
+    const { fixture, http } = setup();
+    flushProjectSummaries(http);
+    flushSavedViews(http);
+    const firstRequest = http.expectOne((candidate) => candidate.url === '/api/work-items');
+
+    route.setQuery({ status: 'ready' });
+
+    expect(firstRequest.cancelled).toBeTrue();
+    const nextRequest = http.expectOne((candidate) => {
+      return candidate.url === '/api/work-items' && candidate.params.get('status') === 'ready';
+    });
+    nextRequest.flush(workItemPage([]));
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.error()).toBeNull();
+    expect(fixture.componentInstance.isLoading()).toBeFalse();
+  });
+
   it('exports workspace CSV with applied filters instead of pending draft form values', () => {
     spyOnCsvDownload();
     const { fixture, http } = setup({
@@ -424,7 +528,9 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     });
     flushProjectSummaries(http);
     flushSavedViews(http);
-    http.expectOne((candidate) => candidate.url === '/api/work-items').flush([workItem]);
+    http
+      .expectOne((candidate) => candidate.url === '/api/work-items')
+      .flush(workItemPage([workItem]));
     fixture.componentInstance.filterForm.patchValue(
       {
         search: 'draft search',
@@ -452,9 +558,9 @@ describe('WorkspaceWorkItemListPageComponent', () => {
         type: 'text/csv'
       }),
       {
-      headers: {
-        'Content-Disposition': 'attachment; filename="workspace-work-items.csv"'
-      }
+        headers: {
+          'Content-Disposition': 'attachment; filename="workspace-work-items.csv"'
+        }
       }
     );
 
@@ -473,7 +579,9 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     });
     flushProjectSummaries(http);
     flushSavedViews(http);
-    http.expectOne((candidate) => candidate.url === '/api/work-items').flush([workItem]);
+    http
+      .expectOne((candidate) => candidate.url === '/api/work-items')
+      .flush(workItemPage([workItem]));
     fixture.componentInstance.filterForm.patchValue(
       {
         search: 'draft search',
@@ -507,13 +615,17 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     const { fixture, http } = setup();
     flushProjectSummaries(http);
     flushSavedViews(http);
-    http.expectOne('/api/work-items').flush([workItem]);
+    http
+      .expectOne((candidate) => candidate.url === '/api/work-items')
+      .flush(workItemPage([workItem]));
 
     fixture.componentInstance.exportCsv();
-    http.expectOne('/api/work-items/export').flush(
-      new Blob(['Workspace export failed.'], { type: 'text/plain' }),
-      { status: 500, statusText: 'Server Error' }
-    );
+    http
+      .expectOne('/api/work-items/export')
+      .flush(new Blob(['Workspace export failed.'], { type: 'text/plain' }), {
+        status: 500,
+        statusText: 'Server Error'
+      });
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
@@ -526,7 +638,9 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     const { fixture, http } = setup();
     flushProjectSummaries(http);
     flushSavedViews(http);
-    http.expectOne('/api/work-items').flush([workItem]);
+    http
+      .expectOne((candidate) => candidate.url === '/api/work-items')
+      .flush(workItemPage([workItem]));
 
     fixture.componentInstance.exportCsv();
     http.expectOne('/api/work-items/export').flush(
@@ -557,7 +671,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     const { fixture, http } = setup();
     flushProjectSummaries(http);
     flushSavedViews(http);
-    http.expectOne('/api/work-items').flush([]);
+    http.expectOne((candidate) => candidate.url === '/api/work-items').flush(workItemPage([]));
     fixture.detectChanges();
 
     const router = TestBed.inject(Router);
@@ -579,7 +693,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     const request = http.expectOne((candidate) => {
       return candidate.url === '/api/work-items' && candidate.params.get('status') === 'ready';
     });
-    request.flush([]);
+    request.flush(workItemPage([]));
     fixture.detectChanges();
 
     const activeFilters = Array.from(
@@ -592,9 +706,11 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     const { fixture, http } = setup({ parentKey: 'wt-42' });
     flushProjectSummaries(http);
     flushSavedViews(http);
-    http.expectOne((candidate) => {
-      return candidate.url === '/api/work-items' && candidate.params.get('parentKey') === 'WT-42';
-    }).flush([]);
+    http
+      .expectOne((candidate) => {
+        return candidate.url === '/api/work-items' && candidate.params.get('parentKey') === 'WT-42';
+      })
+      .flush(workItemPage([]));
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Parent: WT-42');
@@ -617,9 +733,13 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     );
 
     route.setQuery({ hierarchy: 'children' });
-    http.expectOne((candidate) => {
-      return candidate.url === '/api/work-items' && candidate.params.get('hierarchy') === 'children';
-    }).flush([]);
+    http
+      .expectOne((candidate) => {
+        return (
+          candidate.url === '/api/work-items' && candidate.params.get('hierarchy') === 'children'
+        );
+      })
+      .flush(workItemPage([]));
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Parent: WT-42');
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
@@ -636,7 +756,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     const { fixture, http } = setup();
     flushProjectSummaries(http);
     flushSavedViews(http);
-    http.expectOne('/api/work-items').flush([]);
+    http.expectOne((candidate) => candidate.url === '/api/work-items').flush(workItemPage([]));
     fixture.detectChanges();
 
     const router = TestBed.inject(Router);
@@ -667,7 +787,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     });
     flushProjectSummaries(http);
     flushSavedViews(http);
-    http.expectOne((candidate) => candidate.url === '/api/work-items').flush([]);
+    http.expectOne((candidate) => candidate.url === '/api/work-items').flush(workItemPage([]));
     fixture.detectChanges();
 
     const router = TestBed.inject(Router);
@@ -699,7 +819,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     });
     flushProjectSummaries(http);
     flushSavedViews(http, [savedView]);
-    http.expectOne((candidate) => candidate.url === '/api/work-items').flush([]);
+    http.expectOne((candidate) => candidate.url === '/api/work-items').flush(workItemPage([]));
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Open owner work');
@@ -791,7 +911,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     });
     flushProjectSummaries(http);
     flushSavedViews(http, [savedView, sharedSavedView]);
-    http.expectOne((candidate) => candidate.url === '/api/work-items').flush([]);
+    http.expectOne((candidate) => candidate.url === '/api/work-items').flush(workItemPage([]));
     fixture.detectChanges();
 
     expect(fixture.componentInstance.personalSavedViews().map((view) => view.id)).toEqual([
@@ -876,8 +996,13 @@ describe('WorkspaceWorkItemListPageComponent', () => {
   it('renders pinned workspace shortcuts and opens them through canonical query params', () => {
     const { fixture, http } = setup();
     flushProjectSummaries(http);
-    flushSavedViews(http, [pinnedPersonalSavedView, pinnedSharedSavedView, savedView, sharedSavedView]);
-    http.expectOne('/api/work-items').flush([]);
+    flushSavedViews(http, [
+      pinnedPersonalSavedView,
+      pinnedSharedSavedView,
+      savedView,
+      sharedSavedView
+    ]);
+    http.expectOne((candidate) => candidate.url === '/api/work-items').flush(workItemPage([]));
     fixture.detectChanges();
 
     expect(fixture.componentInstance.pinnedPersonalSavedViews().map((view) => view.id)).toEqual([
@@ -896,7 +1021,9 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     const router = TestBed.inject(Router);
     const navigate = spyOn(router, 'navigate').and.resolveTo(true);
     compiled
-      .querySelector<HTMLButtonElement>('button[aria-label="Open pinned shared view Pinned dependency risks"]')
+      .querySelector<HTMLButtonElement>(
+        'button[aria-label="Open pinned shared view Pinned dependency risks"]'
+      )
       ?.click();
 
     expect(navigate).toHaveBeenCalledWith(
@@ -914,7 +1041,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     const { fixture, http } = setup();
     flushProjectSummaries(http);
     flushSavedViews(http, [savedView, sharedSavedView]);
-    http.expectOne('/api/work-items').flush([]);
+    http.expectOne((candidate) => candidate.url === '/api/work-items').flush(workItemPage([]));
     fixture.detectChanges();
 
     fixture.componentInstance.setSavedViewPinned(sharedSavedView, true);
@@ -943,7 +1070,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     const { fixture, http } = setup();
     flushProjectSummaries(http);
     flushSavedViews(http, [sharedSavedView]);
-    http.expectOne('/api/work-items').flush([]);
+    http.expectOne((candidate) => candidate.url === '/api/work-items').flush(workItemPage([]));
     fixture.detectChanges();
 
     fixture.componentInstance.setSavedViewPinned(sharedSavedView, true);
@@ -967,7 +1094,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     const { fixture, http } = setup();
     flushProjectSummaries(http);
     flushSavedViews(http, [savedView, sharedSavedView, projectScopedSavedView]);
-    http.expectOne('/api/work-items').flush([]);
+    http.expectOne((candidate) => candidate.url === '/api/work-items').flush(workItemPage([]));
     fixture.detectChanges();
 
     expect(fixture.componentInstance.personalSavedViews().map((view) => view.id)).toEqual([
@@ -987,7 +1114,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     const { fixture, http } = setup({}, contributor);
     flushProjectSummaries(http);
     flushSavedViews(http, [sharedSavedView]);
-    http.expectOne('/api/work-items').flush([]);
+    http.expectOne((candidate) => candidate.url === '/api/work-items').flush(workItemPage([]));
     fixture.detectChanges();
 
     expect(fixture.componentInstance.workspaceSavedViews().map((view) => view.id)).toEqual([
@@ -1028,7 +1155,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     const { fixture, http } = setup();
     flushProjectSummaries(http);
     flushSavedViews(http);
-    http.expectOne('/api/work-items').flush([]);
+    http.expectOne((candidate) => candidate.url === '/api/work-items').flush(workItemPage([]));
     fixture.detectChanges();
 
     fixture.componentInstance.saveCurrentView();
@@ -1070,20 +1197,24 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     const { fixture, http } = setup();
     flushProjectSummaries(http);
     flushSavedViews(http, [staleView]);
-    http.expectOne('/api/work-items').flush([workItem]);
+    http
+      .expectOne((candidate) => candidate.url === '/api/work-items')
+      .flush(workItemPage([workItem]));
     fixture.detectChanges();
 
     route.setQuery({ projectId, labelId: designLabel.id });
     http.expectOne(`/api/projects/${projectId}/labels?includeArchived=true`).flush([designLabel]);
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([milestone]);
     http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([activeCycle]);
-    http.expectOne((candidate) => {
-      return (
-        candidate.url === '/api/work-items' &&
-        candidate.params.get('projectId') === projectId &&
-        candidate.params.get('labelId') === designLabel.id
-      );
-    }).flush([]);
+    http
+      .expectOne((candidate) => {
+        return (
+          candidate.url === '/api/work-items' &&
+          candidate.params.get('projectId') === projectId &&
+          candidate.params.get('labelId') === designLabel.id
+        );
+      })
+      .flush(workItemPage([]));
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';

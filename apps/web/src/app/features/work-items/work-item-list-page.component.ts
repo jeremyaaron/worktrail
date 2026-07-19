@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type {
@@ -13,8 +13,11 @@ import type {
   MilestoneDto,
   ProjectCycleDto,
   ProjectDto,
+  ResolvedWorkItemPageQuery,
   SavedWorkViewDto,
   WorkItemListItemDto,
+  WorkItemPageMetadataDto,
+  WorkItemPageSize,
   WorkItemPriority,
   WorkItemQuery,
   WorkItemSort,
@@ -34,6 +37,7 @@ import { ActiveFilterChipsComponent } from './components/active-filter-chips.com
 import { PinnedSavedViewsComponent } from './components/pinned-saved-views.component';
 import { SavedViewsToolbarComponent } from './components/saved-views-toolbar.component';
 import { WorkItemFilterPanelComponent } from './components/work-item-filter-panel.component';
+import { WorkItemPaginationComponent } from './components/work-item-pagination.component';
 import { WorkItemResultListComponent } from './components/work-item-result-list.component';
 import { workItemHierarchyOptions } from './query/work-item-filter-options';
 import { ProjectBulkTriageStore } from './state/project-bulk-triage.store';
@@ -139,6 +143,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
     RouterLink,
     SavedViewsToolbarComponent,
     WorkItemFilterPanelComponent,
+    WorkItemPaginationComponent,
     WorkItemResultListComponent
   ],
   template: `
@@ -558,6 +563,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
     <section class="work-list-results" aria-label="Project work item results">
     <app-work-item-result-list
       [items]="workItems()"
+      [metadata]="pageMetadata()"
       mode="project"
       [isLoading]="isLoading()"
       [error]="error()"
@@ -572,6 +578,12 @@ const defaultFilterValues: WorkItemFilterFormValue = {
       (retry)="loadWorkItems()"
       (toggleSelection)="toggleWorkItemSelection($event)"
       (toggleAllVisibleSelection)="toggleAllVisibleSelection()"
+    />
+    <app-work-item-pagination
+      [metadata]="pageMetadata()"
+      [disabled]="isLoading()"
+      (pageChange)="goToPage($event)"
+      (pageSizeChange)="changePageSize($event)"
     />
     </section>
     </div>
@@ -598,6 +610,7 @@ const defaultFilterValues: WorkItemFilterFormValue = {
     app-pinned-saved-views,
     app-saved-views-toolbar,
     app-work-item-filter-panel,
+    app-work-item-pagination,
     app-work-item-result-list {
       display: block;
     }
@@ -1219,7 +1232,36 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   private readonly subscriptions = new Subscription();
   private readonly queryState = WorkListQueryStore.project();
   private readonly bulkTriage = new ProjectBulkTriageStore();
+  private workItemsSubscription: Subscription | null = null;
+  private selectedActorId = this.currentUser.selectedMemberId();
+  private hasInitialized = false;
   private copyLinkStatusTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private readonly actorChangeEffect = effect(() => {
+    const actorId = this.currentUser.selectedMemberId();
+
+    if (actorId === this.selectedActorId) {
+      return;
+    }
+
+    this.selectedActorId = actorId;
+    if (!this.hasInitialized) {
+      return;
+    }
+
+    this.clearSelection();
+    this.resetBulkActionState();
+    void this.router
+      .navigate([], {
+        relativeTo: this.route,
+        queryParams: this.queryState.routerQueryParamsForResolvedPage({ page: 1, pageSize: 25 })
+      })
+      .then((navigated) => {
+        if (!navigated) {
+          this.loadWorkItems();
+        }
+      });
+  });
 
   readonly statuses = statuses;
   readonly types = types;
@@ -1241,6 +1283,8 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
 
   readonly project = signal<ProjectDto | null>(null);
   readonly workItems = signal<WorkItemListItemDto[]>([]);
+  readonly pageMetadata = signal<WorkItemPageMetadataDto>(emptyPageMetadata());
+  readonly activePageQuery = this.queryState.activePageQuery;
   readonly isBulkEditActive = this.bulkTriage.isActive;
   readonly selectedWorkItemIds = this.bulkTriage.selectedItemIds;
   readonly selectedWorkItemIdSet = this.bulkTriage.selectedItemIdSet;
@@ -1338,6 +1382,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   });
 
   ngOnInit(): void {
+    this.hasInitialized = true;
     if (this.currentUser.members().length === 0) {
       this.currentUser.loadMembers();
     }
@@ -1354,12 +1399,22 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
 
         this.clearSelection();
         this.filterForm.patchValue(nextFilters, { emitEvent: false });
+        if (!this.queryState.isCanonicalPageQuery(params)) {
+          void this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: this.queryState.activeRouterQueryParams(),
+            replaceUrl: true
+          });
+          return;
+        }
         this.loadWorkItems();
       })
     );
   }
 
   ngOnDestroy(): void {
+    this.hasInitialized = false;
+    this.workItemsSubscription?.unsubscribe();
     this.subscriptions.unsubscribe();
     this.clearCopyLinkStatusTimer();
   }
@@ -1380,20 +1435,53 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   loadWorkItems(): void {
+    this.workItemsSubscription?.unsubscribe();
+    const requestedPage = this.activePageQuery();
     this.isLoading.set(true);
     this.error.set(null);
+    this.workItems.set([]);
+    this.pageMetadata.set(emptyPageMetadata(requestedPage));
 
-    this.api.listWorkItems(this.projectId(), this.appliedQuery()).subscribe({
-      next: (workItems) => {
-        this.workItems.set(workItems);
+    this.workItemsSubscription = this.api
+      .listWorkItems(this.projectId(), this.appliedQuery(), requestedPage)
+      .subscribe({
+      next: (response) => {
+        if (response.page !== requestedPage.page || response.pageSize !== requestedPage.pageSize) {
+          void this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: this.queryState.routerQueryParamsForResolvedPage({
+              page: response.page,
+              pageSize: response.pageSize
+            }),
+            replaceUrl: true
+          });
+          return;
+        }
+
+        this.workItems.set(response.items);
+        this.pageMetadata.set(pageMetadataFromResponse(response));
         this.pruneSelectionToVisibleRows();
-        this.mergeLabels(workItems);
+        this.mergeLabels(response.items);
         this.isLoading.set(false);
       },
       error: () => {
         this.error.set('Work items could not be loaded from the API.');
         this.isLoading.set(false);
       }
+    });
+  }
+
+  goToPage(page: number): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: this.queryState.routerQueryParamsForPage(page)
+    });
+  }
+
+  changePageSize(pageSize: WorkItemPageSize): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: this.queryState.routerQueryParamsForPageSize(pageSize)
     });
   }
 
@@ -2152,4 +2240,29 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     return typeof message === 'string' ? message : fallback;
   }
 
+}
+
+function emptyPageMetadata(
+  pageQuery: ResolvedWorkItemPageQuery = { page: 1, pageSize: 25 }
+): WorkItemPageMetadataDto {
+  return {
+    ...pageQuery,
+    totalCount: 0,
+    totalPages: 0,
+    hasPreviousPage: false,
+    hasNextPage: false
+  };
+}
+
+function pageMetadataFromResponse(
+  response: WorkItemPageMetadataDto
+): WorkItemPageMetadataDto {
+  return {
+    page: response.page,
+    pageSize: response.pageSize,
+    totalCount: response.totalCount,
+    totalPages: response.totalPages,
+    hasPreviousPage: response.hasPreviousPage,
+    hasNextPage: response.hasNextPage
+  };
 }

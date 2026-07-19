@@ -1,5 +1,5 @@
 import { HttpParams } from '@angular/common/http';
-import type { WorkItemQuery } from '@worktrail/contracts';
+import type { ResolvedWorkItemPageQuery, WorkItemQuery } from '@worktrail/contracts';
 
 export type QueryParamValue = boolean | number | string | null | undefined;
 
@@ -38,4 +38,13 @@ export function workItemQueryToHttpParams(query: WorkItemQuery): HttpParams {
     search: query.search,
     sort: query.sort
   });
+}
+
+export function workItemPageRequestToHttpParams(
+  query: WorkItemQuery,
+  pageQuery: ResolvedWorkItemPageQuery
+): HttpParams {
+  return workItemQueryToHttpParams(query)
+    .set('page', String(pageQuery.page))
+    .set('pageSize', String(pageQuery.pageSize));
 }

@@ -852,7 +852,46 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-19.
+- Switched both interactive work-discovery endpoints to typed page envelopes:
+  - project Work parses durable filters and resolved page input, then calls `listWorkItemPage`;
+  - workspace Work Items follows the same boundary through `listWorkspaceWorkItemPage`;
+  - endpoint coverage now includes default, explicit, stale-normalized, empty, malformed, and
+    workspace page responses.
+- Added and registered `GET /api/projects/:projectId/board/work-items` as the complete, unpaged board
+  projection while retaining the existing static import, export, and bulk route ordering.
+- Updated OpenAPI with reusable page/page-size parameters, shared page metadata, concrete
+  project/workspace page envelopes, the complete board route, and current-data consistency language.
+  The OpenAPI version remains at the `0.2.5` release baseline for Phase 10.
+- Updated the Angular API boundary so project and workspace list calls require resolved page state and
+  return page DTOs. Added a separate board client method and kept CSV export parameter composition
+  durable-only.
+- Extended `WorkListQueryStore` with active page state, canonical browser parsing, page and page-size
+  route builders, default-page resets for filters and saved views, and non-default page preservation in
+  copied links and detail return URLs. Saved-view payloads and meaningful filter counts remain
+  page-independent.
+- Cut project Work and workspace Work Items over to page requests and response metadata:
+  - both surfaces render the shared pager and server-derived result ranges;
+  - page changes preserve durable filters and page-size changes reset to page 1;
+  - invalid browser page values are replaced with canonical route state;
+  - server-normalized stale pages replace the URL without rendering rows under stale state;
+  - an older in-flight list request is canceled before each route-driven replacement request;
+  - actor changes reset paging to page 1 and size 25.
+- Preserved complete board behavior by routing board loads only through the new board endpoint.
+- Bounded relationship candidate search to page 1 and size 25, consumed page items, and added a
+  refinement hint when additional candidates exist.
+- Updated `WorkItemResultListComponent` to derive `0`, singular, and visible-range/total headings from
+  server metadata instead of local array length.
+- Migrated API and Angular fixtures to the envelope contract and added focused coverage for API page
+  parameters, board endpoint separation, query/page state separation, non-default workspace pages,
+  stale-page replacement, request cancellation, relationship truncation disclosure, and result ranges.
+- Verified Phase 6 with:
+  - focused API endpoint/OpenAPI tests: 83 passed;
+  - focused Angular integration tests: 86 passed;
+  - full API tests: 375 passed;
+  - full Angular tests: 349 passed;
+  - full contracts tests: 34 passed;
+  - repository typecheck, lint, production build, diff, and trailing-whitespace checks.
 
 ## Phase 7: Project Work Pagination And Batch-Triage Hardening
 

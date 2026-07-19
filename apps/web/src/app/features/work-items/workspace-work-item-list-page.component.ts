@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type {
@@ -11,7 +11,10 @@ import type {
   MilestoneDto,
   ProjectCycleDto,
   ProjectNavigationSummaryDto,
+  ResolvedWorkItemPageQuery,
   SavedWorkViewDto,
+  WorkItemPageMetadataDto,
+  WorkItemPageSize,
   WorkItemPriority,
   WorkItemQuery,
   WorkItemSort,
@@ -41,6 +44,7 @@ import { ActiveFilterChipsComponent } from './components/active-filter-chips.com
 import { PinnedSavedViewsComponent } from './components/pinned-saved-views.component';
 import { SavedViewsToolbarComponent } from './components/saved-views-toolbar.component';
 import { WorkItemFilterPanelComponent } from './components/work-item-filter-panel.component';
+import { WorkItemPaginationComponent } from './components/work-item-pagination.component';
 import { WorkItemResultListComponent } from './components/work-item-result-list.component';
 import {
   unassignedAssigneeValue,
@@ -120,6 +124,7 @@ interface WorkspaceFilterFormValue {
     RouterLink,
     SavedViewsToolbarComponent,
     WorkItemFilterPanelComponent,
+    WorkItemPaginationComponent,
     WorkItemResultListComponent
   ],
   template: `
@@ -366,6 +371,7 @@ interface WorkspaceFilterFormValue {
       <section class="work-list-results" aria-label="Workspace work item results">
         <app-work-item-result-list
           [items]="workItems()"
+          [metadata]="pageMetadata()"
           mode="workspace"
           [isLoading]="isLoading()"
           [error]="error()"
@@ -375,6 +381,12 @@ interface WorkspaceFilterFormValue {
           [emptyMessage]="activeFilterLabels().length > 0 ? 'Reset filters or adjust the criteria to broaden the list.' : 'Workspace work from active projects will appear here.'"
           [returnUrl]="detailReturnUrl()"
           (retry)="loadWorkItems()"
+        />
+        <app-work-item-pagination
+          [metadata]="pageMetadata()"
+          [disabled]="isLoading()"
+          (pageChange)="goToPage($event)"
+          (pageSizeChange)="changePageSize($event)"
         />
       </section>
     </div>
@@ -396,6 +408,7 @@ interface WorkspaceFilterFormValue {
     app-pinned-saved-views,
     app-saved-views-toolbar,
     app-work-item-filter-panel,
+    app-work-item-pagination,
     app-work-item-result-list {
       display: block;
     }
@@ -838,8 +851,35 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   private readonly router = inject(Router);
   private readonly subscriptions = new Subscription();
   private readonly queryState = WorkListQueryStore.workspace();
+  private workItemsSubscription: Subscription | null = null;
+  private selectedActorId = this.currentUser.selectedMemberId();
+  private hasInitialized = false;
   private loadedProjectFilterId: string | null = null;
   private copyLinkStatusTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private readonly actorChangeEffect = effect(() => {
+    const actorId = this.currentUser.selectedMemberId();
+
+    if (actorId === this.selectedActorId) {
+      return;
+    }
+
+    this.selectedActorId = actorId;
+    if (!this.hasInitialized) {
+      return;
+    }
+
+    void this.router
+      .navigate([], {
+        relativeTo: this.route,
+        queryParams: this.queryState.routerQueryParamsForResolvedPage({ page: 1, pageSize: 25 })
+      })
+      .then((navigated) => {
+        if (!navigated) {
+          this.loadWorkItems();
+        }
+      });
+  });
 
   readonly statuses = statuses;
   readonly workStates = workStates;
@@ -892,6 +932,8 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   readonly milestones = signal<MilestoneDto[]>([]);
   readonly cycles = signal<ProjectCycleDto[]>([]);
   readonly workItems = signal<WorkspaceWorkItemListItemDto[]>([]);
+  readonly pageMetadata = signal<WorkItemPageMetadataDto>(emptyPageMetadata());
+  readonly activePageQuery = this.queryState.activePageQuery;
   readonly appliedFilterValues = this.queryState.activeFilterValues;
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
@@ -931,6 +973,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   });
 
   ngOnInit(): void {
+    this.hasInitialized = true;
     if (this.currentUser.members().length === 0) {
       this.currentUser.loadMembers();
     }
@@ -943,6 +986,14 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       this.route.queryParamMap.subscribe((params) => {
         const nextFilters = this.queryState.applyRouteQueryParams(params);
         this.filterForm.patchValue(nextFilters, { emitEvent: false });
+        if (!this.queryState.isCanonicalPageQuery(params)) {
+          void this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: this.queryState.activeRouterQueryParams(),
+            replaceUrl: true
+          });
+          return;
+        }
         this.loadProjectScopedFilters(nextFilters.projectId);
         this.loadWorkItems();
       })
@@ -950,6 +1001,8 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   ngOnDestroy(): void {
+    this.hasInitialized = false;
+    this.workItemsSubscription?.unsubscribe();
     this.subscriptions.unsubscribe();
     this.clearCopyLinkStatusTimer();
   }
@@ -968,19 +1021,52 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   loadWorkItems(): void {
+    this.workItemsSubscription?.unsubscribe();
+    const requestedPage = this.activePageQuery();
     this.isLoading.set(true);
     this.error.set(null);
+    this.workItems.set([]);
+    this.pageMetadata.set(emptyPageMetadata(requestedPage));
 
-    this.api.listWorkspaceWorkItems(this.appliedQuery()).subscribe({
-      next: (workItems) => {
-        this.workItems.set(workItems);
-        this.mergeResultLabels(workItems);
+    this.workItemsSubscription = this.api
+      .listWorkspaceWorkItems(this.appliedQuery(), requestedPage)
+      .subscribe({
+      next: (response) => {
+        if (response.page !== requestedPage.page || response.pageSize !== requestedPage.pageSize) {
+          void this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: this.queryState.routerQueryParamsForResolvedPage({
+              page: response.page,
+              pageSize: response.pageSize
+            }),
+            replaceUrl: true
+          });
+          return;
+        }
+
+        this.workItems.set(response.items);
+        this.pageMetadata.set(pageMetadataFromResponse(response));
+        this.mergeResultLabels(response.items);
         this.isLoading.set(false);
       },
       error: () => {
         this.error.set('Workspace work items could not be loaded from the API.');
         this.isLoading.set(false);
       }
+    });
+  }
+
+  goToPage(page: number): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: this.queryState.routerQueryParamsForPage(page)
+    });
+  }
+
+  changePageSize(pageSize: WorkItemPageSize): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: this.queryState.routerQueryParamsForPageSize(pageSize)
     });
   }
 
@@ -1650,4 +1736,29 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       day: 'numeric'
     }).format(new Date(year, month - 1, day));
   }
+}
+
+function emptyPageMetadata(
+  pageQuery: ResolvedWorkItemPageQuery = { page: 1, pageSize: 25 }
+): WorkItemPageMetadataDto {
+  return {
+    ...pageQuery,
+    totalCount: 0,
+    totalPages: 0,
+    hasPreviousPage: false,
+    hasNextPage: false
+  };
+}
+
+function pageMetadataFromResponse(
+  response: WorkItemPageMetadataDto
+): WorkItemPageMetadataDto {
+  return {
+    page: response.page,
+    pageSize: response.pageSize,
+    totalCount: response.totalCount,
+    totalPages: response.totalPages,
+    hasPreviousPage: response.hasPreviousPage,
+    hasNextPage: response.hasNextPage
+  };
 }

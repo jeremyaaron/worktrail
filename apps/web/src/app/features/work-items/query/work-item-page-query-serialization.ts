@@ -23,6 +23,15 @@ export function workItemPageQueryFromParams(
   };
 }
 
+export function isCanonicalWorkItemPageQuery(params: QueryParamReader): boolean {
+  const canonical = routerQueryParamsFromWorkItemPage(workItemPageQueryFromParams(params));
+
+  return (
+    params.get('page') === canonical['page'] &&
+    params.get('pageSize') === canonical['pageSize']
+  );
+}
+
 export function routerQueryParamsFromWorkItemPage(
   pageQuery: ResolvedWorkItemPageQuery
 ): RouterQueryParams {

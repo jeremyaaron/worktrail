@@ -184,10 +184,7 @@ describe('WorkItemBoardPageComponent', () => {
     const { fixture, http } = setup();
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     const request = http.expectOne((candidate) => {
-      return (
-        candidate.url === `/api/projects/${projectId}/work-items` &&
-        candidate.params.get('sort') === 'board_order'
-      );
+      return candidate.url === `/api/projects/${projectId}/board/work-items`;
     });
     request.flush([readyItem]);
     fixture.detectChanges();
@@ -233,10 +230,7 @@ describe('WorkItemBoardPageComponent', () => {
     };
     const { fixture, http } = setup();
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
-    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
-      childItem,
-      parentItem
-    ]);
+    http.expectOne(`/api/projects/${projectId}/board/work-items`).flush([childItem, parentItem]);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
@@ -262,18 +256,15 @@ describe('WorkItemBoardPageComponent', () => {
       comments: [],
       activity: []
     } satisfies WorkItemDetailDto);
-    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
-      { ...childItem, status: 'in_progress' },
-      parentItem
-    ]);
+    http
+      .expectOne(`/api/projects/${projectId}/board/work-items`)
+      .flush([{ ...childItem, status: 'in_progress' }, parentItem]);
   });
 
   it('moves a card through the status menu and refreshes board state', () => {
     const { fixture, http } = setup();
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
-    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
-      readyItem
-    ]);
+    http.expectOne(`/api/projects/${projectId}/board/work-items`).flush([readyItem]);
     fixture.detectChanges();
 
     fixture.componentInstance.transitionCard(readyItem, {
@@ -300,7 +291,7 @@ describe('WorkItemBoardPageComponent', () => {
       activity: []
     } satisfies WorkItemDetailDto);
 
-    const refresh = http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`);
+    const refresh = http.expectOne(`/api/projects/${projectId}/board/work-items`);
     refresh.flush([movedItem]);
     fixture.detectChanges();
 
@@ -318,10 +309,9 @@ describe('WorkItemBoardPageComponent', () => {
       boardPosition: 1024
     };
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
-    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
-      readyItem,
-      inProgressItem
-    ]);
+    http
+      .expectOne(`/api/projects/${projectId}/board/work-items`)
+      .flush([readyItem, inProgressItem]);
     fixture.detectChanges();
 
     fixture.componentInstance.dropCard(
@@ -355,7 +345,7 @@ describe('WorkItemBoardPageComponent', () => {
       activity: []
     } satisfies WorkItemDetailDto);
 
-    const refresh = http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`);
+    const refresh = http.expectOne(`/api/projects/${projectId}/board/work-items`);
     refresh.flush([inProgressItem, movedItem]);
     fixture.detectChanges();
 
@@ -383,11 +373,9 @@ describe('WorkItemBoardPageComponent', () => {
     };
     const { fixture, http } = setup();
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
-    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
-      firstItem,
-      secondItem,
-      thirdItem
-    ]);
+    http
+      .expectOne(`/api/projects/${projectId}/board/work-items`)
+      .flush([firstItem, secondItem, thirdItem]);
     fixture.detectChanges();
 
     fixture.componentInstance.dropCard(
@@ -420,16 +408,14 @@ describe('WorkItemBoardPageComponent', () => {
       activity: []
     } satisfies WorkItemDetailDto);
 
-    const refresh = http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`);
+    const refresh = http.expectOne(`/api/projects/${projectId}/board/work-items`);
     refresh.flush([firstItem, thirdItem, secondItem]);
   });
 
   it('ignores same-index same-column drops without calling the move API', () => {
     const { fixture, http } = setup();
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
-    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
-      readyItem
-    ]);
+    http.expectOne(`/api/projects/${projectId}/board/work-items`).flush([readyItem]);
     fixture.detectChanges();
 
     fixture.componentInstance.dropCard(
@@ -449,9 +435,7 @@ describe('WorkItemBoardPageComponent', () => {
   it('shows a clear error and resets the select when a status menu move is rejected', () => {
     const { fixture, http } = setup();
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
-    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
-      readyItem
-    ]);
+    http.expectOne(`/api/projects/${projectId}/board/work-items`).flush([readyItem]);
     fixture.detectChanges();
 
     fixture.componentInstance.transitionCard(readyItem, {
@@ -479,9 +463,7 @@ describe('WorkItemBoardPageComponent', () => {
   it('rolls back optimistic drag moves when the board move is rejected', () => {
     const { fixture, http } = setup();
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
-    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
-      readyItem
-    ]);
+    http.expectOne(`/api/projects/${projectId}/board/work-items`).flush([readyItem]);
     fixture.detectChanges();
 
     fixture.componentInstance.dropCard(
@@ -520,9 +502,7 @@ describe('WorkItemBoardPageComponent', () => {
   it('renders archived projects as read-only and skips transition requests', () => {
     const { fixture, http } = setup();
     http.expectOne(`/api/projects/${projectId}`).flush(archivedProject);
-    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
-      readyItem
-    ]);
+    http.expectOne(`/api/projects/${projectId}/board/work-items`).flush([readyItem]);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
@@ -541,9 +521,7 @@ describe('WorkItemBoardPageComponent', () => {
     TestBed.inject(CurrentUserService).selectMember(contributor.id);
     const { fixture, http } = setup();
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
-    http.expectOne((candidate) => candidate.url === `/api/projects/${projectId}/work-items`).flush([
-      doneItem
-    ]);
+    http.expectOne(`/api/projects/${projectId}/board/work-items`).flush([doneItem]);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;

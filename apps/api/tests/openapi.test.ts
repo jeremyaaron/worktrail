@@ -199,6 +199,11 @@ describe('OpenAPI reference', () => {
     expect(openApi).toContain('EXPORT_LIMIT_EXCEEDED');
     expect(openApi).toContain('More than 10,000 work items match. Narrow the applied filters and retry.');
     expect(openApi).toContain('Paging parameters do not affect exports.');
+    expect(openApi).toContain('/api/projects/{projectId}/board/work-items:');
+    expect(openApi).toContain('WorkItemPageSizeQuery:');
+    expect(openApi).toContain('WorkItemListPage:');
+    expect(openApi).toContain('WorkspaceWorkItemListPage:');
+    expect(openApi).toContain('Separate page requests may observe intervening writes.');
     expect(openApi).toContain('VALIDATION_ERROR');
     expect(openApi).toContain('INTERNAL_ERROR');
   });

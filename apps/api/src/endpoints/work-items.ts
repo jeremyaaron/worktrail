@@ -11,14 +11,15 @@ import type {
   WorkItemCsvImportApplyRequest,
   WorkItemCsvImportPreviewDto,
   WorkItemCsvImportPreviewRequest,
-  WorkspaceWorkItemListItemDto,
-  WorkItemDetailDto,
   WorkItemChildrenDto,
+  WorkItemDetailDto,
   WorkItemListItemDto,
+  WorkItemListPageDto,
   WorkItemParentCandidateDto,
   WorkItemRelationshipDto,
   WorkItemRelationshipSummaryDto,
-  WorkItemWatchStateDto
+  WorkItemWatchStateDto,
+  WorkspaceWorkItemListPageDto
 } from '@worktrail/contracts';
 import { z } from 'zod';
 
@@ -37,6 +38,7 @@ import { WorkItemCsvExportService } from '../services/work-item-csv-export-servi
 import { WorkItemRelationshipService } from '../services/work-item-relationship-service.js';
 import { WorkItemWatcherService } from '../services/work-item-watcher-service.js';
 import { parseWithSchema } from '../validation/parse.js';
+import { parseWorkItemPageQuery } from '../validation/work-item-page-query.js';
 import {
   parseProjectWorkItemQuery,
   parseWorkspaceWorkItemQuery
@@ -198,6 +200,48 @@ const createWorkItemRelationshipSchema = z.object({
 export function listWorkItemsHandler(input: {
   repositories: Repositories;
   db?: WorktrailDb;
+}): EndpointHandler<WorkItemListPageDto> {
+  return async (request) => {
+    const { projectId } = parseWithSchema(projectIdParamSchema, request.params);
+    const service = new WorkItemService({
+      actor: request.actor,
+      repositories: input.repositories,
+      db: input.db
+    });
+    return {
+      status: 200,
+      body: await service.listWorkItemPage(
+        projectId,
+        parseProjectWorkItemQuery(request.query),
+        parseWorkItemPageQuery(request.query)
+      )
+    };
+  };
+}
+
+export function listWorkspaceWorkItemsHandler(input: {
+  repositories: Repositories;
+  db?: WorktrailDb;
+}): EndpointHandler<WorkspaceWorkItemListPageDto> {
+  return async (request) => {
+    const service = new WorkItemService({
+      actor: request.actor,
+      repositories: input.repositories,
+      db: input.db
+    });
+    return {
+      status: 200,
+      body: await service.listWorkspaceWorkItemPage(
+        parseWorkspaceWorkItemQuery(request.query),
+        parseWorkItemPageQuery(request.query)
+      )
+    };
+  };
+}
+
+export function listProjectBoardWorkItemsHandler(input: {
+  repositories: Repositories;
+  db?: WorktrailDb;
 }): EndpointHandler<WorkItemListItemDto[]> {
   return async (request) => {
     const { projectId } = parseWithSchema(projectIdParamSchema, request.params);
@@ -208,24 +252,7 @@ export function listWorkItemsHandler(input: {
     });
     return {
       status: 200,
-      body: await service.listWorkItems(projectId, parseProjectWorkItemQuery(request.query))
-    };
-  };
-}
-
-export function listWorkspaceWorkItemsHandler(input: {
-  repositories: Repositories;
-  db?: WorktrailDb;
-}): EndpointHandler<WorkspaceWorkItemListItemDto[]> {
-  return async (request) => {
-    const service = new WorkItemService({
-      actor: request.actor,
-      repositories: input.repositories,
-      db: input.db
-    });
-    return {
-      status: 200,
-      body: await service.listWorkspaceWorkItems(parseWorkspaceWorkItemQuery(request.query))
+      body: await service.listProjectBoardWorkItems(projectId)
     };
   };
 }

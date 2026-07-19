@@ -104,6 +104,23 @@ describe('WorkItemResultListComponent', () => {
     expect(card?.textContent).toContain('UX');
   });
 
+  it('renders the visible range from server page metadata', () => {
+    fixture.componentInstance.metadata = {
+      page: 3,
+      pageSize: 10,
+      totalCount: 24,
+      totalPages: 3,
+      hasPreviousPage: true,
+      hasNextPage: false
+    };
+
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('h2')?.textContent?.trim()).toBe(
+      '21-21 of 24 work items'
+    );
+  });
+
   it('keeps detail links wired with the return URL on table rows and mobile cards', () => {
     fixture.detectChanges();
 

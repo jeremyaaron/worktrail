@@ -12,6 +12,7 @@ import type {
   DueDateState,
   MoveWorkItemOnBoardRequest,
   MyWorkDashboardDto,
+  ResolvedWorkItemPageQuery,
   SetWorkItemParentRequest,
   TransitionWorkItemRequest,
   UpdateCommentRequest,
@@ -22,6 +23,7 @@ import type {
   WorkItemDetailDto,
   WorkItemHierarchyFilter,
   WorkItemListItemDto,
+  WorkItemListPageDto,
   WorkItemPriority,
   WorkItemParentCandidateDto,
   WorkItemQuery,
@@ -32,12 +34,12 @@ import type {
   WorkItemStatus,
   WorkItemType,
   WorkItemWatchStateDto,
-  WorkspaceWorkItemListItemDto
+  WorkspaceWorkItemListPageDto
 } from '@worktrail/contracts';
 import type { Observable } from 'rxjs';
 
 import {
-  queryToHttpParams,
+  workItemPageRequestToHttpParams,
   workItemQueryToHttpParams
 } from '../../shared/work-items/work-item-query-params';
 import { ApiClient } from './api-client';
@@ -65,20 +67,28 @@ export class WorkItemsApi {
 
   listWorkItems(
     projectId: string,
-    filters: WorkItemListFilters = {}
-  ): Observable<WorkItemListItemDto[]> {
-    return this.api.get<WorkItemListItemDto[]>(`/projects/${projectId}/work-items`, {
-      params: queryToHttpParams(filters)
+    filters: WorkItemListFilters,
+    pageQuery: ResolvedWorkItemPageQuery
+  ): Observable<WorkItemListPageDto> {
+    return this.api.get<WorkItemListPageDto>(`/projects/${projectId}/work-items`, {
+      params: workItemPageRequestToHttpParams(filters, pageQuery)
     });
+  }
+
+  listProjectBoardWorkItems(projectId: string): Observable<WorkItemListItemDto[]> {
+    return this.api.get<WorkItemListItemDto[]>(`/projects/${projectId}/board/work-items`);
   }
 
   getMyWork(): Observable<MyWorkDashboardDto> {
     return this.api.get<MyWorkDashboardDto>('/my-work');
   }
 
-  listWorkspaceWorkItems(filters: WorkItemQuery = {}): Observable<WorkspaceWorkItemListItemDto[]> {
-    return this.api.get<WorkspaceWorkItemListItemDto[]>('/work-items', {
-      params: workItemQueryToHttpParams(filters)
+  listWorkspaceWorkItems(
+    filters: WorkItemQuery,
+    pageQuery: ResolvedWorkItemPageQuery
+  ): Observable<WorkspaceWorkItemListPageDto> {
+    return this.api.get<WorkspaceWorkItemListPageDto>('/work-items', {
+      params: workItemPageRequestToHttpParams(filters, pageQuery)
     });
   }
 

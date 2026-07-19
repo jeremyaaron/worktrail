@@ -138,7 +138,7 @@ describe('WorktrailApiService', () => {
         archivedProjects: 'include',
         search: '  ',
         sort: 'priority_desc'
-      })
+      }, { page: 3, pageSize: 50 })
       .subscribe();
 
     const request = http.expectOne((candidate) => candidate.url === '/api/work-items');
@@ -151,9 +151,45 @@ describe('WorktrailApiService', () => {
     expect(request.request.params.get('hierarchy')).toBe('parents');
     expect(request.request.params.get('archivedProjects')).toBe('include');
     expect(request.request.params.get('sort')).toBe('priority_desc');
+    expect(request.request.params.get('page')).toBe('3');
+    expect(request.request.params.get('pageSize')).toBe('50');
     expect(request.request.params.has('search')).toBeFalse();
 
-    request.flush([]);
+    request.flush({
+      items: [],
+      page: 3,
+      pageSize: 50,
+      totalCount: 0,
+      totalPages: 0,
+      hasPreviousPage: false,
+      hasNextPage: false
+    });
+  });
+
+  it('requests paged project work and the complete board projection separately', () => {
+    const projectId = '10000000-0000-4000-8000-000000000201';
+
+    api.listWorkItems(projectId, { status: 'ready' }, { page: 2, pageSize: 10 }).subscribe();
+    const list = http.expectOne(
+      (candidate) => candidate.url === `/api/projects/${projectId}/work-items`
+    );
+    expect(list.request.params.get('status')).toBe('ready');
+    expect(list.request.params.get('page')).toBe('2');
+    expect(list.request.params.get('pageSize')).toBe('10');
+    list.flush({
+      items: [],
+      page: 2,
+      pageSize: 10,
+      totalCount: 12,
+      totalPages: 2,
+      hasPreviousPage: true,
+      hasNextPage: false
+    });
+
+    api.listProjectBoardWorkItems(projectId).subscribe();
+    const board = http.expectOne(`/api/projects/${projectId}/board/work-items`);
+    expect(board.request.params.keys()).toEqual([]);
+    board.flush([]);
   });
 
   it('sends saved work view list scope params and skips blank params', () => {
