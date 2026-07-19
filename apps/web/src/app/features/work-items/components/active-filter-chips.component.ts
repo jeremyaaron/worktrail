@@ -5,7 +5,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
   template: `
     @if (labels.length > 0) {
       <section class="active-filters" aria-label="Active filters">
-        @for (label of labels; track label) {
+        @for (label of labels; track $index) {
           <span>
             {{ label }}
             <button

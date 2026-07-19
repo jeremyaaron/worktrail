@@ -1,6 +1,6 @@
 {
   "name": "@worktrail/api",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "private": true,
   "type": "module",
   "main": "dist/main.js",
@@ -14,12 +14,13 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:reset": "tsx src/db/reset.ts",
     "db:seed": "tsx src/db/seed.ts",
+    "db:performance-evidence": "tsx src/db/performance-evidence.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src --max-warnings=0",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@worktrail/contracts": "0.2.5",
+    "@worktrail/contracts": "0.2.6",
     "cors": "^2.8.5",
     "csv-parse": "^7.0.1",
     "csv-stringify": "^6.8.1",

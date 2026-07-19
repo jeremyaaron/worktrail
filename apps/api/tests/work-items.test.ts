@@ -269,6 +269,225 @@ afterAll(async () => {
 });
 
 describe('work item API', () => {
+  it('returns default, explicit, partial, stale, and empty project pages in one read transaction', async () => {
+    const fixture = await createFixture('owner');
+    await Promise.all(
+      Array.from({ length: 27 }, (_, index) =>
+        createWorkItem(fixture, {
+          title: `Paged work item ${index + 1}`,
+          boardPosition: (index + 1) * 1024
+        })
+      )
+    );
+    const transactionSpy = vi.spyOn(db, 'transaction');
+    const service = createService(fixture);
+
+    const firstPage = await service.listWorkItemPage(fixture.projectId);
+    const secondPage = await service.listWorkItemPage(
+      fixture.projectId,
+      { sort: 'updated_asc' },
+      { page: 2, pageSize: 10 }
+    );
+    const stalePage = await service.listWorkItemPage(
+      fixture.projectId,
+      { sort: 'updated_asc' },
+      { page: 99, pageSize: 10 }
+    );
+    const emptyPage = await service.listWorkItemPage(
+      fixture.projectId,
+      { status: 'done' },
+      { page: 99, pageSize: 25 }
+    );
+
+    expect(firstPage).toMatchObject({
+      page: 1,
+      pageSize: 25,
+      totalCount: 27,
+      totalPages: 2,
+      hasPreviousPage: false,
+      hasNextPage: true
+    });
+    expect(firstPage.items).toHaveLength(25);
+    expect(secondPage).toMatchObject({
+      page: 2,
+      pageSize: 10,
+      totalCount: 27,
+      totalPages: 3,
+      hasPreviousPage: true,
+      hasNextPage: true
+    });
+    expect(secondPage.items.map(({ itemNumber }) => itemNumber)).toEqual(
+      Array.from({ length: 10 }, (_, index) => index + 11)
+    );
+    expect(stalePage).toMatchObject({
+      page: 3,
+      pageSize: 10,
+      totalCount: 27,
+      totalPages: 3,
+      hasPreviousPage: true,
+      hasNextPage: false
+    });
+    expect(stalePage.items.map(({ itemNumber }) => itemNumber)).toEqual([21, 22, 23, 24, 25, 26, 27]);
+    expect(emptyPage).toEqual({
+      items: [],
+      page: 1,
+      pageSize: 25,
+      totalCount: 0,
+      totalPages: 0,
+      hasPreviousPage: false,
+      hasNextPage: false
+    });
+    expect(transactionSpy).toHaveBeenCalledTimes(4);
+    expect(transactionSpy.mock.calls.every((call) =>
+      expect.objectContaining({
+        isolationLevel: 'repeatable read',
+        accessMode: 'read only'
+      }).asymmetricMatch(call[1])
+    )).toBe(true);
+  });
+
+  it('uses repository-only paging and enriches only returned page ids', async () => {
+    const fixture = await createFixture('owner');
+    await Promise.all(
+      Array.from({ length: 16 }, (_, index) =>
+        createWorkItem(fixture, { title: `Fallback page item ${index + 1}` })
+      )
+    );
+    const listPageSpy = vi.spyOn(repositories.workItems, 'listPageByProject');
+    const labelSpy = vi.spyOn(repositories.labels, 'listByWorkItems');
+    const dependencySpy = vi.spyOn(repositories.workItemRelationships, 'listDependencyCounts');
+    const parentSpy = vi.spyOn(repositories.workItems, 'listParentsForChildren');
+    const childSummarySpy = vi.spyOn(repositories.workItems, 'summarizeChildren');
+    const service = createService(fixture, { db: undefined });
+
+    const page = await service.listWorkItemPage(
+      fixture.projectId,
+      { sort: 'updated_asc' },
+      { page: 2, pageSize: 10 }
+    );
+    const pageIds = page.items.map(({ id }) => id);
+
+    expect(page.items.map(({ itemNumber }) => itemNumber)).toEqual([11, 12, 13, 14, 15, 16]);
+    expect(listPageSpy).toHaveBeenCalledWith(
+      fixture.projectId,
+      { sort: 'updated_asc' },
+      { limit: 10, offset: 10 }
+    );
+    expect(labelSpy).toHaveBeenCalledWith(pageIds);
+    expect(dependencySpy).toHaveBeenCalledWith(pageIds);
+    expect(parentSpy).toHaveBeenCalledWith(pageIds);
+    expect(childSummarySpy).toHaveBeenCalledWith(pageIds);
+  });
+
+  it('authorizes project scope before exposing page counts', async () => {
+    const fixture = await createFixture('owner');
+    await createWorkItem(fixture);
+    const countSpy = vi.spyOn(repositories.workItems, 'countByProjectQuery');
+    const service = new WorkItemService({
+      actor: {
+        workspaceId: randomUUID(),
+        memberId: randomUUID(),
+        role: 'owner'
+      },
+      repositories
+    });
+
+    await expect(service.listWorkItemPage(fixture.projectId)).rejects.toMatchObject({
+      code: 'NOT_FOUND'
+    });
+    expect(countSpy).not.toHaveBeenCalled();
+  });
+
+  it('returns workspace page context across active and archived projects', async () => {
+    const fixture = await createFixture('owner');
+    const milestone = await createMilestone(fixture);
+    const cycle = await createProjectCycle(fixture);
+    const parent = await createWorkItem(fixture, {
+      title: 'Workspace rich parent',
+      milestoneId: milestone.id,
+      cycleId: cycle.id
+    });
+    await repositories.labels.replaceForWorkItem(parent.id, [fixture.backendLabelId]);
+    const child = await createWorkItem(fixture, {
+      title: 'Workspace rich child',
+      parentWorkItemId: parent.id
+    });
+    const blocker = await createWorkItem(fixture, {
+      title: 'Workspace blocker',
+      status: 'in_progress'
+    });
+    await repositories.workItemRelationships.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      relationshipType: 'blocks',
+      sourceWorkItemId: blocker.id,
+      targetWorkItemId: child.id,
+      createdById: fixture.actorId,
+      createdAt: now()
+    });
+    const archivedProject = await createProject(fixture, {
+      key: 'ARC',
+      status: 'archived'
+    });
+    const archived = await createWorkItem(fixture, {
+      projectId: archivedProject.id,
+      itemNumber: 1,
+      displayKey: 'ARC-1',
+      title: 'Workspace archived item'
+    });
+    const otherWorkspace = await createFixture('owner');
+    await createWorkItem(otherWorkspace, { title: 'Hidden workspace item' });
+
+    const page = await createService(fixture).listWorkspaceWorkItemPage(
+      { archivedProjects: 'include', sort: 'updated_asc' },
+      { page: 1, pageSize: 10 }
+    );
+
+    expect(page).toMatchObject({
+      page: 1,
+      pageSize: 10,
+      totalCount: 4,
+      totalPages: 1,
+      hasPreviousPage: false,
+      hasNextPage: false
+    });
+    expect(page.items.find(({ id }) => id === parent.id)).toMatchObject({
+      labels: [{ id: fixture.backendLabelId }],
+      milestone: { id: milestone.id },
+      cycle: { id: cycle.id },
+      childSummary: { totalCount: 1 },
+      project: { id: fixture.projectId, status: 'active' }
+    });
+    expect(page.items.find(({ id }) => id === child.id)).toMatchObject({
+      parent: { id: parent.id },
+      dependencyBlocked: true,
+      openBlockerCount: 1
+    });
+    expect(page.items.find(({ id }) => id === archived.id)).toMatchObject({
+      project: { id: archivedProject.id, status: 'archived' }
+    });
+  });
+
+  it('returns complete fixed-order project boards beyond the interactive page maximum', async () => {
+    const fixture = await createFixture('owner');
+    await Promise.all(
+      Array.from({ length: 101 }, (_, index) =>
+        createWorkItem(fixture, {
+          title: `Board service item ${index + 1}`,
+          status: 'ready',
+          boardPosition: (index + 1) * 1024
+        })
+      )
+    );
+
+    const items = await createService(fixture).listProjectBoardWorkItems(fixture.projectId);
+
+    expect(items).toHaveLength(101);
+    expect(items.map(({ itemNumber }) => itemNumber)).toEqual(
+      Array.from({ length: 101 }, (_, index) => index + 1)
+    );
+  });
+
   it('creates work items with labels and records creation activity', async () => {
     const fixture = await createFixture('owner');
 
@@ -419,16 +638,12 @@ describe('work item API', () => {
       createdAt: now()
     });
 
-    const parentReads = vi.spyOn(repositories.workItems, 'listParentsForChildren');
-    const summaryReads = vi.spyOn(repositories.workItems, 'summarizeChildren');
     const listResponse = await request(app)
       .get(`/api/projects/${fixture.projectId}/work-items`)
       .set(fixture.headers)
       .expect(200);
 
-    expect(parentReads).toHaveBeenCalledTimes(1);
-    expect(summaryReads).toHaveBeenCalledTimes(1);
-    expect(listResponse.body.find((item: { id: string }) => item.id === parent.id)).toMatchObject({
+    expect(listResponse.body.items.find((item: { id: string }) => item.id === parent.id)).toMatchObject({
       parent: null,
       childSummary: {
         totalCount: 3,
@@ -440,7 +655,7 @@ describe('work item API', () => {
         estimatePoints: 8
       }
     });
-    expect(listResponse.body.find((item: { id: string }) => item.id === openChild.id)).toMatchObject({
+    expect(listResponse.body.items.find((item: { id: string }) => item.id === openChild.id)).toMatchObject({
       parent: {
         id: parent.id,
         projectId: fixture.projectId,
@@ -451,7 +666,7 @@ describe('work item API', () => {
       },
       childSummary: null
     });
-    expect(listResponse.body.find((item: { id: string }) => item.id === unrelated.id)).toMatchObject({
+    expect(listResponse.body.items.find((item: { id: string }) => item.id === unrelated.id)).toMatchObject({
       parent: null,
       childSummary: null
     });
@@ -461,41 +676,41 @@ describe('work item API', () => {
       .query({ hierarchy: 'top_level' })
       .set(fixture.headers)
       .expect(200);
-    expect(topLevel.body.map((item: { id: string }) => item.id)).toEqual(
+    expect(topLevel.body.items.map((item: { id: string }) => item.id)).toEqual(
       expect.arrayContaining([parent.id, unrelated.id, blocker.id])
     );
-    expect(topLevel.body).toHaveLength(3);
+    expect(topLevel.body.items).toHaveLength(3);
 
     const children = await request(app)
       .get(`/api/projects/${fixture.projectId}/work-items`)
       .query({ hierarchy: 'children' })
       .set(fixture.headers)
       .expect(200);
-    expect(children.body.map((item: { id: string }) => item.id)).toEqual(
+    expect(children.body.items.map((item: { id: string }) => item.id)).toEqual(
       expect.arrayContaining([openChild.id, doneChild.id, canceledChild.id])
     );
-    expect(children.body).toHaveLength(3);
+    expect(children.body.items).toHaveLength(3);
 
     const parents = await request(app)
       .get(`/api/projects/${fixture.projectId}/work-items`)
       .query({ hierarchy: 'parents' })
       .set(fixture.headers)
       .expect(200);
-    expect(parents.body.map((item: { id: string }) => item.id)).toEqual([parent.id]);
+    expect(parents.body.items.map((item: { id: string }) => item.id)).toEqual([parent.id]);
 
     const exactChildren = await request(app)
       .get(`/api/projects/${fixture.projectId}/work-items`)
       .query({ parentKey: parent.displayKey.toLowerCase() })
       .set(fixture.headers)
       .expect(200);
-    expect(exactChildren.body).toHaveLength(3);
+    expect(exactChildren.body.items).toHaveLength(3);
 
-    await request(app)
+    const missingParent = await request(app)
       .get(`/api/projects/${fixture.projectId}/work-items`)
       .query({ parentKey: 'WI-999' })
       .set(fixture.headers)
-      .expect(200)
-      .expect([]);
+      .expect(200);
+    expect(missingParent.body.items).toEqual([]);
 
     const composed = await request(app)
       .get(`/api/projects/${fixture.projectId}/work-items`)
@@ -511,7 +726,7 @@ describe('work item API', () => {
       })
       .set(fixture.headers)
       .expect(200);
-    expect(composed.body.map((item: { id: string }) => item.id)).toEqual([openChild.id]);
+    expect(composed.body.items.map((item: { id: string }) => item.id)).toEqual([openChild.id]);
 
     const workspaceChildren = await request(app)
       .get('/api/work-items')
@@ -522,8 +737,8 @@ describe('work item API', () => {
       })
       .set(fixture.headers)
       .expect(200);
-    expect(workspaceChildren.body).toHaveLength(3);
-    expect(workspaceChildren.body[0]).toMatchObject({
+    expect(workspaceChildren.body.items).toHaveLength(3);
+    expect(workspaceChildren.body.items[0]).toMatchObject({
       project: { id: fixture.projectId },
       parent: { id: parent.id }
     });
@@ -577,12 +792,10 @@ describe('work item API', () => {
       .query({ archivedProjects: 'only', hierarchy: 'children' })
       .set(fixture.headers)
       .expect(200);
-    expect(archivedChildren.body.map((item: { id: string }) => item.id)).toEqual([
+    expect(archivedChildren.body.items.map((item: { id: string }) => item.id)).toEqual([
       archivedChild.id
     ]);
 
-    parentReads.mockClear();
-    summaryReads.mockClear();
     await request(app)
       .get(`/api/work-items/${parent.id}`)
       .set(fixture.headers)
@@ -590,9 +803,6 @@ describe('work item API', () => {
       .expect(({ body }) => {
         expect(body.childSummary).toMatchObject({ totalCount: 3, estimatePoints: 8 });
       });
-    expect(parentReads).toHaveBeenCalledTimes(1);
-    expect(summaryReads).toHaveBeenCalledTimes(1);
-
     await request(app)
       .get(`/api/work-items/${openChild.id}`)
       .set(fixture.headers)
@@ -939,6 +1149,8 @@ describe('work item API', () => {
     const fixture = await createFixture('owner');
     const proposedParent = await createWorkItem(fixture, { title: 'Contended parent' });
     const otherParent = await createWorkItem(fixture, { title: 'Other parent' });
+    // Direct fixture inserts bypass allocation, so reserve WI-2 before production creation runs.
+    await repositories.projects.allocateWorkItemNumber(fixture.projectId, now());
     const service = createService(fixture);
 
     const results = await Promise.allSettled([
@@ -1619,6 +1831,7 @@ describe('work item API', () => {
 
   it('exports filtered project work items as CSV', async () => {
     const fixture = await createFixture('owner');
+    const transactionSpy = vi.spyOn(db, 'transaction');
     const cycle = await createProjectCycle(fixture, {
       name: 'CSV export cycle'
     });
@@ -1643,7 +1856,7 @@ describe('work item API', () => {
 
     await request(app)
       .get(`/api/projects/${fixture.projectId}/work-items/export`)
-      .query({ status: 'ready' })
+      .query({ status: 'ready', page: 99, pageSize: 10 })
       .set(fixture.headers)
       .expect(200)
       .expect('Content-Type', /text\/csv/)
@@ -1657,6 +1870,13 @@ describe('work item API', () => {
           ].join('\n')
         );
       });
+    expect(transactionSpy).toHaveBeenCalledWith(
+      expect.any(Function),
+      {
+        isolationLevel: 'repeatable read',
+        accessMode: 'read only'
+      }
+    );
   });
 
   it('exports dependency-filtered project and workspace work items as CSV', async () => {
@@ -1846,11 +2066,11 @@ describe('work item API', () => {
       .set(fixture.headers)
       .expect(200)
       .expect(({ body }) => {
-        expect(body.map((item: { displayKey: string }) => item.displayKey)).toEqual([
+        expect(body.items.map((item: { displayKey: string }) => item.displayKey)).toEqual([
           activeItem.displayKey,
           otherProjectItem.displayKey
         ]);
-        expect(body[0]).toMatchObject({
+        expect(body.items[0]).toMatchObject({
           displayKey: activeItem.displayKey,
           project: {
             id: fixture.projectId,
@@ -1859,7 +2079,7 @@ describe('work item API', () => {
             status: 'active'
           }
         });
-        expect(body.every((item: { project: { status: string } }) => item.project.status === 'active')).toBe(
+        expect(body.items.every((item: { project: { status: string } }) => item.project.status === 'active')).toBe(
           true
         );
       });
@@ -1901,8 +2121,8 @@ describe('work item API', () => {
       .set(fixture.headers)
       .expect(200)
       .expect(({ body }) => {
-        expect(body).toHaveLength(1);
-        expect(body[0]).toMatchObject({
+        expect(body.items).toHaveLength(1);
+        expect(body.items[0]).toMatchObject({
           id: urgent.id,
           displayKey: urgent.displayKey,
           labels: [{ id: fixture.backendLabelId, name: 'backend' }],
@@ -1917,8 +2137,8 @@ describe('work item API', () => {
       .set(fixture.headers)
       .expect(200)
       .expect(({ body }) => {
-        expect(body.map((item: { id: string }) => item.id)).toEqual([low.id]);
-        expect(body[0].assignee).toBeNull();
+        expect(body.items.map((item: { id: string }) => item.id)).toEqual([low.id]);
+        expect(body.items[0].assignee).toBeNull();
       });
 
     await request(app)
@@ -1927,7 +2147,7 @@ describe('work item API', () => {
       .set(fixture.headers)
       .expect(200)
       .expect(({ body }) => {
-        expect(body.map((item: { id: string }) => item.id)).toEqual([urgent.id, low.id]);
+        expect(body.items.map((item: { id: string }) => item.id)).toEqual([urgent.id, low.id]);
       });
   });
 
@@ -1971,8 +2191,8 @@ describe('work item API', () => {
       .set(fixture.headers)
       .expect(200)
       .expect(({ body }) => {
-        expect(body.map((item: { id: string }) => item.id)).toEqual([dependencyBlocked.id]);
-        expect(body[0]).toMatchObject({
+        expect(body.items.map((item: { id: string }) => item.id)).toEqual([dependencyBlocked.id]);
+        expect(body.items[0]).toMatchObject({
           dependencyBlocked: true,
           openBlockerCount: 1
         });
@@ -1984,8 +2204,8 @@ describe('work item API', () => {
       .set(fixture.headers)
       .expect(200)
       .expect(({ body }) => {
-        expect(body.map((item: { id: string }) => item.id)).toEqual([openBlocker.id]);
-        expect(body[0]).toMatchObject({
+        expect(body.items.map((item: { id: string }) => item.id)).toEqual([openBlocker.id]);
+        expect(body.items[0]).toMatchObject({
           openBlockedWorkCount: 1
         });
       });
@@ -2016,7 +2236,7 @@ describe('work item API', () => {
       .set(fixture.headers)
       .expect(200)
       .expect(({ body }) => {
-        expect(body.map((item: { id: string }) => item.id)).toEqual([archivedItem.id, activeItem.id]);
+        expect(body.items.map((item: { id: string }) => item.id)).toEqual([archivedItem.id, activeItem.id]);
       });
 
     await request(app)
@@ -2025,8 +2245,8 @@ describe('work item API', () => {
       .set(fixture.headers)
       .expect(200)
       .expect(({ body }) => {
-        expect(body).toHaveLength(1);
-        expect(body[0]).toMatchObject({
+        expect(body.items).toHaveLength(1);
+        expect(body.items[0]).toMatchObject({
           id: archivedItem.id,
           project: { id: archivedProject.id, status: 'archived' }
         });
@@ -2046,8 +2266,8 @@ describe('work item API', () => {
       .set(fixture.headers)
       .expect(200)
       .expect(({ body }) => {
-        expect(body).toHaveLength(1);
-        expect(body[0]).toMatchObject({
+        expect(body.items).toHaveLength(1);
+        expect(body.items[0]).toMatchObject({
           id: workItem.id,
           assignee: {
             id: fixture.inactiveMemberId,
@@ -2122,6 +2342,113 @@ describe('work item API', () => {
     expect(project?.nextWorkItemNumber).toBe(2);
   });
 
+  it('returns default, explicit, stale, empty, and validated project pages', async () => {
+    const fixture = await createFixture('owner');
+
+    for (let index = 0; index < 12; index += 1) {
+      await createWorkItem(fixture, {
+        title: `Paged project work ${index + 1}`,
+        updatedAt: new Date(`2026-07-${String(index + 1).padStart(2, '0')}T12:00:00.000Z`)
+      });
+    }
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items`)
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          page: 1,
+          pageSize: 25,
+          totalCount: 12,
+          totalPages: 1,
+          hasPreviousPage: false,
+          hasNextPage: false
+        });
+        expect(body.items).toHaveLength(12);
+      });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items`)
+      .query({ page: 2, pageSize: 10 })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          page: 2,
+          pageSize: 10,
+          totalCount: 12,
+          totalPages: 2,
+          hasPreviousPage: true,
+          hasNextPage: false
+        });
+        expect(body.items).toHaveLength(2);
+      });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items`)
+      .query({ page: 99, pageSize: 10 })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.page).toBe(2);
+        expect(body.items).toHaveLength(2);
+      });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items`)
+      .query({ search: 'no-page-results', page: 4, pageSize: 50 })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual({
+          items: [],
+          page: 1,
+          pageSize: 50,
+          totalCount: 0,
+          totalPages: 0,
+          hasPreviousPage: false,
+          hasNextPage: false
+        });
+      });
+
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items`)
+      .query({ page: 0 })
+      .set(fixture.headers)
+      .expect(400);
+    await request(app)
+      .get(`/api/projects/${fixture.projectId}/work-items`)
+      .query({ pageSize: 11 })
+      .set(fixture.headers)
+      .expect(400);
+  });
+
+  it('returns explicit workspace pages', async () => {
+    const fixture = await createFixture('owner');
+
+    for (let index = 0; index < 12; index += 1) {
+      await createWorkItem(fixture, { title: `Paged workspace work ${index + 1}` });
+    }
+
+    await request(app)
+      .get('/api/work-items')
+      .query({ search: 'paged workspace work', page: 2, pageSize: 10 })
+      .set(fixture.headers)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          page: 2,
+          pageSize: 10,
+          totalCount: 12,
+          totalPages: 2,
+          hasPreviousPage: true,
+          hasNextPage: false
+        });
+        expect(body.items).toHaveLength(2);
+      });
+  });
+
   it('lists and filters project work items', async () => {
     const fixture = await createFixture('owner');
     const ready = await createWorkItem(fixture, {
@@ -2152,8 +2479,8 @@ describe('work item API', () => {
       .set(fixture.headers)
       .expect(200)
       .expect(({ body }) => {
-        expect(body).toHaveLength(1);
-        expect(body[0]).toMatchObject({
+        expect(body.items).toHaveLength(1);
+        expect(body.items[0]).toMatchObject({
           id: ready.id,
           title: 'Filtered ready work item',
           labels: [{ id: fixture.frontendLabelId }]
@@ -2211,8 +2538,8 @@ describe('work item API', () => {
       .set(fixture.headers)
       .expect(200)
       .expect(({ body }) => {
-        expect(body.map((item: { id: string }) => item.id)).toEqual([unassignedActive.id]);
-        expect(body[0]).toMatchObject({
+        expect(body.items.map((item: { id: string }) => item.id)).toEqual([unassignedActive.id]);
+        expect(body.items[0]).toMatchObject({
           assignee: null,
           milestone: { id: milestone.id },
           status: 'ready'
@@ -2229,8 +2556,8 @@ describe('work item API', () => {
       .set(fixture.headers)
       .expect(200)
       .expect(({ body }) => {
-        expect(body.map((item: { id: string }) => item.id)).toEqual([staleInProgress.id]);
-        expect(body[0]).toMatchObject({
+        expect(body.items.map((item: { id: string }) => item.id)).toEqual([staleInProgress.id]);
+        expect(body.items[0]).toMatchObject({
           milestone: { id: milestone.id },
           status: 'in_progress'
         });
@@ -2929,8 +3256,8 @@ describe('work item API', () => {
       .set(fixture.headers)
       .expect(200)
       .expect(({ body }) => {
-        expect(body.map((item: { id: string }) => item.id)).toEqual([dependencyBlocked.id]);
-        expect(body[0]).toMatchObject({
+        expect(body.items.map((item: { id: string }) => item.id)).toEqual([dependencyBlocked.id]);
+        expect(body.items[0]).toMatchObject({
           dependencyBlocked: true,
           openBlockerCount: 1
         });
@@ -2942,8 +3269,8 @@ describe('work item API', () => {
       .set(fixture.headers)
       .expect(200)
       .expect(({ body }) => {
-        expect(body.map((item: { id: string }) => item.id)).toEqual([openBlocker.id]);
-        expect(body[0]).toMatchObject({
+        expect(body.items.map((item: { id: string }) => item.id)).toEqual([openBlocker.id]);
+        expect(body.items[0]).toMatchObject({
           openBlockedWorkCount: 1
         });
       });
@@ -2994,8 +3321,8 @@ describe('work item API', () => {
       .set(fixture.headers)
       .expect(200)
       .expect(({ body }) => {
-        expect(body).toHaveLength(1);
-        expect(body[0]).toMatchObject({
+        expect(body.items).toHaveLength(1);
+        expect(body.items[0]).toMatchObject({
           id: dueSoon.id,
           milestone: { id: milestone.id },
           cycle: { id: cycle.id },
@@ -3009,8 +3336,8 @@ describe('work item API', () => {
       .set(fixture.headers)
       .expect(200)
       .expect(({ body }) => {
-        expect(body).toHaveLength(1);
-        expect(body[0].id).toBe(overdue.id);
+        expect(body.items).toHaveLength(1);
+        expect(body.items[0].id).toBe(overdue.id);
       });
 
     await request(app)
@@ -3019,7 +3346,7 @@ describe('work item API', () => {
       .set(fixture.headers)
       .expect(200)
       .expect(({ body }) => {
-        expect(body.map((item: { id: string }) => item.id)).toEqual([overdue.id, dueSoon.id]);
+        expect(body.items.map((item: { id: string }) => item.id)).toEqual([overdue.id, dueSoon.id]);
       });
   });
 
@@ -3388,8 +3715,8 @@ describe('work item API', () => {
       .set(fixture.headers)
       .expect(200)
       .expect(({ body }) => {
-        expect(body).toHaveLength(1);
-        expect(body[0]).toMatchObject({
+        expect(body.items).toHaveLength(1);
+        expect(body.items[0]).toMatchObject({
           id: workItem.id,
           assignee: {
             id: fixture.inactiveMemberId,
@@ -3715,8 +4042,7 @@ describe('work item API', () => {
       });
 
     await request(app)
-      .get(`/api/projects/${fixture.projectId}/work-items`)
-      .query({ status: 'ready', sort: 'board_order' })
+      .get(`/api/projects/${fixture.projectId}/board/work-items`)
       .set(fixture.headers)
       .expect(200)
       .expect(({ body }) => {
@@ -3757,8 +4083,7 @@ describe('work item API', () => {
       });
 
     await request(app)
-      .get(`/api/projects/${fixture.projectId}/work-items`)
-      .query({ status: 'ready', sort: 'board_order' })
+      .get(`/api/projects/${fixture.projectId}/board/work-items`)
       .set(fixture.headers)
       .expect(200)
       .expect(({ body }) => {
@@ -3838,8 +4163,7 @@ describe('work item API', () => {
       });
 
     await request(app)
-      .get(`/api/projects/${fixture.projectId}/work-items`)
-      .query({ status: 'ready', sort: 'board_order' })
+      .get(`/api/projects/${fixture.projectId}/board/work-items`)
       .set(fixture.headers)
       .expect(200)
       .expect(({ body }) => {

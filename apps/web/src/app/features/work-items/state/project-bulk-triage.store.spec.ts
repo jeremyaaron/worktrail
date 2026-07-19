@@ -64,6 +64,44 @@ describe('ProjectBulkTriageStore', () => {
     expect(store.result()?.failedCount).toBe(1);
   });
 
+  it('prunes failed selection to visible rows without clearing result feedback', () => {
+    const store = new ProjectBulkTriageStore();
+    store.enter();
+    store.toggleAllVisible([{ id: 'work-1' }, { id: 'work-2' }]);
+    store.beginApply();
+    store.applySucceeded({
+      requestedCount: 2,
+      succeededCount: 0,
+      unchangedCount: 0,
+      failedCount: 2,
+      results: [
+        {
+          workItemId: 'work-1',
+          displayKey: 'WT-1',
+          status: 'failed',
+          workItem: null,
+          error: { code: 'WORKFLOW_TRANSITION_ERROR', message: 'First failed.' }
+        },
+        {
+          workItemId: 'work-2',
+          displayKey: 'WT-2',
+          status: 'failed',
+          workItem: null,
+          error: { code: 'WORKFLOW_TRANSITION_ERROR', message: 'Second failed.' }
+        }
+      ]
+    });
+
+    store.pruneSelectionToVisible([{ id: 'work-2' }]);
+
+    expect(store.selectedItemIds()).toEqual(['work-2']);
+    expect(store.result()?.failedCount).toBe(2);
+    expect(store.result()?.results.map((result) => result.workItemId)).toEqual([
+      'work-1',
+      'work-2'
+    ]);
+  });
+
   it('exits mode and clears selection, apply state, errors, and result summaries', () => {
     const store = new ProjectBulkTriageStore();
     store.enter();

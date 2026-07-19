@@ -1,6 +1,6 @@
 import 'dotenv/config';
 
-import { eq, inArray, sql } from 'drizzle-orm';
+import { and, count, eq, inArray, sql } from 'drizzle-orm';
 
 import { createDb, createPool } from './client.js';
 import {
@@ -1221,6 +1221,24 @@ try {
 
     if (nestedSeedChildren.length > 0) {
       throw new Error('Seed hierarchy must remain bounded to two levels.');
+    }
+
+    const [mainProjectWorkItemCount] = await tx
+      .select({ value: count() })
+      .from(workItems)
+      .where(eq(workItems.projectId, ids.projects.app));
+    const [activeWorkspaceWorkItemCount] = await tx
+      .select({ value: count() })
+      .from(workItems)
+      .innerJoin(projects, eq(projects.id, workItems.projectId))
+      .where(and(eq(workItems.workspaceId, ids.workspace), eq(projects.status, 'active')));
+
+    if ((mainProjectWorkItemCount?.value ?? 0) <= 10) {
+      throw new Error('Seed main project must contain more than 10 work items for paging demos.');
+    }
+
+    if ((activeWorkspaceWorkItemCount?.value ?? 0) <= 10) {
+      throw new Error('Seed active workspace must contain more than 10 work items for paging demos.');
     }
 
     await tx

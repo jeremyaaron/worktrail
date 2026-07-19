@@ -98,8 +98,46 @@ describe('WorkListQueryStore', () => {
       workRisk: null,
       hierarchy: null,
       parentKey: null,
-      sort: null
+      sort: null,
+      page: null,
+      pageSize: null
     });
+  });
+
+  it('keeps page state separate from durable filters and canonicalizes browser parameters', () => {
+    const store = WorkListQueryStore.workspace();
+    const params = new URLSearchParams({ status: 'ready', page: '3', pageSize: '50' });
+
+    store.applyRouteQueryParams(params);
+
+    expect(store.activeQuery()).toEqual({ status: 'ready' });
+    expect(store.activePageQuery()).toEqual({ page: 3, pageSize: 50 });
+    expect(store.isCanonicalPageQuery(params)).toBeTrue();
+    expect(store.returnUrl('/work-items')).toBe('/work-items?status=ready&page=3&pageSize=50');
+    expect(store.routerQueryParamsForPage(2)).toEqual(
+      jasmine.objectContaining({ status: 'ready', page: '2', pageSize: '50' })
+    );
+    expect(store.routerQueryParamsForPageSize(100)).toEqual(
+      jasmine.objectContaining({ status: 'ready', page: null, pageSize: '100' })
+    );
+  });
+
+  it('normalizes invalid page parameters and resets paging for applied queries', () => {
+    const store = WorkListQueryStore.project();
+    const invalidParams = new URLSearchParams({ search: 'risk', page: '-2', pageSize: '500' });
+
+    store.applyRouteQueryParams(invalidParams);
+
+    expect(store.activePageQuery()).toEqual({ page: 1, pageSize: 25 });
+    expect(store.isCanonicalPageQuery(invalidParams)).toBeFalse();
+
+    store.applyRouteQueryParams(new URLSearchParams({ page: '4', pageSize: '10' }));
+    store.applyQuery({ status: 'blocked' });
+
+    expect(store.activePageQuery()).toEqual({ page: 1, pageSize: 25 });
+    expect(store.routerQueryParamsFromQuery({ status: 'blocked' })).toEqual(
+      jasmine.objectContaining({ status: 'blocked', page: null, pageSize: null })
+    );
   });
 
   it('keeps exact-parent edits pending until applied and replaces them with visible hierarchy', () => {

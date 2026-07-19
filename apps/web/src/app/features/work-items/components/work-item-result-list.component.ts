@@ -1,6 +1,7 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type {
+  WorkItemPageMetadataDto,
   WorkItemListItemDto,
   WorkspaceWorkItemListItemDto
 } from '@worktrail/contracts';
@@ -24,9 +25,14 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
   selector: 'app-work-item-result-list',
   imports: [EmptyStateComponent, ErrorPanelComponent, LoadingIndicatorComponent, RouterLink],
   template: `
-    <section class="list-panel" [attr.data-mode]="mode" [attr.data-selection]="selectionEnabled ? 'true' : 'false'">
+    <section
+      class="list-panel"
+      [attr.data-mode]="mode"
+      [attr.data-selection]="selectionEnabled ? 'true' : 'false'"
+      [attr.aria-busy]="isLoading"
+    >
       <div class="list-heading">
-        <h2>{{ items.length }} work items</h2>
+        <h2 #resultHeading tabindex="-1">{{ isLoading ? 'Work items' : resultSummary() }}</h2>
       </div>
 
       @if (isLoading) {
@@ -661,7 +667,16 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
   `
 })
 export class WorkItemResultListComponent {
+  @ViewChild('resultHeading', { static: true }) private resultHeading?: ElementRef<HTMLHeadingElement>;
   @Input({ required: true }) items: ResultItem[] = [];
+  @Input({ required: true }) metadata: WorkItemPageMetadataDto = {
+    page: 1,
+    pageSize: 25,
+    totalCount: 0,
+    totalPages: 0,
+    hasPreviousPage: false,
+    hasNextPage: false
+  };
   @Input() mode: 'project' | 'workspace' = 'project';
   @Input() isLoading = false;
   @Input() error: string | null = null;
@@ -698,6 +713,24 @@ export class WorkItemResultListComponent {
 
   selectionLabel(item: ResultItem): string {
     return `Select ${item.displayKey}`;
+  }
+
+  resultSummary(): string {
+    if (this.metadata.totalCount === 0) {
+      return '0 work items';
+    }
+
+    if (this.metadata.totalCount === 1) {
+      return '1 work item';
+    }
+
+    const rangeStart = (this.metadata.page - 1) * this.metadata.pageSize + 1;
+    const rangeEnd = rangeStart + this.items.length - 1;
+    return `${rangeStart}-${rangeEnd} of ${this.metadata.totalCount} work items`;
+  }
+
+  focusResultHeading(): void {
+    this.resultHeading?.nativeElement.focus();
   }
 
   workspaceItem(item: ResultItem): WorkspaceWorkItemListItemDto | null {

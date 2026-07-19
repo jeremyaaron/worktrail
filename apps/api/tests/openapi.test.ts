@@ -51,6 +51,7 @@ describe('OpenAPI reference', () => {
       '/api/work-items',
       '/api/work-items/export',
       '/api/projects/{projectId}/work-items',
+      '/api/projects/{projectId}/board/work-items',
       '/api/projects/{projectId}/work-items/bulk-update',
       '/api/projects/{projectId}/work-items/imports/preview',
       '/api/projects/{projectId}/work-items/imports',
@@ -77,6 +78,7 @@ describe('OpenAPI reference', () => {
       expect(openApi, `missing ${path}`).toContain(`  ${path}:`);
     }
 
+    expect(openApi).toContain('version: 0.2.6');
     expect(openApi).toContain('x-worktrail-member-id');
     expect(openApi).toContain('x-worktrail-workspace-id');
     expect(openApi).toContain('x-worktrail-role');
@@ -196,6 +198,14 @@ describe('OpenAPI reference', () => {
     expect(openApi).toContain('work_item.relationship_added');
     expect(openApi).toContain('work_item.relationship_removed');
     expect(openApi).toContain('text/csv:');
+    expect(openApi).toContain('EXPORT_LIMIT_EXCEEDED');
+    expect(openApi).toContain('More than 10,000 work items match. Narrow the applied filters and retry.');
+    expect(openApi).toContain('Paging parameters do not affect exports.');
+    expect(openApi).toContain('/api/projects/{projectId}/board/work-items:');
+    expect(openApi).toContain('WorkItemPageSizeQuery:');
+    expect(openApi).toContain('WorkItemListPage:');
+    expect(openApi).toContain('WorkspaceWorkItemListPage:');
+    expect(openApi).toContain('Separate page requests may observe intervening writes.');
     expect(openApi).toContain('VALIDATION_ERROR');
     expect(openApi).toContain('INTERNAL_ERROR');
   });

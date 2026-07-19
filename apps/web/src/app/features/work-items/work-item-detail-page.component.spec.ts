@@ -520,19 +520,73 @@ describe('WorkItemDetailPageComponent', () => {
     expect(request.request.method).toBe('GET');
     expect(request.request.params.get('search')).toBe('api');
     expect(request.request.params.get('archivedProjects')).toBe('exclude');
-    request.flush([
-      candidate({ id: workItemId, displayKey: 'WT-3', title: 'Implement detail surface' }),
-      candidate({ id: blockerWorkItemId, displayKey: 'WT-4', title: 'Finish API contract' })
-    ]);
+    expect(request.request.params.get('page')).toBe('1');
+    expect(request.request.params.get('pageSize')).toBe('25');
+    request.flush({
+      items: [
+        candidate({ id: workItemId, displayKey: 'WT-3', title: 'Implement detail surface' }),
+        candidate({ id: blockerWorkItemId, displayKey: 'WT-4', title: 'Finish API contract' })
+      ],
+      page: 1,
+      pageSize: 25,
+      totalCount: 30,
+      totalPages: 2,
+      hasPreviousPage: false,
+      hasNextPage: true
+    });
     fixture.detectChanges();
 
     expect(fixture.componentInstance.relationshipCandidates().map((item) => item.id)).toEqual([
       blockerWorkItemId
     ]);
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('WT-4 Finish API contract');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'More matches are available. Refine the search to narrow the results.'
+    );
     expect((fixture.nativeElement as HTMLElement).textContent).not.toContain(
       'WT-3 Implement detail surface'
     );
+  });
+
+  it('preserves relationship candidate loading, error, retry, and empty states', () => {
+    const { fixture, http } = setup();
+    fixture.componentInstance.relationshipForm.patchValue({ search: 'missing work' });
+    fixture.componentInstance.searchRelationshipCandidates();
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const searchButton = compiled.querySelector<HTMLButtonElement>(
+      '.relationship-form-grid button'
+    );
+    expect(searchButton?.disabled).toBeTrue();
+    expect(searchButton?.textContent?.trim()).toBe('Searching...');
+
+    http
+      .expectOne((candidateRequest) => candidateRequest.url === '/api/work-items')
+      .flush('failed', { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain('Search failed');
+    expect(compiled.textContent).toContain('Work item candidates could not be loaded.');
+    compiled.querySelector<HTMLButtonElement>('.relationship-form app-error-panel button')?.click();
+
+    const retry = http.expectOne((candidateRequest) => candidateRequest.url === '/api/work-items');
+    expect(retry.request.params.get('search')).toBe('missing work');
+    expect(retry.request.params.get('page')).toBe('1');
+    expect(retry.request.params.get('pageSize')).toBe('25');
+    retry.flush({
+      items: [],
+      page: 1,
+      pageSize: 25,
+      totalCount: 0,
+      totalPages: 0,
+      hasPreviousPage: false,
+      hasNextPage: false
+    });
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain('No matching work items found.');
+    expect(compiled.textContent).not.toContain('More matches are available.');
   });
 
   it('reloads detail when navigating to another work item on the same route component', () => {

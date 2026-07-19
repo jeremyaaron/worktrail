@@ -1,6 +1,6 @@
 # Worktrail
 
-Worktrail is a project management reference app. The v0.2.5 baseline is a local-first Angular + TypeScript API + Postgres application focused on daily team workflow, two-level work breakdown, workspace portfolio review, collaboration updates, reliable filtered work views, pinned workspace and project operating lenses, explicit project batch triage, milestone review, cycle planning and closeout, published project reports and Markdown sharing, cross-project discovery, dependency-aware planning, workspace governance, data portability, and production-shaped application boundaries.
+Worktrail is a project management reference app. The v0.2.6 baseline is a local-first Angular + TypeScript API + Postgres application focused on scalable work discovery, daily team workflow, two-level work breakdown, workspace portfolio review, collaboration updates, reliable filtered work views, pinned workspace and project operating lenses, explicit project batch triage, milestone review, cycle planning and closeout, published project reports and Markdown sharing, dependency-aware planning, workspace governance, data portability, and production-shaped application boundaries.
 
 The app includes My Work, Portfolio review, Action Inbox, top-level Work Items discovery, URL-backed filters, copyable filtered-view links, personal saved views, workspace-shared saved views, project-scoped personal and shared saved views, pinned saved-view shortcuts, project-scoped bulk updates, quick work capture, persistent project workspaces, live planning review, live milestone review, cycle management and review, generated report drafts, immutable published report snapshots with cycle context, Markdown copy/download for published reports, print-friendly report detail pages, milestone/cycle/work links from reports, milestone management, durable boards, work item relationships, dependency-blocked signals, project delivery health, comments, mentions, work item watchers, activity, CSV import/export, production-like preview, health/readiness checks, checked-in API documentation, CI, lint, and responsive work item scanning.
 
@@ -24,6 +24,7 @@ docs/
   v0.2.3/  Portfolio Review PRD, technical design, implementation plan, release notes, and pattern notes
   v0.2.4/  Cycle Closeout PRD, technical design, implementation plan, release notes, and pattern notes
   v0.2.5/  Work Breakdown PRD, technical design, implementation plan, release notes, and pattern notes
+  v0.2.6/  Scalable Work Discovery PRD, technical design, implementation plan, release notes, and pattern notes
   api/     OpenAPI reference
 site/       Static GitHub Pages product site
 e2e/        Playwright smoke tests
@@ -172,9 +173,37 @@ Saved-view scopes are explicit:
 - `personal` visibility means the saved view is listed and mutable only for the owner.
 - `workspace` visibility means the saved view is shared with active workspace members in the current scope. For project scope, that means a shared project operating lens.
 
+## Scalable Work Discovery
+
+v0.2.6 bounds the project Work and workspace Work Items reads with server-backed pagination while
+preserving the existing applied-query contract.
+
+- Interactive lists default to 25 rows and support page sizes of 10, 25, 50, and 100.
+- The server returns the exact matching count, normalized page, total pages, and previous/next state;
+  each response enriches only the visible rows.
+- Page and non-default page-size values are URL-backed, survive reload and work-item detail return
+  navigation, and participate in browser history. Changing filters, sort, actor, project, saved view,
+  or page size starts again at page 1.
+- Saved views store durable filters and sort only. Opening a saved or pinned view starts at page 1 with
+  the default page size rather than restoring an obsolete result position.
+- Project batch triage selects explicit IDs from the visible page only. Navigating or changing the
+  applied query clears selection.
+- Project and workspace CSV export ignores paging and exports the complete applied result set up to
+  10,000 matching rows. Larger exports fail with actionable guidance and no partial file.
+- Separate page requests reflect current data rather than a frozen snapshot, so edits can move rows
+  between offset-based pages. Each individual response uses a repeatable-read transaction so its exact
+  count, page bounds, rows, and enrichment agree.
+- The project board uses a separate complete-board endpoint because truncating workflow columns would
+  break drag/drop semantics. Focused internal planning and review reads also remain intentionally
+  complete and unpaged.
+
+Migration `0016_scalable_search.sql` enables PostgreSQL `pg_trgm` and adds GIN trigram indexes for the
+existing display-key, title, and description substring search. The database migration role must be
+allowed to install that extension.
+
 ## Project Batch Triage
 
-v0.1.6 adds project-scoped batch triage on the project Work page. Owners and maintainers can select visible project work items, apply one explicit update, and review updated, unchanged, and failed result counts without opening each item.
+v0.1.6 adds project-scoped batch triage on the project Work page. Owners and maintainers can select work items on the visible page, apply one explicit update, and review updated, unchanged, and failed result counts without opening each item.
 
 Supported project batch actions:
 
@@ -303,14 +332,14 @@ Reports are intentionally lightweight. The current baseline does not add post-pu
 
 ## CSV Import And Export
 
-v0.0.7 added project-scoped CSV work item import and CSV export for both project lists and workspace discovery. v0.1.2 tightened export trust by routing export requests through applied canonical query state.
+v0.0.7 added project-scoped CSV work item import and CSV export for both project lists and workspace discovery. v0.1.2 tightened export trust by routing export requests through applied canonical query state. v0.2.6 keeps exports independent of the visible page and adds a 10,000-row synchronous safety limit.
 
 Import is a two-step flow:
 
 1. Preview validates a CSV file and returns normalized rows without creating work.
 2. Apply revalidates the same CSV and creates all rows transactionally.
 
-If any row is invalid during apply, no work items are created. Project and workspace exports use the same applied filters as the visible list or discovery view, so exported CSV matches the current result set rather than pending draft search input. Exports include cycle context and direct parent key/title context where present. CSV import does not assign cycles or parent relationships.
+If any row is invalid during apply, no work items are created. Project and workspace exports use the same applied filters as the visible list or discovery view, but ignore page and page size so the CSV contains every matching row rather than only the visible page. Exports include cycle context and direct parent key/title context where present. A synchronous export is limited to 10,000 matching rows; an oversized request returns an error without a partial download. CSV import does not assign cycles or parent relationships.
 
 The detailed CSV guide is in [docs/v0.0.X/v0.0.7/csv-import-export.md](docs/v0.0.X/v0.0.7/csv-import-export.md).
 
@@ -399,6 +428,7 @@ Seeded data includes:
 - active, upcoming, and completed Worktrail App cycles with target points and scoped work;
 - an isolated Closeout Lab with an active source cycle, planned destination, mixed terminal and unfinished scope, and dependency-blocked carryover;
 - work items across every status with persisted board positions;
+- 18 active Worktrail App items, which produce two pages when the page size is set to 10;
 - same-project, cross-project, and related-work relationships;
 - dependency-blocked examples where open blockers count and terminal blockers do not;
 - active work item watchers, comment mention metadata, unread notifications, and one read notification;
@@ -428,6 +458,8 @@ Suggested walkthrough:
 1. Switch to a maintainer and confirm project creation is available, then create a project with an explicit key.
 1. Switch to a contributor and confirm member administration is unavailable with clear helper copy.
 1. Open the Worktrail App project.
+1. Open Work, change the page size to 10, move to page 2, open a work item, and use the return link to confirm the page position is preserved.
+1. From page 2, export CSV and confirm the file contains all filtered Worktrail App rows rather than only the visible page.
 1. Review the project key, status counts, recently updated work, and activity.
 1. Open seeded parent `WT-12`, review its five direct children and derived summary, and use `Add child work item` to create another child with the parent preselected.
 1. Open a seeded child, replace and restore its parent, and confirm parent-change activity without dependency or workflow changes.
@@ -493,6 +525,9 @@ Suggested walkthrough:
 - Top-level Work Items destination for cross-project discovery.
 - Dashboard summary counts linked to filtered cross-project discovery.
 - Cross-project work item discovery with URL-backed search, filters, sorts, project identity, archived-project modes, and active filter pills.
+- Server-backed pagination for project Work and workspace Work Items with exact totals, visible ranges, direct page navigation, and 10/25/50/100 row sizes.
+- URL-backed page navigation that preserves non-default page state through reload, copied links, browser history, and work-item detail return URLs.
+- Durable saved-view query state kept separate from transient page and page-size state.
 - Canonical work item query helpers for form state, route params, saved views, return URLs, dashboard links, delivery-health links, and exports.
 - Copy-link actions for workspace and project filtered work item views.
 - Reloadable filtered URLs whose active chips and result set survive browser refresh.
@@ -511,7 +546,7 @@ Suggested walkthrough:
 - Shared pinned-view activity for workspace and project operating-surface changes.
 - Owner and maintainer management for shared project views, with contributor read access and personal project-view creation.
 - Archived projects keep project saved views openable while blocking project-scoped saved-view mutations.
-- Project Work page multi-select for owners and maintainers.
+- Project Work page multi-select for owners and maintainers, explicitly limited to loaded rows on the visible page.
 - Explicit project bulk edit mode that hides selection controls until the mode is entered.
 - Project-scoped bulk updates for assignee, priority, milestone, due date, labels, and status transitions.
 - Bulk update result summaries for updated, unchanged, and failed rows.
@@ -577,7 +612,7 @@ Suggested walkthrough:
 - Planning links from milestone rows and milestone review items to focused milestone review pages.
 - Project work item list search and filters for status, type, priority, assignee, reporter, label, milestone, cycle, due date, dependency state, and sort.
 - Project-scoped CSV import with dry-run preview, normalized rows, row-level validation errors, and transactional apply.
-- Project and workspace CSV export that serializes the currently applied filters through canonical query params and includes cycle and direct-parent context where present.
+- Project and workspace CSV export that serializes the currently applied filters through canonical query params, ignores paging, includes cycle and direct-parent context where present, and rejects more than 10,000 matching rows without returning a partial file.
 - CSV import/export guide under `docs/v0.0.X/v0.0.7/csv-import-export.md`.
 - Work item relationships with directional `blocks` and symmetric `relates_to` semantics.
 - Cross-project relationships inside the same workspace with project identity shown in relationship rows.
@@ -635,6 +670,10 @@ Suggested walkthrough:
 - CSV import supports Worktrail's current columns only; third-party tracker migration mappings are deferred.
 - CSV import does not assign cycles or parent relationships; cycle and hierarchy data are currently export-only.
 - CSV and status report Markdown export are direct file downloads; export history, scheduled exports, and additional report formats are deferred.
+- Project and workspace Work pagination uses exact counts and offset windows. Separate page requests are not snapshot-isolated, deep offsets and exact counts may become expensive at larger scale, and intervening writes can move rows between pages.
+- The project board intentionally loads the complete project projection so status columns and drag/drop ordering are not truncated. Board pagination or another large-board interaction model is deferred.
+- Focused internal aggregate reads for My Work, planning, reviews, reports, and Portfolio remain complete purpose-specific projections and need separate scaling evidence if workspace volume grows substantially.
+- CSV export is synchronous and assembled in memory for up to 10,000 matching rows. Background export jobs and object storage are deferred.
 - Work Breakdown is limited to one same-project parent and one child level. Recursive trees, epics, child ordering, hierarchy automation, bulk reparenting, hierarchy import, and automatic status or estimate rollups are deferred.
 - Relationships support only `blocks` and `relates_to`; custom relationship types and graph visualization are deferred. Containment is modeled separately and never changes dependency state.
 - Dependency-blocked state is derived from current open blockers; critical path analysis, external dependency alerts, and automation rules are deferred.
@@ -647,7 +686,7 @@ Suggested walkthrough:
 
 ## Database Status
 
-The current schema includes workspace activity, member lifecycle metadata, project keys, scoped work item display keys, labels, milestones, project cycles, immutable project cycle closeouts with versioned JSONB evidence, work item cycle assignments, an indexed nullable work item parent self-reference, comments, comment mentions, project activity, due dates, durable board positions, work item relationships, work item watchers, notifications, workspace-scoped saved work views, project-scoped saved work views, saved-view pinned state, and immutable project status report snapshots.
+The current schema includes workspace activity, member lifecycle metadata, project keys, scoped work item display keys, labels, milestones, project cycles, immutable project cycle closeouts with versioned JSONB evidence, work item cycle assignments, an indexed nullable work item parent self-reference, comments, comment mentions, project activity, due dates, durable board positions, work item relationships, work item watchers, notifications, workspace-scoped saved work views, project-scoped saved work views, saved-view pinned state, immutable project status report snapshots, and `pg_trgm` GIN indexes for work-item display-key, title, and description search.
 
 Useful database commands:
 

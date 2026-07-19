@@ -618,7 +618,7 @@ export class WorkItemBoardPageComponent implements OnInit {
     this.isLoading.set(true);
     this.loadError.set(null);
 
-    this.api.listWorkItems(this.projectId(), { sort: 'board_order' }).subscribe({
+    this.api.listProjectBoardWorkItems(this.projectId()).subscribe({
       next: (workItems) => {
         this.workItems.set(workItems);
         this.isLoading.set(false);

@@ -1,5 +1,14 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  OnInit,
+  ViewChild,
+  computed,
+  effect,
+  inject,
+  signal
+} from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type {
@@ -11,7 +20,10 @@ import type {
   MilestoneDto,
   ProjectCycleDto,
   ProjectNavigationSummaryDto,
+  ResolvedWorkItemPageQuery,
   SavedWorkViewDto,
+  WorkItemPageMetadataDto,
+  WorkItemPageSize,
   WorkItemPriority,
   WorkItemQuery,
   WorkItemSort,
@@ -27,6 +39,7 @@ import { WorktrailApiService } from '../../core/worktrail-api.service';
 import { ClipboardService } from '../../shared/clipboard.service';
 import { CyclesApi } from '../../core/api/cycles-api';
 import { downloadBlob, fileNameFromContentDisposition } from '../../shared/download-file';
+import { apiErrorMessageFromBody } from '../../shared/http-error-message';
 import {
   dependencyFilterLabel,
   filterPillLabel,
@@ -40,11 +53,13 @@ import { ActiveFilterChipsComponent } from './components/active-filter-chips.com
 import { PinnedSavedViewsComponent } from './components/pinned-saved-views.component';
 import { SavedViewsToolbarComponent } from './components/saved-views-toolbar.component';
 import { WorkItemFilterPanelComponent } from './components/work-item-filter-panel.component';
+import { WorkItemPaginationComponent } from './components/work-item-pagination.component';
 import { WorkItemResultListComponent } from './components/work-item-result-list.component';
 import {
   unassignedAssigneeValue,
   workItemHierarchyOptions
 } from './query/work-item-filter-options';
+import { defaultWorkItemPageQuery } from './query/work-item-page-query-serialization';
 import { WorkListQueryStore } from './state/work-list-query.store';
 const statuses: WorkItemStatus[] = [
   'backlog',
@@ -119,6 +134,7 @@ interface WorkspaceFilterFormValue {
     RouterLink,
     SavedViewsToolbarComponent,
     WorkItemFilterPanelComponent,
+    WorkItemPaginationComponent,
     WorkItemResultListComponent
   ],
   template: `
@@ -365,6 +381,7 @@ interface WorkspaceFilterFormValue {
       <section class="work-list-results" aria-label="Workspace work item results">
         <app-work-item-result-list
           [items]="workItems()"
+          [metadata]="pageMetadata()"
           mode="workspace"
           [isLoading]="isLoading()"
           [error]="error()"
@@ -374,6 +391,12 @@ interface WorkspaceFilterFormValue {
           [emptyMessage]="activeFilterLabels().length > 0 ? 'Reset filters or adjust the criteria to broaden the list.' : 'Workspace work from active projects will appear here.'"
           [returnUrl]="detailReturnUrl()"
           (retry)="loadWorkItems()"
+        />
+        <app-work-item-pagination
+          [metadata]="pageMetadata()"
+          [disabled]="isLoading()"
+          (pageChange)="goToPage($event)"
+          (pageSizeChange)="changePageSize($event)"
         />
       </section>
     </div>
@@ -395,6 +418,7 @@ interface WorkspaceFilterFormValue {
     app-pinned-saved-views,
     app-saved-views-toolbar,
     app-work-item-filter-panel,
+    app-work-item-pagination,
     app-work-item-result-list {
       display: block;
     }
@@ -828,6 +852,8 @@ interface WorkspaceFilterFormValue {
   `
 })
 export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
+  @ViewChild(WorkItemResultListComponent) private resultList?: WorkItemResultListComponent;
+
   private readonly api = inject(WorktrailApiService);
   private readonly cyclesApi = inject(CyclesApi);
   private readonly clipboard = inject(ClipboardService);
@@ -837,8 +863,45 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   private readonly router = inject(Router);
   private readonly subscriptions = new Subscription();
   private readonly queryState = WorkListQueryStore.workspace();
+  private workItemsSubscription: Subscription | null = null;
+  private selectedActorId = this.currentUser.selectedMemberId();
+  private hasInitialized = false;
   private loadedProjectFilterId: string | null = null;
+  private focusAfterLoadPageKey: string | null = null;
+  private focusResultTimer: ReturnType<typeof setTimeout> | null = null;
   private copyLinkStatusTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private readonly actorChangeEffect = effect(() => {
+    const actorId = this.currentUser.selectedMemberId();
+
+    if (actorId === this.selectedActorId) {
+      return;
+    }
+
+    this.selectedActorId = actorId;
+    if (!this.hasInitialized) {
+      return;
+    }
+
+    this.workItemsSubscription?.unsubscribe();
+    this.clearResultFocusRequest();
+    this.activePageQuery.set({ ...defaultWorkItemPageQuery });
+    this.workItems.set([]);
+    this.pageMetadata.set(emptyPageMetadata());
+    this.error.set(null);
+    this.isLoading.set(false);
+    this.reloadActorContext();
+    void this.router
+      .navigate([], {
+        relativeTo: this.route,
+        queryParams: this.queryState.routerQueryParamsForResolvedPage(defaultWorkItemPageQuery)
+      })
+      .then((navigated) => {
+        if (!navigated) {
+          this.loadWorkItems();
+        }
+      });
+  });
 
   readonly statuses = statuses;
   readonly workStates = workStates;
@@ -891,6 +954,8 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   readonly milestones = signal<MilestoneDto[]>([]);
   readonly cycles = signal<ProjectCycleDto[]>([]);
   readonly workItems = signal<WorkspaceWorkItemListItemDto[]>([]);
+  readonly pageMetadata = signal<WorkItemPageMetadataDto>(emptyPageMetadata());
+  readonly activePageQuery = this.queryState.activePageQuery;
   readonly appliedFilterValues = this.queryState.activeFilterValues;
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
@@ -930,6 +995,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   });
 
   ngOnInit(): void {
+    this.hasInitialized = true;
     if (this.currentUser.members().length === 0) {
       this.currentUser.loadMembers();
     }
@@ -940,8 +1006,34 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
 
     this.subscriptions.add(
       this.route.queryParamMap.subscribe((params) => {
+        const previousFilters = this.appliedFilterValues();
+        const pendingFilterDraft = this.filterForm.getRawValue();
         const nextFilters = this.queryState.applyRouteQueryParams(params);
-        this.filterForm.patchValue(nextFilters, { emitEvent: false });
+        const activePage = this.activePageQuery();
+        const preservePendingFilterDraft =
+          this.focusAfterLoadPageKey !== null &&
+          sameFilterValues(previousFilters, nextFilters);
+
+        if (
+          this.focusAfterLoadPageKey !== null &&
+          this.focusAfterLoadPageKey !== pageKey(activePage)
+        ) {
+          this.clearResultFocusRequest();
+        }
+
+        if (preservePendingFilterDraft) {
+          this.queryState.setPendingFilterValues(pendingFilterDraft);
+        } else {
+          this.filterForm.patchValue(nextFilters, { emitEvent: false });
+        }
+        if (!this.queryState.isCanonicalPageQuery(params)) {
+          void this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: this.queryState.activeRouterQueryParams(),
+            replaceUrl: true
+          });
+          return;
+        }
         this.loadProjectScopedFilters(nextFilters.projectId);
         this.loadWorkItems();
       })
@@ -949,11 +1041,15 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   ngOnDestroy(): void {
+    this.hasInitialized = false;
+    this.workItemsSubscription?.unsubscribe();
     this.subscriptions.unsubscribe();
+    this.clearResultFocusTimer();
     this.clearCopyLinkStatusTimer();
   }
 
   applyFilters(): void {
+    this.clearResultFocusRequest();
     this.queryState.setPendingFilterValues(this.filterForm.getRawValue());
     void this.router.navigate([], {
       relativeTo: this.route,
@@ -967,14 +1063,40 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   loadWorkItems(): void {
+    this.workItemsSubscription?.unsubscribe();
+    const requestedPage = this.activePageQuery();
     this.isLoading.set(true);
     this.error.set(null);
+    this.workItems.set([]);
+    this.pageMetadata.set(emptyPageMetadata(requestedPage));
 
-    this.api.listWorkspaceWorkItems(this.appliedQuery()).subscribe({
-      next: (workItems) => {
-        this.workItems.set(workItems);
-        this.mergeResultLabels(workItems);
+    this.workItemsSubscription = this.api
+      .listWorkspaceWorkItems(this.appliedQuery(), requestedPage)
+      .subscribe({
+      next: (response) => {
+        if (response.page !== requestedPage.page || response.pageSize !== requestedPage.pageSize) {
+          if (this.focusAfterLoadPageKey === pageKey(requestedPage)) {
+            this.focusAfterLoadPageKey = pageKey(response);
+          }
+          void this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: this.queryState.routerQueryParamsForResolvedPage({
+              page: response.page,
+              pageSize: response.pageSize
+            }),
+            replaceUrl: true
+          });
+          return;
+        }
+
+        this.workItems.set(response.items);
+        this.pageMetadata.set(pageMetadataFromResponse(response));
+        this.mergeResultLabels(response.items);
         this.isLoading.set(false);
+        if (this.focusAfterLoadPageKey === pageKey(response)) {
+          this.focusAfterLoadPageKey = null;
+          this.scheduleResultHeadingFocus();
+        }
       },
       error: () => {
         this.error.set('Workspace work items could not be loaded from the API.');
@@ -983,31 +1105,82 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     });
   }
 
-  exportCsv(): void {
-    if (this.isExporting()) {
+  goToPage(page: number): void {
+    if (this.isLoading() || this.pageMetadata().totalPages === 0) {
       return;
+    }
+
+    const targetPage = Math.min(Math.max(1, page), this.pageMetadata().totalPages);
+    if (targetPage === this.activePageQuery().page) {
+      return;
+    }
+
+    this.requestResultHeadingFocus({
+      page: targetPage,
+      pageSize: this.activePageQuery().pageSize
+    });
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: this.queryState.routerQueryParamsForPage(targetPage)
+    }).then((navigated) => {
+      if (!navigated) {
+        this.clearResultFocusRequest();
+      }
+    });
+  }
+
+  changePageSize(pageSize: WorkItemPageSize): void {
+    if (
+      this.isLoading() ||
+      (this.activePageQuery().page === 1 && pageSize === this.activePageQuery().pageSize)
+    ) {
+      return;
+    }
+
+    this.requestResultHeadingFocus({ page: 1, pageSize });
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: this.queryState.routerQueryParamsForPageSize(pageSize)
+    }).then((navigated) => {
+      if (!navigated) {
+        this.clearResultFocusRequest();
+      }
+    });
+  }
+
+  exportCsv(): Promise<void> {
+    if (this.isExporting()) {
+      return Promise.resolve();
     }
 
     this.isExporting.set(true);
     this.exportError.set(null);
 
-    this.api.exportWorkspaceWorkItems(this.appliedQuery()).subscribe({
-      next: (response) => {
-        const fileName = fileNameFromContentDisposition(
-          response.headers.get('content-disposition'),
-          'worktrail-workspace-work-items.csv'
-        );
+    return new Promise((resolve) => {
+      this.api.exportWorkspaceWorkItems(this.appliedQuery()).subscribe({
+        next: (response) => {
+          const fileName = fileNameFromContentDisposition(
+            response.headers.get('content-disposition'),
+            'worktrail-workspace-work-items.csv'
+          );
 
-        downloadBlob({
-          blob: response.body ?? new Blob([''], { type: 'text/csv' }),
-          fileName
-        });
-        this.isExporting.set(false);
-      },
-      error: (error: HttpErrorResponse) => {
-        this.exportError.set(this.toErrorMessage(error, 'CSV export could not be downloaded.'));
-        this.isExporting.set(false);
-      }
+          downloadBlob({
+            blob: response.body ?? new Blob([''], { type: 'text/csv' }),
+            fileName
+          });
+          this.isExporting.set(false);
+          resolve();
+        },
+        error: (error: HttpErrorResponse) => {
+          const fallback = 'CSV export could not be downloaded.';
+          this.exportError.set(fallback);
+          this.isExporting.set(false);
+          void apiErrorMessageFromBody(error.error, fallback).then((message) => {
+            this.exportError.set(message);
+            resolve();
+          });
+        }
+      });
     });
   }
 
@@ -1194,6 +1367,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   openSavedView(savedView: SavedWorkViewDto): void {
+    this.clearResultFocusRequest();
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: this.queryState.routerQueryParamsFromQuery(savedView.query)
@@ -1334,6 +1508,38 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
 
   private appliedQuery(): WorkItemQuery {
     return this.queryState.activeQuery();
+  }
+
+  private reloadActorContext(): void {
+    this.loadProjectSummaries();
+    this.loadSavedViews();
+    this.loadedProjectFilterId = null;
+    this.loadProjectScopedFilters(this.appliedFilterValues().projectId);
+  }
+
+  private requestResultHeadingFocus(pageQuery: ResolvedWorkItemPageQuery): void {
+    this.clearResultFocusTimer();
+    this.focusAfterLoadPageKey = pageKey(pageQuery);
+  }
+
+  private scheduleResultHeadingFocus(): void {
+    this.clearResultFocusTimer();
+    this.focusResultTimer = setTimeout(() => {
+      this.focusResultTimer = null;
+      this.resultList?.focusResultHeading();
+    });
+  }
+
+  private clearResultFocusRequest(): void {
+    this.focusAfterLoadPageKey = null;
+    this.clearResultFocusTimer();
+  }
+
+  private clearResultFocusTimer(): void {
+    if (this.focusResultTimer !== null) {
+      clearTimeout(this.focusResultTimer);
+      this.focusResultTimer = null;
+    }
   }
 
   private currentFilteredViewUrl(): string {
@@ -1645,4 +1851,43 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       day: 'numeric'
     }).format(new Date(year, month - 1, day));
   }
+}
+
+function emptyPageMetadata(
+  pageQuery: ResolvedWorkItemPageQuery = { page: 1, pageSize: 25 }
+): WorkItemPageMetadataDto {
+  return {
+    ...pageQuery,
+    totalCount: 0,
+    totalPages: 0,
+    hasPreviousPage: false,
+    hasNextPage: false
+  };
+}
+
+function pageMetadataFromResponse(
+  response: WorkItemPageMetadataDto
+): WorkItemPageMetadataDto {
+  return {
+    page: response.page,
+    pageSize: response.pageSize,
+    totalCount: response.totalCount,
+    totalPages: response.totalPages,
+    hasPreviousPage: response.hasPreviousPage,
+    hasNextPage: response.hasNextPage
+  };
+}
+
+function pageKey(pageQuery: ResolvedWorkItemPageQuery): string {
+  return `${pageQuery.page}:${pageQuery.pageSize}`;
+}
+
+function sameFilterValues(
+  left: WorkspaceFilterFormValue,
+  right: WorkspaceFilterFormValue
+): boolean {
+  return Object.keys(left).every((key) => {
+    const filterKey = key as keyof WorkspaceFilterFormValue;
+    return left[filterKey] === right[filterKey];
+  });
 }

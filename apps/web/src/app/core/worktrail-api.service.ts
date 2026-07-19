@@ -32,6 +32,7 @@ import type {
   ProjectStatusReportDetailDto,
   ProjectStatusReportDraftDto,
   ProjectStatusReportSummaryDto,
+  ResolvedWorkItemPageQuery,
   ProjectSummaryDto,
   ListSavedWorkViewsQuery,
   SavedWorkViewDto,
@@ -52,6 +53,7 @@ import type {
   WorkItemQuery,
   WorkItemDetailDto,
   WorkItemListItemDto,
+  WorkItemListPageDto,
   WorkItemParentCandidateDto,
   WorkItemRelationshipDto,
   WorkItemRelationshipSummaryDto,
@@ -59,7 +61,7 @@ import type {
   WorkspaceActivityEventDto,
   WorkspaceCapabilitiesDto,
   WorkspaceDto,
-  WorkspaceWorkItemListItemDto
+  WorkspaceWorkItemListPageDto
 } from '@worktrail/contracts';
 import type { Observable } from 'rxjs';
 
@@ -262,17 +264,25 @@ export class WorktrailApiService {
 
   listWorkItems(
     projectId: string,
-    filters: WorkItemListFilters = {}
-  ): Observable<WorkItemListItemDto[]> {
-    return this.workItems.listWorkItems(projectId, filters);
+    filters: WorkItemListFilters,
+    pageQuery: ResolvedWorkItemPageQuery
+  ): Observable<WorkItemListPageDto> {
+    return this.workItems.listWorkItems(projectId, filters, pageQuery);
+  }
+
+  listProjectBoardWorkItems(projectId: string): Observable<WorkItemListItemDto[]> {
+    return this.workItems.listProjectBoardWorkItems(projectId);
   }
 
   getMyWork(): Observable<MyWorkDashboardDto> {
     return this.workItems.getMyWork();
   }
 
-  listWorkspaceWorkItems(filters: WorkItemQuery = {}): Observable<WorkspaceWorkItemListItemDto[]> {
-    return this.workItems.listWorkspaceWorkItems(filters);
+  listWorkspaceWorkItems(
+    filters: WorkItemQuery,
+    pageQuery: ResolvedWorkItemPageQuery
+  ): Observable<WorkspaceWorkItemListPageDto> {
+    return this.workItems.listWorkspaceWorkItems(filters, pageQuery);
   }
 
   exportWorkspaceWorkItems(filters: WorkItemQuery = {}): Observable<HttpResponse<Blob>> {

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Worktrail API
-  version: 0.2.5
+  version: 0.2.6
   summary: HTTP API reference for the Worktrail local-first project management app.
   description: |
     This document describes the implemented Worktrail API routes. It is intentionally
@@ -951,6 +951,7 @@ paths:
     get:
       tags: [Work Items]
       summary: List workspace work items.
+      description: Returns one current-data page with an exact total. Separate page requests may observe intervening writes.
       parameters:
         - $ref: "#/components/parameters/WorkItemProjectIdQuery"
         - $ref: "#/components/parameters/WorkItemStatusQuery"
@@ -971,22 +972,22 @@ paths:
         - $ref: "#/components/parameters/WorkItemArchivedProjectsQuery"
         - $ref: "#/components/parameters/SearchQuery"
         - $ref: "#/components/parameters/WorkItemSortQuery"
+        - $ref: "#/components/parameters/WorkItemPageQuery"
+        - $ref: "#/components/parameters/WorkItemPageSizeQuery"
       responses:
         "200":
           description: Workspace work items.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/WorkspaceWorkItemListItem"
+                $ref: "#/components/schemas/WorkspaceWorkItemListPage"
         default:
           $ref: "#/components/responses/Error"
   /api/work-items/export:
     get:
       tags: [Work Items]
       summary: Export workspace work items as CSV.
-      description: Exports the workspace discovery result set using the same applied query parameters as `GET /api/work-items`. CSV columns include `cycle_name`.
+      description: Exports up to 10,000 matching workspace discovery results using the same applied query parameters as `GET /api/work-items`. Paging parameters do not affect exports. CSV columns include `cycle_name`, `parent_key`, and `parent_title` context.
       parameters:
         - $ref: "#/components/parameters/WorkItemProjectIdQuery"
         - $ref: "#/components/parameters/WorkItemStatusQuery"
@@ -1019,12 +1020,25 @@ paths:
             text/csv:
               schema:
                 type: string
+        "422":
+          description: More than 10,000 work items match the applied filters. No partial CSV is returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: EXPORT_LIMIT_EXCEEDED
+                  message: More than 10,000 work items match. Narrow the applied filters and retry.
+                  details:
+                    limit: 10000
         default:
           $ref: "#/components/responses/Error"
   /api/projects/{projectId}/work-items:
     get:
       tags: [Work Items]
       summary: List work items for a project.
+      description: Returns one current-data page with an exact total. Separate page requests may observe intervening writes.
       parameters:
         - $ref: "#/components/parameters/ProjectId"
         - $ref: "#/components/parameters/WorkItemStatusQuery"
@@ -1044,15 +1058,15 @@ paths:
         - $ref: "#/components/parameters/WorkItemParentKeyQuery"
         - $ref: "#/components/parameters/SearchQuery"
         - $ref: "#/components/parameters/WorkItemSortQuery"
+        - $ref: "#/components/parameters/WorkItemPageQuery"
+        - $ref: "#/components/parameters/WorkItemPageSizeQuery"
       responses:
         "200":
           description: Project work items.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/WorkItemListItem"
+                $ref: "#/components/schemas/WorkItemListPage"
         default:
           $ref: "#/components/responses/Error"
     post:
@@ -1073,6 +1087,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/WorkItemDetail"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/projects/{projectId}/board/work-items:
+    get:
+      tags: [Work Items]
+      summary: List the complete project board projection.
+      description: Returns every project work item in deterministic board order for board rendering and drag/drop. This purpose-specific endpoint is intentionally not paged and should not be used for general work discovery.
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Complete project board work items.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkItemListItem"
         default:
           $ref: "#/components/responses/Error"
   /api/projects/{projectId}/work-items/bulk-update:
@@ -1145,7 +1177,7 @@ paths:
     get:
       tags: [Work Items]
       summary: Export project work items as CSV.
-      description: Exports the project work item list using the same applied query parameters as `GET /api/projects/{projectId}/work-items`. CSV columns include `cycle_name`.
+      description: Exports up to 10,000 matching project work items using the same applied query parameters as `GET /api/projects/{projectId}/work-items`. Paging parameters do not affect exports. CSV columns include `cycle_name`, `parent_key`, and `parent_title` context.
       parameters:
         - $ref: "#/components/parameters/ProjectId"
         - $ref: "#/components/parameters/WorkItemStatusQuery"
@@ -1177,6 +1209,18 @@ paths:
             text/csv:
               schema:
                 type: string
+        "422":
+          description: More than 10,000 work items match the applied filters. No partial CSV is returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: EXPORT_LIMIT_EXCEEDED
+                  message: More than 10,000 work items match. Narrow the applied filters and retry.
+                  details:
+                    limit: 10000
         default:
           $ref: "#/components/responses/Error"
   /api/work-items/{workItemId}:
@@ -1871,6 +1915,21 @@ components:
       schema:
         type: string
         enum: [updated_desc, updated_asc, priority_desc, priority_asc, due_date_asc, created_desc, board_order]
+    WorkItemPageQuery:
+      name: page
+      in: query
+      description: One-based requested page. Stale high pages normalize to the final current page.
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    WorkItemPageSizeQuery:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        enum: [10, 25, 50, 100]
+        default: 25
     NotificationStateQuery:
       name: state
       in: query
@@ -1941,7 +2000,7 @@ components:
           properties:
             code:
               type: string
-              examples: [VALIDATION_ERROR, FORBIDDEN, NOT_FOUND, INTERNAL_ERROR]
+              examples: [VALIDATION_ERROR, FORBIDDEN, NOT_FOUND, EXPORT_LIMIT_EXCEEDED, INTERNAL_ERROR]
             message:
               type: string
             details:
@@ -4153,6 +4212,36 @@ components:
         updatedAt:
           type: string
           format: date-time
+    WorkItemPageMetadata:
+      type: object
+      required: [page, pageSize, totalCount, totalPages, hasPreviousPage, hasNextPage]
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          enum: [10, 25, 50, 100]
+        totalCount:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+        hasPreviousPage:
+          type: boolean
+        hasNextPage:
+          type: boolean
+    WorkItemListPage:
+      allOf:
+        - $ref: "#/components/schemas/WorkItemPageMetadata"
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/WorkItemListItem"
     WorkspaceWorkItemListItem:
       allOf:
         - $ref: "#/components/schemas/WorkItemListItem"
@@ -4172,6 +4261,16 @@ components:
                   type: string
                 status:
                   $ref: "#/components/schemas/ProjectStatus"
+    WorkspaceWorkItemListPage:
+      allOf:
+        - $ref: "#/components/schemas/WorkItemPageMetadata"
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/WorkspaceWorkItemListItem"
     WorkItemDetail:
       allOf:
         - $ref: "#/components/schemas/WorkItemListItem"

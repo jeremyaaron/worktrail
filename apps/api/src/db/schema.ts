@@ -279,6 +279,9 @@ export const workItems = pgTable(
     index('work_items_workspace_id_cycle_id_idx').on(table.workspaceId, table.cycleId),
     index('work_items_workspace_id_due_date_idx').on(table.workspaceId, table.dueDate),
     index('work_items_workspace_id_updated_at_idx').on(table.workspaceId, table.updatedAt.desc()),
+    index('work_items_display_key_trgm_idx').using('gin', table.displayKey.op('gin_trgm_ops')),
+    index('work_items_title_trgm_idx').using('gin', table.title.op('gin_trgm_ops')),
+    index('work_items_description_trgm_idx').using('gin', table.description.op('gin_trgm_ops')),
     uniqueIndex('work_items_project_id_item_number_unique').on(table.projectId, table.itemNumber),
     uniqueIndex('work_items_workspace_id_display_key_unique').on(table.workspaceId, table.displayKey)
   ]

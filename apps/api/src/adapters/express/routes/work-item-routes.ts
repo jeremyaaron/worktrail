@@ -20,6 +20,7 @@ import {
   listWorkItemChildrenHandler,
   listWorkItemParentCandidatesHandler,
   listWorkItemRelationshipsHandler,
+  listProjectBoardWorkItemsHandler,
   listWorkspaceWorkItemsHandler,
   listWorkItemsHandler,
   moveWorkItemOnBoardHandler,
@@ -45,15 +46,28 @@ export function registerWorkItemRoutes(app: Express, context: ExpressRouteContex
   );
   app.get(
     '/api/work-items/export',
-    adaptEndpoint(exportWorkspaceWorkItemsHandler({ repositories: context.repositories }), options)
+    adaptEndpoint(
+      exportWorkspaceWorkItemsHandler({ repositories: context.repositories, db: context.db }),
+      options
+    )
   );
   app.get(
     '/api/projects/:projectId/work-items',
     adaptEndpoint(listWorkItemsHandler({ repositories: context.repositories, db: context.db }), options)
   );
   app.get(
+    '/api/projects/:projectId/board/work-items',
+    adaptEndpoint(
+      listProjectBoardWorkItemsHandler({ repositories: context.repositories, db: context.db }),
+      options
+    )
+  );
+  app.get(
     '/api/projects/:projectId/work-items/export',
-    adaptEndpoint(exportProjectWorkItemsHandler({ repositories: context.repositories }), options)
+    adaptEndpoint(
+      exportProjectWorkItemsHandler({ repositories: context.repositories, db: context.db }),
+      options
+    )
   );
   app.post(
     '/api/projects/:projectId/work-items/imports/preview',

@@ -1,10 +1,19 @@
 import { randomUUID } from 'node:crypto';
 
-import type { ProjectCycleCloseoutSnapshotDto } from '@worktrail/contracts';
+import type {
+  ProjectCycleCloseoutSnapshotDto,
+  WorkItemPageSize,
+  WorkItemQuery
+} from '@worktrail/contracts';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { createDb, createPool } from '../src/db/client.js';
-import { createRepositories, withRepositoriesTransaction, type Repositories } from '../src/repositories/index.js';
+import {
+  createRepositories,
+  withRepositoriesReadTransaction,
+  withRepositoriesTransaction,
+  type Repositories
+} from '../src/repositories/index.js';
 
 const workspaceIds = new Set<string>();
 let pool: ReturnType<typeof createPool>;
@@ -187,6 +196,14 @@ async function createRepositoryWorkItem(
     boardPosition?: number;
     estimatePoints?: number | null;
     title?: string;
+    description?: string;
+    type?: 'task' | 'bug' | 'story' | 'chore';
+    assigneeId?: string | null;
+    milestoneId?: string | null;
+    cycleId?: string | null;
+    dueDate?: string | null;
+    projectId?: string;
+    projectKey?: string;
     updatedAt?: Date;
   }
 ) {
@@ -195,19 +212,21 @@ async function createRepositoryWorkItem(
   return repos.workItems.create({
     id: input.id ?? randomUUID(),
     workspaceId: graph.id.workspaceId,
-    projectId: graph.id.projectId,
+    projectId: input.projectId ?? graph.id.projectId,
     itemNumber: input.itemNumber,
-    displayKey: `RT-${input.itemNumber}`,
+    displayKey: `${input.projectKey ?? graph.project.key}-${input.itemNumber}`,
     title: input.title ?? `Repository work item ${input.itemNumber}`,
-    description: 'Created by repository relationship tests.',
-    type: 'task',
+    description: input.description ?? 'Created by repository relationship tests.',
+    type: input.type ?? 'task',
     status: input.status ?? 'ready',
     priority: input.priority ?? 'medium',
-    assigneeId: graph.id.contributorId,
+    assigneeId: input.assigneeId === undefined ? graph.id.contributorId : input.assigneeId,
     reporterId: graph.id.ownerId,
+    milestoneId: input.milestoneId ?? null,
+    cycleId: input.cycleId ?? null,
     parentWorkItemId: input.parentWorkItemId ?? null,
     boardPosition: input.boardPosition ?? input.itemNumber * 1024,
-    dueDate: null,
+    dueDate: input.dueDate ?? null,
     estimatePoints: input.estimatePoints ?? null,
     createdAt: timestamp,
     updatedAt: input.updatedAt ?? timestamp
@@ -370,6 +389,312 @@ describe('Drizzle repositories', () => {
         status: 'blocked'
       })
     ).resolves.toHaveLength(0);
+  });
+
+  it('reads exact project pages across every supported size and keeps board reads complete', async () => {
+    const graph = await createRepositoryGraph(repositories);
+
+    await Promise.all(
+      Array.from({ length: 112 }, (_, index) =>
+        createRepositoryWorkItem(repositories, graph, { itemNumber: index + 2 })
+      )
+    );
+
+    await expect(
+      repositories.workItems.countByProjectQuery(graph.project.id)
+    ).resolves.toBe(113);
+    await expect(
+      repositories.workItems.countByWorkspaceQuery(graph.workspace.id)
+    ).resolves.toBe(113);
+
+    for (const pageSize of [10, 25, 50, 100] as const) {
+      const page = await repositories.workItems.listPageByProject(
+        graph.project.id,
+        { sort: 'updated_asc' },
+        { limit: pageSize, offset: 0 }
+      );
+      expect(page).toHaveLength(pageSize);
+      expect(page[0]?.itemNumber).toBe(1);
+      expect(page.at(-1)?.itemNumber).toBe(pageSize);
+    }
+
+    const middle = await repositories.workItems.listPageByProject(
+      graph.project.id,
+      { sort: 'updated_asc' },
+      { limit: 25, offset: 25 }
+    );
+    const partialFinal = await repositories.workItems.listPageByProject(
+      graph.project.id,
+      { sort: 'updated_asc' },
+      { limit: 50, offset: 100 }
+    );
+    const empty = await repositories.workItems.listPageByProject(
+      graph.project.id,
+      { sort: 'updated_asc' },
+      { limit: 10, offset: 200 }
+    );
+
+    expect(middle.map((item) => item.itemNumber)).toEqual(
+      Array.from({ length: 25 }, (_, index) => index + 26)
+    );
+    expect(partialFinal.map((item) => item.itemNumber)).toEqual(
+      Array.from({ length: 13 }, (_, index) => index + 101)
+    );
+    expect(empty).toEqual([]);
+
+    const workspacePage = await repositories.workItems.listPageByWorkspace(
+      graph.workspace.id,
+      { sort: 'updated_asc' },
+      { limit: 10, offset: 10 }
+    );
+    expect(workspacePage.map(({ workItem }) => workItem.itemNumber)).toEqual(
+      Array.from({ length: 10 }, (_, index) => index + 11)
+    );
+
+    const boardItems = await repositories.workItems.listByProjectForBoard(graph.project.id);
+    expect(boardItems).toHaveLength(113);
+    expect(boardItems.map(({ itemNumber }) => itemNumber)).toEqual(
+      Array.from({ length: 113 }, (_, index) => index + 1)
+    );
+    await expect(
+      repositories.workItems.listByProjectForExport(graph.project.id, { sort: 'updated_asc' }, 17)
+    ).resolves.toHaveLength(17);
+    await expect(
+      repositories.workItems.listByWorkspaceForExport(
+        graph.workspace.id,
+        { sort: 'updated_asc' },
+        19
+      )
+    ).resolves.toHaveLength(19);
+  });
+
+  it('applies workspace archive scope identically to counts and rows', async () => {
+    const graph = await createRepositoryGraph(repositories);
+    const archivedProject = await repositories.projects.create({
+      id: randomUUID(),
+      workspaceId: graph.workspace.id,
+      key: 'AR',
+      nextWorkItemNumber: 3,
+      name: 'Archived Repository Project',
+      description: '',
+      status: 'archived',
+      createdAt: now(),
+      updatedAt: now()
+    });
+
+    await createRepositoryWorkItem(repositories, graph, {
+      itemNumber: 1,
+      projectId: archivedProject.id,
+      projectKey: archivedProject.key
+    });
+    await createRepositoryWorkItem(repositories, graph, {
+      itemNumber: 2,
+      projectId: archivedProject.id,
+      projectKey: archivedProject.key
+    });
+
+    const cases = [
+      { filters: {}, expectedCount: 1, expectedStatus: 'active' },
+      { filters: { archivedProjects: 'include' }, expectedCount: 3, expectedStatus: null },
+      { filters: { archivedProjects: 'only' }, expectedCount: 2, expectedStatus: 'archived' }
+    ] as const;
+
+    for (const testCase of cases) {
+      const count = await repositories.workItems.countByWorkspaceQuery(
+        graph.workspace.id,
+        testCase.filters
+      );
+      const rows = await repositories.workItems.listPageByWorkspace(
+        graph.workspace.id,
+        testCase.filters,
+        { limit: 10, offset: 0 }
+      );
+
+      expect(count).toBe(testCase.expectedCount);
+      expect(rows).toHaveLength(testCase.expectedCount);
+      if (testCase.expectedStatus !== null) {
+        expect(rows.every(({ project }) => project.status === testCase.expectedStatus)).toBe(true);
+      }
+    }
+  });
+
+  it('keeps project and workspace count/page predicates aligned across filter families', async () => {
+    const graph = await createRepositoryGraph(repositories);
+    const milestone = await repositories.milestones.create({
+      id: randomUUID(),
+      workspaceId: graph.workspace.id,
+      projectId: graph.project.id,
+      name: 'Repository Milestone',
+      description: '',
+      status: 'active',
+      targetDate: '2026-08-01',
+      archivedAt: null,
+      archivedById: null,
+      createdAt: now(),
+      updatedAt: now()
+    });
+    const cycle = await createRepositoryCycle(repositories, graph, {
+      name: 'Repository Filter Cycle',
+      status: 'active',
+      startDate: '2026-07-01',
+      endDate: '2026-07-31'
+    });
+
+    await repositories.workItems.update(graph.workItem.id, {
+      title: 'Paging filter needle',
+      type: 'bug',
+      milestoneId: milestone.id,
+      cycleId: cycle.id,
+      updatedAt: now()
+    });
+    await repositories.labels.replaceForWorkItem(graph.workItem.id, [graph.label.id]);
+
+    const firstChild = await createRepositoryWorkItem(repositories, graph, {
+      itemNumber: 2,
+      status: 'blocked',
+      assigneeId: null,
+      parentWorkItemId: graph.workItem.id
+    });
+    const secondChild = await createRepositoryWorkItem(repositories, graph, {
+      itemNumber: 3,
+      status: 'blocked',
+      assigneeId: null,
+      parentWorkItemId: graph.workItem.id
+    });
+    const stale = await createRepositoryWorkItem(repositories, graph, {
+      itemNumber: 4,
+      status: 'in_progress',
+      assigneeId: null,
+      updatedAt: new Date('2020-01-01T00:00:00.000Z')
+    });
+
+    for (const child of [firstChild, secondChild]) {
+      await repositories.workItemRelationships.create({
+        id: randomUUID(),
+        workspaceId: graph.workspace.id,
+        relationshipType: 'blocks',
+        sourceWorkItemId: graph.workItem.id,
+        targetWorkItemId: child.id,
+        createdById: graph.owner.id,
+        createdAt: now()
+      });
+    }
+
+    const sorted = (ids: string[]) => [...ids].sort((left, right) => left.localeCompare(right));
+    const expectQuery = async (filters: WorkItemQuery, expectedIds: string[]) => {
+      const projectCount = await repositories.workItems.countByProjectQuery(
+        graph.project.id,
+        filters
+      );
+      const projectRows = await repositories.workItems.listPageByProject(
+        graph.project.id,
+        filters,
+        { limit: 100, offset: 0 }
+      );
+      const workspaceCount = await repositories.workItems.countByWorkspaceQuery(
+        graph.workspace.id,
+        filters
+      );
+      const workspaceRows = await repositories.workItems.listPageByWorkspace(
+        graph.workspace.id,
+        filters,
+        { limit: 100, offset: 0 }
+      );
+
+      expect(projectCount).toBe(expectedIds.length);
+      expect(sorted(projectRows.map(({ id }) => id))).toEqual(sorted(expectedIds));
+      expect(workspaceCount).toBe(expectedIds.length);
+      expect(sorted(workspaceRows.map(({ workItem }) => workItem.id))).toEqual(sorted(expectedIds));
+    };
+
+    await expectQuery({ status: 'ready' }, [graph.workItem.id]);
+    await expectQuery({ workState: 'open' }, [
+      graph.workItem.id,
+      firstChild.id,
+      secondChild.id,
+      stale.id
+    ]);
+    await expectQuery({ assigneeId: graph.contributor.id }, [graph.workItem.id]);
+    await expectQuery({ assigneeState: 'unassigned' }, [firstChild.id, secondChild.id, stale.id]);
+    await expectQuery({ reporterId: graph.owner.id }, [
+      graph.workItem.id,
+      firstChild.id,
+      secondChild.id,
+      stale.id
+    ]);
+    await expectQuery({ type: 'bug' }, [graph.workItem.id]);
+    await expectQuery({ priority: 'high' }, [graph.workItem.id]);
+    await expectQuery({ labelId: graph.label.id }, [graph.workItem.id]);
+    await expectQuery({ milestoneId: milestone.id }, [graph.workItem.id]);
+    await expectQuery({ cycleId: cycle.id }, [graph.workItem.id]);
+    await expectQuery({ dueDateState: 'overdue' }, [graph.workItem.id]);
+    await expectQuery({ blocked: true }, [firstChild.id, secondChild.id]);
+    await expectQuery({ dependency: 'dependency_blocked' }, [firstChild.id, secondChild.id]);
+    await expectQuery({ dependency: 'blocking_open_work' }, [graph.workItem.id]);
+    await expectQuery({ workRisk: 'unassigned_active' }, [stale.id]);
+    await expectQuery({ workRisk: 'stale_in_progress' }, [stale.id]);
+    await expectQuery({ hierarchy: 'top_level' }, [graph.workItem.id, stale.id]);
+    await expectQuery({ hierarchy: 'children' }, [firstChild.id, secondChild.id]);
+    await expectQuery({ hierarchy: 'parents' }, [graph.workItem.id]);
+    await expectQuery({ parentKey: graph.workItem.displayKey }, [firstChild.id, secondChild.id]);
+    await expectQuery({ search: 'filter needle' }, [graph.workItem.id]);
+  });
+
+  it('rejects unbounded, unsupported, or malformed repository windows', async () => {
+    const graph = await createRepositoryGraph(repositories);
+
+    for (const limit of [0, 20, Number.POSITIVE_INFINITY]) {
+      await expect(
+        repositories.workItems.listPageByProject(graph.project.id, {}, {
+          limit: limit as WorkItemPageSize,
+          offset: 0
+        })
+      ).rejects.toBeInstanceOf(RangeError);
+    }
+    for (const offset of [-1, 1.5, Number.POSITIVE_INFINITY]) {
+      await expect(
+        repositories.workItems.listPageByWorkspace(
+          graph.workspace.id,
+          {},
+          { limit: 25, offset }
+        )
+      ).rejects.toBeInstanceOf(RangeError);
+    }
+    for (const limit of [0, -1, 1.5, Number.POSITIVE_INFINITY]) {
+      await expect(
+        repositories.workItems.listByProjectForExport(graph.project.id, {}, limit)
+      ).rejects.toBeInstanceOf(RangeError);
+      await expect(
+        repositories.workItems.listByWorkspaceForExport(graph.workspace.id, {}, limit)
+      ).rejects.toBeInstanceOf(RangeError);
+    }
+  });
+
+  it('installs trigram search support and its three work item indexes', async () => {
+    const extension = await pool.query<{ extname: string }>(
+      "select extname from pg_extension where extname = 'pg_trgm'"
+    );
+    const indexes = await pool.query<{ indexname: string; indexdef: string }>(
+      `select indexname, indexdef
+       from pg_indexes
+       where schemaname = 'public'
+         and tablename = 'work_items'
+         and indexname in (
+           'work_items_display_key_trgm_idx',
+           'work_items_title_trgm_idx',
+           'work_items_description_trgm_idx'
+         )
+       order by indexname`
+    );
+
+    expect(extension.rows).toEqual([{ extname: 'pg_trgm' }]);
+    expect(indexes.rows.map(({ indexname }) => indexname)).toEqual([
+      'work_items_description_trgm_idx',
+      'work_items_display_key_trgm_idx',
+      'work_items_title_trgm_idx'
+    ]);
+    expect(indexes.rows.every(({ indexdef }) => indexdef.includes('USING gin'))).toBe(true);
+    expect(indexes.rows.every(({ indexdef }) => indexdef.includes('gin_trgm_ops'))).toBe(true);
   });
 
   it('persists nullable parents and enforces hierarchy schema constraints', async () => {
@@ -646,6 +971,22 @@ describe('Drizzle repositories', () => {
       id: id.workItemId,
       title: 'Repository work item'
     });
+  });
+
+  it('enforces read-only repository transactions', async () => {
+    const workspaceId = randomUUID();
+
+    await expect(
+      withRepositoriesReadTransaction(db, (transactionRepositories) =>
+        transactionRepositories.workspaces.create({
+          id: workspaceId,
+          name: 'Rejected Read Transaction Write',
+          createdAt: now(),
+          updatedAt: now()
+        })
+      )
+    ).rejects.toMatchObject({ cause: { code: '25006' } });
+    await expect(repositories.workspaces.findById(workspaceId)).resolves.toBeNull();
   });
 
   it('locks cycle scope and updates cycle assignments and activity in sets', async () => {
