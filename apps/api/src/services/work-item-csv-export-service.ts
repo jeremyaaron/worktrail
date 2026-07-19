@@ -1,8 +1,12 @@
 import type { WorkItemQuery, WorkspaceWorkItemListItemDto, WorkItemListItemDto } from '@worktrail/contracts';
 
+import type { WorktrailDb } from '../db/client.js';
 import type { ActorContext } from '../domain/actor.js';
-import { NotFoundError } from '../errors/app-error.js';
-import type { Repositories } from '../repositories/index.js';
+import { ExportLimitExceededError, NotFoundError } from '../errors/app-error.js';
+import {
+  type Repositories,
+  withRepositoriesReadTransaction
+} from '../repositories/index.js';
 import { stringifyCsvRecords, type CsvStringifyRecord } from './csv/stringify-csv-records.js';
 import { type WorkItemListFilters, WorkItemService } from './work-item-service.js';
 
@@ -36,7 +40,11 @@ export interface WorkItemCsvExportResult {
 export interface WorkItemCsvExportServiceContext {
   actor: ActorContext;
   repositories: Repositories;
+  db?: WorktrailDb;
 }
+
+export const synchronousExportLimit = 10_000;
+const synchronousExportReadLimit = synchronousExportLimit + 1;
 
 export class WorkItemCsvExportService {
   constructor(private readonly context: WorkItemCsvExportServiceContext) {}
@@ -45,33 +53,54 @@ export class WorkItemCsvExportService {
     projectId: string,
     filters: WorkItemListFilters = {}
   ): Promise<WorkItemCsvExportResult> {
-    const project = await this.context.repositories.projects.findById(projectId);
+    const exportData = await this.withReadRepositories(async (repositories) => {
+      const project = await repositories.projects.findById(projectId);
 
-    if (project === null || project.workspaceId !== this.context.actor.workspaceId) {
-      throw new NotFoundError('Project not found.');
-    }
+      if (project === null || project.workspaceId !== this.context.actor.workspaceId) {
+        throw new NotFoundError('Project not found.');
+      }
 
-    const service = new WorkItemService({
-      actor: this.context.actor,
-      repositories: this.context.repositories
+      const rawWorkItems = await repositories.workItems.listByProjectForExport(
+        projectId,
+        filters,
+        synchronousExportReadLimit
+      );
+      this.assertWithinExportLimit(rawWorkItems.length);
+      const service = new WorkItemService({
+        actor: this.context.actor,
+        repositories
+      });
+
+      return {
+        projectKey: project.key,
+        workItems: await service.enrichWorkItemListWithRepositories(rawWorkItems, repositories)
+      };
     });
-    const workItems = await service.listWorkItems(projectId, filters);
 
     return {
       csv: stringifyCsvRecords(
-        workItems.map((item) => toExportRow(project.key, item)),
+        exportData.workItems.map((item) => toExportRow(exportData.projectKey, item)),
         exportColumns
       ),
-      fileName: `worktrail-${project.key.toLowerCase()}-work-items.csv`
+      fileName: `worktrail-${exportData.projectKey.toLowerCase()}-work-items.csv`
     };
   }
 
   async exportWorkspaceWorkItems(filters: WorkItemQuery = {}): Promise<WorkItemCsvExportResult> {
-    const service = new WorkItemService({
-      actor: this.context.actor,
-      repositories: this.context.repositories
+    const workItems = await this.withReadRepositories(async (repositories) => {
+      const records = await repositories.workItems.listByWorkspaceForExport(
+        this.context.actor.workspaceId,
+        filters,
+        synchronousExportReadLimit
+      );
+      this.assertWithinExportLimit(records.length);
+      const service = new WorkItemService({
+        actor: this.context.actor,
+        repositories
+      });
+
+      return service.enrichWorkspaceWorkItemListWithRepositories(records, repositories);
     });
-    const workItems = await service.listWorkspaceWorkItems(filters);
 
     return {
       csv: stringifyCsvRecords(
@@ -80,6 +109,22 @@ export class WorkItemCsvExportService {
       ),
       fileName: 'worktrail-work-items.csv'
     };
+  }
+
+  private assertWithinExportLimit(rowCount: number): void {
+    if (rowCount > synchronousExportLimit) {
+      throw new ExportLimitExceededError(synchronousExportLimit);
+    }
+  }
+
+  private async withReadRepositories<T>(
+    callback: (repositories: Repositories) => Promise<T>
+  ): Promise<T> {
+    if (this.context.db === undefined) {
+      return callback(this.context.repositories);
+    }
+
+    return withRepositoriesReadTransaction(this.context.db, callback);
   }
 }
 

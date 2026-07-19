@@ -522,6 +522,37 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect(fixture.componentInstance.isExporting()).toBeFalse();
   });
 
+  it('shows the workspace export limit message from a structured error blob', async () => {
+    const { fixture, http } = setup();
+    flushProjectSummaries(http);
+    flushSavedViews(http);
+    http.expectOne('/api/work-items').flush([workItem]);
+
+    fixture.componentInstance.exportCsv();
+    http.expectOne('/api/work-items/export').flush(
+      new Blob(
+        [
+          JSON.stringify({
+            error: {
+              code: 'EXPORT_LIMIT_EXCEEDED',
+              message: 'More than 10,000 work items match. Narrow the applied filters and retry.'
+            }
+          })
+        ],
+        { type: 'application/json' }
+      ),
+      { status: 422, statusText: 'Unprocessable Entity' }
+    );
+    await fixture.whenStable();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'More than 10,000 work items match. Narrow the applied filters and retry.'
+    );
+    expect(fixture.componentInstance.isExporting()).toBeFalse();
+  });
+
   it('applies dropdown filters immediately without showing pending filter pills', () => {
     const { fixture, http } = setup();
     flushProjectSummaries(http);

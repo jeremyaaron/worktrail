@@ -27,6 +27,7 @@ import { WorktrailApiService } from '../../core/worktrail-api.service';
 import { ClipboardService } from '../../shared/clipboard.service';
 import { CyclesApi } from '../../core/api/cycles-api';
 import { downloadBlob, fileNameFromContentDisposition } from '../../shared/download-file';
+import { apiErrorMessageFromBody } from '../../shared/http-error-message';
 import {
   dependencyFilterLabel,
   filterPillLabel,
@@ -1005,8 +1006,12 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
         this.isExporting.set(false);
       },
       error: (error: HttpErrorResponse) => {
-        this.exportError.set(this.toErrorMessage(error, 'CSV export could not be downloaded.'));
+        const fallback = 'CSV export could not be downloaded.';
+        this.exportError.set(fallback);
         this.isExporting.set(false);
+        void apiErrorMessageFromBody(error.error, fallback).then((message) => {
+          this.exportError.set(message);
+        });
       }
     });
   }

@@ -196,6 +196,9 @@ describe('OpenAPI reference', () => {
     expect(openApi).toContain('work_item.relationship_added');
     expect(openApi).toContain('work_item.relationship_removed');
     expect(openApi).toContain('text/csv:');
+    expect(openApi).toContain('EXPORT_LIMIT_EXCEEDED');
+    expect(openApi).toContain('More than 10,000 work items match. Narrow the applied filters and retry.');
+    expect(openApi).toContain('Paging parameters do not affect exports.');
     expect(openApi).toContain('VALIDATION_ERROR');
     expect(openApi).toContain('INTERNAL_ERROR');
   });

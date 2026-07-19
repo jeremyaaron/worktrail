@@ -619,7 +619,31 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-19.
+- Added one authoritative `synchronousExportLimit` of 10,000 rows and changed project/workspace CSV
+  exports to use the export-specific repository reads with a maximum `10_001`-row probe.
+- Export overflow is rejected with `422 EXPORT_LIMIT_EXCEEDED`, `{ limit: 10000 }`, and an actionable
+  narrow-filters message before DTO enrichment or CSV stringification begins.
+- Passed the database context through the transport-neutral export handlers and Express adapter so
+  authorization, bounded reads, the cap check, and accepted-row enrichment share a read-only
+  repeatable-read transaction. CSV serialization remains outside the transaction.
+- Preserved existing CSV columns, filenames, filters, and deterministic sort behavior. Direct `page`
+  and `pageSize` parameters remain outside export input and do not affect the full matching result.
+- Added focused service and Express coverage for the exact 10,000-row boundary, 10,001-row project and
+  workspace overflow, authorization-before-read, actor workspace scope, bounded repository arguments,
+  and the absence of partial CSV headers or content on failure.
+- Added structured JSON Blob error decoding to the Angular project and workspace export paths so the
+  existing inline error regions display the server's export-limit guidance while retaining the generic
+  fallback for malformed or non-JSON failures.
+- Documented both export endpoints' 10,000-row boundary, paging independence, and `422` response in
+  OpenAPI without changing release metadata.
+- Verified Phase 4 with:
+  - focused API tests: 86 passed;
+  - focused Angular export tests: 69 passed;
+  - full API tests: 373 passed;
+  - full Angular tests: 326 passed;
+  - full contract tests: 34 passed;
+  - repository-wide typecheck, lint, production build, and diff checks.
 
 ## Phase 5: Frontend Paging Serialization And Shared Presentation Primitives
 

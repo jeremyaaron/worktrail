@@ -308,12 +308,14 @@ export function applyWorkItemCsvImportHandler(input: {
 
 export function exportProjectWorkItemsHandler(input: {
   repositories: Repositories;
+  db?: WorktrailDb;
 }): EndpointHandler<string> {
   return async (request) => {
     const { projectId } = parseWithSchema(projectIdParamSchema, request.params);
     const service = new WorkItemCsvExportService({
       actor: request.actor,
-      repositories: input.repositories
+      repositories: input.repositories,
+      db: input.db
     });
     const exportResult = await service.exportProjectWorkItems(
       projectId,
@@ -330,11 +332,13 @@ export function exportProjectWorkItemsHandler(input: {
 
 export function exportWorkspaceWorkItemsHandler(input: {
   repositories: Repositories;
+  db?: WorktrailDb;
 }): EndpointHandler<string> {
   return async (request) => {
     const service = new WorkItemCsvExportService({
       actor: request.actor,
-      repositories: input.repositories
+      repositories: input.repositories,
+      db: input.db
     });
     const exportResult = await service.exportWorkspaceWorkItems(parseWorkspaceWorkItemQuery(request.query));
 

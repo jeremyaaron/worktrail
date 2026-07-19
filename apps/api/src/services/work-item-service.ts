@@ -187,6 +187,20 @@ export class WorkItemService {
     });
   }
 
+  async enrichWorkItemListWithRepositories(
+    workItems: WorkItem[],
+    repositories: Repositories
+  ): Promise<WorkItemListItemDto[]> {
+    return this.toListDtos(workItems, repositories);
+  }
+
+  async enrichWorkspaceWorkItemListWithRepositories(
+    records: Awaited<ReturnType<Repositories['workItems']['listByWorkspaceForExport']>>,
+    repositories: Repositories
+  ): Promise<WorkspaceWorkItemListItemDto[]> {
+    return this.toWorkspaceListDtos(records, repositories);
+  }
+
   async createWorkItem(projectId: string, input: CreateWorkItemRequest): Promise<WorkItemDetailDto> {
     return this.withWriteRepositories(async (repositories) => {
       return this.createWorkItemWithRepositories(projectId, input, repositories);

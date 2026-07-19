@@ -28,6 +28,7 @@ import { WorktrailApiService } from '../../core/worktrail-api.service';
 import { ClipboardService } from '../../shared/clipboard.service';
 import { CyclesApi } from '../../core/api/cycles-api';
 import { downloadBlob, fileNameFromContentDisposition } from '../../shared/download-file';
+import { apiErrorMessageFromBody } from '../../shared/http-error-message';
 import { dependencyFilterLabel } from '../../shared/work-items/work-item-display';
 import { ActiveFilterChipsComponent } from './components/active-filter-chips.component';
 import { PinnedSavedViewsComponent } from './components/pinned-saved-views.component';
@@ -1418,8 +1419,12 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
         this.isExporting.set(false);
       },
       error: (error: HttpErrorResponse) => {
-        this.exportError.set(this.toExportErrorMessage(error));
+        const fallback = 'CSV export could not be downloaded.';
+        this.exportError.set(fallback);
         this.isExporting.set(false);
+        void apiErrorMessageFromBody(error.error, fallback).then((message) => {
+          this.exportError.set(message);
+        });
       }
     });
   }
@@ -2147,11 +2152,4 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     return typeof message === 'string' ? message : fallback;
   }
 
-  private toExportErrorMessage(error: HttpErrorResponse): string {
-    const message = error.error?.error?.message;
-
-    return typeof message === 'string' && message.trim() !== ''
-      ? message
-      : 'CSV export could not be downloaded.';
-  }
 }

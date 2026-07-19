@@ -1838,6 +1838,7 @@ describe('work item API', () => {
 
   it('exports filtered project work items as CSV', async () => {
     const fixture = await createFixture('owner');
+    const transactionSpy = vi.spyOn(db, 'transaction');
     const cycle = await createProjectCycle(fixture, {
       name: 'CSV export cycle'
     });
@@ -1862,7 +1863,7 @@ describe('work item API', () => {
 
     await request(app)
       .get(`/api/projects/${fixture.projectId}/work-items/export`)
-      .query({ status: 'ready' })
+      .query({ status: 'ready', page: 99, pageSize: 10 })
       .set(fixture.headers)
       .expect(200)
       .expect('Content-Type', /text\/csv/)
@@ -1876,6 +1877,13 @@ describe('work item API', () => {
           ].join('\n')
         );
       });
+    expect(transactionSpy).toHaveBeenCalledWith(
+      expect.any(Function),
+      {
+        isolationLevel: 'repeatable read',
+        accessMode: 'read only'
+      }
+    );
   });
 
   it('exports dependency-filtered project and workspace work items as CSV', async () => {
