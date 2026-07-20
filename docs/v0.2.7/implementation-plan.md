@@ -238,7 +238,70 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-19.
+- Added focused shared attachment contracts in `packages/contracts/src/attachments.ts`:
+  - public attachment metadata with uploader and server-returned removal capability;
+  - accepted-type policy and category vocabulary;
+  - fixed limit policy;
+  - work item usage/capacity and upload capability;
+  - no byte, checksum, storage-key, path, workspace, or project implementation fields.
+- Exported attachment contracts through the package barrel and added contract tests that prove metadata,
+  policy, usage, capability, and storage-isolation shapes.
+- Added aligned work-item activity values to shared and API domain unions:
+  - `work_item.attachment_uploaded`;
+  - `work_item.attachment_removed`.
+- Added structured API error vocabulary and safe response mapping for:
+  - `PAYLOAD_TOO_LARGE` / 413 with byte limit detail;
+  - `ATTACHMENT_LIMIT_EXCEEDED` / 422 for count and aggregate-byte policy;
+  - `ATTACHMENT_STORAGE_UNAVAILABLE` / 503 without adapter detail.
+- Added `apps/api/src/domain/attachment-policy.ts` with the resolved fixed limits:
+  - 4 MiB per file;
+  - 20 live attachments per work item;
+  - 50 MiB aggregate bytes per work item;
+  - 180 normalized filename code points.
+- Implemented filename normalization with Unicode NFC, separator replacement, C0/C1 and line-separator
+  removal, horizontal-whitespace collapse, trailing-period removal, reserved/empty-name rejection, and
+  code-point-aware length enforcement.
+- Implemented one authoritative extension, declared-media-type, canonical-media-type, and category map
+  for PNG, JPEG, GIF, WebP, PDF, text, Markdown, CSV, JSON, DOCX, XLSX, and PPTX.
+- Implemented bounded content evidence checks:
+  - image and PDF signatures;
+  - fatal UTF-8 decoding and NUL rejection for text/data;
+  - JSON parsing;
+  - Open XML ZIP signature, package marker, expected root, encrypted-entry, malformed-directory, and
+    2,000-entry ceiling checks.
+- Added `yauzl` 3.4 and its TypeScript declarations as the only Phase 1 dependency pair. Open XML
+  inspection uses lazy central-directory enumeration and never opens, inflates, or extracts entries.
+- Added defensive policy DTO copies so callers cannot mutate the backend's authoritative policy.
+- Added focused tests for:
+  - every supported file family and canonical media result;
+  - uppercase extensions and Markdown media alias normalization;
+  - separator/control/Unicode/whitespace filename normalization;
+  - empty, reserved, exact-boundary, and overlong names;
+  - empty and oversized bytes;
+  - unsupported active content and unknown binary declarations;
+  - extension/media/content mismatches;
+  - invalid UTF-8, NUL text, and malformed JSON;
+  - valid Word/Spreadsheet/Presentation package markers;
+  - malformed, wrong-root, encrypted, and excessive Open XML packages;
+  - attachment error status/body/details and storage-error concealment.
+- Confirmed no schema, migration, storage adapter, service, endpoint, OpenAPI, Angular, seed, or version
+  implementation was introduced early. The existing database activity check remains for Phase 2.
+- Verification passed:
+  - contracts typecheck;
+  - contracts lint;
+  - contracts build;
+  - contracts full suite: 10 files and 38 tests;
+  - API typecheck;
+  - API lint with zero warnings;
+  - API build;
+  - focused attachment-policy/app-error suite: 2 files and 24 tests;
+  - API full suite: 36 files and 398 tests;
+  - production dependency audit: zero production vulnerabilities;
+  - `git diff --check` and staged diff hygiene.
+- `npm install` continues to report four moderate findings in the broader development dependency graph;
+  `npm audit --omit=dev --json` confirms the production graph, including `yauzl`, has zero findings.
+- No design deviation or unresolved choice blocks Phase 2.
 
 ## Phase 2: Attachment Schema, Migration, And Repository Locking Primitives
 

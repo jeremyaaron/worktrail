@@ -28,6 +28,7 @@
     "drizzle-orm": "^0.45.2",
     "express": "^5.1.0",
     "pg": "^8.22.0",
+    "yauzl": "^3.4.0",
     "zod": "^4.1.13"
   },
   "devDependencies": {
@@ -36,6 +37,7 @@
     "@types/node": "^24.10.2",
     "@types/pg": "^8.20.0",
     "@types/supertest": "^7.2.0",
+    "@types/yauzl": "^3.4.0",
     "drizzle-kit": "^0.31.10",
     "supertest": "^7.2.2",
     "tsx": "^4.20.6",
