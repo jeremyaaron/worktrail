@@ -533,7 +533,65 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-21.
+- Added batched member lookup support so attachment lists hydrate distinct uploaders in one repository
+  query rather than one query per row.
+- Added explicit attachment DTO mapping that selects only public metadata and requires the uploader and
+  computed removal capability; repository records are never spread into public responses.
+- Added exact usage mapping with nonnegative remaining count/byte capacity and defensive policy copies.
+- Added constrained attachment operational logging vocabulary for write and compensation outcomes. Log
+  entries contain only operation, attachment id, outcome, and error class; logger failures are
+  best-effort and cannot replace service/storage/database errors.
+- Added `AttachmentService` with required repositories, database, and object store plus injectable clock,
+  id, storage-key, and logger seams.
+- Implemented metadata-only `listForWorkItem` behavior with:
+  - active-actor and workspace/work-item/project visibility checks;
+  - newest-first attachment metadata and exact usage reads without object-store access;
+  - batched uploader enrichment;
+  - uploader/owner/maintainer removal capabilities for active projects;
+  - read-only capabilities for archived projects;
+  - policy, usage, and upload capability response data with no checksum, storage key, project, or
+    workspace implementation fields.
+- Implemented upload behavior with:
+  - copied input bytes so validation, checksum, storage, and metadata use one immutable snapshot;
+  - authoritative filename/media/content validation and SHA-256 calculation;
+  - active-actor, work-item, workspace, and active-project prechecks before storage consumption;
+  - independent attachment identity and 64-character cryptographic storage-key generation;
+  - create-only object write before database mutation;
+  - required transaction ordering of project `FOR SHARE`, work item `FOR UPDATE`, actor/ownership/archive
+    revalidation, exact usage query, attachment insert, and upload activity insert;
+  - attachment ownership derived only from the locked work item and active uploader;
+  - exact count and aggregate-byte quota enforcement, including allowed equality at the byte ceiling;
+  - one safe `work_item.attachment_uploaded` activity value with normalized filename/media/size context;
+  - no work-item update and no watcher notification.
+- Added compensation after every post-write transaction failure. Successful compensation removes the
+  object; missing/failed compensation emits safe evidence while preserving the original transaction
+  error. Object-write failures map to the designed generic storage-unavailable response.
+- Added PostgreSQL-backed service coverage for:
+  - metadata-only ordered listing, duplicate display names, batched uploaders, exact usage, and role/
+    archived capabilities;
+  - successful owner, maintainer, and contributor uploads;
+  - normalized metadata, immutable input bytes, exact checksum, safe activity, unchanged work item, and
+    zero notifications;
+  - invalid content, missing/cross-workspace work, inactive actors, and archived projects before writes;
+  - storage failure, activity/metadata rollback, successful compensation, failed compensation evidence,
+    and an archive race after object write;
+  - exact count, aggregate rejection, and exact aggregate-boundary acceptance.
+- Added a real PostgreSQL contention test with 19 existing attachments and two simultaneous uploads. The
+  work-item lock permits exactly one success and leaves exactly 20 metadata rows, one new activity,
+  one new object, an unchanged work item, and zero notifications; the rejected object's bytes are
+  compensated.
+- Verification passed:
+  - idempotent database migration;
+  - focused attachment service/concurrency suite: 2 files and 12 tests;
+  - API full suite: 40 files and 427 tests;
+  - API typecheck;
+  - API lint with zero warnings;
+  - API build;
+  - `git diff --check`.
+- No download/removal behavior, endpoint/Express route, OpenAPI, Angular, seed, orphan-reconciliation,
+  readiness, or version implementation was introduced early.
+- No design deviation or unresolved choice blocks Phase 5.
 
 ## Phase 5: Authorized Download And Removal Service Behavior
 
