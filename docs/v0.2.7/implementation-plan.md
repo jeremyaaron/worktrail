@@ -349,7 +349,45 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-19.
+- Added the authoritative `work_item_attachments` metadata table with:
+  - workspace, project, work item, and uploader ownership references;
+  - normalized display name, canonical media type, byte size, SHA-256 checksum, opaque storage key,
+    and creation timestamp;
+  - restrictive work item deletion;
+  - positive/4 MiB-bounded byte size, 1-180 character filename, lowercase SHA-256, and lowercase
+    opaque-key checks;
+  - deterministic newest-first work item ordering, workspace diagnostics, and unique storage-key
+    indexes.
+- Generated and reviewed migration `0017_safe_pandemic.sql`, including database acceptance of
+  `work_item.attachment_uploaded` and `work_item.attachment_removed` activity values.
+- Added inferred attachment repository types and a registered transaction-aware repository with:
+  - create, find, row-lock, newest-first list, count/aggregate-byte usage, and delete operations;
+  - exact zero-value usage for work items without attachments.
+- Added `projects.findByIdForShare(id)` and reused the existing stable work-item update lock so later
+  service transactions can serialize attachment quota checks and lifecycle changes in the designed
+  order.
+- Added PostgreSQL repository coverage for:
+  - duplicate display names and unique opaque storage keys;
+  - deterministic same-timestamp ordering;
+  - exact usage totals and empty usage;
+  - every metadata check constraint;
+  - restrictive work item deletion;
+  - project share, work-item update, and attachment update lock access through transaction-bound
+    repositories;
+  - both attachment activity event values.
+- Verified the incremental path from migration `0016` through `0017`, followed by idempotent seed and
+  all 27 repository tests.
+- Verified the fresh path with reset, all migrations, and seed.
+- Verification passed:
+  - API full suite: 36 files and 401 tests;
+  - API typecheck;
+  - API lint with zero warnings;
+  - API build;
+  - `git diff --check`.
+- Existing seed data remains attachment-free. No object storage, service, endpoint, OpenAPI, Angular,
+  deletion-flow, or version implementation was introduced early.
+- No design deviation or unresolved choice blocks Phase 3.
 
 ## Phase 3: Object-Store Adapters And Runtime Configuration
 
@@ -395,7 +433,56 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-21.
+- Added the narrow `AttachmentObjectStore` port with initialize, create-only put, bounded copied-value
+  get, and explicit removed/missing outcomes.
+- Added internal storage operation/failure vocabulary and generic `AttachmentObjectStoreError` values
+  that do not expose roots, resolved paths, object keys, bytes, or raw filesystem errors.
+- Added `LocalAttachmentObjectStore` with:
+  - defensive absolute/non-root path validation and a privately retained resolved root;
+  - restrictive root, objects, shard, and object creation permissions;
+  - writable-directory initialization before API listen;
+  - opaque-key validation and `<root>/objects/<prefix>/<key>` sharding;
+  - create-exclusive sibling temporary files, file synchronization, atomic hard-link publication, and
+    temporary cleanup on success or failure;
+  - no-overwrite collision behavior;
+  - no-follow, regular-file-only, 4 MiB-bounded copied reads;
+  - idempotent missing/removed deletion outcomes.
+- Added `InMemoryAttachmentObjectStore` with copied write/read values, create-only semantics, matching
+  bounded reads, and deterministic one-shot initialize/put/get/remove failures.
+- Extended runtime configuration with the fixed `local` driver and attachment root:
+  - development defaults to repository-local `.worktrail/attachments` from module location rather than
+    caller cwd;
+  - unsupported drivers, relative roots, and filesystem roots are rejected;
+  - production requires an explicit absolute root;
+  - formatted errors name the relevant variable and remedy without echoing configured values.
+- Added `.worktrail/` to `.gitignore` before any normal runtime initialization.
+- Extended `CreateExpressAppOptions` with the optional object-store dependency without registering
+  attachment routes early.
+- Refactored API startup into an injectable asynchronous `start()`:
+  - storage initializes before app construction/listening;
+  - the initialized store is passed to Express;
+  - initialization/app/listen failures close the PostgreSQL pool;
+  - direct execution retains nonzero failure behavior and emits a safe storage initialization remedy.
+- Added OS-temporary-directory local-adapter tests for durable recreation, sharding, immutable
+  collisions, temporary cleanup, missing/removal outcomes, key isolation, oversized/non-regular
+  objects, and unusable roots.
+- Added in-memory tests for copied values, create-only behavior, bounded reads, and one-shot failures.
+- Added runtime/startup tests for defaults, production requirements, driver/path rejection,
+  initialization ordering, dependency forwarding, and pool cleanup.
+- Verification passed:
+  - focused storage/runtime/startup suite: 4 files and 31 tests;
+  - API full suite: 38 files and 415 tests;
+  - API typecheck;
+  - API lint with zero warnings;
+  - API build;
+  - production direct-entrypoint configuration smoke check;
+  - `git diff --check`.
+- Tests never initialize the repository-local default and clean all local-adapter fixtures from OS
+  temporary directories.
+- No S3 adapter, attachment service/route, seed object, storage reset, readiness expansion, or version
+  implementation was introduced early.
+- No design deviation or unresolved choice blocks Phase 4.
 
 ## Phase 4: Attachment List And Upload Service Behavior
 

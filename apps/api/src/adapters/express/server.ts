@@ -7,6 +7,7 @@ import type { WorktrailDb } from '../../db/client.js';
 import type { EndpointHandler } from '../../http/app-request.js';
 import type { Repositories } from '../../repositories/index.js';
 import type { HealthCheckPool } from '../../services/health-check-service.js';
+import type { AttachmentObjectStore } from '../../storage/attachment-object-store.js';
 import { adaptEndpoint } from './handler-adapter.js';
 import { requestLogger } from './request-logging.js';
 import { registerCycleRoutes } from './routes/cycle-routes.js';
@@ -23,6 +24,7 @@ export interface CreateExpressAppOptions {
   repositories?: Repositories;
   db?: WorktrailDb;
   healthCheckPool?: HealthCheckPool;
+  attachmentObjectStore?: AttachmentObjectStore;
   corsOrigin?: string | false;
   staticAssets?: StaticAssetOptions;
   testRoutes?: Record<string, EndpointHandler>;

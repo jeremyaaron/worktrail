@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   RuntimeConfigError,
+  defaultAttachmentStoragePath,
   defaultStaticAssetsPath,
   formatRuntimeConfigError,
   loadRuntimeConfig
@@ -18,6 +19,8 @@ describe('runtime configuration', () => {
       corsOrigin: 'http://localhost:4200',
       serveStaticAssets: false,
       staticAssetsPath: defaultStaticAssetsPath(),
+      attachmentStorageDriver: 'local',
+      attachmentStoragePath: defaultAttachmentStoragePath(),
       localActorMode: 'enabled'
     });
   });
@@ -30,7 +33,8 @@ describe('runtime configuration', () => {
     } catch (error) {
       expect(error).toBeInstanceOf(RuntimeConfigError);
       expect((error as RuntimeConfigError).issues).toEqual([
-        'DATABASE_URL is required when NODE_ENV=production.'
+        'DATABASE_URL is required when NODE_ENV=production.',
+        'WORKTRAIL_ATTACHMENT_STORAGE_PATH is required and must be an absolute writable directory when NODE_ENV=production.'
       ]);
     }
   });
@@ -40,7 +44,8 @@ describe('runtime configuration', () => {
       NODE_ENV: 'production',
       API_PORT: '8080',
       DATABASE_URL: 'postgres://worktrail:worktrail@localhost:5432/worktrail',
-      CORS_ORIGIN: 'false'
+      CORS_ORIGIN: 'false',
+      WORKTRAIL_ATTACHMENT_STORAGE_PATH: '/tmp/worktrail-test-attachments'
     });
 
     expect(config.nodeEnv).toBe('production');
@@ -48,6 +53,33 @@ describe('runtime configuration', () => {
     expect(config.databaseUrl).toBe('postgres://worktrail:worktrail@localhost:5432/worktrail');
     expect(config.corsOrigin).toBe(false);
     expect(config.serveStaticAssets).toBe(true);
+    expect(config.attachmentStorageDriver).toBe('local');
+    expect(config.attachmentStoragePath).toBe('/tmp/worktrail-test-attachments');
+  });
+
+  it('rejects unsupported storage drivers and unsafe configured paths', () => {
+    expect(() =>
+      loadRuntimeConfig({
+        WORKTRAIL_ATTACHMENT_STORAGE_DRIVER: 's3',
+        WORKTRAIL_ATTACHMENT_STORAGE_PATH: 'relative/attachments'
+      })
+    ).toThrow(RuntimeConfigError);
+
+    try {
+      loadRuntimeConfig({
+        WORKTRAIL_ATTACHMENT_STORAGE_DRIVER: 's3',
+        WORKTRAIL_ATTACHMENT_STORAGE_PATH: 'relative/attachments'
+      });
+    } catch (error) {
+      expect((error as RuntimeConfigError).issues).toEqual([
+        'WORKTRAIL_ATTACHMENT_STORAGE_DRIVER must be local.',
+        'WORKTRAIL_ATTACHMENT_STORAGE_PATH must be an absolute directory path.'
+      ]);
+    }
+
+    expect(() => loadRuntimeConfig({ WORKTRAIL_ATTACHMENT_STORAGE_PATH: '/' })).toThrowError(
+      'WORKTRAIL_ATTACHMENT_STORAGE_PATH must not be the filesystem root.'
+    );
   });
 
   it('rejects invalid ports, modes, database URLs, and booleans', () => {

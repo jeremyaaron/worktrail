@@ -1,48 +1,130 @@
 import 'dotenv/config';
 
-import { createExpressApp } from './adapters/express/server.js';
+import type { Express } from 'express';
+import type { Server } from 'node:http';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import type pg from 'pg';
+
+import { createExpressApp, type CreateExpressAppOptions } from './adapters/express/server.js';
 import {
   formatRuntimeConfigError,
   loadRuntimeConfig,
-  RuntimeConfigError
+  RuntimeConfigError,
+  type RuntimeConfig
 } from './config/runtime-config.js';
-import { createDb, createPool } from './db/client.js';
-import { createRepositories } from './repositories/index.js';
+import { createDb, createPool, type WorktrailDb } from './db/client.js';
+import { createRepositories, type Repositories } from './repositories/index.js';
+import {
+  AttachmentObjectStoreError,
+  type AttachmentObjectStore
+} from './storage/attachment-object-store.js';
+import { LocalAttachmentObjectStore } from './storage/local-attachment-object-store.js';
 
-try {
-  const config = loadRuntimeConfig();
-  const pool = createPool(config.databaseUrl);
-  const db = createDb(pool);
-  const staticAssets = config.serveStaticAssets
-    ? { directory: config.staticAssetsPath }
-    : undefined;
-  const app = createExpressApp({
-    repositories: createRepositories(db),
-    db,
-    healthCheckPool: pool,
-    corsOrigin: config.corsOrigin,
-    staticAssets
-  });
+export interface StartDependencies {
+  loadRuntimeConfig: () => RuntimeConfig;
+  createPool: (connectionString: string) => pg.Pool;
+  createDb: (pool: pg.Pool) => WorktrailDb;
+  createRepositories: (db: WorktrailDb) => Repositories;
+  createAttachmentObjectStore: (config: RuntimeConfig) => AttachmentObjectStore;
+  createExpressApp: (options: CreateExpressAppOptions) => Express;
+  log: (message: string) => void;
+}
 
-  app.listen(config.apiPort, () => {
-    const baseUrl = `http://localhost:${config.apiPort}`;
+const defaultStartDependencies: StartDependencies = {
+  loadRuntimeConfig,
+  createPool,
+  createDb,
+  createRepositories,
+  createAttachmentObjectStore: (config) =>
+    new LocalAttachmentObjectStore(config.attachmentStoragePath),
+  createExpressApp,
+  log: console.log
+};
 
-    console.log(`Worktrail API listening on ${baseUrl}`);
-    console.log(`Runtime mode: ${config.nodeEnv}`);
-    console.log(
-      config.serveStaticAssets
-        ? `Static assets: enabled (${config.staticAssetsPath})`
-        : 'Static assets: disabled'
-    );
-    console.log(`Liveness: ${baseUrl}/api/health/live`);
-    console.log(`Readiness: ${baseUrl}/api/health/ready`);
-  });
-} catch (error) {
-  if (error instanceof RuntimeConfigError) {
-    console.error(formatRuntimeConfigError(error));
-  } else {
-    console.error(error);
+export async function start(
+  overrides: Partial<StartDependencies> = {}
+): Promise<{ server: Server; pool: pg.Pool }> {
+  const dependencies = { ...defaultStartDependencies, ...overrides };
+  const config = dependencies.loadRuntimeConfig();
+  const pool = dependencies.createPool(config.databaseUrl);
+
+  try {
+    const db = dependencies.createDb(pool);
+    const repositories = dependencies.createRepositories(db);
+    const attachmentObjectStore = dependencies.createAttachmentObjectStore(config);
+
+    await attachmentObjectStore.initialize();
+
+    const staticAssets = config.serveStaticAssets
+      ? { directory: config.staticAssetsPath }
+      : undefined;
+    const app = dependencies.createExpressApp({
+      repositories,
+      db,
+      healthCheckPool: pool,
+      attachmentObjectStore,
+      corsOrigin: config.corsOrigin,
+      staticAssets
+    });
+    const server = await listen(app, config.apiPort);
+    logStartup(config, dependencies.log);
+    return { server, pool };
+  } catch (error) {
+    await pool.end();
+    throw error;
   }
+}
 
-  process.exit(1);
+export async function run(): Promise<void> {
+  try {
+    await start();
+  } catch (error) {
+    if (error instanceof RuntimeConfigError) {
+      console.error(formatRuntimeConfigError(error));
+    } else if (error instanceof AttachmentObjectStoreError && error.operation === 'initialize') {
+      console.error(
+        'Worktrail attachment storage could not be initialized. Verify WORKTRAIL_ATTACHMENT_STORAGE_PATH points to a writable directory.'
+      );
+    } else {
+      console.error(error);
+    }
+
+    process.exitCode = 1;
+  }
+}
+
+function listen(app: Express, port: number): Promise<Server> {
+  return new Promise((resolveServer, reject) => {
+    const server = app.listen(port, () => {
+      server.off('error', reject);
+      resolveServer(server);
+    });
+    server.once('error', reject);
+  });
+}
+
+function logStartup(config: RuntimeConfig, log: (message: string) => void): void {
+  const baseUrl = `http://localhost:${config.apiPort}`;
+
+  log(`Worktrail API listening on ${baseUrl}`);
+  log(`Runtime mode: ${config.nodeEnv}`);
+  log(
+    config.serveStaticAssets
+      ? `Static assets: enabled (${config.staticAssetsPath})`
+      : 'Static assets: disabled'
+  );
+  log(`Attachment storage: ${config.attachmentStorageDriver} (${config.attachmentStoragePath})`);
+  log(`Liveness: ${baseUrl}/api/health/live`);
+  log(`Readiness: ${baseUrl}/api/health/ready`);
+}
+
+function isDirectExecution(): boolean {
+  return (
+    process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+  );
+}
+
+if (isDirectExecution()) {
+  void run();
 }

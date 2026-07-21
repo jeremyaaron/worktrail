@@ -287,6 +287,53 @@ export const workItems = pgTable(
   ]
 );
 
+export const workItemAttachments = pgTable(
+  'work_item_attachments',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id),
+    workItemId: uuid('work_item_id')
+      .notNull()
+      .references(() => workItems.id, { onDelete: 'restrict' }),
+    uploaderMemberId: uuid('uploader_member_id')
+      .notNull()
+      .references(() => members.id),
+    fileName: text('file_name').notNull(),
+    mediaType: text('media_type').notNull(),
+    byteSize: integer('byte_size').notNull(),
+    checksumSha256: text('checksum_sha256').notNull(),
+    storageKey: text('storage_key').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull()
+  },
+  (table) => [
+    check(
+      'work_item_attachments_byte_size_check',
+      sql`${table.byteSize} > 0 and ${table.byteSize} <= 4194304`
+    ),
+    check(
+      'work_item_attachments_file_name_check',
+      sql`char_length(${table.fileName}) between 1 and 180`
+    ),
+    check(
+      'work_item_attachments_checksum_sha256_check',
+      sql`${table.checksumSha256} ~ '^[0-9a-f]{64}$'`
+    ),
+    check('work_item_attachments_storage_key_check', sql`${table.storageKey} ~ '^[0-9a-f]{64}$'`),
+    index('work_item_attachments_work_item_created_id_idx').on(
+      table.workItemId,
+      table.createdAt.desc(),
+      table.id.desc()
+    ),
+    index('work_item_attachments_workspace_id_idx').on(table.workspaceId),
+    uniqueIndex('work_item_attachments_storage_key_unique').on(table.storageKey)
+  ]
+);
+
 export const workItemRelationships = pgTable(
   'work_item_relationships',
   {
