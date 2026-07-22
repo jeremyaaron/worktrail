@@ -936,7 +936,48 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-21.
+- Added a policy-derived multi-file picker that is exposed only when uploads are permitted and
+  provisional server/queue capacity remains.
+- The native picker accepts the server-advertised extensions, clears after each selection so the same
+  file can be selected again, and presents concise policy-derived type and per-file-size guidance.
+- Added per-file client preflight for:
+  - empty files and the server-provided per-file byte limit;
+  - normalized filename code-point length;
+  - supported lowercase extension;
+  - browser-declared media type or canonical policy fallback;
+  - remaining attachment slots and aggregate bytes across server usage and retained queue entries.
+- Invalid entries remain isolated and dismissible with specific guidance; valid siblings continue into
+  the upload queue without being blocked or rolled back.
+- Added stable in-memory queue entries retaining each `File`, canonical media type, state, progress,
+  retry capability, and safe error until success, dismissal, or route change.
+- The queue drains automatically in selection order with no more than one raw upload request active at
+  a time. Additional selection is prevented while an entry is active.
+- Known upload totals render a rounded integer percentage and determinate native progress element;
+  unknown totals remain indeterminate and display `Uploading`.
+- Server/API failures retain the original file and authoritative message for explicit retry. A failed
+  entry does not prevent later queued siblings from uploading successfully.
+- Successful responses immediately prepend the newest metadata row and reconcile count, aggregate
+  bytes, remaining slots, and remaining bytes without reloading the route or primary detail DTO.
+- Successful uploads are announced accessibly and `activityChanged` is emitted once after each queue
+  run containing one or more successes, ready for the Phase 9 parent activity refresh wiring.
+- Work-item identity changes cancel the active upload, discard the prior queue and announcement, and
+  prevent prior-item outcomes from mutating the new detail state.
+- Added focused coverage for policy-derived picker behavior, mixed valid/invalid selection, media-type
+  fallback, sequential request ordering, determinate/indeterminate progress, immediate usage updates,
+  partial failure, retry without reselection, aggregate/count capacity, and route-change cancellation.
+- Verification passed:
+  - attachment API/component suite: 2 files and 15 tests;
+  - work-item detail regression suite: 1 file and 28 tests;
+  - web full suite: 384 tests;
+  - web typecheck/development build;
+  - web lint with zero warnings;
+  - production build with no budget warnings, a 371.33 kB initial bundle, and a 100.71 kB lazy
+    work-item-detail chunk;
+  - focused formatting checks and `git diff --check`.
+- Drag/drop, parallel/resumable transfer, attachment removal, previews, and E2E coverage remain deferred
+  as designed.
+- No design deviation or unresolved choice blocks Phase 9.
 
 ## Phase 9: Removal, Activity Refresh, And Detail-Route Integration
 
