@@ -850,7 +850,43 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-21.
+- Added a focused Angular attachment API and facade surface for:
+  - independently listing work-item attachment metadata;
+  - raw one-file upload with encoded filename/media headers and `HttpEvent` progress reporting;
+  - authorized Blob download;
+  - authorized removal.
+- Added API client support for progress-aware binary POST requests while preserving actor headers and
+  keeping transport behavior outside feature components.
+- Hardened shared download helpers so malformed RFC 5987 values fall back safely and filenames cannot
+  retain path separators or control characters.
+- Added a standalone `WorkItemAttachmentsComponent` after hierarchy/relationships and before the
+  existing comments/activity region.
+- Attachment metadata loads independently from the primary detail request and exposes compact loading,
+  empty, retryable error, list, count, policy-capacity, archived, and exhausted-capacity states.
+- Same-route identity changes immediately clear prior rows, cancel superseded list/download requests,
+  and reject stale outcomes with both request-generation and work-item identity checks.
+- Rows preserve server newest-first ordering and show safe filename wrapping, category/media type, size,
+  uploader, timestamp, and a stable Download action with per-row pending/error state.
+- Downloads use the authorized Blob response, hardened `Content-Disposition` parsing, and immediate
+  object-URL cleanup. A failed download retains its metadata row and remains retryable.
+- Server capabilities and lifecycle state guide presentation without replacing API authorization;
+  archived attachments remain visible and downloadable.
+- Added focused coverage for list/upload/download/delete transport behavior, Unicode and media-type
+  headers, progress events, every metadata state, archived guidance, long filenames, Blob download,
+  retry, route reuse, stale-response rejection, and request cancellation.
+- Verification passed:
+  - attachment API/component suite: 2 files and 10 tests;
+  - shared download helper suite: 1 file and 3 tests;
+  - work-item detail regression suite: 1 file and 28 tests;
+  - web full suite: 379 tests;
+  - web typecheck/development build;
+  - web lint with zero warnings;
+  - production build with no budget warnings, a 371.32 kB initial bundle, and a 90.92 kB lazy
+    work-item-detail chunk;
+  - `git diff --check`.
+- Picker/upload queue, removal UI, previews, and E2E coverage remain deferred as designed.
+- No design deviation or unresolved choice blocks Phase 8.
 
 ## Phase 8: Multi-File Upload Queue And Progress Experience
 

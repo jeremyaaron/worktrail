@@ -1,4 +1,4 @@
-import { HttpClient, HttpParams, type HttpResponse } from '@angular/common/http';
+import { HttpClient, HttpParams, type HttpEvent, type HttpResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import type { Observable } from 'rxjs';
 
@@ -12,6 +12,10 @@ export interface ApiRequestOptions {
   params?: ApiQueryParams;
 }
 
+export interface ApiBinaryUploadOptions {
+  headers: Record<string, string>;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ApiClient {
   private readonly http = inject(HttpClient);
@@ -21,10 +25,7 @@ export class ApiClient {
     return this.http.get<TResponse>(this.url(path), this.options(options));
   }
 
-  getBlob(
-    path: string,
-    options: ApiRequestOptions = {}
-  ): Observable<HttpResponse<Blob>> {
+  getBlob(path: string, options: ApiRequestOptions = {}): Observable<HttpResponse<Blob>> {
     return this.http.get(this.url(path), {
       ...this.options(options),
       observe: 'response',
@@ -38,6 +39,21 @@ export class ApiClient {
     options: ApiRequestOptions = {}
   ): Observable<TResponse> {
     return this.http.post<TResponse>(this.url(path), body, this.options(options));
+  }
+
+  postBinaryWithProgress<TResponse>(
+    path: string,
+    body: Blob,
+    options: ApiBinaryUploadOptions
+  ): Observable<HttpEvent<TResponse>> {
+    return this.http.post<TResponse>(this.url(path), body, {
+      headers: {
+        ...this.currentUser.actorHeaders(),
+        ...options.headers
+      },
+      observe: 'events',
+      reportProgress: true
+    });
   }
 
   patch<TResponse, TBody = unknown>(

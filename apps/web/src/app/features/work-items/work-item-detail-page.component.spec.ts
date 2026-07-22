@@ -7,6 +7,7 @@ import type {
   MilestoneDto,
   ProjectCycleDto,
   ProjectDto,
+  WorkItemAttachmentListDto,
   WorkItemDetailDto,
   WorkItemRelationshipItemDto,
   WorkItemWatchStateDto,
@@ -275,6 +276,24 @@ const unwatchedState: WorkItemWatchStateDto = {
   ]
 };
 
+const emptyAttachmentList: WorkItemAttachmentListDto = {
+  items: [],
+  policy: {
+    maxFileBytes: 4 * 1024 * 1024,
+    maxAttachmentsPerWorkItem: 20,
+    maxAggregateBytesPerWorkItem: 50 * 1024 * 1024,
+    maxFileNameCodePoints: 180,
+    acceptedTypes: []
+  },
+  usage: {
+    attachmentCount: 0,
+    aggregateBytes: 0,
+    remainingAttachmentSlots: 20,
+    remainingBytes: 50 * 1024 * 1024
+  },
+  permissions: { canUpload: true }
+};
+
 const watchedState: WorkItemWatchStateDto = {
   isWatchedByCurrentActor: true,
   watcherCount: 2,
@@ -318,6 +337,8 @@ function setup(
     nextMilestone
   ]);
   http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([activeCycle]);
+  fixture.detectChanges();
+  http.expectOne(`/api/work-items/${workItem.id}/attachments`).flush(emptyAttachmentList);
   fixture.detectChanges();
   return { fixture, http };
 }
@@ -367,6 +388,7 @@ describe('WorkItemDetailPageComponent', () => {
     expect(compiled.textContent).toContain('Act');
     expect(compiled.textContent).toContain('Collaborate');
     expect(compiled.textContent).toContain('Dependencies');
+    expect(compiled.textContent).toContain('Attachments');
     expect(compiled.textContent).toContain('History');
     expect(compiled.textContent).toContain('frontend');
     expect(compiled.textContent).toContain('backend');
@@ -454,6 +476,8 @@ describe('WorkItemDetailPageComponent', () => {
     http.expectOne(`/api/projects/${projectId}/labels`).flush([]);
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([]);
     http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([]);
+    unsafeFixture.detectChanges();
+    http.expectOne(`/api/work-items/${workItemId}/attachments`).flush(emptyAttachmentList);
     unsafeFixture.detectChanges();
 
     const fallbackLink = (unsafeFixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>(
@@ -620,6 +644,8 @@ describe('WorkItemDetailPageComponent', () => {
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([]);
     http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([]);
     fixture.detectChanges();
+    http.expectOne(`/api/work-items/${blockedWorkItemId}/attachments`).flush(emptyAttachmentList);
+    fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('WT-5');
@@ -666,6 +692,8 @@ describe('WorkItemDetailPageComponent', () => {
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([]);
     http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([]);
     fixture.detectChanges();
+    http.expectOne(`/api/work-items/${blockedWorkItemId}/attachments`).flush(emptyAttachmentList);
+    fixture.detectChanges();
 
     const parentLink = compiled.querySelector<HTMLAnchorElement>('app-work-item-parent-context a');
     expect(parentLink?.textContent?.trim()).toBe('WT-3 Implement detail surface');
@@ -682,6 +710,8 @@ describe('WorkItemDetailPageComponent', () => {
     http.expectOne(`/api/projects/${projectId}/labels`).flush([]);
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([]);
     http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([]);
+    fixture.detectChanges();
+    http.expectOne(`/api/work-items/${workItemId}/attachments`).flush(emptyAttachmentList);
     fixture.detectChanges();
 
     expect(compiled.textContent).toContain('Add child work item');
@@ -1145,6 +1175,8 @@ describe('WorkItemDetailPageComponent', () => {
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
     http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([activeCycle]);
     fixture.detectChanges();
+    http.expectOne(`/api/work-items/${workItemId}/attachments`).flush(emptyAttachmentList);
+    fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('legacy');
@@ -1172,6 +1204,11 @@ describe('WorkItemDetailPageComponent', () => {
     ]);
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
     http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([activeCycle]);
+    fixture.detectChanges();
+    http.expectOne(`/api/work-items/${workItemId}/attachments`).flush({
+      ...emptyAttachmentList,
+      permissions: { canUpload: false }
+    });
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;

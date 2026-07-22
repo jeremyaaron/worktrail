@@ -29,6 +29,7 @@ import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
 import { ActivityTimelineComponent } from './components/activity-timeline.component';
+import { WorkItemAttachmentsComponent } from './components/work-item-attachments.component';
 import { WorkItemChildWorkComponent } from './components/work-item-child-work.component';
 import { WorkItemDetailSummaryComponent } from './components/work-item-detail-summary.component';
 import { WorkItemParentContextComponent } from './components/work-item-parent-context.component';
@@ -56,6 +57,7 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
     LoadingIndicatorComponent,
     ReactiveFormsModule,
     RouterLink,
+    WorkItemAttachmentsComponent,
     WorkItemChildWorkComponent,
     WorkItemDetailSummaryComponent,
     WorkItemParentContextComponent,
@@ -524,6 +526,8 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
           </button>
         </form>
       </section>
+
+      <app-work-item-attachments [workItemId]="item.id" />
 
       <section class="collaboration-grid">
         <section class="panel" aria-labelledby="comments-heading">
