@@ -20,7 +20,7 @@ import type {
   WorkItemWatchStateDto,
   WorkspaceWorkItemListItemDto
 } from '@worktrail/contracts';
-import { distinctUntilChanged, map } from 'rxjs';
+import { distinctUntilChanged, map, type Subscription } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { CyclesApi } from '../../core/api/cycles-api';
@@ -527,7 +527,10 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
         </form>
       </section>
 
-      <app-work-item-attachments [workItemId]="item.id" />
+      <app-work-item-attachments
+        [workItemId]="item.id"
+        (activityChanged)="refreshAttachmentActivity()"
+      />
 
       <section class="collaboration-grid">
         <section class="panel" aria-labelledby="comments-heading">
@@ -748,6 +751,13 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
 
       <section class="history-section" aria-label="History">
         <p class="section-eyebrow">History</p>
+        @if (attachmentActivityError()) {
+          <app-error-panel
+            title="Activity not refreshed"
+            [message]="attachmentActivityError() ?? ''"
+            (retry)="refreshAttachmentActivity()"
+          />
+        }
         <app-activity-timeline [events]="item.activity" />
       </section>
     }
@@ -1237,6 +1247,8 @@ export class WorkItemDetailPageComponent implements OnInit {
   private readonly cyclesApi = inject(CyclesApi);
   private readonly currentUser = inject(CurrentUserService);
   private readonly destroyRef = inject(DestroyRef);
+  private attachmentActivitySubscription: Subscription | null = null;
+  private attachmentActivityGeneration = 0;
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
 
@@ -1293,6 +1305,7 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly labelLoadError = signal<string | null>(null);
   readonly milestoneLoadError = signal<string | null>(null);
   readonly cycleLoadError = signal<string | null>(null);
+  readonly attachmentActivityError = signal<string | null>(null);
   readonly availableLabels = signal<LabelDto[]>([]);
   readonly availableMilestones = signal<MilestoneDto[]>([]);
   readonly availableCycles = signal<ProjectCycleDto[]>([]);
@@ -1487,6 +1500,39 @@ export class WorkItemDetailPageComponent implements OnInit {
     if (workItem.id === this.workItemId()) {
       this.applyWorkItem(workItem);
     }
+  }
+
+  refreshAttachmentActivity(): void {
+    const workItemId = this.workItemId();
+    const generation = ++this.attachmentActivityGeneration;
+    this.attachmentActivitySubscription?.unsubscribe();
+    this.attachmentActivityError.set(null);
+
+    this.attachmentActivitySubscription = this.api
+      .listWorkItemActivity(workItemId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+      next: (activity) => {
+        if (generation !== this.attachmentActivityGeneration || workItemId !== this.workItemId()) {
+          return;
+        }
+
+        this.workItem.update((workItem) =>
+          workItem?.id === workItemId ? { ...workItem, activity } : workItem
+        );
+        this.attachmentActivitySubscription = null;
+      },
+      error: () => {
+        if (generation !== this.attachmentActivityGeneration || workItemId !== this.workItemId()) {
+          return;
+        }
+
+        this.attachmentActivityError.set(
+          'The file changed, but the latest activity could not be loaded.'
+        );
+        this.attachmentActivitySubscription = null;
+      }
+    });
   }
 
   transitionStatus(): void {
@@ -2059,6 +2105,9 @@ export class WorkItemDetailPageComponent implements OnInit {
   }
 
   private resetNavigationState(): void {
+    this.attachmentActivitySubscription?.unsubscribe();
+    this.attachmentActivitySubscription = null;
+    this.attachmentActivityGeneration += 1;
     this.project.set(null);
     this.workItem.set(null);
     this.selectedLabelIds.set([]);
@@ -2096,6 +2145,7 @@ export class WorkItemDetailPageComponent implements OnInit {
     this.labelLoadError.set(null);
     this.milestoneLoadError.set(null);
     this.cycleLoadError.set(null);
+    this.attachmentActivityError.set(null);
     this.detailForm.reset({
       title: '',
       description: '',

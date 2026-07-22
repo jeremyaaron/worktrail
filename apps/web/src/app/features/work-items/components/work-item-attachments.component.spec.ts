@@ -141,9 +141,14 @@ describe('WorkItemAttachmentsComponent', () => {
       id: secondAttachmentId,
       fileName: longName,
       byteSize: 2 * 1024 * 1024,
-      createdAt: '2026-07-21T16:00:00.000Z'
+      createdAt: '2026-07-21T16:00:00.000Z',
+      permissions: { canRemove: false }
     });
-    const older = attachment({ id: firstAttachmentId, fileName: 'requirements.md' });
+    const older = attachment({
+      id: firstAttachmentId,
+      fileName: 'requirements.md',
+      permissions: { canRemove: false }
+    });
     http
       .expectOne(`/api/work-items/${firstWorkItemId}/attachments`)
       .flush(listResponse([newer, older], false));
@@ -162,6 +167,7 @@ describe('WorkItemAttachmentsComponent', () => {
     expect(compiled.textContent).toContain('File changes are unavailable for this project.');
     expect(compiled.querySelector('.attachment-name')?.getAttribute('title')).toBe(longName);
     expect(compiled.querySelectorAll('button').length).toBe(2);
+    expect(compiled.textContent).not.toContain('Remove');
   });
 
   it('downloads the authorized Blob using the UTF-8 server filename', () => {
@@ -229,6 +235,139 @@ describe('WorkItemAttachmentsComponent', () => {
     http
       .expectOne(`/api/attachments/${firstAttachmentId}/content`)
       .flush(errorBody, { status: 503, statusText: 'Unavailable' });
+  });
+
+  it('shows removal only from server capability and supports filename confirmation cancellation', () => {
+    const fixture = createComponent();
+    const removable = attachment({ id: firstAttachmentId, fileName: 'normalized evidence.txt' });
+    const protectedItem = attachment({
+      id: secondAttachmentId,
+      fileName: 'protected.txt',
+      permissions: { canRemove: false }
+    });
+    http
+      .expectOne(`/api/work-items/${firstWorkItemId}/attachments`)
+      .flush(listResponse([removable, protectedItem]));
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(
+      compiled.querySelector('button[aria-label="Remove normalized evidence.txt"]')
+    ).not.toBeNull();
+    expect(compiled.querySelector('button[aria-label="Remove protected.txt"]')).toBeNull();
+
+    compiled
+      .querySelector<HTMLButtonElement>('button[aria-label="Remove normalized evidence.txt"]')
+      ?.click();
+    fixture.detectChanges();
+    expect(compiled.textContent).toContain('Remove "normalized evidence.txt"?');
+
+    compiled.querySelector<HTMLButtonElement>('.removal-confirmation button:last-child')?.click();
+    fixture.detectChanges();
+    expect(compiled.textContent).not.toContain('Remove "normalized evidence.txt"?');
+    http.expectNone(`/api/attachments/${firstAttachmentId}`);
+  });
+
+  it('removes one attachment once and restores local count and byte capacity', () => {
+    const fixture = createComponent();
+    const activityChanged = spyOn(fixture.componentInstance.activityChanged, 'emit');
+    const item = attachment({
+      id: firstAttachmentId,
+      fileName: 'evidence.txt',
+      byteSize: 2048
+    });
+    http.expectOne(`/api/work-items/${firstWorkItemId}/attachments`).flush(listResponse([item]));
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    compiled.querySelector<HTMLButtonElement>('button[aria-label="Remove evidence.txt"]')?.click();
+    fixture.detectChanges();
+    compiled.querySelector<HTMLButtonElement>('.removal-confirmation .danger-action')?.click();
+    fixture.detectChanges();
+
+    const removal = http.expectOne(`/api/attachments/${firstAttachmentId}`);
+    expect(removal.request.method).toBe('DELETE');
+    expect(compiled.textContent).toContain('Removing...');
+    expect(
+      compiled.querySelector<HTMLButtonElement>('.removal-confirmation .danger-action')?.disabled
+    ).toBeTrue();
+    fixture.componentInstance.removeAttachment(item);
+    http.expectNone(`/api/attachments/${firstAttachmentId}`);
+
+    removal.flush(null);
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('.attachment-name')).toBeNull();
+    expect(compiled.textContent).toContain('No attachments');
+    expect(compiled.textContent).toContain('Removed attachment "evidence.txt".');
+    expect(fixture.componentInstance.attachmentList()?.usage).toEqual({
+      attachmentCount: 0,
+      aggregateBytes: 0,
+      remainingAttachmentSlots: policy.maxAttachmentsPerWorkItem,
+      remainingBytes: policy.maxAggregateBytesPerWorkItem
+    });
+    expect(activityChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it('retains a failed removal with the API message and permits explicit retry', () => {
+    const fixture = createComponent();
+    const activityChanged = spyOn(fixture.componentInstance.activityChanged, 'emit');
+    const item = attachment({ id: firstAttachmentId, fileName: 'retry-removal.txt' });
+    http.expectOne(`/api/work-items/${firstWorkItemId}/attachments`).flush(listResponse([item]));
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    compiled
+      .querySelector<HTMLButtonElement>('button[aria-label="Remove retry-removal.txt"]')
+      ?.click();
+    fixture.detectChanges();
+    compiled.querySelector<HTMLButtonElement>('.removal-confirmation .danger-action')?.click();
+    http
+      .expectOne(`/api/attachments/${firstAttachmentId}`)
+      .flush(
+        {
+          error: { code: 'ATTACHMENT_STORAGE_UNAVAILABLE', message: 'File storage is unavailable.' }
+        },
+        { status: 503, statusText: 'Unavailable' }
+      );
+    fixture.detectChanges();
+
+    expect(compiled.textContent).toContain('retry-removal.txt');
+    expect(compiled.textContent).toContain('File storage is unavailable.');
+    expect(activityChanged).not.toHaveBeenCalled();
+    const retry = compiled.querySelector<HTMLButtonElement>('.removal-confirmation .danger-action');
+    expect(retry?.disabled).toBeFalse();
+
+    retry?.click();
+    http.expectOne(`/api/attachments/${firstAttachmentId}`).flush(null);
+    fixture.detectChanges();
+    expect(compiled.querySelector('.attachment-name')).toBeNull();
+    expect(activityChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels an active removal and clears its state when route identity changes', () => {
+    const fixture = createComponent();
+    const activityChanged = spyOn(fixture.componentInstance.activityChanged, 'emit');
+    const item = attachment({ id: firstAttachmentId, fileName: 'old-removal.txt' });
+    http.expectOne(`/api/work-items/${firstWorkItemId}/attachments`).flush(listResponse([item]));
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    compiled
+      .querySelector<HTMLButtonElement>('button[aria-label="Remove old-removal.txt"]')
+      ?.click();
+    fixture.detectChanges();
+    compiled.querySelector<HTMLButtonElement>('.removal-confirmation .danger-action')?.click();
+    const removal = http.expectOne(`/api/attachments/${firstAttachmentId}`);
+
+    fixture.componentRef.setInput('workItemId', secondWorkItemId);
+    fixture.detectChanges();
+
+    expect(removal.cancelled).toBeTrue();
+    expect(fixture.componentInstance.confirmingRemovalId()).toBeNull();
+    expect(fixture.componentInstance.removingIds().size).toBe(0);
+    expect(activityChanged).not.toHaveBeenCalled();
+    http.expectOne(`/api/work-items/${secondWorkItemId}/attachments`).flush(listResponse([]));
   });
 
   it('clears old rows immediately when the work item input changes', () => {

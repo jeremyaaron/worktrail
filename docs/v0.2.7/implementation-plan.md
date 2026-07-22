@@ -1026,7 +1026,50 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-21.
+- Added server-capability-driven removal controls: `Remove` renders only when the attachment row returns
+  `permissions.canRemove`; the client does not infer authorization from the selected member role.
+- Added the established inline confirmation pattern with the server-normalized filename, explicit
+  `Remove file` and `Cancel` actions, and stable row layout.
+- Download and removal are mutually disabled for the active row, and repeated removal submission is
+  rejected while that attachment request is in flight.
+- Successful removal immediately:
+  - removes only the matching metadata row;
+  - decrements attachment count and aggregate bytes;
+  - restores remaining slots and bytes within policy bounds;
+  - clears row errors and confirmation state;
+  - announces the normalized filename;
+  - emits one `activityChanged` event.
+- Failed removal retains the metadata row and confirmation, displays the authoritative safe API message,
+  and permits explicit retry without a list or route reload.
+- Removal subscriptions, pending ids, confirmation, errors, and announcements clear on work-item
+  identity changes; active prior-item requests are canceled and late outcomes remain generation-guarded.
+- Archived/read-only responses expose list and Download while omitting both Add files and Remove.
+- Wired the attachment child's coalesced upload and per-removal output to the existing work-item activity
+  endpoint rather than reloading the primary detail DTO.
+- Activity refreshes cancel a superseded request, reject stale work-item/generation outcomes, and update
+  only `workItem.activity`; comments, `updatedAt`, forms, relationships, watchers, and other detail state
+  remain untouched.
+- Activity refresh failure keeps the prior timeline visible and exposes a scoped retry. Attachment
+  activity requests do not refresh watcher or notification/unread state.
+- Existing same-route hierarchy and relationship navigation coverage remains green alongside explicit
+  attachment upload/removal cancellation coverage.
+- Added Angular coverage for capability visibility, archived behavior, filename confirmation/cancel,
+  duplicate prevention, success reconciliation, failed-row retry, route cancellation, child-output
+  integration, activity-only requests, retained detail/watch state, and activity retry.
+- Verification passed:
+  - API attachment authorization/lifecycle suite: 5 files and 57 tests;
+  - Angular attachment API/component suite: 2 files and 19 tests;
+  - work-item detail integration/regression suite: 1 file and 30 tests;
+  - web full suite: 390 tests;
+  - web typecheck/development build;
+  - web lint with zero warnings;
+  - production build with no budget warnings, a 371.33 kB initial bundle, and a 106.18 kB lazy
+    work-item-detail chunk;
+  - focused formatting checks and `git diff --check`.
+- No notification behavior, detail timestamp mutation, list sorting, custom dialog framework, seed data,
+  or E2E coverage was introduced early.
+- No design deviation or unresolved choice blocks Phase 10.
 
 ## Phase 10: Deterministic Seed Objects And Local Storage Reset
 

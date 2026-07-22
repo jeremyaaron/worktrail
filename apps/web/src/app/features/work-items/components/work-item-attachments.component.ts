@@ -98,6 +98,7 @@ interface AttachmentUploadQueueEntry {
       }
 
       <p class="upload-announcement" aria-live="polite">{{ uploadAnnouncement() }}</p>
+      <p class="removal-announcement" aria-live="polite">{{ removalAnnouncement() }}</p>
 
       @if (uploadQueue().length > 0) {
         <section class="upload-queue" aria-labelledby="attachment-upload-queue-heading">
@@ -187,17 +188,56 @@ interface AttachmentUploadQueueEntry {
                 @if (downloadError(attachment.id); as message) {
                   <p class="row-error" role="alert">{{ message }}</p>
                 }
+                @if (removalError(attachment.id); as message) {
+                  <p class="row-error" role="alert">{{ message }}</p>
+                }
+
+                @if (confirmingRemovalId() === attachment.id) {
+                  <div
+                    class="removal-confirmation"
+                    role="group"
+                    [attr.aria-label]="'Remove ' + attachment.fileName + ' confirmation'"
+                  >
+                    <span>Remove "{{ attachment.fileName }}"?</span>
+                    <button
+                      type="button"
+                      class="danger-action"
+                      [disabled]="isRemoving(attachment.id)"
+                      (click)="removeAttachment(attachment)"
+                    >
+                      {{ isRemoving(attachment.id) ? 'Removing...' : 'Remove file' }}
+                    </button>
+                    <button
+                      type="button"
+                      [disabled]="isRemoving(attachment.id)"
+                      (click)="cancelRemoval(attachment.id)"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                }
               </div>
 
               <div class="attachment-row__actions">
                 <button
                   type="button"
-                  [disabled]="isDownloading(attachment.id)"
+                  [disabled]="isDownloading(attachment.id) || isRemoving(attachment.id)"
                   [attr.aria-label]="'Download ' + attachment.fileName"
                   (click)="download(attachment)"
                 >
                   {{ isDownloading(attachment.id) ? 'Downloading...' : 'Download' }}
                 </button>
+                @if (attachment.permissions.canRemove && confirmingRemovalId() !== attachment.id) {
+                  <button
+                    type="button"
+                    class="danger-action"
+                    [disabled]="isDownloading(attachment.id) || isRemoving(attachment.id)"
+                    [attr.aria-label]="'Remove ' + attachment.fileName"
+                    (click)="confirmRemoval(attachment)"
+                  >
+                    {{ isRemoving(attachment.id) ? 'Removing...' : 'Remove' }}
+                  </button>
+                }
               </div>
             </li>
           }
@@ -307,7 +347,8 @@ interface AttachmentUploadQueueEntry {
       white-space: nowrap;
     }
 
-    .upload-announcement:empty {
+    .upload-announcement:empty,
+    .removal-announcement:empty {
       display: none;
     }
 
@@ -423,8 +464,20 @@ interface AttachmentUploadQueueEntry {
     .attachment-row__actions {
       display: flex;
       align-items: center;
+      gap: 8px;
       min-width: 112px;
       justify-content: flex-end;
+    }
+
+    .removal-confirmation {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+      color: #7f1d1d;
+      font-size: 0.8125rem;
+      font-weight: 800;
     }
 
     button {
@@ -451,6 +504,11 @@ interface AttachmentUploadQueueEntry {
       border-color: #2563eb;
       background: #2563eb;
       color: #ffffff;
+    }
+
+    .danger-action {
+      border-color: #fecaca;
+      color: #b91c1c;
     }
 
     .row-error {
@@ -499,6 +557,7 @@ export class WorkItemAttachmentsComponent {
   private listSubscription: Subscription | null = null;
   private uploadSubscription: Subscription | null = null;
   private readonly downloadSubscriptions = new Map<string, Subscription>();
+  private readonly removalSubscriptions = new Map<string, Subscription>();
   private requestGeneration = 0;
   private nextUploadId = 1;
   private successfulUploadsInRun = 0;
@@ -511,6 +570,10 @@ export class WorkItemAttachmentsComponent {
   readonly loadError = signal<string | null>(null);
   readonly downloadingIds = signal<ReadonlySet<string>>(new Set());
   readonly downloadErrors = signal<Readonly<Record<string, string>>>({});
+  readonly removingIds = signal<ReadonlySet<string>>(new Set());
+  readonly removalErrors = signal<Readonly<Record<string, string>>>({});
+  readonly confirmingRemovalId = signal<string | null>(null);
+  readonly removalAnnouncement = signal('');
   readonly uploadQueue = signal<readonly AttachmentUploadQueueEntry[]>([]);
   readonly uploadAnnouncement = signal('');
   readonly attachments = computed(() => this.attachmentList()?.items ?? []);
@@ -635,7 +698,7 @@ export class WorkItemAttachmentsComponent {
   }
 
   download(attachment: WorkItemAttachmentDto): void {
-    if (this.isDownloading(attachment.id)) {
+    if (this.isDownloading(attachment.id) || this.isRemoving(attachment.id)) {
       return;
     }
 
@@ -685,6 +748,71 @@ export class WorkItemAttachmentsComponent {
     return this.downloadErrors()[attachmentId] ?? null;
   }
 
+  confirmRemoval(attachment: WorkItemAttachmentDto): void {
+    if (
+      !attachment.permissions.canRemove ||
+      this.isDownloading(attachment.id) ||
+      this.isRemoving(attachment.id)
+    ) {
+      return;
+    }
+
+    this.setRemovalError(attachment.id, null);
+    this.confirmingRemovalId.set(attachment.id);
+  }
+
+  cancelRemoval(attachmentId: string): void {
+    if (this.confirmingRemovalId() === attachmentId && !this.isRemoving(attachmentId)) {
+      this.confirmingRemovalId.set(null);
+    }
+  }
+
+  removeAttachment(attachment: WorkItemAttachmentDto): void {
+    if (
+      !attachment.permissions.canRemove ||
+      this.confirmingRemovalId() !== attachment.id ||
+      this.isRemoving(attachment.id)
+    ) {
+      return;
+    }
+
+    const generation = this.requestGeneration;
+    const workItemId = this.workItemId();
+    this.removalAnnouncement.set('');
+    this.setRemovalError(attachment.id, null);
+    this.setRemoving(attachment.id, true);
+
+    const subscription = this.api.removeAttachment(attachment.id).subscribe({
+      next: () => {
+        if (!this.isCurrentRequest(generation, workItemId)) {
+          return;
+        }
+
+        this.completeRemoval(attachment);
+      },
+      error: (error: unknown) => {
+        if (!this.isCurrentRequest(generation, workItemId)) {
+          return;
+        }
+
+        this.setRemovalError(
+          attachment.id,
+          extractApiErrorMessage(error, 'The attachment could not be removed. Try again.')
+        );
+        this.setRemoving(attachment.id, false);
+      }
+    });
+    this.removalSubscriptions.set(attachment.id, subscription);
+  }
+
+  isRemoving(attachmentId: string): boolean {
+    return this.removingIds().has(attachmentId);
+  }
+
+  removalError(attachmentId: string): string | null {
+    return this.removalErrors()[attachmentId] ?? null;
+  }
+
   uploadStateLabel(entry: AttachmentUploadQueueEntry): string {
     if (entry.state === 'uploading') {
       return entry.progress === null ? 'Uploading' : `Uploading ${entry.progress}%`;
@@ -727,6 +855,10 @@ export class WorkItemAttachmentsComponent {
     this.isLoading.set(true);
     this.downloadingIds.set(new Set());
     this.downloadErrors.set({});
+    this.removingIds.set(new Set());
+    this.removalErrors.set({});
+    this.confirmingRemovalId.set(null);
+    this.removalAnnouncement.set('');
     this.uploadQueue.set([]);
     this.uploadAnnouncement.set('');
     this.successfulUploadsInRun = 0;
@@ -761,6 +893,43 @@ export class WorkItemAttachmentsComponent {
       subscription.unsubscribe();
     }
     this.downloadSubscriptions.clear();
+
+    for (const subscription of this.removalSubscriptions.values()) {
+      subscription.unsubscribe();
+    }
+    this.removalSubscriptions.clear();
+  }
+
+  private completeRemoval(attachment: WorkItemAttachmentDto): void {
+    const state = this.attachmentList();
+
+    if (state === null || !state.items.some((item) => item.id === attachment.id)) {
+      this.setRemoving(attachment.id, false);
+      return;
+    }
+
+    this.attachmentList.set({
+      ...state,
+      items: state.items.filter((item) => item.id !== attachment.id),
+      usage: {
+        attachmentCount: Math.max(0, state.usage.attachmentCount - 1),
+        aggregateBytes: Math.max(0, state.usage.aggregateBytes - attachment.byteSize),
+        remainingAttachmentSlots: Math.min(
+          state.policy.maxAttachmentsPerWorkItem,
+          state.usage.remainingAttachmentSlots + 1
+        ),
+        remainingBytes: Math.min(
+          state.policy.maxAggregateBytesPerWorkItem,
+          state.usage.remainingBytes + attachment.byteSize
+        )
+      }
+    });
+    this.setRemoving(attachment.id, false);
+    this.setRemovalError(attachment.id, null);
+    this.setDownloadError(attachment.id, null);
+    this.confirmingRemovalId.set(null);
+    this.removalAnnouncement.set(`Removed attachment "${attachment.fileName}".`);
+    this.activityChanged.emit();
   }
 
   private validateSelection(
@@ -992,6 +1161,34 @@ export class WorkItemAttachmentsComponent {
     }
 
     this.downloadErrors.set(next);
+  }
+
+  private setRemoving(attachmentId: string, isRemoving: boolean): void {
+    const next = new Set(this.removingIds());
+
+    if (isRemoving) {
+      next.add(attachmentId);
+    } else {
+      next.delete(attachmentId);
+    }
+
+    this.removingIds.set(next);
+
+    if (!isRemoving) {
+      this.removalSubscriptions.delete(attachmentId);
+    }
+  }
+
+  private setRemovalError(attachmentId: string, message: string | null): void {
+    const next = { ...this.removalErrors() };
+
+    if (message === null) {
+      delete next[attachmentId];
+    } else {
+      next[attachmentId] = message;
+    }
+
+    this.removalErrors.set(next);
   }
 
   private compactNumber(value: number): string {
