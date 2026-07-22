@@ -641,7 +641,67 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-21.
+- Added a transport-neutral attachment download result containing only normalized filename, media type,
+  recorded byte size, and copied bytes; HTTP headers and response adaptation remain deferred.
+- Implemented authorized download behavior with:
+  - active-actor validation;
+  - attachment, work-item, project, and workspace ownership validation before any object-store read;
+  - missing/cross-workspace identity concealment;
+  - active and archived project access for every active workspace role;
+  - recorded positive/4 MiB policy bounds before storage access;
+  - controlled mapping for object-store read failure or missing bytes;
+  - exact object byte-size and SHA-256 verification against authoritative metadata;
+  - controlled integrity failure for oversized, size-mismatched, or checksum-mismatched bytes;
+  - copied return bytes so callers cannot mutate stored adapter values.
+- Extended safe operational evidence with download read/integrity and removal/stale-object operations.
+  Evidence remains limited to operation, attachment id, outcome, and error class; no bytes, key, path,
+  checksum, filename, request data, or raw adapter error is logged. Warning/error logger failures remain
+  best-effort and cannot change service outcomes.
+- Implemented authorized removal with:
+  - missing/cross-workspace attachment concealment and active-actor prechecks;
+  - archived-project conflict before uploader/role authorization;
+  - uploader, owner, and maintainer permission with denial for unrelated contributors;
+  - required transaction lock order: project `FOR SHARE`, work item `FOR UPDATE`, attachment `FOR UPDATE`;
+  - locked workspace/project/work-item ownership, active-project, active-actor, and permission
+    revalidation;
+  - object removal while all three locks are held;
+  - safe `work_item.attachment_removed` activity inserted before live metadata deletion in the same
+    transaction;
+  - retained previous attachment id, normalized filename, media type, and byte size with null new value;
+  - no checksum/storage fields, work-item timestamp update, or notification creation.
+- Object removal failures map to the generic storage-unavailable error and roll back with metadata and
+  activity unchanged for retry.
+- Missing objects are treated as authorized stale-record repair: safe warning evidence is emitted,
+  removal activity commits, and live metadata is deleted.
+- Database/activity failure after successful object removal intentionally rolls back metadata/activity,
+  leaving a controlled stale row that a later authorized removal repairs through the missing-object path.
+- Added PostgreSQL-backed download coverage for:
+  - exact copied bytes and safe metadata in active and archived projects;
+  - missing/cross-workspace identity before object reads;
+  - missing object, adapter read failure, oversized bytes, size mismatch, and checksum mismatch.
+- Added PostgreSQL-backed removal coverage for:
+  - uploader, owner, and maintainer success;
+  - unrelated contributor denial, inactive actor denial, missing/cross-workspace concealment, and archived
+    conflict before object removal;
+  - retained safe activity after live-row deletion, unchanged work item, and zero notifications;
+  - storage failure with metadata/object/activity retryability and successful retry;
+  - missing-object repair with safe warning evidence;
+  - post-object activity failure, stale metadata retention, and successful repair retry.
+- Added a real PostgreSQL concurrent-removal test. Two requests against one attachment produce exactly
+  one success, one controlled `NOT_FOUND`, one object removal, one retained removal event, no live row,
+  an unchanged work item, and zero notifications.
+- Verification passed:
+  - focused attachment service/concurrency suite: 2 files and 21 tests;
+  - API full suite: 40 files and 436 tests;
+  - API typecheck;
+  - API lint with zero warnings;
+  - API build;
+  - focused formatting checks;
+  - `git diff --check`.
+- No HTTP response/header helper, endpoint/Express route, OpenAPI, Angular, background deletion/outbox,
+  seed, readiness, or version implementation was introduced early.
+- No design deviation or unresolved choice blocks Phase 6.
 
 ## Phase 6: Binary HTTP Adaptation, Attachment Endpoints, And OpenAPI
 

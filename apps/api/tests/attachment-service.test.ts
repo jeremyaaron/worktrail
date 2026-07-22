@@ -138,6 +138,8 @@ async function createAttachmentMetadata(
     uploaderMemberId?: string;
     fileName?: string;
     byteSize?: number;
+    mediaType?: string;
+    checksumSha256?: string;
     createdAt?: Date;
     key?: string;
   } = {}
@@ -149,12 +151,37 @@ async function createAttachmentMetadata(
     workItemId: fixture.workItemId,
     uploaderMemberId: input.uploaderMemberId ?? fixture.members.contributor.id,
     fileName: input.fileName ?? 'existing.txt',
-    mediaType: 'text/plain',
+    mediaType: input.mediaType ?? 'text/plain',
     byteSize: input.byteSize ?? 1,
-    checksumSha256: 'a'.repeat(64),
+    checksumSha256: input.checksumSha256 ?? 'a'.repeat(64),
     storageKey: input.key ?? storageKey(),
     createdAt: input.createdAt ?? now()
   });
+}
+
+async function createStoredAttachment(
+  fixture: Awaited<ReturnType<typeof createFixture>>,
+  objectStore: AttachmentObjectStore,
+  input: {
+    bytes?: Uint8Array;
+    uploaderMemberId?: string;
+    fileName?: string;
+    mediaType?: string;
+  } = {}
+) {
+  const bytes = input.bytes ?? new TextEncoder().encode('stored attachment evidence');
+  const key = storageKey();
+  await objectStore.put(key, bytes);
+  const attachment = await createAttachmentMetadata(fixture, {
+    uploaderMemberId: input.uploaderMemberId,
+    fileName: input.fileName,
+    mediaType: input.mediaType,
+    byteSize: bytes.byteLength,
+    checksumSha256: createHash('sha256').update(bytes).digest('hex'),
+    key
+  });
+
+  return { attachment: attachment!, bytes, key };
 }
 
 function createService(
@@ -558,5 +585,335 @@ describe('AttachmentService', () => {
       attachmentCount: fullFiles + 2,
       aggregateBytes: attachmentPolicy.maxAggregateBytesPerWorkItem
     });
+  });
+
+  it('downloads exact verified bytes from active and archived projects without exposing internals', async () => {
+    const fixture = await createFixture();
+    const objectStore = new InMemoryAttachmentObjectStore();
+    const stored = await createStoredAttachment(fixture, objectStore, {
+      bytes: new TextEncoder().encode('verified download evidence'),
+      uploaderMemberId: fixture.members.otherContributor.id,
+      fileName: 'verified.txt'
+    });
+    const { service } = createService({ objectStore });
+
+    const active = await service.download(fixture.actor('contributor'), stored.attachment.id);
+    expect(active).toEqual({
+      fileName: 'verified.txt',
+      mediaType: 'text/plain',
+      byteSize: stored.bytes.byteLength,
+      bytes: stored.bytes
+    });
+    active.bytes[0] = 0;
+
+    await repositories.projects.updateStatus(fixture.projectId, 'archived', now());
+    await expect(
+      service.download(fixture.actor('maintainer'), stored.attachment.id)
+    ).resolves.toEqual({
+      fileName: 'verified.txt',
+      mediaType: 'text/plain',
+      byteSize: stored.bytes.byteLength,
+      bytes: stored.bytes
+    });
+  });
+
+  it('conceals missing and cross-workspace downloads before object access', async () => {
+    const fixture = await createFixture();
+    const other = await createFixture();
+    const objectStore = new InMemoryAttachmentObjectStore();
+    const stored = await createStoredAttachment(fixture, objectStore);
+    const { service } = createService({ objectStore });
+    const getSpy = vi.spyOn(objectStore, 'get');
+
+    await expect(
+      service.download(other.actor('owner'), stored.attachment.id)
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(service.download(fixture.actor('owner'), randomUUID())).rejects.toBeInstanceOf(
+      NotFoundError
+    );
+    expect(getSpy).not.toHaveBeenCalled();
+  });
+
+  it('maps missing, failed, oversized, size-mismatched, and checksum-mismatched reads safely', async () => {
+    const fixture = await createFixture();
+    const objectStore = new InMemoryAttachmentObjectStore();
+    const logger: AttachmentOperationalLogger = { warn: vi.fn(), error: vi.fn() };
+    const { service } = createService({ objectStore, logger });
+    const bytes = new TextEncoder().encode('integrity evidence');
+    const missing = await createAttachmentMetadata(fixture, {
+      byteSize: bytes.byteLength,
+      checksumSha256: createHash('sha256').update(bytes).digest('hex')
+    });
+
+    await expect(service.download(fixture.actor('owner'), missing!.id)).rejects.toBeInstanceOf(
+      AttachmentStorageUnavailableError
+    );
+    expect(logger.warn).toHaveBeenCalledWith({
+      operation: 'download_read',
+      attachmentId: missing!.id,
+      outcome: 'missing'
+    });
+
+    const failed = await createStoredAttachment(fixture, objectStore, { bytes });
+    objectStore.failNext('get');
+    await expect(
+      service.download(fixture.actor('owner'), failed.attachment.id)
+    ).rejects.toBeInstanceOf(AttachmentStorageUnavailableError);
+    expect(logger.error).toHaveBeenCalledWith({
+      operation: 'download_read',
+      attachmentId: failed.attachment.id,
+      outcome: 'failed',
+      errorName: 'AttachmentObjectStoreError'
+    });
+
+    const sizeKey = storageKey();
+    await objectStore.put(sizeKey, bytes);
+    const sizeMismatch = await createAttachmentMetadata(fixture, {
+      byteSize: bytes.byteLength + 1,
+      checksumSha256: createHash('sha256').update(bytes).digest('hex'),
+      key: sizeKey
+    });
+    await expect(service.download(fixture.actor('owner'), sizeMismatch!.id)).rejects.toBeInstanceOf(
+      AttachmentStorageUnavailableError
+    );
+
+    const checksumMismatch = await createStoredAttachment(fixture, objectStore, { bytes });
+    await pool.query('update work_item_attachments set checksum_sha256 = $1 where id = $2', [
+      'f'.repeat(64),
+      checksumMismatch.attachment.id
+    ]);
+    await expect(
+      service.download(fixture.actor('owner'), checksumMismatch.attachment.id)
+    ).rejects.toBeInstanceOf(AttachmentStorageUnavailableError);
+
+    const oversizedKey = storageKey();
+    await objectStore.put(oversizedKey, new Uint8Array(attachmentPolicy.maxFileBytes + 1));
+    const oversized = await createAttachmentMetadata(fixture, {
+      byteSize: 1,
+      checksumSha256: 'a'.repeat(64),
+      key: oversizedKey
+    });
+    await expect(service.download(fixture.actor('owner'), oversized!.id)).rejects.toBeInstanceOf(
+      AttachmentStorageUnavailableError
+    );
+    expect(logger.warn).toHaveBeenCalledWith({
+      operation: 'download_integrity',
+      attachmentId: expect.any(String),
+      outcome: 'integrity_mismatch'
+    });
+  });
+
+  it('enforces uploader-or-role removal permission and archived read-only behavior before storage', async () => {
+    const fixture = await createFixture();
+    const other = await createFixture();
+    const objectStore = new InMemoryAttachmentObjectStore();
+    const stored = await createStoredAttachment(fixture, objectStore, {
+      uploaderMemberId: fixture.members.contributor.id
+    });
+    const { service } = createService({ objectStore });
+    const removeSpy = vi.spyOn(objectStore, 'remove');
+
+    await expect(service.remove(other.actor('owner'), stored.attachment.id)).rejects.toBeInstanceOf(
+      NotFoundError
+    );
+    await expect(service.remove(fixture.actor('owner'), randomUUID())).rejects.toBeInstanceOf(
+      NotFoundError
+    );
+    await expect(
+      service.remove(fixture.actor('inactive'), stored.attachment.id)
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(
+      service.remove(fixture.actor('otherContributor'), stored.attachment.id)
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(removeSpy).not.toHaveBeenCalled();
+
+    await repositories.projects.updateStatus(fixture.projectId, 'archived', now());
+    await expect(
+      service.remove(fixture.actor('owner'), stored.attachment.id)
+    ).rejects.toBeInstanceOf(ConflictError);
+    expect(removeSpy).not.toHaveBeenCalled();
+    await expect(objectStore.get(stored.key)).resolves.toEqual(stored.bytes);
+    await expect(
+      repositories.workItemAttachments.findById(stored.attachment.id)
+    ).resolves.not.toBeNull();
+  });
+
+  it('allows uploader, owner, and maintainer removals with retained safe activity and no notifications', async () => {
+    const fixture = await createFixture();
+    const objectStore = new InMemoryAttachmentObjectStore();
+    const contexts = [
+      {
+        actor: fixture.actor('contributor'),
+        uploaderMemberId: fixture.members.contributor.id
+      },
+      {
+        actor: fixture.actor('owner'),
+        uploaderMemberId: fixture.members.otherContributor.id
+      },
+      {
+        actor: fixture.actor('maintainer'),
+        uploaderMemberId: fixture.members.otherContributor.id
+      }
+    ];
+    const removedIds: string[] = [];
+    const removedKeys: string[] = [];
+
+    for (const context of contexts) {
+      const stored = await createStoredAttachment(fixture, objectStore, {
+        uploaderMemberId: context.uploaderMemberId,
+        fileName: `removal-${removedIds.length}.txt`
+      });
+      const { service } = createService({ objectStore });
+      await service.remove(context.actor, stored.attachment.id);
+      removedIds.push(stored.attachment.id);
+      removedKeys.push(stored.key);
+      await expect(
+        repositories.workItemAttachments.findById(stored.attachment.id)
+      ).resolves.toBeNull();
+    }
+
+    for (const key of removedKeys) {
+      await expect(objectStore.get(key)).resolves.toBeNull();
+    }
+    const events = (await repositories.activityEvents.findByWorkItem(fixture.workItemId)).filter(
+      (event) => event.eventType === 'work_item.attachment_removed'
+    );
+    expect(events).toHaveLength(3);
+    expect(events.map((event) => event.previousValue)).toEqual(
+      expect.arrayContaining(
+        removedIds.map((id, index) => ({
+          attachment: {
+            id,
+            fileName: `removal-${index}.txt`,
+            mediaType: 'text/plain',
+            byteSize: new TextEncoder().encode('stored attachment evidence').byteLength
+          }
+        }))
+      )
+    );
+    expect(events.every((event) => event.newValue === null)).toBe(true);
+    expect(JSON.stringify(events)).not.toContain(removedKeys[0]);
+    await expect(repositories.workItems.findById(fixture.workItemId)).resolves.toMatchObject({
+      updatedAt: now()
+    });
+    const notifications = await pool.query<{ count: string }>(
+      'select count(*)::text as count from notifications where workspace_id = $1',
+      [fixture.workspaceId]
+    );
+    expect(notifications.rows[0]?.count).toBe('0');
+  });
+
+  it('keeps metadata and activity retryable when object removal fails', async () => {
+    const fixture = await createFixture();
+    const objectStore = new InMemoryAttachmentObjectStore();
+    const stored = await createStoredAttachment(fixture, objectStore);
+    const logger: AttachmentOperationalLogger = { warn: vi.fn(), error: vi.fn() };
+    const { service } = createService({ objectStore, logger });
+    objectStore.failNext('remove');
+
+    await expect(
+      service.remove(fixture.actor('owner'), stored.attachment.id)
+    ).rejects.toBeInstanceOf(AttachmentStorageUnavailableError);
+    await expect(
+      repositories.workItemAttachments.findById(stored.attachment.id)
+    ).resolves.not.toBeNull();
+    await expect(objectStore.get(stored.key)).resolves.toEqual(stored.bytes);
+    expect(
+      (await repositories.activityEvents.findByWorkItem(fixture.workItemId)).filter(
+        (event) => event.eventType === 'work_item.attachment_removed'
+      )
+    ).toEqual([]);
+    expect(logger.error).toHaveBeenCalledWith({
+      operation: 'remove_object',
+      attachmentId: stored.attachment.id,
+      outcome: 'failed',
+      errorName: 'AttachmentObjectStoreError'
+    });
+
+    await expect(
+      service.remove(fixture.actor('owner'), stored.attachment.id)
+    ).resolves.toBeUndefined();
+  });
+
+  it('repairs missing objects with retained activity and safe warning evidence', async () => {
+    const fixture = await createFixture();
+    const attachment = await createAttachmentMetadata(fixture, {
+      uploaderMemberId: fixture.members.contributor.id,
+      fileName: 'missing.txt'
+    });
+    const logger: AttachmentOperationalLogger = { warn: vi.fn(), error: vi.fn() };
+    const { service } = createService({ logger });
+
+    await service.remove(fixture.actor('maintainer'), attachment!.id);
+
+    await expect(repositories.workItemAttachments.findById(attachment!.id)).resolves.toBeNull();
+    expect(logger.warn).toHaveBeenCalledWith({
+      operation: 'remove_stale_object',
+      attachmentId: attachment!.id,
+      outcome: 'missing'
+    });
+    const event = (await repositories.activityEvents.findByWorkItem(fixture.workItemId)).find(
+      (candidate) => candidate.eventType === 'work_item.attachment_removed'
+    );
+    expect(event).toMatchObject({
+      actorId: fixture.members.maintainer.id,
+      summary: 'Removed attachment "missing.txt".',
+      previousValue: {
+        attachment: {
+          id: attachment!.id,
+          fileName: 'missing.txt',
+          mediaType: 'text/plain',
+          byteSize: 1
+        }
+      },
+      newValue: null,
+      metadata: { attachmentId: attachment!.id }
+    });
+  });
+
+  it('leaves a repairable stale row after post-object commit failure and completes on retry', async () => {
+    const fixture = await createFixture();
+    const objectStore = new InMemoryAttachmentObjectStore();
+    const stored = await createStoredAttachment(fixture, objectStore);
+    const duplicateActivityId = randomUUID();
+    await repositories.activityEvents.create({
+      id: duplicateActivityId,
+      workspaceId: fixture.workspaceId,
+      projectId: fixture.projectId,
+      workItemId: fixture.workItemId,
+      actorId: fixture.members.owner.id,
+      eventType: 'work_item.created',
+      summary: 'Existing activity.',
+      previousValue: null,
+      newValue: null,
+      metadata: {},
+      createdAt: now()
+    });
+    const failed = createService({ objectStore, ids: [duplicateActivityId] });
+
+    await expect(
+      failed.service.remove(fixture.actor('owner'), stored.attachment.id)
+    ).rejects.toBeDefined();
+    await expect(objectStore.get(stored.key)).resolves.toBeNull();
+    await expect(
+      repositories.workItemAttachments.findById(stored.attachment.id)
+    ).resolves.not.toBeNull();
+
+    const logger: AttachmentOperationalLogger = { warn: vi.fn(), error: vi.fn() };
+    const retry = createService({ objectStore, logger });
+    await retry.service.remove(fixture.actor('owner'), stored.attachment.id);
+
+    await expect(
+      repositories.workItemAttachments.findById(stored.attachment.id)
+    ).resolves.toBeNull();
+    expect(logger.warn).toHaveBeenCalledWith({
+      operation: 'remove_stale_object',
+      attachmentId: stored.attachment.id,
+      outcome: 'missing'
+    });
+    const removalEvents = (
+      await repositories.activityEvents.findByWorkItem(fixture.workItemId)
+    ).filter((event) => event.eventType === 'work_item.attachment_removed');
+    expect(removalEvents).toHaveLength(1);
   });
 });

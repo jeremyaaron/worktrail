@@ -1,7 +1,13 @@
 export interface AttachmentOperationalLogEntry {
-  operation: 'upload_write' | 'upload_compensation';
+  operation:
+    | 'upload_write'
+    | 'upload_compensation'
+    | 'download_read'
+    | 'download_integrity'
+    | 'remove_object'
+    | 'remove_stale_object';
   attachmentId: string;
-  outcome: 'failed' | 'missing';
+  outcome: 'failed' | 'missing' | 'integrity_mismatch';
   errorName?: string;
 }
 

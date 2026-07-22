@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { createDb, createPool } from '../src/db/client.js';
 import type { ActorContext } from '../src/domain/actor.js';
@@ -36,6 +36,63 @@ async function cleanup(): Promise<void> {
   await pool.query('delete from workspaces where id = $1', [workspaceId]);
 }
 
+async function createConcurrencyFixture() {
+  const projectId = randomUUID();
+  const workItemId = randomUUID();
+  const actor: ActorContext = {
+    workspaceId,
+    memberId: randomUUID(),
+    role: 'owner'
+  };
+  await repositories.workspaces.create({
+    id: workspaceId,
+    name: 'Attachment Concurrency Workspace',
+    createdAt: now(),
+    updatedAt: now()
+  });
+  await repositories.members.create({
+    id: actor.memberId,
+    workspaceId,
+    name: 'Concurrency Owner',
+    email: `${actor.memberId}@example.com`,
+    role: actor.role,
+    isActive: true,
+    createdAt: now(),
+    updatedAt: now()
+  });
+  await repositories.projects.create({
+    id: projectId,
+    workspaceId,
+    key: 'CON',
+    nextWorkItemNumber: 2,
+    name: 'Attachment Concurrency Project',
+    description: '',
+    status: 'active',
+    createdAt: now(),
+    updatedAt: now()
+  });
+  await repositories.workItems.create({
+    id: workItemId,
+    workspaceId,
+    projectId,
+    itemNumber: 1,
+    displayKey: 'CON-1',
+    title: 'Contended attachment lifecycle',
+    description: '',
+    type: 'task',
+    status: 'ready',
+    priority: 'medium',
+    assigneeId: actor.memberId,
+    reporterId: actor.memberId,
+    dueDate: null,
+    estimatePoints: null,
+    createdAt: now(),
+    updatedAt: now()
+  });
+
+  return { projectId, workItemId, actor };
+}
+
 beforeAll(async () => {
   pool = createPool();
   db = createDb(pool);
@@ -43,65 +100,15 @@ beforeAll(async () => {
   workspaceId = randomUUID();
 });
 
+afterEach(cleanup);
+
 afterAll(async () => {
-  await cleanup();
   await pool.end();
 });
 
 describe('attachment upload concurrency', () => {
   it('serializes quota checks so two uploads cannot consume one remaining slot', async () => {
-    const projectId = randomUUID();
-    const workItemId = randomUUID();
-    const actor: ActorContext = {
-      workspaceId,
-      memberId: randomUUID(),
-      role: 'owner'
-    };
-    await repositories.workspaces.create({
-      id: workspaceId,
-      name: 'Attachment Concurrency Workspace',
-      createdAt: now(),
-      updatedAt: now()
-    });
-    await repositories.members.create({
-      id: actor.memberId,
-      workspaceId,
-      name: 'Concurrency Owner',
-      email: `${actor.memberId}@example.com`,
-      role: actor.role,
-      isActive: true,
-      createdAt: now(),
-      updatedAt: now()
-    });
-    await repositories.projects.create({
-      id: projectId,
-      workspaceId,
-      key: 'CON',
-      nextWorkItemNumber: 2,
-      name: 'Attachment Concurrency Project',
-      description: '',
-      status: 'active',
-      createdAt: now(),
-      updatedAt: now()
-    });
-    await repositories.workItems.create({
-      id: workItemId,
-      workspaceId,
-      projectId,
-      itemNumber: 1,
-      displayKey: 'CON-1',
-      title: 'Contended attachment capacity',
-      description: '',
-      type: 'task',
-      status: 'ready',
-      priority: 'medium',
-      assigneeId: actor.memberId,
-      reporterId: actor.memberId,
-      dueDate: null,
-      estimatePoints: null,
-      createdAt: now(),
-      updatedAt: now()
-    });
+    const { projectId, workItemId, actor } = await createConcurrencyFixture();
 
     for (let index = 0; index < attachmentPolicy.maxAttachmentsPerWorkItem - 1; index += 1) {
       await repositories.workItemAttachments.create({
@@ -176,6 +183,75 @@ describe('attachment upload concurrency', () => {
     expect(
       activity.filter((event) => event.eventType === 'work_item.attachment_uploaded')
     ).toHaveLength(1);
+    await expect(repositories.workItems.findById(workItemId)).resolves.toMatchObject({
+      updatedAt: now()
+    });
+    const notifications = await pool.query<{ count: string }>(
+      'select count(*)::text as count from notifications where workspace_id = $1',
+      [workspaceId]
+    );
+    expect(notifications.rows[0]?.count).toBe('0');
+  });
+
+  it('serializes concurrent removals into one committed outcome and one controlled not-found', async () => {
+    const { projectId, workItemId, actor } = await createConcurrencyFixture();
+    const objectStore = new InMemoryAttachmentObjectStore();
+    const key = 'd'.repeat(64);
+    const bytes = new TextEncoder().encode('concurrent removal evidence');
+    const attachmentId = randomUUID();
+    await objectStore.put(key, bytes);
+    await repositories.workItemAttachments.create({
+      id: attachmentId,
+      workspaceId,
+      projectId,
+      workItemId,
+      uploaderMemberId: actor.memberId,
+      fileName: 'remove-once.txt',
+      mediaType: 'text/plain',
+      byteSize: bytes.byteLength,
+      checksumSha256: 'a'.repeat(64),
+      storageKey: key,
+      createdAt: now()
+    });
+    const removeSpy = vi.spyOn(objectStore, 'remove');
+    const createService = () =>
+      new AttachmentService({
+        repositories,
+        db,
+        objectStore,
+        now,
+        createId: randomUUID,
+        logger: { warn: vi.fn(), error: vi.fn() }
+      });
+
+    const outcomes = await Promise.allSettled([
+      createService().remove(actor, attachmentId),
+      createService().remove(actor, attachmentId)
+    ]);
+    const fulfilled = outcomes.filter((outcome) => outcome.status === 'fulfilled');
+    const rejected = outcomes.filter((outcome) => outcome.status === 'rejected');
+
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0]).toMatchObject({ reason: { code: 'NOT_FOUND' } });
+    expect(removeSpy).toHaveBeenCalledOnce();
+    await expect(objectStore.get(key)).resolves.toBeNull();
+    await expect(repositories.workItemAttachments.findById(attachmentId)).resolves.toBeNull();
+    const removalEvents = (await repositories.activityEvents.findByWorkItem(workItemId)).filter(
+      (event) => event.eventType === 'work_item.attachment_removed'
+    );
+    expect(removalEvents).toHaveLength(1);
+    expect(removalEvents[0]).toMatchObject({
+      previousValue: {
+        attachment: {
+          id: attachmentId,
+          fileName: 'remove-once.txt',
+          mediaType: 'text/plain',
+          byteSize: bytes.byteLength
+        }
+      },
+      newValue: null
+    });
     await expect(repositories.workItems.findById(workItemId)).resolves.toMatchObject({
       updatedAt: now()
     });
