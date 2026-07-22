@@ -750,7 +750,58 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-21.
+- Added the transport-neutral `AppBinaryBody` response variant and discriminant guard. Endpoint code
+  returns `Uint8Array`; only the Express adapter converts binary responses to Node `Buffer` values.
+- Corrected the shared Express adapter so a no-body `204` ends the response without serializing `{}` or
+  adding JSON content headers.
+- Added focused attachment endpoint handlers for:
+  - bounded metadata/policy/usage listing;
+  - one-file raw upload with UUID parameter validation, required metadata headers, one-time percent
+    decoding, and transport-independent byte input;
+  - full integrity-checked binary download;
+  - authorized removal with a truly empty `204` response.
+- Added defensive download response construction with:
+  - the normalized safe media type;
+  - forced `attachment` disposition;
+  - a constrained ASCII filename fallback and RFC 5987 UTF-8 filename;
+  - authoritative `Content-Length`;
+  - `Cache-Control: private, no-store`;
+  - `X-Content-Type-Options: nosniff`.
+- Added a dedicated Express attachment route module with the designed four routes. Registration requires
+  repositories, the database, and object storage, preserving lightweight unrelated test applications.
+- Added an upload boundary ahead of the global JSON parser that rejects missing/wrong transport media
+  type and requires each custom metadata header exactly once.
+- Added route-local `express.raw()` parsing for `application/octet-stream` at the exact 4 MiB limit.
+  Body-parser overflow maps to structured `PAYLOAD_TOO_LARGE` JSON before actor/service/object-store
+  execution rather than Express HTML.
+- Confirmed CORS preflight reflects `content-type`, `x-worktrail-filename`, and
+  `x-worktrail-media-type` for upload requests.
+- Added PostgreSQL-backed HTTP integration coverage for:
+  - upload, list, exact binary download, and removal as one lifecycle;
+  - JSON contract isolation from storage key and checksum fields;
+  - exact 4 MiB acceptance and 4 MiB plus one-byte structured rejection before storage;
+  - wrong content type, missing filename, and malformed percent-encoded UTF-8;
+  - contributor removal denial, archived-project download, and archived-project removal conflict;
+  - controlled object-read failure without internal storage evidence.
+- Added shared adapter/server coverage for binary conversion, empty `204` responses, dependency-gated
+  route registration, and custom-header CORS preflight.
+- Expanded OpenAPI with attachment tags, parameters, policy/usage/item/list schemas, all four routes,
+  raw binary upload limits and headers, binary download response headers, permissions, lifecycle
+  semantics, and representative 400/401/403/404/409/413/422/503 responses.
+- OpenAPI contains no attachment key, path, checksum, or storage configuration fields.
+- Verification passed:
+  - focused endpoint/adapter/OpenAPI suite: 3 files and 30 tests;
+  - API full suite: 41 files and 446 tests;
+  - API typecheck;
+  - API lint with zero warnings;
+  - API build;
+  - OpenAPI YAML parse;
+  - focused formatting checks;
+  - `git diff --check`.
+- No Angular client, range/HEAD behavior, multipart parsing, redirects, presigned transfer, seed, storage
+  reset, readiness, or version implementation was introduced early.
+- No design deviation or unresolved choice blocks Phase 7.
 
 ## Phase 7: Angular API, Attachment List, And Download Experience
 

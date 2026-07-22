@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 
 import { toApiErrorResponse } from '../../errors/app-error.js';
-import type { AppRequest, EndpointHandler } from '../../http/app-request.js';
+import { isAppBinaryBody, type AppRequest, type EndpointHandler } from '../../http/app-request.js';
 import type { Repositories } from '../../repositories/index.js';
 import { resolveLocalActor } from './actor.js';
 
@@ -63,6 +63,16 @@ export function adaptEndpoint(handler: EndpointHandler, options: AdaptEndpointOp
 
       for (const [key, value] of Object.entries(appResponse.headers ?? {})) {
         response.setHeader(key, value);
+      }
+
+      if (appResponse.status === 204 && appResponse.body === undefined) {
+        response.status(204).end();
+        return;
+      }
+
+      if (isAppBinaryBody(appResponse.body)) {
+        response.status(appResponse.status).send(Buffer.from(appResponse.body.bytes));
+        return;
       }
 
       if (typeof appResponse.body === 'string' || Buffer.isBuffer(appResponse.body)) {

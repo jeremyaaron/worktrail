@@ -10,6 +10,10 @@ import type { HealthCheckPool } from '../../services/health-check-service.js';
 import type { AttachmentObjectStore } from '../../storage/attachment-object-store.js';
 import { adaptEndpoint } from './handler-adapter.js';
 import { requestLogger } from './request-logging.js';
+import {
+  configureAttachmentUploadBoundary,
+  registerAttachmentRoutes
+} from './routes/attachment-routes.js';
 import { registerCycleRoutes } from './routes/cycle-routes.js';
 import { registerHealthRoutes } from './routes/health-routes.js';
 import { registerMemberRoutes } from './routes/member-routes.js';
@@ -43,6 +47,15 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
       origin: options.corsOrigin ?? 'http://localhost:4200'
     })
   );
+
+  if (
+    options.repositories !== undefined &&
+    options.db !== undefined &&
+    options.attachmentObjectStore !== undefined
+  ) {
+    configureAttachmentUploadBoundary(app);
+  }
+
   app.use(express.json());
   app.use(requestLogger);
 
@@ -59,6 +72,14 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
     registerSavedWorkViewRoutes(app, routeContext);
     registerNotificationRoutes(app, routeContext);
     registerWorkItemRoutes(app, routeContext);
+
+    if (options.db !== undefined && options.attachmentObjectStore !== undefined) {
+      registerAttachmentRoutes(app, {
+        repositories: options.repositories,
+        db: options.db,
+        objectStore: options.attachmentObjectStore
+      });
+    }
   }
 
   for (const [path, handler] of Object.entries(options.testRoutes ?? {})) {
@@ -103,7 +124,11 @@ function configureStaticAssets(app: Express, options: StaticAssetOptions): void 
   });
 }
 
-function assertStaticAssetPath(path: string, label: string, expectedType: 'directory' | 'file'): void {
+function assertStaticAssetPath(
+  path: string,
+  label: string,
+  expectedType: 'directory' | 'file'
+): void {
   if (!existsSync(path)) {
     throw new Error(`${label} does not exist: ${path}`);
   }
