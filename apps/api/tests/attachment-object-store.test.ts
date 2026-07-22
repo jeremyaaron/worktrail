@@ -100,7 +100,18 @@ describe('LocalAttachmentObjectStore', () => {
       });
     }
 
-    await expect(readdir(root)).resolves.toEqual(['objects']);
+    await expect(readdir(root)).resolves.toEqual(['.worktrail-attachment-store', 'objects']);
+  });
+
+  it('refuses to adopt an unmarked directory containing unrelated files', async () => {
+    const root = await createTemporaryRoot();
+    await writeFile(join(root, 'unrelated.txt'), 'keep me');
+
+    await expect(new LocalAttachmentObjectStore(root).initialize()).rejects.toMatchObject({
+      operation: 'initialize',
+      reason: 'invalid_object'
+    });
+    await expect(readdir(root)).resolves.toEqual(['unrelated.txt']);
   });
 
   it('rejects oversized and non-regular stored objects', async () => {

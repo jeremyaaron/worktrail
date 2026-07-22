@@ -3,6 +3,7 @@ import 'dotenv/config';
 import { and, count, eq, inArray, sql } from 'drizzle-orm';
 
 import { createDb, createPool } from './client.js';
+import { seedDeterministicAttachments } from './attachment-seed.js';
 import {
   activityEvents,
   commentMentions,
@@ -25,6 +26,8 @@ import {
 import { localSeedActor } from '../domain/actor.js';
 import { createRepositories } from '../repositories/index.js';
 import { ProjectStatusReportService } from '../services/project-status-report-service.js';
+import { loadRuntimeConfig } from '../config/runtime-config.js';
+import { LocalAttachmentObjectStore } from '../storage/local-attachment-object-store.js';
 
 const ids = {
   workspace: '10000000-0000-4000-8000-000000000001',
@@ -180,10 +183,14 @@ const workspaceSavedViewDefaults = {
   isPinned: false
 } as const;
 
-const pool = createPool();
+const config = loadRuntimeConfig();
+const pool = createPool(config.databaseUrl);
 const db = createDb(pool);
 
 try {
+  const attachmentObjectStore = new LocalAttachmentObjectStore(config.attachmentStoragePath);
+  await attachmentObjectStore.initialize();
+
   await db.transaction(async (tx) => {
     await tx.delete(projectStatusReports).where(eq(projectStatusReports.id, ids.statusReports.appWeekly));
     await tx.delete(projectStatusReports).where(eq(projectStatusReports.id, ids.statusReports.operationsWeekly));
@@ -2100,6 +2107,18 @@ try {
           updatedAt: now
         }
       });
+  });
+
+  await seedDeterministicAttachments({
+    db,
+    objectStore: attachmentObjectStore,
+    references: {
+      workspaceId: ids.workspace,
+      projectId: ids.projects.app,
+      workItemId: ids.workItems.inProgress,
+      ownerMemberId: ids.members.owner,
+      maintainerMemberId: ids.members.maintainer
+    }
   });
 
   const seededReportIds = [

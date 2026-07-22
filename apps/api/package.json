@@ -15,6 +15,7 @@
     "db:reset": "tsx src/db/reset.ts",
     "db:seed": "tsx src/db/seed.ts",
     "db:performance-evidence": "tsx src/db/performance-evidence.ts",
+    "storage:reset": "tsx src/storage/reset.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src --max-warnings=0",
     "test": "vitest run --passWithNoTests"

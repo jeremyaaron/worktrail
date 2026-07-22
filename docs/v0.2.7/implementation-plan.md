@@ -1117,7 +1117,50 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-22.
+- Added deterministic seed attachment fixtures for `WT-3`:
+  - a small Markdown requirements note uploaded by Morgan Maintainer;
+  - a small JSON verification artifact uploaded by Avery Owner;
+  - fixed attachment/activity ids, timestamps, filenames, media types, and exact UTF-8 bytes;
+  - byte sizes and SHA-256 checksums computed directly from those fixture bytes;
+  - checksum-derived deterministic object keys that remain internal to storage/metadata.
+- Added object-first attachment seeding. Each deterministic object is read and accepted when exact,
+  removed and recreated when its bytes differ, or created when absent. Attachment metadata and matching
+  upload activity are upserted in one transaction only after every fixture object is correct.
+- Integrated local attachment-store initialization into `db:seed` using the same validated runtime
+  configuration and local object-store adapter as API startup. Repeated seed runs repair bytes without
+  duplicating attachment or activity rows.
+- Added a versioned `.worktrail-attachment-store` marker during local-store initialization. Existing
+  stores containing only the established `objects` directory are adopted safely; unrelated unmarked
+  directories and non-directory object paths are rejected.
+- Added API-workspace and root `storage:reset` commands. Recursive deletion requires:
+  - an absolute configured path;
+  - a directory rather than a symlink or file;
+  - a path distinct from filesystem root, the current home directory, and repository root;
+  - an exact regular-file Worktrail store marker opened without following symlinks.
+- Kept `db:reset` unchanged and database-only. README local setup now documents the explicit full reset
+  order as storage reset, database reset, migrate, then seed, along with each command's guardrails.
+- Added focused coverage for:
+  - duplicate-free reruns and exact attachment/activity counts;
+  - repair of a deliberately corrupted object;
+  - exact authorized downloads through `AttachmentService`;
+  - no metadata or activity when object initialization fails;
+  - initialized-store removal and absent-store idempotency;
+  - root/home/repository/relative-path rejection;
+  - preservation of unmarked directories and rejection of malformed/symlinked markers and roots;
+  - marker adoption and refusal to adopt unrelated directory contents.
+- Verification passed:
+  - focused attachment seed/object-store/storage-reset suite: 3 files and 18 tests;
+  - isolated real `npm run storage:reset` CLI smoke check with a marked temporary store;
+  - API full suite: 43 files and 454 tests;
+  - API typecheck, lint with zero warnings, and build;
+  - `git diff --check`.
+- The destructive default-path `storage:reset` and local-development `db:reset` were intentionally not
+  run, preserving the developer's current data. Their behavior is covered by isolated tests and the
+  temporary-store CLI check; CI can exercise the documented clean sequence in an ephemeral environment.
+- Runtime storage remains ignored under `.worktrail/`. No orphan reconciliation, cloud adapter, fixture
+  proliferation, production-port overwrite, or database-coupled file deletion was introduced.
+- No design deviation or unresolved choice blocks Phase 11.
 
 ## Phase 11: Browser, Responsive, Accessibility, And Operational Verification
 

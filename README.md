@@ -57,12 +57,25 @@ Start local Postgres:
 npm run db:start
 ```
 
-Apply migrations and seed demo data:
+Apply migrations and seed demo data, including the small attachment fixtures stored under
+`.worktrail/attachments`:
 
 ```sh
 npm run db:migrate
 npm run db:seed
 ```
+
+For a complete clean local rebuild of both PostgreSQL data and attachment objects, run:
+
+```sh
+npm run storage:reset
+npm run db:reset
+npm run db:migrate
+npm run db:seed
+```
+
+The reset commands are intentionally separate: `db:reset` never removes attachment files, while
+`storage:reset` only removes an initialized Worktrail attachment store with a valid marker.
 
 Start the API and web app together:
 
@@ -695,8 +708,11 @@ npm run db:generate  # generate a migration from the Drizzle schema
 npm run db:migrate   # apply committed migrations
 npm run db:seed      # upsert deterministic demo data
 npm run db:reset     # drop and recreate the local public schema
+npm run storage:reset # remove the marked local attachment store
 ```
 
 `npm run db:reset` refuses to run against non-local database hosts unless `WORKTRAIL_ALLOW_DATABASE_RESET=true` is set.
+It remains database-only. `npm run storage:reset` rejects relative paths, filesystem root, the home
+directory, the repository root, and directories without Worktrail's attachment-store marker.
 
 The default development database URL is documented in [.env.example](.env.example).
