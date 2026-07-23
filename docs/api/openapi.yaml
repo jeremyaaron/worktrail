@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Worktrail API
-  version: 0.2.6
+  version: 0.2.7
   summary: HTTP API reference for the Worktrail local-first project management app.
   description: |
     This document describes the implemented Worktrail API routes. It is intentionally
@@ -2214,15 +2214,19 @@ components:
         maxFileBytes:
           type: integer
           const: 4194304
+          example: 4194304
         maxAttachmentsPerWorkItem:
           type: integer
           const: 20
+          example: 20
         maxAggregateBytesPerWorkItem:
           type: integer
           const: 52428800
+          example: 52428800
         maxFileNameCodePoints:
           type: integer
           const: 180
+          example: 180
         acceptedTypes:
           type: array
           items:
@@ -2235,18 +2239,22 @@ components:
           type: integer
           minimum: 0
           maximum: 20
+          example: 2
         aggregateBytes:
           type: integer
           minimum: 0
           maximum: 52428800
+          example: 184
         remainingAttachmentSlots:
           type: integer
           minimum: 0
           maximum: 20
+          example: 18
         remainingBytes:
           type: integer
           minimum: 0
           maximum: 52428800
+          example: 52428616
     WorkItemAttachment:
       type: object
       required: [id, workItemId, fileName, mediaType, byteSize, uploader, createdAt, permissions]
@@ -2255,31 +2263,37 @@ components:
         id:
           type: string
           format: uuid
+          example: 10000000-0000-4000-8000-000000001001
         workItemId:
           type: string
           format: uuid
+          example: 10000000-0000-4000-8000-000000000403
         fileName:
           type: string
           minLength: 1
           description: Normalized display and download filename, limited to 180 Unicode code points.
+          example: attachment-requirements.md
         mediaType:
           type: string
-          example: image/png
+          example: text/markdown
         byteSize:
           type: integer
           minimum: 1
           maximum: 4194304
+          example: 103
         uploader:
           $ref: "#/components/schemas/Member"
         createdAt:
           type: string
           format: date-time
+          example: 2026-07-03T12:05:00.000Z
         permissions:
           type: object
           required: [canRemove]
           properties:
             canRemove:
               type: boolean
+              example: true
     WorkItemAttachmentList:
       type: object
       required: [items, policy, usage, permissions]
@@ -2299,6 +2313,7 @@ components:
           properties:
             canUpload:
               type: boolean
+              example: true
     MemberRole:
       type: string
       enum: [owner, maintainer, contributor]

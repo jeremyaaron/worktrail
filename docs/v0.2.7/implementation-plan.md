@@ -1324,7 +1324,49 @@ rg -n '0\.2\.6|attachments.*not|no attachment|cannot attach' README.md docs site
 
 Status:
 
-- Not started.
+- Completed on July 22, 2026.
+- Updated root, API, web, contracts, lockfile, OpenAPI, README, and public-site release identity to
+  `0.2.7`; the API workspace now references `@worktrail/contracts@0.2.7` and the lockfile contains only
+  the intended workspace-version changes.
+- Marked the PRD and technical design implemented. Added release notes and destination-neutral pattern
+  notes covering user behavior, bounded policy, metadata/byte ownership, binary transport, object-store
+  compensation, server-owned capacity, guarded local storage, deterministic object-aware seeds, and
+  deliberate non-abstractions.
+- Updated `.env.example` and README setup, preview, persistence, reset, backup/restore, seed, capability,
+  and limitation guidance. Production preview now documents both its required database URL and absolute
+  attachment-storage path, plus its single-instance/local-disk boundary.
+- Updated the public site to present Files in Context as the v0.2.7 baseline while explicitly deferring
+  malware scanning, previews, indexing, managed object storage, production authentication, and
+  internet-safe hosting.
+- Updated OpenAPI to `0.2.7` and added representative attachment metadata, capacity, and permission
+  examples without exposing paths, storage keys, checksums, or bytes. The focused OpenAPI contract test
+  passed after final example reconciliation.
+- Ran a clean marked-storage reset, database reset, all migrations through
+  `0017_safe_pandemic.sql`, deterministic seed, and repeat seed successfully. A temporary API smoke test
+  listed the two seeded `WT-3` attachments and compared both HTTP downloads byte-for-byte with their
+  deterministic Markdown and JSON definitions.
+- Full verification passed:
+  - `npm run lint` for API, web, and contracts with zero warnings;
+  - `npm run typecheck` for all workspaces;
+  - `npm test`: 454 API, 390 Angular, and 38 contract tests;
+  - `npm run build`: contracts, API, and production Angular build with a 371.33 kB initial bundle and
+    no budget warnings;
+  - Playwright: 24 Chromium tests, including exact seeded downloads, route reuse, retry, removal roles,
+    archived read-only behavior, and established regression workflows;
+  - `npm audit --omit=dev --audit-level=low`: zero vulnerabilities;
+  - `git diff --check` and final OpenAPI test.
+- The suggested ad hoc `npx prettier --check .` is not an established repository gate: the project has
+  no Prettier dependency or configuration, and Prettier defaults report 383 pre-existing source,
+  generated migration-metadata, archived-document, and site files. Applying those defaults would create
+  an unrelated repository-wide rewrite. Formatting evidence therefore uses the configured zero-warning
+  ESLint gates, successful compilers, and `git diff --check`; the two new release documents also conform
+  to Prettier's Markdown check.
+- The stale-claim search found only intentional historical v0.2.6 records, the v0.2.7 problem statement,
+  and current archived-project mutation restrictions. Final review found no credentials, local absolute
+  paths, public internal attachment fields, tracked runtime storage, generated test output, temporary
+  uploads, or active test servers. The existing tracked public-site board image is unchanged.
+- No S3/CDK, hosted-infrastructure claim, feature expansion, commit, push, tag, publication, merge, or
+  GitHub release was introduced. No design deviation or unresolved product choice blocks release.
 
 ## Phase Completion Protocol
 
