@@ -33,6 +33,7 @@
     "db:reset": "npm run db:reset --workspace @worktrail/api",
     "db:seed": "npm run db:seed --workspace @worktrail/api",
     "db:performance-evidence": "npm run db:performance-evidence --workspace @worktrail/api",
+    "db:quick-find-performance-evidence": "npm run db:quick-find-performance-evidence --workspace @worktrail/api",
     "storage:reset": "npm run storage:reset --workspace @worktrail/api"
   },
   "devDependencies": {

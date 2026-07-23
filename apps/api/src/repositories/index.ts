@@ -10,6 +10,7 @@ import { createProjectCycleCloseoutRepository } from './project-cycle-closeout-r
 import { createProjectCycleRepository } from './project-cycle-repository.js';
 import { createProjectRepository } from './project-repository.js';
 import { createProjectStatusReportRepository } from './project-status-report-repository.js';
+import { createQuickFindRepository } from './quick-find-repository.js';
 import { createSavedWorkViewRepository } from './saved-work-view-repository.js';
 import { createWorkItemAttachmentRepository } from './work-item-attachment-repository.js';
 import { createWorkItemRelationshipRepository } from './work-item-relationship-repository.js';
@@ -26,6 +27,7 @@ export function createRepositories(db: WorktrailDb) {
     projectCycles: createProjectCycleRepository(db),
     projectCycleCloseouts: createProjectCycleCloseoutRepository(db),
     projectStatusReports: createProjectStatusReportRepository(db),
+    quickFind: createQuickFindRepository(db),
     milestones: createMilestoneRepository(db),
     savedWorkViews: createSavedWorkViewRepository(db),
     workItems: createWorkItemRepository(db),

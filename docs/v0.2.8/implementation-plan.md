@@ -491,7 +491,84 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on July 23, 2026.
+- Added and registered one dedicated `quick-find-repository.ts` cross-domain read model through
+  `createRepositories`.
+- Implemented `searchWorkspace` as six sequential statements in stable work-item, project, milestone,
+  cycle, report, and attachment order.
+- Enforced a repository group limit of 1-25 and selected exactly `groupLimit + 1` rows per statement.
+  Each returned group contains at most the requested limit plus `hasMore`; no exact count query is
+  issued.
+- Applied explicit workspace ownership to every source and join:
+  - work items and projects;
+  - milestones and projects;
+  - cycles and projects;
+  - reports and projects;
+  - attachments, work items, and projects.
+    Attachment joins additionally require workspace/project identity to agree across all three records.
+- Used the Phase 2 SQL matcher for the designed exact-key, key-prefix, exact-primary, primary-prefix,
+  primary-substring, and narrative-substring tiers.
+- Added deterministic order within each group:
+  - relevance;
+  - active before archived lifecycle within the same tier;
+  - case-insensitive primary identity;
+  - project key and work-item number where relevant;
+  - entity UUID as the final tie-breaker.
+- Projected only direct navigation/disambiguation fields and bounded match metadata:
+  - no full project/work-item/milestone descriptions or report summaries;
+  - no report snapshot beyond a finite `health.health` expression;
+  - no attachment media type, uploader, checksum, storage key, or bytes;
+  - no labels, assignees, hierarchy, dependencies, or per-row enrichment.
+- Validated report health against the finite delivery-health vocabulary before returning the aggregate.
+  Malformed historical health rejects the repository promise rather than emitting an invalid or partial
+  result.
+- Derived milestone/cycle archive context from record archival or archived project ownership while
+  retaining completed/canceled status as separate readable lifecycle context.
+- Added four database-backed repository integration tests covering:
+  - all 12 approved searchable fields;
+  - exact, prefix, and substring match metadata;
+  - key-over-primary precedence;
+  - all six relevance tiers;
+  - active/archived ties and UUID stability;
+  - exact archived identity;
+  - limit-plus-one truncation;
+  - six SQL statements with no per-row follow-up reads;
+  - every-group cross-workspace isolation;
+  - attachment secret/uploader omission;
+  - invalid limits rejected before I/O;
+  - coherent malformed-report failure.
+- Added root/API `db:quick-find-performance-evidence` scripts and a rollback-only evidence tool.
+- The evidence fixture:
+  - requires the deterministic workspace and active owner;
+  - creates 2,000 temporary projects, work items, milestones, cycles, published reports, and
+    attachments;
+  - includes selective title/name/description/summary/filename needles plus active and archived
+    lifecycle variety;
+  - runs `ANALYZE`, captures JSON `EXPLAIN (ANALYZE, BUFFERS)`, rolls back all rows, and restores
+    statistics.
+- Captured six normal tenant-scoped plans without planner overrides. At local 2,000-row scale PostgreSQL
+  honestly selected sequential scans for the selective text sources, with 0.791-2.144 ms execution
+  times.
+- Captured six separately labeled bitmap-index eligibility proofs. Only those proof statements disable
+  sequential and plain index scans, and together they exercised every approved project, work-item,
+  milestone, cycle, report, and attachment trigram index.
+- Captured the broad two-character work-item case under normal planner settings without asserting
+  trigram use; it retained a finite `Limit` and executed in 1.673 ms.
+- Every normal/proof/broad plan contained a finite `Limit` node.
+- Measured the actual sequential six-group repository after warm-up at 17.395 ms, 24.353 ms, and
+  19.828 ms, comfortably below the 300 ms local evidence target.
+- Verified rollback cleanup through the installed PostgreSQL driver: zero temporary Quick Find projects
+  and work items remained. Deterministic seed data remains available.
+- Verification passed:
+  - focused repository tests;
+  - Quick Find performance evidence and all plan assertions;
+  - full API suite: 46 test files and 470 tests;
+  - API typecheck;
+  - API zero-warning lint;
+  - API build;
+  - `git diff --check`.
+- No service, endpoint, Express route, request-logging, OpenAPI, Angular, dependency, persistent fixture,
+  or hosted-search change was introduced. No Phase 3 acceptance criterion remains open.
 
 ## Phase 4: Service, Endpoint, Express Route, Request-Log Privacy, And OpenAPI
 
