@@ -20,6 +20,7 @@ import { registerMemberRoutes } from './routes/member-routes.js';
 import { registerNotificationRoutes } from './routes/notification-routes.js';
 import { registerPlanningRoutes } from './routes/planning-routes.js';
 import { registerProjectRoutes } from './routes/project-routes.js';
+import { registerQuickFindRoutes } from './routes/quick-find-routes.js';
 import { registerSavedWorkViewRoutes } from './routes/saved-work-view-routes.js';
 import { registerWorkItemRoutes } from './routes/work-item-routes.js';
 import { registerWorkspaceRoutes } from './routes/workspace-routes.js';
@@ -65,6 +66,7 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
     const routeContext = { repositories: options.repositories, db: options.db };
 
     registerWorkspaceRoutes(app, routeContext);
+    registerQuickFindRoutes(app, routeContext);
     registerMemberRoutes(app, routeContext);
     registerProjectRoutes(app, routeContext);
     registerCycleRoutes(app, routeContext);

@@ -5,9 +5,8 @@ export function requestLogger(request: Request, response: Response, next: NextFu
 
   response.on('finish', () => {
     const durationMs = Date.now() - startedAt;
-    console.log(`${request.method} ${request.originalUrl} ${response.statusCode} ${durationMs}ms`);
+    console.log(`${request.method} ${request.path} ${response.statusCode} ${durationMs}ms`);
   });
 
   next();
 }
-

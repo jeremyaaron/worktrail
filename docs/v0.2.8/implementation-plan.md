@@ -618,7 +618,49 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on July 23, 2026.
+- Added `QuickFindService` with actor context and the narrow
+  `Pick<Repositories, 'quickFind'>` dependency.
+- The service performs one workspace-scoped repository aggregate read with the fixed public
+  five-result group limit and maps all six groups explicitly:
+  - project and work-item context;
+  - milestone and cycle lifecycle/archive context;
+  - finite report health plus ISO publication timestamps;
+  - attachment identity, size, ISO creation timestamp, and owning work item;
+  - match field, mode, and bounded excerpt.
+- Revalidated report health at the service boundary and translated repository, malformed-data, and
+  timestamp mapping failures to `QUICK_FIND_UNAVAILABLE` without exposing a cause or query.
+- Added the transport-neutral Quick Find endpoint and focused Express route module for
+  `POST /api/quick-find`.
+- Registered Quick Find in repository-backed server composition without requiring a direct database
+  handle or attachment object store.
+- Reused the existing persistence-backed local actor adapter, which rejects unresolved,
+  cross-workspace, and inactive actors before invoking Quick Find.
+- The endpoint strictly parses and normalizes the JSON request body, returns the normalized query and
+  all six groups, and sets `Cache-Control: private, no-store`.
+- Changed request logging from `request.originalUrl` to `request.path`. Regression tests prove query
+  strings and JSON bodies are absent from emitted request log lines while existing GET routing remains
+  intact.
+- Expanded OpenAPI with:
+  - the POST operation and local actor headers;
+  - strict request validation and examples;
+  - concrete context, match, result, group, and aggregate response schemas;
+  - the five-item per-group bound, `hasMore` without totals, private/no-store caching, and omission of
+    rank/storage internals;
+  - explicit 400, 403, and safe 503 responses.
+- Added focused service, endpoint, actor, route-composition, log-privacy, and OpenAPI tests.
+- Corrected the Phase 3 project-order integration assertion to follow the implemented deterministic
+  name-then-key ordering rather than random UUID order for records with distinct keys.
+- Verification passed:
+  - focused Phase 4 suite: 5 test files and 31 tests;
+  - full API suite: 49 test files and 477 tests;
+  - API typecheck;
+  - API zero-warning lint;
+  - API build;
+  - OpenAPI YAML parse;
+  - `git diff --check`.
+- No Angular, analytics, partial-response, generic search-abstraction, direct database, or object-store
+  endpoint dependency was introduced. No Phase 4 acceptance criterion remains open.
 
 ## Phase 5: Angular API, Destination Mapping, And Overflow Serialization
 

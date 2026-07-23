@@ -24,6 +24,7 @@ servers:
 tags:
   - name: Health
   - name: Workspace
+  - name: Quick Find
   - name: Members
   - name: Projects
   - name: Labels
@@ -1812,6 +1813,72 @@ paths:
                 $ref: "#/components/schemas/MyWorkDashboard"
         default:
           $ref: "#/components/responses/Error"
+  /api/quick-find:
+    post:
+      tags: [Quick Find]
+      summary: Search workspace records across supported resource types.
+      description: |
+        Returns one coherent workspace-scoped result containing at most five items per
+        group. Search text is carried in the JSON body so it does not enter URL-based
+        access logs or browser history. Each group exposes `hasMore` rather than a total
+        count. Internal rank values and attachment storage metadata are never returned.
+        The response must not be cached.
+      parameters:
+        - $ref: "#/components/parameters/LocalActorMemberIdHeader"
+        - $ref: "#/components/parameters/LocalActorWorkspaceIdHeader"
+        - $ref: "#/components/parameters/LocalActorRoleHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuickFindRequest"
+            examples:
+              releaseEvidence:
+                value:
+                  query: release evidence
+      responses:
+        "200":
+          description: Bounded results for all six Quick Find groups.
+          headers:
+            Cache-Control:
+              description: Prevents storage of workspace search results.
+              schema:
+                type: string
+                const: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuickFindResponse"
+              examples:
+                noMatches:
+                  value:
+                    query: release evidence
+                    groups:
+                      workItems: { items: [], hasMore: false }
+                      projects: { items: [], hasMore: false }
+                      milestones: { items: [], hasMore: false }
+                      cycles: { items: [], hasMore: false }
+                      reports: { items: [], hasMore: false }
+                      attachments: { items: [], hasMore: false }
+        "400":
+          description: The strict request body or normalized query is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: The local actor is missing, inactive, or outside the workspace.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Quick Find persistence is temporarily unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /api/saved-work-views:
     get:
       tags: [Saved Work Views]
@@ -1885,6 +1952,30 @@ paths:
           $ref: "#/components/responses/Error"
 components:
   parameters:
+    LocalActorMemberIdHeader:
+      name: x-worktrail-member-id
+      in: header
+      required: false
+      description: Local-development member identity. Production authentication will replace this header.
+      schema:
+        type: string
+        format: uuid
+    LocalActorWorkspaceIdHeader:
+      name: x-worktrail-workspace-id
+      in: header
+      required: false
+      description: Local-development workspace identity. Production authentication will replace this header.
+      schema:
+        type: string
+        format: uuid
+    LocalActorRoleHeader:
+      name: x-worktrail-role
+      in: header
+      required: false
+      description: Local-development fallback role when persistence-backed actor resolution is unavailable.
+      schema:
+        type: string
+        enum: [owner, maintainer, contributor]
     ProjectId:
       name: projectId
       in: path
@@ -2179,12 +2270,318 @@ components:
           properties:
             code:
               type: string
-              examples: [VALIDATION_ERROR, FORBIDDEN, NOT_FOUND, PAYLOAD_TOO_LARGE, ATTACHMENT_LIMIT_EXCEEDED, ATTACHMENT_STORAGE_UNAVAILABLE, EXPORT_LIMIT_EXCEEDED, INTERNAL_ERROR]
+              examples: [VALIDATION_ERROR, FORBIDDEN, NOT_FOUND, PAYLOAD_TOO_LARGE, ATTACHMENT_LIMIT_EXCEEDED, ATTACHMENT_STORAGE_UNAVAILABLE, QUICK_FIND_UNAVAILABLE, EXPORT_LIMIT_EXCEEDED, INTERNAL_ERROR]
             message:
               type: string
             details:
               type: object
               additionalProperties: true
+    QuickFindRequest:
+      type: object
+      additionalProperties: false
+      required: [query]
+      properties:
+        query:
+          type: string
+          minLength: 2
+          maxLength: 120
+          description: NFC-normalized, trimmed search text with internal whitespace collapsed.
+    QuickFindMatchMode:
+      type: string
+      enum: [exact, prefix, substring]
+    QuickFindMatchField:
+      type: string
+      enum:
+        - project_key
+        - project_name
+        - project_description
+        - work_item_key
+        - work_item_title
+        - work_item_description
+        - milestone_name
+        - milestone_description
+        - cycle_name
+        - report_title
+        - report_summary
+        - attachment_file_name
+    QuickFindMatch:
+      type: object
+      additionalProperties: false
+      required: [field, mode, excerpt]
+      properties:
+        field:
+          $ref: "#/components/schemas/QuickFindMatchField"
+        mode:
+          $ref: "#/components/schemas/QuickFindMatchMode"
+        excerpt:
+          type: [string, "null"]
+    QuickFindProjectContext:
+      type: object
+      additionalProperties: false
+      required: [id, key, name, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        key:
+          type: string
+        name:
+          type: string
+        status:
+          $ref: "#/components/schemas/ProjectStatus"
+    QuickFindWorkItemContext:
+      type: object
+      additionalProperties: false
+      required: [id, displayKey, title, status, type]
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayKey:
+          type: string
+        title:
+          type: string
+        status:
+          $ref: "#/components/schemas/WorkItemStatus"
+        type:
+          $ref: "#/components/schemas/WorkItemType"
+    QuickFindProjectResult:
+      type: object
+      additionalProperties: false
+      required: [kind, project, match]
+      properties:
+        kind:
+          const: project
+        project:
+          $ref: "#/components/schemas/QuickFindProjectContext"
+        match:
+          $ref: "#/components/schemas/QuickFindMatch"
+    QuickFindWorkItemResult:
+      type: object
+      additionalProperties: false
+      required: [kind, project, workItem, match]
+      properties:
+        kind:
+          const: work_item
+        project:
+          $ref: "#/components/schemas/QuickFindProjectContext"
+        workItem:
+          $ref: "#/components/schemas/QuickFindWorkItemContext"
+        match:
+          $ref: "#/components/schemas/QuickFindMatch"
+    QuickFindMilestoneResult:
+      type: object
+      additionalProperties: false
+      required: [kind, project, milestone, match]
+      properties:
+        kind:
+          const: milestone
+        project:
+          $ref: "#/components/schemas/QuickFindProjectContext"
+        milestone:
+          type: object
+          additionalProperties: false
+          required: [id, name, status, targetDate, isArchived]
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            status:
+              $ref: "#/components/schemas/MilestoneStatus"
+            targetDate:
+              type: [string, "null"]
+              format: date
+            isArchived:
+              type: boolean
+        match:
+          $ref: "#/components/schemas/QuickFindMatch"
+    QuickFindCycleResult:
+      type: object
+      additionalProperties: false
+      required: [kind, project, cycle, match]
+      properties:
+        kind:
+          const: cycle
+        project:
+          $ref: "#/components/schemas/QuickFindProjectContext"
+        cycle:
+          type: object
+          additionalProperties: false
+          required: [id, name, status, startDate, endDate, isArchived]
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            status:
+              $ref: "#/components/schemas/ProjectCycleStatus"
+            startDate:
+              type: string
+              format: date
+            endDate:
+              type: string
+              format: date
+            isArchived:
+              type: boolean
+        match:
+          $ref: "#/components/schemas/QuickFindMatch"
+    QuickFindReportResult:
+      type: object
+      additionalProperties: false
+      required: [kind, project, report, match]
+      properties:
+        kind:
+          const: report
+        project:
+          $ref: "#/components/schemas/QuickFindProjectContext"
+        report:
+          type: object
+          additionalProperties: false
+          required: [id, title, statusDate, health, publishedAt]
+          properties:
+            id:
+              type: string
+              format: uuid
+            title:
+              type: string
+            statusDate:
+              type: string
+              format: date
+            health:
+              $ref: "#/components/schemas/DeliveryHealthState"
+            publishedAt:
+              type: string
+              format: date-time
+        match:
+          $ref: "#/components/schemas/QuickFindMatch"
+    QuickFindAttachmentResult:
+      type: object
+      additionalProperties: false
+      required: [kind, project, workItem, attachment, match]
+      properties:
+        kind:
+          const: attachment
+        project:
+          $ref: "#/components/schemas/QuickFindProjectContext"
+        workItem:
+          $ref: "#/components/schemas/QuickFindWorkItemContext"
+        attachment:
+          type: object
+          additionalProperties: false
+          required: [id, fileName, byteSize, createdAt]
+          properties:
+            id:
+              type: string
+              format: uuid
+            fileName:
+              type: string
+            byteSize:
+              type: integer
+              minimum: 0
+            createdAt:
+              type: string
+              format: date-time
+        match:
+          $ref: "#/components/schemas/QuickFindMatch"
+    QuickFindWorkItemGroup:
+      type: object
+      additionalProperties: false
+      required: [items, hasMore]
+      properties:
+        items:
+          type: array
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/QuickFindWorkItemResult"
+        hasMore:
+          type: boolean
+    QuickFindProjectGroup:
+      type: object
+      additionalProperties: false
+      required: [items, hasMore]
+      properties:
+        items:
+          type: array
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/QuickFindProjectResult"
+        hasMore:
+          type: boolean
+    QuickFindMilestoneGroup:
+      type: object
+      additionalProperties: false
+      required: [items, hasMore]
+      properties:
+        items:
+          type: array
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/QuickFindMilestoneResult"
+        hasMore:
+          type: boolean
+    QuickFindCycleGroup:
+      type: object
+      additionalProperties: false
+      required: [items, hasMore]
+      properties:
+        items:
+          type: array
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/QuickFindCycleResult"
+        hasMore:
+          type: boolean
+    QuickFindReportGroup:
+      type: object
+      additionalProperties: false
+      required: [items, hasMore]
+      properties:
+        items:
+          type: array
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/QuickFindReportResult"
+        hasMore:
+          type: boolean
+    QuickFindAttachmentGroup:
+      type: object
+      additionalProperties: false
+      required: [items, hasMore]
+      properties:
+        items:
+          type: array
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/QuickFindAttachmentResult"
+        hasMore:
+          type: boolean
+    QuickFindResponse:
+      type: object
+      additionalProperties: false
+      required: [query, groups]
+      properties:
+        query:
+          type: string
+        groups:
+          type: object
+          additionalProperties: false
+          required: [workItems, projects, milestones, cycles, reports, attachments]
+          properties:
+            workItems:
+              $ref: "#/components/schemas/QuickFindWorkItemGroup"
+            projects:
+              $ref: "#/components/schemas/QuickFindProjectGroup"
+            milestones:
+              $ref: "#/components/schemas/QuickFindMilestoneGroup"
+            cycles:
+              $ref: "#/components/schemas/QuickFindCycleGroup"
+            reports:
+              $ref: "#/components/schemas/QuickFindReportGroup"
+            attachments:
+              $ref: "#/components/schemas/QuickFindAttachmentGroup"
     AttachmentCategory:
       type: string
       enum: [image, pdf, text, data, document]

@@ -73,6 +73,7 @@ describe('OpenAPI reference', () => {
       '/api/attachments/{attachmentId}/content',
       '/api/attachments/{attachmentId}',
       '/api/my-work',
+      '/api/quick-find',
       '/api/saved-work-views',
       '/api/saved-work-views/{savedViewId}'
     ];
@@ -108,6 +109,18 @@ describe('OpenAPI reference', () => {
     expect(openApi).toContain('PAYLOAD_TOO_LARGE');
     expect(openApi).toContain('ATTACHMENT_LIMIT_EXCEEDED');
     expect(openApi).toContain('ATTACHMENT_STORAGE_UNAVAILABLE');
+    expect(openApi).toContain('QUICK_FIND_UNAVAILABLE');
+    expect(openApi).toContain('QuickFindRequest:');
+    expect(openApi).toContain('QuickFindResponse:');
+    expect(openApi).toContain('QuickFindWorkItemGroup:');
+    expect(openApi).toContain('QuickFindProjectGroup:');
+    expect(openApi).toContain('QuickFindMilestoneGroup:');
+    expect(openApi).toContain('QuickFindCycleGroup:');
+    expect(openApi).toContain('QuickFindReportGroup:');
+    expect(openApi).toContain('QuickFindAttachmentGroup:');
+    expect(openApi).toContain('QuickFindAttachmentResult:');
+    expect(openApi).toContain('maxItems: 5');
+    expect(openApi).toContain('Search text is carried in the JSON body');
     expect(openApi).not.toContain('storageKey');
     expect(openApi).not.toContain('checksumSha256');
     expect(openApi).toContain('NotificationType:');

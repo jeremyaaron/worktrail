@@ -199,11 +199,6 @@ describe('Quick Find repository', () => {
         status: 'archived'
       })
     ]);
-    const activeExactNameIds = projects
-      .filter((project) => project.name === 'RANK' && project.status === 'active')
-      .map((project) => project.id)
-      .sort();
-
     const result = await repositories.quickFind.searchWorkspace({
       workspaceId,
       query: 'RANK',
@@ -213,7 +208,8 @@ describe('Quick Find repository', () => {
     expect(result.projects.items.map((item) => item.project.id)).toEqual([
       projects[0]!.id,
       projects[1]!.id,
-      ...activeExactNameIds,
+      projects[2]!.id,
+      projects[3]!.id,
       projects[4]!.id,
       projects[5]!.id,
       projects[6]!.id,
