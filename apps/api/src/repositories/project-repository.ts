@@ -24,6 +24,16 @@ export function createProjectRepository(db: WorktrailDb) {
       return project ?? null;
     },
 
+    async findByIdForShare(id: string) {
+      const [project] = await db
+        .select()
+        .from(projects)
+        .where(eq(projects.id, id))
+        .limit(1)
+        .for('share');
+      return project ?? null;
+    },
+
     async findByWorkspaceKey(workspaceId: string, key: string) {
       const [project] = await db
         .select()

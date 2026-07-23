@@ -17,6 +17,21 @@ describe('download helpers', () => {
     expect(fileNameFromContentDisposition(null, 'fallback.csv')).toBe('fallback.csv');
   });
 
+  it('falls back safely for malformed or unsafe server filenames', () => {
+    expect(
+      fileNameFromContentDisposition(
+        "attachment; filename=report.csv; filename*=UTF-8''%E0%A4%A",
+        'fallback.csv'
+      )
+    ).toBe('report.csv');
+    expect(
+      fileNameFromContentDisposition('attachment; filename="../report.csv"', 'fallback.csv')
+    ).toBe('.._report.csv');
+    expect(fileNameFromContentDisposition('attachment; filename="\u0000"', '../fallback.csv')).toBe(
+      '.._fallback.csv'
+    );
+  });
+
   it('downloads blobs through an object URL and revokes it', () => {
     const link = document.createElement('a');
     spyOn(document, 'createElement').and.returnValue(link);

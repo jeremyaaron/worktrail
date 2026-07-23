@@ -69,6 +69,9 @@ describe('OpenAPI reference', () => {
       '/api/work-items/{workItemId}/activity',
       '/api/work-items/{workItemId}/relationships',
       '/api/work-items/{workItemId}/relationships/{relationshipId}',
+      '/api/work-items/{workItemId}/attachments',
+      '/api/attachments/{attachmentId}/content',
+      '/api/attachments/{attachmentId}',
       '/api/my-work',
       '/api/saved-work-views',
       '/api/saved-work-views/{savedViewId}'
@@ -78,7 +81,7 @@ describe('OpenAPI reference', () => {
       expect(openApi, `missing ${path}`).toContain(`  ${path}:`);
     }
 
-    expect(openApi).toContain('version: 0.2.6');
+    expect(openApi).toContain('version: 0.2.7');
     expect(openApi).toContain('x-worktrail-member-id');
     expect(openApi).toContain('x-worktrail-workspace-id');
     expect(openApi).toContain('x-worktrail-role');
@@ -92,6 +95,21 @@ describe('OpenAPI reference', () => {
     expect(openApi).toContain('WorkItemRelationshipSummary:');
     expect(openApi).toContain('CreateWorkItemRelationshipRequest:');
     expect(openApi).toContain('WorkItemRelationship:');
+    expect(openApi).toContain('WorkItemAttachment:');
+    expect(openApi).toContain('WorkItemAttachmentList:');
+    expect(openApi).toContain('WorkItemAttachmentUsage:');
+    expect(openApi).toContain('AttachmentPolicy:');
+    expect(openApi).toContain('AttachmentTypePolicy:');
+    expect(openApi).toContain('X-Worktrail-Filename');
+    expect(openApi).toContain('X-Worktrail-Media-Type');
+    expect(openApi).toContain('format: binary');
+    expect(openApi).toContain('const: private, no-store');
+    expect(openApi).toContain('const: nosniff');
+    expect(openApi).toContain('PAYLOAD_TOO_LARGE');
+    expect(openApi).toContain('ATTACHMENT_LIMIT_EXCEEDED');
+    expect(openApi).toContain('ATTACHMENT_STORAGE_UNAVAILABLE');
+    expect(openApi).not.toContain('storageKey');
+    expect(openApi).not.toContain('checksumSha256');
     expect(openApi).toContain('NotificationType:');
     expect(openApi).toContain('NotificationListResponse:');
     expect(openApi).toContain('NotificationUnreadCountResponse:');
@@ -181,11 +199,15 @@ describe('OpenAPI reference', () => {
     expect(openApi).toContain('enum: [workspace, project]');
     expect(openApi).toContain('SavedViewScopeQuery:');
     expect(openApi).toContain('SavedViewProjectIdQuery:');
-    expect(openApi).toContain('Use `scope=project` with `projectId` to list views saved for one active or archived project.');
+    expect(openApi).toContain(
+      'Use `scope=project` with `projectId` to list views saved for one active or archived project.'
+    );
     expect(openApi).toContain('New saved views are created unpinned.');
     expect(openApi).toContain('Creating a shared saved view requires owner or maintainer role.');
     expect(openApi).toContain('isPinned:');
-    expect(openApi).toContain('Pin or unpin the saved view without changing its name, query, scope, project, or visibility.');
+    expect(openApi).toContain(
+      'Pin or unpin the saved view without changing its name, query, scope, project, or visibility.'
+    );
     expect(openApi).toContain('Archived project-scoped saved views cannot be mutated.');
     expect(openApi).toContain('saved_view.created');
     expect(openApi).toContain('saved_view.updated');
@@ -199,7 +221,9 @@ describe('OpenAPI reference', () => {
     expect(openApi).toContain('work_item.relationship_removed');
     expect(openApi).toContain('text/csv:');
     expect(openApi).toContain('EXPORT_LIMIT_EXCEEDED');
-    expect(openApi).toContain('More than 10,000 work items match. Narrow the applied filters and retry.');
+    expect(openApi).toContain(
+      'More than 10,000 work items match. Narrow the applied filters and retry.'
+    );
     expect(openApi).toContain('Paging parameters do not affect exports.');
     expect(openApi).toContain('/api/projects/{projectId}/board/work-items:');
     expect(openApi).toContain('WorkItemPageSizeQuery:');

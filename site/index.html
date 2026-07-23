@@ -6,12 +6,12 @@
     <title>Worktrail | Project management reference app</title>
     <meta
       name="description"
-      content="Worktrail is a project management reference app for scalable work discovery, daily team work, two-level work breakdown, workspace portfolio review, cycle planning and closeout, and published status snapshots, built as an Angular, TypeScript API, and Postgres reference baseline."
+      content="Worktrail is a project management reference app for files in work-item context, scalable work discovery, daily team work, two-level work breakdown, portfolio review, cycle planning and closeout, and published status snapshots."
     >
     <meta property="og:title" content="Worktrail">
     <meta
       property="og:description"
-      content="A project management reference app for scalable work discovery, daily team work, bounded work breakdown, workspace portfolio review, cycle planning and closeout, published status snapshots, and production-shaped TypeScript architecture."
+      content="A project management reference app for bounded work item attachments, scalable work discovery, daily team work, bounded work breakdown, portfolio review, cycle planning and closeout, and production-shaped TypeScript architecture."
     >
     <meta property="og:type" content="website">
     <meta name="theme-color" content="#f6f8fb">
@@ -48,7 +48,7 @@
           <p class="hero-copy">
             Worktrail is a focused project management app for daily execution, project operation,
             bounded work breakdown, workspace portfolio review, cycle planning and closeout,
-            collaboration, dependencies, and published status snapshots.
+            collaboration, dependencies, files in context, and published status snapshots.
           </p>
           <p class="hero-copy hero-copy-secondary">
             It is also a reference implementation for an Angular static frontend, a TypeScript API
@@ -150,6 +150,17 @@
           </article>
 
           <article class="feature">
+            <span class="feature-kicker">Keep files in context</span>
+            <h3>Attach bounded evidence directly to the work.</h3>
+            <ul>
+              <li>Active members can upload supported files with per-file progress and retry.</li>
+              <li>Compact metadata shows filename, type, size, uploader, time, and remaining capacity.</li>
+              <li>Authorized downloads are integrity-checked and always forced as file attachments.</li>
+              <li>Uploader and role-aware removal retains readable activity; archived projects stay download-only.</li>
+            </ul>
+          </article>
+
+          <article class="feature">
             <span class="feature-kicker">Share status</span>
             <h3>Separate live planning from published evidence.</h3>
             <ul>
@@ -166,27 +177,27 @@
 
       <section class="section" id="baseline" aria-labelledby="baseline-title">
         <div class="section-heading">
-          <p class="eyebrow">v0.2.6 baseline</p>
-          <h2 id="baseline-title">Bounded discovery for growing work histories.</h2>
+          <p class="eyebrow">v0.2.7 baseline</p>
+          <h2 id="baseline-title">Files stay with the work that explains them.</h2>
           <p>
-            The v0.2.6 baseline adds exact, server-backed pages to project and workspace work lists
-            while preserving URL-backed filters, saved-view intent, return navigation, complete
-            filtered exports, page-scoped batch selection, and the intentionally complete project board.
+            The v0.2.7 baseline adds bounded work item attachments with explicit policy,
+            authorization, activity, and local persistence while retaining scalable work discovery
+            and the established planning, collaboration, reporting, and project-operation workflows.
           </p>
         </div>
 
         <div class="baseline-grid">
           <div>
             <strong>For product users</strong>
-            <span>Paginated project and workspace discovery, daily work, two-level work breakdown, portfolio review, inbox updates, reliable filters, saved/pinned views, project boards, planning review, cycle closeout, collaboration, CSV flows, and portable status reports.</span>
+            <span>Bounded work item files, paginated project and workspace discovery, daily work, two-level work breakdown, portfolio review, inbox updates, reliable filters, saved/pinned views, planning review, cycle closeout, collaboration, CSV flows, and portable status reports.</span>
           </div>
           <div>
             <strong>For builders</strong>
-            <span>Shared page contracts, durable query and transient window separation, repeatable-read list services, bounded enrichment, typed Angular clients, endpoint handlers, versioned snapshot validation, derived read models, and focused test coverage.</span>
+            <span>Metadata/byte ownership boundaries, bounded binary transport, shared page contracts, durable query and transient window separation, typed Angular clients, endpoint handlers, versioned snapshot validation, derived read models, and focused test coverage.</span>
           </div>
           <div>
             <strong>For operators</strong>
-            <span>Postgres migrations with trigram search indexes, deterministic seed data, production preview, runtime configuration checks, health/readiness endpoints, checked-in OpenAPI, CI verification, and documented local run paths.</span>
+            <span>Postgres migrations, marked local attachment storage, deterministic metadata and object seeds, guarded resets, production preview, runtime checks, health/readiness endpoints, checked-in OpenAPI, and CI verification.</span>
           </div>
         </div>
       </section>
@@ -205,9 +216,9 @@
           </div>
           <div class="stack-panel" aria-label="Architecture layers">
             <div><strong>Frontend</strong><span>Angular standalone route components, lazy route chunks, static build output, URL-backed query state, and responsive work surfaces suitable for S3/CloudFront hosting.</span></div>
-            <div><strong>API boundary</strong><span>Shared DTO contracts, explicit request validation, transport-neutral endpoint handlers, Express local adapter, OpenAPI documentation, and non-JSON export responses.</span></div>
-            <div><strong>Domain</strong><span>Project planning, bounded work hierarchy, cycle review, delivery health, risk sections, relationships, notifications, saved views, CSV flows, report snapshots, and permission paths in service-level code.</span></div>
-            <div><strong>Persistence</strong><span>Postgres with Drizzle schema and migrations, trigram search indexes, repeatable-read page windows, indexed self-references, deterministic seed data, immutable lifecycle snapshots, activity records, notifications, relationships, and saved view state.</span></div>
+            <div><strong>API boundary</strong><span>Shared DTO contracts, explicit request validation, bounded binary and JSON responses, transport-neutral endpoint handlers, Express local adapter, and OpenAPI documentation.</span></div>
+            <div><strong>Domain</strong><span>Attachment policy and authorization, project planning, bounded work hierarchy, cycle review, delivery health, relationships, notifications, saved views, CSV flows, report snapshots, and service-level permissions.</span></div>
+            <div><strong>Persistence</strong><span>Postgres metadata plus immutable bytes behind an object-store port, with Drizzle migrations, trigram search indexes, repeatable-read pages, deterministic seeds, lifecycle snapshots, activity, notifications, relationships, and saved views.</span></div>
             <div><strong>Operations</strong><span>Production preview, runtime config validation, liveness/readiness endpoints, CI lint/typecheck/test/build, and local smoke-test guidance.</span></div>
           </div>
         </div>
@@ -220,7 +231,8 @@
           <p>
             The production preview compiles the API and Angular app, serves built frontend assets
             from Express, keeps `/api/*` separate from SPA fallback, requires an explicit production
-            database URL, and exposes separate process liveness and database readiness checks.
+            database URL and absolute attachment storage path, and exposes separate process liveness
+            and database readiness checks.
           </p>
         </div>
         <div class="feature-grid feature-grid-compact">
@@ -263,11 +275,11 @@
           </div>
           <div>
             <strong>No hosted infrastructure yet</strong>
-            <span>The production preview is for local operational inspection. Managed deployment, secrets, observability, background workers, and internet-safe hosting are not included. Interactive work lists are paged, but exact counts and deep offsets have a cost; complete boards, aggregate reads, and synchronous exports retain documented limits.</span>
+            <span>The production preview is for local operational inspection. Managed deployment, S3, shared multi-instance file storage, secrets, observability, background workers, and internet-safe hosting are not included. Interactive work lists are paged, but exact counts and deep offsets have a cost; complete boards, aggregate reads, and synchronous exports retain documented limits.</span>
           </div>
           <div>
-            <strong>No enterprise workflow suite yet</strong>
-            <span>Recursive work trees, epics, automatic hierarchy rollups, custom workflows, attachments, roadmap forecasting, portfolio charts, cycle capacity planning, automatic closeout, reopen/undo, report approvals, public report links, critical path analysis, and third-party migrations remain outside the baseline.</span>
+            <strong>No file-content security layer yet</strong>
+            <span>Attachments are bounded and signature-checked, but they are not malware-scanned, previewed, rendered inline, indexed, versioned, retained by policy, or transferred through background and resumable jobs. Production authentication is also deferred.</span>
           </div>
         </div>
       </section>
@@ -288,7 +300,9 @@ npm run db:seed
 npm run dev
 
 # production preview
-DATABASE_URL=postgres://worktrail:worktrail@localhost:5432/worktrail npm run preview</code></pre>
+export DATABASE_URL=postgres://worktrail:worktrail@localhost:5432/worktrail
+export WORKTRAIL_ATTACHMENT_STORAGE_PATH=/absolute/path/to/worktrail-attachments
+npm run preview</code></pre>
       </section>
     </main>
 
@@ -296,9 +310,9 @@ DATABASE_URL=postgres://worktrail:worktrail@localhost:5432/worktrail npm run pre
       <span>Worktrail</span>
       <a href="https://github.com/jeremyaaron/worktrail">GitHub</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/README.md">README</a>
-      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.6/prd.md">v0.2.6 PRD</a>
-      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.6/technical-design.md">Technical design</a>
-      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.6/release-notes.md">Release notes</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.7/prd.md">v0.2.7 PRD</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.7/technical-design.md">Technical design</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.7/release-notes.md">Release notes</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/api/openapi.yaml">OpenAPI</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.0.X/v0.0.6/operations-runbook.md">Runbook</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.0.X/v0.0.7/csv-import-export.md">CSV guide</a>

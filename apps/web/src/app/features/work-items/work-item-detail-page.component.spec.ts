@@ -1,12 +1,14 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { ActivatedRoute, ParamMap, convertToParamMap, provideRouter } from '@angular/router';
 import type {
   MemberDto,
   MilestoneDto,
   ProjectCycleDto,
   ProjectDto,
+  WorkItemAttachmentListDto,
   WorkItemDetailDto,
   WorkItemRelationshipItemDto,
   WorkItemWatchStateDto,
@@ -15,6 +17,7 @@ import type {
 import { BehaviorSubject } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
+import { WorkItemAttachmentsComponent } from './components/work-item-attachments.component';
 import { WorkItemDetailPageComponent } from './work-item-detail-page.component';
 
 const projectId = '10000000-0000-4000-8000-000000000201';
@@ -275,6 +278,24 @@ const unwatchedState: WorkItemWatchStateDto = {
   ]
 };
 
+const emptyAttachmentList: WorkItemAttachmentListDto = {
+  items: [],
+  policy: {
+    maxFileBytes: 4 * 1024 * 1024,
+    maxAttachmentsPerWorkItem: 20,
+    maxAggregateBytesPerWorkItem: 50 * 1024 * 1024,
+    maxFileNameCodePoints: 180,
+    acceptedTypes: []
+  },
+  usage: {
+    attachmentCount: 0,
+    aggregateBytes: 0,
+    remainingAttachmentSlots: 20,
+    remainingBytes: 50 * 1024 * 1024
+  },
+  permissions: { canUpload: true }
+};
+
 const watchedState: WorkItemWatchStateDto = {
   isWatchedByCurrentActor: true,
   watcherCount: 2,
@@ -318,6 +339,8 @@ function setup(
     nextMilestone
   ]);
   http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([activeCycle]);
+  fixture.detectChanges();
+  http.expectOne(`/api/work-items/${workItem.id}/attachments`).flush(emptyAttachmentList);
   fixture.detectChanges();
   return { fixture, http };
 }
@@ -367,12 +390,91 @@ describe('WorkItemDetailPageComponent', () => {
     expect(compiled.textContent).toContain('Act');
     expect(compiled.textContent).toContain('Collaborate');
     expect(compiled.textContent).toContain('Dependencies');
+    expect(compiled.textContent).toContain('Attachments');
     expect(compiled.textContent).toContain('History');
     expect(compiled.textContent).toContain('frontend');
     expect(compiled.textContent).toContain('backend');
     expect(compiled.textContent).toContain('v0.0.3');
     expect(compiled.textContent).toContain('Initial implementation note.');
     expect(compiled.textContent).toContain('Avery Owner created this work item.');
+  });
+
+  it('refreshes only activity when the attachment child reports a mutation', () => {
+    const { fixture, http } = setup();
+    const original = fixture.componentInstance.workItem();
+    const originalWatchState = fixture.componentInstance.watchState();
+    const attachmentComponent = fixture.debugElement.query(
+      By.directive(WorkItemAttachmentsComponent)
+    ).componentInstance as WorkItemAttachmentsComponent;
+
+    attachmentComponent.activityChanged.emit();
+    const activityRequest = http.expectOne(`/api/work-items/${workItemId}/activity`);
+    expect(activityRequest.request.method).toBe('GET');
+    http.expectNone(`/api/work-items/${workItemId}`);
+    http.expectNone(`/api/work-items/${workItemId}/watchers`);
+    http.expectNone('/api/notifications/unread-count');
+    activityRequest.flush([
+      {
+        id: '10000000-0000-4000-8000-000000000699',
+        workspaceId: owner.workspaceId,
+        projectId,
+        workItemId,
+        actor: owner,
+        eventType: 'work_item.attachment_uploaded',
+        summary: 'Uploaded attachment "design-review.png".',
+        previousValue: null,
+        newValue: {
+          attachment: {
+            id: '10000000-0000-4000-8000-000000000801',
+            fileName: 'design-review.png',
+            mediaType: 'image/png',
+            byteSize: 2048
+          }
+        },
+        metadata: { attachmentId: '10000000-0000-4000-8000-000000000801' },
+        createdAt: '2026-07-21T18:00:00.000Z'
+      },
+      ...(original?.activity ?? [])
+    ]);
+    fixture.detectChanges();
+
+    const refreshed = fixture.componentInstance.workItem();
+    expect(refreshed?.updatedAt).toBe(original?.updatedAt);
+    expect(refreshed?.comments).toBe(original?.comments);
+    expect(fixture.componentInstance.watchState()).toBe(originalWatchState);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'Uploaded attachment "design-review.png".'
+    );
+  });
+
+  it('retains activity when its attachment refresh fails and supports scoped retry', () => {
+    const { fixture, http } = setup();
+    const attachmentComponent = fixture.debugElement.query(
+      By.directive(WorkItemAttachmentsComponent)
+    ).componentInstance as WorkItemAttachmentsComponent;
+
+    attachmentComponent.activityChanged.emit();
+    http
+      .expectOne(`/api/work-items/${workItemId}/activity`)
+      .flush(
+        { error: { code: 'INTERNAL_ERROR', message: 'Failed.' } },
+        { status: 500, statusText: 'Server Error' }
+      );
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Activity not refreshed');
+    expect(compiled.textContent).toContain('Avery Owner created this work item.');
+
+    compiled
+      .querySelector<HTMLButtonElement>('.history-section app-error-panel button')
+      ?.click();
+    http.expectOne(`/api/work-items/${workItemId}/activity`).flush(detail.activity);
+    fixture.detectChanges();
+
+    expect(compiled.textContent).not.toContain('Activity not refreshed');
+    http.expectNone(`/api/work-items/${workItemId}`);
+    http.expectNone(`/api/work-items/${workItemId}/watchers`);
   });
 
   it('renders watcher state with count and watcher list', () => {
@@ -454,6 +556,8 @@ describe('WorkItemDetailPageComponent', () => {
     http.expectOne(`/api/projects/${projectId}/labels`).flush([]);
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([]);
     http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([]);
+    unsafeFixture.detectChanges();
+    http.expectOne(`/api/work-items/${workItemId}/attachments`).flush(emptyAttachmentList);
     unsafeFixture.detectChanges();
 
     const fallbackLink = (unsafeFixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>(
@@ -620,6 +724,8 @@ describe('WorkItemDetailPageComponent', () => {
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([]);
     http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([]);
     fixture.detectChanges();
+    http.expectOne(`/api/work-items/${blockedWorkItemId}/attachments`).flush(emptyAttachmentList);
+    fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('WT-5');
@@ -666,6 +772,8 @@ describe('WorkItemDetailPageComponent', () => {
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([]);
     http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([]);
     fixture.detectChanges();
+    http.expectOne(`/api/work-items/${blockedWorkItemId}/attachments`).flush(emptyAttachmentList);
+    fixture.detectChanges();
 
     const parentLink = compiled.querySelector<HTMLAnchorElement>('app-work-item-parent-context a');
     expect(parentLink?.textContent?.trim()).toBe('WT-3 Implement detail surface');
@@ -682,6 +790,8 @@ describe('WorkItemDetailPageComponent', () => {
     http.expectOne(`/api/projects/${projectId}/labels`).flush([]);
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([]);
     http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([]);
+    fixture.detectChanges();
+    http.expectOne(`/api/work-items/${workItemId}/attachments`).flush(emptyAttachmentList);
     fixture.detectChanges();
 
     expect(compiled.textContent).toContain('Add child work item');
@@ -1145,6 +1255,8 @@ describe('WorkItemDetailPageComponent', () => {
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
     http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([activeCycle]);
     fixture.detectChanges();
+    http.expectOne(`/api/work-items/${workItemId}/attachments`).flush(emptyAttachmentList);
+    fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('legacy');
@@ -1172,6 +1284,11 @@ describe('WorkItemDetailPageComponent', () => {
     ]);
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
     http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([activeCycle]);
+    fixture.detectChanges();
+    http.expectOne(`/api/work-items/${workItemId}/attachments`).flush({
+      ...emptyAttachmentList,
+      permissions: { canUpload: false }
+    });
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;

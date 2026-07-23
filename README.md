@@ -1,8 +1,8 @@
 # Worktrail
 
-Worktrail is a project management reference app. The v0.2.6 baseline is a local-first Angular + TypeScript API + Postgres application focused on scalable work discovery, daily team workflow, two-level work breakdown, workspace portfolio review, collaboration updates, reliable filtered work views, pinned workspace and project operating lenses, explicit project batch triage, milestone review, cycle planning and closeout, published project reports and Markdown sharing, dependency-aware planning, workspace governance, data portability, and production-shaped application boundaries.
+Worktrail is a project management reference app. The v0.2.7 baseline is a local-first Angular + TypeScript API + Postgres application focused on files in work-item context, scalable work discovery, daily team workflow, two-level work breakdown, workspace portfolio review, collaboration updates, reliable filtered work views, pinned workspace and project operating lenses, explicit project batch triage, milestone review, cycle planning and closeout, published project reports and Markdown sharing, dependency-aware planning, workspace governance, data portability, and production-shaped application boundaries.
 
-The app includes My Work, Portfolio review, Action Inbox, top-level Work Items discovery, URL-backed filters, copyable filtered-view links, personal saved views, workspace-shared saved views, project-scoped personal and shared saved views, pinned saved-view shortcuts, project-scoped bulk updates, quick work capture, persistent project workspaces, live planning review, live milestone review, cycle management and review, generated report drafts, immutable published report snapshots with cycle context, Markdown copy/download for published reports, print-friendly report detail pages, milestone/cycle/work links from reports, milestone management, durable boards, work item relationships, dependency-blocked signals, project delivery health, comments, mentions, work item watchers, activity, CSV import/export, production-like preview, health/readiness checks, checked-in API documentation, CI, lint, and responsive work item scanning.
+The app includes My Work, Portfolio review, Action Inbox, top-level Work Items discovery, URL-backed filters, copyable filtered-view links, personal saved views, workspace-shared saved views, project-scoped personal and shared saved views, pinned saved-view shortcuts, project-scoped bulk updates, quick work capture, persistent project workspaces, bounded work item attachments, live planning review, live milestone review, cycle management and review, generated report drafts, immutable published report snapshots with cycle context, Markdown copy/download for published reports, print-friendly report detail pages, milestone/cycle/work links from reports, milestone management, durable boards, work item relationships, dependency-blocked signals, project delivery health, comments, mentions, work item watchers, activity, CSV import/export, production-like preview, health/readiness checks, checked-in API documentation, CI, lint, and responsive work item scanning.
 
 The app is intentionally built as a credible product surface before generalizing reusable patterns. It runs locally today, while preserving a path toward an S3/CloudFront Angular frontend with API Gateway/Lambda-style endpoint handlers and managed Postgres.
 
@@ -25,6 +25,7 @@ docs/
   v0.2.4/  Cycle Closeout PRD, technical design, implementation plan, release notes, and pattern notes
   v0.2.5/  Work Breakdown PRD, technical design, implementation plan, release notes, and pattern notes
   v0.2.6/  Scalable Work Discovery PRD, technical design, implementation plan, release notes, and pattern notes
+  v0.2.7/  Files in Context PRD, technical design, implementation plan, release notes, and pattern notes
   api/     OpenAPI reference
 site/       Static GitHub Pages product site
 e2e/        Playwright smoke tests
@@ -57,12 +58,25 @@ Start local Postgres:
 npm run db:start
 ```
 
-Apply migrations and seed demo data:
+Apply migrations and seed demo data, including the small attachment fixtures stored under
+`.worktrail/attachments`:
 
 ```sh
 npm run db:migrate
 npm run db:seed
 ```
+
+For a complete clean local rebuild of both PostgreSQL data and attachment objects, run:
+
+```sh
+npm run storage:reset
+npm run db:reset
+npm run db:migrate
+npm run db:seed
+```
+
+The reset commands are intentionally separate: `db:reset` never removes attachment files, while
+`storage:reset` only removes an initialized Worktrail attachment store with a valid marker.
 
 Start the API and web app together:
 
@@ -89,20 +103,28 @@ Local services:
 
 Production preview builds contracts, the API, and the Angular app, then runs compiled API code while Express serves the built Angular assets and `/api/*` routes from one origin.
 
-After migrations and seed data are in place:
+Production mode requires an explicit absolute attachment storage path. Use the same path for seeding
+and runtime so attachment metadata and bytes stay aligned:
 
 ```sh
-DATABASE_URL=postgres://worktrail:worktrail@localhost:5432/worktrail npm run preview
+export DATABASE_URL=postgres://worktrail:worktrail@localhost:5432/worktrail
+export WORKTRAIL_ATTACHMENT_STORAGE_PATH=/absolute/path/to/worktrail-preview-attachments
+npm run db:migrate
+npm run db:seed
+npm run preview
 ```
 
 Equivalent explicit sequence:
 
 ```sh
 npm run build
-DATABASE_URL=postgres://worktrail:worktrail@localhost:5432/worktrail npm run start:prod
+npm run start:prod
 ```
 
-Production preview requires an explicit `DATABASE_URL`. It is useful for local operational inspection, but it is not a secure internet-facing deployment and does not add production authentication.
+Production preview requires explicit `DATABASE_URL` and `WORKTRAIL_ATTACHMENT_STORAGE_PATH` values.
+It is useful for local operational inspection, but it is not a secure internet-facing deployment and
+does not add production authentication, malware scanning, managed object storage, or multi-instance
+file coordination.
 
 Preview checks:
 
@@ -114,6 +136,20 @@ curl -I http://localhost:3000/work-items/new
 ```
 
 The detailed operator guide is in [docs/v0.0.X/v0.0.6/operations-runbook.md](docs/v0.0.X/v0.0.6/operations-runbook.md).
+
+### Attachment Persistence And Backup
+
+Attachment metadata lives in PostgreSQL while immutable bytes live under
+`WORKTRAIL_ATTACHMENT_STORAGE_PATH`. Development defaults to `.worktrail/attachments`; production
+mode requires an explicit absolute path. API startup initializes a versioned store marker and refuses
+unsafe roots. `storage:reset` only removes a marked Worktrail store and remains separate from the
+database-only `db:reset` command.
+
+Back up and restore PostgreSQL and the complete attachment storage root as one operational data set.
+For a consistent backup, stop attachment mutations or otherwise coordinate the database snapshot and
+filesystem copy. Restoring only one side can leave metadata without bytes or unreferenced objects. The
+local adapter is intended for one API instance with persistent local disk; shared multi-instance
+operation requires a future object-store adapter and coordination design.
 
 ## API Reference
 
@@ -200,6 +236,29 @@ preserving the existing applied-query contract.
 Migration `0016_scalable_search.sql` enables PostgreSQL `pg_trgm` and adds GIN trigram indexes for the
 existing display-key, title, and description substring search. The database migration role must be
 allowed to install that extension.
+
+## Files In Context
+
+v0.2.7 adds bounded attachments to work item detail. Active members can select multiple files for
+sequential upload to active-project work items, inspect compact metadata and capacity, download exact
+authorized bytes, and remove files under explicit ownership rules. Uploaders may remove their own
+files; owners and maintainers may remove any file. Archived projects remain readable and downloadable
+but expose no attachment mutation actions.
+
+The server accepts PNG, JPEG, GIF, WebP, PDF, UTF-8 TXT/Markdown/CSV, JSON, DOCX, XLSX, and PPTX. It
+validates filename extension, declared media type, bounded content evidence, and Open XML package
+shape where applicable. Limits are 4 MiB per file, 20 live attachments per work item, 50 MiB aggregate
+bytes per work item, and 180 Unicode code points per normalized filename.
+
+Downloads are authorized through the API, integrity-checked against stored size and SHA-256 metadata,
+forced to `attachment` disposition, marked `private, no-store`, and sent with `nosniff`. Paths, storage
+keys, and checksums are not public DTO or ordinary activity fields. Upload and removal activity is
+retained without changing the work item's updated timestamp or notifying watchers.
+
+This is not a document-management or content-safety system. Files are not scanned, previewed, rendered
+inline, indexed, versioned, or included in reports, exports, notifications, or closeout snapshots. The
+current byte adapter uses persistent local disk only; S3, presigned transfer, background processing,
+orphan reconciliation, retention policies, and horizontally scaled storage are deferred.
 
 ## Project Batch Triage
 
@@ -408,7 +467,7 @@ npm run db:migrate
 npm run db:seed
 ```
 
-The Playwright suite resets, migrates, and seeds before the browser run, then restores deterministic seed data after mutation-heavy tests. That means the local `public` schema for the configured database is dropped and recreated. Set `WORKTRAIL_E2E_SKIP_DB_RESET=true` only when you intentionally want to run the smoke test against an already prepared local database. Set `WORKTRAIL_E2E_SKIP_DB_RESTORE=true` only when you intentionally want to inspect post-test mutations.
+The Playwright suite resets, migrates, and seeds before the browser run, then restores deterministic seed data after mutation-heavy tests. That means the local `public` schema for the configured database is dropped and recreated. Attachment bytes use a unique OS-temporary marked store that is removed during global teardown; normal development attachment storage is restored with the final seed. Set `WORKTRAIL_E2E_SKIP_DB_RESET=true` only when you intentionally want to run the smoke test against an already prepared local database. Set `WORKTRAIL_E2E_SKIP_DB_RESTORE=true` only when you intentionally want to inspect post-test database mutations. `WORKTRAIL_E2E_ATTACHMENT_STORAGE_PATH` may override the isolated absolute storage path for deliberate test inspection.
 
 ## Public Site
 
@@ -428,6 +487,7 @@ Seeded data includes:
 - active, upcoming, and completed Worktrail App cycles with target points and scoped work;
 - an isolated Closeout Lab with an active source cycle, planned destination, mixed terminal and unfinished scope, and dependency-blocked carryover;
 - work items across every status with persisted board positions;
+- two exact downloadable attachments on `WT-3`, with distinct seeded uploaders and activity;
 - 18 active Worktrail App items, which produce two pages when the page size is set to 10;
 - same-project, cross-project, and related-work relationships;
 - dependency-blocked examples where open blockers count and terminal blockers do not;
@@ -634,6 +694,13 @@ Suggested walkthrough:
 - In-app notification persistence for assignments, mentions, watched comments, watched work changes, and dependency blocker changes.
 - Work item watch/unwatch controls with watcher count and compact watcher list on detail pages.
 - Work item detail sections grouped around Summary, Act, Collaborate, Dependencies, and History.
+- Independently loaded work item attachment metadata, policy, usage, and role-aware capabilities.
+- Sequential multi-file attachment upload with per-file progress, partial failure, retry, and compact
+  responsive queue states.
+- Authorized integrity-checked attachment download with forced download disposition and defensive
+  cache/content headers.
+- Uploader, owner, and maintainer attachment removal with retained safe activity and archived-project
+  read-only behavior.
 - Dependency alerts on work item detail pages when work is blocked by open work or blocking downstream open work.
 - Automatic watching for work item reporters, assignees, and newly assigned members.
 - Comment mentions through an active-member picker, persisted mention metadata, and readable mention chips.
@@ -678,7 +745,12 @@ Suggested walkthrough:
 - Relationships support only `blocks` and `relates_to`; custom relationship types and graph visualization are deferred. Containment is modeled separately and never changes dependency state.
 - Dependency-blocked state is derived from current open blockers; critical path analysis, external dependency alerts, and automation rules are deferred.
 - Relationship activity is recorded on the command context item only to avoid noisy cross-project activity.
-- Custom workflows, file attachments, and production auth are intentionally out of scope.
+- Attachments are limited to 4 MiB per file, 20 files and 50 MiB per work item, supported types, and
+  direct request/response transfer. Malware scanning, previews, inline rendering, versioning, search,
+  retention automation, report/export embedding, and background or resumable transfer are deferred.
+- Attachment bytes use one marked local filesystem root. S3, presigned URLs, shared multi-instance
+  storage, orphan reconciliation, managed backup, and cloud deployment assets are not included.
+- Custom workflows and production auth are intentionally out of scope.
 - Invitations, multi-workspace switching, custom roles, project-specific membership, pinned projects, recent projects, and audit export are intentionally out of scope.
 - The local Express adapter is the only runtime adapter in the current baseline, though endpoint handlers are structured so a Lambda/API Gateway adapter can be added later.
 - AWS deployment assets are not included yet; the Angular static build and transport-neutral handlers preserve that path.
@@ -686,7 +758,7 @@ Suggested walkthrough:
 
 ## Database Status
 
-The current schema includes workspace activity, member lifecycle metadata, project keys, scoped work item display keys, labels, milestones, project cycles, immutable project cycle closeouts with versioned JSONB evidence, work item cycle assignments, an indexed nullable work item parent self-reference, comments, comment mentions, project activity, due dates, durable board positions, work item relationships, work item watchers, notifications, workspace-scoped saved work views, project-scoped saved work views, saved-view pinned state, immutable project status report snapshots, and `pg_trgm` GIN indexes for work-item display-key, title, and description search.
+The current schema includes workspace activity, member lifecycle metadata, project keys, scoped work item display keys, labels, milestones, project cycles, immutable project cycle closeouts with versioned JSONB evidence, work item cycle assignments, an indexed nullable work item parent self-reference, attachment metadata and integrity evidence, comments, comment mentions, project activity, due dates, durable board positions, work item relationships, work item watchers, notifications, workspace-scoped saved work views, project-scoped saved work views, saved-view pinned state, immutable project status report snapshots, and `pg_trgm` GIN indexes for work-item display-key, title, and description search.
 
 Useful database commands:
 
@@ -695,8 +767,11 @@ npm run db:generate  # generate a migration from the Drizzle schema
 npm run db:migrate   # apply committed migrations
 npm run db:seed      # upsert deterministic demo data
 npm run db:reset     # drop and recreate the local public schema
+npm run storage:reset # remove the marked local attachment store
 ```
 
 `npm run db:reset` refuses to run against non-local database hosts unless `WORKTRAIL_ALLOW_DATABASE_RESET=true` is set.
+It remains database-only. `npm run storage:reset` rejects relative paths, filesystem root, the home
+directory, the repository root, and directories without Worktrail's attachment-store marker.
 
 The default development database URL is documented in [.env.example](.env.example).

@@ -6,6 +6,9 @@ export type AppErrorCode =
   | 'CONFLICT'
   | 'WORKFLOW_TRANSITION_ERROR'
   | 'EXPORT_LIMIT_EXCEEDED'
+  | 'PAYLOAD_TOO_LARGE'
+  | 'ATTACHMENT_LIMIT_EXCEEDED'
+  | 'ATTACHMENT_STORAGE_UNAVAILABLE'
   | 'INTERNAL_ERROR';
 
 export class AppError extends Error {
@@ -70,6 +73,43 @@ export class ExportLimitExceededError extends AppError {
   }
 }
 
+export class PayloadTooLargeError extends AppError {
+  constructor(limitBytes: number) {
+    super({
+      code: 'PAYLOAD_TOO_LARGE',
+      status: 413,
+      message: `The request body exceeds the ${formatBytes(limitBytes)} limit.`,
+      details: { limitBytes }
+    });
+  }
+}
+
+export class AttachmentLimitExceededError extends AppError {
+  constructor(input: { limit: 'attachment_count' | 'aggregate_bytes'; maximum: number }) {
+    const message =
+      input.limit === 'attachment_count'
+        ? `This work item already has the maximum of ${input.maximum} attachments.`
+        : `This upload would exceed the ${formatBytes(input.maximum)} attachment limit for this work item.`;
+
+    super({
+      code: 'ATTACHMENT_LIMIT_EXCEEDED',
+      status: 422,
+      message,
+      details: input
+    });
+  }
+}
+
+export class AttachmentStorageUnavailableError extends AppError {
+  constructor() {
+    super({
+      code: 'ATTACHMENT_STORAGE_UNAVAILABLE',
+      status: 503,
+      message: 'Attachment storage is temporarily unavailable.'
+    });
+  }
+}
+
 export interface ApiErrorResponse {
   error: {
     code: AppErrorCode;
@@ -101,4 +141,12 @@ export function toApiErrorResponse(error: unknown): { status: number; body: ApiE
       }
     }
   };
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes % (1024 * 1024) === 0) {
+    return `${bytes / (1024 * 1024)} MiB`;
+  }
+
+  return `${bytes} bytes`;
 }

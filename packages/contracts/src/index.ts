@@ -1,4 +1,5 @@
 export * from './activity.js';
+export * from './attachments.js';
 export * from './cycles.js';
 export * from './csv.js';
 export * from './health.js';

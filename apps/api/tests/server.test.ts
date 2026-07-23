@@ -8,30 +8,37 @@ import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import { createExpressApp } from '../src/adapters/express/server.js';
+import type { WorktrailDb } from '../src/db/client.js';
 import { ValidationError } from '../src/errors/app-error.js';
 import type { Repositories } from '../src/repositories/index.js';
+import type { AttachmentObjectStore } from '../src/storage/attachment-object-store.js';
 import { parseWithSchema } from '../src/validation/parse.js';
 
 async function createStaticFixture(): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), 'worktrail-static-'));
 
-  await writeFile(join(directory, 'index.html'), '<!doctype html><title>Worktrail</title><app-root></app-root>');
+  await writeFile(
+    join(directory, 'index.html'),
+    '<!doctype html><title>Worktrail</title><app-root></app-root>'
+  );
   await writeFile(join(directory, 'asset.txt'), 'static asset response');
 
   return directory;
 }
 
 function registeredRoutes(app: ReturnType<typeof createExpressApp>): string[] {
-  const router = (app as unknown as {
-    router: {
-      stack: Array<{
-        route?: {
-          path: string;
-          methods: Record<string, boolean>;
-        };
-      }>;
-    };
-  }).router;
+  const router = (
+    app as unknown as {
+      router: {
+        stack: Array<{
+          route?: {
+            path: string;
+            methods: Record<string, boolean>;
+          };
+        }>;
+      };
+    }
+  ).router;
 
   return router.stack.flatMap((layer) => {
     if (layer.route === undefined) {
@@ -163,6 +170,30 @@ describe('Express API foundation', () => {
       'PATCH /api/work-items/:workItemId',
       'POST /api/work-items/:workItemId/transitions',
       'POST /api/work-items/:workItemId/board-move'
+    ]);
+  });
+
+  it('registers attachment routes only when all persistence dependencies are available', () => {
+    const repositories = {
+      members: {
+        findById: vi.fn(async () => null)
+      }
+    } as unknown as Repositories;
+    const db = {} as WorktrailDb;
+    const objectStore = {} as AttachmentObjectStore;
+
+    expect(registeredRoutes(createExpressApp({ repositories, db }))).not.toContain(
+      'GET /api/work-items/:workItemId/attachments'
+    );
+    expect(
+      registeredRoutes(
+        createExpressApp({ repositories, db, attachmentObjectStore: objectStore })
+      ).slice(-4)
+    ).toEqual([
+      'GET /api/work-items/:workItemId/attachments',
+      'POST /api/work-items/:workItemId/attachments',
+      'GET /api/attachments/:attachmentId/content',
+      'DELETE /api/attachments/:attachmentId'
     ]);
   });
 
@@ -345,7 +376,9 @@ describe('Express API foundation', () => {
     const app = createExpressApp({
       testRoutes: {
         '/api/test/validation': () => {
-          throw new ValidationError('Invalid test request.', { fieldErrors: { name: ['Required'] } });
+          throw new ValidationError('Invalid test request.', {
+            fieldErrors: { name: ['Required'] }
+          });
         }
       }
     });
@@ -410,6 +443,68 @@ describe('Express API foundation', () => {
       .expect(({ text }) => {
         expect(text).toBe('name,value\nWorktrail,1\n');
       });
+  });
+
+  it('converts transport-neutral binary responses to exact response bytes', async () => {
+    const bytes = Uint8Array.from([0, 1, 2, 127, 128, 255]);
+    const app = createExpressApp({
+      testRoutes: {
+        '/api/test/binary': () => ({
+          status: 200,
+          body: { kind: 'binary', bytes },
+          headers: { 'Content-Type': 'application/octet-stream' }
+        })
+      }
+    });
+
+    await request(app)
+      .get('/api/test/binary')
+      .buffer(true)
+      .parse((response, callback) => {
+        const chunks: Buffer[] = [];
+        response.on('data', (chunk: Buffer) => chunks.push(chunk));
+        response.on('end', () => callback(null, Buffer.concat(chunks)));
+      })
+      .expect(200)
+      .expect('Content-Type', /application\/octet-stream/)
+      .expect(({ body }) => {
+        expect(body).toEqual(Buffer.from(bytes));
+      });
+  });
+
+  it('ends no-body 204 responses without serializing an empty object', async () => {
+    const app = createExpressApp({
+      testRoutes: {
+        '/api/test/no-content': () => ({ status: 204 })
+      }
+    });
+
+    await request(app)
+      .delete('/api/test/no-content')
+      .expect(204)
+      .expect(({ text, headers }) => {
+        expect(text).toBe('');
+        expect(headers['content-type']).toBeUndefined();
+        expect(headers['content-length']).toBeUndefined();
+      });
+  });
+
+  it('allows attachment upload metadata headers in CORS preflight', async () => {
+    const app = createExpressApp();
+
+    await request(app)
+      .options('/api/work-items/10000000-0000-4000-8000-000000000301/attachments')
+      .set('Origin', 'http://localhost:4200')
+      .set('Access-Control-Request-Method', 'POST')
+      .set(
+        'Access-Control-Request-Headers',
+        'content-type,x-worktrail-filename,x-worktrail-media-type'
+      )
+      .expect(204)
+      .expect(
+        'Access-Control-Allow-Headers',
+        'content-type,x-worktrail-filename,x-worktrail-media-type'
+      );
   });
 
   it('serves configured static assets', async () => {

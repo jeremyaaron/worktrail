@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Worktrail API
-  version: 0.2.6
+  version: 0.2.7
   summary: HTTP API reference for the Worktrail local-first project management app.
   description: |
     This document describes the implemented Worktrail API routes. It is intentionally
@@ -30,6 +30,7 @@ tags:
   - name: Milestones
   - name: Cycles
   - name: Work Items
+  - name: Attachments
   - name: Relationships
   - name: Comments
   - name: Activity
@@ -1627,6 +1628,177 @@ paths:
           description: Relationship deleted.
         default:
           $ref: "#/components/responses/Error"
+  /api/work-items/{workItemId}/attachments:
+    get:
+      tags: [Attachments]
+      summary: List work item attachments.
+      description: Returns bounded attachment metadata, current policy, exact usage, and upload capability. Active members can list attachments in active or archived projects. File bytes and internal storage metadata are never included.
+      parameters:
+        - $ref: "#/components/parameters/WorkItemId"
+      responses:
+        "200":
+          description: Attachment metadata and policy for the work item.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkItemAttachmentList"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Attachments]
+      summary: Upload one work item attachment.
+      description: Uploads exactly one raw file. The request is limited to 4 MiB before endpoint execution. The project must be active. Supported filename extensions, declared media types, and file signatures are enforced by the returned attachment policy.
+      parameters:
+        - $ref: "#/components/parameters/WorkItemId"
+        - name: X-Worktrail-Filename
+          in: header
+          required: true
+          description: RFC 3986 percent-encoded UTF-8 display filename. It is decoded once, normalized, and limited to 180 Unicode code points.
+          schema:
+            type: string
+          example: design%20review.png
+        - name: X-Worktrail-Media-Type
+          in: header
+          required: true
+          description: Declared media type matching the filename extension and supported type policy.
+          schema:
+            type: string
+          example: image/png
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+              maxLength: 4194304
+      responses:
+        "201":
+          description: Created attachment metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkItemAttachment"
+        "400":
+          description: Missing or malformed metadata, an empty file, or a filename, media type, or file signature rejected by policy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          description: The owning project is archived.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "413":
+          description: Raw request body exceeds the 4 MiB per-file limit.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: PAYLOAD_TOO_LARGE
+                  message: The request body exceeds the 4 MiB limit.
+                  details:
+                    limitBytes: 4194304
+        "422":
+          description: The work item has reached its attachment count or aggregate byte limit.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Attachment object storage could not complete the upload safely.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/attachments/{attachmentId}/content:
+    get:
+      tags: [Attachments]
+      summary: Download an attachment.
+      description: Returns the full integrity-verified file and always forces attachment disposition. Active members can download from active or archived projects. Range and HEAD requests are not supported.
+      parameters:
+        - $ref: "#/components/parameters/AttachmentId"
+      responses:
+        "200":
+          description: Exact attachment bytes.
+          headers:
+            Content-Disposition:
+              description: Safe ASCII fallback and RFC 5987 UTF-8 attachment filename.
+              schema:
+                type: string
+            Content-Length:
+              description: Authoritative attachment size in bytes.
+              schema:
+                type: integer
+            Cache-Control:
+              description: Always `private, no-store`.
+              schema:
+                type: string
+                const: private, no-store
+            X-Content-Type-Options:
+              description: Always `nosniff`.
+              schema:
+                type: string
+                const: nosniff
+          content:
+            "*/*":
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "503":
+          description: Stored bytes are missing, unavailable, oversized, or fail size/checksum verification.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/attachments/{attachmentId}:
+    delete:
+      tags: [Attachments]
+      summary: Remove an attachment.
+      description: Removes the object and live metadata while retaining safe activity context. The uploader or an owner/maintainer may remove from an active project. Missing stored objects are repaired by removing stale metadata.
+      parameters:
+        - $ref: "#/components/parameters/AttachmentId"
+      responses:
+        "204":
+          description: Attachment removed with an empty response body.
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          description: The owning project is archived.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Attachment object storage could not complete removal safely.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /api/my-work:
     get:
       tags: [My Work]
@@ -1729,6 +1901,13 @@ components:
         format: uuid
     WorkItemId:
       name: workItemId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    AttachmentId:
+      name: attachmentId
       in: path
       required: true
       schema:
@@ -2000,12 +2179,141 @@ components:
           properties:
             code:
               type: string
-              examples: [VALIDATION_ERROR, FORBIDDEN, NOT_FOUND, EXPORT_LIMIT_EXCEEDED, INTERNAL_ERROR]
+              examples: [VALIDATION_ERROR, FORBIDDEN, NOT_FOUND, PAYLOAD_TOO_LARGE, ATTACHMENT_LIMIT_EXCEEDED, ATTACHMENT_STORAGE_UNAVAILABLE, EXPORT_LIMIT_EXCEEDED, INTERNAL_ERROR]
             message:
               type: string
             details:
               type: object
               additionalProperties: true
+    AttachmentCategory:
+      type: string
+      enum: [image, pdf, text, data, document]
+    AttachmentTypePolicy:
+      type: object
+      required: [extensions, mediaTypes, canonicalMediaType, category]
+      properties:
+        extensions:
+          type: array
+          items:
+            type: string
+          examples: [[.png]]
+        mediaTypes:
+          type: array
+          items:
+            type: string
+          examples: [[image/png]]
+        canonicalMediaType:
+          type: string
+          example: image/png
+        category:
+          $ref: "#/components/schemas/AttachmentCategory"
+    AttachmentPolicy:
+      type: object
+      required: [maxFileBytes, maxAttachmentsPerWorkItem, maxAggregateBytesPerWorkItem, maxFileNameCodePoints, acceptedTypes]
+      properties:
+        maxFileBytes:
+          type: integer
+          const: 4194304
+          example: 4194304
+        maxAttachmentsPerWorkItem:
+          type: integer
+          const: 20
+          example: 20
+        maxAggregateBytesPerWorkItem:
+          type: integer
+          const: 52428800
+          example: 52428800
+        maxFileNameCodePoints:
+          type: integer
+          const: 180
+          example: 180
+        acceptedTypes:
+          type: array
+          items:
+            $ref: "#/components/schemas/AttachmentTypePolicy"
+    WorkItemAttachmentUsage:
+      type: object
+      required: [attachmentCount, aggregateBytes, remainingAttachmentSlots, remainingBytes]
+      properties:
+        attachmentCount:
+          type: integer
+          minimum: 0
+          maximum: 20
+          example: 2
+        aggregateBytes:
+          type: integer
+          minimum: 0
+          maximum: 52428800
+          example: 184
+        remainingAttachmentSlots:
+          type: integer
+          minimum: 0
+          maximum: 20
+          example: 18
+        remainingBytes:
+          type: integer
+          minimum: 0
+          maximum: 52428800
+          example: 52428616
+    WorkItemAttachment:
+      type: object
+      required: [id, workItemId, fileName, mediaType, byteSize, uploader, createdAt, permissions]
+      description: Public attachment metadata. File bytes are available only from the content endpoint.
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 10000000-0000-4000-8000-000000001001
+        workItemId:
+          type: string
+          format: uuid
+          example: 10000000-0000-4000-8000-000000000403
+        fileName:
+          type: string
+          minLength: 1
+          description: Normalized display and download filename, limited to 180 Unicode code points.
+          example: attachment-requirements.md
+        mediaType:
+          type: string
+          example: text/markdown
+        byteSize:
+          type: integer
+          minimum: 1
+          maximum: 4194304
+          example: 103
+        uploader:
+          $ref: "#/components/schemas/Member"
+        createdAt:
+          type: string
+          format: date-time
+          example: 2026-07-03T12:05:00.000Z
+        permissions:
+          type: object
+          required: [canRemove]
+          properties:
+            canRemove:
+              type: boolean
+              example: true
+    WorkItemAttachmentList:
+      type: object
+      required: [items, policy, usage, permissions]
+      properties:
+        items:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/WorkItemAttachment"
+        policy:
+          $ref: "#/components/schemas/AttachmentPolicy"
+        usage:
+          $ref: "#/components/schemas/WorkItemAttachmentUsage"
+        permissions:
+          type: object
+          required: [canUpload]
+          properties:
+            canUpload:
+              type: boolean
+              example: true
     MemberRole:
       type: string
       enum: [owner, maintainer, contributor]

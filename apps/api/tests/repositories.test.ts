@@ -47,6 +47,7 @@ async function cleanupWorkspace(workspaceId: string) {
   await pool.query('delete from activity_events where workspace_id = $1', [workspaceId]);
   await pool.query('delete from comments where workspace_id = $1', [workspaceId]);
   await pool.query('delete from work_item_watchers where workspace_id = $1', [workspaceId]);
+  await pool.query('delete from work_item_attachments where workspace_id = $1', [workspaceId]);
   await pool.query(
     'delete from work_item_labels where work_item_id in (select id from work_items where workspace_id = $1)',
     [workspaceId]
@@ -233,6 +234,40 @@ async function createRepositoryWorkItem(
   });
 }
 
+async function createRepositoryAttachment(
+  repos: Repositories,
+  graph: Awaited<ReturnType<typeof createRepositoryGraph>>,
+  input: {
+    id?: string;
+    workItemId?: string;
+    uploaderMemberId?: string;
+    fileName?: string;
+    mediaType?: string;
+    byteSize?: number;
+    checksumSha256?: string;
+    storageKey?: string;
+    createdAt?: Date;
+  } = {}
+) {
+  return repos.workItemAttachments.create({
+    id: input.id ?? randomUUID(),
+    workspaceId: graph.workspace.id,
+    projectId: graph.project.id,
+    workItemId: input.workItemId ?? graph.workItem.id,
+    uploaderMemberId: input.uploaderMemberId ?? graph.contributor.id,
+    fileName: input.fileName ?? 'repository-evidence.txt',
+    mediaType: input.mediaType ?? 'text/plain',
+    byteSize: input.byteSize ?? 128,
+    checksumSha256: input.checksumSha256 ?? 'a'.repeat(64),
+    storageKey: input.storageKey ?? randomStorageKey(),
+    createdAt: input.createdAt ?? now()
+  });
+}
+
+function randomStorageKey(): string {
+  return `${randomUUID().replaceAll('-', '')}${randomUUID().replaceAll('-', '')}`;
+}
+
 async function createRepositoryCycle(
   repos: Repositories,
   graph: Awaited<ReturnType<typeof createRepositoryGraph>>,
@@ -369,6 +404,153 @@ describe('Drizzle repositories', () => {
     const activity = await repositories.activityEvents.findByWorkItem(graph.id.workItemId);
     expect(activity).toHaveLength(1);
     expect(activity[0]?.eventType).toBe('work_item.created');
+  });
+
+  it('creates, finds, orders, totals, and deletes work item attachments', async () => {
+    const graph = await createRepositoryGraph(repositories);
+    const older = await createRepositoryAttachment(repositories, graph, {
+      fileName: 'duplicate.txt',
+      byteSize: 100,
+      createdAt: new Date('2026-07-03T10:00:00.000Z')
+    });
+    const sameTime = new Date('2026-07-03T11:00:00.000Z');
+    const firstNewest = await createRepositoryAttachment(repositories, graph, {
+      fileName: 'duplicate.txt',
+      byteSize: 200,
+      createdAt: sameTime
+    });
+    const secondNewest = await createRepositoryAttachment(repositories, graph, {
+      fileName: 'other.txt',
+      byteSize: 300,
+      createdAt: sameTime
+    });
+
+    await expect(repositories.workItemAttachments.findById(firstNewest!.id)).resolves.toMatchObject(
+      {
+        fileName: 'duplicate.txt',
+        byteSize: 200,
+        workItemId: graph.workItem.id
+      }
+    );
+    await expect(
+      repositories.workItemAttachments.listByWorkItem(graph.workItem.id)
+    ).resolves.toEqual([
+      ...[firstNewest, secondNewest].sort((left, right) => right!.id.localeCompare(left!.id)),
+      older
+    ]);
+    await expect(
+      repositories.workItemAttachments.getUsageByWorkItem(graph.workItem.id)
+    ).resolves.toEqual({
+      attachmentCount: 3,
+      aggregateBytes: 600
+    });
+
+    const emptyWorkItem = await createRepositoryWorkItem(repositories, graph, { itemNumber: 2 });
+    await expect(
+      repositories.workItemAttachments.getUsageByWorkItem(emptyWorkItem!.id)
+    ).resolves.toEqual({
+      attachmentCount: 0,
+      aggregateBytes: 0
+    });
+
+    await expect(
+      repositories.workItemAttachments.deleteById(firstNewest!.id)
+    ).resolves.toMatchObject({
+      id: firstNewest!.id,
+      storageKey: firstNewest!.storageKey
+    });
+    await expect(repositories.workItemAttachments.findById(firstNewest!.id)).resolves.toBeNull();
+    await expect(repositories.workItemAttachments.deleteById(firstNewest!.id)).resolves.toBeNull();
+  });
+
+  it('enforces attachment metadata checks, unique object keys, and restrictive work item deletion', async () => {
+    const graph = await createRepositoryGraph(repositories);
+
+    for (const invalid of [
+      { input: { byteSize: 0 }, constraint: 'work_item_attachments_byte_size_check' },
+      {
+        input: { byteSize: 4 * 1024 * 1024 + 1 },
+        constraint: 'work_item_attachments_byte_size_check'
+      },
+      { input: { fileName: '' }, constraint: 'work_item_attachments_file_name_check' },
+      { input: { fileName: 'a'.repeat(181) }, constraint: 'work_item_attachments_file_name_check' },
+      {
+        input: { checksumSha256: 'A'.repeat(64) },
+        constraint: 'work_item_attachments_checksum_sha256_check'
+      },
+      {
+        input: { storageKey: '../outside' },
+        constraint: 'work_item_attachments_storage_key_check'
+      }
+    ]) {
+      await expect(
+        createRepositoryAttachment(repositories, graph, invalid.input)
+      ).rejects.toMatchObject({
+        cause: { code: '23514', constraint: invalid.constraint }
+      });
+    }
+
+    const storageKey = randomStorageKey();
+    await createRepositoryAttachment(repositories, graph, { storageKey });
+    await expect(
+      createRepositoryAttachment(repositories, graph, { storageKey })
+    ).rejects.toMatchObject({
+      cause: { code: '23505', constraint: 'work_item_attachments_storage_key_unique' }
+    });
+    await expect(
+      pool.query('delete from work_items where id = $1', [graph.workItem.id])
+    ).rejects.toMatchObject({
+      code: '23503',
+      constraint: 'work_item_attachments_work_item_id_work_items_id_fk'
+    });
+  });
+
+  it('locks attachment ownership context and accepts attachment activity values', async () => {
+    const graph = await createRepositoryGraph(repositories);
+    const attachment = await createRepositoryAttachment(repositories, graph);
+
+    const locked = await withRepositoriesTransaction(db, async (transactionRepositories) => {
+      const project = await transactionRepositories.projects.findByIdForShare(graph.project.id);
+      const [workItem] = await transactionRepositories.workItems.findManyByIdsForUpdate([
+        graph.workItem.id
+      ]);
+      const attachmentRecord = await transactionRepositories.workItemAttachments.findByIdForUpdate(
+        attachment!.id
+      );
+
+      return { project, workItem, attachment: attachmentRecord };
+    });
+
+    expect(locked).toMatchObject({
+      project: { id: graph.project.id },
+      workItem: { id: graph.workItem.id },
+      attachment: { id: attachment!.id }
+    });
+    await expect(repositories.projects.findByIdForShare(randomUUID())).resolves.toBeNull();
+    await expect(
+      repositories.workItemAttachments.findByIdForUpdate(randomUUID())
+    ).resolves.toBeNull();
+
+    for (const eventType of [
+      'work_item.attachment_uploaded',
+      'work_item.attachment_removed'
+    ] as const) {
+      await expect(
+        repositories.activityEvents.create({
+          id: randomUUID(),
+          workspaceId: graph.workspace.id,
+          projectId: graph.project.id,
+          workItemId: graph.workItem.id,
+          actorId: graph.owner.id,
+          eventType,
+          summary: `${eventType} repository evidence.`,
+          previousValue: null,
+          newValue: null,
+          metadata: {},
+          createdAt: now()
+        })
+      ).resolves.toMatchObject({ eventType });
+    }
   });
 
   it('filters work items by status, assignee, type, priority, and title search', async () => {

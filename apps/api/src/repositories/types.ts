@@ -13,6 +13,7 @@ import type {
   projectStatusReports,
   projects,
   savedWorkViews,
+  workItemAttachments,
   workItemLabels,
   workItemRelationships,
   workItemWatchers,
@@ -39,6 +40,8 @@ export type SavedWorkView = InferSelectModel<typeof savedWorkViews>;
 export type NewSavedWorkView = InferInsertModel<typeof savedWorkViews>;
 export type WorkItem = InferSelectModel<typeof workItems>;
 export type NewWorkItem = InferInsertModel<typeof workItems>;
+export type WorkItemAttachment = InferSelectModel<typeof workItemAttachments>;
+export type NewWorkItemAttachment = InferInsertModel<typeof workItemAttachments>;
 export type WorkItemRelationship = InferSelectModel<typeof workItemRelationships>;
 export type NewWorkItemRelationship = InferInsertModel<typeof workItemRelationships>;
 export type WorkItemWatcher = InferSelectModel<typeof workItemWatchers>;

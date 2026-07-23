@@ -1,4 +1,4 @@
-import type { HttpResponse } from '@angular/common/http';
+import type { HttpEvent, HttpResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import type {
   ActivityEventDto,
@@ -48,6 +48,8 @@ import type {
   UpdateWorkspaceRequest,
   UpdateWorkItemRequest,
   WorkItemCsvImportApplyDto,
+  WorkItemAttachmentDto,
+  WorkItemAttachmentListDto,
   WorkItemCsvImportPreviewDto,
   WorkItemChildrenDto,
   WorkItemQuery,
@@ -65,6 +67,7 @@ import type {
 } from '@worktrail/contracts';
 import type { Observable } from 'rxjs';
 
+import { AttachmentsApi } from './api/attachments-api';
 import { NotificationsApi } from './api/notifications-api';
 import { PlanningApi } from './api/planning-api';
 import { ProjectsApi } from './api/projects-api';
@@ -77,6 +80,7 @@ export type { WorkItemListFilters } from './api/work-items-api';
 
 @Injectable({ providedIn: 'root' })
 export class WorktrailApiService {
+  private readonly attachments = inject(AttachmentsApi);
   private readonly notifications = inject(NotificationsApi);
   private readonly planning = inject(PlanningApi);
   private readonly projects = inject(ProjectsApi);
@@ -88,7 +92,9 @@ export class WorktrailApiService {
     return this.workspace.getWorkspace();
   }
 
-  listNotifications(state: NotificationStateFilter = 'unread'): Observable<NotificationListResponse> {
+  listNotifications(
+    state: NotificationStateFilter = 'unread'
+  ): Observable<NotificationListResponse> {
     return this.notifications.listNotifications(state);
   }
 
@@ -208,10 +214,7 @@ export class WorktrailApiService {
     return this.projects.exportProjectStatusReportMarkdown(projectId, reportId);
   }
 
-  getMilestoneReview(
-    projectId: string,
-    milestoneId: string
-  ): Observable<MilestoneReviewDto> {
+  getMilestoneReview(projectId: string, milestoneId: string): Observable<MilestoneReviewDto> {
     return this.planning.getMilestoneReview(projectId, milestoneId);
   }
 
@@ -219,7 +222,10 @@ export class WorktrailApiService {
     return this.projects.listProjectActivity(projectId);
   }
 
-  listProjectLabels(projectId: string, input: { includeArchived?: boolean } = {}): Observable<LabelDto[]> {
+  listProjectLabels(
+    projectId: string,
+    input: { includeArchived?: boolean } = {}
+  ): Observable<LabelDto[]> {
     return this.projects.listProjectLabels(projectId, input);
   }
 
@@ -339,6 +345,26 @@ export class WorktrailApiService {
 
   getWorkItem(workItemId: string): Observable<WorkItemDetailDto> {
     return this.workItems.getWorkItem(workItemId);
+  }
+
+  listWorkItemAttachments(workItemId: string): Observable<WorkItemAttachmentListDto> {
+    return this.attachments.listWorkItemAttachments(workItemId);
+  }
+
+  uploadWorkItemAttachment(
+    workItemId: string,
+    file: File,
+    canonicalMediaType: string
+  ): Observable<HttpEvent<WorkItemAttachmentDto>> {
+    return this.attachments.uploadWorkItemAttachment(workItemId, file, canonicalMediaType);
+  }
+
+  downloadAttachment(attachmentId: string): Observable<HttpResponse<Blob>> {
+    return this.attachments.downloadAttachment(attachmentId);
+  }
+
+  removeAttachment(attachmentId: string): Observable<void> {
+    return this.attachments.removeAttachment(attachmentId);
   }
 
   listWorkItemChildren(workItemId: string, limit = 25): Observable<WorkItemChildrenDto> {

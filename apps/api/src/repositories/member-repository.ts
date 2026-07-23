@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import type { WorktrailDb } from '../db/client.js';
 import { members } from '../db/schema.js';
@@ -53,6 +53,14 @@ export function createMemberRepository(db: WorktrailDb) {
 
     async listByWorkspace(workspaceId: string) {
       return db.select().from(members).where(eq(members.workspaceId, workspaceId));
+    },
+
+    async listByIds(ids: string[]) {
+      if (ids.length === 0) {
+        return [];
+      }
+
+      return db.select().from(members).where(inArray(members.id, ids));
     },
 
     async update(id: string, input: UpdateMemberInput) {

@@ -11,6 +11,7 @@ import { createProjectCycleRepository } from './project-cycle-repository.js';
 import { createProjectRepository } from './project-repository.js';
 import { createProjectStatusReportRepository } from './project-status-report-repository.js';
 import { createSavedWorkViewRepository } from './saved-work-view-repository.js';
+import { createWorkItemAttachmentRepository } from './work-item-attachment-repository.js';
 import { createWorkItemRelationshipRepository } from './work-item-relationship-repository.js';
 import { createWorkItemWatcherRepository } from './work-item-watcher-repository.js';
 import { createWorkItemRepository } from './work-item-repository.js';
@@ -28,6 +29,7 @@ export function createRepositories(db: WorktrailDb) {
     milestones: createMilestoneRepository(db),
     savedWorkViews: createSavedWorkViewRepository(db),
     workItems: createWorkItemRepository(db),
+    workItemAttachments: createWorkItemAttachmentRepository(db),
     workItemRelationships: createWorkItemRelationshipRepository(db),
     workItemWatchers: createWorkItemWatcherRepository(db),
     labels: createLabelRepository(db),

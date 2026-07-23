@@ -10,13 +10,30 @@ export interface AppRequest {
   actor: ActorContext;
 }
 
+export interface AppBinaryBody {
+  kind: 'binary';
+  bytes: Uint8Array;
+}
+
+export type AppResponseBody<T> = T | AppBinaryBody;
+
 export interface AppResponse<T = unknown> {
   status: number;
-  body?: T;
+  body?: AppResponseBody<T>;
   headers?: Record<string, string>;
+}
+
+export function isAppBinaryBody(value: unknown): value is AppBinaryBody {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'kind' in value &&
+    value.kind === 'binary' &&
+    'bytes' in value &&
+    value.bytes instanceof Uint8Array
+  );
 }
 
 export type EndpointHandler<TResponse = unknown> = (
   request: AppRequest
 ) => Promise<AppResponse<TResponse>> | AppResponse<TResponse>;
-

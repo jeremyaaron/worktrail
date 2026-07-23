@@ -1,6 +1,6 @@
 {
   "name": "@worktrail/api",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "private": true,
   "type": "module",
   "main": "dist/main.js",
@@ -15,12 +15,13 @@
     "db:reset": "tsx src/db/reset.ts",
     "db:seed": "tsx src/db/seed.ts",
     "db:performance-evidence": "tsx src/db/performance-evidence.ts",
+    "storage:reset": "tsx src/storage/reset.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src --max-warnings=0",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@worktrail/contracts": "0.2.6",
+    "@worktrail/contracts": "0.2.7",
     "cors": "^2.8.5",
     "csv-parse": "^7.0.1",
     "csv-stringify": "^6.8.1",
@@ -28,6 +29,7 @@
     "drizzle-orm": "^0.45.2",
     "express": "^5.1.0",
     "pg": "^8.22.0",
+    "yauzl": "^3.4.0",
     "zod": "^4.1.13"
   },
   "devDependencies": {
@@ -36,6 +38,7 @@
     "@types/node": "^24.10.2",
     "@types/pg": "^8.20.0",
     "@types/supertest": "^7.2.0",
+    "@types/yauzl": "^3.4.0",
     "drizzle-kit": "^0.31.10",
     "supertest": "^7.2.2",
     "tsx": "^4.20.6",

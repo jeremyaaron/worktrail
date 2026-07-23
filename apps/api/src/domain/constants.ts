@@ -59,6 +59,8 @@ export const activityEventTypes = [
   'work_item.label_removed',
   'work_item.relationship_added',
   'work_item.relationship_removed',
+  'work_item.attachment_uploaded',
+  'work_item.attachment_removed',
   'saved_view.created',
   'saved_view.name_changed',
   'saved_view.query_changed',

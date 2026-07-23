@@ -1,3 +1,4 @@
+import { isAbsolute, parse, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const defaultDatabaseUrl = 'postgres://worktrail:worktrail@localhost:5432/worktrail';
@@ -13,6 +14,8 @@ export interface RuntimeConfig {
   corsOrigin: string | false;
   serveStaticAssets: boolean;
   staticAssetsPath: string;
+  attachmentStorageDriver: 'local';
+  attachmentStoragePath: string;
   localActorMode: 'enabled';
 }
 
@@ -25,6 +28,10 @@ export class RuntimeConfigError extends Error {
 
 export function defaultStaticAssetsPath(): string {
   return fileURLToPath(new URL('../../../web/dist/worktrail-web/browser', import.meta.url));
+}
+
+export function defaultAttachmentStoragePath(): string {
+  return fileURLToPath(new URL('../../../../.worktrail/attachments', import.meta.url));
 }
 
 export function formatRuntimeConfigError(error: RuntimeConfigError): string {
@@ -47,6 +54,15 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv = process.env): Runtime
     issues
   );
   const staticAssetsPath = parseStaticAssetsPath(env.WORKTRAIL_STATIC_ASSETS_PATH);
+  const attachmentStorageDriver = parseAttachmentStorageDriver(
+    env.WORKTRAIL_ATTACHMENT_STORAGE_DRIVER,
+    issues
+  );
+  const attachmentStoragePath = parseAttachmentStoragePath(
+    env.WORKTRAIL_ATTACHMENT_STORAGE_PATH,
+    nodeEnv,
+    issues
+  );
 
   if (issues.length > 0) {
     throw new RuntimeConfigError(issues);
@@ -59,6 +75,8 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv = process.env): Runtime
     corsOrigin,
     serveStaticAssets,
     staticAssetsPath,
+    attachmentStorageDriver,
+    attachmentStoragePath,
     localActorMode: 'enabled'
   };
 }
@@ -162,4 +180,42 @@ function parseStaticAssetsPath(value: string | undefined): string {
   }
 
   return value;
+}
+
+function parseAttachmentStorageDriver(value: string | undefined, issues: string[]): 'local' {
+  if (value === undefined || value.trim() === '' || value === 'local') {
+    return 'local';
+  }
+
+  issues.push('WORKTRAIL_ATTACHMENT_STORAGE_DRIVER must be local.');
+  return 'local';
+}
+
+function parseAttachmentStoragePath(
+  value: string | undefined,
+  nodeEnv: RuntimeMode,
+  issues: string[]
+): string {
+  if (value === undefined || value.trim() === '') {
+    if (nodeEnv === 'production') {
+      issues.push(
+        'WORKTRAIL_ATTACHMENT_STORAGE_PATH is required and must be an absolute writable directory when NODE_ENV=production.'
+      );
+    }
+
+    return defaultAttachmentStoragePath();
+  }
+
+  if (!isAbsolute(value)) {
+    issues.push('WORKTRAIL_ATTACHMENT_STORAGE_PATH must be an absolute directory path.');
+    return defaultAttachmentStoragePath();
+  }
+
+  const resolvedPath = resolve(value);
+
+  if (resolvedPath === parse(resolvedPath).root) {
+    issues.push('WORKTRAIL_ATTACHMENT_STORAGE_PATH must not be the filesystem root.');
+  }
+
+  return resolvedPath;
 }
