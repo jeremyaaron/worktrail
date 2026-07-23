@@ -1215,7 +1215,55 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on 2026-07-22.
+- Isolated Playwright attachment storage from normal development state:
+  - each run receives a unique OS-temporary `WORKTRAIL_ATTACHMENT_STORAGE_PATH`;
+  - Playwright no longer reuses an unrelated API or Angular server on the configured ports;
+  - global setup clears the guarded test store before resetting, migrating, and seeding PostgreSQL;
+  - global teardown always attempts marked-store cleanup, restores the database against the original
+    development storage configuration, and preserves the first cleanup/restore failure;
+  - storage cleanup still runs when database restoration is explicitly skipped.
+- Added Chromium attachment lifecycle coverage proving:
+  - both deterministic seeded files render and download with exact expected bytes and filenames;
+  - attachment content is never embedded or rendered inline;
+  - relationship and hierarchy links update attachment state during same-component detail-route reuse;
+  - populated and empty attachment states do not retain stale rows;
+  - a contributor cannot remove seed files uploaded by another member;
+  - three selected files execute sequentially with visible progress, one successful long filename, one
+    forced retryable server failure, and one unsupported active-content extension rejected locally;
+  - progress and file-picker controls have stable accessible names and the queue emits restrained run
+    summaries rather than progress announcements;
+  - the uploader can remove their own file and a maintainer can remove another member's file;
+  - removal refreshes and retains the corresponding work-item activity;
+  - archived projects retain attachment listing and exact download while hiding all mutation controls;
+  - desktop and mobile states, including a long filename and queue/error states, have no page overflow.
+- Kept the existing responsive browser regression suite green across project/workspace lists, board,
+  planning, milestone and cycle review, cycle closeout, Portfolio, status reports, inbox, CSV, comments,
+  saved views, governance, hierarchy, relationships, and common desktop/mobile viewport checks.
+- Added an explicit accessible name to the visually hidden multi-file input so automation and assistive
+  technology can identify the native chooser independently from the visible Add files command.
+- Verified production operation with a warning-free compiled build and an isolated absolute storage
+  path:
+  - production static assets, readiness, and Angular deep-link fallback served successfully;
+  - exact seeded bytes downloaded before and after stopping and restarting the compiled API against the
+    same local store;
+  - a relative production storage path failed before startup with the expected concise configuration
+    issue and no key or object-path disclosure;
+  - the temporary preview store was guarded-reset and normal local database/storage seed restored.
+- Verification passed:
+  - attachment lifecycle E2E: 2 tests;
+  - full Chromium E2E regression suite: 24 tests;
+  - API tests: 43 files and 454 tests;
+  - Angular tests: 390 tests;
+  - all workspace typechecks and lints with zero warnings;
+  - production build with no budget warning, a 371.33 kB initial bundle, and a 106.22 kB lazy work-item
+    detail chunk;
+  - E2E TypeScript checks, production restart/preview smoke checks, `git diff --check`, no listening test
+    servers, and no remaining Phase 11 or E2E attachment directories under `/tmp`.
+- The optional interactive browser surface was unavailable in this session; Chromium Playwright covered
+  the required visual, responsive, keyboard/accessibility, download, and interaction evidence.
+- No scanner integration, S3/multi-instance behavior, public untrusted deployment, or version change was
+  introduced. No design deviation or unresolved choice blocks Phase 12.
 
 ## Phase 12: Documentation, Public Site, Metadata, And Final Verification
 

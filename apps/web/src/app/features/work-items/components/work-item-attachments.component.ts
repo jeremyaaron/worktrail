@@ -88,6 +88,7 @@ interface AttachmentUploadQueueEntry {
               class="visually-hidden"
               type="file"
               multiple
+              aria-label="Choose attachment files"
               [accept]="acceptedFileTypes()"
               [disabled]="isUploading()"
               (change)="selectFiles($event)"

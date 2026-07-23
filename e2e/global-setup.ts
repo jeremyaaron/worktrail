@@ -17,6 +17,7 @@ export default async function globalSetup(): Promise<void> {
     return;
   }
 
+  runNpmScript('storage:reset');
   runNpmScript('db:reset');
   runNpmScript('db:migrate');
   runNpmScript('db:seed');
