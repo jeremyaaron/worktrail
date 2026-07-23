@@ -364,7 +364,60 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on July 22, 2026.
+- Updated the Drizzle schema with exactly the approved Quick Find indexes:
+  - GIN trigram indexes for project name/description;
+  - a milestone workspace B-tree index plus name/description trigram indexes;
+  - a cycle-name trigram index;
+  - published-report title/summary trigram indexes;
+  - an attachment-filename trigram index.
+- Reused the existing work-item display-key/title/description trigram indexes and existing workspace
+  indexes. No duplicate index or index for cycle goal, report body/snapshot fields, attachment internal
+  metadata, comments, activity, notifications, members, or labels was added.
+- Generated and reviewed additive migration `0018_sweet_apocalypse.sql` plus its Drizzle snapshot and
+  journal entry. The migration contains nine `CREATE INDEX` statements and no table, constraint, data,
+  backfill, drop, or destructive operation.
+- Expanded the repository-local `quick-find-sql.ts` boundary with:
+  - escaped exact, prefix, and substring pattern terms;
+  - parameterized `ILIKE ... ESCAPE '\'` predicates;
+  - one finite match builder returning condition, relevance rank, match field, match mode, and excerpt;
+  - exact key, key prefix, exact primary, primary prefix, primary substring, and narrative substring
+    tiers `0-5`;
+  - keyless entities beginning at primary rank `2`;
+  - first-match metadata precedence;
+  - active/archived lifecycle rank;
+  - SQL-projected, whitespace-collapsed, match-centered excerpts capped at 180 PostgreSQL characters
+    including ASCII omission markers.
+- Kept caller text in bound parameters. The helper composes only trusted Drizzle column/expression
+  values and does not use `sql.raw`, string interpolation, or public SQL-rank fields.
+- Added five PostgreSQL-backed tests using a bounded `VALUES` relation rather than persistent fixtures.
+  They prove:
+  - all nine migration indexes and their B-tree/GIN operator classes;
+  - all six relevance tiers and stable lifecycle tie behavior;
+  - key-over-primary metadata precedence;
+  - keyless primary ranking;
+  - literal `%`, `_`, and backslash behavior;
+  - narrative-only excerpts, whitespace collapse, match centering, both omission markers, and the exact
+    180-character ceiling;
+  - query patterns are carried as SQL parameters.
+- The first database execution identified and resolved two implementation defects before completion:
+  - the SQL tagged-template escape literal required a second source-level backslash to emit the designed
+    PostgreSQL escape character;
+  - parameterized excerpt body-length branches required explicit integer casts for PostgreSQL substring
+    inference.
+- Reset the local database, applied all migrations through `0018` successfully, reapplied migrations
+  successfully as an idempotency check, and restored deterministic seed data after verification.
+- Verification passed:
+  - 16 focused Quick Find/query/error tests across three files;
+  - full API suite: 45 test files and 466 tests;
+  - API typecheck;
+  - API zero-warning lint;
+  - API build;
+  - generated migration/index inspection;
+  - `git diff --check`.
+- Build output remains ignored and no temporary database fixture or generated test artifact remains.
+- No complete group repository, service, endpoint, Express route, OpenAPI, Angular, dependency, or seed
+  definition change was introduced. No Phase 2 acceptance criterion remains open.
 
 ## Phase 3: Cross-Domain Repository, Deterministic Ranking, And Performance Evidence
 
