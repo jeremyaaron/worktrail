@@ -5,6 +5,7 @@ import {
   AttachmentStorageUnavailableError,
   ExportLimitExceededError,
   PayloadTooLargeError,
+  QuickFindUnavailableError,
   toApiErrorResponse
 } from '../src/errors/app-error.js';
 
@@ -84,5 +85,21 @@ describe('app errors', () => {
         }
       }
     });
+  });
+
+  it('maps Quick Find failures without exposing query or persistence details', () => {
+    const error = new QuickFindUnavailableError();
+
+    expect(toApiErrorResponse(error)).toEqual({
+      status: 503,
+      body: {
+        error: {
+          code: 'QUICK_FIND_UNAVAILABLE',
+          message: 'Quick Find is temporarily unavailable.'
+        }
+      }
+    });
+    expect(error.details).toBeUndefined();
+    expect(error.cause).toBeUndefined();
   });
 });

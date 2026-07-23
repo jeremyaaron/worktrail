@@ -261,7 +261,49 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on July 22, 2026.
+- Added `packages/contracts/src/quick-find.ts` with:
+  - strict request and normalized response query vocabulary;
+  - finite match mode and approved searchable-field unions;
+  - compact project and work-item navigation contexts;
+  - concrete project, work-item, milestone, cycle, report, and attachment results;
+  - one exhaustive result union;
+  - generic group envelopes and a response requiring all six groups.
+- Kept workspace ownership, full domain records, descriptions outside bounded excerpts, SQL ranks,
+  navigation URLs, report snapshots, attachment media/storage/checksum/byte content, and persistence
+  details out of the shared response contract.
+- Exported Quick Find through the contracts barrel and added four contract tests proving:
+  - all 12 approved match fields and three match modes;
+  - compact context/storage isolation;
+  - exhaustive six-kind result compatibility;
+  - required six-group response envelopes and `hasMore` semantics.
+- Added authoritative API query validation in `validation/quick-find-query.ts`:
+  - strict object input with only `query`;
+  - NFC normalization;
+  - leading/trailing trim and Unicode whitespace collapse;
+  - 2-120 Unicode code-point bounds rather than UTF-16 code-unit bounds;
+  - normalized casing preserved for the response/internal term derivation boundary.
+- Added the pure repository-local `escapeLikeLiteral` helper. It escapes PostgreSQL LIKE `%`, `_`, and
+  `\` metacharacters without SQL construction or interpolation and leaves ordinary Unicode and
+  punctuation unchanged.
+- Added six focused query/escaping tests covering decomposed Unicode, Unicode whitespace, casing,
+  surrogate-pair boundaries, exact maximum length, short/long/missing/malformed/extra-field rejection,
+  validation-detail privacy, wildcard escaping, and ordinary text preservation.
+- Added `QUICK_FIND_UNAVAILABLE` to the finite application error union and
+  `QuickFindUnavailableError` as a constructor with no query, cause, details, or persistence-error
+  input.
+- Added safe error-mapping coverage proving the stable 503 response contains only the designed code and
+  message.
+- Verification passed:
+  - contracts: 11 test files and 42 tests;
+  - API: 44 test files and 461 tests, including 11 focused validation/error tests;
+  - contracts and API typechecks;
+  - contracts and API zero-warning lint;
+  - contracts and API builds;
+  - `git diff --check`.
+- Confirmed build output remains ignored and no generated artifact is tracked.
+- No schema, migration, complete repository query, service, endpoint, Express route, OpenAPI, Angular,
+  dependency, database, or seed change was introduced. No Phase 1 acceptance criterion remains open.
 
 ## Phase 2: Search Indexes, Migration, And SQL Ranking Primitives
 
