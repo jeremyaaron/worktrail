@@ -704,7 +704,58 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on July 23, 2026.
+- Added the root-provided `QuickFindApi` as a focused wrapper around the existing actor-aware
+  `ApiClient`.
+- Quick Find sends the typed `QuickFindRequest` only in the `POST /api/quick-find` JSON body and
+  returns the shared `QuickFindResponseDto`.
+- The API wrapper adds no query parameters, local result cache, memoization, or compatibility methods
+  to `WorktrailApiService`.
+- Added client-only route-target, navigation-entry, and selectable-option models for navigation,
+  heterogeneous results, and work-item overflow.
+- Defined fixed global entries in product order:
+  - My Work;
+  - Inbox;
+  - Work Items;
+  - Projects;
+  - Portfolio;
+  - Create work item.
+- Defined current-project entries only when a project id is available:
+  - Project overview;
+  - Work;
+  - Board;
+  - Planning;
+  - Reports;
+  - Project settings.
+- Added one exhaustive discriminated-union destination mapper for all six result kinds:
+  - projects open project overview;
+  - work items open global work-item detail;
+  - milestones and cycles open their project review routes;
+  - reports open immutable project report detail;
+  - attachments open the owning work item with the stable `files` fragment.
+- Added exhaustive stable result-option ids derived from result kind and entity UUID rather than array
+  position.
+- Added the sole local overflow destination for work items. It delegates to the existing canonical
+  workspace Work Items query serializer with the normalized response query and
+  `archivedProjects: 'include'`, while omitting default page, page-size, and sort state.
+- Added focused tests covering:
+  - exact POST transport, actor headers, body shape, response typing, and absence of URL query text;
+  - independent requests without client memoization;
+  - every result destination and stable result id;
+  - attachment-only fragment behavior;
+  - fixed global/current-project labels, ordering, and commands;
+  - selectable-option variants;
+  - canonical work-item overflow serialization.
+- Verification passed:
+  - focused Quick Find frontend suite: 2 test files and 9 tests;
+  - full Angular suite: 399 tests;
+  - Angular development typecheck/build;
+  - frontend zero-warning lint;
+  - frontend production build without budget warnings;
+  - `git diff --check`.
+- No dialog dependency, launcher, root-shell trigger, rendering, keyboard behavior, Files-section
+  handling, generic command framework, or non-work-item overflow route was introduced. No Phase 5
+  acceptance criterion remains open.
 
 ## Phase 6: Lazy Dialog Launcher, Root-Shell Trigger, Shortcut, And Navigation Mode
 
