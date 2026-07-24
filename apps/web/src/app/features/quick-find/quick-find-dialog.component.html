@@ -1,0 +1,63 @@
+<section class="quick-find" aria-labelledby="quick-find-heading">
+  <header class="quick-find__header">
+    <h2 id="quick-find-heading">Quick Find</h2>
+    <button
+      class="quick-find__icon-button"
+      type="button"
+      aria-label="Close Quick Find"
+      title="Close"
+      (click)="close()"
+    >
+      <svg lucideX aria-hidden="true"></svg>
+    </button>
+  </header>
+
+  <label class="quick-find__label" for="quick-find-query">Search Worktrail</label>
+  <div class="quick-find__query">
+    <svg lucideSearch aria-hidden="true"></svg>
+    <input
+      #queryInput
+      id="quick-find-query"
+      class="quick-find__input"
+      type="search"
+      autocomplete="off"
+      maxlength="120"
+      placeholder="Search or jump to a destination"
+      [formControl]="queryControl"
+    />
+  </div>
+
+  @if (isNavigationMode()) {
+    <div class="quick-find__navigation">
+      <section class="quick-find__group" aria-labelledby="quick-find-global-heading">
+        <h3 id="quick-find-global-heading">Global</h3>
+        <div class="quick-find__entries">
+          @for (entry of globalEntries; track entry.id) {
+            <button type="button" (click)="openNavigationEntry(entry)">
+              <span>{{ entry.label }}</span>
+              @if (entry.detail) {
+                <small>{{ entry.detail }}</small>
+              }
+            </button>
+          }
+        </div>
+      </section>
+
+      @if (currentProjectEntries.length > 0) {
+        <section class="quick-find__group" aria-labelledby="quick-find-project-heading">
+          <h3 id="quick-find-project-heading">Current project</h3>
+          <div class="quick-find__entries">
+            @for (entry of currentProjectEntries; track entry.id) {
+              <button type="button" (click)="openNavigationEntry(entry)">
+                <span>{{ entry.label }}</span>
+                @if (entry.detail) {
+                  <small>{{ entry.detail }}</small>
+                }
+              </button>
+            }
+          </div>
+        </section>
+      }
+    </div>
+  }
+</section>

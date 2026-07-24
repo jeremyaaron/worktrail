@@ -1,11 +1,25 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Dialog } from '@angular/cdk/dialog';
+import { OverlayContainer } from '@angular/cdk/overlay';
+import { Component } from '@angular/core';
+import { type ComponentFixture, TestBed } from '@angular/core/testing';
+import { Router, RouterOutlet, provideRouter } from '@angular/router';
 import type { MemberDto } from '@worktrail/contracts';
 
 import { App } from './app';
 import { CurrentUserService } from './core/current-user.service';
+
+@Component({
+  template: ''
+})
+class TestRouteComponent {}
+
+@Component({
+  imports: [RouterOutlet],
+  template: '<router-outlet />'
+})
+class TestProjectRouteComponent {}
 
 const workspaceId = '10000000-0000-4000-8000-000000000001';
 const owner: MemberDto = {
@@ -50,13 +64,25 @@ describe('App', () => {
 
     await TestBed.configureTestingModule({
       imports: [App],
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])]
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([
+          { path: 'my-work', component: TestRouteComponent },
+          {
+            path: 'projects/:projectId',
+            component: TestProjectRouteComponent,
+            children: [{ path: 'board', component: TestRouteComponent }]
+          }
+        ])
+      ]
     }).compileComponents();
 
     http = TestBed.inject(HttpTestingController);
   });
 
   afterEach(() => {
+    TestBed.inject(Dialog).closeAll();
     http.verify();
   });
 
@@ -78,6 +104,9 @@ describe('App', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('.brand')?.textContent).toContain('Worktrail');
+    expect(compiled.querySelector('.quick-find-trigger')?.getAttribute('aria-label')).toBe(
+      'Open Quick Find'
+    );
     expect([...compiled.querySelectorAll('nav a')].map((link) => link.textContent?.trim())).toEqual([
       'My Work',
       'Inbox 2',
@@ -123,4 +152,133 @@ describe('App', () => {
       'Riley Former'
     );
   });
+
+  it('opens one dialog while a lazy launch is already in progress', async () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    flushShellRequests(http, fixture, [owner]);
+    fixture.detectChanges();
+
+    const firstOpen = fixture.componentInstance.openQuickFind();
+    const secondOpen = fixture.componentInstance.openQuickFind();
+    await Promise.all([firstOpen, secondOpen]);
+    fixture.detectChanges();
+
+    const overlays = TestBed.inject(OverlayContainer).getContainerElement();
+    expect(overlays.querySelectorAll('.quick-find-overlay').length).toBe(1);
+    expect(TestBed.inject(Router).url).toBe('/');
+  });
+
+  it('accepts only exact Command/Ctrl+K shortcuts', () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    const open = spyOn(app, 'openQuickFind').and.resolveTo();
+    const acceptedControl = shortcutEvent({ ctrlKey: true });
+    const acceptedCommand = shortcutEvent({ metaKey: true });
+
+    app.onGlobalKeydown(acceptedControl);
+    app.onGlobalKeydown(acceptedCommand);
+
+    expect(open).toHaveBeenCalledTimes(2);
+    expect(acceptedControl.defaultPrevented).toBeTrue();
+    expect(acceptedCommand.defaultPrevented).toBeTrue();
+
+    for (const rejected of [
+      shortcutEvent({}),
+      shortcutEvent({ ctrlKey: true, metaKey: true }),
+      shortcutEvent({ altKey: true, ctrlKey: true }),
+      shortcutEvent({ ctrlKey: true, shiftKey: true }),
+      shortcutEvent({ ctrlKey: true, repeat: true }),
+      shortcutEvent({ ctrlKey: true, key: '/' })
+    ]) {
+      app.onGlobalKeydown(rejected);
+      expect(rejected.defaultPrevented).toBeFalse();
+    }
+
+    expect(open).toHaveBeenCalledTimes(2);
+  });
+
+  it('closes Quick Find before selecting another actor', async () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    flushShellRequests(http, fixture, [owner, contributor]);
+    fixture.detectChanges();
+
+    await fixture.componentInstance.openQuickFind();
+    expect(TestBed.inject(OverlayContainer).getContainerElement().children.length).toBeGreaterThan(0);
+
+    fixture.componentInstance.selectMember(contributor.id);
+
+    expect(TestBed.inject(CurrentUserService).selectedMember()?.id).toBe(contributor.id);
+    expect(
+      TestBed.inject(OverlayContainer).getContainerElement().querySelector('.quick-find-overlay')
+    ).toBeNull();
+  });
+
+  it('derives project context and closes the dialog on route navigation', async () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    flushShellRequests(http, fixture, [owner]);
+    fixture.detectChanges();
+    const router = TestBed.inject(Router);
+    const projectId = '20000000-0000-4000-8000-000000000001';
+
+    await router.navigateByUrl(`/projects/${projectId}/board`);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.currentProjectId()).toBe(projectId);
+
+    await fixture.componentInstance.openQuickFind();
+    TestBed.inject(Dialog).openDialogs[0]?.componentRef?.changeDetectorRef.detectChanges();
+    const overlays = TestBed.inject(OverlayContainer).getContainerElement();
+    expect(overlays.textContent).toContain('Current project');
+
+    await router.navigateByUrl('/my-work');
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.currentProjectId()).toBeNull();
+    expect(overlays.querySelector('.quick-find-overlay')).toBeNull();
+  });
+
+  it('resets the opening guard when lazy launcher loading fails', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    const launcher = jasmine.createSpy('loadQuickFindLauncher').and.rejectWith(
+      new Error('chunk unavailable')
+    );
+    (
+      app as unknown as {
+        loadQuickFindLauncher: () => Promise<never>;
+      }
+    ).loadQuickFindLauncher = launcher;
+
+    await app.openQuickFind();
+    await app.openQuickFind();
+
+    expect(launcher).toHaveBeenCalledTimes(2);
+  });
 });
+
+function flushShellRequests(
+  http: HttpTestingController,
+  fixture: ComponentFixture<App>,
+  members: MemberDto[]
+): void {
+  http.expectOne('/api/members').flush(members);
+  fixture.detectChanges();
+  http.expectOne('/api/notifications/unread-count').flush({ unreadCount: 0 });
+}
+
+function shortcutEvent(
+  input: Partial<Pick<KeyboardEvent, 'altKey' | 'ctrlKey' | 'key' | 'metaKey' | 'repeat' | 'shiftKey'>>
+): KeyboardEvent {
+  return new KeyboardEvent('keydown', {
+    altKey: input.altKey ?? false,
+    bubbles: true,
+    cancelable: true,
+    ctrlKey: input.ctrlKey ?? false,
+    key: input.key ?? 'k',
+    metaKey: input.metaKey ?? false,
+    repeat: input.repeat ?? false,
+    shiftKey: input.shiftKey ?? false
+  });
+}

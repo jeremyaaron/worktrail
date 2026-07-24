@@ -809,7 +809,51 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on July 23, 2026.
+- Added maintained `@lucide/angular` instead of the deprecated `lucide-angular` package. The shell
+  trigger uses the matching Lucide Search SVG asset so the Angular icon runtime remains part of the
+  lazy dialog feature.
+- Added a standalone Quick Find dialog with separate template and stylesheet, accessible labeling,
+  input autofocus, focus restoration, Escape/backdrop dismissal, blocked background scrolling, and
+  close-on-navigation behavior.
+- Added a two-stage lazy boundary:
+  - the root shell dynamically imports the small dialog launcher;
+  - the launcher dynamically imports the dialog component before opening it through CDK Dialog.
+- Added a retained dialog reference, in-flight opening guard, and generation check so repeated trigger
+  clicks or shortcuts cannot create duplicate or late overlays.
+- Added the visible shell Search icon button with an accessible name and native tooltip.
+- Added exact `Command/Ctrl+K` handling. Alt, Shift, key-repeat, and ambiguous Ctrl+Command
+  combinations do not open the dialog.
+- Quick Find closes before actor changes and on route navigation. Launcher failure resets the opening
+  guard so a later attempt can retry.
+- Current project context is derived from the deepest active route snapshot after each
+  `NavigationEnd`, including routes whose project id is inherited from a parent.
+- Empty and normalized one-code-point queries render fixed Global navigation plus Current project
+  navigation only when project context is available.
+- Fixed navigation entries close the dialog before routing and do not write temporary state to browser
+  history.
+- Preserved the existing desktop and mobile topbar layouts while adding a stable 36 px icon control.
+- Added focused tests covering:
+  - shell-trigger rendering and accessible naming;
+  - duplicate-open and launcher-failure behavior;
+  - exact shortcut acceptance and rejection;
+  - actor-change and route-change closure;
+  - project-context refresh;
+  - dialog accessibility, focus, scroll strategy, and history preservation;
+  - global/project navigation groups and short-query mode;
+  - close-before-route ordering.
+- Verification passed:
+  - focused root-shell and Quick Find suite: 19 tests;
+  - full Angular suite: 407 tests;
+  - Angular development typecheck/build;
+  - frontend zero-warning lint;
+  - frontend production build without bundle or style budget warnings;
+  - `git diff --check`.
+- Production inspection confirmed that the initial bundle remains 379.29 kB raw and that the Quick Find
+  component plus tree-shaken Lucide runtime is isolated in an approximately 15 kB lazy chunk. CDK
+  dialog/overlay runtime is also loaded through the lazy path.
+- No search request, result rendering, active-descendant keyboard traversal, Files-section behavior,
+  or final visual polish was introduced. No Phase 6 acceptance criterion remains open.
 
 ## Phase 7: Reactive Search State, Grouped Result Rendering, And Lifecycle Context
 

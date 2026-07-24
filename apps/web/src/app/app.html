@@ -30,32 +30,44 @@
       </a>
     </nav>
 
-    <section class="actor-selector" aria-label="Current user">
-      @if (currentUser.isLoading()) {
-        <app-loading-indicator label="Loading members" />
-      } @else if (currentUser.error()) {
-        <app-error-panel
-          title="Members unavailable"
-          [message]="currentUser.error() ?? ''"
-          (retry)="loadMembers()"
-        />
-      } @else {
-        <label for="current-member">Acting as</label>
-        @if (currentUser.activeMembers().length > 0) {
-          <select
-            id="current-member"
-            [ngModel]="currentUser.selectedMember()?.id"
-            (ngModelChange)="selectMember($event)"
-          >
-            @for (member of currentUser.activeMembers(); track member.id) {
-              <option [value]="member.id">{{ member.name }} · {{ member.role }}</option>
-            }
-          </select>
+    <div class="topbar-tools">
+      <button
+        class="quick-find-trigger"
+        type="button"
+        aria-label="Open Quick Find"
+        title="Quick Find"
+        (click)="openQuickFind()"
+      >
+        <img src="/icons/search.svg" alt="" aria-hidden="true" />
+      </button>
+
+      <section class="actor-selector" aria-label="Current user">
+        @if (currentUser.isLoading()) {
+          <app-loading-indicator label="Loading members" />
+        } @else if (currentUser.error()) {
+          <app-error-panel
+            title="Members unavailable"
+            [message]="currentUser.error() ?? ''"
+            (retry)="loadMembers()"
+          />
         } @else {
-          <span class="actor-selector__empty">No active members</span>
+          <label for="current-member">Acting as</label>
+          @if (currentUser.activeMembers().length > 0) {
+            <select
+              id="current-member"
+              [ngModel]="currentUser.selectedMember()?.id"
+              (ngModelChange)="selectMember($event)"
+            >
+              @for (member of currentUser.activeMembers(); track member.id) {
+                <option [value]="member.id">{{ member.name }} · {{ member.role }}</option>
+              }
+            </select>
+          } @else {
+            <span class="actor-selector__empty">No active members</span>
+          }
         }
-      }
-    </section>
+      </section>
+    </div>
   </header>
 
   <main class="content-shell">
