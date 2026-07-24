@@ -906,7 +906,55 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on July 23, 2026.
+- Extended the dialog's single non-nullable reactive form control into a stale-safe search pipeline:
+  - NFC normalization, trimming, and Unicode whitespace collapsing are client-side request-suppression
+    concerns only;
+  - normalized queries below two code points return to navigation mode immediately;
+  - valid queries debounce for 220 ms and deduplicate by normalized value;
+  - every normalized change cancels the complete debounce/request chain through `switchMap`;
+  - generation and normalized-query checks protect state even when a transport cannot be canceled;
+  - component destruction cancels the pipeline through `takeUntilDestroyed`.
+- New normalized queries clear prior response, error, selectable-option, and truncation state
+  synchronously. Equivalent normalized input retains the current request/response.
+- Added a retry trigger that preserves visible query text, invalidates the prior generation, and
+  retries the same normalized query without another debounce.
+- Captured the initial selected actor and invalidate/close the dialog if actor context changes outside
+  the root shell's normal close-first path.
+- Added a pure, exhaustive Quick Find display-model layer that:
+  - emits non-empty groups in Work items, Projects, Milestones, Cycles, Reports, and Attachments order;
+  - derives stable result ids from the existing result-option mapper;
+  - formats readable status/type/health tokens, local-safe dates, date ranges, and attachment sizes;
+  - includes project and owning-work-item context;
+  - labels archived projects/records and completed or canceled work;
+  - carries only plain-text match excerpts.
+- Added loading, no-results, safe error/retry, clear, and settled grouped-result states. The input and
+  clear action remain available during loading and recovery.
+- Rendered result rows as read-only content without mutation, preview, download, nested-menu, or route
+  behavior. Angular text bindings are used exclusively; neither query nor server text uses
+  `innerHTML`.
+- Added per-group `More matches exist` disclosure without totals. Only truncated Work items produce the
+  canonical overflow selectable model, using the server-normalized response query; activation remains
+  assigned to Phase 8.
+- Added focused tests covering:
+  - 220 ms debounce, normalization, immediate cancellation, and stale success/error suppression;
+  - synchronous stale-state clearing and settled loading state;
+  - safe errors, retained query text, immediate retry, no-results, and clear recovery;
+  - actor-change closure and pending-response invalidation;
+  - fixed six-group ordering and omitted empty groups;
+  - project/work-item context, readable metadata, lifecycle labels, excerpts, and text escaping;
+  - honest per-group truncation and work-item-only overflow state.
+- Verification passed:
+  - focused Quick Find suite: 15 tests;
+  - full Angular suite: 412 tests;
+  - Angular development typecheck/build;
+  - frontend zero-warning lint;
+  - frontend production build without bundle or style budget warnings;
+  - `git diff --check`.
+- Production inspection confirmed the initial bundle remains effectively unchanged at 379.21 kB raw
+  and the complete dialog/search/display feature remains isolated in a 27.21 kB lazy chunk.
+- No active-descendant keyboard movement, result/overflow route activation, Files targeting, or browser
+  polish was introduced. No Phase 7 acceptance criterion remains open.
 
 ## Phase 8: Keyboard Interaction, Accessibility, And Canonical Result Navigation
 

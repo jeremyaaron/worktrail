@@ -25,6 +25,17 @@
       placeholder="Search or jump to a destination"
       [formControl]="queryControl"
     />
+    @if (visibleQuery().length > 0) {
+      <button
+        class="quick-find__clear"
+        type="button"
+        aria-label="Clear search"
+        title="Clear search"
+        (click)="clearSearch()"
+      >
+        <svg lucideX aria-hidden="true"></svg>
+      </button>
+    }
   </div>
 
   @if (isNavigationMode()) {
@@ -57,6 +68,69 @@
             }
           </div>
         </section>
+      }
+    </div>
+  } @else {
+    <div class="quick-find__search-results">
+      @if (isLoading()) {
+        <p class="quick-find__state" role="status">Searching...</p>
+      } @else if (error(); as errorMessage) {
+        <div class="quick-find__state quick-find__state--error" role="alert">
+          <p>{{ errorMessage }}</p>
+          <button type="button" (click)="retrySearch()">Retry</button>
+        </div>
+      } @else if (hasNoResults()) {
+        <div class="quick-find__state">
+          <strong>No results</strong>
+          <span>Try another key, name, title, or filename.</span>
+          <button type="button" (click)="clearSearch()">Clear search</button>
+        </div>
+      } @else {
+        @for (group of resultGroups(); track group.key) {
+          <section
+            class="quick-find__group quick-find__result-group"
+            [attr.aria-labelledby]="'quick-find-' + group.key + '-heading'"
+          >
+            <h3 [id]="'quick-find-' + group.key + '-heading'">{{ group.label }}</h3>
+            <div class="quick-find__result-list">
+              @for (row of group.rows; track row.id) {
+                <article class="quick-find__result" [id]="row.id">
+                  <div class="quick-find__result-title">
+                    <span>{{ row.identity }}</span>
+                    <strong>{{ row.title }}</strong>
+                  </div>
+                  @if (row.context) {
+                    <p class="quick-find__result-context">{{ row.context }}</p>
+                  }
+                  <div class="quick-find__result-details">
+                    @for (item of row.metadata; track item) {
+                      <span>{{ item }}</span>
+                    }
+                    @for (item of row.lifecycle; track item) {
+                      <span class="quick-find__lifecycle">{{ item }}</span>
+                    }
+                  </div>
+                  @if (row.excerpt) {
+                    <p class="quick-find__excerpt">{{ row.excerpt }}</p>
+                  }
+                </article>
+              }
+            </div>
+            @if (group.hasMore) {
+              <div class="quick-find__more">
+                <span>More matches exist.</span>
+                @if (group.hasWorkItemOverflow) {
+                  <span
+                    id="quick-find-work-item-overflow"
+                    class="quick-find__overflow-option"
+                  >
+                    View all matching work items
+                  </span>
+                }
+              </div>
+            }
+          </section>
+        }
       }
     </div>
   }

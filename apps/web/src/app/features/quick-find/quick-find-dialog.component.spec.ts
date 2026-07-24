@@ -1,10 +1,12 @@
 import { Dialog } from '@angular/cdk/dialog';
 import { OverlayContainer } from '@angular/cdk/overlay';
-import { ApplicationRef, Component, Injector } from '@angular/core';
+import { ApplicationRef, Component, Injector, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
+import { NEVER, firstValueFrom } from 'rxjs';
 
+import { QuickFindApi } from '../../core/api/quick-find-api';
+import { CurrentUserService } from '../../core/current-user.service';
 import { openQuickFindDialog, type QuickFindDialogRef } from './open-quick-find-dialog';
 
 @Component({
@@ -21,8 +23,18 @@ describe('Quick Find dialog launcher and navigation mode', () => {
   let openRef: QuickFindDialogRef | null;
 
   beforeEach(() => {
+    const quickFindApi = jasmine.createSpyObj<QuickFindApi>('QuickFindApi', ['search']);
+    quickFindApi.search.and.returnValue(NEVER);
+
     TestBed.configureTestingModule({
       providers: [
+        { provide: QuickFindApi, useValue: quickFindApi },
+        {
+          provide: CurrentUserService,
+          useValue: {
+            selectedMember: signal({ id: 'member-1' })
+          }
+        },
         provideRouter([
           { path: 'my-work', component: TestRouteComponent },
           { path: 'projects/:projectId/board', component: TestRouteComponent }
