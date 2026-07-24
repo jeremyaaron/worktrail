@@ -135,6 +135,10 @@
   color: #64748b;
 }
 
+.quick-find__input::-webkit-search-cancel-button {
+  appearance: none;
+}
+
 .quick-find__navigation,
 .quick-find__search-results {
   overflow-y: auto;

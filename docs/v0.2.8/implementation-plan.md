@@ -1217,7 +1217,51 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on July 23, 2026.
+- Reused the existing deterministic seed without adding verification-only records:
+  - exact work-item keys include `WT-3`;
+  - `Cloud Readiness` exists as both a project and milestone;
+  - broad `work` search exceeds the bounded work-item group;
+  - archived project, completed work item, report, and attachment filename cases are present.
+- Verified a fresh reset/migration/seed and a second idempotent seed. The browser suite also restores
+  the same deterministic baseline after its mutating regression workflows.
+- Added a focused five-test Quick Find browser specification covering:
+  - visible and keyboard launch, duplicate-shortcut suppression, initial focus, Escape, and launcher
+    focus restoration;
+  - global and current-project navigation mode with Home/End/Enter keyboard movement;
+  - exact-key and broad grouped search, same-name cross-group results, archived/completed context,
+    loading, no-results, safe error, retry, pointer activation, and keyboard activation;
+  - canonical work-item overflow handoff;
+  - attachment navigation to `#files`, same-URL refocus, and reused work-item detail routing;
+  - actor-switch closure and cleared query state.
+- Added responsive screenshot and DOM-geometry assertions at 1440 x 900 desktop, 390 x 844 mobile,
+  and 640 x 900 zoom-equivalent viewports. The checks prove viewport containment, no horizontal page
+  or dialog overflow, visible search/close/overflow controls, and stable minimum control dimensions.
+- Visual screenshot review found Chromium's native search cancel affordance beside Worktrail's clear
+  button. Suppressed the native affordance so the field now presents one clear action at every checked
+  width.
+- Reran PostgreSQL evidence with 2,000 temporary records in each searchable domain:
+  - warm six-group searches completed in 18.188 ms, 18.134 ms, and 17.960 ms against the under-300 ms
+    target;
+  - every query retained a finite limit;
+  - forced eligibility plans proved every approved trigram index;
+  - the transaction rolled back its evidence fixtures.
+- Captured development request logs for exact, broad, same-name, archived, and attachment searches.
+  Logs retained method/path/status/timing while omitting all Quick Find query text and request bodies.
+- Production build passed without bundle or component-style budget warnings. Final output is 379.41 kB
+  raw initial JavaScript/CSS and a 35.12 kB lazy Quick Find dialog chunk.
+- Verification passed:
+  - root `npm run check`;
+  - API: 49 files and 477 tests;
+  - Angular: 421 tests;
+  - contracts: 11 files and 42 tests;
+  - complete Chromium regression: 29 workflows, including work lists, board, saved views, planning,
+    reports, inbox/notifications, CSV, hierarchy, cycle closeout, and attachments;
+  - focused Quick Find responsive rerun after the visual fix;
+  - frontend zero-warning lint, production build, and `git diff --check`.
+- Stopped the manually launched API/web server and confirmed no listener remains on ports 3000, 4200,
+  or 9876. Transient screenshots, reports, traces, and test results were removed. No Phase 10
+  acceptance criterion remains open.
 
 ## Phase 11: Documentation, Public Site, Metadata, And Final Verification
 
