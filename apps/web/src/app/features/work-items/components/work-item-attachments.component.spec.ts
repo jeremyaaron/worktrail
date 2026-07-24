@@ -103,9 +103,13 @@ describe('WorkItemAttachmentsComponent', () => {
 
   afterEach(() => http.verify());
 
-  function createComponent(workItemId = firstWorkItemId) {
+  function createComponent(
+    workItemId = firstWorkItemId,
+    focusWhenSettled: number | null = null
+  ) {
     const fixture = TestBed.createComponent(WorkItemAttachmentsComponent);
     fixture.componentRef.setInput('workItemId', workItemId);
+    fixture.componentRef.setInput('focusWhenSettled', focusWhenSettled);
     fixture.detectChanges();
     return fixture;
   }
@@ -387,6 +391,64 @@ describe('WorkItemAttachmentsComponent', () => {
     http.expectOne(`/api/work-items/${secondWorkItemId}/attachments`).flush(listResponse([]));
     fixture.detectChanges();
     expect(compiled.textContent).toContain('No attachments');
+  });
+
+  it('focuses and scrolls the Files target once after a requested load settles', () => {
+    const fixture = createComponent(firstWorkItemId, 1);
+    const target = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('#files')!;
+    const focus = spyOn(target, 'focus');
+    const scrollIntoView = spyOn(target, 'scrollIntoView');
+
+    expect(target.getAttribute('tabindex')).toBe('-1');
+    expect(focus).not.toHaveBeenCalled();
+
+    http.expectOne(`/api/work-items/${firstWorkItemId}/attachments`).flush(listResponse([]));
+    fixture.detectChanges();
+
+    expect(focus).toHaveBeenCalledOnceWith({ preventScroll: true });
+    expect(scrollIntoView).toHaveBeenCalledOnceWith({ block: 'start' });
+
+    fixture.componentInstance.reload();
+    http.expectOne(`/api/work-items/${firstWorkItemId}/attachments`).flush(listResponse([]));
+    fixture.detectChanges();
+    expect(focus).toHaveBeenCalledTimes(1);
+
+    fixture.componentRef.setInput('focusWhenSettled', 2);
+    fixture.detectChanges();
+    expect(focus).toHaveBeenCalledTimes(2);
+    expect(scrollIntoView).toHaveBeenCalledTimes(2);
+  });
+
+  it('fulfills a Files target after load error and ignores ordinary untargeted loads', () => {
+    const untargeted = createComponent();
+    const untargetedElement = (untargeted.nativeElement as HTMLElement)
+      .querySelector<HTMLElement>('#files')!;
+    const untargetedFocus = spyOn(untargetedElement, 'focus');
+    http
+      .expectOne(`/api/work-items/${firstWorkItemId}/attachments`)
+      .flush(listResponse([]));
+    untargeted.detectChanges();
+    expect(untargetedFocus).not.toHaveBeenCalled();
+    untargeted.destroy();
+
+    const targeted = createComponent(secondWorkItemId, 3);
+    const targetedElement = (targeted.nativeElement as HTMLElement)
+      .querySelector<HTMLElement>('#files')!;
+    const targetedFocus = spyOn(targetedElement, 'focus');
+    const targetedScroll = spyOn(targetedElement, 'scrollIntoView');
+    http
+      .expectOne(`/api/work-items/${secondWorkItemId}/attachments`)
+      .flush(
+        { error: { code: 'INTERNAL_ERROR', message: 'Failed.' } },
+        { status: 500, statusText: 'Server Error' }
+      );
+    targeted.detectChanges();
+
+    expect(targetedFocus).toHaveBeenCalledOnceWith({ preventScroll: true });
+    expect(targetedScroll).toHaveBeenCalledOnceWith({ block: 'start' });
+    expect((targeted.nativeElement as HTMLElement).textContent).toContain(
+      'Attachments unavailable'
+    );
   });
 
   it('cancels an in-flight list read when route identity changes', () => {

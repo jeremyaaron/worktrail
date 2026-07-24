@@ -1,12 +1,14 @@
 import {
   Component,
   DestroyRef,
+  ElementRef,
   computed,
   effect,
   inject,
   input,
   output,
-  signal
+  signal,
+  viewChild
 } from '@angular/core';
 import { HttpEventType } from '@angular/common/http';
 import type {
@@ -23,6 +25,7 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
 import { EmptyStateComponent } from '../../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../../shared/ui/loading-indicator.component';
+import { focusWorkItemFilesTarget, workItemFilesTargetId } from '../work-item-files-target';
 
 type AttachmentUploadState = 'failed' | 'queued' | 'uploading';
 
@@ -41,7 +44,10 @@ interface AttachmentUploadQueueEntry {
   imports: [EmptyStateComponent, ErrorPanelComponent, LoadingIndicatorComponent],
   template: `
     <section
+      #filesTarget
+      [id]="filesTargetId"
       class="attachments"
+      tabindex="-1"
       aria-labelledby="attachments-heading"
       [attr.aria-busy]="isLoading()"
     >
@@ -259,6 +265,11 @@ interface AttachmentUploadQueueEntry {
       border-top: 1px solid #dbe3ec;
       border-bottom: 1px solid #dbe3ec;
       padding: 16px 0;
+    }
+
+    .attachments:focus {
+      outline: 3px solid #93c5fd;
+      outline-offset: 4px;
     }
 
     .attachments__heading {
@@ -551,6 +562,8 @@ interface AttachmentUploadQueueEntry {
 export class WorkItemAttachmentsComponent {
   private readonly api = inject(WorktrailApiService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly filesTarget =
+    viewChild.required<ElementRef<HTMLElement>>('filesTarget');
   private readonly dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
     dateStyle: 'medium',
     timeStyle: 'short'
@@ -560,11 +573,14 @@ export class WorkItemAttachmentsComponent {
   private readonly downloadSubscriptions = new Map<string, Subscription>();
   private readonly removalSubscriptions = new Map<string, Subscription>();
   private requestGeneration = 0;
+  private fulfilledFocusGeneration: number | null = null;
   private nextUploadId = 1;
   private successfulUploadsInRun = 0;
 
   readonly workItemId = input.required<string>();
+  readonly focusWhenSettled = input<number | null>(null);
   readonly activityChanged = output<void>();
+  readonly filesTargetId = workItemFilesTargetId;
   readonly uploadGuidanceId = 'work-item-attachment-upload-guidance';
   readonly attachmentList = signal<WorkItemAttachmentListDto | null>(null);
   readonly isLoading = signal(true);
@@ -618,6 +634,21 @@ export class WorkItemAttachmentsComponent {
 
   constructor() {
     effect(() => this.load(this.workItemId()));
+    effect(() => {
+      const generation = this.focusWhenSettled();
+
+      if (
+        generation === null ||
+        this.isLoading() ||
+        generation === this.fulfilledFocusGeneration
+      ) {
+        return;
+      }
+
+      if (focusWorkItemFilesTarget(this.filesTarget().nativeElement)) {
+        this.fulfilledFocusGeneration = generation;
+      }
+    });
     this.destroyRef.onDestroy(() => this.cancelRequests());
   }
 

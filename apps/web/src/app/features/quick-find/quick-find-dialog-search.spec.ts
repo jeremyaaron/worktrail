@@ -1,6 +1,12 @@
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { signal, type WritableSignal } from '@angular/core';
-import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import {
+  ComponentFixture,
+  TestBed,
+  fakeAsync,
+  flushMicrotasks,
+  tick
+} from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import type {
   QuickFindProjectContextDto,
@@ -32,14 +38,17 @@ describe('QuickFindDialogComponent search mode', () => {
   let component: QuickFindDialogComponent;
   let api: jasmine.SpyObj<QuickFindApi>;
   let dialogRef: jasmine.SpyObj<DialogRef<void, QuickFindDialogComponent>>;
+  let dialogClosed: Subject<void>;
   let selectedMember: WritableSignal<{ id: string } | null>;
   let router: Router;
 
   beforeEach(async () => {
     api = jasmine.createSpyObj<QuickFindApi>('QuickFindApi', ['search']);
+    dialogClosed = new Subject<void>();
     dialogRef = jasmine.createSpyObj<DialogRef<void, QuickFindDialogComponent>>(
       'DialogRef',
-      ['close']
+      ['close'],
+      { closed: dialogClosed.asObservable() }
     );
     selectedMember = signal<{ id: string } | null>({ id: 'member-1' });
 
@@ -387,6 +396,31 @@ describe('QuickFindDialogComponent search mode', () => {
 
     expect(pointerDestination).toEqual(keyboardDestination);
     expect(pointerDestination).toEqual([['/work-items', 'work-item-1'], {}]);
+  }));
+
+  it('focuses Files after close when Angular would skip the same attachment URL', fakeAsync(() => {
+    const target = document.createElement('section');
+    target.id = 'files';
+    target.tabIndex = -1;
+    document.body.append(target);
+    const focus = spyOn(target, 'focus');
+    const scrollIntoView = spyOn(target, 'scrollIntoView');
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    spyOnProperty(router, 'url', 'get').and.returnValue('/work-items/work-item-1#files');
+    dialogRef.close.and.callFake(() => {
+      dialogClosed.next();
+      dialogClosed.complete();
+    });
+    const attachmentResult = fullResponse().groups.attachments.items[0];
+
+    component.activateOption({ type: 'result', result: attachmentResult });
+    flushMicrotasks();
+
+    expect(dialogRef.close).toHaveBeenCalledOnceWith();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(focus).toHaveBeenCalledOnceWith({ preventScroll: true });
+    expect(scrollIntoView).toHaveBeenCalledOnceWith({ block: 'start' });
+    target.remove();
   }));
 
   function fullResponse(): QuickFindResponseDto {

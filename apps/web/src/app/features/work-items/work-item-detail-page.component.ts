@@ -20,7 +20,7 @@ import type {
   WorkItemWatchStateDto,
   WorkspaceWorkItemListItemDto
 } from '@worktrail/contracts';
-import { distinctUntilChanged, map, type Subscription } from 'rxjs';
+import { combineLatest, distinctUntilChanged, map, type Subscription } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { CyclesApi } from '../../core/api/cycles-api';
@@ -34,6 +34,7 @@ import { WorkItemChildWorkComponent } from './components/work-item-child-work.co
 import { WorkItemDetailSummaryComponent } from './components/work-item-detail-summary.component';
 import { WorkItemParentContextComponent } from './components/work-item-parent-context.component';
 import { WorkItemParentManagerComponent } from './components/work-item-parent-manager.component';
+import { workItemFilesFragment } from './work-item-files-target';
 
 const statuses: WorkItemStatus[] = [
   'backlog',
@@ -529,6 +530,7 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
 
       <app-work-item-attachments
         [workItemId]="item.id"
+        [focusWhenSettled]="filesTargetGeneration()"
         (activityChanged)="refreshAttachmentActivity()"
       />
 
@@ -1249,6 +1251,8 @@ export class WorkItemDetailPageComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private attachmentActivitySubscription: Subscription | null = null;
   private attachmentActivityGeneration = 0;
+  private nextFilesTargetGeneration = 0;
+  private hasInitializedRoute = false;
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
 
@@ -1273,6 +1277,7 @@ export class WorkItemDetailPageComponent implements OnInit {
     });
   });
   readonly workItemId = signal(this.route.snapshot.paramMap.get('workItemId') ?? '');
+  readonly filesTargetGeneration = signal<number | null>(null);
 
   readonly project = signal<ProjectDto | null>(null);
   readonly workItem = signal<WorkItemDetailDto | null>(null);
@@ -1426,16 +1431,29 @@ export class WorkItemDetailPageComponent implements OnInit {
       this.currentUser.loadMembers();
     }
 
-    this.route.paramMap
+    combineLatest([
+      this.route.paramMap.pipe(map((paramMap) => paramMap.get('workItemId') ?? '')),
+      this.route.fragment
+    ])
       .pipe(
-        map((paramMap) => paramMap.get('workItemId') ?? ''),
-        distinctUntilChanged(),
+        distinctUntilChanged(
+          ([previousWorkItemId, previousFragment], [workItemId, fragment]) =>
+            previousWorkItemId === workItemId && previousFragment === fragment
+        ),
         takeUntilDestroyed(this.destroyRef)
       )
-      .subscribe((workItemId) => {
+      .subscribe(([workItemId, fragment]) => {
+        const workItemChanged =
+          !this.hasInitializedRoute || workItemId !== this.workItemId();
+
+        this.hasInitializedRoute = true;
         this.workItemId.set(workItemId);
-        this.resetNavigationState();
-        this.loadWorkItem();
+        this.syncFilesTarget(fragment, workItemChanged);
+
+        if (workItemChanged) {
+          this.resetNavigationState();
+          this.loadWorkItem();
+        }
       });
   }
 
@@ -2164,6 +2182,17 @@ export class WorkItemDetailPageComponent implements OnInit {
       targetWorkItemId: ''
     });
     this.syncReadOnlyState();
+  }
+
+  private syncFilesTarget(fragment: string | null, workItemChanged: boolean): void {
+    if (fragment !== workItemFilesFragment) {
+      this.filesTargetGeneration.set(null);
+      return;
+    }
+
+    if (workItemChanged || this.filesTargetGeneration() === null) {
+      this.filesTargetGeneration.set(++this.nextFilesTargetGeneration);
+    }
   }
 
   private toUpdateRequest(): UpdateWorkItemRequest {

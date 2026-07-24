@@ -1,5 +1,6 @@
 import type { QuickFindResultDto } from '@worktrail/contracts';
 
+import { workItemFilesFragment } from '../work-items/work-item-files-target';
 import { routerLinkQueryParamsFromWorkItemQuery } from '../work-items/query/work-item-query-serialization';
 import type {
   QuickFindNavigationEntry,
@@ -105,7 +106,7 @@ export function quickFindResultDestination(result: QuickFindResultDto): QuickFin
     case 'attachment':
       return {
         commands: ['/work-items', result.workItem.id],
-        fragment: 'files'
+        fragment: workItemFilesFragment
       };
     default:
       return assertNever(result);

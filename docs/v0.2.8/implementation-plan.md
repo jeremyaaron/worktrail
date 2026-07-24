@@ -1106,7 +1106,52 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on July 23, 2026.
+- Added one shared Files destination contract containing the stable `files` fragment, target id, and
+  immediate focus/scroll operation. Quick Find routing and work-item detail targeting now use the same
+  value rather than parallel string literals.
+- Added `id="files"` and `tabindex="-1"` to the attachment section with a visible programmatic-focus
+  outline. The section remains labeled by the existing Attachments heading.
+- Extended work-item detail route handling to observe work-item id and fragment together:
+  - initial `#files` navigation creates a target generation;
+  - moving from another fragment to `#files` on the same item creates a new generation;
+  - duplicate emissions of the same item/fragment pair do not;
+  - leaving `#files` clears the pending target;
+  - changing `:workItemId` while retaining `#files` creates a fresh generation;
+  - work-item data still reloads only when the id changes.
+- Passed the target generation into the attachment component independently of attachment request state.
+- The attachment component fulfills each non-null generation exactly once after the current list request
+  settles successfully or with an error. It focuses without implicit browser scrolling, then calls
+  `scrollIntoView({ block: 'start' })` without smooth behavior.
+- Reloads, uploads, removals, downloads, and ordinary attachment refreshes cannot repeat a fulfilled
+  target generation or steal focus.
+- Preserved the existing request-generation and cancellation behavior when route reuse changes work-item
+  identity; stale attachment reads still cannot populate or focus the replacement item.
+- Added a same-URL attachment fallback for the case where Quick Find is opened from an already-targeted
+  `/work-items/:id#files` route:
+  - subscribe to dialog closure before closing;
+  - skip the Angular navigation that would be ignored as same-URL;
+  - focus the existing Files target only after CDK finishes dialog closure/focus restoration.
+- Added focused tests covering:
+  - target id, programmatic focusability, and focus/scroll arguments;
+  - success and error settlement;
+  - one-shot behavior across reload and a new generation;
+  - untargeted loads that never focus;
+  - same-item fragment entry, duplicate fragment suppression, exit, and re-entry;
+  - a retained Files fragment across reused work-item ids;
+  - stale child destruction while replacement detail loads;
+  - same-URL Quick Find activation after dialog close.
+- Verification passed:
+  - focused detail/attachment/Quick Find suite: 59 tests;
+  - full Angular suite: 421 tests;
+  - Angular development typecheck/build;
+  - frontend zero-warning lint;
+  - frontend production build without bundle or style budget warnings;
+  - `git diff --check`.
+- Production inspection recorded a 379.41 kB raw initial bundle, a 107.33 kB lazy work-item detail
+  chunk, and a 35.04 kB lazy Quick Find dialog chunk.
+- No attachment content search, preview/download behavior change, generic fragment-scrolling framework,
+  or forced smooth scrolling was introduced. No Phase 9 acceptance criterion remains open.
 
 ## Phase 10: Seed, Browser, Responsive, Operational, And Regression Verification
 

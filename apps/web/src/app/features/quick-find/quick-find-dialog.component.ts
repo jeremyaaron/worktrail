@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, type NavigationExtras } from '@angular/router';
 import { LucideSearch, LucideX } from '@lucide/angular';
 import type { QuickFindResponseDto } from '@worktrail/contracts';
 import {
@@ -19,6 +19,7 @@ import {
   Subject,
   catchError,
   distinctUntilChanged,
+  firstValueFrom,
   map,
   merge,
   of,
@@ -29,6 +30,10 @@ import {
 
 import { QuickFindApi } from '../../core/api/quick-find-api';
 import { CurrentUserService } from '../../core/current-user.service';
+import {
+  focusWorkItemFilesTarget,
+  workItemFilesFragment
+} from '../work-items/work-item-files-target';
 import {
   quickFindHasResults,
   quickFindResultGroups
@@ -376,11 +381,32 @@ export class QuickFindDialogComponent {
   }
 
   private navigate(target: QuickFindRouteTarget): void {
+    const extras = this.navigationExtras(target);
+    const destinationUrl = this.router.serializeUrl(
+      this.router.createUrlTree([...target.commands], extras)
+    );
+
+    if (
+      target.fragment === workItemFilesFragment &&
+      destinationUrl === this.router.url
+    ) {
+      const closed = firstValueFrom(this.dialogRef.closed);
+      this.dialogRef.close();
+      void closed.then(() => {
+        focusWorkItemFilesTarget();
+      });
+      return;
+    }
+
     this.dialogRef.close();
-    void this.router.navigate([...target.commands], {
+    void this.router.navigate([...target.commands], extras);
+  }
+
+  private navigationExtras(target: QuickFindRouteTarget): NavigationExtras {
+    return {
       ...(target.queryParams === undefined ? {} : { queryParams: target.queryParams }),
       ...(target.fragment === undefined ? {} : { fragment: target.fragment })
-    });
+    };
   }
 
   private prepareQuery(query: string): void {
