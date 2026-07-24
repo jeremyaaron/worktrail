@@ -23,7 +23,14 @@
       autocomplete="off"
       maxlength="120"
       placeholder="Search or jump to a destination"
+      role="combobox"
+      aria-autocomplete="list"
+      aria-controls="quick-find-options"
+      aria-haspopup="listbox"
+      [attr.aria-expanded]="listIsExpanded()"
+      [attr.aria-activedescendant]="activeOptionId()"
       [formControl]="queryControl"
+      (keydown)="onQueryKeydown($event)"
     />
     @if (visibleQuery().length > 0) {
       <button
@@ -36,44 +43,89 @@
         <svg lucideX aria-hidden="true"></svg>
       </button>
     }
+    <p class="quick-find__live" aria-live="polite" aria-atomic="true">
+      {{ liveSummary() }}
+    </p>
   </div>
 
   @if (isNavigationMode()) {
-    <div class="quick-find__navigation">
-      <section class="quick-find__group" aria-labelledby="quick-find-global-heading">
+    <div
+      id="quick-find-options"
+      class="quick-find__navigation"
+      role="listbox"
+      aria-label="Quick Find destinations"
+    >
+      <section
+        class="quick-find__group"
+        role="group"
+        aria-labelledby="quick-find-global-heading"
+      >
         <h3 id="quick-find-global-heading">Global</h3>
         <div class="quick-find__entries">
           @for (entry of globalEntries; track entry.id) {
-            <button type="button" (click)="openNavigationEntry(entry)">
+            <div
+              class="quick-find__entry quick-find__option"
+              role="option"
+              tabindex="-1"
+              [id]="optionId(navigationOption(entry))"
+              [class.quick-find__option--active]="isActiveOption(navigationOption(entry))"
+              [attr.aria-selected]="isActiveOption(navigationOption(entry))"
+              [attr.aria-label]="entry.detail ? entry.label + ', ' + entry.detail : entry.label"
+              (mousedown)="keepInputFocus($event)"
+              (pointerenter)="setActiveOption(navigationOption(entry))"
+              (keydown)="onOptionKeydown($event, navigationOption(entry))"
+              (click)="activateOption(navigationOption(entry))"
+            >
               <span>{{ entry.label }}</span>
               @if (entry.detail) {
                 <small>{{ entry.detail }}</small>
               }
-            </button>
+            </div>
           }
         </div>
       </section>
 
       @if (currentProjectEntries.length > 0) {
-        <section class="quick-find__group" aria-labelledby="quick-find-project-heading">
+        <section
+          class="quick-find__group"
+          role="group"
+          aria-labelledby="quick-find-project-heading"
+        >
           <h3 id="quick-find-project-heading">Current project</h3>
           <div class="quick-find__entries">
             @for (entry of currentProjectEntries; track entry.id) {
-              <button type="button" (click)="openNavigationEntry(entry)">
+              <div
+                class="quick-find__entry quick-find__option"
+                role="option"
+                tabindex="-1"
+                [id]="optionId(navigationOption(entry))"
+                [class.quick-find__option--active]="isActiveOption(navigationOption(entry))"
+                [attr.aria-selected]="isActiveOption(navigationOption(entry))"
+                [attr.aria-label]="entry.detail ? entry.label + ', ' + entry.detail : entry.label"
+                (mousedown)="keepInputFocus($event)"
+                (pointerenter)="setActiveOption(navigationOption(entry))"
+                (keydown)="onOptionKeydown($event, navigationOption(entry))"
+                (click)="activateOption(navigationOption(entry))"
+              >
                 <span>{{ entry.label }}</span>
                 @if (entry.detail) {
                   <small>{{ entry.detail }}</small>
                 }
-              </button>
+              </div>
             }
           </div>
         </section>
       }
     </div>
   } @else {
-    <div class="quick-find__search-results">
+    <div
+      id="quick-find-options"
+      class="quick-find__search-results"
+      role="listbox"
+      aria-label="Quick Find results"
+    >
       @if (isLoading()) {
-        <p class="quick-find__state" role="status">Searching...</p>
+        <p class="quick-find__state">Searching...</p>
       } @else if (error(); as errorMessage) {
         <div class="quick-find__state quick-find__state--error" role="alert">
           <p>{{ errorMessage }}</p>
@@ -81,7 +133,7 @@
         </div>
       } @else if (hasNoResults()) {
         <div class="quick-find__state">
-          <strong>No results</strong>
+          <strong>No results for "{{ normalizedQuery() }}"</strong>
           <span>Try another key, name, title, or filename.</span>
           <button type="button" (click)="clearSearch()">Clear search</button>
         </div>
@@ -89,12 +141,25 @@
         @for (group of resultGroups(); track group.key) {
           <section
             class="quick-find__group quick-find__result-group"
+            role="group"
             [attr.aria-labelledby]="'quick-find-' + group.key + '-heading'"
           >
             <h3 [id]="'quick-find-' + group.key + '-heading'">{{ group.label }}</h3>
             <div class="quick-find__result-list">
               @for (row of group.rows; track row.id) {
-                <article class="quick-find__result" [id]="row.id">
+                <div
+                  class="quick-find__result quick-find__option"
+                  role="option"
+                  tabindex="-1"
+                  [id]="row.id"
+                  [class.quick-find__option--active]="isActiveOption(resultOption(row.result))"
+                  [attr.aria-selected]="isActiveOption(resultOption(row.result))"
+                  [attr.aria-label]="resultAriaLabel(row)"
+                  (mousedown)="keepInputFocus($event)"
+                  (pointerenter)="setActiveOption(resultOption(row.result))"
+                  (keydown)="onOptionKeydown($event, resultOption(row.result))"
+                  (click)="activateOption(resultOption(row.result))"
+                >
                   <div class="quick-find__result-title">
                     <span>{{ row.identity }}</span>
                     <strong>{{ row.title }}</strong>
@@ -113,19 +178,28 @@
                   @if (row.excerpt) {
                     <p class="quick-find__excerpt">{{ row.excerpt }}</p>
                   }
-                </article>
+                </div>
               }
             </div>
             @if (group.hasMore) {
               <div class="quick-find__more">
                 <span>More matches exist.</span>
                 @if (group.hasWorkItemOverflow) {
-                  <span
+                  <div
                     id="quick-find-work-item-overflow"
-                    class="quick-find__overflow-option"
+                    class="quick-find__overflow-option quick-find__option"
+                    role="option"
+                    tabindex="-1"
+                    [class.quick-find__option--active]="isActiveOption(overflowOption(overflowQuery()))"
+                    [attr.aria-selected]="isActiveOption(overflowOption(overflowQuery()))"
+                    aria-label="View all matching work items"
+                    (mousedown)="keepInputFocus($event)"
+                    (pointerenter)="setActiveOption(overflowOption(overflowQuery()))"
+                    (keydown)="onOptionKeydown($event, overflowOption(overflowQuery()))"
+                    (click)="activateOption(overflowOption(overflowQuery()))"
                   >
                     View all matching work items
-                  </span>
+                  </div>
                 }
               </div>
             }

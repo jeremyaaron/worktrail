@@ -5,7 +5,9 @@
 
 .quick-find {
   display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
   max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   overflow: hidden;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
@@ -56,7 +58,6 @@
 
 .quick-find__icon-button:focus-visible,
 .quick-find__clear:focus-visible,
-.quick-find__entries button:focus-visible,
 .quick-find__state button:focus-visible,
 .quick-find__input:focus-visible {
   outline: 3px solid #93c5fd;
@@ -73,7 +74,8 @@
   stroke-width: 2;
 }
 
-.quick-find__label {
+.quick-find__label,
+.quick-find__live {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -161,7 +163,7 @@
   display: grid;
 }
 
-.quick-find__entries button {
+.quick-find__entry {
   display: grid;
   gap: 2px;
   width: 100%;
@@ -175,9 +177,20 @@
   cursor: pointer;
 }
 
-.quick-find__entries button:hover {
+.quick-find__option {
+  cursor: pointer;
+}
+
+.quick-find__entry:hover,
+.quick-find__result:hover,
+.quick-find__overflow-option:hover {
   background: #eef4fb;
   color: #183b73;
+}
+
+.quick-find__option--active {
+  background: #e7f0fb;
+  box-shadow: inset 3px 0 #2563eb;
 }
 
 .quick-find__entries span {
@@ -314,6 +327,9 @@
 }
 
 .quick-find__overflow-option {
+  min-height: 32px;
+  border-radius: 6px;
+  padding: 7px 9px;
   color: #315b91;
   font-weight: 750;
 }
@@ -340,5 +356,24 @@
   .quick-find__result-title {
     display: grid;
     gap: 2px;
+  }
+
+  .quick-find__more {
+    display: grid;
+  }
+}
+
+@media (forced-colors: active) {
+  .quick-find__option--active {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+    box-shadow: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quick-find__navigation,
+  .quick-find__search-results {
+    scroll-behavior: auto;
   }
 }

@@ -1005,7 +1005,61 @@ git diff --check
 
 Status:
 
-- Not started.
+- Completed on July 23, 2026.
+- Unified fixed navigation entries, grouped search results, and work-item overflow into one flattened
+  `QuickFindSelectableOption` sequence while retaining their visual groups and stable ids.
+- Added a feature-local active-option manager that:
+  - keeps DOM focus in the query input;
+  - selects the first available option after navigation-mode entry or settled search success;
+  - clears selection during loading, error, and empty states;
+  - retains a still-visible active id when the option sequence is unchanged;
+  - scrolls newly active options into the nearest visible region without animated movement.
+- Completed combobox/listbox active-descendant semantics:
+  - the input exposes list ownership, expansion, autocomplete, and the exact active option id;
+  - Global, Current project, and result groups have programmatic labels;
+  - every option exposes synchronized `aria-selected`;
+  - result accessible names include stable identity, title, project/owner context, metadata, and
+    lifecycle context;
+  - one polite live region announces destination/result availability and loading;
+  - safe failures retain alert behavior;
+  - the dialog is named by its visible heading.
+- Added ArrowDown, ArrowUp, Home, End, and Enter behavior with no boundary wrapping. Composition, Tab,
+  Escape, and unrelated keys remain untouched so CDK owns dismissal and normal focus traversal.
+- Added pointer hover selection and pointer activation without moving focus out of the query input.
+  Programmatically focusable options also support Enter/Space as an assistive-technology fallback
+  without entering ordinary Tab order.
+- Routed every activation through one close-first path:
+  - fixed destinations use their existing typed entries;
+  - all six result kinds use the exhaustive result destination mapper;
+  - work-item overflow uses the canonical workspace serializer with the server-normalized query and
+    archived-project inclusion;
+  - attachment destinations retain the stable `files` fragment for Phase 9 settlement.
+- Preserved normal Angular Router history behavior; no temporary Quick Find route or history state is
+  introduced.
+- Completed responsive interaction styling with fixed header/query rows, one bounded internal scroller,
+  `dvh` viewport containment, wrapping metadata and titles, mobile stacking, visible active indicators
+  that do not change geometry, forced-colors support, and reduced-motion-safe scrolling.
+- Kept the component stylesheet at 6,243 bytes, below the 8 kB warning threshold.
+- Added focused tests covering:
+  - synchronized combobox/listbox/active-descendant state;
+  - bounded arrow movement, Home/End, Enter, untouched Tab/Escape, and input focus retention;
+  - loading/result/navigation active-state resets;
+  - pointer hover and pointer/keyboard destination parity;
+  - accessible option identity/context;
+  - all six canonical result destinations, attachment fragment, and work-item overflow query;
+  - close-before-route ordering;
+  - real CDK Escape dismissal and trigger focus restoration.
+- Verification passed:
+  - focused Quick Find interaction suite: 19 tests;
+  - full Angular suite: 416 tests;
+  - Angular development typecheck/build;
+  - frontend zero-warning lint;
+  - frontend production build without bundle or style budget warnings;
+  - `git diff --check`.
+- Production inspection confirmed the initial bundle remains 379.21 kB raw and the complete interactive
+  Quick Find dialog remains isolated in a 34.73 kB lazy chunk.
+- Files-section fragment settlement, end-to-end browser coverage, and new result actions remain assigned
+  to later phases. No Phase 8 acceptance criterion remains open.
 
 ## Phase 9: Files Fragment Targeting And Route-Reuse Integration
 

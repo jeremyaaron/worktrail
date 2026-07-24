@@ -19,7 +19,7 @@ export async function openQuickFindDialog(
   return dialog.open<void, QuickFindDialogData, QuickFindDialogComponent>(
     QuickFindDialogComponent,
     {
-      ariaLabel: 'Quick find',
+      ariaLabelledBy: 'quick-find-heading',
       ariaModal: true,
       autoFocus: '.quick-find__input',
       closeOnNavigation: true,

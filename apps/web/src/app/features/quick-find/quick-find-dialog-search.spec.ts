@@ -1,7 +1,7 @@
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { signal, type WritableSignal } from '@angular/core';
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import type {
   QuickFindProjectContextDto,
   QuickFindResponseDto,
@@ -33,6 +33,7 @@ describe('QuickFindDialogComponent search mode', () => {
   let api: jasmine.SpyObj<QuickFindApi>;
   let dialogRef: jasmine.SpyObj<DialogRef<void, QuickFindDialogComponent>>;
   let selectedMember: WritableSignal<{ id: string } | null>;
+  let router: Router;
 
   beforeEach(async () => {
     api = jasmine.createSpyObj<QuickFindApi>('QuickFindApi', ['search']);
@@ -60,6 +61,7 @@ describe('QuickFindDialogComponent search mode', () => {
 
     fixture = TestBed.createComponent(QuickFindDialogComponent);
     component = fixture.componentInstance;
+    router = TestBed.inject(Router);
     fixture.detectChanges();
   });
 
@@ -213,6 +215,180 @@ describe('QuickFindDialogComponent search mode', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Wrong actor result');
   }));
 
+  it('keeps focus in the combobox while moving through bounded navigation options', fakeAsync(() => {
+    document.body.append(fixture.nativeElement);
+    const input = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
+      '#quick-find-query'
+    )!;
+    input.focus();
+
+    expect(input.getAttribute('role')).toBe('combobox');
+    expect(input.getAttribute('aria-controls')).toBe('quick-find-options');
+    expect(input.getAttribute('aria-expanded')).toBe('true');
+    expect(input.getAttribute('aria-activedescendant')).toBe(
+      'quick-find-navigation-global-my-work'
+    );
+
+    dispatchKey(input, 'ArrowUp');
+    expect(component.activeOptionId()).toBe('quick-find-navigation-global-my-work');
+
+    dispatchKey(input, 'End');
+    tick(0);
+    fixture.detectChanges();
+    expect(component.activeOptionId()).toBe('quick-find-navigation-project-settings');
+    expect(document.activeElement).toBe(input);
+
+    dispatchKey(input, 'ArrowDown');
+    expect(component.activeOptionId()).toBe('quick-find-navigation-project-settings');
+
+    dispatchKey(input, 'Home');
+    tick(0);
+    fixture.detectChanges();
+    expect(component.activeOptionId()).toBe('quick-find-navigation-global-my-work');
+
+    expect(dispatchKey(input, 'Tab').defaultPrevented).toBeFalse();
+    expect(dispatchKey(input, 'Escape').defaultPrevented).toBeFalse();
+    expect(dialogRef.close).not.toHaveBeenCalled();
+
+    const callOrder: string[] = [];
+    dialogRef.close.and.callFake(() => {
+      callOrder.push('close');
+    });
+    spyOn(router, 'navigate').and.callFake(async () => {
+      callOrder.push('navigate');
+      return true;
+    });
+    dispatchKey(input, 'Enter');
+
+    expect(dialogRef.close).toHaveBeenCalledOnceWith();
+    expect(router.navigate).toHaveBeenCalledOnceWith(['/my-work'], {});
+    expect(callOrder).toEqual(['close', 'navigate']);
+  }));
+
+  it('synchronizes active-descendant state across loading, results, hover, and clear', fakeAsync(() => {
+    const result = new Subject<QuickFindResponseDto>();
+    api.search.and.returnValue(result);
+    const input = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
+      '#quick-find-query'
+    )!;
+
+    component.queryControl.setValue('release');
+    fixture.detectChanges();
+
+    expect(component.activeOptionId()).toBeNull();
+    expect(input.getAttribute('aria-expanded')).toBe('false');
+    expect(input.hasAttribute('aria-activedescendant')).toBeFalse();
+
+    tick(220);
+    result.next(fullResponse());
+    result.complete();
+    fixture.detectChanges();
+
+    expect(component.activeOptionId()).toBe('quick-find-work-item-work-item-1');
+    expect(input.getAttribute('aria-expanded')).toBe('true');
+    expect(input.getAttribute('aria-activedescendant')).toBe(
+      'quick-find-work-item-work-item-1'
+    );
+    const options = fixture.nativeElement.querySelectorAll('[role="option"]');
+    expect(options.length).toBe(7);
+    expect(options[0].getAttribute('aria-selected')).toBe('true');
+    expect(options[0].getAttribute('aria-label')).toContain(
+      'WT-42, Release evidence, WT · Worktrail'
+    );
+
+    const report = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>(
+      '#quick-find-report-report-1'
+    )!;
+    report.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }));
+    tick(0);
+    fixture.detectChanges();
+    expect(component.activeOptionId()).toBe('quick-find-report-report-1');
+    expect(report.getAttribute('aria-selected')).toBe('true');
+
+    component.clearSearch();
+    fixture.detectChanges();
+    expect(component.activeOptionId()).toBe('quick-find-navigation-global-my-work');
+    expect(input.getAttribute('aria-activedescendant')).toBe(
+      'quick-find-navigation-global-my-work'
+    );
+  }));
+
+  it('routes every result and overflow through canonical close-first destinations', fakeAsync(() => {
+    const result = new Subject<QuickFindResponseDto>();
+    api.search.and.returnValue(result);
+    const callOrder: string[] = [];
+    dialogRef.close.and.callFake(() => {
+      callOrder.push('close');
+    });
+    const navigate = spyOn(router, 'navigate').and.callFake(async () => {
+      callOrder.push('navigate');
+      return true;
+    });
+
+    component.queryControl.setValue('release');
+    tick(220);
+    result.next(fullResponse());
+    result.complete();
+    fixture.detectChanges();
+
+    for (const option of component.resultOptions()) {
+      component.activateOption(option);
+    }
+
+    expect(navigate.calls.allArgs()).toEqual([
+      [['/work-items', 'work-item-1'], {}],
+      [
+        ['/work-items'],
+        {
+          queryParams: {
+            search: 'release',
+            archivedProjects: 'include'
+          }
+        }
+      ],
+      [['/projects', 'project-1'], {}],
+      [['/projects', 'project-1', 'milestones', 'milestone-1'], {}],
+      [['/projects', 'project-1', 'cycles', 'cycle-1'], {}],
+      [['/projects', 'project-1', 'status', 'report-1'], {}],
+      [['/work-items', 'work-item-1'], { fragment: 'files' }]
+    ]);
+    expect(callOrder).toEqual([
+      'close', 'navigate',
+      'close', 'navigate',
+      'close', 'navigate',
+      'close', 'navigate',
+      'close', 'navigate',
+      'close', 'navigate',
+      'close', 'navigate'
+    ]);
+  }));
+
+  it('gives pointer and keyboard activation the same destination', fakeAsync(() => {
+    const first = new Subject<QuickFindResponseDto>();
+    api.search.and.returnValue(first);
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const input = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
+      '#quick-find-query'
+    )!;
+
+    component.queryControl.setValue('release');
+    tick(220);
+    first.next(responseWithWorkItem('release', 'Release evidence'));
+    first.complete();
+    fixture.detectChanges();
+
+    dispatchKey(input, 'Enter');
+    const keyboardDestination = navigate.calls.mostRecent().args;
+
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLElement>('#quick-find-work-item-work-item-1')!
+      .click();
+    const pointerDestination = navigate.calls.mostRecent().args;
+
+    expect(pointerDestination).toEqual(keyboardDestination);
+    expect(pointerDestination).toEqual([['/work-items', 'work-item-1'], {}]);
+  }));
+
   function fullResponse(): QuickFindResponseDto {
     return {
       query: 'release',
@@ -350,5 +526,16 @@ describe('QuickFindDialogComponent search mode', () => {
         attachments: { items: [], hasMore: false }
       }
     };
+  }
+
+  function dispatchKey(input: HTMLInputElement, key: string): KeyboardEvent {
+    const event = new KeyboardEvent('keydown', {
+      key,
+      bubbles: true,
+      cancelable: true
+    });
+    input.dispatchEvent(event);
+    fixture.detectChanges();
+    return event;
   }
 });

@@ -1,5 +1,14 @@
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
-import { Component, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  computed,
+  effect,
+  inject,
+  signal,
+  untracked,
+  viewChild
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -26,11 +35,15 @@ import {
 } from './quick-find-display';
 import type {
   QuickFindNavigationEntry,
+  QuickFindRouteTarget,
   QuickFindSelectableOption
 } from './quick-find-model';
 import {
   quickFindCurrentProjectNavigationEntries,
-  quickFindGlobalNavigationEntries
+  quickFindGlobalNavigationEntries,
+  quickFindResultDestination,
+  quickFindResultOptionId,
+  quickFindWorkItemOverflowDestination
 } from './quick-find-navigation';
 import type { QuickFindDialogData } from './open-quick-find-dialog';
 
@@ -84,6 +97,47 @@ export class QuickFindDialogComponent {
         ? [{ type: 'work_item_overflow', query: response.query } as const]
         : [])
     ]);
+  });
+  readonly selectableOptions = computed<readonly QuickFindSelectableOption[]>(() => {
+    if (this.isNavigationMode()) {
+      return [
+        ...this.globalEntries.map((entry) => ({ type: 'navigation', entry }) as const),
+        ...this.currentProjectEntries.map((entry) => ({ type: 'navigation', entry }) as const)
+      ];
+    }
+
+    if (this.isLoading() || this.error() !== null) {
+      return [];
+    }
+
+    return this.resultOptions();
+  });
+  readonly activeOptionId = signal<string | null>(null);
+  readonly listIsExpanded = computed(() => this.selectableOptions().length > 0);
+  readonly overflowQuery = computed(
+    () => this.response()?.query ?? this.normalizedQuery()
+  );
+  readonly liveSummary = computed(() => {
+    if (this.isNavigationMode()) {
+      return `${this.selectableOptions().length} destinations available.`;
+    }
+
+    if (this.isLoading()) {
+      return 'Searching.';
+    }
+
+    if (this.error() !== null) {
+      return '';
+    }
+
+    const resultCount = this.resultGroups().reduce(
+      (total, group) => total + group.rows.length,
+      0
+    );
+
+    return resultCount === 0
+      ? `No results for ${this.normalizedQuery()}.`
+      : `${resultCount} ${resultCount === 1 ? 'result' : 'results'} available.`;
   });
   readonly globalEntries: readonly QuickFindNavigationEntry[] =
     quickFindGlobalNavigationEntries;
@@ -160,6 +214,17 @@ export class QuickFindDialogComponent {
         this.dialogRef.close();
       }
     });
+
+    effect(() => {
+      const optionIds = this.selectableOptions().map((option) => this.optionId(option));
+      const currentId = untracked(this.activeOptionId);
+      const nextId =
+        currentId !== null && optionIds.includes(currentId)
+          ? currentId
+          : (optionIds[0] ?? null);
+
+      this.activeOptionId.set(nextId);
+    });
   }
 
   close(): void {
@@ -183,11 +248,138 @@ export class QuickFindDialogComponent {
     }
   }
 
+  onQueryKeydown(event: KeyboardEvent): void {
+    if (event.isComposing) {
+      return;
+    }
+
+    const options = this.selectableOptions();
+
+    if (options.length === 0) {
+      return;
+    }
+
+    const activeIndex = options.findIndex(
+      (option) => this.optionId(option) === this.activeOptionId()
+    );
+    let targetIndex: number | null = null;
+
+    switch (event.key) {
+      case 'ArrowDown':
+        targetIndex = activeIndex < 0 ? 0 : Math.min(activeIndex + 1, options.length - 1);
+        break;
+      case 'ArrowUp':
+        targetIndex = activeIndex < 0 ? options.length - 1 : Math.max(activeIndex - 1, 0);
+        break;
+      case 'Home':
+        targetIndex = 0;
+        break;
+      case 'End':
+        targetIndex = options.length - 1;
+        break;
+      case 'Enter':
+        if (activeIndex >= 0) {
+          event.preventDefault();
+          this.activateOption(options[activeIndex]);
+        }
+        return;
+      default:
+        return;
+    }
+
+    event.preventDefault();
+    this.setActiveOption(options[targetIndex]);
+  }
+
+  setActiveOption(option: QuickFindSelectableOption): void {
+    const id = this.optionId(option);
+    this.activeOptionId.set(id);
+    queueMicrotask(() => {
+      document.getElementById(id)?.scrollIntoView({ block: 'nearest' });
+    });
+  }
+
+  onOptionKeydown(event: KeyboardEvent, option: QuickFindSelectableOption): void {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return;
+    }
+
+    event.preventDefault();
+    this.activateOption(option);
+  }
+
+  keepInputFocus(event: MouseEvent): void {
+    event.preventDefault();
+  }
+
+  activateOption(option: QuickFindSelectableOption): void {
+    switch (option.type) {
+      case 'navigation':
+        this.navigate(option.entry);
+        return;
+      case 'result':
+        this.navigate(quickFindResultDestination(option.result));
+        return;
+      case 'work_item_overflow':
+        this.navigate(quickFindWorkItemOverflowDestination(option.query));
+        return;
+      default:
+        assertNever(option);
+    }
+  }
+
+  optionId(option: QuickFindSelectableOption): string {
+    switch (option.type) {
+      case 'navigation':
+        return `quick-find-navigation-${option.entry.id}`;
+      case 'result':
+        return quickFindResultOptionId(option.result);
+      case 'work_item_overflow':
+        return 'quick-find-work-item-overflow';
+      default:
+        return assertNever(option);
+    }
+  }
+
+  isActiveOption(option: QuickFindSelectableOption): boolean {
+    return this.activeOptionId() === this.optionId(option);
+  }
+
+  navigationOption(entry: QuickFindNavigationEntry): QuickFindSelectableOption {
+    return { type: 'navigation', entry };
+  }
+
+  resultOption(
+    result: Extract<QuickFindSelectableOption, { type: 'result' }>['result']
+  ): QuickFindSelectableOption {
+    return { type: 'result', result };
+  }
+
+  overflowOption(query: string): QuickFindSelectableOption {
+    return { type: 'work_item_overflow', query };
+  }
+
+  resultAriaLabel(
+    row: ReturnType<typeof quickFindResultGroups>[number]['rows'][number]
+  ): string {
+    return [
+      row.identity,
+      row.title,
+      row.context,
+      ...row.metadata,
+      ...row.lifecycle
+    ].filter((part): part is string => part !== null && part !== '').join(', ');
+  }
+
   openNavigationEntry(entry: QuickFindNavigationEntry): void {
+    this.activateOption({ type: 'navigation', entry });
+  }
+
+  private navigate(target: QuickFindRouteTarget): void {
     this.dialogRef.close();
-    void this.router.navigate([...entry.commands], {
-      ...(entry.queryParams === undefined ? {} : { queryParams: entry.queryParams }),
-      ...(entry.fragment === undefined ? {} : { fragment: entry.fragment })
+    void this.router.navigate([...target.commands], {
+      ...(target.queryParams === undefined ? {} : { queryParams: target.queryParams }),
+      ...(target.fragment === undefined ? {} : { fragment: target.fragment })
     });
   }
 
@@ -206,4 +398,8 @@ function normalizeForSearch(query: string): string {
 
 function codePointLength(value: string): number {
   return Array.from(value).length;
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unsupported Quick Find option: ${String(value)}`);
 }

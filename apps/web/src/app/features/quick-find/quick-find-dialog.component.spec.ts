@@ -65,7 +65,7 @@ describe('Quick Find dialog launcher and navigation mode', () => {
     openRef.componentRef?.changeDetectorRef.detectChanges();
     await applicationRef.whenStable();
 
-    expect(openRef.config.ariaLabel).toBe('Quick find');
+    expect(openRef.config.ariaLabelledBy).toBe('quick-find-heading');
     expect(openRef.config.ariaModal).toBeTrue();
     expect(openRef.config.closeOnNavigation).toBeTrue();
     expect(openRef.config.disableClose).toBeFalse();
@@ -77,8 +77,8 @@ describe('Quick Find dialog launcher and navigation mode', () => {
     const container = overlayContainer.getContainerElement();
     expect(container.querySelectorAll('.cdk-overlay-pane.quick-find-overlay').length).toBe(1);
     expect(container.querySelector('.cdk-overlay-backdrop')).not.toBeNull();
-    expect(container.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe(
-      'Quick find'
+    expect(container.querySelector('[role="dialog"]')?.getAttribute('aria-labelledby')).toBe(
+      'quick-find-heading'
     );
     expect(
       openRef.overlayRef.getConfig().scrollStrategy?.constructor.name
@@ -88,7 +88,13 @@ describe('Quick Find dialog launcher and navigation mode', () => {
     );
 
     const closed = firstValueFrom(openRef.closed);
-    openRef.close();
+    const escape = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true
+    });
+    Object.defineProperty(escape, 'keyCode', { get: () => 27 });
+    container.querySelector<HTMLElement>('.cdk-overlay-pane')?.dispatchEvent(escape);
     await closed;
     await applicationRef.whenStable();
 
@@ -106,8 +112,8 @@ describe('Quick Find dialog launcher and navigation mode', () => {
     const headings = [...container.querySelectorAll('.quick-find__group h3')].map((heading) =>
       heading.textContent?.trim()
     );
-    const labels = [...container.querySelectorAll('.quick-find__entries button')].map((button) =>
-      button.textContent?.trim()
+    const labels = [...container.querySelectorAll('.quick-find__entry')].map((entry) =>
+      entry.textContent?.trim()
     );
 
     expect(headings).toEqual(['Global', 'Current project']);
@@ -166,8 +172,8 @@ describe('Quick Find dialog launcher and navigation mode', () => {
       callOrder.push('navigate');
       return true;
     });
-    const board = [...container.querySelectorAll<HTMLButtonElement>('.quick-find__entries button')]
-      .find((button) => button.textContent?.trim() === 'Board')!;
+    const board = [...container.querySelectorAll<HTMLElement>('.quick-find__entry')]
+      .find((entry) => entry.textContent?.trim() === 'Board')!;
 
     board.click();
 
