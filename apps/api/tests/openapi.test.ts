@@ -6,6 +6,20 @@ import { describe, expect, it } from 'vitest';
 const openApiPath = fileURLToPath(new URL('../../../docs/api/openapi.yaml', import.meta.url));
 
 describe('OpenAPI reference', () => {
+  it('documents format-aware CSV import and bounded source previews without changing exports', async () => {
+    const openApi = await readFile(openApiPath, 'utf8');
+    const requestSchema = openApi.split('    WorkItemCsvImportPreviewRequest:\n')[1]?.split('    WorkItemCsvImportApplyRequest:')[0];
+    const row = openApi.split('    WorkItemCsvImportPreviewRow:\n')[1]?.split('    WorkItemCsvImportPreview:')[0];
+    expect(requestSchema).toContain('description_format');
+    expect(requestSchema).toContain('missing/blank values default to plain_text');
+    expect(requestSchema).toContain('10,000 normalized UTF-16 code units');
+    expect(row).toContain('- descriptionFormat');
+    expect(row).toContain('- descriptionExcerpt');
+    expect(row).toContain('maxLength: 240');
+    expect(row).toContain('not HTML or Markdown');
+    expect(openApi).toContain('not round-trip import documents');
+  });
+
   it('documents comment write formats, required source, legacy exceptions, and lifecycle safety', async () => {
     const openApi = await readFile(openApiPath, 'utf8');
     const create = openApi.split('    CreateCommentRequest:\n')[1]?.split('    UpdateCommentRequest:')[0];

@@ -19,6 +19,7 @@ import { WorkItemService } from '../src/services/work-item-service.js';
 const workspaceId = '10000000-0000-4000-8000-000000000001';
 const memberId = '10000000-0000-4000-8000-000000000002';
 const projectId = '10000000-0000-4000-8000-000000000003';
+const expectedHeader = 'project_key,display_key,title,type,status,priority,assignee_name,assignee_email,reporter_name,reporter_email,label_names,milestone_name,cycle_name,due_date,estimate_points,created_at,updated_at,parent_key,parent_title';
 
 function actor() {
   return { workspaceId, memberId, role: 'owner' as const };
@@ -103,6 +104,21 @@ afterEach(() => {
 });
 
 describe('work item CSV export limits', () => {
+  it.each(['project', 'workspace'] as const)('retains exact %s summary headers without description enrichment', async (scope) => {
+    const repositories = repositoriesWithRawRows(1);
+    const dto = exportDto();
+    vi.spyOn(WorkItemService.prototype, 'enrichWorkItemListWithRepositories').mockResolvedValue([dto]);
+    vi.spyOn(WorkItemService.prototype, 'enrichWorkspaceWorkItemListWithRepositories').mockResolvedValue([
+      { ...dto, project: { id: projectId, key: 'EXP', name: 'Export Project', status: 'active' } }
+    ]);
+    const service = new WorkItemCsvExportService({ actor: actor(), repositories });
+    const result = scope === 'project'
+      ? await service.exportProjectWorkItems(projectId) : await service.exportWorkspaceWorkItems();
+    expect(result.csv.split('\n')[0]).toBe(expectedHeader);
+    expect(result.csv).not.toContain('description');
+    expect(synchronousExportLimit).toBe(10_000);
+  });
+
   it('accepts exactly 10,000 project rows from a 10,001-row bounded read', async () => {
     const repositories = repositoriesWithRawRows(synchronousExportLimit);
     const enriched = Array.from({ length: synchronousExportLimit }, (_, index) =>

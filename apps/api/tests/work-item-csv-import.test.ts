@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import { stringify } from 'csv-stringify/sync';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { createDb, createPool } from '../src/db/client.js';
@@ -240,6 +241,113 @@ afterAll(async () => {
 });
 
 describe('work item CSV import validation', () => {
+  it('preserves quoted multiline descriptions while trimming metadata and retaining identities', async () => {
+    const fixture = await createFixture();
+    const service = createService(fixture.actor, { clock: now });
+    const description = '  # Heading, "quoted"\r\n\r\n\tcode  \rLast line\n';
+    const csv = stringify([
+      [' title ', 'description', 'description_format', 'type', 'priority', 'reporter_email', 'assignee_email', 'label_names', 'due_date', 'estimate_points'],
+      ['  Structured task  ', description, ' markdown_v1 ', ' task ', ' high ', ' CASEY.CONTRIBUTOR@example.com ', ' MORGAN.MAINTAINER@example.com ', ' BACKEND, design ', ' 2026-07-31 ', ' 3 ']
+    ]);
+    const preview = await service.preview(fixture.projectId, csv);
+    expect(preview).toMatchObject({ validRows: 1, invalidRows: 0, errors: [], rows: [{
+      title: 'Structured task', descriptionFormat: 'markdown_v1', descriptionExcerpt: description.replace(/\r\n?/g, '\n'),
+      reporterEmail: 'casey.contributor@example.com', assigneeEmail: 'morgan.maintainer@example.com',
+      labelNames: ['backend', 'Design'], dueDate: '2026-07-31', estimatePoints: 3
+    }] });
+    expect(preview.rows[0]).not.toHaveProperty('description');
+    const applied = await service.apply(fixture.projectId, csv);
+    expect(applied.createdCount).toBe(1);
+    expect(applied.workItems[0]).toMatchObject({ displayKey: 'CSV-1', reporter: { id: fixture.contributorId } });
+    expect(await repositories.workItems.findById(applied.workItems[0]!.id)).toMatchObject({
+      description: description.replace(/\r\n?/g, '\n'), descriptionFormat: 'markdown_v1'
+    });
+  });
+
+  it.each([undefined, '', '  ', ' plain_text ', ' markdown_v1 '])('defaults missing/blank format and trims explicit metadata: %j', async (format) => {
+    const fixture = await createFixture();
+    const service = createService(fixture.actor);
+    const csv = format === undefined
+      ? 'title,type,priority,description\nDefault,task,medium,  **literal**  \n'
+      : stringify([['title', 'type', 'priority', 'description', 'description_format'], ['Default', 'task', 'medium', '  **literal**  ', format]]);
+    const expected = format?.trim() === 'markdown_v1' ? 'markdown_v1' : 'plain_text';
+    const preview = await service.preview(fixture.projectId, csv);
+    expect(preview.rows[0]).toMatchObject({ descriptionFormat: expected, descriptionExcerpt: '  **literal**  ' });
+    const applied = await service.apply(fixture.projectId, csv);
+    expect(await repositories.workItems.findById(applied.workItems[0]!.id)).toMatchObject({
+      description: '  **literal**  ', descriptionFormat: expected
+    });
+  });
+
+  it('reports invalid format by row and blocks all apply writes', async () => {
+    const fixture = await createFixture();
+    const service = createService(fixture.actor);
+    const csv = 'title,type,priority,description_format\nValid,task,medium,plain_text\nInvalid,task,medium,html\n';
+    const preview = await service.preview(fixture.projectId, csv);
+    expect(preview).toMatchObject({ validRows: 1, invalidRows: 1, errors: [{ rowNumber: 3,
+      field: 'description_format', message: 'CSV field "description_format" must be one of plain_text, markdown_v1.' }] });
+    await expect(service.apply(fixture.projectId, csv)).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect(await repositories.workItems.listByProject(fixture.projectId)).toEqual([]);
+    expect((await repositories.projects.findById(fixture.projectId))?.nextWorkItemNumber).toBe(1);
+  });
+
+  it.each(['x'.repeat(10_000), '\u{1f600}'.repeat(5_000), '\r\n'.repeat(10_000), ' \r\n\t '])(
+    'accepts normalized source limits and whitespace-only descriptions (%#)', async (description) => {
+      const fixture = await createFixture();
+      const service = createService(fixture.actor);
+      const csv = stringify([['title', 'type', 'priority', 'description', 'description_format'],
+        ['Boundary', 'task', 'medium', description, 'markdown_v1']]);
+      const preview = await service.preview(fixture.projectId, csv);
+      expect(preview.errors).toEqual([]);
+      expect(preview.rows[0]!.descriptionExcerpt.length).toBeLessThanOrEqual(240);
+      const applied = await service.apply(fixture.projectId, csv);
+      expect(await repositories.workItems.findById(applied.workItems[0]!.id)).toMatchObject({
+        description: description.replace(/\r\n?/g, '\n'), descriptionFormat: 'markdown_v1'
+      });
+    }
+  );
+
+  it('rejects normalized oversized descriptions and raw oversized metadata cells', async () => {
+    const fixture = await createFixture();
+    const service = createService(fixture.actor);
+    const source = `private${'\u{1f600}'.repeat(5_000)}`;
+    const csv = stringify([['title', 'type', 'priority', 'description'],
+      ['Too long', 'task', 'medium', source], [' '.repeat(10_001), 'task', 'medium', 'ok']]);
+    const preview = await service.preview(fixture.projectId, csv);
+    expect(preview).toMatchObject({ validRows: 0, invalidRows: 2 });
+    expect(preview.errors).toContainEqual({ rowNumber: 2, field: 'description',
+      message: 'CSV field "description" cannot exceed 10000 UTF-16 code units after line-ending normalization.' });
+    expect(preview.errors).toContainEqual({ rowNumber: 3, field: 'title',
+      message: 'CSV field "title" cannot exceed 10000 characters.' });
+    expect(JSON.stringify(preview)).not.toContain(source);
+    await expect(service.apply(fixture.projectId, csv)).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect(await repositories.workItems.listByProject(fixture.projectId)).toEqual([]);
+  });
+
+  it.each([
+    ['', ''], ['x'.repeat(240), 'x'.repeat(240)], ['x'.repeat(241), `${'x'.repeat(237)}...`],
+    [`${'x'.repeat(236)}\u{1f600}remaining`, `${'x'.repeat(236)}...`],
+    [`${'x'.repeat(235)}\u{1f600}remaining`, `${'x'.repeat(235)}\u{1f600}...`]
+  ])('bounds excerpts including the marker without splitting surrogate pairs (%#)', async (source, excerpt) => {
+    const fixture = await createFixture();
+    const csv = stringify([['title', 'type', 'priority', 'description'], ['Excerpt', 'task', 'medium', source]]);
+    const preview = await createService(fixture.actor).preview(fixture.projectId, csv);
+    expect(preview.rows[0]!.descriptionExcerpt).toBe(excerpt);
+    expect(excerpt.length).toBeLessThanOrEqual(240);
+    expect(preview.rows[0]).not.toHaveProperty('description');
+  });
+
+  it('revalidates referenced members at apply time after a valid formatted preview', async () => {
+    const fixture = await createFixture();
+    const service = createService(fixture.actor);
+    const csv = 'title,type,priority,description_format,reporter_email\nReady,task,medium,markdown_v1,casey.contributor@example.com\n';
+    expect((await service.preview(fixture.projectId, csv)).validRows).toBe(1);
+    await pool.query('update members set is_active = false where id = $1', [fixture.contributorId]);
+    await expect(service.apply(fixture.projectId, csv)).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect(await repositories.workItems.listByProject(fixture.projectId)).toEqual([]);
+    expect((await repositories.projects.findById(fixture.projectId))?.nextWorkItemNumber).toBe(1);
+  });
+
   it('returns normalized preview rows with defaults and case-insensitive lookups', async () => {
     const fixture = await createFixture();
     const service = createService(fixture.actor);
@@ -264,6 +372,8 @@ describe('work item CSV import validation', () => {
       {
         rowNumber: 2,
         title: 'Draft import, checklist',
+        descriptionFormat: 'plain_text',
+        descriptionExcerpt: 'Prepare team onboarding',
         type: 'task',
         status: 'ready',
         priority: 'medium',
@@ -277,6 +387,8 @@ describe('work item CSV import validation', () => {
       {
         rowNumber: 3,
         title: 'Defaulted row',
+        descriptionFormat: 'plain_text',
+        descriptionExcerpt: '',
         type: 'story',
         status: 'backlog',
         priority: 'high',
@@ -397,9 +509,9 @@ describe('work item CSV import validation', () => {
       service.apply(
         fixture.projectId,
         [
-          'title,type,status,priority',
-          'First imported row,task,ready,medium',
-          'Second imported row,bug,ready,high'
+          'title,type,status,priority,description_format',
+          'First imported row,task,ready,medium,markdown_v1',
+          'Second imported row,bug,ready,high,plain_text'
         ].join('\n')
       )
     ).rejects.toThrow();

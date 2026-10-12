@@ -5,6 +5,7 @@ import { join } from 'node:path';
 
 import { expect, test } from '@playwright/test';
 import type { APIRequestContext, Download, Locator, Page } from '@playwright/test';
+import { stringify } from 'csv-stringify/sync';
 
 const demoProjectId = '10000000-0000-4000-8000-000000000201';
 const hierarchyParentId = '10000000-0000-4000-8000-000000000420';
@@ -1418,17 +1419,19 @@ test('completes the v0.1.1 inbox mention workflow', async ({ page }) => {
   await expect(readMentionCard.getByRole('button', { name: 'Mark unread' })).toBeVisible();
 });
 
-test('imports project work items from CSV and exports filtered results', async ({ page }) => {
+test('imports project work items from CSV and exports filtered results', async ({ page }, testInfo) => {
   test.setTimeout(90_000);
 
   const runId = Date.now();
   const firstTitle = `E2E imported backlog ${runId}`;
   const secondTitle = `E2E imported ready ${runId}`;
-  const csv = [
-    'title,description,type,status,priority,assignee_email,reporter_email,label_names,milestone_name,due_date,estimate_points',
-    `"${firstTitle}","Imported through the v0.0.7 Playwright workflow.",task,backlog,medium,morgan.maintainer@example.com,avery.owner@example.com,backend,v0.0.3 Planning,2026-07-20,2`,
-    `"${secondTitle}","Second imported row.",story,ready,high,casey.contributor@example.com,avery.owner@example.com,design,v0.0.3 Planning,2026-07-21,3`
-  ].join('\n');
+  const source = `  # Import, "quoted"\r\n\tcode  \r\n<img src=x onerror=alert(1)>\n${'long-source-'.repeat(30)}`;
+  const excerpt = `${source.replace(/\r\n?/g, '\n').slice(0, 237)}...`;
+  const csv = stringify([
+    ['title', 'description', 'description_format', 'type', 'status', 'priority', 'assignee_email', 'reporter_email', 'label_names', 'milestone_name', 'due_date', 'estimate_points'],
+    [firstTitle, source, 'markdown_v1', 'task', 'backlog', 'medium', 'morgan.maintainer@example.com', 'avery.owner@example.com', 'backend', 'v0.0.3 Planning', '2026-07-20', '2'],
+    [secondTitle, 'Second imported row.', '', 'story', 'ready', 'high', 'casey.contributor@example.com', 'avery.owner@example.com', 'design', 'v0.0.3 Planning', '2026-07-21', '3']
+  ]);
 
   await page.goto(`/projects/${demoProjectId}/work-items/import`);
   await expect(page.getByRole('heading', { name: 'Import work items' })).toBeVisible();
@@ -1446,6 +1449,36 @@ test('imports project work items from CSV and exports filtered results', async (
   await expect(page.getByRole('row', { name: new RegExp(firstTitle) })).toBeVisible();
   await expect(page.getByRole('row', { name: new RegExp(secondTitle) })).toBeVisible();
 
+  const previewTable = page.getByRole('table', { name: 'Normalized import rows' });
+  const firstRow = previewTable.getByRole('row', { name: new RegExp(firstTitle) });
+  await expect(firstRow.getByRole('cell', { name: 'Markdown', exact: true })).toBeVisible();
+  await expect(previewTable.getByRole('cell', { name: 'Plain text', exact: true })).toBeVisible();
+  const disclosure = firstRow.locator('details.description-source');
+  const summary = disclosure.locator('summary');
+  await expect(disclosure).not.toHaveAttribute('open', '');
+  await summary.focus();
+  await summary.press('Enter');
+  await expect(disclosure).toHaveAttribute('open', '');
+  expect(await disclosure.locator('pre').textContent()).toBe(excerpt);
+  await expect(previewTable.locator('script, img, iframe, a, h1, ul')).toHaveCount(0);
+
+  for (const viewport of [
+    { name: 'csv-preview-desktop', width: 1440, height: 900 },
+    { name: 'csv-preview-mobile', width: 390, height: 844 }
+  ]) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await expectNoPageOverflow(page);
+    await expect(summary).toBeVisible();
+    await testInfo.attach(viewport.name, {
+      body: await page.screenshot({ path: testInfo.outputPath(`${viewport.name}.png`), fullPage: true }),
+      contentType: 'image/png'
+    });
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await summary.focus();
+  await summary.press('Enter');
+  await expect(disclosure).not.toHaveAttribute('open', '');
+
   await page.getByRole('button', { name: 'Import work items' }).click();
 
   await expect(page.getByLabel('Import complete')).toContainText('2 work items imported');
@@ -1461,7 +1494,11 @@ test('imports project work items from CSV and exports filtered results', async (
   await page.getByRole('button', { name: 'Export applied project filters as CSV' }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe('worktrail-wt-work-items.csv');
-  expect(await downloadText(download)).toContain(firstTitle);
+  const exported = await downloadText(download);
+  expect(exported).toContain(firstTitle);
+  expect(exported.split('\n')[0]).toBe('project_key,display_key,title,type,status,priority,assignee_name,assignee_email,reporter_name,reporter_email,label_names,milestone_name,cycle_name,due_date,estimate_points,created_at,updated_at,parent_key,parent_title');
+  expect(exported).not.toContain('description_format');
+  expect(exported).not.toContain('<img');
 
   await page.goto(`/projects/${demoProjectId}/board`);
   await expect(page.getByRole('heading', { name: 'Project board' })).toBeVisible();

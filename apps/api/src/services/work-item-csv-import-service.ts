@@ -1,8 +1,12 @@
-import type {
-  WorkItemCsvImportApplyDto,
-  WorkItemCsvImportErrorDto,
-  WorkItemCsvImportPreviewDto,
-  WorkItemCsvImportPreviewRowDto
+import {
+  authoredContentFormats,
+  authoredContentSourceLimit,
+  normalizeAuthoredContentSource,
+  type AuthoredContentFormat,
+  type WorkItemCsvImportApplyDto,
+  type WorkItemCsvImportErrorDto,
+  type WorkItemCsvImportPreviewDto,
+  type WorkItemCsvImportPreviewRowDto
 } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
@@ -30,6 +34,7 @@ const csvImportRequiredHeaders = ['title', 'type', 'priority'] as const;
 const csvImportAllowedHeaders = [
   'title',
   'description',
+  'description_format',
   'type',
   'status',
   'priority',
@@ -59,6 +64,7 @@ interface NormalizedImportRow {
   rowNumber: number;
   title: string;
   description: string;
+  descriptionFormat: AuthoredContentFormat;
   type: WorkItemType;
   status: WorkItemStatus;
   priority: WorkItemPriority;
@@ -154,6 +160,7 @@ export class WorkItemCsvImportService {
             {
               title: row.title,
               description: row.description,
+              descriptionFormat: row.descriptionFormat,
               type: row.type,
               status: row.status,
               priority: row.priority,
@@ -245,7 +252,8 @@ export class WorkItemCsvImportService {
     try {
       const result = parseCsvRecords(csv, {
         requiredHeaders: csvImportRequiredHeaders,
-        allowedHeaders: csvImportAllowedHeaders
+        allowedHeaders: csvImportAllowedHeaders,
+        preserveWhitespace: true
       });
 
       return {
@@ -297,7 +305,7 @@ export class WorkItemCsvImportService {
     errors: WorkItemCsvImportErrorDto[]
   ): NormalizedImportRow | null {
     for (const [field, value] of Object.entries(record.values)) {
-      if (value.length > maxCellLength) {
+      if (field !== 'description' && value.length > maxCellLength) {
         errors.push({
           rowNumber: record.rowNumber,
           field,
@@ -307,7 +315,22 @@ export class WorkItemCsvImportService {
     }
 
     const title = this.requiredString(record, 'title', errors);
-    const description = this.optionalString(record, 'description');
+    const description = normalizeAuthoredContentSource(record.values.description ?? '');
+
+    if (description.length > authoredContentSourceLimit) {
+      errors.push({
+        rowNumber: record.rowNumber,
+        field: 'description',
+        message: `CSV field "description" cannot exceed ${authoredContentSourceLimit} UTF-16 code units after line-ending normalization.`
+      });
+    }
+    const descriptionFormat = this.enumValue(
+      record,
+      'description_format',
+      authoredContentFormats,
+      errors,
+      'plain_text'
+    );
     const type = this.enumValue(record, 'type', workItemTypes, errors);
     const status = this.enumValue(record, 'status', workItemStatuses, errors, 'backlog');
     const priority = this.enumValue(record, 'priority', workItemPriorities, errors);
@@ -327,6 +350,7 @@ export class WorkItemCsvImportService {
     if (
       errors.some((error) => error.rowNumber === record.rowNumber) ||
       title === null ||
+      descriptionFormat === null ||
       type === null ||
       status === null ||
       priority === null ||
@@ -340,6 +364,7 @@ export class WorkItemCsvImportService {
       rowNumber: record.rowNumber,
       title,
       description,
+      descriptionFormat,
       type,
       status,
       priority,
@@ -585,6 +610,8 @@ export class WorkItemCsvImportService {
     return {
       rowNumber: row.rowNumber,
       title: row.title,
+      descriptionFormat: row.descriptionFormat,
+      descriptionExcerpt: descriptionExcerpt(row.description),
       type: row.type,
       status: row.status,
       priority: row.priority,
@@ -596,6 +623,24 @@ export class WorkItemCsvImportService {
       estimatePoints: row.estimatePoints
     };
   }
+}
+
+function descriptionExcerpt(source: string): string {
+  const limit = 240;
+  const marker = '...';
+
+  if (source.length <= limit) {
+    return source;
+  }
+
+  let end = limit - marker.length;
+  const last = source.charCodeAt(end - 1);
+  const next = source.charCodeAt(end);
+  if (last >= 0xd800 && last <= 0xdbff && next >= 0xdc00 && next <= 0xdfff) {
+    end -= 1;
+  }
+
+  return `${source.slice(0, end)}${marker}`;
 }
 
 function groupByNormalized<T>(items: T[], getValue: (item: T) => string): Map<string, T[]> {

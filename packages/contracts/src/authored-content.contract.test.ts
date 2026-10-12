@@ -11,6 +11,7 @@ import {
   type UpdateWorkItemRequest,
   type UpdateCommentRequest,
   type WorkItemDetailDto,
+  type WorkItemCsvImportPreviewRowDto,
   type WorkItemListItemDto
 } from './index.js';
 
@@ -74,5 +75,12 @@ describe('authored content primitives', () => {
 
     expect(legacy.bodyFormat).toBeUndefined();
     expect(conversion.bodyFormat).toBe('markdown_v1');
+  });
+
+  it('requires format metadata and a source excerpt on CSV preview rows', () => {
+    expectTypeOf<WorkItemCsvImportPreviewRowDto['descriptionFormat']>()
+      .toEqualTypeOf<AuthoredContentFormat>();
+    expectTypeOf<WorkItemCsvImportPreviewRowDto['descriptionExcerpt']>().toEqualTypeOf<string>();
+    expectTypeOf<'description'>().not.toMatchTypeOf<keyof WorkItemCsvImportPreviewRowDto>();
   });
 });

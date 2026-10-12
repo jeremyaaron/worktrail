@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementation in progress. Phases 0-4 are complete; Phases 5-11 have not started.
+Implementation in progress. Phases 0-5 are complete; Phases 6-11 have not started.
 
 ## Purpose
 
@@ -670,7 +670,71 @@ npm run typecheck
 git diff --check
 ```
 
-Status: Not started.
+Status: Complete (October 12, 2026).
+
+### Completion Evidence
+
+- Added optional `description_format` import metadata using the shared finite format vocabulary.
+  Missing/blank values default to plain text; explicit metadata is trimmed. Unknown values produce
+  row-specific preview errors and prevent the entire apply operation.
+- Added opt-in whitespace preservation to `parseCsvRecords`; existing callers retain parser trimming.
+  Import reads description cells directly, normalizes line endings through the shared helper, and
+  validates the normalized 10,000 UTF-16 code-unit limit. Other cells retain their raw limit and
+  metadata normalization. Quoted newlines, indentation, commas, and quotes survive preview/apply.
+- Carried source and format through normalized rows into `createWorkItemWithRepositories` without
+  changing apply-time reference revalidation, identity allocation, reporter selection, or transaction
+  boundaries. The rollback regression now includes explicit formatted rows.
+- Added required preview `descriptionFormat` and `descriptionExcerpt` contract/OpenAPI fields.
+  Excerpts contain at most 240 UTF-16 units, including trailing ASCII `...` when truncated, and never
+  split a surrogate pair. Preview rows still omit full descriptions.
+- Added a compact format column and native keyboard-accessible source disclosures to the Angular
+  preview. Interpolation displays escaped source with preserved whitespace and wrapping; no Markdown
+  renderer, HTML insertion, or new dependency was introduced. Empty descriptions have no disclosure.
+- Added parser, service, endpoint, contract, OpenAPI, and Angular regressions for format defaults,
+  invalid metadata, normalized boundaries, oversized raw metadata, bounded excerpts, and inert source.
+  Apply revalidation is verified by deactivating a referenced reporter after a valid preview.
+- Asserted exact project/workspace summary export headers and the unchanged 10,000-row export limit.
+  Existing bounded-read and overflow tests remain passing; descriptions and formats are not exported.
+- Extended the existing Playwright CSV import/export workflow with formatted multiline source,
+  blank-format compatibility, keyboard expansion/collapse, literal HTML-looking text, bounded excerpts,
+  and exact exported headers. Desktop (1440 x 900) and mobile (390 x 844) screenshots were inspected;
+  neither viewport had page-level horizontal overflow. The preview table keeps its existing local
+  horizontal scrolling on small screens.
+
+Verification passed:
+
+```sh
+npm run build:contracts
+npm run db:migrate
+npm run db:seed
+npm run lint
+npm run typecheck
+node_modules/.bin/tsc -p apps/web/tsconfig.spec.json --noEmit
+npm test
+npm run build
+npm run test --workspace @worktrail/api -- csv openapi
+npm run test:e2e -- --grep 'imports project work items from CSV and exports filtered results'
+npm run lint --workspace @worktrail/api
+npm run typecheck --workspace @worktrail/api
+git diff --check
+```
+
+All 1,078 package tests passed: API 600 across 51 files, Angular 424, and contracts 54 across 12 files.
+The focused CSV/OpenAPI rerun passed all 46 tests across four files, including the formatted rollback
+case. The selected Chromium import/export workflow also passed. OpenAPI parsed successfully with the
+installed `js-yaml` parser; required preview fields and the excerpt bound were checked structurally.
+Lint, typecheck, and production build passed without budget warnings (initial bundle 379.41 kB).
+
+Database commands and tests explicitly targeted disposable PostgreSQL `16.14`, database
+`worktrail_v029_verify`, published only on `127.0.0.1:64906`, and unique temporary attachment storage.
+Playwright reset/migrate/seed and teardown used that same isolated target, with a nested E2E storage
+root and `WORKTRAIL_E2E_SKIP_DB_RESTORE=true`. Its API/web servers used ports 3000/4315 after confirming
+both were free. The harness stopped both servers; fixture cleanup left no CSV test workspaces, and
+the phase-owned container and temporary storage were removed. The user's database, attachments, and
+existing processes were not modified. Screenshots remain in the ignored `test-results` output.
+
+No additional migration, export schema change, renderer dependency, or release metadata change was
+needed. Phase 6 remains next.
 
 ## Phase 6: Markdown Projection And Safe Angular Viewer
 

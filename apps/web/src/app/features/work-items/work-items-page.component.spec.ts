@@ -2412,6 +2412,8 @@ describe('WorkItemImportPageComponent', () => {
         {
           rowNumber: 2,
           title: 'Imported task',
+          descriptionFormat: 'plain_text',
+          descriptionExcerpt: '',
           type: 'task',
           status: 'backlog',
           priority: 'medium',
@@ -2490,6 +2492,8 @@ describe('WorkItemImportPageComponent', () => {
         {
           rowNumber: 2,
           title: 'Imported task',
+          descriptionFormat: 'plain_text',
+          descriptionExcerpt: '',
           type: 'task',
           status: 'backlog',
           priority: 'medium',
@@ -2535,6 +2539,53 @@ describe('WorkItemImportPageComponent', () => {
     expect(
       compiled.querySelector<HTMLAnchorElement>(`a[href="/projects/${projectId}/board"]`)
     ).not.toBeNull();
+  });
+
+  for (const format of ['plain_text', 'markdown_v1'] as const) {
+    it(`shows ${format} metadata and expandable escaped source without active markup`, () => {
+      const fixture = TestBed.createComponent(WorkItemImportPageComponent);
+      const http = TestBed.inject(HttpTestingController);
+      fixture.detectChanges();
+      http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+      const excerpt = '  <script>alert(1)</script>\n<img src=x onerror=alert(1)> **literal**  ';
+      fixture.componentInstance.preview.set({
+        totalRows: 1, validRows: 1, invalidRows: 0, errors: [], warnings: [], rows: [{
+          rowNumber: 2, title: 'Source inspection', descriptionFormat: format, descriptionExcerpt: excerpt,
+          type: 'task', status: 'backlog', priority: 'medium', assigneeEmail: null,
+          reporterEmail: member.email, labelNames: [], milestoneName: null, dueDate: null, estimatePoints: null
+        }]
+      });
+      fixture.detectChanges();
+      const compiled = fixture.nativeElement as HTMLElement;
+      const table = compiled.querySelector<HTMLElement>('.preview-table')!;
+      const details = table.querySelector<HTMLDetailsElement>('details')!;
+      const summary = details.querySelector('summary')!;
+      expect(table.textContent).toContain(format === 'markdown_v1' ? 'Markdown' : 'Plain text');
+      expect(details.open).toBeFalse();
+      expect(summary.getAttribute('aria-label')).toBe('Description source for Source inspection');
+      summary.click();
+      expect(details.open).toBeTrue();
+      expect(details.querySelector('pre')?.textContent).toBe(excerpt);
+      expect(table.querySelector('script, img, iframe, a, h1, ul')).toBeNull();
+      summary.click();
+      expect(details.open).toBeFalse();
+    });
+  }
+
+  it('omits the source disclosure for an empty description', () => {
+    const fixture = TestBed.createComponent(WorkItemImportPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    fixture.componentInstance.preview.set({
+      totalRows: 1, validRows: 1, invalidRows: 0, errors: [], warnings: [], rows: [{
+        rowNumber: 2, title: 'Empty description', descriptionFormat: 'plain_text', descriptionExcerpt: '',
+        type: 'task', status: 'backlog', priority: 'medium', assigneeEmail: null,
+        reporterEmail: member.email, labelNames: [], milestoneName: null, dueDate: null, estimatePoints: null
+      }]
+    });
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.preview-table details')).toBeNull();
   });
 
   it('shows archived project state and blocks preview/apply', async () => {

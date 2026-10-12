@@ -1880,6 +1880,8 @@ describe('work item API', () => {
             {
               rowNumber: 2,
               title: 'Imported API row',
+              descriptionFormat: 'plain_text',
+              descriptionExcerpt: '',
               type: 'task',
               status: 'ready',
               priority: 'high',
@@ -1896,6 +1898,22 @@ describe('work item API', () => {
 
     const workItems = await repositories.workItems.listByProject(fixture.projectId);
     expect(workItems).toHaveLength(0);
+  });
+
+  it('previews and applies formatted CSV description source through the API', async () => {
+    const fixture = await createFixture();
+    const csv = 'title,type,priority,description,description_format\r\nStructured API import,task,medium,"  ## Heading\r\n\tcode, ""quoted""  \r\n",markdown_v1\r\n';
+    const preview = await request(app).post(`/api/projects/${fixture.projectId}/work-items/imports/preview`)
+      .set(fixture.headers).send({ csv }).expect(200);
+    expect(preview.body.rows[0]).toMatchObject({
+      descriptionFormat: 'markdown_v1', descriptionExcerpt: '  ## Heading\n\tcode, "quoted"  \n'
+    });
+    expect(preview.body.rows[0]).not.toHaveProperty('description');
+    const applied = await request(app).post(`/api/projects/${fixture.projectId}/work-items/imports`)
+      .set(fixture.headers).send({ csv }).expect(201);
+    expect(await repositories.workItems.findById(applied.body.workItems[0].id)).toMatchObject({
+      description: preview.body.rows[0].descriptionExcerpt, descriptionFormat: 'markdown_v1'
+    });
   });
 
   it('returns validation previews for invalid work item CSV import rows', async () => {

@@ -5155,6 +5155,16 @@ components:
       type: object
       required: [csv]
       additionalProperties: false
+      description: |
+        Import requires title, type, and priority headers. Optional description_format accepts
+        plain_text or markdown_v1 after metadata trimming; missing/blank values default to plain_text.
+        Invalid formats produce row-specific errors and block apply. Description cells preserve
+        whitespace and CSV quoting, normalizing CRLF/lone CR to LF without trimming. Descriptions may
+        be empty and must fit 10,000 normalized UTF-16 code units. Other cells retain the 10,000 raw
+        code-unit limit. Files retain the 1 MiB, 250-row, and 20-labels-per-row limits. Preview returns
+        format metadata and bounded source excerpts, not rendered Markdown or full descriptions.
+      examples:
+        - csv: "title,type,priority,description,description_format\nStructured task,task,medium,\"  ## Acceptance\n\n- Ready for review\n\",markdown_v1\n"
       properties:
         csv:
           type: string
@@ -5163,6 +5173,11 @@ components:
       type: object
       required: [csv]
       additionalProperties: false
+      description: |
+        Revalidates the same file and current references using preview rules, then applies all valid
+        rows transactionally; any validation error blocks the entire import. Description source and
+        format are preserved together. Summary project/workspace CSV export columns are unchanged:
+        they do not include descriptions or formats and are not round-trip import documents.
       properties:
         csv:
           type: string
@@ -5184,6 +5199,8 @@ components:
       required:
         - rowNumber
         - title
+        - descriptionFormat
+        - descriptionExcerpt
         - type
         - status
         - priority
@@ -5198,6 +5215,12 @@ components:
           type: integer
         title:
           type: string
+        descriptionFormat:
+          $ref: "#/components/schemas/AuthoredContentFormat"
+        descriptionExcerpt:
+          type: string
+          maxLength: 240
+          description: Normalized source text, at most 240 UTF-16 code units including a trailing ASCII "..." when truncated, without splitting a surrogate pair. Render only as escaped text, not HTML or Markdown.
         type:
           $ref: "#/components/schemas/WorkItemType"
         status:

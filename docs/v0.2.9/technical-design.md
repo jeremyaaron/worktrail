@@ -2,9 +2,10 @@
 
 ## Status
 
-Implementation in progress. Phases 0-3 completed on October 11, 2026, and Phase 4 completed on
-October 12, 2026. Persistence, format-aware reads, and description/comment writes, locking, no-ops,
-and activity are implemented. CSV format support and UI integration remain pending. See the
+Implementation in progress. Phases 0-3 completed on October 11, 2026, and Phases 4-5 completed on
+October 12, 2026. Persistence, format-aware reads and writes, locking, no-ops, activity, and CSV
+import/preview format support are implemented. The Markdown viewer/editor and description/comment UI
+integration remain pending. See the
 [implementation plan](implementation-plan.md) for evidence.
 
 ## Summary
@@ -173,7 +174,8 @@ Extend contracts as follows:
 | `WorkItemCsvImportPreviewRowDto` | `descriptionFormat: AuthoredContentFormat` | Required response field |
 
 Also add a bounded `descriptionExcerpt: string` to import preview rows. Return at most 240 UTF-16 code
-units of normalized source, with a truncation indicator that does not split a surrogate pair. This is
+units of normalized source, including trailing ASCII `...` when truncated, without splitting a
+surrogate pair. This is
 escaped source for verification, not a rendered Markdown preview or a complete description response.
 
 Keep `UpdateCommentRequest.body` required. A format-only comment conversion submits the unchanged body
