@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Worktrail API
-  version: 0.2.7
+  version: 0.2.8
   summary: HTTP API reference for the Worktrail local-first project management app.
   description: |
     This document describes the implemented Worktrail API routes. It is intentionally
@@ -1851,6 +1851,34 @@ paths:
               schema:
                 $ref: "#/components/schemas/QuickFindResponse"
               examples:
+                exactWorkItem:
+                  value:
+                    query: WT-3
+                    groups:
+                      workItems:
+                        items:
+                          - kind: work_item
+                            project:
+                              id: 10000000-0000-4000-8000-000000000201
+                              key: WT
+                              name: Worktrail App
+                              status: active
+                            workItem:
+                              id: 10000000-0000-4000-8000-000000000403
+                              displayKey: WT-3
+                              title: Implement transport-neutral API handler contract
+                              status: in_progress
+                              type: task
+                            match:
+                              field: work_item_key
+                              mode: exact
+                              excerpt: null
+                        hasMore: false
+                      projects: { items: [], hasMore: false }
+                      milestones: { items: [], hasMore: false }
+                      cycles: { items: [], hasMore: false }
+                      reports: { items: [], hasMore: false }
+                      attachments: { items: [], hasMore: false }
                 noMatches:
                   value:
                     query: release evidence

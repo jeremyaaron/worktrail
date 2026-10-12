@@ -1328,7 +1328,58 @@ rg -n '0\.2\.7|no global search|cannot search|search is limited' README.md docs 
 
 Status:
 
-- Not started.
+- Completed on July 24, 2026.
+- Updated release identity to `0.2.8` across the root, API, web, contracts, lockfile workspace records,
+  OpenAPI reference, README, and public site. The API now depends on `@worktrail/contracts@0.2.8`;
+  unrelated external package versions in the lockfile remain unchanged.
+- Marked the PRD and technical design implemented. Added:
+  - release notes covering user behavior, searchable fields, query/group limits, privacy,
+    authorization, migration/operator impact, compatibility, and deferred capabilities;
+  - destination-neutral pattern notes for concrete heterogeneous groups, deterministic rank tiers,
+    limit-plus-one truncation, privacy-preserving transport/logging, lazy shell tools, stale-response
+    generations, canonical destination mapping, and honest index evidence.
+- Updated README guidance with the visible trigger and `Command/Ctrl+K`, global/current-project empty
+  mode, the approved fields across six groups, 2-120-code-point query bounds, five-row group limits,
+  work-item overflow, archived/completed behavior, POST-body privacy, and explicit search exclusions.
+- Updated the static public site to present Quick Find as the v0.2.8 baseline without claiming fuzzy,
+  semantic, personalized, attachment-content, hosted, or production-authenticated search. Updated
+  metadata, capability cards, architecture copy, limitation cards, and v0.2.8 document links.
+- Visually inspected full-page Chromium captures at 1440 px and 390 px widths. The eight product cards,
+  three audience cards, four limitation cards, architecture stack, run instructions, and footer remain
+  readable without overlap or incoherent overflow.
+- Finalized OpenAPI at `0.2.8` with a representative exact `WT-3` grouped response alongside the
+  no-match response. The example preserves bounded groups and excludes rank and attachment storage
+  internals.
+- Completed a clean local setup sequence:
+  - guarded attachment storage reset;
+  - database reset;
+  - migrations through `0018_sweet_apocalypse.sql`;
+  - deterministic seed;
+  - repeat idempotent seed.
+- Verification passed:
+  - focused Quick Find repository, endpoint, validation, migration, and OpenAPI suite: 5 files and 20
+    tests;
+  - configured zero-warning lint for all workspaces;
+  - all workspace typechecks;
+  - API: 49 files and 477 tests;
+  - Angular: 421 tests;
+  - contracts: 11 files and 42 tests;
+  - production build without bundle or component-style warnings: 379.41 kB raw initial output and a
+    35.12 kB lazy Quick Find dialog chunk;
+  - complete Playwright Chromium regression: 29 workflows;
+  - `npm audit --omit=dev --audit-level=low`: zero vulnerabilities;
+  - focused OpenAPI contract check and `git diff --check`.
+- The repository has no root Prettier dependency or configuration. The new release notes and pattern
+  notes pass an ad hoc Markdown Prettier check; applying default Prettier rules to established README,
+  site, OpenAPI, and TypeScript files would create unrelated formatting churn. Configured lint,
+  compilers, tests, and diff hygiene remain the authoritative gates.
+- Final stale-version review found only the intentional historical v0.2.7 README section/directory and
+  the unrelated external `tmp@0.2.7` package. Migration metadata contains the intended
+  `0018_sweet_apocalypse` entry. No budget increase, credential, query value, internal attachment field,
+  runtime object, local path, generated test result, or unrelated feature change is part of the diff.
+- No commit, push, tag, publication, merge, GitHub release, hosted infrastructure, or new search
+  capability was introduced. No Phase 11 acceptance criterion or v0.2.8 release criterion remains
+  open.
 
 ## Phase Completion Protocol
 

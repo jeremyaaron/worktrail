@@ -6,12 +6,12 @@
     <title>Worktrail | Project management reference app</title>
     <meta
       name="description"
-      content="Worktrail is a project management reference app for files in work-item context, scalable work discovery, daily team work, two-level work breakdown, portfolio review, cycle planning and closeout, and published status snapshots."
+      content="Worktrail is a project management reference app for fast workspace navigation, bounded multi-entity search, files in work-item context, scalable work discovery, daily team work, portfolio review, cycle planning and closeout, and published status snapshots."
     >
     <meta property="og:title" content="Worktrail">
     <meta
       property="og:description"
-      content="A project management reference app for bounded work item attachments, scalable work discovery, daily team work, bounded work breakdown, portfolio review, cycle planning and closeout, and production-shaped TypeScript architecture."
+      content="A project management reference app for bounded workspace search, work item attachments, scalable work discovery, daily team work, portfolio review, cycle planning and closeout, and production-shaped TypeScript architecture."
     >
     <meta property="og:type" content="website">
     <meta name="theme-color" content="#f6f8fb">
@@ -48,7 +48,8 @@
           <p class="hero-copy">
             Worktrail is a focused project management app for daily execution, project operation,
             bounded work breakdown, workspace portfolio review, cycle planning and closeout,
-            collaboration, dependencies, files in context, and published status snapshots.
+            collaboration, dependencies, files in context, quick workspace navigation, and published
+            status snapshots.
           </p>
           <p class="hero-copy hero-copy-secondary">
             It is also a reference implementation for an Angular static frontend, a TypeScript API
@@ -66,7 +67,7 @@
       <section class="signal-band" aria-label="Project signals">
         <div class="signal">
           <span class="signal-value">Users</span>
-          <span class="signal-label">Daily queue, work breakdown, portfolio review, inbox, saved views, project boards, milestones, cycle closeout, comments, and reports</span>
+          <span class="signal-label">Quick Find, daily queue, work breakdown, portfolio review, inbox, saved views, project boards, milestones, cycle closeout, comments, and reports</span>
         </div>
         <div class="signal">
           <span class="signal-value">Builders</span>
@@ -128,6 +129,17 @@
           </article>
 
           <article class="feature">
+            <span class="feature-kicker">Jump to context</span>
+            <h3>Find known records without choosing a page first.</h3>
+            <ul>
+              <li>A visible shell action and <code>Command/Ctrl+K</code> open Quick Find from across the app.</li>
+              <li>Empty mode offers global and current-project destinations without issuing a search.</li>
+              <li>Bounded groups cover projects, work items, milestones, cycles, published reports, and attachment filenames.</li>
+              <li>Exact, prefix, and substring tiers stay deterministic; archived and completed results remain visibly labeled.</li>
+            </ul>
+          </article>
+
+          <article class="feature">
             <span class="feature-kicker">Break down outcomes</span>
             <h3>Turn a deliverable into independently operated child work.</h3>
             <ul>
@@ -177,27 +189,27 @@
 
       <section class="section" id="baseline" aria-labelledby="baseline-title">
         <div class="section-heading">
-          <p class="eyebrow">v0.2.7 baseline</p>
-          <h2 id="baseline-title">Files stay with the work that explains them.</h2>
+          <p class="eyebrow">v0.2.8 baseline</p>
+          <h2 id="baseline-title">Known project context is one quick search away.</h2>
           <p>
-            The v0.2.7 baseline adds bounded work item attachments with explicit policy,
-            authorization, activity, and local persistence while retaining scalable work discovery
-            and the established planning, collaboration, reporting, and project-operation workflows.
+            The v0.2.8 baseline adds keyboard-friendly workspace navigation and bounded grouped search
+            while retaining files in context, scalable work discovery, and the established planning,
+            collaboration, reporting, and project-operation workflows.
           </p>
         </div>
 
         <div class="baseline-grid">
           <div>
             <strong>For product users</strong>
-            <span>Bounded work item files, paginated project and workspace discovery, daily work, two-level work breakdown, portfolio review, inbox updates, reliable filters, saved/pinned views, planning review, cycle closeout, collaboration, CSV flows, and portable status reports.</span>
+            <span>Quick Find across six record groups, bounded work item files, paginated project and workspace discovery, daily work, two-level work breakdown, portfolio review, inbox updates, reliable filters, saved/pinned views, planning review, cycle closeout, collaboration, CSV flows, and portable status reports.</span>
           </div>
           <div>
             <strong>For builders</strong>
-            <span>Metadata/byte ownership boundaries, bounded binary transport, shared page contracts, durable query and transient window separation, typed Angular clients, endpoint handlers, versioned snapshot validation, derived read models, and focused test coverage.</span>
+            <span>Bounded heterogeneous reads, deterministic ranking, limit-plus-one groups, privacy-preserving search transport, lazy shell tools, stale-response protection, metadata/byte ownership boundaries, typed Angular clients, endpoint handlers, and focused test coverage.</span>
           </div>
           <div>
             <strong>For operators</strong>
-            <span>Postgres migrations, marked local attachment storage, deterministic metadata and object seeds, guarded resets, production preview, runtime checks, health/readiness endpoints, checked-in OpenAPI, and CI verification.</span>
+            <span>Postgres migrations and search indexes, local performance evidence, marked attachment storage, deterministic seeds, guarded resets, production preview, runtime checks, health/readiness endpoints, checked-in OpenAPI, and CI verification.</span>
           </div>
         </div>
       </section>
@@ -215,10 +227,10 @@
             </p>
           </div>
           <div class="stack-panel" aria-label="Architecture layers">
-            <div><strong>Frontend</strong><span>Angular standalone route components, lazy route chunks, static build output, URL-backed query state, and responsive work surfaces suitable for S3/CloudFront hosting.</span></div>
-            <div><strong>API boundary</strong><span>Shared DTO contracts, explicit request validation, bounded binary and JSON responses, transport-neutral endpoint handlers, Express local adapter, and OpenAPI documentation.</span></div>
-            <div><strong>Domain</strong><span>Attachment policy and authorization, project planning, bounded work hierarchy, cycle review, delivery health, relationships, notifications, saved views, CSV flows, report snapshots, and service-level permissions.</span></div>
-            <div><strong>Persistence</strong><span>Postgres metadata plus immutable bytes behind an object-store port, with Drizzle migrations, trigram search indexes, repeatable-read pages, deterministic seeds, lifecycle snapshots, activity, notifications, relationships, and saved views.</span></div>
+            <div><strong>Frontend</strong><span>Angular standalone route components, lazy route and Quick Find chunks, static build output, URL-backed list query state, and responsive work surfaces suitable for S3/CloudFront hosting.</span></div>
+            <div><strong>API boundary</strong><span>Shared DTO contracts, explicit request validation, bounded binary and grouped JSON responses, privacy-preserving POST search, transport-neutral endpoint handlers, Express local adapter, and OpenAPI documentation.</span></div>
+            <div><strong>Domain</strong><span>Workspace-authorized Quick Find, attachment policy, project planning, bounded work hierarchy, cycle review, delivery health, relationships, notifications, saved views, CSV flows, report snapshots, and service-level permissions.</span></div>
+            <div><strong>Persistence</strong><span>Postgres metadata plus immutable bytes behind an object-store port, with Drizzle migrations, bounded trigram-backed search, repeatable-read pages, deterministic seeds, lifecycle snapshots, activity, notifications, relationships, and saved views.</span></div>
             <div><strong>Operations</strong><span>Production preview, runtime config validation, liveness/readiness endpoints, CI lint/typecheck/test/build, and local smoke-test guidance.</span></div>
           </div>
         </div>
@@ -278,6 +290,10 @@
             <span>The production preview is for local operational inspection. Managed deployment, S3, shared multi-instance file storage, secrets, observability, background workers, and internet-safe hosting are not included. Interactive work lists are paged, but exact counts and deep offsets have a cost; complete boards, aggregate reads, and synchronous exports retain documented limits.</span>
           </div>
           <div>
+            <strong>No enterprise search layer</strong>
+            <span>Quick Find uses bounded PostgreSQL matching across approved fields. It does not provide fuzzy, semantic, personalized, attachment-content, or complete narrative search; dedicated global result pages, exact totals, analytics, and hosted search infrastructure are deferred.</span>
+          </div>
+          <div>
             <strong>No file-content security layer yet</strong>
             <span>Attachments are bounded and signature-checked, but they are not malware-scanned, previewed, rendered inline, indexed, versioned, retained by policy, or transferred through background and resumable jobs. Production authentication is also deferred.</span>
           </div>
@@ -310,9 +326,9 @@ npm run preview</code></pre>
       <span>Worktrail</span>
       <a href="https://github.com/jeremyaaron/worktrail">GitHub</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/README.md">README</a>
-      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.7/prd.md">v0.2.7 PRD</a>
-      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.7/technical-design.md">Technical design</a>
-      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.7/release-notes.md">Release notes</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.8/prd.md">v0.2.8 PRD</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.8/technical-design.md">Technical design</a>
+      <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.2.8/release-notes.md">Release notes</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/api/openapi.yaml">OpenAPI</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.0.X/v0.0.6/operations-runbook.md">Runbook</a>
       <a href="https://github.com/jeremyaaron/worktrail/blob/main/docs/v0.0.X/v0.0.7/csv-import-export.md">CSV guide</a>
