@@ -3,6 +3,7 @@ import type {
   ProjectCycleCloseoutSnapshotDto,
   ProjectStatusReportSnapshotDto
 } from '@worktrail/contracts';
+import { authoredContentFormats } from '@worktrail/contracts';
 import {
   boolean,
   check,
@@ -230,6 +231,9 @@ export const workItems = pgTable(
       .references(() => projects.id),
     title: text('title').notNull(),
     description: text('description').notNull().default(''),
+    descriptionFormat: text('description_format', { enum: authoredContentFormats })
+      .notNull()
+      .default('plain_text'),
     itemNumber: integer('item_number').notNull(),
     displayKey: text('display_key').notNull(),
     type: text('type').$type<WorkItemType>().notNull(),
@@ -254,6 +258,10 @@ export const workItems = pgTable(
     check('work_items_type_check', enumCheckSql('type', workItemTypes)),
     check('work_items_status_check', enumCheckSql('status', workItemStatuses)),
     check('work_items_priority_check', enumCheckSql('priority', workItemPriorities)),
+    check(
+      'work_items_description_format_check',
+      enumCheckSql('description_format', authoredContentFormats)
+    ),
     check('work_items_item_number_check', sql`${table.itemNumber} > 0`),
     check(
       'work_items_no_self_parent_check',
@@ -558,12 +566,16 @@ export const comments = pgTable(
       .notNull()
       .references(() => members.id),
     body: text('body').notNull(),
+    bodyFormat: text('body_format', { enum: authoredContentFormats }).notNull().default('plain_text'),
     editedAt: timestamp('edited_at', { withTimezone: true }),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     deletedById: uuid('deleted_by_id').references(() => members.id),
     ...timestamps
   },
-  (table) => [index('comments_work_item_id_created_at_idx').on(table.workItemId, table.createdAt)]
+  (table) => [
+    check('comments_body_format_check', enumCheckSql('body_format', authoredContentFormats)),
+    index('comments_work_item_id_created_at_idx').on(table.workItemId, table.createdAt)
+  ]
 );
 
 export const commentMentions = pgTable(

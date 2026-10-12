@@ -2,8 +2,9 @@
 
 ## Status
 
-Implementation in progress. Phases 0-1 completed on October 11, 2026. Persistence and workflow
-integration have not started; see the [implementation plan](implementation-plan.md) for evidence.
+Implementation in progress. Phases 0-2 completed on October 11, 2026. Persistence and format-aware
+reads are implemented; request activation and UI integration remain pending. See the
+[implementation plan](implementation-plan.md) for evidence.
 
 ## Summary
 

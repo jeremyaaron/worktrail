@@ -4,7 +4,10 @@ import {
   authoredContentFormats,
   authoredContentSourceLimit,
   normalizeAuthoredContentSource,
-  type AuthoredContentFormat
+  type AuthoredContentFormat,
+  type CommentDto,
+  type WorkItemDetailDto,
+  type WorkItemListItemDto
 } from './index.js';
 
 describe('authored content primitives', () => {
@@ -35,5 +38,12 @@ describe('authored content primitives', () => {
     expect(normalizeAuthoredContentSource(source)).toBe(
       `${'\u{1f600}'.repeat(authoredContentSourceLimit)}\n`
     );
+  });
+
+  it('requires persisted formats on authored-content reads without growing list contracts', () => {
+    expectTypeOf<WorkItemDetailDto['descriptionFormat']>().toEqualTypeOf<AuthoredContentFormat>();
+    expectTypeOf<CommentDto['bodyFormat']>().toEqualTypeOf<AuthoredContentFormat>();
+    expectTypeOf<'descriptionFormat'>().not.toMatchTypeOf<keyof WorkItemListItemDto>();
+    expectTypeOf<'description'>().not.toMatchTypeOf<keyof WorkItemListItemDto>();
   });
 });

@@ -2,10 +2,11 @@ import { asc, eq } from 'drizzle-orm';
 
 import type { WorktrailDb } from '../db/client.js';
 import { comments } from '../db/schema.js';
-import type { NewComment } from './types.js';
+import type { Comment, NewComment } from './types.js';
 
 export interface UpdateCommentInput {
   body: string;
+  bodyFormat?: Comment['bodyFormat'];
   editedAt: Date;
   updatedAt: Date;
 }

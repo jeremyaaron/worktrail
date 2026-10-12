@@ -200,6 +200,7 @@ export function toCommentDto(
     workItemId: comment.workItemId,
     author: toMemberDto(author),
     body: isDeleted ? '' : comment.body,
+    bodyFormat: isDeleted ? 'plain_text' : comment.bodyFormat,
     mentions: mentions.map(toMemberDto),
     isEdited: comment.editedAt !== null,
     isDeleted,
@@ -337,6 +338,7 @@ export function toWorkItemDetailDto(input: {
   return {
     ...toWorkItemListItemDto(input),
     description: input.workItem.description,
+    descriptionFormat: input.workItem.descriptionFormat,
     relationships: input.relationships ?? emptyRelationshipSummary(),
     comments: input.comments,
     activity: input.activity

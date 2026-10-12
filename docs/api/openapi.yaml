@@ -5004,14 +5004,20 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/WorkspaceWorkItemListItem"
+    AuthoredContentFormat:
+      type: string
+      enum: [plain_text, markdown_v1]
+      description: Explicit source format. Existing records default to plain_text; punctuation never determines the format.
     WorkItemDetail:
       allOf:
         - $ref: "#/components/schemas/WorkItemListItem"
         - type: object
-          required: [description, relationships, comments, activity]
+          required: [description, descriptionFormat, relationships, comments, activity]
           properties:
             description:
               type: string
+            descriptionFormat:
+              $ref: "#/components/schemas/AuthoredContentFormat"
             relationships:
               $ref: "#/components/schemas/WorkItemRelationshipSummary"
             comments:
@@ -5545,7 +5551,7 @@ components:
             $ref: "#/components/schemas/WorkItemWatcher"
     Comment:
       type: object
-      required: [id, workspaceId, projectId, workItemId, author, body, mentions, isEdited, isDeleted, createdAt, updatedAt]
+      required: [id, workspaceId, projectId, workItemId, author, body, bodyFormat, mentions, isEdited, isDeleted, createdAt, updatedAt]
       properties:
         id:
           type: string
@@ -5563,6 +5569,11 @@ components:
           $ref: "#/components/schemas/Member"
         body:
           type: string
+          description: Stored source, or an empty string for a deleted comment.
+        bodyFormat:
+          allOf:
+            - $ref: "#/components/schemas/AuthoredContentFormat"
+          description: Persisted source format, or plain_text for a deleted comment tombstone.
         mentions:
           type: array
           items:

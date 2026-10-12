@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementation in progress. Phases 0-1 are complete; Phases 2-11 have not started.
+Implementation in progress. Phases 0-2 are complete; Phases 3-11 have not started.
 
 ## Purpose
 
@@ -293,6 +293,9 @@ Before Phase 2 database checks, provision `worktrail_v029_verify` owned by `work
 available, then migrate the isolated target before running the full API suite. The new Phase 1 helpers
 are not yet wired into production writes.
 
+The deferred full PostgreSQL regression check was completed against isolated resources in Phase 2;
+see the completion evidence below.
+
 ## Phase 2: Persistence, Format-Aware Reads, And Migration Compatibility
 
 Goal: retain explicit formats in PostgreSQL and expose authoritative formats on existing read paths.
@@ -342,7 +345,61 @@ git diff --check
 Run migration commands only after selecting the disposable verification database. Record upgrade
 fixture comparisons separately from fresh-database migration evidence.
 
-Status: Not started.
+Status: Complete (October 11, 2026).
+
+### Completion Evidence
+
+- Generated `0019_nosy_junta.sql`, its snapshot, and journal entry through Drizzle. The snapshot links
+  to `0018` and adds only `comments.body_format`, `work_items.description_format`, and their finite
+  checks. Both columns are non-null with `plain_text` defaults; no source-length constraint or backfill
+  rewrites historical source.
+- Extended inferred insert/select models and repository update inputs. Inserts may omit format and
+  use the database default; repository updates can carry explicit formats or preserve omitted ones.
+- Added required read-format fields to shared detail/comment DTOs and OpenAPI response schemas.
+  Central mappers return persisted formats; deleted comments return empty source with `plain_text`
+  without changing their retained database source or format. List payloads remain unchanged.
+- Propagated required fields through contract, API model, and Angular fixtures. Fixture factories
+  accepting partial records preserve explicitly supplied formats rather than overwriting them.
+- Added an API regression covering defaulted and explicit formats, both comment read paths,
+  tombstones, repository updates, and absent source/format fields on lists.
+- Added PostgreSQL migration tests that replay the real historical chain into unique transactional
+  schemas, retargeting generated foreign-key schema qualifiers for isolation. The upgrade case inserts
+  records before `0019` and compares every original field after migration: Markdown-looking literals,
+  CRLF, oversized text, edited/deleted comments, ownership, mentions, activity, and stored report/
+  closeout JSON remain unchanged. The fresh case verifies defaults, both allowed formats, and rejected
+  unknown/null values. Rollback removes each isolated schema; no leftover test schemas remained.
+
+Verification passed:
+
+```sh
+npm run build:contracts
+npm run db:generate
+npm run db:migrate
+npm run db:seed
+npm run lint
+npm run typecheck
+node_modules/.bin/tsc -p apps/web/tsconfig.spec.json --noEmit
+npm run test --workspace @worktrail/api -- tests/authored-content-migration.test.ts tests/comments-activity.test.ts
+npm test
+npm run build
+git diff --check
+```
+
+Database commands and the full test suite used explicitly scoped environment variables targeting
+PostgreSQL `16.14` in a disposable `postgres:16-alpine` container, database `worktrail_v029_verify`,
+published only on `127.0.0.1:58064`. Attachment storage used a unique temporary root outside the working
+attachment directory. Fresh migration application, seed, and a repeat migration invocation succeeded;
+the migration journal contained all 20 entries through `0019`.
+
+All 994 workspace tests passed: API 522 across 51 files, Angular 421, and contracts 51 across 12 files.
+This includes the PostgreSQL suites deferred in Phase 1. The production build completed without budget
+warnings (initial bundle 379.41 kB). The disposable container and temporary attachment root were
+removed after verification; the user's existing database, attachment root, and server processes were
+not modified.
+
+No request-format fields, source-write policy activation, CSV preview changes, or authored-content UI
+were added. Phases 3-4 activate the corresponding writes. Before starting this version against the
+user's local database, apply the additive migration with `npm run db:migrate` against that target.
 
 ## Phase 3: Work-Item Description Writes And Activity
 

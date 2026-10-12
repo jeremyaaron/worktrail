@@ -149,6 +149,86 @@ afterAll(async () => {
 });
 
 describe('comments and activity API', () => {
+  it('returns persisted formats on detail and comment reads, with plain-text tombstones', async () => {
+    const fixture = await createFixture('owner');
+    const workItem = await createWorkItem(fixture);
+    expect(workItem.descriptionFormat).toBe('plain_text');
+
+    const description = '  # Persisted description\r\n';
+    await repositories.workItems.update(workItem.id, {
+      description,
+      descriptionFormat: 'markdown_v1',
+      updatedAt: now()
+    });
+    const plainComment = await repositories.comments.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      projectId: fixture.projectId,
+      workItemId: workItem.id,
+      authorId: fixture.actorId,
+      body: '**Still literal**',
+      createdAt: now(),
+      updatedAt: now()
+    });
+    expect(plainComment.bodyFormat).toBe('plain_text');
+    const markdownComment = await repositories.comments.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      projectId: fixture.projectId,
+      workItemId: workItem.id,
+      authorId: fixture.actorId,
+      body: '  **Markdown source**\r\n',
+      bodyFormat: 'markdown_v1',
+      createdAt: now(),
+      updatedAt: now()
+    });
+    const deletedComment = await repositories.comments.create({
+      id: randomUUID(),
+      workspaceId: fixture.workspaceId,
+      projectId: fixture.projectId,
+      workItemId: workItem.id,
+      authorId: fixture.actorId,
+      body: 'Private deleted source',
+      bodyFormat: 'markdown_v1',
+      deletedAt: now(),
+      deletedById: fixture.actorId,
+      createdAt: now(),
+      updatedAt: now()
+    });
+
+    const detail = await request(app).get(`/api/work-items/${workItem.id}`)
+      .set(fixture.headers).expect(200);
+    const comments = await request(app).get(`/api/work-items/${workItem.id}/comments`)
+      .set(fixture.headers).expect(200);
+    expect(detail.body.description).toBe(description);
+    expect(detail.body.descriptionFormat).toBe('markdown_v1');
+    expect(detail.body.comments).toEqual(comments.body);
+    expect(comments.body).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: plainComment.id, body: '**Still literal**', bodyFormat: 'plain_text' }),
+      expect.objectContaining({
+        id: markdownComment.id, body: markdownComment.body, bodyFormat: 'markdown_v1'
+      }),
+      expect.objectContaining({
+        id: deletedComment.id, body: '', bodyFormat: 'plain_text', isDeleted: true
+      })
+    ]));
+    expect(JSON.stringify(detail.body)).not.toContain('Private deleted source');
+    expect((await repositories.comments.findById(deletedComment.id))?.bodyFormat).toBe('markdown_v1');
+
+    const updated = await repositories.comments.updateBody(markdownComment.id, {
+      body: 'Repository update retains format', editedAt: now(), updatedAt: now()
+    });
+    expect(updated?.bodyFormat).toBe('markdown_v1');
+    const converted = await repositories.comments.updateBody(markdownComment.id, {
+      body: updated!.body, bodyFormat: 'plain_text', editedAt: now(), updatedAt: now()
+    });
+    expect(converted?.bodyFormat).toBe('plain_text');
+    const list = await request(app).get(`/api/projects/${fixture.projectId}/work-items`)
+      .set(fixture.headers).expect(200);
+    expect(list.body.items[0]).not.toHaveProperty('description');
+    expect(list.body.items[0]).not.toHaveProperty('descriptionFormat');
+  });
+
   it('adds comments with author details and records comment activity', async () => {
     const fixture = await createFixture('owner');
     const workItem = await createWorkItem(fixture);
@@ -174,7 +254,8 @@ describe('comments and activity API', () => {
       projectId: fixture.projectId,
       workItemId: workItem.id,
       author: { id: fixture.actorId, name: 'Comment Actor' },
-      body: 'This should be recorded.'
+      body: 'This should be recorded.',
+      bodyFormat: 'plain_text'
     });
     expect(response.body.createdAt).toEqual(expect.any(String));
 

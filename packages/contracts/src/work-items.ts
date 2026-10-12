@@ -1,4 +1,5 @@
 import type { ActivityEventDto } from './activity.js';
+import type { AuthoredContentFormat } from './authored-content.js';
 import type { ProjectCycleDto } from './cycles.js';
 import type { MemberDto } from './members.js';
 import type { MilestoneDto } from './planning.js';
@@ -139,6 +140,7 @@ export interface WorkItemListItemDto {
 
 export interface WorkItemDetailDto extends WorkItemListItemDto {
   description: string;
+  descriptionFormat: AuthoredContentFormat;
   relationships: WorkItemRelationshipSummaryDto;
   comments: CommentDto[];
   activity: ActivityEventDto[];
@@ -220,6 +222,7 @@ export interface CommentDto {
   workItemId: string;
   author: MemberDto;
   body: string;
+  bodyFormat: AuthoredContentFormat;
   mentions: MemberDto[];
   isEdited: boolean;
   isDeleted: boolean;

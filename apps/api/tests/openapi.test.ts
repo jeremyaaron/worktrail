@@ -96,6 +96,10 @@ describe('OpenAPI reference', () => {
     expect(openApi).toContain('WorkItemRelationshipSummary:');
     expect(openApi).toContain('CreateWorkItemRelationshipRequest:');
     expect(openApi).toContain('WorkItemRelationship:');
+    expect(openApi).toContain('AuthoredContentFormat:');
+    expect(openApi).toContain('enum: [plain_text, markdown_v1]');
+    expect(openApi).toContain('required: [description, descriptionFormat, relationships, comments, activity]');
+    expect(openApi).toContain('body, bodyFormat, mentions');
     expect(openApi).toContain('WorkItemAttachment:');
     expect(openApi).toContain('WorkItemAttachmentList:');
     expect(openApi).toContain('WorkItemAttachmentUsage:');

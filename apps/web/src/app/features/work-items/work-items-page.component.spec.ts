@@ -2645,6 +2645,7 @@ describe('WorkItemCreatePageComponent', () => {
       displayKey: 'WT-499',
       title: 'Create filtering UI',
       description: 'Build the Phase 10 list filters.',
+      descriptionFormat: 'plain_text',
       relationships: emptyRelationships,
       comments: [],
       activity: []
@@ -2698,6 +2699,7 @@ describe('WorkItemCreatePageComponent', () => {
       id: '10000000-0000-4000-8000-000000000498',
       title: 'Create estimate normalization',
       description: '',
+      descriptionFormat: 'plain_text',
       relationships: emptyRelationships,
       comments: [],
       activity: []
@@ -2829,6 +2831,7 @@ describe('WorkItemCreatePageComponent global route', () => {
       displayKey: 'WT-497',
       title: 'Capture from workspace',
       description: 'Create without entering a project first.',
+      descriptionFormat: 'plain_text',
       relationships: emptyRelationships,
       comments: [],
       activity: []
@@ -2907,6 +2910,7 @@ describe('WorkItemCreatePageComponent child route', () => {
   const parentDetail: WorkItemDetailDto = {
     ...workItem,
     description: 'Coordinate the child work.',
+    descriptionFormat: 'plain_text',
     relationships: emptyRelationships,
     comments: [],
     activity: []

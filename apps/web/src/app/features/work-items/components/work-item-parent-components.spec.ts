@@ -60,6 +60,7 @@ const detail: WorkItemDetailDto = {
   displayKey: 'WT-3',
   title: 'Implement child workflow',
   description: 'Build parent controls.',
+  descriptionFormat: 'plain_text',
   type: 'task',
   status: 'ready',
   priority: 'medium',
