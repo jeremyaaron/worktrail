@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementation in progress. Phases 0-5 are complete; Phases 6-11 have not started.
+Implementation in progress. Phases 0-6 are complete; Phases 7-11 have not started.
 
 ## Purpose
 
@@ -746,6 +746,8 @@ Scope:
 
 - Add exact `markdown-it@15.0.2` to the web workspace and update the lockfile without release-version
   churn. Verify its declarations, ESM import, license, dependency audit, and production build.
+- Clear pre-existing production audit findings through compatible dependency patches, keeping one
+  Angular runtime and validating the installed/locked dependency tree. Avoid unrelated upgrades.
 - Add focused authored-content value/document/parser/link modules and a standalone Angular viewer.
 - Configure CommonMark explicitly with HTML disabled, visible breaks, no linkify/typographer/plugins,
   nesting 16, and horizontal-rule support disabled.
@@ -782,7 +784,63 @@ npm audit --omit=dev --audit-level=low
 git diff --check
 ```
 
-Status: Not started.
+Status: Complete on October 12, 2026.
+
+Completion evidence:
+
+- Added exact web-only `markdown-it@15.0.2`, using its bundled declarations and ESM entry point with
+  MIT package licensing. No wrapper, plugin, separate typings package, or root-shell import was added.
+- Added focused value/document/link/parser modules and an OnPush standalone viewer with static
+  recursive Angular templates. Finite nodes cover paragraphs, subordinate headings, quotes, tight
+  and loose lists, literal code, emphasis, visible breaks, and validated links. Images become plain
+  alt text (or `Image`); fence metadata and arbitrary token attributes never enter the rendered DOM.
+- Fixed the CommonMark configuration at HTML off, breaks on, linkify/typographer off, nesting 16,
+  and horizontal rules disabled. Each parse has a fresh reference environment; neither parser HTML
+  rendering API is used. Unsupported syntax stays readable without active controls.
+- Applied the shared explicit HTTP(S) policy before parser link acceptance and again during
+  projection. Controls, backslashes, missing/malformed authorities, credentials, unsafe/relative
+  schemes, and oversized input/serialized URLs are rejected. Same-origin links retain native
+  same-tab behavior; external links use `_blank`, `noopener noreferrer`, and no-referrer policy.
+- Enforced normalized 10,000-unit input, 8,000 inspected tokens including inline/image children,
+  4,000 constructed nodes, depth 32, and 64,000 projected text/URL units. Unknown formats, malformed
+  token structure, parse errors, and limit failures render the complete original escaped source.
+  Plain text is never parsed, including oversized legacy records.
+- Added a conservative nesting-ceiling guard after a real parser fixture demonstrated that extreme
+  block nesting could otherwise drop trailing source. The technical design now explicitly records
+  whole-source fallback for block openers at level 15 or higher.
+- Kept long text/links wrapped and code horizontally contained. Code regions receive a labeled
+  keyboard focus target only when overflowing, with resize observation and destruction cleanup.
+- Added 92 focused parser/link/viewer cases. Coverage includes all presentation bounds, reference
+  expansion, normalized/UTF-16 boundaries, renderer non-use, malformed tokens, parser failures,
+  unknown formats, source preservation, forbidden DOM tags/attributes, safe external links, image
+  fallback, input-change memoization, and 320 px containment/keyboard focus. The full supported
+  profile and hostile HTML, entity, URL, image, and incomplete-syntax fixtures run in ChromeHeadless.
+- The production audit initially reported nine pre-existing vulnerable package entries. Updated
+  Angular runtime/compiler packages and compiler CLI from `20.3.25` to `20.3.33`, `csv-parse` from
+  `7.0.1` to `7.0.3`, `proxy-addr` from `2.0.7` to `2.0.8`, and `qs` from `6.15.3` to `6.16.0`.
+  Karma's private `body-parser` moved from `1.20.5` to `1.20.8` to accept the patched `qs` line.
+  No major framework upgrade, persistent override, unrelated dependency update, or release-version
+  change remains. Clean `npm ci --ignore-scripts` and targeted `npm ls` pass with one Angular runtime.
+- Final `npm audit --omit=dev --audit-level=low` passes with zero vulnerabilities. The dev-inclusive
+  audit still reports 34 toolchain findings; that broader development-dependency work is not a claim
+  of this phase's production audit result.
+- Final verification passed: root `npm run lint`, `npm run typecheck`, `npm test` (600 API, 516 Angular,
+  54 contracts; 1,170 total), explicit web spec TypeScript checking, root `npm run build`, and
+  `git diff --check`. The production initial bundle is 383.01 kB with unchanged budgets and no warnings.
+  Production stats and source-import review confirm that parser JavaScript has no application/root
+  import path yet. Viewer/editor route wiring remains in Phases 7-9.
+- Pure parse/projection measurements used an in-memory bundle, 20 warm-up iterations, and 100
+  measured iterations per fixture on Node 20.19.1. The ordinary 10,000-unit fixture had median
+  1.633 ms, p95 1.863 ms, and maximum 2.404 ms. Adversarial delimiter/bracket samples stayed below
+  3.823 ms; deep-quote/reference-expansion fallback samples stayed below 0.438 ms. These local samples
+  measure parsing/projection only, not Angular rendering or a universal timing guarantee.
+- Re-ran the existing Chromium CSV import/export workflow after dependency patches: one test passed,
+  including its desktop/mobile containment checks. This is regression evidence, not a claim that
+  description/comment viewer integration has shipped or that its Phase 10 browser review is done.
+- Database regression checks used only a phase-owned PostgreSQL 16 Docker container bound to
+  `127.0.0.1:54386`, plus disposable attachment storage for browser setup. Migration/seed/reset
+  operations targeted that isolated database. Phase-owned servers, container, and storage were
+  removed after verification; the user's database on 5432 was not touched.
 
 ## Phase 7: Shared Authoring Control And Formatting Commands
 

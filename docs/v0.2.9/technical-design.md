@@ -2,10 +2,10 @@
 
 ## Status
 
-Implementation in progress. Phases 0-3 completed on October 11, 2026, and Phases 4-5 completed on
+Implementation in progress. Phases 0-3 completed on October 11, 2026, and Phases 4-6 completed on
 October 12, 2026. Persistence, format-aware reads and writes, locking, no-ops, activity, and CSV
-import/preview format support are implemented. The Markdown viewer/editor and description/comment UI
-integration remain pending. See the
+import/preview format support are implemented, along with bounded Markdown projection and the shared
+safe viewer. The shared editor and description/comment UI integration remain pending. See the
 [implementation plan](implementation-plan.md) for evidence.
 
 ## Summary
@@ -480,10 +480,13 @@ content model.
 Implement `authored-content-link.ts` once for token projection and link insertion:
 
 1. Reject control characters, backslashes, and values longer than 2,048 UTF-16 code units.
+   Reject empty/malformed authorities, authority whitespace, and credential separators before URL
+   parsing can repair them.
 2. Require an explicit case-insensitive `http://` or `https://` prefix.
 3. Parse with `new URL(value)` without a base URL.
 4. Require `http:` or `https:`, a nonempty host, and no embedded username/password.
-5. Return the serialized URL as ordinary data, never `SafeUrl`.
+5. Reject serialized URLs above 2,048 units and hostnames containing undecoded percent escapes.
+   Return the serialized URL as ordinary data, never `SafeUrl`.
 
 Use parser-normalized destinations for projection so entity/escape handling cannot be bypassed by
 validating an unrelated raw string. Do not repeatedly percent-decode a URL or repair an unsafe scheme
@@ -515,8 +518,11 @@ Exceeding a projection limit, encountering an unexpected structure, or catching 
 `{ kind: 'plain_text_fallback', source }`. Render the complete escaped source with wrapping. Do not
 truncate it, partially save it, or silently discard blocks. Unknown formats use the same safe path.
 
-Parser nesting limits may cause excessively nested syntax to remain literal. That is acceptable and
-must not alter stored source. Projection limits run after parsing; they are not a timeout mechanism.
+The pinned block parser can silently skip source at its nesting ceiling. Projection therefore falls
+back for block-opening tokens at level 15 or higher, before the configured ceiling of 16 can hide
+content. This deliberately conservative check also leaves some deeply nested but otherwise valid
+records literal. Inline nesting can remain literal under the parser's own limit. Neither path alters
+stored source. Projection limits run after parsing; they are not a timeout mechanism.
 Input size, parser configuration, and adversarial timing evidence govern parser cost.
 
 For very large legacy plain text, keep a single wrapped text surface rather than generating thousands
