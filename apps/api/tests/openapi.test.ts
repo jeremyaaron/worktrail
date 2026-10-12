@@ -6,6 +6,28 @@ import { describe, expect, it } from 'vitest';
 const openApiPath = fileURLToPath(new URL('../../../docs/api/openapi.yaml', import.meta.url));
 
 describe('OpenAPI reference', () => {
+  it('documents comment write formats, required source, legacy exceptions, and lifecycle safety', async () => {
+    const openApi = await readFile(openApiPath, 'utf8');
+    const create = openApi.split('    CreateCommentRequest:\n')[1]?.split('    UpdateCommentRequest:')[0];
+    const update = openApi.split('    UpdateCommentRequest:\n')[1]?.split('    NotificationType:')[0];
+
+    for (const schema of [create, update]) {
+      expect(schema).toContain('required: [body]');
+      expect(schema).toContain('bodyFormat:');
+      expect(schema).toContain('$ref: "#/components/schemas/AuthoredContentFormat"');
+      expect(schema).toContain('UTF-16 code units');
+      expect(schema).toContain('VALIDATION_ERROR');
+      expect(schema).not.toContain('maxLength:');
+    }
+    expect(create).toContain('default: plain_text');
+    expect(create).toContain('Only explicit mentionMemberIds');
+    expect(update).toContain('current locked format');
+    expect(update).toContain('Unchanged legacy pairs');
+    expect(update).toContain('previousBodyFormat/newBodyFormat');
+    expect(update).toContain('never replaces mention rows');
+    expect(update).toContain('409 CONFLICT');
+  });
+
   it('documents format-aware description writes without falsely capping historical reads', async () => {
     const openApi = await readFile(openApiPath, 'utf8');
     const create = openApi.split('    CreateWorkItemRequest:\n')[1]?.split('    SetWorkItemParentRequest:')[0];

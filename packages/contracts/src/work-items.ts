@@ -235,11 +235,13 @@ export interface CommentDto {
 
 export interface CreateCommentRequest {
   body: string;
+  bodyFormat?: AuthoredContentFormat;
   mentionMemberIds?: string[];
 }
 
 export interface UpdateCommentRequest {
   body: string;
+  bodyFormat?: AuthoredContentFormat;
 }
 
 export interface CreateWorkItemRequest {

@@ -3,6 +3,10 @@ import { randomUUID } from 'node:crypto';
 
 import type { WorktrailDb } from '../db/client.js';
 import type { ActorContext } from '../domain/actor.js';
+import {
+  resolveNewAuthoredContent,
+  resolveUpdatedAuthoredContent
+} from '../domain/authored-content-policy.js';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../errors/app-error.js';
 import {
   type Repositories,
@@ -40,6 +44,10 @@ export class CommentService {
       const workItem = await this.requireWorkItem(workItemId, repositories);
       const project = await this.requireProject(workItem.projectId, repositories);
       this.assertProjectWritable(project);
+      const content = resolveNewAuthoredContent(
+        { source: input.body, format: input.bodyFormat },
+        { sourceField: 'body', requireNonWhitespace: true }
+      );
       const timestamp = this.clock();
       const mentionedMembers = await this.validateMentionMembers(input.mentionMemberIds ?? [], repositories);
 
@@ -49,7 +57,8 @@ export class CommentService {
         projectId: workItem.projectId,
         workItemId,
         authorId: this.context.actor.memberId,
-        body: input.body,
+        body: content.source,
+        bodyFormat: content.format,
         createdAt: timestamp,
         updatedAt: timestamp
       });
@@ -93,14 +102,25 @@ export class CommentService {
 
   async updateComment(commentId: string, input: UpdateCommentRequest): Promise<CommentDto> {
     return this.withWriteRepositories(async (repositories) => {
-      const current = await this.requireComment(commentId, repositories);
+      const current = await this.requireCommentForUpdate(commentId, repositories);
       this.assertCommentWritable(current);
       this.assertCanModifyComment(current);
       const project = await this.requireProject(current.projectId, repositories);
       this.assertProjectWritable(project);
+      const content = resolveUpdatedAuthoredContent(
+        { source: current.body, format: current.bodyFormat },
+        { source: input.body, format: input.bodyFormat },
+        { sourceField: 'body', requireNonWhitespace: true }
+      );
+
+      if (!content.changed) {
+        return this.toCommentDto(current, repositories);
+      }
+
       const timestamp = this.clock();
-      const updated = await repositories.comments.updateBody(commentId, {
-        body: input.body,
+      const updated = await repositories.comments.updateContent(commentId, {
+        body: content.source,
+        bodyFormat: content.format,
         editedAt: timestamp,
         updatedAt: timestamp
       });
@@ -116,10 +136,18 @@ export class CommentService {
         workItemId: updated.workItemId,
         actorId: this.context.actor.memberId,
         eventType: 'comment.edited',
-        summary: 'Comment edited.',
+        summary: current.body === updated.body ? 'Comment format changed.' : 'Comment edited.',
         previousValue: null,
         newValue: null,
-        metadata: { commentId: updated.id },
+        metadata: {
+          commentId: updated.id,
+          ...(current.bodyFormat === updated.bodyFormat
+            ? {}
+            : {
+                previousBodyFormat: current.bodyFormat,
+                newBodyFormat: updated.bodyFormat
+              })
+        },
         createdAt: timestamp
       });
 
@@ -129,7 +157,7 @@ export class CommentService {
 
   async deleteComment(commentId: string): Promise<CommentDto> {
     return this.withWriteRepositories(async (repositories) => {
-      const current = await this.requireComment(commentId, repositories);
+      const current = await this.requireCommentForUpdate(commentId, repositories);
       this.assertCommentWritable(current);
       this.assertCanModifyComment(current);
       const project = await this.requireProject(current.projectId, repositories);
@@ -194,6 +222,17 @@ export class CommentService {
 
   private async requireComment(commentId: string, repositories: Repositories): Promise<Comment> {
     const comment = await repositories.comments.findById(commentId);
+
+    if (comment === null || comment.workspaceId !== this.context.actor.workspaceId) {
+      throw new NotFoundError('Comment not found.');
+    }
+
+    return comment;
+  }
+
+  private async requireCommentForUpdate(commentId: string, repositories: Repositories): Promise<Comment> {
+    await this.requireComment(commentId, repositories);
+    const comment = await repositories.comments.findByIdForUpdate(commentId);
 
     if (comment === null || comment.workspaceId !== this.context.actor.workspaceId) {
       throw new NotFoundError('Comment not found.');

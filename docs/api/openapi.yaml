@@ -5642,9 +5642,25 @@ components:
     CreateCommentRequest:
       type: object
       required: [body]
+      description: |
+        Omitted bodyFormat defaults to plain_text; Markdown is never inferred from source. CRLF and
+        lone CR normalize to LF without trimming indentation or surrounding whitespace. New body
+        source must contain non-whitespace content and fit 10,000 UTF-16 code units after normalization.
+        Invalid/null formats, blank body, or oversized source return 400 VALIDATION_ERROR. Source
+        policy error details contain field (body), reason (empty_source or source_too_long), and
+        maximumCodeUnits (10000) for size errors, never submitted source. Only explicit mentionMemberIds
+        select recipients; formatting syntax and member-like text do not create mentions. Duplicate
+        mention IDs and overlapping watcher recipients follow the existing notification deduplication.
+      examples:
+        - body: "  **Literal punctuation**\n"
+        - body: "## Update\n\n- Ready for review\n"
+          bodyFormat: markdown_v1
       properties:
         body:
           type: string
+        bodyFormat:
+          $ref: "#/components/schemas/AuthoredContentFormat"
+          default: plain_text
         mentionMemberIds:
           type: array
           items:
@@ -5653,9 +5669,29 @@ components:
     UpdateCommentRequest:
       type: object
       required: [body]
+      description: |
+        Body remains required, including for explicit format conversion. Omitted bodyFormat preserves
+        the current locked format. Changed source normalizes CRLF and lone CR to LF without trimming;
+        equivalent normalized source retains historical bytes. Changed source/format pairs must be
+        non-whitespace and fit 10,000 normalized UTF-16 code units. Unchanged legacy pairs remain valid
+        even if blank or oversized. Supply valid source in the same request to convert such records.
+        Unknown/null formats, blank changed pairs, or oversized changed pairs return 400 VALIDATION_ERROR
+        with the same source-free policy details as creation. A source/format no-op preserves updatedAt,
+        editedAt, and isEdited, and creates no activity or notifications. Real changes write the pair
+        and edit timestamps atomically and create one comment.edited event without body history.
+        Format changes add previousBodyFormat/newBodyFormat to event metadata; format-only changes
+        use the summary "Comment format changed." Editing never replaces mention rows or resends
+        creation notifications. Edits/deletions serialize on the comment row, recheck permissions and
+        project writability, and reject already-deleted comments with 409 CONFLICT, including no-ops.
+      examples:
+        - body: "  Updated source\n"
+        - body: "**Existing source**"
+          bodyFormat: markdown_v1
       properties:
         body:
           type: string
+        bodyFormat:
+          $ref: "#/components/schemas/AuthoredContentFormat"
     NotificationType:
       type: string
       enum:

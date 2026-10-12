@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementation in progress. Phases 0-3 are complete; Phases 4-11 have not started.
+Implementation in progress. Phases 0-4 are complete; Phases 5-11 have not started.
 
 ## Purpose
 
@@ -558,7 +558,71 @@ git diff --check
 
 Run the new PostgreSQL comment-locking cases explicitly and record their cleanup and outcomes.
 
-Status: Not started.
+Status: Complete (October 12, 2026).
+
+### Completion Evidence
+
+- Added optional `bodyFormat` to create/update contracts and endpoint schemas while retaining required
+  update body. Omitted create format means plain text; omitted edit format preserves the current
+  locked value. Unknown/null formats and missing/non-string body fail endpoint validation.
+- Removed comment source trimming and activated the shared write policy in `CommentService` for
+  endpoint and direct-service calls. New/changed pairs normalize CRLF/lone CR to LF without trimming,
+  require non-whitespace source, and enforce 10,000 normalized UTF-16 code units. Unchanged legacy
+  blank/oversized pairs and historical bytes remain valid; conversion requires valid source.
+- Added `findByIdForUpdate` and renamed `updateBody` to `updateContent`, updating all callers.
+  Edit/delete precheck workspace ownership, lock the current comment within the existing transaction,
+  and recheck ownership, deletion state, author/role permission, and project writability. Edits persist
+  source, format, and both edit timestamps together.
+- Equivalent edits return the existing DTO without updating row versions, timestamps, or edited state,
+  and without new activity or notifications. Real pair changes create one `comment.edited` event.
+  Conversions add `previousBodyFormat`/`newBodyFormat` metadata; format-only changes use
+  `Comment format changed.` Activity still contains no comment source.
+- Mention rows stay unchanged through conversion, real edits, and no-ops. Creation still validates
+  explicit mentions and deduplicates mention/watcher recipients; Markdown syntax never adds recipients.
+  Editing does not rerun creation notifications or accept new mention recipients.
+- Added API, direct-service, contract, and OpenAPI regressions for boundaries, legacy exceptions,
+  whitespace, permissions, inactive actors, mentions, notification counts, both comment read paths,
+  and tombstones. A simulated activity-write failure verifies transactional rollback of the pair and
+  edit timestamps.
+- Added five PostgreSQL concurrency cases using existing comment fixtures and transaction helpers.
+  Each observes a real `pg_blocking_pids` lock wait before releasing the first writer. They verify
+  omitted-format resolution, queued equivalent-edit no-ops, rejection of edit and repeat delete after
+  a competing deletion, and deletion retaining a competing edit's source/format/edit timestamp.
+  Both API read paths suppress deleted source and return plain-text tombstones.
+- Updated OpenAPI write schemas, examples, legacy/no-op rules, safe policy errors, lifecycle conflicts,
+  and format-change metadata without imposing a false length limit on historical response source.
+  The reference parsed successfully as OpenAPI 3.1.0 using the installed `js-yaml` parser.
+
+Verification passed:
+
+```sh
+npm run build:contracts
+npm run db:migrate
+npm run db:seed
+npm run test --workspace @worktrail/api -- comments-activity notifications-watchers openapi
+npm run lint
+npm run typecheck
+npm test
+npm run build
+npm run test --workspace @worktrail/api
+npm run test --workspace @worktrail/api -- comments-activity --testNamePattern='queued'
+npm run lint --workspace @worktrail/api
+npm run typecheck --workspace @worktrail/api
+git diff --check
+```
+
+Database commands and tests used explicit environment variables selecting disposable PostgreSQL
+`16.14`, database `worktrail_v029_verify`, published only on `127.0.0.1:62074`, plus a unique temporary
+attachment root. All 1,050 workspace tests passed: API 576 across 51 files, Angular 421, and contracts
+53 across 12 files. The final full API rerun includes the rollback regression added after the workspace
+run. All five selected concurrency cases passed again separately; the 37 filtered comment cases were
+covered by the full API suite and are not counted as additional passes.
+
+Lint, typecheck, and production build passed without budget warnings (initial bundle 379.41 kB).
+Fixture cleanup left no comment test workspaces. The phase-owned container and temporary storage were
+removed; the user's database, attachments, and existing processes were not modified. No migration,
+CSV-format changes, authored-content UI integration, or release metadata changes were needed.
+Phase 5 remains next.
 
 ## Phase 5: CSV Import And Format-Aware Preview
 

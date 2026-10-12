@@ -6,8 +6,10 @@ import {
   normalizeAuthoredContentSource,
   type AuthoredContentFormat,
   type CommentDto,
+  type CreateCommentRequest,
   type CreateWorkItemRequest,
   type UpdateWorkItemRequest,
+  type UpdateCommentRequest,
   type WorkItemDetailDto,
   type WorkItemListItemDto
 } from './index.js';
@@ -59,5 +61,18 @@ describe('authored content primitives', () => {
 
     expect(legacy.descriptionFormat).toBeUndefined();
     expect(conversion.description).toBeUndefined();
+  });
+
+  it('keeps comment formats optional and comment update body required', () => {
+    expectTypeOf<CreateCommentRequest['bodyFormat']>()
+      .toEqualTypeOf<AuthoredContentFormat | undefined>();
+    expectTypeOf<UpdateCommentRequest['bodyFormat']>()
+      .toEqualTypeOf<AuthoredContentFormat | undefined>();
+    expectTypeOf<UpdateCommentRequest['body']>().toEqualTypeOf<string>();
+    const legacy: CreateCommentRequest = { body: 'Legacy comment' };
+    const conversion: UpdateCommentRequest = { body: legacy.body, bodyFormat: 'markdown_v1' };
+
+    expect(legacy.bodyFormat).toBeUndefined();
+    expect(conversion.bodyFormat).toBe('markdown_v1');
   });
 });

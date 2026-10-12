@@ -2,9 +2,9 @@
 
 ## Status
 
-Implementation in progress. Phases 0-3 completed on October 11, 2026. Persistence, format-aware reads,
-and work-item description writes, locking, no-ops, and activity are implemented. Comment writes,
-CSV format support, and UI integration remain pending. See the
+Implementation in progress. Phases 0-3 completed on October 11, 2026, and Phase 4 completed on
+October 12, 2026. Persistence, format-aware reads, and description/comment writes, locking, no-ops,
+and activity are implemented. CSV format support and UI integration remain pending. See the
 [implementation plan](implementation-plan.md) for evidence.
 
 ## Summary
@@ -342,6 +342,9 @@ For a changed pair:
 - Retain the existing absence of full comment bodies in activity history.
 - Add only previous/new format identifiers to event metadata when needed for conversion evidence.
 - Do not replace mention rows or invoke creation-time notification delivery.
+
+Conversion metadata uses `previousBodyFormat` and `newBodyFormat`. Format-only changes use the
+summary `Comment format changed.`; source-changing edits retain `Comment edited.`
 
 Creation still validates explicit `mentionMemberIds` and invokes the current mention/watcher
 deduplication flow. Parser tokens never affect recipients.

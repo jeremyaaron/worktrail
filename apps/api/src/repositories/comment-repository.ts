@@ -23,6 +23,15 @@ export function createCommentRepository(db: WorktrailDb) {
       return comment ?? null;
     },
 
+    async findByIdForUpdate(id: string) {
+      const [comment] = await db
+        .select()
+        .from(comments)
+        .where(eq(comments.id, id))
+        .for('update');
+      return comment ?? null;
+    },
+
     async findByWorkItem(workItemId: string) {
       return db
         .select()
@@ -31,7 +40,7 @@ export function createCommentRepository(db: WorktrailDb) {
         .orderBy(asc(comments.createdAt));
     },
 
-    async updateBody(id: string, input: UpdateCommentInput) {
+    async updateContent(id: string, input: UpdateCommentInput) {
       const [comment] = await db.update(comments).set(input).where(eq(comments.id, id)).returning();
       return comment ?? null;
     },
