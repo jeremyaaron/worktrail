@@ -2,8 +2,9 @@
 
 ## Status
 
-Implementation in progress. Phases 0-2 completed on October 11, 2026. Persistence and format-aware
-reads are implemented; request activation and UI integration remain pending. See the
+Implementation in progress. Phases 0-3 completed on October 11, 2026. Persistence, format-aware reads,
+and work-item description writes, locking, no-ops, and activity are implemented. Comment writes,
+CSV format support, and UI integration remain pending. See the
 [implementation plan](implementation-plan.md) for evidence.
 
 ## Summary

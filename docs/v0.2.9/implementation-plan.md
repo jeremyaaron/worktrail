@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementation in progress. Phases 0-2 are complete; Phases 3-11 have not started.
+Implementation in progress. Phases 0-3 are complete; Phases 4-11 have not started.
 
 ## Purpose
 
@@ -450,7 +450,67 @@ git diff --check
 Run the newly added PostgreSQL write/concurrency cases as well as these existing suites; do not count
 skipped integration cases as passing evidence.
 
-Status: Not started.
+Status: Complete (October 11, 2026).
+
+### Completion Evidence
+
+- Added optional `descriptionFormat` to create/update contracts, endpoint schemas, and OpenAPI.
+  Omitted create formats default to plain text; omitted update formats preserve the current stored
+  format. Format-only PATCH requests are valid; unknown/null formats and non-string source fail
+  validation. Existing title trimming remains unchanged.
+- Activated the shared source policy in `createWorkItemWithRepositories`, covering ordinary and
+  direct/CSV creation. New source normalizes line endings without trimming and enforces the 10,000
+  UTF-16 code-unit limit before numbering or creation side effects.
+- PATCH now checks workspace ownership before locking and rechecks the locked record's ownership
+  and project writability before resolving or writing content. Source/format changes use one update
+  within the existing transaction. Unchanged oversized legacy source and historical bytes survive
+  no-ops and unrelated edits; oversized format conversion requires shortening in the same request.
+- Complete no-ops compare every supplied scalar field and deduplicated, order-independent label
+  sets. They preserve timestamps, work-item and label row versions, activity, and notifications.
+  Unchanged label sets also avoid replacement when another field genuinely changes.
+- Description pair changes produce one `work_item.description_changed` event with both source and
+  format in previous/new values. Format-only changes use `Description format changed.` Genuine
+  assignee changes still notify, even alongside unchanged oversized descriptions.
+- Added endpoint, direct-service, contract, and OpenAPI regressions. PostgreSQL concurrency tests
+  reuse the work-item suite's fixtures and cleanup. They hold the first writer's transaction and
+  observe the second writer waiting through `pg_blocking_pids` before releasing it: omitted format
+  uses the newly committed pair, and an equivalent queued edit becomes a no-op without a second event
+  or timestamp update. Both cases passed again in a separate focused invocation.
+- OpenAPI includes plain-text, Markdown, legacy-update, and format-conversion examples, safe size
+  error details, normalization and no-op rules, without adding false maximums to historical reads.
+  The reference parsed successfully as OpenAPI 3.1.0 using the installed `js-yaml` parser.
+
+Verification passed:
+
+```sh
+npm run build:contracts
+npm run db:migrate
+npm run db:seed
+npm run test --workspace @worktrail/api -- work-items notifications-watchers openapi
+npm run lint
+npm run typecheck
+npm test
+npm run build
+npm run test --workspace @worktrail/api
+npm run test --workspace @worktrail/api -- work-items --testNamePattern='queued|locked current row'
+npm run lint --workspace @worktrail/api
+npm run typecheck --workspace @worktrail/api
+npm run build:api
+git diff --check
+```
+
+Database commands and tests used explicit environment variables selecting disposable PostgreSQL
+`16.14`, database `worktrail_v029_verify`, published only on `127.0.0.1:59324`, plus a unique temporary
+attachment root. All 1,019 workspace tests passed: API 546 across 51 files, Angular 421, and contracts
+52 across 12 files. The final full API rerun includes two additional legacy/empty-source regressions
+added after the workspace run. The focused concurrency rerun passed both selected tests; its other
+103 filtered tests were covered by the full API run and are not counted as additional passes.
+
+Lint, typecheck, and production builds passed without budget warnings (initial bundle 379.41 kB).
+Fixture cleanup left no work-item test workspaces. The phase-owned container and temporary attachment
+root were removed; the user's database, attachment root, and existing processes were not modified.
+No additional migration, comment-write activation, CSV-format support, UI integration, or release
+metadata change was required. Phase 4 remains next.
 
 ## Phase 4: Comment Writes, Locks, And Mention Compatibility
 

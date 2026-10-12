@@ -6,6 +6,8 @@ import {
   normalizeAuthoredContentSource,
   type AuthoredContentFormat,
   type CommentDto,
+  type CreateWorkItemRequest,
+  type UpdateWorkItemRequest,
   type WorkItemDetailDto,
   type WorkItemListItemDto
 } from './index.js';
@@ -45,5 +47,17 @@ describe('authored content primitives', () => {
     expectTypeOf<CommentDto['bodyFormat']>().toEqualTypeOf<AuthoredContentFormat>();
     expectTypeOf<'descriptionFormat'>().not.toMatchTypeOf<keyof WorkItemListItemDto>();
     expectTypeOf<'description'>().not.toMatchTypeOf<keyof WorkItemListItemDto>();
+  });
+
+  it('keeps work-item write formats optional for legacy clients and format-only patches', () => {
+    expectTypeOf<CreateWorkItemRequest['descriptionFormat']>()
+      .toEqualTypeOf<AuthoredContentFormat | undefined>();
+    expectTypeOf<UpdateWorkItemRequest['descriptionFormat']>()
+      .toEqualTypeOf<AuthoredContentFormat | undefined>();
+    const legacy: CreateWorkItemRequest = { title: 'Legacy', type: 'task', priority: 'medium' };
+    const conversion: UpdateWorkItemRequest = { descriptionFormat: 'markdown_v1' };
+
+    expect(legacy.descriptionFormat).toBeUndefined();
+    expect(conversion.description).toBeUndefined();
   });
 });

@@ -1,3 +1,4 @@
+import { authoredContentFormats } from '@worktrail/contracts';
 import type {
   BulkUpdateWorkItemsRequest,
   BulkUpdateWorkItemsResponseDto,
@@ -80,7 +81,8 @@ function requireUniqueIds(values: string[], context: z.RefinementCtx): void {
 
 const createWorkItemSchema = z.object({
   title: z.string().trim().min(1),
-  description: z.string().trim().optional(),
+  description: z.string().optional(),
+  descriptionFormat: z.enum(authoredContentFormats).optional(),
   type: z.enum(workItemTypes),
   status: z.enum(workItemStatuses).optional(),
   priority: z.enum(workItemPriorities),
@@ -118,7 +120,8 @@ const csvImportApplySchema = z.object({
 const updateWorkItemSchema = z
   .object({
     title: z.string().trim().min(1).optional(),
-    description: z.string().trim().optional(),
+    description: z.string().optional(),
+    descriptionFormat: z.enum(authoredContentFormats).optional(),
     type: z.enum(workItemTypes).optional(),
     priority: z.enum(workItemPriorities).optional(),
     assigneeId: nullableUuidSchema.optional(),

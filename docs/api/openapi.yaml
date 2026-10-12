@@ -5261,11 +5261,31 @@ components:
     CreateWorkItemRequest:
       type: object
       required: [title, type, priority]
+      description: |
+        Omitted description is empty and omitted descriptionFormat is plain_text; Markdown is never
+        inferred from source. CRLF and lone CR normalize to LF without trimming other whitespace.
+        New descriptions must be at most 10,000 UTF-16 code units after normalization. Empty or
+        whitespace-only descriptions are valid in either format. Invalid/null formats or oversized
+        source return 400 VALIDATION_ERROR. Size errors report only field, source_too_long, and
+        maximumCodeUnits (10000), never the submitted source.
+      examples:
+        - title: Plain-text task
+          type: task
+          priority: medium
+          description: "  **literal punctuation**\n"
+        - title: Structured task
+          type: task
+          priority: medium
+          description: "## Acceptance\n\n- Preserve indentation\n"
+          descriptionFormat: markdown_v1
       properties:
         title:
           type: string
         description:
           type: string
+        descriptionFormat:
+          $ref: "#/components/schemas/AuthoredContentFormat"
+          default: plain_text
         type:
           $ref: "#/components/schemas/WorkItemType"
         status:
@@ -5306,11 +5326,32 @@ components:
           description: Eligible same-project top-level work item ID, or null to clear the current parent.
     UpdateWorkItemRequest:
       type: object
+      minProperties: 1
+      description: |
+        Supply at least one editable field. Omitted source/format preserves the current locked pair;
+        descriptionFormat alone explicitly converts existing source. Changed source normalizes CRLF
+        and lone CR to LF without trimming. An equivalent normalized source retains historical bytes.
+        Changed pairs must fit 10,000 normalized UTF-16 code units, including format-only conversion;
+        shorten oversized legacy source in the same request to convert it. Unchanged legacy pairs
+        remain valid even when oversized, including unrelated metadata edits. Invalid/null formats
+        and oversized changed pairs return 400 VALIDATION_ERROR. Size errors contain only field,
+        source_too_long, and maximumCodeUnits (10000), not submitted or stored source.
+        A full PATCH no-op compares supplied scalar fields and label sets without order or duplicates;
+        it preserves updatedAt and emits no activity or notifications. Changed description pairs
+        create one description_changed event containing previous/new source and format; format-only
+        events use the summary "Description format changed." Real assignee changes still notify.
+      examples:
+        - description: "  Updated source\n"
+        - descriptionFormat: markdown_v1
+        - description: Shortened legacy description
+          descriptionFormat: markdown_v1
       properties:
         title:
           type: string
         description:
           type: string
+        descriptionFormat:
+          $ref: "#/components/schemas/AuthoredContentFormat"
         type:
           $ref: "#/components/schemas/WorkItemType"
         priority:

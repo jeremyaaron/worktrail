@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
 
+import type { UpdateWorkItemRequest } from '@worktrail/contracts';
+import { sql } from 'drizzle-orm';
 import request from 'supertest';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { createExpressApp } from '../src/adapters/express/server.js';
-import { createDb, createPool } from '../src/db/client.js';
+import { createDb, createPool, type WorktrailDb } from '../src/db/client.js';
 import { createRepositories, type Repositories } from '../src/repositories/index.js';
 import { WorkItemService } from '../src/services/work-item-service.js';
 
@@ -266,6 +268,299 @@ afterEach(async () => {
 afterAll(async () => {
   await cleanupAllWorkspaces();
   await pool.end();
+});
+
+describe('authored work-item descriptions', () => {
+  it.each([
+    { description: '  **literal**\r\n\tcode  \r', expected: '  **literal**\n\tcode  \n' },
+    { description: '', descriptionFormat: 'markdown_v1', expected: '' },
+    { description: '  # Heading\r\n', descriptionFormat: 'markdown_v1', expected: '  # Heading\n' },
+    { expected: '' }
+  ])('creates normalized, untrimmed source with optional format: %j', async (input) => {
+    const fixture = await createFixture();
+    const { expected, ...content } = input;
+    const response = await request(app)
+      .post(`/api/projects/${fixture.projectId}/work-items`)
+      .set(fixture.headers)
+      .send({ title: '  New item  ', type: 'task', priority: 'medium', ...content })
+      .expect(201);
+
+    expect(response.body).toMatchObject({
+      title: 'New item', description: expected,
+      descriptionFormat: input.descriptionFormat ?? 'plain_text'
+    });
+    expect(await repositories.workItems.findById(response.body.id)).toMatchObject({
+      description: expected, descriptionFormat: input.descriptionFormat ?? 'plain_text'
+    });
+  });
+
+  it.each([null, 'html', '', 1])('rejects invalid formats on create and patch: %j', async (format) => {
+    const fixture = await createFixture();
+    const item = await createWorkItem(fixture);
+    await request(app).post(`/api/projects/${fixture.projectId}/work-items`)
+      .set(fixture.headers)
+      .send({ title: 'Invalid', type: 'task', priority: 'medium', descriptionFormat: format })
+      .expect(400);
+    await request(app).patch(`/api/work-items/${item.id}`).set(fixture.headers)
+      .send({ descriptionFormat: format }).expect(400);
+    expect(await repositories.workItems.findById(item.id)).toEqual(item);
+    expect(await repositories.activityEvents.findByWorkItem(item.id)).toEqual([]);
+  });
+
+  it.each([null, 12])('rejects non-string source on create and patch: %j', async (description) => {
+    const fixture = await createFixture();
+    const item = await createWorkItem(fixture);
+    await request(app).post(`/api/projects/${fixture.projectId}/work-items`)
+      .set(fixture.headers).send({ title: 'Invalid', type: 'task', priority: 'medium', description })
+      .expect(400);
+    await request(app).patch(`/api/work-items/${item.id}`).set(fixture.headers)
+      .send({ description }).expect(400);
+  });
+
+  it.each(['x'.repeat(10_000), '\u{1f600}'.repeat(5_000), '\r\n'.repeat(10_000)])(
+    'accepts the normalized UTF-16 boundary on create and update (%#)', async (source) => {
+      const fixture = await createFixture();
+      const created = await request(app).post(`/api/projects/${fixture.projectId}/work-items`)
+        .set(fixture.headers)
+        .send({ title: 'Boundary', type: 'task', priority: 'medium', description: source })
+        .expect(201);
+      expect(created.body.description).toBe(source.replace(/\r\n/g, '\n'));
+      const item = await createWorkItem(fixture);
+      const updated = await request(app).patch(`/api/work-items/${item.id}`).set(fixture.headers)
+        .send({ description: source, descriptionFormat: 'markdown_v1' }).expect(200);
+      expect(updated.body.description).toBe(created.body.description);
+    }
+  );
+
+  it('rejects oversized new source safely through endpoints and direct creation', async () => {
+    const fixture = await createFixture();
+    const item = await createWorkItem(fixture);
+    const input = { title: 'Too long', type: 'task' as const, priority: 'medium' as const,
+      description: `${'\u{1f600}'.repeat(5_000)}x` };
+    const project = await repositories.projects.findById(fixture.projectId);
+    const response = await request(app).post(`/api/projects/${fixture.projectId}/work-items`)
+      .set(fixture.headers).send(input).expect(400);
+    expect(response.body.error).toMatchObject({ code: 'VALIDATION_ERROR', details: {
+      field: 'description', reason: 'source_too_long', maximumCodeUnits: 10_000
+    } });
+    expect(JSON.stringify(response.body)).not.toContain(input.description);
+    await request(app).patch(`/api/work-items/${item.id}`).set(fixture.headers)
+      .send({ description: input.description }).expect(400);
+    await expect(createService(fixture).createWorkItemWithRepositories(
+      fixture.projectId, input, repositories
+    )).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect(await repositories.projects.findById(fixture.projectId)).toEqual(project);
+    expect(await repositories.workItems.findById(item.id)).toEqual(item);
+    expect(await repositories.activityEvents.findByWorkItem(item.id)).toEqual([]);
+  });
+
+  it('normalizes direct creation without inferring a format', async () => {
+    const fixture = await createFixture();
+    const item = await createService(fixture).createWorkItemWithRepositories(fixture.projectId, {
+      title: 'Direct', type: 'task', priority: 'medium', description: '  **literal**\r\n'
+    }, repositories);
+    expect(item).toMatchObject({ description: '  **literal**\n', descriptionFormat: 'plain_text' });
+  });
+
+  it('records one pair-aware event for conversion and preserves the format on legacy patches', async () => {
+    const fixture = await createFixture();
+    const item = await createWorkItem(fixture, { description: '  **literal**\r\n' });
+    await request(app).patch(`/api/work-items/${item.id}`).set(fixture.headers)
+      .send({ descriptionFormat: 'markdown_v1' }).expect(200)
+      .expect(({ body }) => expect(body).toMatchObject({
+        description: item.description, descriptionFormat: 'markdown_v1'
+      }));
+    expect(await repositories.activityEvents.findByWorkItem(item.id)).toEqual([
+      expect.objectContaining({ eventType: 'work_item.description_changed',
+        summary: 'Description format changed.',
+        previousValue: { description: item.description, descriptionFormat: 'plain_text' },
+        newValue: { description: item.description, descriptionFormat: 'markdown_v1' } })
+    ]);
+    await request(app).patch(`/api/work-items/${item.id}`).set(fixture.headers)
+      .send({ description: '  new\r\nsource  ' }).expect(200)
+      .expect(({ body }) => expect(body).toMatchObject({
+        description: '  new\nsource  ', descriptionFormat: 'markdown_v1'
+      }));
+    await request(app).patch(`/api/work-items/${item.id}`).set(fixture.headers)
+      .send({ description: '  plain  ', descriptionFormat: 'plain_text' }).expect(200);
+    const events = await repositories.activityEvents.findByWorkItem(item.id);
+    expect(events).toHaveLength(3);
+    expect(events).toContainEqual(expect.objectContaining({
+      previousValue: { description: '  new\nsource  ', descriptionFormat: 'markdown_v1' },
+      newValue: { description: '  plain  ', descriptionFormat: 'plain_text' }
+    }));
+    expect(await repositories.notifications.listByRecipient({ workspaceId: fixture.workspaceId,
+      recipientMemberId: fixture.contributorId, state: 'all' })).toEqual([]);
+  });
+
+  it('preserves legacy oversized bytes on no-ops and unrelated edits, but requires shortening to convert', async () => {
+    const fixture = await createFixture();
+    const description = `${'x'.repeat(10_001)}\r\n`;
+    const item = await createWorkItem(fixture, { description });
+    await request(app).patch(`/api/work-items/${item.id}`).set(fixture.headers)
+      .send({ description: description.replace('\r\n', '\n'), descriptionFormat: 'plain_text' })
+      .expect(200);
+    await request(app).patch(`/api/work-items/${item.id}`).set(fixture.headers)
+      .send({ descriptionFormat: 'plain_text' }).expect(200);
+    expect(await repositories.workItems.findById(item.id)).toEqual(item);
+    await request(app).patch(`/api/work-items/${item.id}`).set(fixture.headers)
+      .send({ title: 'Unrelated change' }).expect(200);
+    await request(app).patch(`/api/work-items/${item.id}`).set(fixture.headers)
+      .send({ description, assigneeId: fixture.maintainerId }).expect(200);
+    expect(await repositories.workItems.findById(item.id)).toMatchObject({
+      description, descriptionFormat: 'plain_text', assigneeId: fixture.maintainerId
+    });
+    expect((await repositories.activityEvents.findByWorkItem(item.id)).map((event) => event.eventType))
+      .toEqual(expect.arrayContaining(['work_item.title_changed', 'work_item.assignee_changed']));
+    expect(await repositories.notifications.listByRecipient({ workspaceId: fixture.workspaceId,
+      recipientMemberId: fixture.maintainerId, state: 'all' })).toHaveLength(1);
+    await request(app).patch(`/api/work-items/${item.id}`).set(fixture.headers)
+      .send({ descriptionFormat: 'markdown_v1' }).expect(400);
+    await request(app).patch(`/api/work-items/${item.id}`).set(fixture.headers)
+      .send({ description: 'shortened', descriptionFormat: 'markdown_v1' }).expect(200);
+    const events = await repositories.activityEvents.findByWorkItem(item.id);
+    expect(events.filter((event) => event.eventType === 'work_item.description_changed')).toHaveLength(1);
+  });
+
+  it('allows conversion at the normalized limit without rewriting historical CRLF bytes', async () => {
+    const fixture = await createFixture();
+    const description = '\r\n'.repeat(10_000);
+    const item = await createWorkItem(fixture, { description });
+    await request(app).patch(`/api/work-items/${item.id}`).set(fixture.headers)
+      .send({ descriptionFormat: 'markdown_v1' }).expect(200)
+      .expect(({ body }) => expect(body).toMatchObject({ description, descriptionFormat: 'markdown_v1' }));
+    expect(await repositories.workItems.findById(item.id)).toMatchObject({
+      description, descriptionFormat: 'markdown_v1'
+    });
+    expect(await repositories.activityEvents.findByWorkItem(item.id)).toEqual([
+      expect.objectContaining({ summary: 'Description format changed.' })
+    ]);
+  });
+
+  it('rejects an empty PATCH while allowing an explicitly cleared description', async () => {
+    const fixture = await createFixture();
+    const item = await createWorkItem(fixture, { descriptionFormat: 'markdown_v1' });
+    await request(app).patch(`/api/work-items/${item.id}`).set(fixture.headers).send({}).expect(400);
+    await request(app).patch(`/api/work-items/${item.id}`).set(fixture.headers)
+      .send({ description: '' }).expect(200)
+      .expect(({ body }) => expect(body).toMatchObject({ description: '', descriptionFormat: 'markdown_v1' }));
+    expect(await repositories.activityEvents.findByWorkItem(item.id)).toHaveLength(1);
+  });
+
+  it('does not write rows, replace labels, or emit side effects on complete scalar/label no-ops', async () => {
+    const fixture = await createFixture();
+    const item = await createWorkItem(fixture, { description: '  source\r\n',
+      assigneeId: fixture.inactiveMemberId });
+    await repositories.labels.replaceForWorkItem(item.id, [fixture.frontendLabelId, fixture.backendLabelId]);
+    const rowVersions = () => pool.query(
+      `select 'item' as kind, ctid::text, xmin::text from work_items where id = $1
+       union all select label_id::text, ctid::text, xmin::text from work_item_labels
+       where work_item_id = $1 order by kind`, [item.id]
+    );
+    const before = (await rowVersions()).rows;
+    const response = await request(app).patch(`/api/work-items/${item.id}`).set(fixture.headers)
+      .send({ title: item.title, description: '  source\n', descriptionFormat: item.descriptionFormat,
+        type: item.type, priority: item.priority, assigneeId: item.assigneeId, milestoneId: null,
+        cycleId: null, dueDate: null, estimatePoints: null,
+        labelIds: [fixture.backendLabelId, fixture.frontendLabelId, fixture.frontendLabelId] })
+      .expect(200);
+    expect(response.body.updatedAt).toBe(item.updatedAt.toISOString());
+    expect(response.body.description).toBe(item.description);
+    expect((await rowVersions()).rows).toEqual(before);
+    expect(await repositories.activityEvents.findByWorkItem(item.id)).toEqual([]);
+    const notifications = await pool.query('select id from notifications where workspace_id = $1',
+      [fixture.workspaceId]);
+    expect(notifications.rows).toEqual([]);
+
+    await request(app).patch(`/api/work-items/${item.id}`).set(fixture.headers)
+      .send({ title: 'Real edit', labelIds: [fixture.backendLabelId, fixture.frontendLabelId] })
+      .expect(200);
+    expect((await rowVersions()).rows.filter((row) => row.kind !== 'item'))
+      .toEqual(before.filter((row) => row.kind !== 'item'));
+  });
+
+  it('does not let format-only edits or no-ops bypass tenant and archive checks', async () => {
+    const fixture = await createFixture();
+    const foreign = await createFixture();
+    const item = await createWorkItem(fixture);
+    await request(app).patch(`/api/work-items/${item.id}`).set(foreign.headers)
+      .send({ descriptionFormat: 'markdown_v1' }).expect(404);
+    await repositories.projects.update(fixture.projectId, { status: 'archived', updatedAt: now() });
+    for (const descriptionFormat of ['plain_text', 'markdown_v1']) {
+      await request(app).patch(`/api/work-items/${item.id}`).set(fixture.headers)
+        .send({ descriptionFormat }).expect(409);
+    }
+    expect(await repositories.workItems.findById(item.id)).toEqual(item);
+    expect(await repositories.activityEvents.findByWorkItem(item.id)).toEqual([]);
+  });
+
+  async function queuedUpdates(
+    fixture: Awaited<ReturnType<typeof createFixture>>, id: string,
+    firstInput: UpdateWorkItemRequest, secondInput: UpdateWorkItemRequest
+  ) {
+    let release!: () => void;
+    let ready!: (pid: number) => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const locked = new Promise<number>((resolve) => { ready = resolve; });
+    const first = db.transaction(async (tx) => {
+      const { rows } = await tx.execute(sql`select pg_backend_pid() as pid`);
+      const result = await createService(fixture, {
+        db: undefined, repositories: createRepositories(tx as unknown as WorktrailDb),
+        clock: () => new Date('2026-07-04T00:00:00Z')
+      }).updateWorkItem(id, firstInput);
+      ready(Number(rows[0]?.pid));
+      await gate;
+      return result;
+    });
+    let second: ReturnType<WorkItemService['updateWorkItem']> | undefined;
+    try {
+      const pid = await Promise.race([locked, first.then(() => { throw new Error('Writer ended early.'); })]);
+      second = createService(fixture, { clock: () => new Date('2026-07-05T00:00:00Z') })
+        .updateWorkItem(id, secondInput);
+      // Observe a real lock wait before releasing the first writer; no scheduler-dependent sleeps.
+      void second.catch(() => undefined);
+      await vi.waitFor(async () => {
+        const waiting = await pool.query(
+          `select pid from pg_stat_activity where datname = current_database()
+           and wait_event_type = 'Lock' and $1 = any(pg_blocking_pids(pid))`, [pid]
+        );
+        expect(waiting.rows.length).toBeGreaterThan(0);
+      }, { timeout: 5_000, interval: 10 });
+    } finally {
+      release();
+      await Promise.all([first, second]);
+    }
+    return Promise.all([first, second!]);
+  }
+
+  it('resolves an omitted format and activity against the locked current row after a concurrent conversion', async () => {
+    const fixture = await createFixture();
+    const item = await createWorkItem(fixture);
+    const [, second] = await queuedUpdates(fixture, item.id,
+      { description: 'First writer', descriptionFormat: 'markdown_v1' }, { description: 'Second writer' });
+    expect(second).toMatchObject({ description: 'Second writer', descriptionFormat: 'markdown_v1' });
+    expect(await repositories.workItems.findById(item.id)).toMatchObject({
+      description: 'Second writer', descriptionFormat: 'markdown_v1'
+    });
+    const events = await repositories.activityEvents.findByWorkItem(item.id);
+    expect(events).toHaveLength(2);
+    expect(events).toContainEqual(expect.objectContaining({
+      previousValue: { description: 'First writer', descriptionFormat: 'markdown_v1' },
+      newValue: { description: 'Second writer', descriptionFormat: 'markdown_v1' }
+    }));
+  });
+
+  it('turns a queued equivalent update into a no-op after the first writer commits', async () => {
+    const fixture = await createFixture();
+    const item = await createWorkItem(fixture);
+    const [first, second] = await queuedUpdates(fixture, item.id,
+      { description: 'Identical\nsource', descriptionFormat: 'markdown_v1' },
+      { description: 'Identical\r\nsource' });
+    expect(second).toEqual(first);
+    expect(await repositories.activityEvents.findByWorkItem(item.id)).toHaveLength(1);
+    expect((await repositories.workItems.findById(item.id))?.updatedAt.toISOString())
+      .toBe('2026-07-04T00:00:00.000Z');
+  });
 });
 
 describe('work item API', () => {

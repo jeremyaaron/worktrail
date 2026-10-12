@@ -245,6 +245,7 @@ export interface UpdateCommentRequest {
 export interface CreateWorkItemRequest {
   title: string;
   description?: string;
+  descriptionFormat?: AuthoredContentFormat;
   type: WorkItemType;
   status?: WorkItemStatus;
   priority: WorkItemPriority;
@@ -260,6 +261,7 @@ export interface CreateWorkItemRequest {
 export interface UpdateWorkItemRequest {
   title?: string;
   description?: string;
+  descriptionFormat?: AuthoredContentFormat;
   type?: WorkItemType;
   priority?: WorkItemPriority;
   assigneeId?: string | null;
