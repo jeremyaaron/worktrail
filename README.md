@@ -1,8 +1,24 @@
 # Worktrail
 
-Worktrail is a project management reference app. The v0.2.7 baseline is a local-first Angular + TypeScript API + Postgres application focused on files in work-item context, scalable work discovery, daily team workflow, two-level work breakdown, workspace portfolio review, collaboration updates, reliable filtered work views, pinned workspace and project operating lenses, explicit project batch triage, milestone review, cycle planning and closeout, published project reports and Markdown sharing, dependency-aware planning, workspace governance, data portability, and production-shaped application boundaries.
+Worktrail is a project management reference app. The v0.2.8 baseline is a local-first Angular +
+TypeScript API + Postgres application focused on fast workspace navigation and bounded multi-entity
+search, files in work-item context, scalable work discovery, daily team workflow, two-level work
+breakdown, workspace portfolio review, collaboration updates, reliable filtered work views, pinned
+workspace and project operating lenses, explicit project batch triage, milestone review, cycle planning
+and closeout, published project reports and Markdown sharing, dependency-aware planning, workspace
+governance, data portability, and production-shaped application boundaries.
 
-The app includes My Work, Portfolio review, Action Inbox, top-level Work Items discovery, URL-backed filters, copyable filtered-view links, personal saved views, workspace-shared saved views, project-scoped personal and shared saved views, pinned saved-view shortcuts, project-scoped bulk updates, quick work capture, persistent project workspaces, bounded work item attachments, live planning review, live milestone review, cycle management and review, generated report drafts, immutable published report snapshots with cycle context, Markdown copy/download for published reports, print-friendly report detail pages, milestone/cycle/work links from reports, milestone management, durable boards, work item relationships, dependency-blocked signals, project delivery health, comments, mentions, work item watchers, activity, CSV import/export, production-like preview, health/readiness checks, checked-in API documentation, CI, lint, and responsive work item scanning.
+The app includes shell-level Quick Find, My Work, Portfolio review, Action Inbox, top-level Work Items
+discovery, URL-backed filters, copyable filtered-view links, personal saved views, workspace-shared
+saved views, project-scoped personal and shared saved views, pinned saved-view shortcuts,
+project-scoped bulk updates, quick work capture, persistent project workspaces, bounded work item
+attachments, live planning review, live milestone review, cycle management and review, generated
+report drafts, immutable published report snapshots with cycle context, Markdown copy/download for
+published reports, print-friendly report detail pages, milestone/cycle/work links from reports,
+milestone management, durable boards, work item relationships, dependency-blocked signals, project
+delivery health, comments, mentions, work item watchers, activity, CSV import/export, production-like
+preview, health/readiness checks, checked-in API documentation, CI, lint, and responsive work item
+scanning.
 
 The app is intentionally built as a credible product surface before generalizing reusable patterns. It runs locally today, while preserving a path toward an S3/CloudFront Angular frontend with API Gateway/Lambda-style endpoint handlers and managed Postgres.
 
@@ -26,6 +42,7 @@ docs/
   v0.2.5/  Work Breakdown PRD, technical design, implementation plan, release notes, and pattern notes
   v0.2.6/  Scalable Work Discovery PRD, technical design, implementation plan, release notes, and pattern notes
   v0.2.7/  Files in Context PRD, technical design, implementation plan, release notes, and pattern notes
+  v0.2.8/  Quick Find PRD, technical design, implementation plan, release notes, and pattern notes
   api/     OpenAPI reference
 site/       Static GitHub Pages product site
 e2e/        Playwright smoke tests
@@ -154,6 +171,37 @@ operation requires a future object-store adapter and coordination design.
 ## API Reference
 
 The checked-in OpenAPI reference lives at [docs/api/openapi.yaml](docs/api/openapi.yaml). It documents the implemented route surface, representative DTOs, development-only local actor headers, readiness behavior, and the common structured error shape.
+
+## Quick Find
+
+v0.2.8 adds Quick Find as a bounded workspace navigation and search surface available throughout the
+application. Open it from the search button in the top bar or with `Command+K` on macOS and `Ctrl+K`
+elsewhere. The shortcut is ignored while focus is in an editable control.
+
+With an empty query, Quick Find offers global destinations and project destinations when the current
+route has project context. Queries are normalized to 2-120 Unicode code points and search:
+
+- work item display keys, titles, and descriptions;
+- project keys, names, and descriptions;
+- milestone names and descriptions;
+- cycle names;
+- published report titles and summaries;
+- attachment filenames, with navigation to the owning work item's Files section.
+
+Results are grouped by record type and ranked through deterministic exact, prefix, and substring tiers.
+Readable archived and completed records remain discoverable with visible lifecycle context. Each group
+returns at most five records and a `hasMore` signal rather than an exact total. Broad work-item matches
+can continue into the canonical workspace Work Items page; other result groups do not have dedicated
+overflow pages in this release.
+
+Quick Find sends search text in the JSON body of `POST /api/quick-find`, never in the page URL. Normal
+request logs record the route rather than the query or request body, responses are marked
+`private, no-store`, and actor/workspace authorization is applied before results are projected.
+
+Quick Find is not fuzzy, semantic, language-aware, personalized, or backed by an external search
+service. It does not search comments, activity, notifications, complete report bodies, or attachment
+contents, and it does not provide mutation commands, saved global searches, exact totals, or hosted
+search infrastructure.
 
 ## Portfolio Review
 

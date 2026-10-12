@@ -94,6 +94,7 @@ describe('Express API foundation', () => {
       'GET /api/workspace/capabilities',
       'GET /api/workspace/activity',
       'GET /api/my-work',
+      'POST /api/quick-find',
       'GET /api/members',
       'POST /api/members',
       'PATCH /api/members/:memberId',

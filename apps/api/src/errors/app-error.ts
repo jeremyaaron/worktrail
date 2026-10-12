@@ -9,6 +9,7 @@ export type AppErrorCode =
   | 'PAYLOAD_TOO_LARGE'
   | 'ATTACHMENT_LIMIT_EXCEEDED'
   | 'ATTACHMENT_STORAGE_UNAVAILABLE'
+  | 'QUICK_FIND_UNAVAILABLE'
   | 'INTERNAL_ERROR';
 
 export class AppError extends Error {
@@ -106,6 +107,16 @@ export class AttachmentStorageUnavailableError extends AppError {
       code: 'ATTACHMENT_STORAGE_UNAVAILABLE',
       status: 503,
       message: 'Attachment storage is temporarily unavailable.'
+    });
+  }
+}
+
+export class QuickFindUnavailableError extends AppError {
+  constructor() {
+    super({
+      code: 'QUICK_FIND_UNAVAILABLE',
+      status: 503,
+      message: 'Quick Find is temporarily unavailable.'
     });
   }
 }

@@ -103,6 +103,8 @@ export const projects = pgTable(
     check('projects_key_check', sql`${table.key} ~ '^[A-Z0-9]{2,8}$'`),
     check('projects_next_work_item_number_check', sql`${table.nextWorkItemNumber} > 0`),
     index('projects_workspace_id_status_idx').on(table.workspaceId, table.status),
+    index('projects_name_trgm_idx').using('gin', table.name.op('gin_trgm_ops')),
+    index('projects_description_trgm_idx').using('gin', table.description.op('gin_trgm_ops')),
     uniqueIndex('projects_workspace_id_key_unique').on(table.workspaceId, table.key)
   ]
 );
@@ -127,9 +129,12 @@ export const milestones = pgTable(
   },
   (table) => [
     check('milestones_status_check', enumCheckSql('status', milestoneStatuses)),
+    index('milestones_workspace_id_idx').on(table.workspaceId),
     index('milestones_project_id_status_idx').on(table.projectId, table.status),
     index('milestones_project_id_target_date_idx').on(table.projectId, table.targetDate),
     index('milestones_project_id_archived_at_idx').on(table.projectId, table.archivedAt),
+    index('milestones_name_trgm_idx').using('gin', table.name.op('gin_trgm_ops')),
+    index('milestones_description_trgm_idx').using('gin', table.description.op('gin_trgm_ops')),
     uniqueIndex('milestones_project_id_active_name_unique')
       .on(table.projectId, sql`lower(${table.name})`)
       .where(sql`${table.archivedAt} is null`)
@@ -167,6 +172,7 @@ export const projectCycles = pgTable(
     index('project_cycles_project_id_status_idx').on(table.projectId, table.status),
     index('project_cycles_project_id_start_date_idx').on(table.projectId, table.startDate),
     index('project_cycles_project_id_archived_at_idx').on(table.projectId, table.archivedAt),
+    index('project_cycles_name_trgm_idx').using('gin', table.name.op('gin_trgm_ops')),
     uniqueIndex('project_cycles_project_id_active_unique')
       .on(table.projectId)
       .where(sql`${table.status} = 'active' and ${table.archivedAt} is null`),
@@ -330,6 +336,10 @@ export const workItemAttachments = pgTable(
       table.id.desc()
     ),
     index('work_item_attachments_workspace_id_idx').on(table.workspaceId),
+    index('work_item_attachments_file_name_trgm_idx').using(
+      'gin',
+      table.fileName.op('gin_trgm_ops')
+    ),
     uniqueIndex('work_item_attachments_storage_key_unique').on(table.storageKey)
   ]
 );
@@ -480,7 +490,15 @@ export const projectStatusReports = pgTable(
       table.publishedAt.desc()
     ),
     index('project_status_reports_workspace_project_idx').on(table.workspaceId, table.projectId),
-    index('project_status_reports_author_idx').on(table.authorMemberId)
+    index('project_status_reports_author_idx').on(table.authorMemberId),
+    index('project_status_reports_title_trgm_idx').using(
+      'gin',
+      table.title.op('gin_trgm_ops')
+    ),
+    index('project_status_reports_summary_trgm_idx').using(
+      'gin',
+      table.summary.op('gin_trgm_ops')
+    )
   ]
 );
 

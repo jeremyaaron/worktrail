@@ -35,6 +35,7 @@ const blockedWorkItemId = '10000000-0000-4000-8000-000000000405';
 const relatedWorkItemId = '10000000-0000-4000-8000-000000000406';
 let routeQueryParams: Record<string, string>;
 let routeParamMap: BehaviorSubject<ParamMap>;
+let routeFragment: BehaviorSubject<string | null>;
 
 const owner: MemberDto = {
   id: ownerId,
@@ -349,6 +350,7 @@ describe('WorkItemDetailPageComponent', () => {
   beforeEach(async () => {
     routeQueryParams = {};
     routeParamMap = new BehaviorSubject(convertToParamMap({ workItemId }));
+    routeFragment = new BehaviorSubject<string | null>(null);
 
     await TestBed.configureTestingModule({
       imports: [WorkItemDetailPageComponent],
@@ -360,12 +362,16 @@ describe('WorkItemDetailPageComponent', () => {
           provide: ActivatedRoute,
           useValue: {
             paramMap: routeParamMap.asObservable(),
+            fragment: routeFragment.asObservable(),
             snapshot: {
               get paramMap() {
                 return routeParamMap.value;
               },
               get queryParamMap() {
                 return convertToParamMap(routeQueryParams);
+              },
+              get fragment() {
+                return routeFragment.value;
               }
             }
           }
@@ -732,6 +738,80 @@ describe('WorkItemDetailPageComponent', () => {
     expect(compiled.textContent).toContain('Build detail controls');
     expect(compiled.textContent).not.toContain('WT-3');
     expect(fixture.componentInstance.workItemId()).toBe(blockedWorkItemId);
+  });
+
+  it('issues one Files target generation for each same-item fragment request', () => {
+    const { fixture } = setup();
+    const attachmentComponent = fixture.debugElement.query(
+      By.directive(WorkItemAttachmentsComponent)
+    ).componentInstance as WorkItemAttachmentsComponent;
+    const target = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('#files')!;
+    const focus = spyOn(target, 'focus');
+    const scrollIntoView = spyOn(target, 'scrollIntoView');
+
+    expect(fixture.componentInstance.filesTargetGeneration()).toBeNull();
+    expect(attachmentComponent.focusWhenSettled()).toBeNull();
+
+    routeFragment.next('files');
+    fixture.detectChanges();
+    const firstGeneration = fixture.componentInstance.filesTargetGeneration();
+
+    expect(firstGeneration).toBe(1);
+    expect(attachmentComponent.focusWhenSettled()).toBe(firstGeneration);
+    expect(focus).toHaveBeenCalledOnceWith({ preventScroll: true });
+    expect(scrollIntoView).toHaveBeenCalledOnceWith({ block: 'start' });
+
+    routeFragment.next('files');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.filesTargetGeneration()).toBe(firstGeneration);
+    expect(focus).toHaveBeenCalledTimes(1);
+
+    routeFragment.next(null);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.filesTargetGeneration()).toBeNull();
+
+    routeFragment.next('files');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.filesTargetGeneration()).toBe(2);
+    expect(focus).toHaveBeenCalledTimes(2);
+  });
+
+  it('renews the Files target when route reuse changes the work item id', () => {
+    routeFragment.next('files');
+    const { fixture, http } = setup();
+    const firstGeneration = fixture.componentInstance.filesTargetGeneration();
+    const nextDetail: WorkItemDetailDto = {
+      ...detail,
+      id: blockedWorkItemId,
+      displayKey: 'WT-5',
+      title: 'Build detail controls',
+      comments: [],
+      labels: []
+    };
+
+    routeParamMap.next(convertToParamMap({ workItemId: blockedWorkItemId }));
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.filesTargetGeneration()).toBe(2);
+    expect(fixture.componentInstance.filesTargetGeneration()).not.toBe(firstGeneration);
+    expect((fixture.nativeElement as HTMLElement).querySelector('#files')).toBeNull();
+
+    http.expectOne(`/api/work-items/${blockedWorkItemId}`).flush(nextDetail);
+    http.expectOne(`/api/work-items/${blockedWorkItemId}/watchers`).flush(unwatchedState);
+    http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+    http.expectOne(`/api/projects/${projectId}/labels`).flush([]);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([]);
+    http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([]);
+    fixture.detectChanges();
+    http.expectOne(`/api/work-items/${blockedWorkItemId}/attachments`).flush(emptyAttachmentList);
+    fixture.detectChanges();
+
+    const attachmentComponent = fixture.debugElement.query(
+      By.directive(WorkItemAttachmentsComponent)
+    ).componentInstance as WorkItemAttachmentsComponent;
+    expect(attachmentComponent.workItemId()).toBe(blockedWorkItemId);
+    expect(attachmentComponent.focusWhenSettled()).toBe(2);
+    expect((fixture.nativeElement as HTMLElement).querySelector('#files')).not.toBeNull();
   });
 
   it('keeps parent and child navigation current across same-route transitions', () => {

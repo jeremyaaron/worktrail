@@ -1,0 +1,383 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.quick-find {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 20px 50px rgb(15 23 42 / 24%);
+  color: #17202a;
+}
+
+.quick-find__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 14px 16px;
+}
+
+.quick-find__header h2,
+.quick-find__group h3 {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+.quick-find__header h2 {
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.quick-find__icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+}
+
+.quick-find__icon-button:hover {
+  border-color: #cbd5e1;
+  background: #f1f5f9;
+  color: #17202a;
+}
+
+.quick-find__icon-button:focus-visible,
+.quick-find__clear:focus-visible,
+.quick-find__state button:focus-visible,
+.quick-find__input:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+.quick-find__icon-button svg,
+.quick-find__clear svg,
+.quick-find__query svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.quick-find__label,
+.quick-find__live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.quick-find__query {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 16px;
+}
+
+.quick-find__query svg {
+  position: absolute;
+  left: 30px;
+  color: #64748b;
+  pointer-events: none;
+}
+
+.quick-find__input {
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  border: 1px solid #94a3b8;
+  border-radius: 6px;
+  padding: 0 42px;
+  background: #ffffff;
+  color: #111827;
+  font-size: 1rem;
+}
+
+.quick-find__clear {
+  position: absolute;
+  right: 24px;
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+}
+
+.quick-find__clear:hover {
+  background: #e2e8f0;
+  color: #17202a;
+}
+
+.quick-find__input::placeholder {
+  color: #64748b;
+}
+
+.quick-find__input::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.quick-find__navigation,
+.quick-find__search-results {
+  overflow-y: auto;
+  border-top: 1px solid #e2e8f0;
+}
+
+.quick-find__group {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+}
+
+.quick-find__group + .quick-find__group {
+  border-top: 1px solid #e2e8f0;
+}
+
+.quick-find__group h3 {
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.quick-find__entries {
+  display: grid;
+}
+
+.quick-find__entry {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  min-height: 42px;
+  border: 0;
+  border-radius: 6px;
+  padding: 9px 10px;
+  background: transparent;
+  color: #1e293b;
+  text-align: left;
+  cursor: pointer;
+}
+
+.quick-find__option {
+  cursor: pointer;
+}
+
+.quick-find__entry:hover,
+.quick-find__result:hover,
+.quick-find__overflow-option:hover {
+  background: #eef4fb;
+  color: #183b73;
+}
+
+.quick-find__option--active {
+  background: #e7f0fb;
+  box-shadow: inset 3px 0 #2563eb;
+}
+
+.quick-find__entries span {
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+  font-weight: 750;
+}
+
+.quick-find__entries small {
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.quick-find__state {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  margin: 0;
+  padding: 24px 26px;
+  color: #475569;
+  font-size: 0.875rem;
+}
+
+.quick-find__state p {
+  margin: 0;
+}
+
+.quick-find__state strong {
+  color: #17202a;
+}
+
+.quick-find__state button {
+  min-height: 34px;
+  border: 1px solid #94a3b8;
+  border-radius: 6px;
+  padding: 6px 10px;
+  background: #ffffff;
+  color: #183b73;
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.quick-find__state button:hover {
+  background: #eef4fb;
+}
+
+.quick-find__state--error {
+  color: #9f1239;
+}
+
+.quick-find__result-group {
+  gap: 8px;
+}
+
+.quick-find__result-list {
+  display: grid;
+}
+
+.quick-find__result {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px;
+  border-radius: 6px;
+  color: #1e293b;
+}
+
+.quick-find__result + .quick-find__result {
+  border-top: 1px solid #e2e8f0;
+  border-radius: 0;
+}
+
+.quick-find__result-title {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+}
+
+.quick-find__result-title span {
+  flex: 0 0 auto;
+  color: #315b91;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.quick-find__result-title strong {
+  min-width: 0;
+}
+
+.quick-find__result-context,
+.quick-find__excerpt {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #475569;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.quick-find__result-details {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  color: #64748b;
+  font-size: 0.7rem;
+}
+
+.quick-find__lifecycle {
+  border: 1px solid #f59e0b;
+  border-radius: 999px;
+  padding: 1px 6px;
+  color: #854d0e;
+  font-weight: 750;
+}
+
+.quick-find__excerpt {
+  padding-left: 9px;
+  border-left: 2px solid #cbd5e1;
+}
+
+.quick-find__more {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px 12px;
+  padding: 7px 10px 2px;
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.quick-find__overflow-option {
+  min-height: 32px;
+  border-radius: 6px;
+  padding: 7px 9px;
+  color: #315b91;
+  font-weight: 750;
+}
+
+@media (max-width: 520px) {
+  .quick-find__header,
+  .quick-find__group {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .quick-find__query {
+    padding: 12px;
+  }
+
+  .quick-find__query svg {
+    left: 26px;
+  }
+
+  .quick-find__clear {
+    right: 20px;
+  }
+
+  .quick-find__result-title {
+    display: grid;
+    gap: 2px;
+  }
+
+  .quick-find__more {
+    display: grid;
+  }
+}
+
+@media (forced-colors: active) {
+  .quick-find__option--active {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+    box-shadow: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quick-find__navigation,
+  .quick-find__search-results {
+    scroll-behavior: auto;
+  }
+}
