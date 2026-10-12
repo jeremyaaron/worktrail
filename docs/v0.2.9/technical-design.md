@@ -2,7 +2,8 @@
 
 ## Status
 
-Ready for implementation. Phase 0 completed on October 11, 2026; runtime implementation has not started.
+Implementation in progress. Phases 0-1 completed on October 11, 2026. Persistence and workflow
+integration have not started; see the [implementation plan](implementation-plan.md) for evidence.
 
 ## Summary
 

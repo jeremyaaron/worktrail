@@ -2,7 +2,7 @@
 
 ## Status
 
-Ready for implementation. Phase 0 is complete; Phases 1-11 have not started.
+Implementation in progress. Phases 0-1 are complete; Phases 2-11 have not started.
 
 ## Purpose
 
@@ -245,7 +245,53 @@ npm run test --workspace @worktrail/api
 git diff --check
 ```
 
-Status: Not started.
+Status: Complete (October 11, 2026).
+
+### Completion Evidence
+
+- Added the finite `AuthoredContentFormat` vocabulary, 10,000 UTF-16-unit limit, and pure line-ending
+  normalizer in `packages/contracts/src/authored-content.ts`, exported through the package entry point.
+- Added `resolveNewAuthoredContent` and `resolveUpdatedAuthoredContent` in the API domain policy.
+  Results carry source, format, and change status; helpers require explicit description/body validation
+  context. Authorization and locking remain the caller's responsibility for Phases 3-4.
+- New/changed pairs normalize CRLF/lone CR without trimming. Equivalent updates preserve exact stored
+  bytes and bypass new validation, including oversized or blank legacy records. Format conversions
+  validate normalized source; a conversion cannot grandfather oversized normalized content.
+- Validation errors retain the existing `400 VALIDATION_ERROR` envelope and report safe field/reason/
+  limit metadata without submitted content. No parser, persistence, endpoint, or editor dependency
+  was introduced, and existing request/response contracts remain unchanged.
+- Added 8 contract tests and 42 policy tests covering defaults, omission, both formats, whitespace,
+  normalized equivalence, pair changes, legacy exceptions, exact size boundaries, surrogate pairs,
+  multibyte characters, input immutability, and safe errors.
+
+Verification passed:
+
+```sh
+npm run lint --workspace @worktrail/contracts
+npm run typecheck --workspace @worktrail/contracts
+npm run test --workspace @worktrail/contracts
+npm run build:contracts
+npm run lint --workspace @worktrail/api
+npm run typecheck --workspace @worktrail/api
+npm run test --workspace @worktrail/api -- tests/authored-content-policy.test.ts
+npm run build:api
+npm run typecheck --workspace @worktrail/web
+git diff --check
+```
+
+The contracts suite passed all 50 tests across 12 files. Additional API regressions passed all 231
+tests across 26 database-independent files, including the new policy and mocked startup suites.
+That regression invocation explicitly excluded the 24 PostgreSQL-backed suites and used an
+unavailable test-only database target (`127.0.0.1:1/worktrail_v029_verify`) to prevent accidental
+connections to working data. Angular's typecheck command completed its development build.
+
+Verification limitation: the full PostgreSQL-backed API suite was not run. Read-only local metadata
+checks confirmed that only the working `worktrail` database exists and the `worktrail` role lacks
+`CREATEDB`; Docker's daemon is stopped and no local PostgreSQL server tools are available to provision
+an independent instance. No database, schema, migration, seed, or working attachment data changed.
+Before Phase 2 database checks, provision `worktrail_v029_verify` owned by `worktrail` or make Docker
+available, then migrate the isolated target before running the full API suite. The new Phase 1 helpers
+are not yet wired into production writes.
 
 ## Phase 2: Persistence, Format-Aware Reads, And Migration Compatibility
 
