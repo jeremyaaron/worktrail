@@ -6,9 +6,9 @@ Implementation baseline, confirmed during Phase 0 on October 17, 2026. This desi
 direction in the [PRD](prd.md), informed by the
 [UX audit](ux-audit.md), [technical debt audit](tech-debt-audit.md), and
 [public site audit](site-audit.md). The [implementation plan](implementation-plan.md) records Phase 0
-inventories, closed choices, sequencing, and acceptance. Phases 1-7 verification, toolchain,
-persistence, batched queries, project/cycle coordination, and authoritative work/relationship commands
-are complete; implementation is in progress.
+inventories, closed choices, sequencing, and acceptance. Phases 1-8 verification, toolchain,
+persistence, batched queries, project/cycle coordination, authoritative work/relationship commands,
+and import transport safety are complete; implementation is in progress.
 
 ## Summary
 
@@ -714,6 +714,16 @@ HTTP tests send valid CSV beyond 100 KiB, near-limit CSV with quotes/backslashes
 escapes, invalid JSON, oversized envelopes, and raw CSV over the domain limit. A transport-accepted
 request can still correctly fail CSV row/field policy. Verify unrelated JSON and attachment limits
 have not widened and failures perform no mutation.
+
+Phase 8 implementation: `body-parsing.ts` registers an exact-route import parsing router before
+ordinary JSON parsing and shares its route constants with work endpoint registration. Both JSON
+parsers disable inflation. `error-boundary.ts` maps parser failures through `toApiErrorResponse`;
+unsupported encodings/charsets use 415 with the existing validation code rather than a new domain
+error contract. Logging starts before every transport boundary, uses monotonic timing, and records
+one finish/close outcome with a safe route template or fixed category. A disconnected response uses
+logging-only status 499; it cannot receive a structured response. Unexpected middleware/endpoint
+exceptions are not logged verbatim. Binary upload policy and CSV service policy are unchanged.
+Parser error categories/statuses follow the [Express parser documentation](https://expressjs.com/en/resources/middleware/body-parser/#errors).
 
 ## Read Performance And Consistency
 

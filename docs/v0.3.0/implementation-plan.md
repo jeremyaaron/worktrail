@@ -2,7 +2,7 @@
 
 ## Status
 
-Approved for sequential execution. Phases 0-7 are complete as of October 17, 2026; Phases 8-21 are
+Approved for sequential execution. Phases 0-8 are complete as of October 17, 2026; Phases 9-21 are
 not started. Release verification remains pending. Merge, tag, publication,
 and Pages deployment remain separate user-controlled actions.
 
@@ -30,6 +30,14 @@ work-discovery predicate. This is not a cloud deployment, authentication, analyt
 - Preserve user changes and working data. Use owned disposable resources, not the ordinary configured
   database, attachment root, or an unrelated server.
 - Run focused checks during development; repeat the full automated suite on the final versioned tree.
+  Phase completion uses the changed surface and affected consumers, not an automatic full run.
+  Backend-only phases use API lint/typechecks and affected API tests; shared backend infrastructure
+  warrants the full API suite. Frontend-only phases use affected frontend checks and browser flows;
+  shared contracts include affected consumers. Docs-only edits need link/format checks. Dependency,
+  toolchain, and cross-cutting changes justify broader gates. Full verification remains required at
+  release closeout and the CI merge gate. Record omitted checks as not applicable, not passed, and
+  reuse unchanged-code evidence instead of repeating suites after documentation-only updates.
+  Machine-readable contracts, fixtures, and build inputs are not documentation-only changes.
   Record failures and diagnostic retries separately from clean acceptance runs.
 - Update each phase's status and append concrete completion evidence when that phase is executed.
   Create `verification-notes.md` during implementation, with commands, fixture sizes, counts, versions,
@@ -86,7 +94,7 @@ integration boundaries.
 | 5 | Batched work hydration, query ownership, and page/export evidence | Complete |
 | 6 | Project coordination and concurrent cycle lifecycle safety | Complete |
 | 7 | Authoritative work/hierarchy/board/dependency commands | Complete |
-| 8 | Import transport budgets and structured parser errors | Not started |
+| 8 | Import transport budgets and structured parser errors | Complete |
 | 9 | Live-query/risk policy, estimate state, and versioned snapshots | Not started |
 | 10 | Narrow aggregate reads and bounded preview enrichment | Not started |
 | 11 | Reactive route/actor context and stale-operation ownership | Not started |
@@ -936,7 +944,31 @@ Acceptance:
 Verification: full-boundary HTTP preview/apply, byte/escaping/encoding/error-log assertions, import
 regressions, attachment boundary tests, and API/OpenAPI consistency checks.
 
-Status: Not started.
+Status: Complete on October 17, 2026.
+
+Completion evidence:
+
+- Added exact-route import JSON parsing before the explicit 100 KiB ordinary parser. Preview/apply
+  allow 6,295,552 transport bytes while raw CSV stays at 1 MiB with existing row/source limits.
+  Compressed JSON is rejected without inflation; binary attachment limits remain independent.
+- Added safe middleware envelopes for malformed/oversized/unsupported-encoding input, and early
+  monotonic request logging with route templates or fixed categories. Rejections/aborts are logged
+  once without raw paths, parameters, queries, body/CSV/file metadata, or raw exceptions.
+- Registered-route HTTP regressions prove large valid apply, exactly 1 MiB raw CSV with every JSON
+  code unit escaped, exact/over envelope limits, UTF-8 byte policy, atomic validation failure, and
+  ordinary/wrong-method/prefix isolation. Existing exact/over 4 MiB upload tests remain green.
+- Adopted change-impact verification rather than a full run per phase. API mode now owns backend
+  source/test lint and typechecks; `--api-tests` safely selects existing test basenames. Successful
+  API test console logs are suppressed while failure logs/results remain available.
+- Focused owned run `c4da5774-466a-4b7c-9914-6d7b008ecc59` passed 90 selected API tests. Final owned
+  API run `5e772023-f128-4506-8274-0692303f7118` passed all seven gates, 812 API tests across 62 files,
+  and 42 resource checks. Backend lint/typechecks, runner lint, OpenAPI assertions, and cleanup passed.
+  Angular/contracts/browser/build/site gates were not applicable and were not rerun.
+- Updated the README, current developer guide, technical design, and OpenAPI without changing
+  transport-neutral endpoint contracts, CSV domain policy, schema, dependencies, release identity,
+  or working data.
+  See [verification notes](verification-notes.md#phase-8-import-transport-and-safe-errors) for exact
+  commands, scope, diagnostic authoring checks, and remaining limits.
 
 ## Phase 9: Query And Risk Policy With Versioned Snapshots
 

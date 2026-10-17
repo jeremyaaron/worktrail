@@ -18,6 +18,17 @@ info:
 
     When actor headers are omitted in local development, the API falls back to the seed
     owner actor.
+
+    JSON request bodies use a 102,400-byte (100 KiB) transport limit except for the two
+    CSV import POST routes, which allow 6,295,552 bytes (6 * 1,048,576 + 4,096).
+    Import CSV itself remains limited to 1,048,576 UTF-8 bytes, 250 data rows, and the
+    existing field/source limits; JSON escaping does not increase that raw CSV allowance.
+    JSON bodies with Content-Encoding other than identity are rejected without inflation.
+    Malformed JSON returns 400 VALIDATION_ERROR, transport-size rejection returns
+    413 PAYLOAD_TOO_LARGE with details.limitBytes, and unsupported content encodings or
+    charsets return 415 VALIDATION_ERROR. These errors use ErrorResponse, never echo source
+    or parser errors, and occur before endpoint execution. Binary attachments retain their
+    independent application/octet-stream boundary and 4 MiB file limit.
 servers:
   - url: http://localhost:3000
     description: Local API or production preview server.
@@ -1135,7 +1146,10 @@ paths:
     post:
       tags: [Work Items]
       summary: Preview a project work item CSV import.
-      description: Validates CSV content and returns normalized rows without creating work items.
+      description: |
+        Validates CSV content and returns normalized rows without creating work items.
+        The JSON transport limit is 6,295,552 bytes; raw CSV remains at most 1,048,576
+        UTF-8 bytes and 250 data rows. Compressed JSON is not accepted.
       parameters:
         - $ref: "#/components/parameters/ProjectId"
       requestBody:
@@ -1151,13 +1165,34 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/WorkItemCsvImportPreview"
+        "400":
+          description: Malformed JSON or a raw CSV hard-limit/validation failure. Row validation issues otherwise appear in the preview.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "413":
+          description: JSON envelope exceeds 6,295,552 bytes (PAYLOAD_TOO_LARGE).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "415":
+          description: Unsupported JSON content encoding or charset (VALIDATION_ERROR).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         default:
           $ref: "#/components/responses/Error"
   /api/projects/{projectId}/work-items/imports:
     post:
       tags: [Work Items]
       summary: Apply a project work item CSV import.
-      description: Revalidates CSV content and creates all valid rows transactionally. Validation failures prevent all writes.
+      description: |
+        Revalidates CSV content and creates all valid rows transactionally. Validation
+        failures prevent all writes. The JSON transport limit is 6,295,552 bytes; raw CSV
+        remains at most 1,048,576 UTF-8 bytes and 250 data rows. Compressed JSON is not accepted.
       parameters:
         - $ref: "#/components/parameters/ProjectId"
       requestBody:
@@ -1173,6 +1208,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/WorkItemCsvImportApply"
+        "400":
+          description: Malformed JSON, raw CSV hard-limit failure, or invalid import rows. No work items are created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "413":
+          description: JSON envelope exceeds 6,295,552 bytes (PAYLOAD_TOO_LARGE).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "415":
+          description: Unsupported JSON content encoding or charset (VALIDATION_ERROR).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         default:
           $ref: "#/components/responses/Error"
   /api/projects/{projectId}/work-items/export:

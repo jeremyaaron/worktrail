@@ -726,3 +726,85 @@ Phase 7 full-run acceptance is complete; the earlier HTTP socket resets remain u
 than claimed fixed by a passing rerun. Failed, interrupted, and final runs cleaned their owned
 resources. No unrelated application was stopped by the agent. Working application data/storage were
 never verification targets; no commit/push/tag/publication/deployment is authorized by this phase.
+
+## Phase 8 Import Transport And Safe Errors
+
+Completed October 17, 2026 using Node 24.16.0, npm 11.13.0, and owned disposable Docker PostgreSQL 16.
+No frontend, shared contract, dependency/lockfile, migration/schema, version, or build budget changed.
+
+### Implementation
+
+- `body-parsing.ts` registers exact import POST routes before ordinary JSON parsing, sharing paths with
+  endpoint registration. Import transport permits 6,295,552 bytes; ordinary JSON remains 102,400 bytes.
+  Both JSON parsers disable inflation. Raw CSV remains 1,048,576 UTF-8 bytes with existing 250-row and
+  field/source rules. Wrong methods and route-prefix neighbors do not inherit the larger budget.
+- `error-boundary.ts` uses the existing safe error-envelope constructor: malformed JSON is 400 with
+  `VALIDATION_ERROR`; oversized transport is 413 with `PAYLOAD_TOO_LARGE` and the selected limit;
+  unsupported encodings/charsets are 415 with `VALIDATION_ERROR`. No raw parser message/body/stack is
+  exposed. Unknown middleware and endpoint exceptions log only fixed diagnostics.
+- Request timing precedes CORS, attachment metadata checks, and parsing. Monotonic finish/close
+  listeners log one safe method/template-or-category/status/duration line. Incomplete closed
+  responses use logging-only 499 and `[aborted]`, not a fictitious delivered response. Attachment
+  metadata/size failures receive fixed categories without changing binary/storage policy.
+
+### Verification Scope
+
+Following the user-approved impact-based policy, shared HTTP middleware warranted the full API suite,
+not a full application run. API mode now includes source/test lint and API source/test typechecking.
+Explicit `--api-tests` basenames support narrower owned runs; empty/unsafe selections are rejected,
+and selected files must exist before provisioning. The selection is retained in the run summary.
+The final API command uses Vitest's `--silent=passed-only`: successful test console chatter is omitted,
+but failing test logs and test results remain available. There is no retry/deadline/worker relaxation.
+
+| Check | Result |
+| --- | --- |
+| Focused unit authoring checks | 36 then 43 cases passed as boundary/OpenAPI coverage expanded |
+| Focused owned HTTP/import/attachment run | Seven gates passed; 90 selected API cases and 42 resource checks |
+| Final owned API run | Seven gates passed; 812 API cases across 62 files and 42 resource checks |
+| API source/test lint and typechecks | Passed in both owned runs |
+| Runner source/argument lint | Passed separately; argument selection regression passed in resource suite |
+| OpenAPI YAML structure | Parsed with the installed js-yaml dependency; both operations reference ErrorResponse for 400/413/415 |
+| Local documentation links and whitespace | Passed after completion updates |
+| Cleanup | Both summaries record cleaned true; private roots removed; no owned servers/containers remain |
+| Angular/contracts/browser/build/site gates | Not applicable: no affected code/consumer change; not rerun or claimed passed |
+
+Commands:
+
+```sh
+npm run verify -- --mode=api --api-tests=http-body-boundary,request-logging,server,openapi,work-item-csv-http,work-item-csv-import,attachment-endpoint
+npm run verify -- --mode=api
+npm exec -- eslint scripts/verify.mjs scripts/verification/arguments.mjs scripts/verification/arguments.test.mjs --max-warnings=0
+```
+
+All commands used the supported Node runtime via an explicit local PATH; no shell-default runtime
+change was made. Focused run `c4da5774-466a-4b7c-9914-6d7b008ecc59` preceded final fixture/output
+refinements. Final run `5e772023-f128-4506-8274-0692303f7118` records `apiTests: null`, `passed: true`,
+`cleaned: true`, no interruption, and all seven passing gates. The final API suite took 22.61 seconds
+in Vitest (22.99 seconds for its owner gate). Counts are not added to the earlier focused run.
+
+The 28 added API regressions comprise 13 JSON-boundary unit cases, one additional request-logging
+case, one OpenAPI budget/status case, 12 real PostgreSQL CSV HTTP cases, and one early attachment
+metadata/logging case. Existing unexpected-endpoint-error logging assertions were strengthened.
+The API selection argument regression increases resource tests from 41 to 42.
+
+Fixtures exercise valid 150,000-byte CSV through preview and fully escaped apply, preserving exact
+authored source and sequential work keys; valid 1,048,576-byte CSV (150 rows) with every JSON UTF-16
+unit escaped; the exact 6,295,552-byte envelope and one byte over; multibyte raw CSV over its byte
+limit; and an exactly 1 MiB raw CSV whose oversized field reaches domain validation then fails apply
+atomically. Assertions check no work, activity, notifications, watchers, or counter increment after
+rejections. Parser rejections precede actor lookup. Ordinary JSON exact/over and real chunked bodies,
+unsupported encoding/charset input, fixed unmatched/error categories, real partial-body disconnect,
+and existing exact/over 4 MiB upload boundaries all passed.
+
+An authoring typecheck caught a missing required project status in the new fixture; it was corrected
+before owned acceptance. Both owned runs passed without diagnostic reruns or changed deadlines.
+Working PostgreSQL and attachment storage were never verification targets.
+
+### Limits And Next Gates
+
+This bounds the Express parsing boundary; it does not implement Lambda/API Gateway deployment,
+distributed rate limiting, streaming CSV import, or a new binary compression/storage policy. Bodies
+remain materialized within finite limits. Disconnected clients cannot receive a JSON error, and
+malformed HTTP framing rejected before Express is not covered by middleware logging. Existing domain
+response/CSV policies remain unchanged. Remote Linux CI and release-wide browser/UAT acceptance are
+later gates. Phase 9 onward is not started; no commit, push, tag, or deployment was performed.

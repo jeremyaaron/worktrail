@@ -150,6 +150,23 @@ afterAll(async () => {
 });
 
 describe('attachment HTTP endpoints', () => {
+  it('logs early upload-boundary rejection without file names, actor IDs, queries, or source', async () => {
+    const fixture = await createFixture();
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const put = vi.spyOn(fixture.objectStore, 'put');
+    try {
+      await request(fixture.app).post(`/api/work-items/${fixture.workItemId}/attachments?secret=private-token`)
+        .set(fixture.headers(fixture.uploaderId)).set('X-Worktrail-Filename', 'private-filename.txt')
+        .type('json').send({ source: 'private-source' }).expect(400);
+      expect(log.mock.calls).toEqual([[expect.stringMatching(/^POST \[invalid_attachment_metadata\] 400 \d+ms$/)]]);
+      expect(JSON.stringify(log.mock.calls)).not.toMatch(new RegExp(`private-|${fixture.workItemId}|${fixture.uploaderId}`));
+      expect(put).not.toHaveBeenCalled();
+    } finally {
+      log.mockRestore();
+      put.mockRestore();
+    }
+  });
+
   it('uploads, lists, downloads, and removes one attachment without exposing internal fields', async () => {
     const fixture = await createFixture();
     const bytes = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);

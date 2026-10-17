@@ -14,6 +14,7 @@ import {
 } from '../../../errors/app-error.js';
 import type { AttachmentObjectStore } from '../../../storage/attachment-object-store.js';
 import { adaptEndpoint } from '../handler-adapter.js';
+import { markRequestFailure } from '../request-logging.js';
 import { adapterOptions, type ExpressRouteContext } from './context.js';
 
 export interface AttachmentRouteContext extends ExpressRouteContext {
@@ -28,6 +29,7 @@ export function configureAttachmentUploadBoundary(app: Express): void {
     }
 
     if (!request.is('application/octet-stream')) {
+      markRequestFailure(response, 'invalid_attachment_metadata');
       const apiError = toApiErrorResponse(
         new ValidationError('Attachment uploads require application/octet-stream.', {
           field: 'content-type',
@@ -42,6 +44,7 @@ export function configureAttachmentUploadBoundary(app: Express): void {
       const count = countRawHeaders(request.rawHeaders, headerName);
 
       if (count !== 1) {
+        markRequestFailure(response, 'invalid_attachment_metadata');
         const apiError = toApiErrorResponse(
           new ValidationError(
             count === 0
@@ -98,6 +101,7 @@ function boundedAttachmentBody(): RequestHandler {
   return (request, response, next) => {
     rawParser(request, response, (error?: unknown) => {
       if (isEntityTooLargeError(error)) {
+        markRequestFailure(response, 'body_too_large');
         const apiError = toApiErrorResponse(
           new PayloadTooLargeError(attachmentPolicy.maxFileBytes)
         );

@@ -2,10 +2,28 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
+import { csvImportPaths, jsonBodyLimits } from '../src/adapters/express/body-parsing.js';
 
 const openApiPath = fileURLToPath(new URL('../../../docs/api/openapi.yaml', import.meta.url));
 
 describe('OpenAPI reference', () => {
+  it('documents the implemented import/ordinary transport budgets and safe parser errors', async () => {
+    const openApi = await readFile(openApiPath, 'utf8');
+    expect(openApi).toContain(jsonBodyLimits.ordinary.toLocaleString('en-US') + '-byte (100 KiB)');
+    for (const path of Object.values(csvImportPaths)) {
+      const documentPath = path.replace(':projectId', '{projectId}');
+      const operation = openApi.split(`  ${documentPath}:\n`)[1]?.split('\n  /api/')[0];
+      expect(operation).toContain(jsonBodyLimits.csvImport.toLocaleString('en-US') + ' bytes');
+      expect(operation).toContain('1,048,576');
+      expect(operation).toContain('250 data rows');
+      for (const status of ['400', '413', '415']) expect(operation).toContain(`"${status}":`);
+      expect(operation).toContain('PAYLOAD_TOO_LARGE');
+      expect(operation).toContain('VALIDATION_ERROR');
+    }
+    expect(openApi).toContain('rejected without inflation');
+    expect(openApi).toContain('independent application/octet-stream boundary and 4 MiB file limit');
+  });
+
   it('documents format-aware CSV import and bounded source previews without changing exports', async () => {
     const openApi = await readFile(openApiPath, 'utf8');
     const requestSchema = openApi.split('    WorkItemCsvImportPreviewRequest:\n')[1]?.split('    WorkItemCsvImportApplyRequest:')[0];

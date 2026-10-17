@@ -9,6 +9,8 @@ import type { Repositories } from '../../repositories/index.js';
 import type { HealthCheckPool } from '../../services/health-check-service.js';
 import type { AttachmentObjectStore } from '../../storage/attachment-object-store.js';
 import { adaptEndpoint } from './handler-adapter.js';
+import { configureJsonParsing } from './body-parsing.js';
+import { middlewareErrorBoundary } from './error-boundary.js';
 import { requestLogger } from './request-logging.js';
 import {
   configureAttachmentUploadBoundary,
@@ -47,6 +49,8 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
   if (options.repositories !== undefined) assertPersistence(options.persistence);
   const app = express();
 
+  app.use(requestLogger);
+
   app.use(
     cors({
       origin: options.corsOrigin ?? 'http://localhost:4200'
@@ -60,8 +64,7 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
     configureAttachmentUploadBoundary(app);
   }
 
-  app.use(express.json());
-  app.use(requestLogger);
+  configureJsonParsing(app, options.repositories !== undefined);
 
   registerHealthRoutes(app, { healthCheckPool: options.healthCheckPool });
 
@@ -94,6 +97,8 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
   if (options.staticAssets !== undefined) {
     configureStaticAssets(app, options.staticAssets);
   }
+
+  app.use(middlewareErrorBoundary);
 
   return app;
 }

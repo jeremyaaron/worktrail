@@ -556,6 +556,7 @@ The verification runner owns disposable resources for the full workflow and focu
 ```sh
 npm run verify
 npm run verify -- --mode=api
+npm run verify -- --mode=api --api-tests=server,work-item-csv-http
 npm run test:e2e
 npm run test:preview
 npm run test:editor
@@ -575,10 +576,25 @@ standalone editor, application E2E, compiled preview, and current site assets/lo
 still execute the Angular suite; their verification launcher uses Playwright's installed Chromium.
 The runner does not install dependencies or browser binaries itself.
 
+Use checks proportional to the change, not full verification after every implementation phase.
+API mode includes backend source/test lint, backend typechecking, resource-safety tests, and API tests;
+it does not run Angular, editor, application E2E, production build/preview, or site checks.
+`--api-tests` selects comma-separated filenames from `apps/api/tests` without `.test.ts`; nonexistent
+files and path/option injection are rejected. Omit it for the whole API suite. Database-backed tests
+still require the owned runner, even when selecting a single file. Browser modes support `--grep`.
+API test console output is retained for failing tests only; test results and failure diagnostics remain visible.
+Backend-only edits normally need affected API checks; shared HTTP/persistence infrastructure warrants
+the full API suite. Frontend/shared-contract edits include affected consumers and browser flows;
+documentation-only edits need links/format checks. Full verification remains the release-closeout
+and CI merge gate, and is appropriate for genuinely cross-cutting/toolchain changes. Omitted checks
+are not applicable, not claimed passed. Successful unchanged-code evidence can be reused after
+documentation-only updates. Machine-readable contracts, fixtures, and build inputs are not docs-only.
+
 Each run snapshots source, configuration, and documentation into a private temporary workspace.
 Build outputs and Angular caches cannot overwrite the working checkout or another run's preview.
 Installed dependencies are shared read-only; compiled contracts resolve inside the private workspace.
-Changes made after startup require a new invocation, including in interactive UI mode.
+Source/configuration changes after startup require a new invocation for affected checks, including
+in interactive UI mode; documentation-only updates do not invalidate unchanged-code evidence.
 
 By default, database-using modes create their own PostgreSQL 16 Docker container/database and absolute temporary
 attachment root. The runner migrates, seeds matching attachment objects before browser startup,

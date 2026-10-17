@@ -32,6 +32,7 @@ import {
   watchWorkItemHandler
 } from '../../../endpoints/work-items.js';
 import { adaptEndpoint } from '../handler-adapter.js';
+import { csvImportPaths } from '../body-parsing.js';
 import { adapterOptions, type ExpressRouteContext } from './context.js';
 
 export function registerWorkItemRoutes(app: Express, context: ExpressRouteContext): void {
@@ -70,14 +71,14 @@ export function registerWorkItemRoutes(app: Express, context: ExpressRouteContex
     )
   );
   app.post(
-    '/api/projects/:projectId/work-items/imports/preview',
+    csvImportPaths.preview,
     adaptEndpoint(
       previewWorkItemCsvImportHandler({ repositories: context.repositories, persistence: context.persistence }),
       options
     )
   );
   app.post(
-    '/api/projects/:projectId/work-items/imports',
+    csvImportPaths.apply,
     adaptEndpoint(
       applyWorkItemCsvImportHandler({ repositories: context.repositories, persistence: context.persistence }),
       options

@@ -1,8 +1,8 @@
 # Worktrail Developer Ownership And Invariants
 
-This is the current implementation guide, not a release archive. As of v0.3.0 Phase 7, persistence
-ownership, batched queries, lifecycle coordination, and authoritative work/relationship commands are
-implemented. Transport budgets, risk/snapshot policy, aggregate narrowing, and frontend consolidation
+This is the current implementation guide, not a release archive. As of v0.3.0 Phase 8, persistence
+ownership, batched queries, lifecycle coordination, authoritative work/relationship commands, and
+bounded HTTP parsing are implemented. Risk/snapshot policy, aggregate narrowing, and frontend consolidation
 remain later phases in the [implementation plan](v0.3.0/implementation-plan.md).
 
 ## Composition And Persistence
@@ -240,6 +240,46 @@ Run database-backed checks through `npm run verify -- --mode=api`. It provisions
 PostgreSQL/storage; never point rollback or concurrency tests at the working application database.
 See the [README verification guide](../README.md#verification) and
 [current evidence](v0.3.0/verification-notes.md).
+
+Choose checks from changed code, affected consumers, and risk. API mode includes backend source/test
+lint, backend typechecks, resource checks, and API tests without Angular/build/browser/site execution.
+For narrow changes, `--api-tests=server,work-item-csv-http` selects existing API test basenames; path,
+option, empty, and nonexistent selections fail rather than passing an empty suite. Shared HTTP or
+persistence infrastructure warrants the full API suite. Frontend-only changes use affected frontend
+tests/browser flows; shared contracts include affected consumers. Docs-only updates need links and
+format checks. Broaden for dependency/toolchain/cross-cutting changes. Reserve full verification for
+release closeout and CI merge acceptance, not every phase. State selected checks and omissions in
+phase evidence; unchanged-code results need not be rerun after documentation-only completion edits.
+
+## HTTP Parsing And Safe Logging
+
+`adapters/express/body-parsing.ts` owns transport budgets: ordinary JSON is 102,400 bytes; the two
+registered import POST routes allow 6,295,552 bytes. An exact-route router parses imports before the
+ordinary parser, without widening wrong-method or prefix-neighbor requests. Import route constants
+are shared with endpoint registration. The domain still limits raw CSV to 1,048,576 UTF-8 bytes,
+250 data rows, and existing field/source lengths. Escaping/transport whitespace consumes envelope
+budget, not extra raw CSV allowance. Compressed JSON is rejected (`inflate: false`). Binary upload
+parsing keeps its independent content-type/header, 4 MiB file, and storage-compensation boundaries.
+
+`error-boundary.ts` converts parser failures to the existing safe JSON envelope: malformed JSON is
+400/`VALIDATION_ERROR`, oversized transport is 413/`PAYLOAD_TOO_LARGE` with `limitBytes`, and unsupported
+encodings/charsets are 415/`VALIDATION_ERROR`. No parser body/message/stack is returned or logged.
+Unexpected middleware/endpoint errors produce only a fixed diagnostic, not the raw exception.
+
+Request timing is installed before CORS, upload metadata checks, and all parsers. Finish/close listeners
+emit one line containing only a known HTTP method, registered route template or fixed failure/unmatched
+category, status, and monotonic duration. Closed incomplete responses use the fixed aborted category
+and logging-only status 499; no response can be delivered to an already-disconnected client. Never add
+raw URLs, route parameters, queries, actor headers, CSV/authored content, or file metadata to these logs.
+
+`http-body-boundary.test.ts` covers ordinary exact/over-limit, chunked, malformed, encoding, and safe
+failure behavior; `request-logging.test.ts` includes a real partial-body disconnect.
+`work-item-csv-http.test.ts` uses registered endpoints and real owned PostgreSQL to cover large valid
+apply, exactly 1 MiB raw CSV with fully escaped JSON, exact/over transport, UTF-8 byte policy, row/field
+failures, no-write rejections, and ordinary/prefix/method isolation. Attachment HTTP tests retain exact
+4 MiB and oversized-upload assertions and cover early metadata rejection logging.
+
+## Persistence Test Discipline
 
 Repository-only unit tests explicitly choose `tests/support/fake-persistence.ts`. That fake executes
 callbacks and refuses database locks; it does not simulate rollback, MVCC, or lifecycle safety. Real

@@ -24,3 +24,13 @@ test('rejects unknown arguments and invalid cleanup without accepting arbitrary 
   assert.equal(parseArguments(['--cleanup', '/tmp/manifest.json']).cleanup, '/tmp/manifest.json');
   assert.equal(parseArguments(['--help']).help, true);
 });
+
+test('selects explicit API files only in API mode without paths, options, or empty selections', () => {
+  assert.equal(parseArguments(['--mode=api']).apiTests, null);
+  assert.deepEqual(parseArguments(['--mode=api', '--api-tests=server,work-item-csv-http,server']).apiTests,
+    ['server', 'work-item-csv-http']);
+  for (const args of [
+    ['--api-tests=server'], ['--mode=e2e', '--api-tests=server'],
+    ...['', 'server,', '../server', '--help', 'server.test.ts', 'server;id', 'server,*'].map((names) => ['--mode=api', `--api-tests=${names}`])
+  ]) assert.throws(() => parseArguments(args));
+});

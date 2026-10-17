@@ -420,6 +420,8 @@ describe('Express API foundation', () => {
         });
       });
 
+    expect(errorSpy).toHaveBeenCalledWith('Endpoint request failed.');
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain('database exploded');
     errorSpy.mockRestore();
   });
 
