@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { assertOwnedDatabase } from '../scripts/verification/ownership.mjs';
 
 const childEnv: NodeJS.ProcessEnv = { ...process.env };
 delete childEnv.NO_COLOR;
@@ -13,6 +14,7 @@ function runNpmScript(script: string): void {
 }
 
 export default async function globalSetup(): Promise<void> {
+  await assertOwnedDatabase();
   if (process.env.WORKTRAIL_E2E_SKIP_DB_RESET === 'true') {
     return;
   }

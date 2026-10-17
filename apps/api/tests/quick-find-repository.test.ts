@@ -5,6 +5,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 
 import { createDb, createPool } from '../src/db/client.js';
 import { createRepositories, type Repositories } from '../src/repositories/index.js';
+import { cleanupWorkspace as cleanupOwnedWorkspace } from './support/workspace-fixtures.js';
 
 const workspaceIds = new Set<string>();
 const timestamp = new Date('2026-07-23T12:00:00.000Z');
@@ -564,14 +565,7 @@ function reportSnapshot(
 }
 
 async function cleanupWorkspace(workspaceId: string): Promise<void> {
-  await pool.query('delete from work_item_attachments where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from project_status_reports where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from work_items where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from project_cycles where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from milestones where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from projects where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from members where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from workspaces where id = $1', [workspaceId]);
+  await cleanupOwnedWorkspace(pool, workspaceId);
 }
 
 function randomHex(): string {

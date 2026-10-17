@@ -9,6 +9,9 @@
     "packages/*"
   ],
   "scripts": {
+    "verify": "node scripts/verify.mjs",
+    "test:verification": "node --test scripts/verification/*.test.mjs",
+    "test:verification:integration": "node --test scripts/verification/lifecycle.check.mjs",
     "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
     "dev:api": "npm run dev --workspace @worktrail/api",
     "dev:web": "npm run start --workspace @worktrail/web",

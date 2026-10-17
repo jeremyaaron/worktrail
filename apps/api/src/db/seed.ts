@@ -3,6 +3,7 @@ import 'dotenv/config';
 import { and, count, eq, inArray, sql } from 'drizzle-orm';
 
 import { createDb, createPool } from './client.js';
+import { assertVerificationTarget } from './verification-target.js';
 import { seedDeterministicAttachments } from './attachment-seed.js';
 import {
   activityEvents,
@@ -194,6 +195,7 @@ const pool = createPool(config.databaseUrl);
 const db = createDb(pool);
 
 try {
+  await assertVerificationTarget(pool);
   const attachmentObjectStore = new LocalAttachmentObjectStore(config.attachmentStoragePath);
   await attachmentObjectStore.initialize();
 

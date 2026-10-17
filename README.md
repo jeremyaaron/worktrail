@@ -551,14 +551,53 @@ Delivery health is derived at read time from milestones, cycles, work item statu
 
 ## Verification
 
+The v0.3.0 verification foundation currently provides safe API verification (Phase 1):
+
+```sh
+npm run verify -- --mode=api
+npm run test:verification
+npm run test:verification:integration
+npm run test --workspace @worktrail/api -- --project=unit
+```
+
+API verification creates its own PostgreSQL 16 Docker container/database and private temporary
+attachment root, applies migrations, runs resource-owner and API tests, and removes only its owned
+resources. Process ownership currently uses macOS/Linux `ps` and POSIX process groups. Start Docker
+Desktop first. `npm run verify` currently defaults to API mode; the complete
+browser/editor/site orchestration arrives in Phase 2. The lifecycle integration command also owns
+its disposable Docker database; the resource unit and API unit commands do not need PostgreSQL.
+
+To provision a separate test database on an explicitly selected service, set
+`WORKTRAIL_VERIFY_ADMIN_DATABASE_URL` to its administrative PostgreSQL connection, then run:
+
+```sh
+npm run verify -- --mode=api --database=service
+```
+
+This requires CREATE DATABASE privileges and never resets the administrative database. Do not put
+credentials in committed files or verification reports. Every test mutation requires matching private
+run/database/storage ownership; a local hostname, test-looking name, `CI=true`, or skip flag is not proof.
+Direct database-backed package tests without that context now refuse to run. The existing API unit
+project remains database-independent, and unknown new test files default to guarded integration.
+
+SIGINT/SIGTERM and failure cleanup preserve the primary outcome. If a crash or ownership mismatch
+leaves resources, retain the private manifest path printed at startup and inspect it locally before:
+
+```sh
+npm run verify -- --cleanup /absolute/run/manifest.json
+```
+
+Cleanup refuses active owners or mismatched identities; it is not permission to remove arbitrary
+databases/directories/processes. Sanitized summaries remain under `test-results/verification/`.
+See the [v0.3.0 verification evidence](docs/v0.3.0/verification-notes.md).
+
+The remaining baseline gates are:
+
 ```sh
 npm run lint
 npm run typecheck
-npm test
 npm run build
-npm run test:e2e
 npm run test:editor
-npx playwright test --config playwright.production.config.ts
 npm audit --omit=dev --audit-level=low
 ```
 
@@ -567,6 +606,8 @@ standalone editor tests, application browser regressions, and compiled productio
 requests and pushes to `main`. It provisions disposable PostgreSQL 16 and temporary attachment roots,
 and uploads browser evidence on failure. Development-inclusive audit findings remain a separate
 toolchain backlog; a clean production-only audit does not mean every development dependency is clean.
+CI runner integration is Phase 2 work: the old direct package-test/database preparation sequence must
+be migrated to the new owned context before CI verification can pass on this intermediate phase.
 
 `npm run test:e2e` starts the local API and Angular dev server through Playwright. By default it runs:
 
@@ -576,17 +617,18 @@ npm run db:migrate
 npm run db:seed
 ```
 
-The Playwright suite resets, migrates, and seeds before the browser run, then restores deterministic seed data after mutation-heavy tests. That means the local `public` schema for the configured database is dropped and recreated. Attachment bytes use a unique OS-temporary marked store that is removed during global teardown; normal development attachment storage is restored with the final seed. Set `WORKTRAIL_E2E_SKIP_DB_RESET=true` only when you intentionally want to run the smoke test against an already prepared local database. Set `WORKTRAIL_E2E_SKIP_DB_RESTORE=true` only when you intentionally want to inspect post-test database mutations. `WORKTRAIL_E2E_ATTACHMENT_STORAGE_PATH` may override the isolated absolute storage path for deliberate test inspection.
+The baseline Playwright scripts reset/migrate/seed and can restore demo data afterward. Their setup,
+teardown, and per-test reset now require validated ownership before either mutation or a skip-flag
+return. Do not use the old direct application-browser invocation until Phase 2 connects its servers,
+proxy, storage, and reset behavior to the owned runner. Its legacy restoration behavior is not a
+recommended working-data workflow.
 
-**Use a disposable database and isolated attachment roots for browser and database-backed package
-tests.** The reset-skip flags do not make mutation-heavy tests safe for working data. Configure both
-the original and e2e storage roots as temporary paths when using per-file/final demo restoration.
-The standalone editor suite does not use PostgreSQL. Compiled-preview checks require built artifacts,
-a migrated/seeded disposable database, an absolute isolated `WORKTRAIL_ATTACHMENT_STORAGE_PATH`, and
-a free `API_PORT` (default 4319); they do not prepare or reset data themselves. The application suite
-defaults to API 3000/web 4200; `WORKTRAIL_E2E_WEB_PORT` can select a free web port, but the checked-in
-Angular proxy still targets API 3000. See the [verification notes](docs/v0.2.9/verification-notes.md)
-for the isolated release setup.
+The standalone editor suite does not use PostgreSQL. The existing compiled-preview configuration
+expects built artifacts and already prepared disposable data, and the legacy Angular proxy still
+targets API 3000. Phase 2 will provide owned browser/preview orchestration with matching nondefault
+ports; manually changing `API_PORT` alone is not sufficient. The
+[v0.2.9 verification notes](docs/v0.2.9/verification-notes.md) describe the prior release's historical
+setup, not an ownership bypass for the new guarded test commands.
 
 ## Public Site
 

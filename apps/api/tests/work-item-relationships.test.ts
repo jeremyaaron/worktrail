@@ -9,6 +9,7 @@ import { AppError } from '../src/errors/app-error.js';
 import { createRepositories, type Repositories } from '../src/repositories/index.js';
 import { WorkItemRelationshipService } from '../src/services/work-item-relationship-service.js';
 import { WorkItemService } from '../src/services/work-item-service.js';
+import { cleanupWorkspace as cleanupOwnedWorkspace } from './support/workspace-fixtures.js';
 
 const workspaceIds = new Set<string>();
 let pool: ReturnType<typeof createPool>;
@@ -28,22 +29,7 @@ function actor(input: { workspaceId: string; memberId: string; role: MemberRole 
 }
 
 async function cleanupWorkspace(workspaceId: string) {
-  await pool.query('delete from notifications where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from comment_mentions where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from activity_events where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from comments where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from work_item_watchers where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from work_item_relationships where workspace_id = $1', [workspaceId]);
-  await pool.query(
-    'delete from work_item_labels where work_item_id in (select id from work_items where workspace_id = $1)',
-    [workspaceId]
-  );
-  await pool.query('delete from labels where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from work_items where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from milestones where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from projects where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from members where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from workspaces where id = $1', [workspaceId]);
+  await cleanupOwnedWorkspace(pool, workspaceId);
 }
 
 async function cleanupAllWorkspaces() {

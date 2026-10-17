@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { assertOwnedDatabase } from '../scripts/verification/ownership.mjs';
 
 function cleanEnvironment(): NodeJS.ProcessEnv {
   const environment: NodeJS.ProcessEnv = { ...process.env };
@@ -16,6 +17,7 @@ function runNpmScript(script: string, environment: NodeJS.ProcessEnv): void {
 }
 
 export default async function globalTeardown(): Promise<void> {
+  await assertOwnedDatabase();
   const e2eEnvironment = cleanEnvironment();
   let firstError: unknown;
 

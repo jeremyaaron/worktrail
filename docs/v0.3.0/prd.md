@@ -3,7 +3,8 @@
 ## Status
 
 Approved implementation scope. Phase 0 planning and decision closure completed on October 17, 2026.
-Runtime implementation and release verification remain pending; see the
+Phase 1 verification safety is complete; implementation is in progress and release verification
+remains pending. See the
 [implementation plan](implementation-plan.md).
 
 ## Summary

@@ -1,6 +1,7 @@
 import 'dotenv/config';
 
 import { createPool, getDatabaseUrl } from './client.js';
+import { assertVerificationTarget } from './verification-target.js';
 
 function assertLocalDatabase(url: string): void {
   const parsed = new URL(url);
@@ -20,6 +21,7 @@ assertLocalDatabase(databaseUrl);
 const pool = createPool(databaseUrl);
 
 try {
+  await assertVerificationTarget(pool);
   await pool.query('drop schema if exists drizzle cascade');
   await pool.query(`
     do $$

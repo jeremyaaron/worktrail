@@ -2,8 +2,8 @@
 
 ## Status
 
-Approved for sequential execution. Phase 0 is complete as of October 17, 2026; Phases 1-21 are not
-started. Runtime implementation and release verification remain pending. Merge, tag, publication,
+Approved for sequential execution. Phases 0-1 are complete as of October 17, 2026; Phases 2-21 are not
+started. Implementation is in progress; release verification remains pending. Merge, tag, publication,
 and Pages deployment remain separate user-controlled actions.
 
 ## Purpose
@@ -79,7 +79,7 @@ integration boundaries.
 | Phase | Deliverable | Status |
 | --- | --- | --- |
 | 0 | Baseline, inventories, and decision closure | Complete |
-| 1 | Disposable verification resources and destructive-operation guards | Not started |
+| 1 | Disposable verification resources and destructive-operation guards | Complete |
 | 2 | Owned browser/full verification, CI, and test-code gates | Not started |
 | 3 | Compatible toolchain remediation and bounded advisory gate | Not started |
 | 4 | Typed persistence executors and explicit transaction capabilities | Not started |
@@ -468,7 +468,37 @@ Verification: runner unit tests for argument/ownership/cleanup failures; real Do
 provisioning, migration, fixture rejection, API tests, and partial-start/SIGINT checks. Use throwaway
 sentinel resources for rejection tests, never destructive probes against the user's database.
 
-Status: Not started.
+Status: Complete (October 17, 2026).
+
+### Completion Evidence
+
+- Added `scripts/verify.mjs` and focused resource/ownership/process helpers. API mode provisions
+  disposable PostgreSQL 16 through Docker by default; explicit service mode creates a new database
+  using `WORKTRAIL_VERIFY_ADMIN_DATABASE_URL`. Unfinished modes fail clearly without provisioning.
+- Private manifests and marked temporary parents record the run UUID, nonce, database, storage,
+  container labels, owner, and child process identities. Live database comments survive schema reset;
+  attachment ownership stays outside the resettable objects. Validation rejects target overrides,
+  symlinks, mismatched identities/markers, and test/skip flags without proof.
+- API tests retain source-alias resolution and now separate 26 database-independent unit files from
+  guarded integration files. Unclassified new tests default to integration. A shared checked cleanup
+  owner replaces duplicated workspace cleanup in 23 integration files.
+- Test-context migration/seed/reset/storage/performance entry points and legacy browser setup,
+  teardown, and per-test reset validate ownership before mutation or skip-flag returns. Explicit
+  ordinary operator commands retain their existing behavior and storage safety checks.
+- Cleanup covers normal completion, command failure, partial Docker startup, SIGINT/SIGTERM, and
+  explicit abandoned runs. It refuses active owners and mismatched database/container/process
+  identities. Child output redaction, stderr draining, and bounded deadlines have regression tests.
+- Final standalone `npm run verify -- --mode=api` passed 16 resource tests and all 601 API tests in
+  51 files, with successful resource cleanup. `npm run test:verification:integration` passed all
+  8 real lifecycle checks, including a complete service-mode API run. Service provisioning used a
+  disposable Docker-hosted administrator, not the user's local PostgreSQL instance.
+- API lint, typecheck, and build passed. A concurrent diagnostic run encountered one `socket hang up`
+  in an existing HTTP boundary test (600/601 passed); it exited nonzero and cleaned successfully.
+  The subsequent standalone run passed without retries or test changes. Both outcomes are retained
+  in [verification notes](verification-notes.md), not combined into a clean concurrent-run claim.
+- README documents supported commands and prerequisites. No dependency, lockfile, release-version,
+  frontend behavior, or CI workflow changes were made. Browser/full orchestration and CI migration
+  remain Phase 2; the legacy direct integration-test CI sequence now requires that migration.
 
 ## Phase 2: Owned Browser Workflows And CI Gates
 
