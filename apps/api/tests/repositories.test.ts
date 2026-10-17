@@ -10,10 +10,9 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createDb, createPool } from '../src/db/client.js';
 import {
   createRepositories,
-  withRepositoriesReadTransaction,
-  withRepositoriesTransaction,
   type Repositories
 } from '../src/repositories/index.js';
+import { createPersistence } from '../src/repositories/persistence.js';
 import { cleanupWorkspace as cleanupOwnedWorkspace } from './support/workspace-fixtures.js';
 
 const workspaceIds = new Set<string>();
@@ -490,7 +489,7 @@ describe('Drizzle repositories', () => {
     const graph = await createRepositoryGraph(repositories);
     const attachment = await createRepositoryAttachment(repositories, graph);
 
-    const locked = await withRepositoriesTransaction(db, async (transactionRepositories) => {
+    const locked = await createPersistence(db).write(async ({ repositories: transactionRepositories }) => {
       const project = await transactionRepositories.projects.findByIdForShare(graph.project.id);
       const [workItem] = await transactionRepositories.workItems.findManyByIdsForUpdate([
         graph.workItem.id
@@ -1094,7 +1093,7 @@ describe('Drizzle repositories', () => {
     const second = await createRepositoryWorkItem(repositories, graph, { itemNumber: 2 });
     const third = await createRepositoryWorkItem(repositories, graph, { itemNumber: 3 });
 
-    const locked = await withRepositoriesTransaction(db, (transactionRepositories) =>
+    const locked = await createPersistence(db).write(({ repositories: transactionRepositories }) =>
       transactionRepositories.workItems.findManyByIdsForUpdate([
         third.id,
         graph.workItem.id,
@@ -1125,7 +1124,7 @@ describe('Drizzle repositories', () => {
 
   it('binds repositories to a transaction', async () => {
     const id = ids();
-    const graph = await withRepositoriesTransaction(db, async (transactionRepositories) =>
+    const graph = await createPersistence(db).write(async ({ repositories: transactionRepositories }) =>
       createRepositoryGraph(transactionRepositories, id)
     );
 
@@ -1140,7 +1139,7 @@ describe('Drizzle repositories', () => {
     const workspaceId = randomUUID();
 
     await expect(
-      withRepositoriesReadTransaction(db, (transactionRepositories) =>
+      createPersistence(db).readConsistent(({ repositories: transactionRepositories }) =>
         transactionRepositories.workspaces.create({
           id: workspaceId,
           name: 'Rejected Read Transaction Write',
@@ -1178,7 +1177,7 @@ describe('Drizzle repositories', () => {
       updatedAt: now()
     });
 
-    const result = await withRepositoriesTransaction(db, async (transactionRepositories) => {
+    const result = await createPersistence(db).write(async ({ repositories: transactionRepositories }) => {
       const lockedCycle = await transactionRepositories.projectCycles.findByIdForUpdate(
         sourceCycle.id
       );

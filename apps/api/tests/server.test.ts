@@ -3,12 +3,12 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import request from 'supertest';
+import request from './support/local-http.js';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
+import { fakeRepositoryContext } from './support/fake-persistence.js';
 import { createExpressApp } from '../src/adapters/express/server.js';
-import type { WorktrailDb } from '../src/db/client.js';
 import { ValidationError } from '../src/errors/app-error.js';
 import type { Repositories } from '../src/repositories/index.js';
 import type { AttachmentObjectStore } from '../src/storage/attachment-object-store.js';
@@ -84,7 +84,7 @@ describe('Express API foundation', () => {
         findById: vi.fn(async () => null)
       }
     } as unknown as Repositories;
-    const app = createExpressApp({ repositories });
+    const app = createExpressApp({ ...fakeRepositoryContext(repositories) });
 
     expect(registeredRoutes(app)).toEqual([
       'GET /api/health',
@@ -180,15 +180,14 @@ describe('Express API foundation', () => {
         findById: vi.fn(async () => null)
       }
     } as unknown as Repositories;
-    const db = {} as WorktrailDb;
     const objectStore = {} as AttachmentObjectStore;
 
-    expect(registeredRoutes(createExpressApp({ repositories, db }))).not.toContain(
+    expect(registeredRoutes(createExpressApp({ ...fakeRepositoryContext(repositories) }))).not.toContain(
       'GET /api/work-items/:workItemId/attachments'
     );
     expect(
       registeredRoutes(
-        createExpressApp({ repositories, db, attachmentObjectStore: objectStore })
+        createExpressApp({ ...fakeRepositoryContext(repositories), attachmentObjectStore: objectStore })
       ).slice(-4)
     ).toEqual([
       'GET /api/work-items/:workItemId/attachments',
@@ -307,7 +306,7 @@ describe('Express API foundation', () => {
       }
     } as unknown as Repositories;
     const app = createExpressApp({
-      repositories,
+      ...fakeRepositoryContext(repositories),
       testRoutes: {
         '/api/test/actor': (appRequest) => ({
           status: 200,
@@ -349,7 +348,7 @@ describe('Express API foundation', () => {
       }
     } as unknown as Repositories;
     const app = createExpressApp({
-      repositories,
+      ...fakeRepositoryContext(repositories),
       testRoutes: {
         '/api/test/actor': (appRequest) => ({
           status: 200,

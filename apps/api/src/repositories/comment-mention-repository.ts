@@ -1,10 +1,10 @@
 import { asc, eq, inArray } from 'drizzle-orm';
 
-import type { WorktrailDb } from '../db/client.js';
+import type { RepositoryExecutor } from '../db/client.js';
 import { commentMentions } from '../db/schema.js';
 import type { NewCommentMention } from './types.js';
 
-export function createCommentMentionRepository(db: WorktrailDb) {
+export function createCommentMentionRepository(db: RepositoryExecutor) {
   return {
     async createMany(input: NewCommentMention[]) {
       if (input.length === 0) {

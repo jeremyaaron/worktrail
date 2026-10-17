@@ -6,8 +6,8 @@ Implementation baseline, confirmed during Phase 0 on October 17, 2026. This desi
 direction in the [PRD](prd.md), informed by the
 [UX audit](ux-audit.md), [technical debt audit](tech-debt-audit.md), and
 [public site audit](site-audit.md). The [implementation plan](implementation-plan.md) records Phase 0
-inventories, closed choices, sequencing, and acceptance. Phases 1-3 verification and toolchain foundations are complete;
-implementation is in progress.
+inventories, closed choices, sequencing, and acceptance. Phases 1-4 verification, toolchain, and
+explicit persistence foundations are complete; implementation is in progress.
 
 ## Summary
 
@@ -537,6 +537,19 @@ Side effects that belong to a command, including DB activity, notifications, hie
 closeout snapshots, commit or roll back with its database changes. Attachment object-store writes
 retain their existing compensation rules; a database transaction is not a distributed storage
 transaction. No HTTP response or notification publication occurs before the enclosing commit.
+
+Phase 4 implementation: `repositories/persistence.ts` owns root transactions and supplies bound
+repositories, locks, and participating capabilities. Existing service entry points forward to private
+scope-bound bodies so their context-based helpers cannot accidentally read/write through root
+repositories. `RepositoryExecutor` accepts the actual database/transaction query APIs. Nested reads
+inside writes inherit read committed; only independent read scopes start repeatable-read/read-only
+transactions. Writes and lock acquisition are rejected in read-only scopes, and capability/lock reuse
+after callback exit is rejected. Repository closures must still remain inside the callback.
+Database calls sharing a transaction connection are sequential rather than eagerly aggregated.
+Bulk commits remain per item; attachment object I/O/compensation stays outside transaction callbacks.
+The [current developer guide](../development.md) records ownership and the complete staged lock
+inventory. Advisory helpers exist and are tested, but project-gate adoption and lifecycle race repair
+remain Phases 6-7, not a guarantee of this capability migration.
 
 ### Project Coordination
 

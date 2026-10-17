@@ -6,7 +6,7 @@ import type {
 } from '@worktrail/contracts';
 import { z } from 'zod';
 
-import type { WorktrailDb } from '../db/client.js';
+import type { Persistence } from '../repositories/persistence.js';
 import type { EndpointHandler } from '../http/app-request.js';
 import type { Repositories } from '../repositories/index.js';
 import { ProjectStatusReportService } from '../services/project-status-report-service.js';
@@ -15,7 +15,7 @@ import { projectStatusReportSnapshotSchema } from '../validation/project-status-
 
 export interface StatusReportHandlerOptions {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }
 
 const projectParamSchema = z.object({
@@ -48,7 +48,7 @@ export function listProjectStatusReportsHandler(
     const service = new ProjectStatusReportService({
       actor: request.actor,
       repositories: options.repositories,
-      db: options.db
+      persistence: options.persistence
     });
 
     return {
@@ -66,7 +66,7 @@ export function getProjectStatusReportDraftHandler(
     const service = new ProjectStatusReportService({
       actor: request.actor,
       repositories: options.repositories,
-      db: options.db
+      persistence: options.persistence
     });
 
     return {
@@ -85,7 +85,7 @@ export function publishProjectStatusReportHandler(
     const service = new ProjectStatusReportService({
       actor: request.actor,
       repositories: options.repositories,
-      db: options.db
+      persistence: options.persistence
     });
 
     return {
@@ -103,7 +103,7 @@ export function getProjectStatusReportHandler(
     const service = new ProjectStatusReportService({
       actor: request.actor,
       repositories: options.repositories,
-      db: options.db
+      persistence: options.persistence
     });
 
     return {
@@ -121,7 +121,7 @@ export function exportProjectStatusReportMarkdownHandler(
     const service = new ProjectStatusReportService({
       actor: request.actor,
       repositories: options.repositories,
-      db: options.db
+      persistence: options.persistence
     });
     const exportResult = await service.exportProjectStatusReportMarkdown(projectId, reportId);
 

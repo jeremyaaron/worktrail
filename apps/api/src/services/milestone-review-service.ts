@@ -6,6 +6,7 @@ import type {
   WorkItemStatus
 } from '@worktrail/contracts';
 
+import { assertPersistence, type Persistence } from '../repositories/persistence.js';
 import type { ActorContext } from '../domain/actor.js';
 import {
   workItemPriorities,
@@ -33,6 +34,7 @@ const recentMovementLimit = 8;
 export interface MilestoneReviewServiceContext {
   actor: ActorContext;
   repositories: Repositories;
+  persistence: Persistence;
   clock?: () => Date;
 }
 
@@ -40,6 +42,7 @@ export class MilestoneReviewService {
   private readonly clock: () => Date;
 
   constructor(private readonly context: MilestoneReviewServiceContext) {
+    assertPersistence(context.persistence);
     this.clock = context.clock ?? (() => new Date());
   }
 
@@ -47,26 +50,27 @@ export class MilestoneReviewService {
     projectId: string,
     milestoneId: string
   ): Promise<MilestoneReviewDto> {
+    return this.context.persistence.readConsistent((scope) =>
+      new MilestoneReviewService({ ...this.context, ...scope }).getMilestoneReviewInScope(projectId, milestoneId)
+    );
+  }
+
+  private async getMilestoneReviewInScope(
+    projectId: string,
+    milestoneId: string
+  ): Promise<MilestoneReviewDto> {
     const project = await this.requireProject(projectId);
-    const [
-      workItems,
-      dependencyBlockedWorkItems,
-      blockingOpenWorkItems,
-      milestones,
-      members
-    ] = await Promise.all([
-      this.context.repositories.workItems.listByProject(projectId, { sort: 'board_order' }),
-      this.context.repositories.workItems.listByProject(projectId, {
-        dependency: 'dependency_blocked',
-        sort: 'priority_desc'
-      }),
-      this.context.repositories.workItems.listByProject(projectId, {
-        dependency: 'blocking_open_work',
-        sort: 'priority_desc'
-      }),
-      this.context.repositories.milestones.listByProject(projectId, { includeArchived: true }),
-      this.context.repositories.members.listByWorkspace(this.context.actor.workspaceId)
-    ]);
+    const workItems = await this.context.repositories.workItems.listByProject(projectId, { sort: 'board_order' });
+    const dependencyBlockedWorkItems = await this.context.repositories.workItems.listByProject(projectId, {
+      dependency: 'dependency_blocked',
+      sort: 'priority_desc'
+    });
+    const blockingOpenWorkItems = await this.context.repositories.workItems.listByProject(projectId, {
+      dependency: 'blocking_open_work',
+      sort: 'priority_desc'
+    });
+    const milestones = await this.context.repositories.milestones.listByProject(projectId, { includeArchived: true });
+    const members = await this.context.repositories.members.listByWorkspace(this.context.actor.workspaceId);
     const milestone = milestones.find((item) => item.id === milestoneId);
 
     if (milestone === undefined || milestone.projectId !== projectId) {

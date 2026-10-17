@@ -2,7 +2,7 @@ import type { CommentDto, CreateCommentRequest, UpdateCommentRequest } from '@wo
 import { authoredContentFormats } from '@worktrail/contracts';
 import { z } from 'zod';
 
-import type { WorktrailDb } from '../db/client.js';
+import type { Persistence } from '../repositories/persistence.js';
 import type { EndpointHandler } from '../http/app-request.js';
 import type { Repositories } from '../repositories/index.js';
 import { CommentService } from '../services/comment-service.js';
@@ -29,14 +29,14 @@ const updateCommentSchema = z.object({
 
 export function listCommentsHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<CommentDto[]> {
   return async (request) => {
     const { workItemId } = parseWithSchema(workItemIdParamSchema, request.params);
     const service = new CommentService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
 
     return {
@@ -48,7 +48,7 @@ export function listCommentsHandler(input: {
 
 export function createCommentHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<CommentDto> {
   return async (request) => {
     const { workItemId } = parseWithSchema(workItemIdParamSchema, request.params);
@@ -56,7 +56,7 @@ export function createCommentHandler(input: {
     const service = new CommentService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
 
     return {
@@ -68,7 +68,7 @@ export function createCommentHandler(input: {
 
 export function updateCommentHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<CommentDto> {
   return async (request) => {
     const { commentId } = parseWithSchema(commentIdParamSchema, request.params);
@@ -76,7 +76,7 @@ export function updateCommentHandler(input: {
     const service = new CommentService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
 
     return {
@@ -88,14 +88,14 @@ export function updateCommentHandler(input: {
 
 export function deleteCommentHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<CommentDto> {
   return async (request) => {
     const { commentId } = parseWithSchema(commentIdParamSchema, request.params);
     const service = new CommentService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
 
     return {

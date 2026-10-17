@@ -346,3 +346,95 @@ The full dependency tree is not clean: use the bounded exception policy and revi
 exposure assumptions before changing test builders or exposing development/schema tooling.
 No global runtime default was changed, no working data was reset, and no release identity was bumped.
 Phase 4 and later feature/refactor work and final release acceptance remain pending.
+
+## Phase 4 Implementation And Acceptance
+
+Evidence collected October 17, 2026 on macOS with Node 24.16.0/npm 11.13.0 and disposable PostgreSQL
+16. The dependency graph, schema/migrations, contract shape, and release identity remain unchanged.
+
+Required persistence capabilities now own writes and consistent reads through composition, endpoints,
+and affected services. Bound service bodies keep context-based private helpers on the transaction's
+repositories. Inner import/export/report/cycle work shares that scope without a nested transaction or
+savepoint. Root writes specify read committed/read write; independent reads specify repeatable
+read/read only. Nested reads inherit the enclosing write's isolation. Writes/locks in read-only scopes
+and escaped capability/lock calls are rejected. Repositories are not revocable proxies: callers must
+await all work and keep them inside the callback.
+
+Project metadata/archive/reactivate, saved-view create/update/delete, and watcher mutations now have
+real write scopes alongside existing work/cycle/comment/label/milestone/report owners. Bulk writes
+still commit per item. Applicable database state/activity/mentions/watchers/notifications roll back
+together; attachment storage transfer and compensation retain their existing separate boundary.
+The current ownership/lock inventory lives in [the developer guide](../development.md).
+
+| Check | Result |
+| --- | --- |
+| Final `npm run verify -- --mode=api` | Passed 630 API tests across 54 files, plus 41 resource tests; migrated and cleaned its owned database/storage |
+| Database-independent API project | 250 tests across 28 files passed; included in the complete 630 count, not additional coverage |
+| API and verification TypeScript checks | Passed `npm run typecheck:verification`, including the API project |
+| Contracts typecheck/tests | Passed; 54 tests across 12 files |
+| API and verification lint | Passed with zero warnings |
+| API build | Passed |
+| Local documentation links and `git diff --check` | Passed |
+
+Final API run: `8c1da09d-cecb-4216-8979-817e21998358`. Its sanitized summary records `passed: true`,
+`cleaned: true`, and four successful gates. No integration case was retried. The final API output
+contained no pg concurrent-client-query deprecation; migrated single-connection reads/side effects
+now await sequentially, with collection hydration using the small `mapSequential` helper.
+
+### New Coverage
+
+The 29 added tests comprise ten persistence/ordering/sequencing unit cases, seventeen real database
+cases, and two local HTTP-destination unit cases. Real PostgreSQL coverage verifies:
+
+- Project metadata/archive/reactivate rollback when activity persistence fails.
+- Shared saved-view creation/rename/deletion rollback when audit persistence fails.
+- Label/milestone creation rollback with activity, and watch/unwatch rollback after hydration failure.
+- Comment and assignment rollback after notification rows have actually been written, including
+  primary state, activity, mentions, and automatic watcher registration.
+- Count/window/reporter hydration from the same repeatable-read snapshot while another connection
+  commits a new item and changes the reporter; a subsequent independent read sees the new values.
+- PostgreSQL-enforced read-only mutation refusal, advisory shared/exclusive cooperation on separate
+  connections, and lock release on both commit and rollback.
+- One enclosing transaction each for import apply, CSV export, and report publication with a nested
+  current-cycle snapshot. Existing queued-edit, hierarchy, closeout, and attachment compensation/
+  concurrency regressions also pass on real capabilities rather than an optional-db fallback.
+
+Unit cases cover required composition (including compile-time refusal), explicit fakes, root
+configuration, nested identity, scope lifetime, read-only restrictions, sorted/namespaced lock modes,
+duplicate requests, batch validation before acquisition, no upgrades, and sequential failure handling.
+
+### Diagnostic Runs And HTTP Destination Repair
+
+The first owned migration run, `7c9c709c-a304-4495-8b42-f42f8adef12d`, passed 605/623 API tests and
+failed 18: comment creation had been incorrectly classified as read-only, and a Planning test spy
+observed root rather than scoped repositories. Both were corrected. That run also exposed the pg
+concurrent-client-query deprecation after expanding transaction ownership; sequential query execution
+removed its cause rather than silencing it. Cleanup succeeded.
+
+Intermediate standalone runs `8a3bba5e-501c-40a9-abcb-1bd81c4f91f3` and
+`dcf617f0-b91b-4410-8b83-da2b856c5864` passed 625 and 627 API tests respectively while coverage was
+being added. Run `ee77cf83-63c4-4b6e-af74-3d95a56ab225` then passed 626/628 and failed with unexpected
+HTTP 401/404 responses. It cleaned its resources and is not acceptance evidence.
+
+An owned two-server reproduction showed a macOS wildcard IPv6 listener could share a numeric port
+with a separately bound IPv4 listener. Supertest's generated IPv4 URL reached the other listener;
+explicit IPv6 connection reached the intended server. Worktrail has no active handler producing that
+401. API HTTP tests now use the actual listener family via Superagent's connection override, retaining
+Supertest's assertions and cleanup. Sentinel tests prove an IPv6 request cannot reach the test-owned
+IPv4 service on the same port, and verify ordinary IPv4 behavior. No unrelated listener was stopped,
+port fixed, timeout raised, test skipped, or retry enabled. This establishes and repairs destination
+ambiguity; it does not retroactively establish the cause of every earlier socket-hang-up diagnostic.
+
+### Cleanup And Remaining Limits
+
+Final inspection found no verification-labeled containers or owned API/Angular/editor verification
+servers. Working application data/storage were not test resources. No package version, dependency,
+budget, migration, public-site capability claim, commit, push, tag, or deployment changed.
+
+The full browser/Angular/preview workflow and remote Linux CI were not rerun in Phase 4. This is
+focused local API/contracts acceptance, not release UAT. Existing role/no-op/archived behavior remains
+covered, but atomic ownership alone does not serialize project lifecycle, schedule overlap, closeout
+membership, graph, hierarchy, or stale status decisions. Typed advisory helpers are implemented and
+tested; application project-gate participation and authoritative row ordering/revalidation remain
+Phases 6-7. Query/hydration extraction and deterministic SQL budgets remain Phase 5, dashboard read
+narrowing Phase 10, and final release acceptance Phases 20-21.

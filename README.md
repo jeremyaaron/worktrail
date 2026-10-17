@@ -610,6 +610,8 @@ Cleanup refuses active owners or mismatched identities; it is not permission to 
 databases/directories/processes. Sanitized gate summaries, browser JSON reports, traces, and screenshots
 remain under `test-results/verification/<runId>/`. Browser acceptance uses zero retries.
 See the [v0.3.0 verification evidence](docs/v0.3.0/verification-notes.md).
+The [developer ownership guide](docs/development.md) describes persistence scopes, database effects,
+query sequencing, test fakes, and the staged lock-participation contract.
 
 Ports are selected automatically. To request ports or select a focused browser regression:
 

@@ -1,12 +1,9 @@
 import type { WorkItemQuery, WorkspaceWorkItemListItemDto, WorkItemListItemDto } from '@worktrail/contracts';
 
-import type { WorktrailDb } from '../db/client.js';
+import { assertPersistence, type Persistence } from '../repositories/persistence.js';
 import type { ActorContext } from '../domain/actor.js';
 import { ExportLimitExceededError, NotFoundError } from '../errors/app-error.js';
-import {
-  type Repositories,
-  withRepositoriesReadTransaction
-} from '../repositories/index.js';
+import type { Repositories } from '../repositories/index.js';
 import { stringifyCsvRecords, type CsvStringifyRecord } from './csv/stringify-csv-records.js';
 import { type WorkItemListFilters, WorkItemService } from './work-item-service.js';
 
@@ -40,16 +37,27 @@ export interface WorkItemCsvExportResult {
 export interface WorkItemCsvExportServiceContext {
   actor: ActorContext;
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }
 
 export const synchronousExportLimit = 10_000;
 const synchronousExportReadLimit = synchronousExportLimit + 1;
 
 export class WorkItemCsvExportService {
-  constructor(private readonly context: WorkItemCsvExportServiceContext) {}
+  constructor(private readonly context: WorkItemCsvExportServiceContext) {
+    assertPersistence(context.persistence);
+  }
 
   async exportProjectWorkItems(
+    projectId: string,
+    filters: WorkItemListFilters = {}
+  ): Promise<WorkItemCsvExportResult> {
+    return this.context.persistence.readConsistent((scope) =>
+      new WorkItemCsvExportService({ ...this.context, ...scope }).exportProjectWorkItemsInScope(projectId, filters)
+    );
+  }
+
+  private async exportProjectWorkItemsInScope(
     projectId: string,
     filters: WorkItemListFilters = {}
   ): Promise<WorkItemCsvExportResult> {
@@ -67,6 +75,7 @@ export class WorkItemCsvExportService {
       );
       this.assertWithinExportLimit(rawWorkItems.length);
       const service = new WorkItemService({
+        persistence: this.context.persistence,
         actor: this.context.actor,
         repositories
       });
@@ -87,6 +96,12 @@ export class WorkItemCsvExportService {
   }
 
   async exportWorkspaceWorkItems(filters: WorkItemQuery = {}): Promise<WorkItemCsvExportResult> {
+    return this.context.persistence.readConsistent((scope) =>
+      new WorkItemCsvExportService({ ...this.context, ...scope }).exportWorkspaceWorkItemsInScope(filters)
+    );
+  }
+
+  private async exportWorkspaceWorkItemsInScope(filters: WorkItemQuery = {}): Promise<WorkItemCsvExportResult> {
     const workItems = await this.withReadRepositories(async (repositories) => {
       const records = await repositories.workItems.listByWorkspaceForExport(
         this.context.actor.workspaceId,
@@ -95,6 +110,7 @@ export class WorkItemCsvExportService {
       );
       this.assertWithinExportLimit(records.length);
       const service = new WorkItemService({
+        persistence: this.context.persistence,
         actor: this.context.actor,
         repositories
       });
@@ -120,11 +136,7 @@ export class WorkItemCsvExportService {
   private async withReadRepositories<T>(
     callback: (repositories: Repositories) => Promise<T>
   ): Promise<T> {
-    if (this.context.db === undefined) {
-      return callback(this.context.repositories);
-    }
-
-    return withRepositoriesReadTransaction(this.context.db, callback);
+    return this.context.persistence.readConsistent(({ repositories }) => callback(repositories));
   }
 }
 

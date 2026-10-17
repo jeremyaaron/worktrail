@@ -1,6 +1,6 @@
 import { asc, eq } from 'drizzle-orm';
 
-import type { WorktrailDb } from '../db/client.js';
+import type { RepositoryExecutor } from '../db/client.js';
 import { comments } from '../db/schema.js';
 import type { Comment, NewComment } from './types.js';
 
@@ -11,7 +11,7 @@ export interface UpdateCommentInput {
   updatedAt: Date;
 }
 
-export function createCommentRepository(db: WorktrailDb) {
+export function createCommentRepository(db: RepositoryExecutor) {
   return {
     async create(input: NewComment) {
       const [comment] = await db.insert(comments).values(input).returning();

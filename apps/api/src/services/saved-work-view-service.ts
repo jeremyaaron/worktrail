@@ -11,6 +11,8 @@ import type {
 } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
+import { mapSequential } from '../repositories/map-sequential.js';
+import { assertPersistence, type Persistence } from '../repositories/persistence.js';
 import type { ActorContext } from '../domain/actor.js';
 import { canManageProject } from '../domain/permissions.js';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../errors/app-error.js';
@@ -22,6 +24,7 @@ import { toSavedWorkViewDto } from './dto.js';
 export interface SavedWorkViewServiceContext {
   actor: ActorContext;
   repositories: Repositories;
+  persistence: Persistence;
   clock?: () => Date;
   idGenerator?: () => string;
 }
@@ -36,11 +39,18 @@ export class SavedWorkViewService {
   private readonly idGenerator: () => string;
 
   constructor(private readonly context: SavedWorkViewServiceContext) {
+    assertPersistence(context.persistence);
     this.clock = context.clock ?? (() => new Date());
     this.idGenerator = context.idGenerator ?? randomUUID;
   }
 
   async listSavedViews(input: ListSavedWorkViewsQuery = {}): Promise<SavedWorkViewDto[]> {
+    return this.context.persistence.readConsistent((scope) =>
+      new SavedWorkViewService({ ...this.context, ...scope }).listSavedViewsInScope(input)
+    );
+  }
+
+  private async listSavedViewsInScope(input: ListSavedWorkViewsQuery = {}): Promise<SavedWorkViewDto[]> {
     const actor = await this.requireActorMember();
     const scope = await this.resolveScope(input);
     const savedViews = await this.context.repositories.savedWorkViews.listVisible({
@@ -63,6 +73,12 @@ export class SavedWorkViewService {
   }
 
   async createSavedView(input: CreateSavedWorkViewRequest): Promise<SavedWorkViewDto> {
+    return this.context.persistence.write((scope) =>
+      new SavedWorkViewService({ ...this.context, ...scope }).createSavedViewInScope(input)
+    );
+  }
+
+  private async createSavedViewInScope(input: CreateSavedWorkViewRequest): Promise<SavedWorkViewDto> {
     const owner = await this.requireActorMember();
     const name = this.normalizeName(input.name);
     const visibility = input.visibility ?? 'personal';
@@ -114,10 +130,17 @@ export class SavedWorkViewService {
     savedViewId: string,
     input: UpdateSavedWorkViewRequest
   ): Promise<SavedWorkViewDto> {
-    const [actor, current] = await Promise.all([
-      this.requireActorMember(),
-      this.requireMutableSavedView(savedViewId)
-    ]);
+    return this.context.persistence.write((scope) =>
+      new SavedWorkViewService({ ...this.context, ...scope }).updateSavedViewInScope(savedViewId, input)
+    );
+  }
+
+  private async updateSavedViewInScope(
+    savedViewId: string,
+    input: UpdateSavedWorkViewRequest
+  ): Promise<SavedWorkViewDto> {
+    const actor = await this.requireActorMember();
+    const current = await this.requireMutableSavedView(savedViewId);
     const patch: { name?: string; query?: WorkItemQuery; isPinned?: boolean; updatedAt: Date } = {
       updatedAt: this.clock()
     };
@@ -176,10 +199,14 @@ export class SavedWorkViewService {
   }
 
   async deleteSavedView(savedViewId: string): Promise<void> {
-    const [actor, current] = await Promise.all([
-      this.requireActorMember(),
-      this.requireMutableSavedView(savedViewId)
-    ]);
+    return this.context.persistence.write((scope) =>
+      new SavedWorkViewService({ ...this.context, ...scope }).deleteSavedViewInScope(savedViewId)
+    );
+  }
+
+  private async deleteSavedViewInScope(savedViewId: string): Promise<void> {
+    const actor = await this.requireActorMember();
+    const current = await this.requireMutableSavedView(savedViewId);
     const deleted = await this.context.repositories.savedWorkViews.delete(current.id);
 
     if (deleted === null) {
@@ -291,17 +318,14 @@ export class SavedWorkViewService {
     const owners = new Map<string, Member>([[actor.id, actor]]);
     const ownerIds = new Set(savedViews.map((savedView) => savedView.ownerMemberId));
 
-    await Promise.all(
-      [...ownerIds]
-        .filter((ownerId) => !owners.has(ownerId))
-        .map(async (ownerId) => {
-          const owner = await this.context.repositories.members.findById(ownerId);
+    await mapSequential([...ownerIds]
+      .filter((ownerId) => !owners.has(ownerId)), async (ownerId) => {
+        const owner = await this.context.repositories.members.findById(ownerId);
 
-          if (owner !== null && owner.workspaceId === this.context.actor.workspaceId) {
-            owners.set(owner.id, owner);
-          }
-        })
-    );
+        if (owner !== null && owner.workspaceId === this.context.actor.workspaceId) {
+          owners.set(owner.id, owner);
+        }
+      });
 
     return owners;
   }

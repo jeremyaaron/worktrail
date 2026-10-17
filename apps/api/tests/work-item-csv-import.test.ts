@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { stringify } from 'csv-stringify/sync';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
+import { createPersistence } from '../src/repositories/persistence.js';
 import { createDb, createPool } from '../src/db/client.js';
 import type { ActorContext } from '../src/domain/actor.js';
 import { ConflictError, ValidationError } from '../src/errors/app-error.js';
@@ -207,7 +208,7 @@ function createService(
   return new WorkItemCsvImportService({
     actor,
     repositories,
-    db,
+    persistence: createPersistence(db),
     ...options
   });
 }

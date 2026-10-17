@@ -5,6 +5,7 @@ import type {
   WorkspaceWorkItemListItemDto
 } from '@worktrail/contracts';
 
+import { assertPersistence, type Persistence } from '../repositories/persistence.js';
 import type { ActorContext } from '../domain/actor.js';
 import {
   addDays,
@@ -23,6 +24,7 @@ const activeWorkflowStatuses = new Set(['in_progress', 'blocked']);
 export interface MyWorkServiceContext {
   actor: ActorContext;
   repositories: Repositories;
+  persistence: Persistence;
   clock?: () => Date;
 }
 
@@ -31,14 +33,22 @@ export class MyWorkService {
   private readonly workItems: WorkItemService;
 
   constructor(private readonly context: MyWorkServiceContext) {
+    assertPersistence(context.persistence);
     this.clock = context.clock ?? (() => new Date());
     this.workItems = new WorkItemService({
+      persistence: context.persistence,
       actor: context.actor,
       repositories: context.repositories
     });
   }
 
   async getDashboard(): Promise<MyWorkDashboardDto> {
+    return this.context.persistence.readConsistent((scope) =>
+      new MyWorkService({ ...this.context, ...scope }).getDashboardInScope()
+    );
+  }
+
+  private async getDashboardInScope(): Promise<MyWorkDashboardDto> {
     const actor = await this.context.repositories.members.findById(this.context.actor.memberId);
 
     if (actor === null || actor.workspaceId !== this.context.actor.workspaceId) {
@@ -70,19 +80,11 @@ export class MyWorkService {
       sort: 'updated_desc'
     });
 
-    const [
-      assignedOpen,
-      reportedOpen,
-      blockedWork,
-      dependencyBlockedAssigned,
-      recentlyUpdatedOpen
-    ] = await Promise.all([
-      this.workItems.listWorkspaceWorkItems(assignedOpenQuery),
-      this.workItems.listWorkspaceWorkItems(reportedOpenQuery),
-      this.workItems.listWorkspaceWorkItems(blockedQuery),
-      this.workItems.listWorkspaceWorkItems(dependencyBlockedAssignedQuery),
-      this.workItems.listWorkspaceWorkItems(recentlyUpdatedQuery)
-    ]);
+    const assignedOpen = await this.workItems.listWorkspaceWorkItems(assignedOpenQuery);
+    const reportedOpen = await this.workItems.listWorkspaceWorkItems(reportedOpenQuery);
+    const blockedWork = await this.workItems.listWorkspaceWorkItems(blockedQuery);
+    const dependencyBlockedAssigned = await this.workItems.listWorkspaceWorkItems(dependencyBlockedAssignedQuery);
+    const recentlyUpdatedOpen = await this.workItems.listWorkspaceWorkItems(recentlyUpdatedQuery);
 
     const dueSoon = assignedOpen.filter((item) => this.isDueSoon(item));
     const overdue = assignedOpen.filter((item) => this.isOverdue(item));

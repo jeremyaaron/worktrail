@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
+import { createPersistence } from '../src/repositories/persistence.js';
 import { createDb, createPool } from '../src/db/client.js';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../src/errors/app-error.js';
 import { createRepositories, type Repositories } from '../src/repositories/index.js';
@@ -74,7 +75,7 @@ async function createFixture(role: 'owner' | 'maintainer' | 'contributor' = 'own
       role
     },
     repositories,
-    db,
+    persistence: createPersistence(db),
     clock: now
   });
 
@@ -294,7 +295,7 @@ describe('ProjectCycleService', () => {
         role: 'contributor'
       },
       repositories,
-      db,
+      persistence: createPersistence(db),
       clock: now
     });
 
@@ -541,7 +542,7 @@ describe('ProjectCycleService', () => {
         role: 'owner'
       },
       repositories,
-      db,
+      persistence: createPersistence(db),
       clock: now
     });
     const closed = await closeoutService.close(fixture.projectId, cycle.id, {
@@ -581,7 +582,7 @@ describe('ProjectCycleService', () => {
         role: 'owner'
       },
       repositories,
-      db,
+      persistence: createPersistence(db),
       clock: now
     });
     await closeoutService.close(fixture.projectId, cycle.id, { destinationCycleId: null });

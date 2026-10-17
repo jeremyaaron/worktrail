@@ -1,21 +1,18 @@
 import type { CreateMemberRequest, MemberDto, UpdateMemberRequest } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
-import type { WorktrailDb } from '../db/client.js';
+import { assertPersistence, type Persistence } from '../repositories/persistence.js';
 import type { ActorContext } from '../domain/actor.js';
 import { canManageMembers } from '../domain/permissions.js';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../errors/app-error.js';
-import {
-  type Repositories,
-  withRepositoriesTransaction
-} from '../repositories/index.js';
+import type { Repositories } from '../repositories/index.js';
 import type { Member } from '../repositories/types.js';
 import { toMemberDto } from './dto.js';
 
 export interface MemberServiceContext {
   actor: ActorContext;
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
   clock?: () => Date;
   idGenerator?: () => string;
 }
@@ -25,11 +22,18 @@ export class MemberService {
   private readonly idGenerator: () => string;
 
   constructor(private readonly context: MemberServiceContext) {
+    assertPersistence(context.persistence);
     this.clock = context.clock ?? (() => new Date());
     this.idGenerator = context.idGenerator ?? randomUUID;
   }
 
   async listMembers(): Promise<MemberDto[]> {
+    return this.context.persistence.readConsistent((scope) =>
+      new MemberService({ ...this.context, ...scope }).listMembersInScope()
+    );
+  }
+
+  private async listMembersInScope(): Promise<MemberDto[]> {
     const members = await this.context.repositories.members.listByWorkspace(
       this.context.actor.workspaceId
     );
@@ -37,6 +41,12 @@ export class MemberService {
   }
 
   async createMember(input: CreateMemberRequest): Promise<MemberDto> {
+    return this.context.persistence.write((scope) =>
+      new MemberService({ ...this.context, ...scope }).createMemberInScope(input)
+    );
+  }
+
+  private async createMemberInScope(input: CreateMemberRequest): Promise<MemberDto> {
     return this.withWriteRepositories(async (repositories) => {
       this.assertCanManageMembers();
 
@@ -75,6 +85,12 @@ export class MemberService {
   }
 
   async updateMember(memberId: string, input: UpdateMemberRequest): Promise<MemberDto> {
+    return this.context.persistence.write((scope) =>
+      new MemberService({ ...this.context, ...scope }).updateMemberInScope(memberId, input)
+    );
+  }
+
+  private async updateMemberInScope(memberId: string, input: UpdateMemberRequest): Promise<MemberDto> {
     return this.withWriteRepositories(async (repositories) => {
       this.assertCanManageMembers();
       const current = await this.requireMember(memberId, repositories);
@@ -109,6 +125,12 @@ export class MemberService {
   }
 
   async deactivateMember(memberId: string): Promise<MemberDto> {
+    return this.context.persistence.write((scope) =>
+      new MemberService({ ...this.context, ...scope }).deactivateMemberInScope(memberId)
+    );
+  }
+
+  private async deactivateMemberInScope(memberId: string): Promise<MemberDto> {
     return this.withWriteRepositories(async (repositories) => {
       this.assertCanManageMembers();
       const current = await this.requireMember(memberId, repositories);
@@ -151,6 +173,12 @@ export class MemberService {
   }
 
   async reactivateMember(memberId: string): Promise<MemberDto> {
+    return this.context.persistence.write((scope) =>
+      new MemberService({ ...this.context, ...scope }).reactivateMemberInScope(memberId)
+    );
+  }
+
+  private async reactivateMemberInScope(memberId: string): Promise<MemberDto> {
     return this.withWriteRepositories(async (repositories) => {
       this.assertCanManageMembers();
       const current = await this.requireMember(memberId, repositories);
@@ -193,11 +221,7 @@ export class MemberService {
   private async withWriteRepositories<T>(
     callback: (repositories: Repositories) => Promise<T>
   ): Promise<T> {
-    if (this.context.db === undefined) {
-      return callback(this.context.repositories);
-    }
-
-    return withRepositoriesTransaction(this.context.db, callback);
+    return this.context.persistence.write(({ repositories }) => callback(repositories));
   }
 
   private assertCanManageMembers(): void {

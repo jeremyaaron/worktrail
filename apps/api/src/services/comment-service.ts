@@ -1,17 +1,15 @@
 import type { CommentDto, CreateCommentRequest, UpdateCommentRequest } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
-import type { WorktrailDb } from '../db/client.js';
+import { mapSequential } from '../repositories/map-sequential.js';
+import { assertPersistence, type Persistence } from '../repositories/persistence.js';
 import type { ActorContext } from '../domain/actor.js';
 import {
   resolveNewAuthoredContent,
   resolveUpdatedAuthoredContent
 } from '../domain/authored-content-policy.js';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../errors/app-error.js';
-import {
-  type Repositories,
-  withRepositoriesTransaction
-} from '../repositories/index.js';
+import type { Repositories } from '../repositories/index.js';
 import type { Comment, Member, Project, WorkItem } from '../repositories/types.js';
 import { toCommentDto } from './dto.js';
 import { NotificationService } from './notification-service.js';
@@ -19,7 +17,7 @@ import { NotificationService } from './notification-service.js';
 export interface CommentServiceContext {
   actor: ActorContext;
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
   clock?: () => Date;
   idGenerator?: () => string;
 }
@@ -29,17 +27,30 @@ export class CommentService {
   private readonly idGenerator: () => string;
 
   constructor(private readonly context: CommentServiceContext) {
+    assertPersistence(context.persistence);
     this.clock = context.clock ?? (() => new Date());
     this.idGenerator = context.idGenerator ?? randomUUID;
   }
 
   async listComments(workItemId: string): Promise<CommentDto[]> {
+    return this.context.persistence.readConsistent((scope) =>
+      new CommentService({ ...this.context, ...scope }).listCommentsInScope(workItemId)
+    );
+  }
+
+  private async listCommentsInScope(workItemId: string): Promise<CommentDto[]> {
     await this.requireWorkItem(workItemId, this.context.repositories);
     const comments = await this.context.repositories.comments.findByWorkItem(workItemId);
     return this.toCommentDtos(comments, this.context.repositories);
   }
 
   async addComment(workItemId: string, input: CreateCommentRequest): Promise<CommentDto> {
+    return this.context.persistence.write((scope) =>
+      new CommentService({ ...this.context, ...scope }).addCommentInScope(workItemId, input)
+    );
+  }
+
+  private async addCommentInScope(workItemId: string, input: CreateCommentRequest): Promise<CommentDto> {
     return this.withWriteRepositories(async (repositories) => {
       const workItem = await this.requireWorkItem(workItemId, repositories);
       const project = await this.requireProject(workItem.projectId, repositories);
@@ -101,6 +112,12 @@ export class CommentService {
   }
 
   async updateComment(commentId: string, input: UpdateCommentRequest): Promise<CommentDto> {
+    return this.context.persistence.write((scope) =>
+      new CommentService({ ...this.context, ...scope }).updateCommentInScope(commentId, input)
+    );
+  }
+
+  private async updateCommentInScope(commentId: string, input: UpdateCommentRequest): Promise<CommentDto> {
     return this.withWriteRepositories(async (repositories) => {
       const current = await this.requireCommentForUpdate(commentId, repositories);
       this.assertCommentWritable(current);
@@ -156,6 +173,12 @@ export class CommentService {
   }
 
   async deleteComment(commentId: string): Promise<CommentDto> {
+    return this.context.persistence.write((scope) =>
+      new CommentService({ ...this.context, ...scope }).deleteCommentInScope(commentId)
+    );
+  }
+
+  private async deleteCommentInScope(commentId: string): Promise<CommentDto> {
     return this.withWriteRepositories(async (repositories) => {
       const current = await this.requireCommentForUpdate(commentId, repositories);
       this.assertCommentWritable(current);
@@ -194,15 +217,12 @@ export class CommentService {
   private async withWriteRepositories<T>(
     callback: (repositories: Repositories) => Promise<T>
   ): Promise<T> {
-    if (this.context.db === undefined) {
-      return callback(this.context.repositories);
-    }
-
-    return withRepositoriesTransaction(this.context.db, callback);
+    return this.context.persistence.write(({ repositories }) => callback(repositories));
   }
 
   private notificationService(repositories: Repositories): NotificationService {
     return new NotificationService({
+      persistence: this.context.persistence,
       actor: this.context.actor,
       repositories,
       clock: this.clock,
@@ -280,9 +300,7 @@ export class CommentService {
     repositories: Repositories
   ): Promise<CommentDto[]> {
     const mentionsByCommentId = await this.getMentionsByCommentId(comments, repositories);
-    return Promise.all(
-      comments.map((comment) => this.toCommentDto(comment, repositories, mentionsByCommentId))
-    );
+    return mapSequential(comments, (comment) => this.toCommentDto(comment, repositories, mentionsByCommentId));
   }
 
   private async toCommentDto(
@@ -318,7 +336,7 @@ export class CommentService {
       return [];
     }
 
-    const members = await Promise.all(dedupedMemberIds.map((memberId) => repositories.members.findById(memberId)));
+    const members = await mapSequential(dedupedMemberIds, (memberId) => repositories.members.findById(memberId));
     const validMembers: Member[] = [];
 
     for (let index = 0; index < dedupedMemberIds.length; index += 1) {

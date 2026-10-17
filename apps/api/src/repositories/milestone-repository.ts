@@ -1,6 +1,6 @@
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 
-import type { WorktrailDb } from '../db/client.js';
+import type { RepositoryExecutor } from '../db/client.js';
 import { milestones } from '../db/schema.js';
 import type { Milestone, NewMilestone } from './types.js';
 
@@ -19,7 +19,7 @@ export interface UpdateMilestoneInput {
   updatedAt: Date;
 }
 
-export function createMilestoneRepository(db: WorktrailDb) {
+export function createMilestoneRepository(db: RepositoryExecutor) {
   return {
     async create(input: NewMilestone) {
       const [milestone] = await db.insert(milestones).values(input).returning();

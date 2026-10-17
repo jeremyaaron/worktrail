@@ -26,6 +26,7 @@ import {
 } from './schema.js';
 import { localSeedActor } from '../domain/actor.js';
 import { createRepositories } from '../repositories/index.js';
+import { createPersistence } from '../repositories/persistence.js';
 import { ProjectStatusReportService } from '../services/project-status-report-service.js';
 import { loadRuntimeConfig } from '../config/runtime-config.js';
 import { LocalAttachmentObjectStore } from '../storage/local-attachment-object-store.js';
@@ -2257,7 +2258,7 @@ try {
   ];
   const reportService = new ProjectStatusReportService({
     actor: localSeedActor,
-    db,
+    persistence: createPersistence(db),
     repositories: createRepositories(db),
     clock: () => now,
     idGenerator: () => {

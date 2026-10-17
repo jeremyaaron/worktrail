@@ -9,7 +9,7 @@ import type {
 } from '@worktrail/contracts';
 import { and, asc, eq, isNotNull, or, sql } from 'drizzle-orm';
 
-import type { WorktrailDb } from '../db/client.js';
+import type { RepositoryExecutor } from '../db/client.js';
 import {
   milestones,
   projectCycles,
@@ -134,7 +134,7 @@ export interface QuickFindRepositoryResult {
   attachments: QuickFindRepositoryGroup<QuickFindAttachmentRecord>;
 }
 
-export function createQuickFindRepository(db: WorktrailDb) {
+export function createQuickFindRepository(db: RepositoryExecutor) {
   return {
     async searchWorkspace(input: QuickFindRepositoryInput): Promise<QuickFindRepositoryResult> {
       assertGroupLimit(input.groupLimit);
@@ -163,7 +163,7 @@ export function createQuickFindRepository(db: WorktrailDb) {
 type QuickFindTerms = ReturnType<typeof createQuickFindSearchTerms>;
 
 function searchProjects(
-  db: WorktrailDb,
+  db: RepositoryExecutor,
   workspaceId: string,
   terms: QuickFindTerms,
   rowLimit: number
@@ -199,7 +199,7 @@ function searchProjects(
 }
 
 function searchWorkItems(
-  db: WorktrailDb,
+  db: RepositoryExecutor,
   workspaceId: string,
   terms: QuickFindTerms,
   rowLimit: number
@@ -255,7 +255,7 @@ function searchWorkItems(
 }
 
 function searchMilestones(
-  db: WorktrailDb,
+  db: RepositoryExecutor,
   workspaceId: string,
   terms: QuickFindTerms,
   rowLimit: number
@@ -310,7 +310,7 @@ function searchMilestones(
 }
 
 function searchCycles(
-  db: WorktrailDb,
+  db: RepositoryExecutor,
   workspaceId: string,
   terms: QuickFindTerms,
   rowLimit: number
@@ -365,7 +365,7 @@ function searchCycles(
 }
 
 function searchReports(
-  db: WorktrailDb,
+  db: RepositoryExecutor,
   workspaceId: string,
   terms: QuickFindTerms,
   rowLimit: number
@@ -424,7 +424,7 @@ function searchReports(
 }
 
 function searchAttachments(
-  db: WorktrailDb,
+  db: RepositoryExecutor,
   workspaceId: string,
   terms: QuickFindTerms,
   rowLimit: number

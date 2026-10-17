@@ -1,6 +1,6 @@
 import { and, asc, eq, isNull } from 'drizzle-orm';
 
-import type { WorktrailDb } from '../db/client.js';
+import type { RepositoryExecutor } from '../db/client.js';
 import { members, workItemWatchers } from '../db/schema.js';
 import type { NewWorkItemWatcher } from './types.js';
 
@@ -14,7 +14,7 @@ export interface UnwatchInput extends WatcherKeyInput {
   updatedAt: Date;
 }
 
-export function createWorkItemWatcherRepository(db: WorktrailDb) {
+export function createWorkItemWatcherRepository(db: RepositoryExecutor) {
   return {
     async watch(input: NewWorkItemWatcher) {
       const existing = await this.findActive(input.workItemId, input.memberId);

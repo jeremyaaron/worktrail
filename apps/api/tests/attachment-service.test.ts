@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { createPersistence } from '../src/repositories/persistence.js';
 import { createDb, createPool } from '../src/db/client.js';
 import type { ActorContext } from '../src/domain/actor.js';
 import { attachmentPolicy } from '../src/domain/attachment-policy.js';
@@ -195,7 +196,7 @@ function createService(
   };
   const service = new AttachmentService({
     repositories,
-    db,
+    persistence: createPersistence(db),
     objectStore,
     now,
     ...(ids.length === 0 ? {} : { createId: () => ids.shift()! }),

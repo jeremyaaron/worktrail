@@ -15,7 +15,7 @@ import {
   type SQL
 } from 'drizzle-orm';
 
-import type { WorktrailDb } from '../db/client.js';
+import type { RepositoryExecutor } from '../db/client.js';
 import { projects, workItems } from '../db/schema.js';
 import {
   buildProjectWorkItemConditions,
@@ -112,7 +112,7 @@ function priorityRankSql(): SQL {
   end`;
 }
 
-export function createWorkItemRepository(db: WorktrailDb) {
+export function createWorkItemRepository(db: RepositoryExecutor) {
   return {
     async create(input: NewWorkItem) {
       const [workItem] = await db.insert(workItems).values(input).returning();

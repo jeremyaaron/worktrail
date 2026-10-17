@@ -2,11 +2,13 @@ import { randomUUID } from 'node:crypto';
 
 import type { UpdateWorkItemRequest } from '@worktrail/contracts';
 import { sql } from 'drizzle-orm';
-import request from 'supertest';
+import request from './support/local-http.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { fakeRepositoryContext } from './support/fake-persistence.js';
+import { createPersistence, withTransactionScope } from '../src/repositories/persistence.js';
 import { createExpressApp } from '../src/adapters/express/server.js';
-import { createDb, createPool, type WorktrailDb } from '../src/db/client.js';
+import { createDb, createPool } from '../src/db/client.js';
 import { createRepositories, type Repositories } from '../src/repositories/index.js';
 import { WorkItemService } from '../src/services/work-item-service.js';
 import { cleanupWorkspace as cleanupOwnedWorkspace } from './support/workspace-fixtures.js';
@@ -229,7 +231,7 @@ function createService(
       role: 'owner'
     },
     repositories,
-    db,
+    persistence: createPersistence(db),
     ...overrides
   });
 }
@@ -238,7 +240,7 @@ beforeAll(() => {
   pool = createPool();
   db = createDb(pool);
   repositories = createRepositories(db);
-  app = createExpressApp({ repositories, db });
+  app = createExpressApp({ repositories, persistence: createPersistence(db) });
 });
 
 afterEach(async () => {
@@ -483,16 +485,16 @@ describe('authored work-item descriptions', () => {
     let ready!: (pid: number) => void;
     const gate = new Promise<void>((resolve) => { release = resolve; });
     const locked = new Promise<number>((resolve) => { ready = resolve; });
-    const first = db.transaction(async (tx) => {
+    const first = db.transaction((tx) => withTransactionScope(tx, 'write', async (scope) => {
       const { rows } = await tx.execute(sql`select pg_backend_pid() as pid`);
       const result = await createService(fixture, {
-        db: undefined, repositories: createRepositories(tx as unknown as WorktrailDb),
+        ...scope,
         clock: () => new Date('2026-07-04T00:00:00Z')
       }).updateWorkItem(id, firstInput);
       ready(Number(rows[0]?.pid));
       await gate;
       return result;
-    });
+    }));
     let second: ReturnType<WorkItemService['updateWorkItem']> | undefined;
     try {
       const pid = await Promise.race([locked, first.then(() => { throw new Error('Writer ended early.'); })]);
@@ -622,11 +624,11 @@ describe('work item API', () => {
     )).toBe(true);
   });
 
-  it('uses repository-only paging and enriches only returned page ids', async () => {
+  it('uses an explicit repository-only fake and enriches only returned page ids', async () => {
     const fixture = await createFixture('owner');
     await Promise.all(
       Array.from({ length: 16 }, (_, index) =>
-        createWorkItem(fixture, { title: `Fallback page item ${index + 1}` })
+        createWorkItem(fixture, { title: `Fake capability page item ${index + 1}` })
       )
     );
     const listPageSpy = vi.spyOn(repositories.workItems, 'listPageByProject');
@@ -634,7 +636,7 @@ describe('work item API', () => {
     const dependencySpy = vi.spyOn(repositories.workItemRelationships, 'listDependencyCounts');
     const parentSpy = vi.spyOn(repositories.workItems, 'listParentsForChildren');
     const childSummarySpy = vi.spyOn(repositories.workItems, 'summarizeChildren');
-    const service = createService(fixture, { db: undefined });
+    const service = createService(fixture, { ...fakeRepositoryContext(repositories) });
 
     const page = await service.listWorkItemPage(
       fixture.projectId,
@@ -660,6 +662,7 @@ describe('work item API', () => {
     await createWorkItem(fixture);
     const countSpy = vi.spyOn(repositories.workItems, 'countByProjectQuery');
     const service = new WorkItemService({
+      ...fakeRepositoryContext(repositories),
       actor: {
         workspaceId: randomUUID(),
         memberId: randomUUID(),

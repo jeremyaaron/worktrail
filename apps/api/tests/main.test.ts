@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { RuntimeConfig } from '../src/config/runtime-config.js';
 import type { WorktrailDb } from '../src/db/client.js';
 import { start, type StartDependencies } from '../src/main.js';
+import { fakePersistence } from './support/fake-persistence.js';
 import type { Repositories } from '../src/repositories/index.js';
 import {
   AttachmentObjectStoreError,
@@ -31,17 +32,19 @@ function createStartupDependencies(objectStore: AttachmentObjectStore) {
   } as unknown as pg.Pool;
   const db = {} as WorktrailDb;
   const repositories = {} as Repositories;
+  const persistence = fakePersistence(repositories);
   const dependencies: Partial<StartDependencies> = {
     loadRuntimeConfig: vi.fn(() => runtimeConfig),
     createPool: vi.fn(() => pool),
     createDb: vi.fn(() => db),
     createRepositories: vi.fn(() => repositories),
+    createPersistence: vi.fn(() => persistence),
     createAttachmentObjectStore: vi.fn(() => objectStore),
     createExpressApp: vi.fn(() => express()),
     log: vi.fn()
   };
 
-  return { dependencies, pool, db, repositories };
+  return { dependencies, pool, db, repositories, persistence };
 }
 
 async function closeServer(server: Server): Promise<void> {
@@ -72,7 +75,7 @@ describe('API startup', () => {
       order.push('create-app');
       expect(options).toMatchObject({
         repositories: fixture.repositories,
-        db: fixture.db,
+        persistence: fixture.persistence,
         healthCheckPool: fixture.pool,
         attachmentObjectStore: objectStore,
         corsOrigin: false
@@ -84,6 +87,7 @@ describe('API startup', () => {
 
     expect(order).toEqual(['initialize', 'create-app']);
     expect(objectStore.initialize).toHaveBeenCalledOnce();
+    expect(fixture.dependencies.createPersistence).toHaveBeenCalledExactlyOnceWith(fixture.db);
     expect(fixture.pool.end).not.toHaveBeenCalled();
     await closeServer(server);
     await fixture.pool.end();

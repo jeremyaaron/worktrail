@@ -8,7 +8,7 @@ import type {
 } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
-import type { WorktrailDb } from '../db/client.js';
+import { assertPersistence, type Persistence } from '../repositories/persistence.js';
 import type { ActorContext } from '../domain/actor.js';
 import { workItemStatuses } from '../domain/constants.js';
 import {
@@ -18,10 +18,7 @@ import {
   canReactivateProject
 } from '../domain/permissions.js';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../errors/app-error.js';
-import {
-  type Repositories,
-  withRepositoriesTransaction
-} from '../repositories/index.js';
+import type { Repositories } from '../repositories/index.js';
 import type { Project, WorkItem } from '../repositories/types.js';
 import { DeliveryHealthService } from './delivery-health-service.js';
 import { toProjectDto, toRecentWorkItemDto } from './dto.js';
@@ -55,7 +52,7 @@ function getProjectKeyBase(name: string): string {
 export interface ProjectServiceContext {
   actor: ActorContext;
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
   clock?: () => Date;
   idGenerator?: () => string;
 }
@@ -65,11 +62,18 @@ export class ProjectService {
   private readonly idGenerator: () => string;
 
   constructor(private readonly context: ProjectServiceContext) {
+    assertPersistence(context.persistence);
     this.clock = context.clock ?? (() => new Date());
     this.idGenerator = context.idGenerator ?? randomUUID;
   }
 
   async listProjects(): Promise<ProjectDto[]> {
+    return this.context.persistence.readConsistent((scope) =>
+      new ProjectService({ ...this.context, ...scope }).listProjectsInScope()
+    );
+  }
+
+  private async listProjectsInScope(): Promise<ProjectDto[]> {
     const projects = await this.context.repositories.projects.listByWorkspace(
       this.context.actor.workspaceId
     );
@@ -77,13 +81,17 @@ export class ProjectService {
   }
 
   async listProjectNavigationSummaries(): Promise<ProjectNavigationSummaryDto[]> {
-    const [projects, workItemRecords] = await Promise.all([
-      this.context.repositories.projects.listByWorkspace(this.context.actor.workspaceId),
-      this.context.repositories.workItems.listByWorkspace(this.context.actor.workspaceId, {
-        archivedProjects: 'include',
-        sort: 'updated_desc'
-      })
-    ]);
+    return this.context.persistence.readConsistent((scope) =>
+      new ProjectService({ ...this.context, ...scope }).listProjectNavigationSummariesInScope()
+    );
+  }
+
+  private async listProjectNavigationSummariesInScope(): Promise<ProjectNavigationSummaryDto[]> {
+    const projects = await this.context.repositories.projects.listByWorkspace(this.context.actor.workspaceId);
+    const workItemRecords = await this.context.repositories.workItems.listByWorkspace(this.context.actor.workspaceId, {
+      archivedProjects: 'include',
+      sort: 'updated_desc'
+    });
     const today = this.clock().toISOString().slice(0, 10);
     const workItemsByProject = new Map<string, WorkItem[]>();
 
@@ -120,6 +128,12 @@ export class ProjectService {
   }
 
   async createProject(input: CreateProjectRequest): Promise<ProjectDto> {
+    return this.context.persistence.write((scope) =>
+      new ProjectService({ ...this.context, ...scope }).createProjectInScope(input)
+    );
+  }
+
+  private async createProjectInScope(input: CreateProjectRequest): Promise<ProjectDto> {
     return this.withWriteRepositories(async (repositories) => {
       if (!canCreateProject(this.context.actor)) {
         throw new ForbiddenError('Only owners and maintainers can create projects.');
@@ -160,6 +174,12 @@ export class ProjectService {
   }
 
   async getProject(projectId: string): Promise<ProjectDto> {
+    return this.context.persistence.readConsistent((scope) =>
+      new ProjectService({ ...this.context, ...scope }).getProjectInScope(projectId)
+    );
+  }
+
+  private async getProjectInScope(projectId: string): Promise<ProjectDto> {
     const project = await this.context.repositories.projects.findById(projectId);
 
     if (project === null || project.workspaceId !== this.context.actor.workspaceId) {
@@ -170,6 +190,12 @@ export class ProjectService {
   }
 
   async updateProject(projectId: string, input: UpdateProjectRequest): Promise<ProjectDto> {
+    return this.context.persistence.write((scope) =>
+      new ProjectService({ ...this.context, ...scope }).updateProjectInScope(projectId, input)
+    );
+  }
+
+  private async updateProjectInScope(projectId: string, input: UpdateProjectRequest): Promise<ProjectDto> {
     const current = await this.context.repositories.projects.findById(projectId);
 
     if (current === null || current.workspaceId !== this.context.actor.workspaceId) {
@@ -209,6 +235,12 @@ export class ProjectService {
   }
 
   async archiveProject(projectId: string): Promise<ProjectDto> {
+    return this.context.persistence.write((scope) =>
+      new ProjectService({ ...this.context, ...scope }).archiveProjectInScope(projectId)
+    );
+  }
+
+  private async archiveProjectInScope(projectId: string): Promise<ProjectDto> {
     const current = await this.requireProject(projectId);
 
     if (!canArchiveProject(this.context.actor)) {
@@ -247,6 +279,12 @@ export class ProjectService {
   }
 
   async reactivateProject(projectId: string): Promise<ProjectDto> {
+    return this.context.persistence.write((scope) =>
+      new ProjectService({ ...this.context, ...scope }).reactivateProjectInScope(projectId)
+    );
+  }
+
+  private async reactivateProjectInScope(projectId: string): Promise<ProjectDto> {
     const current = await this.requireProject(projectId);
 
     if (!canReactivateProject(this.context.actor)) {
@@ -285,29 +323,26 @@ export class ProjectService {
   }
 
   async getProjectSummary(projectId: string): Promise<ProjectSummaryDto> {
+    return this.context.persistence.readConsistent((scope) =>
+      new ProjectService({ ...this.context, ...scope }).getProjectSummaryInScope(projectId)
+    );
+  }
+
+  private async getProjectSummaryInScope(projectId: string): Promise<ProjectSummaryDto> {
     const project = await this.requireProject(projectId);
     const now = this.clock();
-    const [
-      counts,
-      recentWorkItems,
-      workItems,
-      dependencyBlockedWorkItems,
-      blockingOpenWorkItems,
-      milestones
-    ] = await Promise.all([
-      this.context.repositories.workItems.countByStatus(projectId),
-      this.context.repositories.workItems.listRecentByProject(projectId),
-      this.context.repositories.workItems.listByProject(projectId, { sort: 'board_order' }),
-      this.context.repositories.workItems.listByProject(projectId, {
-        dependency: 'dependency_blocked',
-        sort: 'priority_desc'
-      }),
-      this.context.repositories.workItems.listByProject(projectId, {
-        dependency: 'blocking_open_work',
-        sort: 'priority_desc'
-      }),
-      this.context.repositories.milestones.listByProject(projectId, { includeArchived: true })
-    ]);
+    const counts = await this.context.repositories.workItems.countByStatus(projectId);
+    const recentWorkItems = await this.context.repositories.workItems.listRecentByProject(projectId);
+    const workItems = await this.context.repositories.workItems.listByProject(projectId, { sort: 'board_order' });
+    const dependencyBlockedWorkItems = await this.context.repositories.workItems.listByProject(projectId, {
+      dependency: 'dependency_blocked',
+      sort: 'priority_desc'
+    });
+    const blockingOpenWorkItems = await this.context.repositories.workItems.listByProject(projectId, {
+      dependency: 'blocking_open_work',
+      sort: 'priority_desc'
+    });
+    const milestones = await this.context.repositories.milestones.listByProject(projectId, { includeArchived: true });
     const countByStatus = new Map(counts.map((item) => [item.status, item.count]));
     const deliveryHealth = new DeliveryHealthService().derive({
       project,
@@ -344,11 +379,7 @@ export class ProjectService {
   private async withWriteRepositories<T>(
     callback: (repositories: Repositories) => Promise<T>
   ): Promise<T> {
-    if (this.context.db === undefined) {
-      return callback(this.context.repositories);
-    }
-
-    return withRepositoriesTransaction(this.context.db, callback);
+    return this.context.persistence.write(({ repositories }) => callback(repositories));
   }
 
   private async normalizeExplicitProjectKey(

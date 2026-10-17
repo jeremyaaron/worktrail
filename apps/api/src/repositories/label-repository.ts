@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 
-import type { WorktrailDb } from '../db/client.js';
+import type { RepositoryExecutor } from '../db/client.js';
 import { labels, workItemLabels } from '../db/schema.js';
 import type { NewLabel } from './types.js';
 
@@ -12,7 +12,7 @@ export interface UpdateLabelInput {
   updatedAt: Date;
 }
 
-export function createLabelRepository(db: WorktrailDb) {
+export function createLabelRepository(db: RepositoryExecutor) {
   return {
     async create(input: NewLabel) {
       const [label] = await db.insert(labels).values(input).returning();

@@ -1,7 +1,7 @@
 import type { CreateLabelRequest, LabelDto, UpdateLabelRequest } from '@worktrail/contracts';
 import { z } from 'zod';
 
-import type { WorktrailDb } from '../db/client.js';
+import type { Persistence } from '../repositories/persistence.js';
 import type { EndpointHandler } from '../http/app-request.js';
 import type { Repositories } from '../repositories/index.js';
 import { LabelService } from '../services/label-service.js';
@@ -39,14 +39,14 @@ function parseIncludeArchived(query: Record<string, string | string[] | undefine
 
 export function listProjectLabelsHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<LabelDto[]> {
   return async (request) => {
     const { projectId } = parseWithSchema(projectIdParamSchema, request.params);
     const service = new LabelService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
 
     return {
@@ -60,7 +60,7 @@ export function listProjectLabelsHandler(input: {
 
 export function createLabelHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<LabelDto> {
   return async (request) => {
     const { projectId } = parseWithSchema(projectIdParamSchema, request.params);
@@ -68,7 +68,7 @@ export function createLabelHandler(input: {
     const service = new LabelService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
 
     return {
@@ -80,7 +80,7 @@ export function createLabelHandler(input: {
 
 export function updateLabelHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<LabelDto> {
   return async (request) => {
     const { labelId } = parseWithSchema(labelIdParamSchema, request.params);
@@ -88,7 +88,7 @@ export function updateLabelHandler(input: {
     const service = new LabelService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
 
     return {
@@ -100,14 +100,14 @@ export function updateLabelHandler(input: {
 
 export function archiveLabelHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<LabelDto> {
   return async (request) => {
     const { labelId } = parseWithSchema(labelIdParamSchema, request.params);
     const service = new LabelService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
 
     return {
@@ -119,14 +119,14 @@ export function archiveLabelHandler(input: {
 
 export function reactivateLabelHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<LabelDto> {
   return async (request) => {
     const { labelId } = parseWithSchema(labelIdParamSchema, request.params);
     const service = new LabelService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
 
     return {

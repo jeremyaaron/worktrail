@@ -17,7 +17,6 @@ import { adaptEndpoint } from '../handler-adapter.js';
 import { adapterOptions, type ExpressRouteContext } from './context.js';
 
 export interface AttachmentRouteContext extends ExpressRouteContext {
-  db: NonNullable<ExpressRouteContext['db']>;
   objectStore: AttachmentObjectStore;
 }
 
@@ -67,7 +66,7 @@ export function registerAttachmentRoutes(app: Express, context: AttachmentRouteC
   const options = adapterOptions(context);
   const handlers = {
     repositories: context.repositories,
-    db: context.db,
+    persistence: context.persistence,
     objectStore: context.objectStore
   };
 

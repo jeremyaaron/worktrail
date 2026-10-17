@@ -1,6 +1,6 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
 
-import type { WorktrailDb } from '../db/client.js';
+import type { RepositoryExecutor } from '../db/client.js';
 import { notifications } from '../db/schema.js';
 import type { NewNotification } from './types.js';
 
@@ -25,7 +25,7 @@ export interface NotificationActorInput {
   recipientMemberId: string;
 }
 
-export function createNotificationRepository(db: WorktrailDb) {
+export function createNotificationRepository(db: RepositoryExecutor) {
   return {
     async create(input: NewNotification) {
       const [notification] = await db.insert(notifications).values(input).returning();

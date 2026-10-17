@@ -1,10 +1,10 @@
 import { desc, eq } from 'drizzle-orm';
 
-import type { WorktrailDb } from '../db/client.js';
+import type { RepositoryExecutor } from '../db/client.js';
 import { projectStatusReports } from '../db/schema.js';
 import type { NewProjectStatusReport } from './types.js';
 
-export function createProjectStatusReportRepository(db: WorktrailDb) {
+export function createProjectStatusReportRepository(db: RepositoryExecutor) {
   return {
     async create(input: NewProjectStatusReport) {
       const [report] = await db.insert(projectStatusReports).values(input).returning();

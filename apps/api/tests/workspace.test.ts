@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
-import request from 'supertest';
+import request from './support/local-http.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
+import { createPersistence } from '../src/repositories/persistence.js';
 import { createExpressApp } from '../src/adapters/express/server.js';
 import { createDb, createPool } from '../src/db/client.js';
 import { createRepositories, type Repositories } from '../src/repositories/index.js';
@@ -76,7 +77,7 @@ beforeAll(() => {
   pool = createPool();
   db = createDb(pool);
   repositories = createRepositories(db);
-  app = createExpressApp({ repositories });
+  app = createExpressApp({ persistence: createPersistence(db), repositories });
 });
 
 afterEach(async () => {

@@ -7,14 +7,11 @@ import type {
 } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
-import type { WorktrailDb } from '../db/client.js';
+import { assertPersistence, type Persistence } from '../repositories/persistence.js';
 import type { ActorContext } from '../domain/actor.js';
 import { canManageProjectCycles } from '../domain/permissions.js';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../errors/app-error.js';
-import {
-  type Repositories,
-  withRepositoriesTransaction
-} from '../repositories/index.js';
+import type { Repositories } from '../repositories/index.js';
 import type { Project, ProjectCycle } from '../repositories/types.js';
 import {
   createProjectCycleSchema,
@@ -37,7 +34,7 @@ export type ProjectCycleListOptions = ProjectCycleListQuery;
 export interface ProjectCycleServiceContext {
   actor: ActorContext;
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
   clock?: () => Date;
   idGenerator?: () => string;
 }
@@ -55,11 +52,21 @@ export class ProjectCycleService {
   private readonly idGenerator: () => string;
 
   constructor(private readonly context: ProjectCycleServiceContext) {
+    assertPersistence(context.persistence);
     this.clock = context.clock ?? (() => new Date());
     this.idGenerator = context.idGenerator ?? randomUUID;
   }
 
   async listProjectCycles(
+    projectId: string,
+    options: ProjectCycleListOptions = {}
+  ): Promise<ProjectCycleDto[]> {
+    return this.context.persistence.readConsistent((scope) =>
+      new ProjectCycleService({ ...this.context, ...scope }).listProjectCyclesInScope(projectId, options)
+    );
+  }
+
+  private async listProjectCyclesInScope(
     projectId: string,
     options: ProjectCycleListOptions = {}
   ): Promise<ProjectCycleDto[]> {
@@ -69,12 +76,24 @@ export class ProjectCycleService {
   }
 
   async getProjectCycle(projectId: string, cycleId: string): Promise<ProjectCycleDto> {
+    return this.context.persistence.readConsistent((scope) =>
+      new ProjectCycleService({ ...this.context, ...scope }).getProjectCycleInScope(projectId, cycleId)
+    );
+  }
+
+  private async getProjectCycleInScope(projectId: string, cycleId: string): Promise<ProjectCycleDto> {
     await this.requireProject(projectId, this.context.repositories);
     const cycle = await this.requireProjectCycle(projectId, cycleId, this.context.repositories);
     return toProjectCycleDto(cycle);
   }
 
   async getCycleReview(projectId: string, cycleId: string): Promise<ProjectCycleReviewDto> {
+    return this.context.persistence.readConsistent((scope) =>
+      new ProjectCycleService({ ...this.context, ...scope }).getCycleReviewInScope(projectId, cycleId)
+    );
+  }
+
+  private async getCycleReviewInScope(projectId: string, cycleId: string): Promise<ProjectCycleReviewDto> {
     const project = await this.requireProject(projectId, this.context.repositories);
     const cycle = await this.requireProjectCycle(projectId, cycleId, this.context.repositories);
     const workItems = await this.context.repositories.workItems.listByProject(projectId, {
@@ -170,6 +189,15 @@ export class ProjectCycleService {
     projectId: string,
     input: CreateProjectCycleRequest
   ): Promise<ProjectCycleDto> {
+    return this.context.persistence.write((scope) =>
+      new ProjectCycleService({ ...this.context, ...scope }).createProjectCycleInScope(projectId, input)
+    );
+  }
+
+  private async createProjectCycleInScope(
+    projectId: string,
+    input: CreateProjectCycleRequest
+  ): Promise<ProjectCycleDto> {
     const body = parseWithSchema(createProjectCycleSchema, input);
 
     return this.withWriteRepositories(async (repositories) => {
@@ -216,6 +244,16 @@ export class ProjectCycleService {
     cycleId: string,
     input: UpdateProjectCycleRequest
   ): Promise<ProjectCycleDto> {
+    return this.context.persistence.write((scope) =>
+      new ProjectCycleService({ ...this.context, ...scope }).updateProjectCycleInScope(projectId, cycleId, input)
+    );
+  }
+
+  private async updateProjectCycleInScope(
+    projectId: string,
+    cycleId: string,
+    input: UpdateProjectCycleRequest
+  ): Promise<ProjectCycleDto> {
     const body = parseWithSchema(updateProjectCycleSchema, input);
 
     return this.withWriteRepositories(async (repositories) => {
@@ -257,6 +295,12 @@ export class ProjectCycleService {
   }
 
   async archiveProjectCycle(projectId: string, cycleId: string): Promise<ProjectCycleDto> {
+    return this.context.persistence.write((scope) =>
+      new ProjectCycleService({ ...this.context, ...scope }).archiveProjectCycleInScope(projectId, cycleId)
+    );
+  }
+
+  private async archiveProjectCycleInScope(projectId: string, cycleId: string): Promise<ProjectCycleDto> {
     return this.withWriteRepositories(async (repositories) => {
       this.assertCanManageCycles();
       const current = await this.requireProjectCycle(projectId, cycleId, repositories);
@@ -283,6 +327,12 @@ export class ProjectCycleService {
   }
 
   async reactivateProjectCycle(projectId: string, cycleId: string): Promise<ProjectCycleDto> {
+    return this.context.persistence.write((scope) =>
+      new ProjectCycleService({ ...this.context, ...scope }).reactivateProjectCycleInScope(projectId, cycleId)
+    );
+  }
+
+  private async reactivateProjectCycleInScope(projectId: string, cycleId: string): Promise<ProjectCycleDto> {
     return this.withWriteRepositories(async (repositories) => {
       this.assertCanManageCycles();
       const current = await this.requireProjectCycle(projectId, cycleId, repositories);
@@ -319,6 +369,16 @@ export class ProjectCycleService {
   async validateAssignableCycle(
     projectId: string,
     cycleId: string | null,
+    repositories?: Repositories
+  ): Promise<ProjectCycle | null> {
+    return this.context.persistence.readConsistent((scope) =>
+      new ProjectCycleService({ ...this.context, ...scope }).validateAssignableCycleInScope(projectId, cycleId, repositories ?? scope.repositories)
+    );
+  }
+
+  private async validateAssignableCycleInScope(
+    projectId: string,
+    cycleId: string | null,
     repositories = this.context.repositories
   ): Promise<ProjectCycle | null> {
     if (cycleId === null) {
@@ -335,18 +395,39 @@ export class ProjectCycleService {
   }
 
   async findActiveCycle(projectId: string): Promise<ProjectCycleDto | null> {
+    return this.context.persistence.readConsistent((scope) =>
+      new ProjectCycleService({ ...this.context, ...scope }).findActiveCycleInScope(projectId)
+    );
+  }
+
+  private async findActiveCycleInScope(projectId: string): Promise<ProjectCycleDto | null> {
     await this.requireProject(projectId, this.context.repositories);
     const cycle = await this.context.repositories.projectCycles.findActiveByProject(projectId);
     return cycle === null ? null : toProjectCycleDto(cycle);
   }
 
   async findUpcomingCycle(projectId: string, today: string): Promise<ProjectCycleDto | null> {
+    return this.context.persistence.readConsistent((scope) =>
+      new ProjectCycleService({ ...this.context, ...scope }).findUpcomingCycleInScope(projectId, today)
+    );
+  }
+
+  private async findUpcomingCycleInScope(projectId: string, today: string): Promise<ProjectCycleDto | null> {
     await this.requireProject(projectId, this.context.repositories);
     const cycle = await this.context.repositories.projectCycles.findUpcomingByProject(projectId, today);
     return cycle === null ? null : toProjectCycleDto(cycle);
   }
 
   async findRecentlyCompletedCycle(
+    projectId: string,
+    today: string
+  ): Promise<ProjectCycleDto | null> {
+    return this.context.persistence.readConsistent((scope) =>
+      new ProjectCycleService({ ...this.context, ...scope }).findRecentlyCompletedCycleInScope(projectId, today)
+    );
+  }
+
+  private async findRecentlyCompletedCycleInScope(
     projectId: string,
     today: string
   ): Promise<ProjectCycleDto | null> {
@@ -358,11 +439,7 @@ export class ProjectCycleService {
   private async withWriteRepositories<T>(
     callback: (repositories: Repositories) => Promise<T>
   ): Promise<T> {
-    if (this.context.db === undefined) {
-      return callback(this.context.repositories);
-    }
-
-    return withRepositoriesTransaction(this.context.db, callback);
+    return this.context.persistence.write(({ repositories }) => callback(repositories));
   }
 
   private assertCanManageCycles(): void {

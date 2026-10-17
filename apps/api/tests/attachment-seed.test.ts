@@ -8,6 +8,7 @@ import {
   type AttachmentSeedReferences,
   type DeterministicSeedAttachment
 } from '../src/db/attachment-seed.js';
+import { createPersistence } from '../src/repositories/persistence.js';
 import { createDb, createPool } from '../src/db/client.js';
 import { createRepositories, type Repositories } from '../src/repositories/index.js';
 import { AttachmentService } from '../src/services/attachment-service.js';
@@ -154,7 +155,7 @@ describe('seedDeterministicAttachments', () => {
       2
     );
 
-    const service = new AttachmentService({ repositories, db, objectStore });
+    const service = new AttachmentService({ repositories, persistence: createPersistence(db), objectStore });
     const actor = {
       memberId: fixture.references.ownerMemberId,
       workspaceId: fixture.references.workspaceId,

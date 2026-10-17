@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
-import request from 'supertest';
+import request from './support/local-http.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
+import { createPersistence } from '../src/repositories/persistence.js';
 import { createExpressApp } from '../src/adapters/express/server.js';
 import { createDb, createPool } from '../src/db/client.js';
 import { ConflictError, ForbiddenError, NotFoundError } from '../src/errors/app-error.js';
@@ -85,7 +86,7 @@ async function createFixture(role: 'owner' | 'maintainer' | 'contributor' = 'own
     service: new ProjectCycleCloseoutService({
       actor,
       repositories,
-      db,
+      persistence: createPersistence(db),
       clock: now
     })
   };
@@ -160,7 +161,7 @@ beforeAll(() => {
   pool = createPool();
   db = createDb(pool);
   repositories = createRepositories(db);
-  app = createExpressApp({ repositories, db });
+  app = createExpressApp({ repositories, persistence: createPersistence(db) });
 });
 
 afterEach(async () => {
@@ -742,7 +743,7 @@ describe('project cycle closeout command', () => {
     const failingService = new ProjectCycleCloseoutService({
       actor: fixture.actor,
       repositories,
-      db,
+      persistence: createPersistence(db),
       clock: now,
       idGenerator: () => duplicateId
     });

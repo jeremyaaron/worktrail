@@ -1,5 +1,6 @@
 import type { ProjectPlanningCycleSummaryDto, ProjectPlanningSummaryDto } from '@worktrail/contracts';
 
+import { assertPersistence, type Persistence } from '../repositories/persistence.js';
 import type { ActorContext } from '../domain/actor.js';
 import {
   addDays,
@@ -28,6 +29,7 @@ import {
 export interface PlanningServiceContext {
   actor: ActorContext;
   repositories: Repositories;
+  persistence: Persistence;
   clock?: () => Date;
 }
 
@@ -35,38 +37,34 @@ export class PlanningService {
   private readonly clock: () => Date;
 
   constructor(private readonly context: PlanningServiceContext) {
+    assertPersistence(context.persistence);
     this.clock = context.clock ?? (() => new Date());
   }
 
   async getProjectPlanningSummary(projectId: string): Promise<ProjectPlanningSummaryDto> {
+    return this.context.persistence.readConsistent((scope) =>
+      new PlanningService({ ...this.context, ...scope }).getProjectPlanningSummaryInScope(projectId)
+    );
+  }
+
+  private async getProjectPlanningSummaryInScope(projectId: string): Promise<ProjectPlanningSummaryDto> {
     const project = await this.requireProject(projectId);
     const now = this.clock();
     const today = toDateString(now);
-    const [
-      workItems,
-      dependencyBlockedWorkItems,
-      blockingOpenWorkItems,
-      milestones,
-      members,
-      activeCycle,
-      upcomingCycle,
-      recentlyCompletedCycle
-    ] = await Promise.all([
-      this.context.repositories.workItems.listByProject(projectId, { sort: 'board_order' }),
-      this.context.repositories.workItems.listByProject(projectId, {
-        dependency: 'dependency_blocked',
-        sort: 'priority_desc'
-      }),
-      this.context.repositories.workItems.listByProject(projectId, {
-        dependency: 'blocking_open_work',
-        sort: 'priority_desc'
-      }),
-      this.context.repositories.milestones.listByProject(projectId, { includeArchived: true }),
-      this.context.repositories.members.listByWorkspace(this.context.actor.workspaceId),
-      this.context.repositories.projectCycles.findActiveByProject(projectId),
-      this.context.repositories.projectCycles.findUpcomingByProject(projectId, today),
-      this.context.repositories.projectCycles.findRecentlyCompletedByProject(projectId, today)
-    ]);
+    const workItems = await this.context.repositories.workItems.listByProject(projectId, { sort: 'board_order' });
+    const dependencyBlockedWorkItems = await this.context.repositories.workItems.listByProject(projectId, {
+      dependency: 'dependency_blocked',
+      sort: 'priority_desc'
+    });
+    const blockingOpenWorkItems = await this.context.repositories.workItems.listByProject(projectId, {
+      dependency: 'blocking_open_work',
+      sort: 'priority_desc'
+    });
+    const milestones = await this.context.repositories.milestones.listByProject(projectId, { includeArchived: true });
+    const members = await this.context.repositories.members.listByWorkspace(this.context.actor.workspaceId);
+    const activeCycle = await this.context.repositories.projectCycles.findActiveByProject(projectId);
+    const upcomingCycle = await this.context.repositories.projectCycles.findUpcomingByProject(projectId, today);
+    const recentlyCompletedCycle = await this.context.repositories.projectCycles.findRecentlyCompletedByProject(projectId, today);
 
     const dueSoonEnd = toDateString(addDays(now, dueSoonWindowDays));
     const staleCutoff = addDays(now, -staleInProgressDays);
@@ -85,6 +83,7 @@ export class PlanningService {
       this.context.repositories
     );
     const cycleService = new ProjectCycleService({
+      persistence: this.context.persistence,
       actor: this.context.actor,
       repositories: this.context.repositories,
       clock: this.clock

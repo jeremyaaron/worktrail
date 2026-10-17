@@ -1,6 +1,6 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
 
-import type { WorktrailDb } from '../db/client.js';
+import type { RepositoryExecutor } from '../db/client.js';
 import { members } from '../db/schema.js';
 import type { Member, NewMember } from './types.js';
 
@@ -14,7 +14,7 @@ export interface UpdateMemberInput {
   updatedAt: Date;
 }
 
-export function createMemberRepository(db: WorktrailDb) {
+export function createMemberRepository(db: RepositoryExecutor) {
   return {
     async create(input: NewMember) {
       const [member] = await db.insert(members).values(input).returning();

@@ -18,3 +18,7 @@ export function createDb(pool: pg.Pool) {
 }
 
 export type WorktrailDb = ReturnType<typeof createDb>;
+export type WorktrailTransaction = Parameters<Parameters<WorktrailDb['transaction']>[0]>[0];
+export type RepositoryExecutor = Pick<WorktrailDb,
+  'select' | 'selectDistinct' | 'selectDistinctOn' | 'insert' | 'update' | 'delete' | 'execute' | '$count' | '$with' | 'with'
+>;

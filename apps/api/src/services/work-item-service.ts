@@ -25,7 +25,7 @@ import type {
 } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
-import type { WorktrailDb } from '../db/client.js';
+import { assertPersistence, type Persistence } from '../repositories/persistence.js';
 import type { ActorContext } from '../domain/actor.js';
 import {
   resolveNewAuthoredContent,
@@ -41,11 +41,7 @@ import {
   ValidationError,
   WorkflowTransitionError
 } from '../errors/app-error.js';
-import {
-  type Repositories,
-  withRepositoriesReadTransaction,
-  withRepositoriesTransaction
-} from '../repositories/index.js';
+import type { Repositories } from '../repositories/index.js';
 import type { ProjectWorkItemQuery } from '../repositories/work-item-query-builder.js';
 import type {
   ActivityEvent,
@@ -76,7 +72,7 @@ export type WorkItemListFilters = ProjectWorkItemQuery;
 export interface WorkItemServiceContext {
   actor: ActorContext;
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
   clock?: () => Date;
   idGenerator?: () => string;
 }
@@ -115,11 +111,21 @@ export class WorkItemService {
   private readonly idGenerator: () => string;
 
   constructor(private readonly context: WorkItemServiceContext) {
+    assertPersistence(context.persistence);
     this.clock = context.clock ?? (() => new Date());
     this.idGenerator = context.idGenerator ?? randomUUID;
   }
 
   async listWorkItems(
+    projectId: string,
+    filters: WorkItemListFilters = {}
+  ): Promise<WorkItemListItemDto[]> {
+    return this.context.persistence.readConsistent((scope) =>
+      new WorkItemService({ ...this.context, ...scope }).listWorkItemsInScope(projectId, filters)
+    );
+  }
+
+  private async listWorkItemsInScope(
     projectId: string,
     filters: WorkItemListFilters = {}
   ): Promise<WorkItemListItemDto[]> {
@@ -131,6 +137,14 @@ export class WorkItemService {
   async listWorkspaceWorkItems(
     filters: WorkItemQuery = {}
   ): Promise<WorkspaceWorkItemListItemDto[]> {
+    return this.context.persistence.readConsistent((scope) =>
+      new WorkItemService({ ...this.context, ...scope }).listWorkspaceWorkItemsInScope(filters)
+    );
+  }
+
+  private async listWorkspaceWorkItemsInScope(
+    filters: WorkItemQuery = {}
+  ): Promise<WorkspaceWorkItemListItemDto[]> {
     const records = await this.context.repositories.workItems.listByWorkspace(
       this.context.actor.workspaceId,
       filters
@@ -139,6 +153,16 @@ export class WorkItemService {
   }
 
   async listWorkItemPage(
+    projectId: string,
+    filters: WorkItemListFilters = {},
+    pageQuery: ResolvedWorkItemPageQuery = { page: 1, pageSize: 25 }
+  ): Promise<WorkItemListPageDto> {
+    return this.context.persistence.readConsistent((scope) =>
+      new WorkItemService({ ...this.context, ...scope }).listWorkItemPageInScope(projectId, filters, pageQuery)
+    );
+  }
+
+  private async listWorkItemPageInScope(
     projectId: string,
     filters: WorkItemListFilters = {},
     pageQuery: ResolvedWorkItemPageQuery = { page: 1, pageSize: 25 }
@@ -163,6 +187,15 @@ export class WorkItemService {
     filters: WorkItemQuery = {},
     pageQuery: ResolvedWorkItemPageQuery = { page: 1, pageSize: 25 }
   ): Promise<WorkspaceWorkItemListPageDto> {
+    return this.context.persistence.readConsistent((scope) =>
+      new WorkItemService({ ...this.context, ...scope }).listWorkspaceWorkItemPageInScope(filters, pageQuery)
+    );
+  }
+
+  private async listWorkspaceWorkItemPageInScope(
+    filters: WorkItemQuery = {},
+    pageQuery: ResolvedWorkItemPageQuery = { page: 1, pageSize: 25 }
+  ): Promise<WorkspaceWorkItemListPageDto> {
     return this.withReadRepositories(async (repositories) => {
       const workspaceId = this.context.actor.workspaceId;
       const totalCount = await repositories.workItems.countByWorkspaceQuery(workspaceId, filters);
@@ -184,6 +217,12 @@ export class WorkItemService {
   }
 
   async listProjectBoardWorkItems(projectId: string): Promise<WorkItemListItemDto[]> {
+    return this.context.persistence.readConsistent((scope) =>
+      new WorkItemService({ ...this.context, ...scope }).listProjectBoardWorkItemsInScope(projectId)
+    );
+  }
+
+  private async listProjectBoardWorkItemsInScope(projectId: string): Promise<WorkItemListItemDto[]> {
     return this.withReadRepositories(async (repositories) => {
       await this.requireProjectFromRepositories(projectId, repositories);
       const workItems = await repositories.workItems.listByProjectForBoard(projectId);
@@ -206,6 +245,12 @@ export class WorkItemService {
   }
 
   async createWorkItem(projectId: string, input: CreateWorkItemRequest): Promise<WorkItemDetailDto> {
+    return this.context.persistence.write((scope) =>
+      new WorkItemService({ ...this.context, ...scope }).createWorkItemInScope(projectId, input)
+    );
+  }
+
+  private async createWorkItemInScope(projectId: string, input: CreateWorkItemRequest): Promise<WorkItemDetailDto> {
     return this.withWriteRepositories(async (repositories) => {
       return this.createWorkItemWithRepositories(projectId, input, repositories);
     });
@@ -225,12 +270,12 @@ export class WorkItemService {
     for (const workItemId of input.workItemIds) {
       try {
         results.push(
-          await this.withWriteRepositories(async (repositories) =>
-            this.applyBulkActionToWorkItem({
+          await this.context.persistence.write((scope) =>
+            new WorkItemService({ ...this.context, ...scope }).applyBulkActionToWorkItem({
               projectId,
               workItemId,
               action: input.action,
-              repositories
+              repositories: scope.repositories
             })
           )
         );
@@ -357,16 +402,26 @@ export class WorkItemService {
   }
 
   async getWorkItem(workItemId: string): Promise<WorkItemDetailDto> {
+    return this.context.persistence.readConsistent((scope) =>
+      new WorkItemService({ ...this.context, ...scope }).getWorkItemInScope(workItemId)
+    );
+  }
+
+  private async getWorkItemInScope(workItemId: string): Promise<WorkItemDetailDto> {
     const workItem = await this.requireWorkItem(workItemId, this.context.repositories);
     return this.toDetailDto(workItem, this.context.repositories);
   }
 
   async listChildren(workItemId: string, limit: number): Promise<WorkItemChildrenDto> {
+    return this.context.persistence.readConsistent((scope) =>
+      new WorkItemService({ ...this.context, ...scope }).listChildrenInScope(workItemId, limit)
+    );
+  }
+
+  private async listChildrenInScope(workItemId: string, limit: number): Promise<WorkItemChildrenDto> {
     const workItem = await this.requireWorkItem(workItemId, this.context.repositories);
-    const [children, childSummaries] = await Promise.all([
-      this.context.repositories.workItems.listChildren(workItem.id, limit),
-      this.context.repositories.workItems.summarizeChildren([workItem.id])
-    ]);
+    const children = await this.context.repositories.workItems.listChildren(workItem.id, limit);
+    const childSummaries = await this.context.repositories.workItems.summarizeChildren([workItem.id]);
     const totalCount = childSummaries[0]?.summary.totalCount ?? 0;
 
     return {
@@ -377,6 +432,15 @@ export class WorkItemService {
   }
 
   async listParentCandidates(
+    workItemId: string,
+    search?: string
+  ): Promise<WorkItemParentCandidateDto[]> {
+    return this.context.persistence.readConsistent((scope) =>
+      new WorkItemService({ ...this.context, ...scope }).listParentCandidatesInScope(workItemId, search)
+    );
+  }
+
+  private async listParentCandidatesInScope(
     workItemId: string,
     search?: string
   ): Promise<WorkItemParentCandidateDto[]> {
@@ -400,6 +464,15 @@ export class WorkItemService {
   }
 
   async setParent(
+    workItemId: string,
+    input: SetWorkItemParentRequest
+  ): Promise<WorkItemDetailDto> {
+    return this.context.persistence.write((scope) =>
+      new WorkItemService({ ...this.context, ...scope }).setParentInScope(workItemId, input)
+    );
+  }
+
+  private async setParentInScope(
     workItemId: string,
     input: SetWorkItemParentRequest
   ): Promise<WorkItemDetailDto> {
@@ -477,6 +550,15 @@ export class WorkItemService {
   }
 
   async updateWorkItem(
+    workItemId: string,
+    input: UpdateWorkItemRequest
+  ): Promise<WorkItemDetailDto> {
+    return this.context.persistence.write((scope) =>
+      new WorkItemService({ ...this.context, ...scope }).updateWorkItemInScope(workItemId, input)
+    );
+  }
+
+  private async updateWorkItemInScope(
     workItemId: string,
     input: UpdateWorkItemRequest
   ): Promise<WorkItemDetailDto> {
@@ -597,6 +679,15 @@ export class WorkItemService {
     workItemId: string,
     input: TransitionWorkItemRequest
   ): Promise<WorkItemDetailDto> {
+    return this.context.persistence.write((scope) =>
+      new WorkItemService({ ...this.context, ...scope }).transitionWorkItemInScope(workItemId, input)
+    );
+  }
+
+  private async transitionWorkItemInScope(
+    workItemId: string,
+    input: TransitionWorkItemRequest
+  ): Promise<WorkItemDetailDto> {
     return this.withWriteRepositories(async (repositories) => {
       const current = await this.requireWorkItem(workItemId, repositories);
       const project = await this.requireProjectFromRepositories(current.projectId, repositories);
@@ -660,6 +751,15 @@ export class WorkItemService {
   }
 
   async moveWorkItemOnBoard(
+    workItemId: string,
+    input: MoveWorkItemOnBoardRequest
+  ): Promise<WorkItemDetailDto> {
+    return this.context.persistence.write((scope) =>
+      new WorkItemService({ ...this.context, ...scope }).moveWorkItemOnBoardInScope(workItemId, input)
+    );
+  }
+
+  private async moveWorkItemOnBoardInScope(
     workItemId: string,
     input: MoveWorkItemOnBoardRequest
   ): Promise<WorkItemDetailDto> {
@@ -805,25 +905,18 @@ export class WorkItemService {
   private async withWriteRepositories<T>(
     callback: (repositories: Repositories) => Promise<T>
   ): Promise<T> {
-    if (this.context.db === undefined) {
-      return callback(this.context.repositories);
-    }
-
-    return withRepositoriesTransaction(this.context.db, callback);
+    return this.context.persistence.write(({ repositories }) => callback(repositories));
   }
 
   private async withReadRepositories<T>(
     callback: (repositories: Repositories) => Promise<T>
   ): Promise<T> {
-    if (this.context.db === undefined) {
-      return callback(this.context.repositories);
-    }
-
-    return withRepositoriesReadTransaction(this.context.db, callback);
+    return this.context.persistence.readConsistent(({ repositories }) => callback(repositories));
   }
 
   private notificationService(repositories: Repositories): NotificationService {
     return new NotificationService({
+      persistence: this.context.persistence,
       actor: this.context.actor,
       repositories,
       clock: this.clock,
@@ -1477,6 +1570,7 @@ export class WorkItemService {
     const comments = await repositories.comments.findByWorkItem(workItem.id);
     const activity = await repositories.activityEvents.findByWorkItem(workItem.id);
     const relationships = await new WorkItemRelationshipService({
+      persistence: this.context.persistence,
       actor: this.context.actor,
       repositories,
       clock: this.clock,
@@ -1500,10 +1594,8 @@ export class WorkItemService {
     repositories: Repositories
   ): Promise<WorkItemHierarchyContext> {
     const workItemIds = workItems.map((workItem) => workItem.id);
-    const [parents, childSummaries] = await Promise.all([
-      repositories.workItems.listParentsForChildren(workItemIds),
-      repositories.workItems.summarizeChildren(workItemIds)
-    ]);
+    const parents = await repositories.workItems.listParentsForChildren(workItemIds);
+    const childSummaries = await repositories.workItems.summarizeChildren(workItemIds);
 
     return {
       parentsByChildId: new Map(

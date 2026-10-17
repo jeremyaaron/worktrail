@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { createPersistence } from '../src/repositories/persistence.js';
 import { createDb, createPool } from '../src/db/client.js';
 import type { ActorContext } from '../src/domain/actor.js';
 import { attachmentPolicy } from '../src/domain/attachment-policy.js';
@@ -128,7 +129,7 @@ describe('attachment upload concurrency', () => {
       const ids = [attachmentIds[index]!, randomUUID()];
       return new AttachmentService({
         repositories,
-        db,
+        persistence: createPersistence(db),
         objectStore,
         now,
         createId: () => ids.shift()!,
@@ -212,7 +213,7 @@ describe('attachment upload concurrency', () => {
     const createService = () =>
       new AttachmentService({
         repositories,
-        db,
+        persistence: createPersistence(db),
         objectStore,
         now,
         createId: randomUUID,

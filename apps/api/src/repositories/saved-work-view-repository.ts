@@ -1,7 +1,7 @@
 import type { SavedWorkViewScope } from '@worktrail/contracts';
 import { and, desc, eq, isNull, or, sql } from 'drizzle-orm';
 
-import type { WorktrailDb } from '../db/client.js';
+import type { RepositoryExecutor } from '../db/client.js';
 import { savedWorkViews } from '../db/schema.js';
 import type { NewSavedWorkView, SavedWorkView } from './types.js';
 
@@ -25,7 +25,7 @@ function scopeConditions(input: Omit<SavedWorkViewScopeInput, 'ownerMemberId'>) 
     : and(eq(savedWorkViews.scope, 'workspace'), isNull(savedWorkViews.projectId));
 }
 
-export function createSavedWorkViewRepository(db: WorktrailDb) {
+export function createSavedWorkViewRepository(db: RepositoryExecutor) {
   return {
     async create(input: NewSavedWorkView) {
       const [savedView] = await db.insert(savedWorkViews).values(input).returning();

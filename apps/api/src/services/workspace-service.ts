@@ -6,6 +6,8 @@ import type {
 } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
+import { mapSequential } from '../repositories/map-sequential.js';
+import { assertPersistence, type Persistence } from '../repositories/persistence.js';
 import type { ActorContext } from '../domain/actor.js';
 import {
   canCreateProject,
@@ -30,6 +32,7 @@ const roleSummary = {
 export interface WorkspaceServiceContext {
   actor: ActorContext;
   repositories: Repositories;
+  persistence: Persistence;
   clock?: () => Date;
   idGenerator?: () => string;
 }
@@ -39,11 +42,18 @@ export class WorkspaceService {
   private readonly idGenerator: () => string;
 
   constructor(private readonly context: WorkspaceServiceContext) {
+    assertPersistence(context.persistence);
     this.clock = context.clock ?? (() => new Date());
     this.idGenerator = context.idGenerator ?? randomUUID;
   }
 
   async getWorkspace(): Promise<WorkspaceDto> {
+    return this.context.persistence.readConsistent((scope) =>
+      new WorkspaceService({ ...this.context, ...scope }).getWorkspaceInScope()
+    );
+  }
+
+  private async getWorkspaceInScope(): Promise<WorkspaceDto> {
     const workspace = await this.context.repositories.workspaces.findById(this.context.actor.workspaceId);
 
     if (workspace === null) {
@@ -54,6 +64,12 @@ export class WorkspaceService {
   }
 
   async updateWorkspace(input: UpdateWorkspaceRequest): Promise<WorkspaceDto> {
+    return this.context.persistence.write((scope) =>
+      new WorkspaceService({ ...this.context, ...scope }).updateWorkspaceInScope(input)
+    );
+  }
+
+  private async updateWorkspaceInScope(input: UpdateWorkspaceRequest): Promise<WorkspaceDto> {
     if (!canManageWorkspace(this.context.actor)) {
       throw new ForbiddenError('Only owners can update workspace settings.');
     }
@@ -100,6 +116,12 @@ export class WorkspaceService {
   }
 
   async getCapabilities(): Promise<WorkspaceCapabilitiesDto> {
+    return this.context.persistence.readConsistent((scope) =>
+      new WorkspaceService({ ...this.context, ...scope }).getCapabilitiesInScope()
+    );
+  }
+
+  private async getCapabilitiesInScope(): Promise<WorkspaceCapabilitiesDto> {
     const actor = await this.requireMember(this.context.actor.memberId, 'Actor not found.');
 
     return {
@@ -116,6 +138,12 @@ export class WorkspaceService {
   }
 
   async listWorkspaceActivity(): Promise<WorkspaceActivityEventDto[]> {
+    return this.context.persistence.readConsistent((scope) =>
+      new WorkspaceService({ ...this.context, ...scope }).listWorkspaceActivityInScope()
+    );
+  }
+
+  private async listWorkspaceActivityInScope(): Promise<WorkspaceActivityEventDto[]> {
     const workspace = await this.context.repositories.workspaces.findById(this.context.actor.workspaceId);
 
     if (workspace === null) {
@@ -129,12 +157,10 @@ export class WorkspaceService {
   private async toWorkspaceActivityDtos(
     events: WorkspaceActivityEvent[]
   ): Promise<WorkspaceActivityEventDto[]> {
-    return Promise.all(
-      events.map(async (event) => {
-        const actor = await this.requireMember(event.actorId, 'Workspace activity actor not found.');
-        return toWorkspaceActivityEventDto(event, actor);
-      })
-    );
+    return mapSequential(events, async (event) => {
+      const actor = await this.requireMember(event.actorId, 'Workspace activity actor not found.');
+      return toWorkspaceActivityEventDto(event, actor);
+    });
   }
 
   private async requireMember(memberId: string, message: string): Promise<Member> {

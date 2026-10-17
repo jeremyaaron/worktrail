@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
+import { createPersistence } from '../src/repositories/persistence.js';
 import { createDb, createPool } from '../src/db/client.js';
 import type { ActorContext } from '../src/domain/actor.js';
 import type { MemberRole, WorkItemStatus } from '../src/domain/constants.js';
@@ -163,7 +164,7 @@ function relationshipService(actorContext: ActorContext) {
   return new WorkItemRelationshipService({
     actor: actorContext,
     repositories,
-    db,
+    persistence: createPersistence(db),
     clock: now
   });
 }
@@ -172,7 +173,7 @@ function workItemService(actorContext: ActorContext) {
   return new WorkItemService({
     actor: actorContext,
     repositories,
-    db,
+    persistence: createPersistence(db),
     clock: now
   });
 }

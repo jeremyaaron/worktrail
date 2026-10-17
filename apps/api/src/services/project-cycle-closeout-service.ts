@@ -10,15 +10,12 @@ import type {
 } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
-import type { WorktrailDb } from '../db/client.js';
+import { assertPersistence, type Persistence } from '../repositories/persistence.js';
 import type { ActorContext } from '../domain/actor.js';
 import { canManageProjectCycles } from '../domain/permissions.js';
 import { isTerminalWorkItemStatus } from '../domain/work-risk-policy.js';
 import { ConflictError, ForbiddenError, NotFoundError } from '../errors/app-error.js';
-import {
-  type Repositories,
-  withRepositoriesTransaction
-} from '../repositories/index.js';
+import type { Repositories } from '../repositories/index.js';
 import type { Member, Project, ProjectCycle, ProjectCycleCloseout, WorkItem } from '../repositories/types.js';
 import { closeProjectCycleSchema } from '../validation/project-cycle.js';
 import { parseWithSchema } from '../validation/parse.js';
@@ -31,7 +28,7 @@ import { createWorkRiskEvaluationContext } from './work-risk-sections.js';
 export interface ProjectCycleCloseoutServiceContext {
   actor: ActorContext;
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
   clock?: () => Date;
   idGenerator?: () => string;
 }
@@ -57,11 +54,18 @@ export class ProjectCycleCloseoutService {
   private readonly idGenerator: () => string;
 
   constructor(private readonly context: ProjectCycleCloseoutServiceContext) {
+    assertPersistence(context.persistence);
     this.clock = context.clock ?? (() => new Date());
     this.idGenerator = context.idGenerator ?? randomUUID;
   }
 
   async preview(projectId: string, cycleId: string): Promise<ProjectCycleCloseoutPreviewDto> {
+    return this.context.persistence.readConsistent((scope) =>
+      new ProjectCycleCloseoutService({ ...this.context, ...scope }).previewInScope(projectId, cycleId)
+    );
+  }
+
+  private async previewInScope(projectId: string, cycleId: string): Promise<ProjectCycleCloseoutPreviewDto> {
     this.assertCanCloseCycles();
 
     const project = await this.requireProject(projectId);
@@ -70,27 +74,24 @@ export class ProjectCycleCloseoutService {
     const cycle = await this.requireProjectCycle(projectId, cycleId);
     this.assertCycleCloseable(cycle);
 
-    const [scopedWorkItems, dependencyBlockedWorkItems, blockingOpenWorkItems, members, cycles] =
-      await Promise.all([
-        this.context.repositories.workItems.listByProject(projectId, {
-          cycleId,
-          sort: 'board_order'
-        }),
-        this.context.repositories.workItems.listByProject(projectId, {
-          cycleId,
-          dependency: 'dependency_blocked',
-          sort: 'priority_desc'
-        }),
-        this.context.repositories.workItems.listByProject(projectId, {
-          cycleId,
-          dependency: 'blocking_open_work',
-          sort: 'priority_desc'
-        }),
-        this.context.repositories.members.listByWorkspace(this.context.actor.workspaceId),
-        this.context.repositories.projectCycles.listByProject(projectId, {
-          includeArchived: true
-        })
-      ]);
+    const scopedWorkItems = await this.context.repositories.workItems.listByProject(projectId, {
+      cycleId,
+      sort: 'board_order'
+    });
+    const dependencyBlockedWorkItems = await this.context.repositories.workItems.listByProject(projectId, {
+      cycleId,
+      dependency: 'dependency_blocked',
+      sort: 'priority_desc'
+    });
+    const blockingOpenWorkItems = await this.context.repositories.workItems.listByProject(projectId, {
+      cycleId,
+      dependency: 'blocking_open_work',
+      sort: 'priority_desc'
+    });
+    const members = await this.context.repositories.members.listByWorkspace(this.context.actor.workspaceId);
+    const cycles = await this.context.repositories.projectCycles.listByProject(projectId, {
+      includeArchived: true
+    });
     const now = this.clock();
     const evaluationContext = createWorkRiskEvaluationContext({
       now,
@@ -136,6 +137,16 @@ export class ProjectCycleCloseoutService {
   }
 
   async close(
+    projectId: string,
+    cycleId: string,
+    input: CloseProjectCycleRequest
+  ): Promise<CloseProjectCycleResultDto> {
+    return this.context.persistence.write((scope) =>
+      new ProjectCycleCloseoutService({ ...this.context, ...scope }).closeInScope(projectId, cycleId, input)
+    );
+  }
+
+  private async closeInScope(
     projectId: string,
     cycleId: string,
     input: CloseProjectCycleRequest
@@ -350,11 +361,7 @@ export class ProjectCycleCloseoutService {
   private async withWriteRepositories<T>(
     callback: (repositories: Repositories) => Promise<T>
   ): Promise<T> {
-    if (this.context.db === undefined) {
-      return callback(this.context.repositories);
-    }
-
-    return withRepositoriesTransaction(this.context.db, callback);
+    return this.context.persistence.write(({ repositories }) => callback(repositories));
   }
 
   private async resolveDestination(

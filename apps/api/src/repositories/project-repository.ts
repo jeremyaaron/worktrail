@@ -1,6 +1,6 @@
 import { and, eq, sql } from 'drizzle-orm';
 
-import type { WorktrailDb } from '../db/client.js';
+import type { RepositoryExecutor } from '../db/client.js';
 import { projects, workItems } from '../db/schema.js';
 import type { NewProject, Project } from './types.js';
 
@@ -12,7 +12,7 @@ export interface UpdateProjectInput {
   updatedAt: Date;
 }
 
-export function createProjectRepository(db: WorktrailDb) {
+export function createProjectRepository(db: RepositoryExecutor) {
   return {
     async create(input: NewProject) {
       const [project] = await db.insert(projects).values(input).returning();

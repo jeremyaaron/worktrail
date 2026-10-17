@@ -7,6 +7,8 @@ import type {
 } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
+import { mapSequential } from '../repositories/map-sequential.js';
+import { assertPersistence, type Persistence } from '../repositories/persistence.js';
 import type { ActorContext } from '../domain/actor.js';
 import type { NotificationType } from '../domain/constants.js';
 import { NotFoundError } from '../errors/app-error.js';
@@ -25,6 +27,7 @@ import { toMemberDto } from './dto.js';
 export interface NotificationServiceContext {
   actor: ActorContext;
   repositories: Repositories;
+  persistence: Persistence;
   clock?: () => Date;
   idGenerator?: () => string;
 }
@@ -34,34 +37,54 @@ export class NotificationService {
   private readonly idGenerator: () => string;
 
   constructor(private readonly context: NotificationServiceContext) {
+    assertPersistence(context.persistence);
     this.clock = context.clock ?? (() => new Date());
     this.idGenerator = context.idGenerator ?? randomUUID;
   }
 
   async listNotifications(state: NotificationStateFilter): Promise<NotificationListResponse> {
-    const [notifications, unreadCount] = await Promise.all([
-      this.context.repositories.notifications.listByRecipient({
-        workspaceId: this.context.actor.workspaceId,
-        recipientMemberId: this.context.actor.memberId,
-        state,
-        limit: 100
-      }),
-      this.getUnreadCountValue()
-    ]);
+    return this.context.persistence.readConsistent((scope) =>
+      new NotificationService({ ...this.context, ...scope }).listNotificationsInScope(state)
+    );
+  }
+
+  private async listNotificationsInScope(state: NotificationStateFilter): Promise<NotificationListResponse> {
+    const notifications = await this.context.repositories.notifications.listByRecipient({
+      workspaceId: this.context.actor.workspaceId,
+      recipientMemberId: this.context.actor.memberId,
+      state,
+      limit: 100
+    });
+    const unreadCount = await this.getUnreadCountValue();
 
     return {
-      items: await Promise.all(notifications.map((notification) => this.toNotificationDto(notification))),
+      items: await mapSequential(notifications, (notification) => this.toNotificationDto(notification)),
       unreadCount
     };
   }
 
   async getUnreadCount(): Promise<NotificationUnreadCountResponse> {
+    return this.context.persistence.readConsistent((scope) =>
+      new NotificationService({ ...this.context, ...scope }).getUnreadCountInScope()
+    );
+  }
+
+  private async getUnreadCountInScope(): Promise<NotificationUnreadCountResponse> {
     return {
       unreadCount: await this.getUnreadCountValue()
     };
   }
 
   async updateReadState(
+    notificationId: string,
+    input: UpdateNotificationReadStateRequest
+  ): Promise<NotificationDto> {
+    return this.context.persistence.write((scope) =>
+      new NotificationService({ ...this.context, ...scope }).updateReadStateInScope(notificationId, input)
+    );
+  }
+
+  private async updateReadStateInScope(
     notificationId: string,
     input: UpdateNotificationReadStateRequest
   ): Promise<NotificationDto> {
@@ -80,6 +103,12 @@ export class NotificationService {
   }
 
   async markAllRead(): Promise<NotificationUnreadCountResponse> {
+    return this.context.persistence.write((scope) =>
+      new NotificationService({ ...this.context, ...scope }).markAllReadInScope()
+    );
+  }
+
+  private async markAllReadInScope(): Promise<NotificationUnreadCountResponse> {
     await this.context.repositories.notifications.markAllRead({
       workspaceId: this.context.actor.workspaceId,
       recipientMemberId: this.context.actor.memberId,
@@ -337,20 +366,17 @@ export class NotificationService {
   }): Promise<void> {
     const activeMemberIds = await this.activeRecipientIds(input.repositories, input.memberIds);
 
-    await Promise.all(
-      activeMemberIds.map((memberId) =>
-        input.repositories.workItemWatchers.watch({
-          id: this.idGenerator(),
-          workspaceId: input.workItem.workspaceId,
-          workItemId: input.workItem.id,
-          memberId,
-          watchedAt: input.timestamp,
-          unwatchedAt: null,
-          createdAt: input.timestamp,
-          updatedAt: input.timestamp
-        })
-      )
-    );
+    await mapSequential(activeMemberIds, (memberId) =>
+      input.repositories.workItemWatchers.watch({
+        id: this.idGenerator(),
+        workspaceId: input.workItem.workspaceId,
+        workItemId: input.workItem.id,
+        memberId,
+        watchedAt: input.timestamp,
+        unwatchedAt: null,
+        createdAt: input.timestamp,
+        updatedAt: input.timestamp
+      }));
   }
 
   private async createNotifications(input: {
@@ -407,11 +433,9 @@ export class NotificationService {
   }
 
   private async toNotificationDto(notification: Notification): Promise<NotificationDto> {
-    const [actor, project, workItem] = await Promise.all([
-      this.optionalMember(notification.actorMemberId),
-      this.optionalProject(notification.projectId),
-      this.optionalWorkItem(notification.workItemId)
-    ]);
+    const actor = await this.optionalMember(notification.actorMemberId);
+    const project = await this.optionalProject(notification.projectId);
+    const workItem = await this.optionalWorkItem(notification.workItemId);
 
     return {
       id: notification.id,

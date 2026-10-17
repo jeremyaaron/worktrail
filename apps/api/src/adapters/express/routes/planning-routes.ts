@@ -12,10 +12,10 @@ export function registerPlanningRoutes(app: Express, context: ExpressRouteContex
 
   app.get(
     '/api/projects/:projectId/planning-summary',
-    adaptEndpoint(getProjectPlanningSummaryHandler({ repositories: context.repositories }), options)
+    adaptEndpoint(getProjectPlanningSummaryHandler({ persistence: context.persistence, repositories: context.repositories }), options)
   );
   app.get(
     '/api/projects/:projectId/milestones/:milestoneId/review',
-    adaptEndpoint(getMilestoneReviewHandler({ repositories: context.repositories }), options)
+    adaptEndpoint(getMilestoneReviewHandler({ persistence: context.persistence, repositories: context.repositories }), options)
   );
 }

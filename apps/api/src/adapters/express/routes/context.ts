@@ -1,9 +1,9 @@
 import type { Repositories } from '../../../repositories/index.js';
-import type { WorktrailDb } from '../../../db/client.js';
+import type { Persistence } from '../../../repositories/persistence.js';
 
 export interface ExpressRouteContext {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }
 
 export function adapterOptions(context: ExpressRouteContext): { repositories: Repositories } {

@@ -6,6 +6,7 @@ import type {
 } from '@worktrail/contracts';
 import { z } from 'zod';
 
+import type { Persistence } from '../repositories/persistence.js';
 import type { EndpointHandler } from '../http/app-request.js';
 import type { Repositories } from '../repositories/index.js';
 import { WorkspaceService } from '../services/workspace-service.js';
@@ -15,9 +16,10 @@ const updateWorkspaceSchema = z.object({
   name: z.string().trim().min(1)
 }) satisfies z.ZodType<UpdateWorkspaceRequest>;
 
-export function getWorkspaceHandler(repositories: Repositories): EndpointHandler<WorkspaceDto> {
+export function getWorkspaceHandler(options: { repositories: Repositories; persistence: Persistence }): EndpointHandler<WorkspaceDto> {
+  const { repositories, persistence } = options;
   return async (request) => {
-    const service = new WorkspaceService({ actor: request.actor, repositories });
+    const service = new WorkspaceService({ persistence, actor: request.actor, repositories });
     return {
       status: 200,
       body: await service.getWorkspace()
@@ -25,10 +27,11 @@ export function getWorkspaceHandler(repositories: Repositories): EndpointHandler
   };
 }
 
-export function updateWorkspaceHandler(repositories: Repositories): EndpointHandler<WorkspaceDto> {
+export function updateWorkspaceHandler(options: { repositories: Repositories; persistence: Persistence }): EndpointHandler<WorkspaceDto> {
+  const { repositories, persistence } = options;
   return async (request) => {
     const input = parseWithSchema(updateWorkspaceSchema, request.body);
-    const service = new WorkspaceService({ actor: request.actor, repositories });
+    const service = new WorkspaceService({ persistence, actor: request.actor, repositories });
     return {
       status: 200,
       body: await service.updateWorkspace(input)
@@ -37,10 +40,11 @@ export function updateWorkspaceHandler(repositories: Repositories): EndpointHand
 }
 
 export function getWorkspaceCapabilitiesHandler(
-  repositories: Repositories
+  options: { repositories: Repositories; persistence: Persistence }
 ): EndpointHandler<WorkspaceCapabilitiesDto> {
+  const { repositories, persistence } = options;
   return async (request) => {
-    const service = new WorkspaceService({ actor: request.actor, repositories });
+    const service = new WorkspaceService({ persistence, actor: request.actor, repositories });
     return {
       status: 200,
       body: await service.getCapabilities()
@@ -49,10 +53,11 @@ export function getWorkspaceCapabilitiesHandler(
 }
 
 export function listWorkspaceActivityHandler(
-  repositories: Repositories
+  options: { repositories: Repositories; persistence: Persistence }
 ): EndpointHandler<WorkspaceActivityEventDto[]> {
+  const { repositories, persistence } = options;
   return async (request) => {
-    const service = new WorkspaceService({ actor: request.actor, repositories });
+    const service = new WorkspaceService({ persistence, actor: request.actor, repositories });
     return {
       status: 200,
       body: await service.listWorkspaceActivity()

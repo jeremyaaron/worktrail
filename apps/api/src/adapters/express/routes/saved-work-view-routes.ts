@@ -14,18 +14,18 @@ export function registerSavedWorkViewRoutes(app: Express, context: ExpressRouteC
 
   app.get(
     '/api/saved-work-views',
-    adaptEndpoint(listSavedWorkViewsHandler({ repositories: context.repositories }), options)
+    adaptEndpoint(listSavedWorkViewsHandler({ persistence: context.persistence, repositories: context.repositories }), options)
   );
   app.post(
     '/api/saved-work-views',
-    adaptEndpoint(createSavedWorkViewHandler({ repositories: context.repositories }), options)
+    adaptEndpoint(createSavedWorkViewHandler({ persistence: context.persistence, repositories: context.repositories }), options)
   );
   app.patch(
     '/api/saved-work-views/:savedViewId',
-    adaptEndpoint(updateSavedWorkViewHandler({ repositories: context.repositories }), options)
+    adaptEndpoint(updateSavedWorkViewHandler({ persistence: context.persistence, repositories: context.repositories }), options)
   );
   app.delete(
     '/api/saved-work-views/:savedViewId',
-    adaptEndpoint(deleteSavedWorkViewHandler({ repositories: context.repositories }), options)
+    adaptEndpoint(deleteSavedWorkViewHandler({ persistence: context.persistence, repositories: context.repositories }), options)
   );
 }

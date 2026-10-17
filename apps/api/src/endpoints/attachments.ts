@@ -1,7 +1,7 @@
 import type { WorkItemAttachmentDto, WorkItemAttachmentListDto } from '@worktrail/contracts';
 import { z } from 'zod';
 
-import type { WorktrailDb } from '../db/client.js';
+import type { Persistence } from '../repositories/persistence.js';
 import { ValidationError } from '../errors/app-error.js';
 import type { AppBinaryBody, EndpointHandler } from '../http/app-request.js';
 import type { Repositories } from '../repositories/index.js';
@@ -23,7 +23,7 @@ const mediaTypeHeader = 'x-worktrail-media-type';
 
 export interface AttachmentHandlerOptions {
   repositories: Repositories;
-  db: WorktrailDb;
+  persistence: Persistence;
   objectStore: AttachmentObjectStore;
 }
 
@@ -97,7 +97,7 @@ export function removeAttachmentHandler(options: AttachmentHandlerOptions): Endp
 function createService(options: AttachmentHandlerOptions): AttachmentService {
   return new AttachmentService({
     repositories: options.repositories,
-    db: options.db,
+    persistence: options.persistence,
     objectStore: options.objectStore
   });
 }

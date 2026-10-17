@@ -10,6 +10,8 @@ import type {
   WorkItemQuery
 } from '@worktrail/contracts';
 
+import { mapSequential } from '../repositories/map-sequential.js';
+import { assertPersistence, type Persistence } from '../repositories/persistence.js';
 import type { ActorContext } from '../domain/actor.js';
 import {
   addDays,
@@ -50,6 +52,7 @@ const severityRank: Record<DeliveryHealthSeverity, number> = {
 export interface PortfolioServiceContext {
   actor: ActorContext;
   repositories: Repositories;
+  persistence: Persistence;
   clock?: () => Date;
 }
 
@@ -66,47 +69,50 @@ export class PortfolioService {
   private readonly clock: () => Date;
 
   constructor(private readonly context: PortfolioServiceContext) {
+    assertPersistence(context.persistence);
     this.clock = context.clock ?? (() => new Date());
   }
 
   async getPortfolio(): Promise<PortfolioDto> {
+    return this.context.persistence.readConsistent((scope) =>
+      new PortfolioService({ ...this.context, ...scope }).getPortfolioInScope()
+    );
+  }
+
+  private async getPortfolioInScope(): Promise<PortfolioDto> {
     const generatedAt = this.clock();
     const workspaceId = this.context.actor.workspaceId;
     const allProjects = await this.context.repositories.projects.listByWorkspace(workspaceId);
     const activeProjects = allProjects.filter((project) => project.status === 'active');
-    const [workRecords, dependencyBlockedRecords, blockingOpenRecords, members] = await Promise.all([
-      this.context.repositories.workItems.listByWorkspace(workspaceId, {
-        archivedProjects: 'exclude',
-        sort: 'updated_desc'
-      }),
-      this.context.repositories.workItems.listByWorkspace(workspaceId, {
-        archivedProjects: 'exclude',
-        dependency: 'dependency_blocked',
-        sort: 'priority_desc'
-      }),
-      this.context.repositories.workItems.listByWorkspace(workspaceId, {
-        archivedProjects: 'exclude',
-        dependency: 'blocking_open_work',
-        sort: 'priority_desc'
-      }),
-      this.context.repositories.members.listByWorkspace(workspaceId)
-    ]);
+    const workRecords = await this.context.repositories.workItems.listByWorkspace(workspaceId, {
+      archivedProjects: 'exclude',
+      sort: 'updated_desc'
+    });
+    const dependencyBlockedRecords = await this.context.repositories.workItems.listByWorkspace(workspaceId, {
+      archivedProjects: 'exclude',
+      dependency: 'dependency_blocked',
+      sort: 'priority_desc'
+    });
+    const blockingOpenRecords = await this.context.repositories.workItems.listByWorkspace(workspaceId, {
+      archivedProjects: 'exclude',
+      dependency: 'blocking_open_work',
+      sort: 'priority_desc'
+    });
+    const members = await this.context.repositories.members.listByWorkspace(workspaceId);
     const workItemsByProject = groupByProject(workRecords.map((record) => record.workItem));
     const dependencyBlockedByProject = groupByProject(
       dependencyBlockedRecords.map((record) => record.workItem)
     );
     const blockingOpenByProject = groupByProject(blockingOpenRecords.map((record) => record.workItem));
     const membersById = new Map(members.map((member) => [member.id, member]));
-    const rows = await Promise.all(
-      activeProjects.map(async (project) => {
-        const collections = await this.loadProjectCollections(project, {
-          workItemsByProject,
-          dependencyBlockedByProject,
-          blockingOpenByProject
-        });
-        return this.toPortfolioProjectRow(project, collections, membersById, generatedAt);
-      })
-    );
+    const rows = await mapSequential(activeProjects, async (project) => {
+      const collections = await this.loadProjectCollections(project, {
+        workItemsByProject,
+        dependencyBlockedByProject,
+        blockingOpenByProject
+      });
+      return this.toPortfolioProjectRow(project, collections, membersById, generatedAt);
+    });
     const sortedRows = rows.sort(comparePortfolioRows);
 
     return {
@@ -126,11 +132,9 @@ export class PortfolioService {
       blockingOpenByProject: Map<string, WorkItem[]>;
     }
   ): Promise<ProjectCollections> {
-    const [milestones, activeCycle, latestReport] = await Promise.all([
-      this.context.repositories.milestones.listByProject(project.id, { includeArchived: true }),
-      this.context.repositories.projectCycles.findActiveByProject(project.id),
-      this.context.repositories.projectStatusReports.findLatestByProject(project.id)
-    ]);
+    const milestones = await this.context.repositories.milestones.listByProject(project.id, { includeArchived: true });
+    const activeCycle = await this.context.repositories.projectCycles.findActiveByProject(project.id);
+    const latestReport = await this.context.repositories.projectStatusReports.findLatestByProject(project.id);
 
     return {
       workItems: input.workItemsByProject.get(project.id) ?? [],

@@ -14,18 +14,18 @@ export function registerNotificationRoutes(app: Express, context: ExpressRouteCo
 
   app.get(
     '/api/notifications',
-    adaptEndpoint(listNotificationsHandler({ repositories: context.repositories }), options)
+    adaptEndpoint(listNotificationsHandler({ persistence: context.persistence, repositories: context.repositories }), options)
   );
   app.get(
     '/api/notifications/unread-count',
-    adaptEndpoint(getUnreadNotificationCountHandler({ repositories: context.repositories }), options)
+    adaptEndpoint(getUnreadNotificationCountHandler({ persistence: context.persistence, repositories: context.repositories }), options)
   );
   app.patch(
     '/api/notifications/:notificationId',
-    adaptEndpoint(updateNotificationReadStateHandler({ repositories: context.repositories }), options)
+    adaptEndpoint(updateNotificationReadStateHandler({ persistence: context.persistence, repositories: context.repositories }), options)
   );
   app.post(
     '/api/notifications/mark-all-read',
-    adaptEndpoint(markAllNotificationsReadHandler({ repositories: context.repositories }), options)
+    adaptEndpoint(markAllNotificationsReadHandler({ persistence: context.persistence, repositories: context.repositories }), options)
   );
 }

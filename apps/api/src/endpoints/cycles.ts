@@ -9,7 +9,7 @@ import type {
 } from '@worktrail/contracts';
 import { z } from 'zod';
 
-import type { WorktrailDb } from '../db/client.js';
+import type { Persistence } from '../repositories/persistence.js';
 import type { EndpointHandler } from '../http/app-request.js';
 import type { Repositories } from '../repositories/index.js';
 import { ProjectCycleCloseoutService } from '../services/project-cycle-closeout-service.js';
@@ -47,14 +47,14 @@ function parseCycleListQuery(query: Record<string, string | string[] | undefined
 
 export function listProjectCyclesHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<ProjectCycleDto[]> {
   return async (request) => {
     const { projectId } = parseWithSchema(projectIdParamSchema, request.params);
     const service = new ProjectCycleService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
 
     return {
@@ -66,7 +66,7 @@ export function listProjectCyclesHandler(input: {
 
 export function createProjectCycleHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<ProjectCycleDto> {
   return async (request) => {
     const { projectId } = parseWithSchema(projectIdParamSchema, request.params);
@@ -74,7 +74,7 @@ export function createProjectCycleHandler(input: {
     const service = new ProjectCycleService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
 
     return {
@@ -86,14 +86,14 @@ export function createProjectCycleHandler(input: {
 
 export function getProjectCycleHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<ProjectCycleDto> {
   return async (request) => {
     const { projectId, cycleId } = parseWithSchema(projectCycleParamSchema, request.params);
     const service = new ProjectCycleService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
 
     return {
@@ -105,7 +105,7 @@ export function getProjectCycleHandler(input: {
 
 export function updateProjectCycleHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<ProjectCycleDto> {
   return async (request) => {
     const { projectId, cycleId } = parseWithSchema(projectCycleParamSchema, request.params);
@@ -113,7 +113,7 @@ export function updateProjectCycleHandler(input: {
     const service = new ProjectCycleService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
 
     return {
@@ -125,14 +125,14 @@ export function updateProjectCycleHandler(input: {
 
 export function archiveProjectCycleHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<ProjectCycleDto> {
   return async (request) => {
     const { projectId, cycleId } = parseWithSchema(projectCycleParamSchema, request.params);
     const service = new ProjectCycleService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
 
     return {
@@ -144,14 +144,14 @@ export function archiveProjectCycleHandler(input: {
 
 export function reactivateProjectCycleHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<ProjectCycleDto> {
   return async (request) => {
     const { projectId, cycleId } = parseWithSchema(projectCycleParamSchema, request.params);
     const service = new ProjectCycleService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
 
     return {
@@ -163,14 +163,14 @@ export function reactivateProjectCycleHandler(input: {
 
 export function getProjectCycleReviewHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<ProjectCycleReviewDto> {
   return async (request) => {
     const { projectId, cycleId } = parseWithSchema(projectCycleParamSchema, request.params);
     const service = new ProjectCycleService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
 
     return {
@@ -182,14 +182,14 @@ export function getProjectCycleReviewHandler(input: {
 
 export function getProjectCycleCloseoutPreviewHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<ProjectCycleCloseoutPreviewDto> {
   return async (request) => {
     const { projectId, cycleId } = parseWithSchema(projectCycleParamSchema, request.params);
     const service = new ProjectCycleCloseoutService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
 
     return {
@@ -201,7 +201,7 @@ export function getProjectCycleCloseoutPreviewHandler(input: {
 
 export function closeProjectCycleHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<CloseProjectCycleResultDto> {
   return async (request) => {
     const { projectId, cycleId } = parseWithSchema(projectCycleParamSchema, request.params);
@@ -212,7 +212,7 @@ export function closeProjectCycleHandler(input: {
     const service = new ProjectCycleCloseoutService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
 
     return {

@@ -7,6 +7,7 @@ import type {
 } from '@worktrail/contracts';
 import { z } from 'zod';
 
+import type { Persistence } from '../repositories/persistence.js';
 import type { EndpointHandler } from '../http/app-request.js';
 import type { Repositories } from '../repositories/index.js';
 import { NotificationService } from '../services/notification-service.js';
@@ -26,6 +27,7 @@ const updateNotificationReadStateSchema = z.object({
 
 export interface NotificationHandlerOptions {
   repositories: Repositories;
+  persistence: Persistence;
 }
 
 export function listNotificationsHandler(
@@ -34,6 +36,7 @@ export function listNotificationsHandler(
   return async (request) => {
     const query = parseWithSchema(listNotificationsQuerySchema, request.query);
     const service = new NotificationService({
+      persistence: options.persistence,
       actor: request.actor,
       repositories: options.repositories
     });
@@ -50,6 +53,7 @@ export function getUnreadNotificationCountHandler(
 ): EndpointHandler<NotificationUnreadCountResponse> {
   return async (request) => {
     const service = new NotificationService({
+      persistence: options.persistence,
       actor: request.actor,
       repositories: options.repositories
     });
@@ -68,6 +72,7 @@ export function updateNotificationReadStateHandler(
     const { notificationId } = parseWithSchema(notificationIdParamSchema, request.params);
     const input = parseWithSchema(updateNotificationReadStateSchema, request.body);
     const service = new NotificationService({
+      persistence: options.persistence,
       actor: request.actor,
       repositories: options.repositories
     });
@@ -84,6 +89,7 @@ export function markAllNotificationsReadHandler(
 ): EndpointHandler<NotificationUnreadCountResponse> {
   return async (request) => {
     const service = new NotificationService({
+      persistence: options.persistence,
       actor: request.actor,
       repositories: options.repositories
     });

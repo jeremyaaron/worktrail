@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
-import request from 'supertest';
+import request from './support/local-http.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { createPersistence } from '../src/repositories/persistence.js';
 import { createExpressApp } from '../src/adapters/express/server.js';
 import { createDb, createPool } from '../src/db/client.js';
 import { createRepositories, type Repositories } from '../src/repositories/index.js';
@@ -224,7 +225,7 @@ beforeAll(() => {
   pool = createPool();
   db = createDb(pool);
   repositories = createRepositories(db);
-  app = createExpressApp({ repositories, db });
+  app = createExpressApp({ repositories, persistence: createPersistence(db) });
 });
 
 afterEach(async () => {
@@ -318,8 +319,20 @@ describe('planning summary', () => {
       dueDate: '2026-07-01'
     });
 
-    const parentReads = vi.spyOn(repositories.workItems, 'listParentsForChildren');
+    const parentReads = vi.fn();
+    const persistence = createPersistence(db);
     const service = new PlanningService({
+      persistence: {
+        ...persistence,
+        readConsistent: (callback) => persistence.readConsistent(async (scope) => {
+          const original = scope.repositories.workItems.listParentsForChildren;
+          vi.spyOn(scope.repositories.workItems, 'listParentsForChildren').mockImplementation(async (...args) => {
+            parentReads(...args);
+            return original(...args);
+          });
+          return callback(scope);
+        })
+      },
       actor: fixture.actor,
       repositories,
       clock: now
@@ -521,7 +534,7 @@ describe('planning summary', () => {
     await new ProjectCycleCloseoutService({
       actor: fixture.actor,
       repositories,
-      db,
+      persistence: createPersistence(db),
       clock: now
     }).close(fixture.projectId, completedCycle.id, { destinationCycleId: null });
     const activeCycle = await createProjectCycle(fixture, {
@@ -551,6 +564,8 @@ describe('planning summary', () => {
     });
 
     const service = new PlanningService({
+
+      persistence: createPersistence(db),
       actor: fixture.actor,
       repositories,
       clock: now
@@ -719,6 +734,8 @@ describe('planning summary', () => {
     });
 
     const service = new MilestoneReviewService({
+
+      persistence: createPersistence(db),
       actor: fixture.actor,
       repositories,
       clock: now
@@ -906,6 +923,7 @@ describe('planning summary', () => {
       updatedAt: now()
     });
     const service = new MilestoneReviewService({
+      persistence: createPersistence(db),
       actor: fixture.actor,
       repositories,
       clock: now
@@ -991,6 +1009,8 @@ describe('planning summary', () => {
     }
 
     const service = new MilestoneReviewService({
+
+      persistence: createPersistence(db),
       actor: fixture.actor,
       repositories,
       clock: now

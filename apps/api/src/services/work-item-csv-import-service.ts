@@ -10,7 +10,7 @@ import {
 } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
-import type { WorktrailDb } from '../db/client.js';
+import { assertPersistence, type Persistence } from '../repositories/persistence.js';
 import type { ActorContext } from '../domain/actor.js';
 import {
   type WorkItemPriority,
@@ -21,7 +21,7 @@ import {
   workItemTypes
 } from '../domain/constants.js';
 import { ConflictError, NotFoundError, ValidationError } from '../errors/app-error.js';
-import { type Repositories, withRepositoriesTransaction } from '../repositories/index.js';
+import type { Repositories } from '../repositories/index.js';
 import type { Label, Member, Milestone, Project } from '../repositories/types.js';
 import {
   CsvRecordsParseError,
@@ -55,7 +55,7 @@ const dateOnlyPattern = /^\d{4}-\d{2}-\d{2}$/;
 export interface WorkItemCsvImportServiceContext {
   actor: ActorContext;
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
   clock?: () => Date;
   idGenerator?: () => string;
 }
@@ -99,11 +99,18 @@ export class WorkItemCsvImportService {
   private readonly idGenerator: () => string;
 
   constructor(private readonly context: WorkItemCsvImportServiceContext) {
+    assertPersistence(context.persistence);
     this.clock = context.clock ?? (() => new Date());
     this.idGenerator = context.idGenerator ?? randomUUID;
   }
 
   async preview(projectId: string, csv: string): Promise<WorkItemCsvImportPreviewDto> {
+    return this.context.persistence.readConsistent((scope) =>
+      new WorkItemCsvImportService({ ...this.context, ...scope }).previewInScope(projectId, csv)
+    );
+  }
+
+  private async previewInScope(projectId: string, csv: string): Promise<WorkItemCsvImportPreviewDto> {
     const result = await this.validate(projectId, csv);
     const invalidRowNumbers = new Set(
       result.errors
@@ -122,6 +129,12 @@ export class WorkItemCsvImportService {
   }
 
   async apply(projectId: string, csv: string): Promise<WorkItemCsvImportApplyDto> {
+    return this.context.persistence.write((scope) =>
+      new WorkItemCsvImportService({ ...this.context, ...scope }).applyInScope(projectId, csv)
+    );
+  }
+
+  private async applyInScope(projectId: string, csv: string): Promise<WorkItemCsvImportApplyDto> {
     const result = await this.validate(projectId, csv);
     const invalidRowNumbers = this.invalidRowNumbers(result.errors);
 
@@ -146,6 +159,7 @@ export class WorkItemCsvImportService {
 
     const workItems = await this.withWriteRepositories(async (repositories) => {
       const service = new WorkItemService({
+        persistence: this.context.persistence,
         actor: this.context.actor,
         repositories,
         clock: this.clock,
@@ -188,11 +202,7 @@ export class WorkItemCsvImportService {
   private async withWriteRepositories<T>(
     callback: (repositories: Repositories) => Promise<T>
   ): Promise<T> {
-    if (this.context.db === undefined) {
-      return callback(this.context.repositories);
-    }
-
-    return withRepositoriesTransaction(this.context.db, callback);
+    return this.context.persistence.write(({ repositories }) => callback(repositories));
   }
 
   private async validate(projectId: string, csv: string): Promise<ImportValidationResult> {
@@ -283,11 +293,9 @@ export class WorkItemCsvImportService {
       throw new ConflictError('Archived projects are read-only.');
     }
 
-    const [members, labels, milestones] = await Promise.all([
-      this.context.repositories.members.listByWorkspace(this.context.actor.workspaceId),
-      this.context.repositories.labels.listByProject(projectId),
-      this.context.repositories.milestones.listByProject(projectId)
-    ]);
+    const members = await this.context.repositories.members.listByWorkspace(this.context.actor.workspaceId);
+    const labels = await this.context.repositories.labels.listByProject(projectId);
+    const milestones = await this.context.repositories.milestones.listByProject(projectId);
     const activeMembers = members.filter((member) => member.isActive);
 
     return {

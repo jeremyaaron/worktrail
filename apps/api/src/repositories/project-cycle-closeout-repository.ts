@@ -1,10 +1,10 @@
 import { eq } from 'drizzle-orm';
 
-import type { WorktrailDb } from '../db/client.js';
+import type { RepositoryExecutor } from '../db/client.js';
 import { projectCycleCloseouts } from '../db/schema.js';
 import type { NewProjectCycleCloseout } from './types.js';
 
-export function createProjectCycleCloseoutRepository(db: WorktrailDb) {
+export function createProjectCycleCloseoutRepository(db: RepositoryExecutor) {
   return {
     async create(input: NewProjectCycleCloseout) {
       const [closeout] = await db.insert(projectCycleCloseouts).values(input).returning();

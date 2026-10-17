@@ -7,6 +7,7 @@ import type {
 } from '@worktrail/contracts';
 import { z } from 'zod';
 
+import type { Persistence } from '../repositories/persistence.js';
 import { savedWorkViewScopes, savedWorkViewVisibilities } from '../domain/constants.js';
 import type { EndpointHandler } from '../http/app-request.js';
 import type { Repositories } from '../repositories/index.js';
@@ -44,6 +45,7 @@ const updateSavedWorkViewSchema = z
 
 export interface SavedWorkViewHandlerOptions {
   repositories: Repositories;
+  persistence: Persistence;
 }
 
 export function listSavedWorkViewsHandler(
@@ -52,6 +54,7 @@ export function listSavedWorkViewsHandler(
   return async (request) => {
     const query = toListQuery(parseWithSchema(listSavedWorkViewsQuerySchema, request.query));
     const service = new SavedWorkViewService({
+      persistence: options.persistence,
       actor: request.actor,
       repositories: options.repositories
     });
@@ -69,6 +72,7 @@ export function createSavedWorkViewHandler(
   return async (request) => {
     const input = toCreateRequest(parseWithSchema(createSavedWorkViewSchema, request.body));
     const service = new SavedWorkViewService({
+      persistence: options.persistence,
       actor: request.actor,
       repositories: options.repositories
     });
@@ -87,6 +91,7 @@ export function updateSavedWorkViewHandler(
     const { savedViewId } = parseWithSchema(savedViewIdParamSchema, request.params);
     const input = toUpdateRequest(parseWithSchema(updateSavedWorkViewSchema, request.body));
     const service = new SavedWorkViewService({
+      persistence: options.persistence,
       actor: request.actor,
       repositories: options.repositories
     });
@@ -142,6 +147,7 @@ export function deleteSavedWorkViewHandler(
   return async (request) => {
     const { savedViewId } = parseWithSchema(savedViewIdParamSchema, request.params);
     const service = new SavedWorkViewService({
+      persistence: options.persistence,
       actor: request.actor,
       repositories: options.repositories
     });

@@ -3,7 +3,7 @@ import express, { type Express } from 'express';
 import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-import type { WorktrailDb } from '../../db/client.js';
+import { assertPersistence, type Persistence } from '../../repositories/persistence.js';
 import type { EndpointHandler } from '../../http/app-request.js';
 import type { Repositories } from '../../repositories/index.js';
 import type { HealthCheckPool } from '../../services/health-check-service.js';
@@ -25,9 +25,7 @@ import { registerSavedWorkViewRoutes } from './routes/saved-work-view-routes.js'
 import { registerWorkItemRoutes } from './routes/work-item-routes.js';
 import { registerWorkspaceRoutes } from './routes/workspace-routes.js';
 
-export interface CreateExpressAppOptions {
-  repositories?: Repositories;
-  db?: WorktrailDb;
+interface CommonExpressAppOptions {
   healthCheckPool?: HealthCheckPool;
   attachmentObjectStore?: AttachmentObjectStore;
   corsOrigin?: string | false;
@@ -35,12 +33,18 @@ export interface CreateExpressAppOptions {
   testRoutes?: Record<string, EndpointHandler>;
 }
 
+export type CreateExpressAppOptions = CommonExpressAppOptions & (
+  { repositories: Repositories; persistence: Persistence } |
+  { repositories?: never; persistence?: never }
+);
+
 export interface StaticAssetOptions {
   directory: string;
   indexFile?: string;
 }
 
 export function createExpressApp(options: CreateExpressAppOptions = {}): Express {
+  if (options.repositories !== undefined) assertPersistence(options.persistence);
   const app = express();
 
   app.use(
@@ -51,7 +55,6 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
 
   if (
     options.repositories !== undefined &&
-    options.db !== undefined &&
     options.attachmentObjectStore !== undefined
   ) {
     configureAttachmentUploadBoundary(app);
@@ -63,7 +66,7 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
   registerHealthRoutes(app, { healthCheckPool: options.healthCheckPool });
 
   if (options.repositories !== undefined) {
-    const routeContext = { repositories: options.repositories, db: options.db };
+    const routeContext = { repositories: options.repositories, persistence: options.persistence };
 
     registerWorkspaceRoutes(app, routeContext);
     registerQuickFindRoutes(app, routeContext);
@@ -75,10 +78,10 @@ export function createExpressApp(options: CreateExpressAppOptions = {}): Express
     registerNotificationRoutes(app, routeContext);
     registerWorkItemRoutes(app, routeContext);
 
-    if (options.db !== undefined && options.attachmentObjectStore !== undefined) {
+    if (options.attachmentObjectStore !== undefined) {
       registerAttachmentRoutes(app, {
         repositories: options.repositories,
-        db: options.db,
+        persistence: options.persistence,
         objectStore: options.attachmentObjectStore
       });
     }

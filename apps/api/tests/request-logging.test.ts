@@ -1,5 +1,5 @@
 import express from 'express';
-import request from 'supertest';
+import request from './support/local-http.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { requestLogger } from '../src/adapters/express/request-logging.js';

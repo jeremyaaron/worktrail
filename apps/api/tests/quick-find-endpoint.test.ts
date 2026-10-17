@@ -1,7 +1,8 @@
 import type { MemberRole } from '@worktrail/contracts';
-import request from 'supertest';
+import request from './support/local-http.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { fakeRepositoryContext } from './support/fake-persistence.js';
 import { createExpressApp } from '../src/adapters/express/server.js';
 import type { Repositories } from '../src/repositories/index.js';
 import type { QuickFindRepositoryResult } from '../src/repositories/quick-find-repository.js';
@@ -21,7 +22,7 @@ describe('Quick Find endpoint', () => {
   it('normalizes the request and returns all bounded groups without DB or object-store coupling', async () => {
     const searchWorkspace = vi.fn(async () => emptyResult());
     const app = createExpressApp({
-      repositories: repositories({ searchWorkspace })
+      ...fakeRepositoryContext(repositories({ searchWorkspace }))
     });
 
     await request(app)
@@ -54,7 +55,7 @@ describe('Quick Find endpoint', () => {
   it('rejects invalid requests before searching', async () => {
     const searchWorkspace = vi.fn(async () => emptyResult());
     const app = createExpressApp({
-      repositories: repositories({ searchWorkspace })
+      ...fakeRepositoryContext(repositories({ searchWorkspace }))
     });
 
     await request(app)
@@ -72,7 +73,7 @@ describe('Quick Find endpoint', () => {
   it('rejects missing and inactive local actors before searching', async () => {
     const searchWorkspace = vi.fn(async () => emptyResult());
     const missingActorApp = createExpressApp({
-      repositories: repositories({ searchWorkspace, resolveActor: false })
+      ...fakeRepositoryContext(repositories({ searchWorkspace, resolveActor: false }))
     });
 
     await request(missingActorApp)
@@ -81,7 +82,7 @@ describe('Quick Find endpoint', () => {
       .expect(403);
 
     const inactiveActorApp = createExpressApp({
-      repositories: repositories({ searchWorkspace, isActive: false })
+      ...fakeRepositoryContext(repositories({ searchWorkspace, isActive: false }))
     });
 
     await request(inactiveActorApp)
@@ -96,11 +97,11 @@ describe('Quick Find endpoint', () => {
   it('returns a safe 503 without exposing repository or query details', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const app = createExpressApp({
-      repositories: repositories({
+      ...fakeRepositoryContext(repositories({
         searchWorkspace: vi.fn(async () => {
           throw new Error('relation missing while searching confidential roadmap');
         })
-      })
+      }))
     });
 
     const response = await request(app)

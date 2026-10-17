@@ -7,15 +7,12 @@ import type {
 } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
-import type { WorktrailDb } from '../db/client.js';
+import { assertPersistence, type Persistence } from '../repositories/persistence.js';
 import type { ActorContext } from '../domain/actor.js';
 import { canUpdateAssignedWorkItem } from '../domain/permissions.js';
 import { isTerminalWorkItemStatus } from '../domain/work-risk-policy.js';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../errors/app-error.js';
-import {
-  type Repositories,
-  withRepositoriesTransaction
-} from '../repositories/index.js';
+import type { Repositories } from '../repositories/index.js';
 import type {
   ActivityEvent,
   Member,
@@ -29,7 +26,7 @@ import { NotificationService } from './notification-service.js';
 export interface WorkItemRelationshipServiceContext {
   actor: ActorContext;
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
   clock?: () => Date;
   idGenerator?: () => string;
 }
@@ -45,11 +42,18 @@ export class WorkItemRelationshipService {
   private readonly idGenerator: () => string;
 
   constructor(private readonly context: WorkItemRelationshipServiceContext) {
+    assertPersistence(context.persistence);
     this.clock = context.clock ?? (() => new Date());
     this.idGenerator = context.idGenerator ?? randomUUID;
   }
 
   async getRelationshipSummary(workItemId: string): Promise<WorkItemRelationshipSummaryDto> {
+    return this.context.persistence.readConsistent((scope) =>
+      new WorkItemRelationshipService({ ...this.context, ...scope }).getRelationshipSummaryInScope(workItemId)
+    );
+  }
+
+  private async getRelationshipSummaryInScope(workItemId: string): Promise<WorkItemRelationshipSummaryDto> {
     return this.getRelationshipSummaryWithRepositories(workItemId, this.context.repositories);
   }
 
@@ -58,10 +62,8 @@ export class WorkItemRelationshipService {
     repositories: Repositories
   ): Promise<WorkItemRelationshipSummaryDto> {
     const workItem = await this.requireWorkItem(workItemId, repositories);
-    const [relationships, dependencyCountsById] = await Promise.all([
-      repositories.workItemRelationships.listForWorkItem(workItem.id),
-      repositories.workItemRelationships.listDependencyCounts([workItem.id])
-    ]);
+    const relationships = await repositories.workItemRelationships.listForWorkItem(workItem.id);
+    const dependencyCountsById = await repositories.workItemRelationships.listDependencyCounts([workItem.id]);
     const summary = emptyRelationshipSummary();
     const dependencyCounts = dependencyCountsById.get(workItem.id);
 
@@ -87,6 +89,15 @@ export class WorkItemRelationshipService {
   }
 
   async createRelationship(
+    sourceWorkItemId: string,
+    input: CreateWorkItemRelationshipRequest
+  ): Promise<WorkItemRelationshipDto> {
+    return this.context.persistence.write((scope) =>
+      new WorkItemRelationshipService({ ...this.context, ...scope }).createRelationshipInScope(sourceWorkItemId, input)
+    );
+  }
+
+  private async createRelationshipInScope(
     sourceWorkItemId: string,
     input: CreateWorkItemRelationshipRequest
   ): Promise<WorkItemRelationshipDto> {
@@ -166,6 +177,12 @@ export class WorkItemRelationshipService {
   }
 
   async deleteRelationship(workItemId: string, relationshipId: string): Promise<void> {
+    return this.context.persistence.write((scope) =>
+      new WorkItemRelationshipService({ ...this.context, ...scope }).deleteRelationshipInScope(workItemId, relationshipId)
+    );
+  }
+
+  private async deleteRelationshipInScope(workItemId: string, relationshipId: string): Promise<void> {
     await this.withWriteRepositories(async (repositories) => {
       const contextWorkItem = await this.requireWorkItem(workItemId, repositories);
       const relationship = await repositories.workItemRelationships.findById(relationshipId);
@@ -237,15 +254,12 @@ export class WorkItemRelationshipService {
   private async withWriteRepositories<T>(
     callback: (repositories: Repositories) => Promise<T>
   ): Promise<T> {
-    if (this.context.db === undefined) {
-      return callback(this.context.repositories);
-    }
-
-    return withRepositoriesTransaction(this.context.db, callback);
+    return this.context.persistence.write(({ repositories }) => callback(repositories));
   }
 
   private notificationService(repositories: Repositories): NotificationService {
     return new NotificationService({
+      persistence: this.context.persistence,
       actor: this.context.actor,
       repositories,
       clock: this.clock,

@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
-import request from 'supertest';
+import request from './support/local-http.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { createPersistence } from '../src/repositories/persistence.js';
 import { createExpressApp } from '../src/adapters/express/server.js';
 import { createDb, createPool } from '../src/db/client.js';
 import { attachmentPolicy } from '../src/domain/attachment-policy.js';
@@ -101,7 +102,7 @@ async function createFixture() {
   const objectStore = new InMemoryAttachmentObjectStore();
   const app = createExpressApp({
     repositories,
-    db,
+    persistence: createPersistence(db),
     attachmentObjectStore: objectStore
   });
   const headers = (memberId: string) => ({

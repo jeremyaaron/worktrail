@@ -1,15 +1,15 @@
 import type { CreateMemberRequest, MemberDto, UpdateMemberRequest } from '@worktrail/contracts';
 import { z } from 'zod';
 
+import type { Persistence } from '../repositories/persistence.js';
 import type { EndpointHandler } from '../http/app-request.js';
-import type { WorktrailDb } from '../db/client.js';
 import type { Repositories } from '../repositories/index.js';
 import { MemberService } from '../services/member-service.js';
 import { parseWithSchema } from '../validation/parse.js';
 
 export interface MemberHandlerOptions {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }
 
 const uuidParamSchema = z.object({
@@ -32,9 +32,10 @@ const updateMemberSchema = z
     message: 'At least one member field must be provided.'
   }) satisfies z.ZodType<UpdateMemberRequest>;
 
-export function listMembersHandler(repositories: Repositories): EndpointHandler<MemberDto[]> {
+export function listMembersHandler(options: { repositories: Repositories; persistence: Persistence }): EndpointHandler<MemberDto[]> {
+  const { repositories, persistence } = options;
   return async (request) => {
-    const service = new MemberService({ actor: request.actor, repositories });
+    const service = new MemberService({ persistence, actor: request.actor, repositories });
     return {
       status: 200,
       body: await service.listMembers()
@@ -48,7 +49,7 @@ export function createMemberHandler(options: MemberHandlerOptions): EndpointHand
     const service = new MemberService({
       actor: request.actor,
       repositories: options.repositories,
-      db: options.db
+      persistence: options.persistence
     });
     return {
       status: 201,
@@ -64,7 +65,7 @@ export function updateMemberHandler(options: MemberHandlerOptions): EndpointHand
     const service = new MemberService({
       actor: request.actor,
       repositories: options.repositories,
-      db: options.db
+      persistence: options.persistence
     });
     return {
       status: 200,
@@ -79,7 +80,7 @@ export function deactivateMemberHandler(options: MemberHandlerOptions): Endpoint
     const service = new MemberService({
       actor: request.actor,
       repositories: options.repositories,
-      db: options.db
+      persistence: options.persistence
     });
     return {
       status: 200,
@@ -94,7 +95,7 @@ export function reactivateMemberHandler(options: MemberHandlerOptions): Endpoint
     const service = new MemberService({
       actor: request.actor,
       repositories: options.repositories,
-      db: options.db
+      persistence: options.persistence
     });
     return {
       status: 200,

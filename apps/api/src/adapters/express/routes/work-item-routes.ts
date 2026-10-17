@@ -40,72 +40,72 @@ export function registerWorkItemRoutes(app: Express, context: ExpressRouteContex
   app.get(
     '/api/work-items',
     adaptEndpoint(
-      listWorkspaceWorkItemsHandler({ repositories: context.repositories, db: context.db }),
+      listWorkspaceWorkItemsHandler({ repositories: context.repositories, persistence: context.persistence }),
       options
     )
   );
   app.get(
     '/api/work-items/export',
     adaptEndpoint(
-      exportWorkspaceWorkItemsHandler({ repositories: context.repositories, db: context.db }),
+      exportWorkspaceWorkItemsHandler({ repositories: context.repositories, persistence: context.persistence }),
       options
     )
   );
   app.get(
     '/api/projects/:projectId/work-items',
-    adaptEndpoint(listWorkItemsHandler({ repositories: context.repositories, db: context.db }), options)
+    adaptEndpoint(listWorkItemsHandler({ repositories: context.repositories, persistence: context.persistence }), options)
   );
   app.get(
     '/api/projects/:projectId/board/work-items',
     adaptEndpoint(
-      listProjectBoardWorkItemsHandler({ repositories: context.repositories, db: context.db }),
+      listProjectBoardWorkItemsHandler({ repositories: context.repositories, persistence: context.persistence }),
       options
     )
   );
   app.get(
     '/api/projects/:projectId/work-items/export',
     adaptEndpoint(
-      exportProjectWorkItemsHandler({ repositories: context.repositories, db: context.db }),
+      exportProjectWorkItemsHandler({ repositories: context.repositories, persistence: context.persistence }),
       options
     )
   );
   app.post(
     '/api/projects/:projectId/work-items/imports/preview',
     adaptEndpoint(
-      previewWorkItemCsvImportHandler({ repositories: context.repositories, db: context.db }),
+      previewWorkItemCsvImportHandler({ repositories: context.repositories, persistence: context.persistence }),
       options
     )
   );
   app.post(
     '/api/projects/:projectId/work-items/imports',
     adaptEndpoint(
-      applyWorkItemCsvImportHandler({ repositories: context.repositories, db: context.db }),
+      applyWorkItemCsvImportHandler({ repositories: context.repositories, persistence: context.persistence }),
       options
     )
   );
   app.post(
     '/api/projects/:projectId/work-items/bulk-update',
-    adaptEndpoint(bulkUpdateWorkItemsHandler({ repositories: context.repositories, db: context.db }), options)
+    adaptEndpoint(bulkUpdateWorkItemsHandler({ repositories: context.repositories, persistence: context.persistence }), options)
   );
   app.post(
     '/api/projects/:projectId/work-items',
-    adaptEndpoint(createWorkItemHandler({ repositories: context.repositories, db: context.db }), options)
+    adaptEndpoint(createWorkItemHandler({ repositories: context.repositories, persistence: context.persistence }), options)
   );
   app.get(
     '/api/work-items/:workItemId/comments',
-    adaptEndpoint(listCommentsHandler({ repositories: context.repositories, db: context.db }), options)
+    adaptEndpoint(listCommentsHandler({ repositories: context.repositories, persistence: context.persistence }), options)
   );
   app.post(
     '/api/work-items/:workItemId/comments',
-    adaptEndpoint(createCommentHandler({ repositories: context.repositories, db: context.db }), options)
+    adaptEndpoint(createCommentHandler({ repositories: context.repositories, persistence: context.persistence }), options)
   );
   app.patch(
     '/api/comments/:commentId',
-    adaptEndpoint(updateCommentHandler({ repositories: context.repositories, db: context.db }), options)
+    adaptEndpoint(updateCommentHandler({ repositories: context.repositories, persistence: context.persistence }), options)
   );
   app.delete(
     '/api/comments/:commentId',
-    adaptEndpoint(deleteCommentHandler({ repositories: context.repositories, db: context.db }), options)
+    adaptEndpoint(deleteCommentHandler({ repositories: context.repositories, persistence: context.persistence }), options)
   );
   app.get(
     '/api/work-items/:workItemId/activity',
@@ -114,71 +114,71 @@ export function registerWorkItemRoutes(app: Express, context: ExpressRouteContex
   app.get(
     '/api/work-items/:workItemId/relationships',
     adaptEndpoint(
-      listWorkItemRelationshipsHandler({ repositories: context.repositories, db: context.db }),
+      listWorkItemRelationshipsHandler({ repositories: context.repositories, persistence: context.persistence }),
       options
     )
   );
   app.get(
     '/api/work-items/:workItemId/watchers',
-    adaptEndpoint(getWorkItemWatchStateHandler({ repositories: context.repositories }), options)
+    adaptEndpoint(getWorkItemWatchStateHandler({ persistence: context.persistence, repositories: context.repositories }), options)
   );
   app.put(
     '/api/work-items/:workItemId/watch',
-    adaptEndpoint(watchWorkItemHandler({ repositories: context.repositories }), options)
+    adaptEndpoint(watchWorkItemHandler({ persistence: context.persistence, repositories: context.repositories }), options)
   );
   app.delete(
     '/api/work-items/:workItemId/watch',
-    adaptEndpoint(unwatchWorkItemHandler({ repositories: context.repositories }), options)
+    adaptEndpoint(unwatchWorkItemHandler({ persistence: context.persistence, repositories: context.repositories }), options)
   );
   app.post(
     '/api/work-items/:workItemId/relationships',
     adaptEndpoint(
-      createWorkItemRelationshipHandler({ repositories: context.repositories, db: context.db }),
+      createWorkItemRelationshipHandler({ repositories: context.repositories, persistence: context.persistence }),
       options
     )
   );
   app.delete(
     '/api/work-items/:workItemId/relationships/:relationshipId',
     adaptEndpoint(
-      deleteWorkItemRelationshipHandler({ repositories: context.repositories, db: context.db }),
+      deleteWorkItemRelationshipHandler({ repositories: context.repositories, persistence: context.persistence }),
       options
     )
   );
   app.get(
     '/api/work-items/:workItemId/children',
     adaptEndpoint(
-      listWorkItemChildrenHandler({ repositories: context.repositories, db: context.db }),
+      listWorkItemChildrenHandler({ repositories: context.repositories, persistence: context.persistence }),
       options
     )
   );
   app.get(
     '/api/work-items/:workItemId/parent-candidates',
     adaptEndpoint(
-      listWorkItemParentCandidatesHandler({ repositories: context.repositories, db: context.db }),
+      listWorkItemParentCandidatesHandler({ repositories: context.repositories, persistence: context.persistence }),
       options
     )
   );
   app.put(
     '/api/work-items/:workItemId/parent',
     adaptEndpoint(
-      setWorkItemParentHandler({ repositories: context.repositories, db: context.db }),
+      setWorkItemParentHandler({ repositories: context.repositories, persistence: context.persistence }),
       options
     )
   );
   app.get(
     '/api/work-items/:workItemId',
-    adaptEndpoint(getWorkItemHandler({ repositories: context.repositories, db: context.db }), options)
+    adaptEndpoint(getWorkItemHandler({ repositories: context.repositories, persistence: context.persistence }), options)
   );
   app.patch(
     '/api/work-items/:workItemId',
-    adaptEndpoint(updateWorkItemHandler({ repositories: context.repositories, db: context.db }), options)
+    adaptEndpoint(updateWorkItemHandler({ repositories: context.repositories, persistence: context.persistence }), options)
   );
   app.post(
     '/api/work-items/:workItemId/transitions',
-    adaptEndpoint(transitionWorkItemHandler({ repositories: context.repositories, db: context.db }), options)
+    adaptEndpoint(transitionWorkItemHandler({ repositories: context.repositories, persistence: context.persistence }), options)
   );
   app.post(
     '/api/work-items/:workItemId/board-move',
-    adaptEndpoint(moveWorkItemOnBoardHandler({ repositories: context.repositories, db: context.db }), options)
+    adaptEndpoint(moveWorkItemOnBoardHandler({ repositories: context.repositories, persistence: context.persistence }), options)
   );
 }

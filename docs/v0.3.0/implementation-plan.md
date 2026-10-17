@@ -2,7 +2,7 @@
 
 ## Status
 
-Approved for sequential execution. Phases 0-3 are complete as of October 17, 2026; Phases 4-21 are
+Approved for sequential execution. Phases 0-4 are complete as of October 17, 2026; Phases 5-21 are
 not started. Implementation is in progress; release verification remains pending. Merge, tag, publication,
 and Pages deployment remain separate user-controlled actions.
 
@@ -683,7 +683,42 @@ Acceptance:
 Verification: API/contracts typecheck and package tests, real rollback/read-consistency checks, and
 composition/fake-construction tests through owned API mode.
 
-Status: Not started.
+Status: Complete (October 17, 2026).
+
+Completion evidence:
+
+- `RepositoryExecutor` is structurally supported by real root and transaction executors. Repository
+  factories no longer cast a transaction to `WorktrailDb` or expose transaction creation.
+- Required `Persistence` capabilities replace optional database fallbacks through service contexts,
+  endpoint options, Express routes/startup, and seed report composition. Health-only composition and
+  deliberately repository-only tests remain explicit. Superseded transaction helpers were removed;
+  their existing repository tests now exercise the capability owner.
+- Root writes explicitly use read committed/read write; independent consistent reads use repeatable
+  read/read only. Scope-bound service bodies ensure private helpers use scoped repositories. Nested
+  import/export/report/cycle helpers participate in the same scope without savepoints. Bulk updates
+  retain per-item transactions/partial success. Single-connection query work is sequential, clearing
+  the pg concurrent-client-query deprecation without suppressing warnings.
+- Previously unwrapped project settings/lifecycle, saved-view, and watcher mutations now share a
+  real transaction with their applicable evidence/response hydration. Required ownership also covers
+  label/milestone administration and related workspace/member/notification commands. Attachment object
+  storage and compensation remain outside the database transaction, with existing regressions intact.
+- Typed, namespaced project/operation advisory helpers enforce ordering, no held-lock upgrades,
+  mode/lifetime restrictions, and idempotent reentry. Real connection tests prove shared/exclusive
+  behavior and release on commit/rollback. Application project-gate adoption and authoritative
+  lifecycle/row-order repair remain Phases 6-7; these races are not claimed fixed here.
+- Added [the current developer guide](../development.md), linked from README, with ownership,
+  isolation inheritance, callback lifetime, lock inventory/order, fake/real testing, and remaining limits.
+- Final owned API run `8c1da09d-cecb-4216-8979-817e21998358` passed 630 API tests across 54 files and
+  41 resource tests, then removed owned resources. API/contracts typechecks, API/test lint, API build,
+  54 contracts tests, and whitespace checks passed. New coverage includes rollback of project/view/
+  watcher/state/activity/mention/notification writes, snapshot hydration across a concurrent commit,
+  composition refusal, nested ownership, and advisory ordering/lifetime.
+- A diagnostic run exposed local HTTP destination ambiguity: Supertest could request an unrelated
+  IPv4 listener while its own server occupied IPv6 on the same port. An owned two-server reproduction
+  demonstrated it on macOS. API tests now use an address-family-aware Supertest helper; two sentinel
+  regressions prove destination isolation. No unrelated process was stopped, test retried, timeout
+  raised, dependency changed, working database reset, or release version advanced. Diagnostic failures
+  and scoped acceptance limits are recorded in [verification notes](verification-notes.md).
 
 ## Phase 5: Batched Hydration And Query Ownership
 

@@ -7,7 +7,7 @@ import type {
 } from '@worktrail/contracts';
 import { z } from 'zod';
 
-import type { WorktrailDb } from '../db/client.js';
+import type { Persistence } from '../repositories/persistence.js';
 import { parseWithSchema } from '../validation/parse.js';
 import type { EndpointHandler } from '../http/app-request.js';
 import type { Repositories } from '../repositories/index.js';
@@ -15,7 +15,7 @@ import { ProjectService } from '../services/project-service.js';
 
 export interface ProjectHandlerOptions {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }
 
 const uuidParamSchema = z.object({
@@ -39,9 +39,10 @@ const updateProjectSchema = z
     message: 'At least one project field must be provided.'
   }) satisfies z.ZodType<UpdateProjectRequest>;
 
-export function listProjectsHandler(repositories: Repositories): EndpointHandler<ProjectDto[]> {
+export function listProjectsHandler(options: { repositories: Repositories; persistence: Persistence }): EndpointHandler<ProjectDto[]> {
+  const { repositories, persistence } = options;
   return async (request) => {
-    const service = new ProjectService({ actor: request.actor, repositories });
+    const service = new ProjectService({ persistence, actor: request.actor, repositories });
     return {
       status: 200,
       body: await service.listProjects()
@@ -50,10 +51,11 @@ export function listProjectsHandler(repositories: Repositories): EndpointHandler
 }
 
 export function listProjectNavigationSummariesHandler(
-  repositories: Repositories
+  options: { repositories: Repositories; persistence: Persistence }
 ): EndpointHandler<ProjectNavigationSummaryDto[]> {
+  const { repositories, persistence } = options;
   return async (request) => {
-    const service = new ProjectService({ actor: request.actor, repositories });
+    const service = new ProjectService({ persistence, actor: request.actor, repositories });
     return {
       status: 200,
       body: await service.listProjectNavigationSummaries()
@@ -67,7 +69,7 @@ export function createProjectHandler(options: ProjectHandlerOptions): EndpointHa
     const service = new ProjectService({
       actor: request.actor,
       repositories: options.repositories,
-      db: options.db
+      persistence: options.persistence
     });
     return {
       status: 201,
@@ -76,10 +78,11 @@ export function createProjectHandler(options: ProjectHandlerOptions): EndpointHa
   };
 }
 
-export function getProjectHandler(repositories: Repositories): EndpointHandler<ProjectDto> {
+export function getProjectHandler(options: { repositories: Repositories; persistence: Persistence }): EndpointHandler<ProjectDto> {
+  const { repositories, persistence } = options;
   return async (request) => {
     const { projectId } = parseWithSchema(uuidParamSchema, request.params);
-    const service = new ProjectService({ actor: request.actor, repositories });
+    const service = new ProjectService({ persistence, actor: request.actor, repositories });
     return {
       status: 200,
       body: await service.getProject(projectId)
@@ -87,11 +90,12 @@ export function getProjectHandler(repositories: Repositories): EndpointHandler<P
   };
 }
 
-export function updateProjectHandler(repositories: Repositories): EndpointHandler<ProjectDto> {
+export function updateProjectHandler(options: { repositories: Repositories; persistence: Persistence }): EndpointHandler<ProjectDto> {
+  const { repositories, persistence } = options;
   return async (request) => {
     const { projectId } = parseWithSchema(uuidParamSchema, request.params);
     const input = parseWithSchema(updateProjectSchema, request.body);
-    const service = new ProjectService({ actor: request.actor, repositories });
+    const service = new ProjectService({ persistence, actor: request.actor, repositories });
     return {
       status: 200,
       body: await service.updateProject(projectId, input)
@@ -99,10 +103,11 @@ export function updateProjectHandler(repositories: Repositories): EndpointHandle
   };
 }
 
-export function archiveProjectHandler(repositories: Repositories): EndpointHandler<ProjectDto> {
+export function archiveProjectHandler(options: { repositories: Repositories; persistence: Persistence }): EndpointHandler<ProjectDto> {
+  const { repositories, persistence } = options;
   return async (request) => {
     const { projectId } = parseWithSchema(uuidParamSchema, request.params);
-    const service = new ProjectService({ actor: request.actor, repositories });
+    const service = new ProjectService({ persistence, actor: request.actor, repositories });
     return {
       status: 200,
       body: await service.archiveProject(projectId)
@@ -110,10 +115,11 @@ export function archiveProjectHandler(repositories: Repositories): EndpointHandl
   };
 }
 
-export function reactivateProjectHandler(repositories: Repositories): EndpointHandler<ProjectDto> {
+export function reactivateProjectHandler(options: { repositories: Repositories; persistence: Persistence }): EndpointHandler<ProjectDto> {
+  const { repositories, persistence } = options;
   return async (request) => {
     const { projectId } = parseWithSchema(uuidParamSchema, request.params);
-    const service = new ProjectService({ actor: request.actor, repositories });
+    const service = new ProjectService({ persistence, actor: request.actor, repositories });
     return {
       status: 200,
       body: await service.reactivateProject(projectId)
@@ -122,11 +128,12 @@ export function reactivateProjectHandler(repositories: Repositories): EndpointHa
 }
 
 export function getProjectSummaryHandler(
-  repositories: Repositories
+  options: { repositories: Repositories; persistence: Persistence }
 ): EndpointHandler<ProjectSummaryDto> {
+  const { repositories, persistence } = options;
   return async (request) => {
     const { projectId } = parseWithSchema(uuidParamSchema, request.params);
-    const service = new ProjectService({ actor: request.actor, repositories });
+    const service = new ProjectService({ persistence, actor: request.actor, repositories });
     return {
       status: 200,
       body: await service.getProjectSummary(projectId)

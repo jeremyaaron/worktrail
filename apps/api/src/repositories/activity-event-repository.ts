@@ -1,10 +1,10 @@
 import { desc, eq } from 'drizzle-orm';
 
-import type { WorktrailDb } from '../db/client.js';
+import type { RepositoryExecutor } from '../db/client.js';
 import { activityEvents } from '../db/schema.js';
 import type { NewActivityEvent } from './types.js';
 
-export function createActivityEventRepository(db: WorktrailDb) {
+export function createActivityEventRepository(db: RepositoryExecutor) {
   return {
     async create(input: NewActivityEvent) {
       const [activityEvent] = await db.insert(activityEvents).values(input).returning();
