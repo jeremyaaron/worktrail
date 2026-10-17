@@ -10,14 +10,11 @@ import type {
   WorkItemQuery
 } from '@worktrail/contracts';
 
-import { mapSequential } from '../repositories/map-sequential.js';
 import { assertPersistence, type Persistence } from '../repositories/persistence.js';
 import type { ActorContext } from '../domain/actor.js';
 import {
-  addDays,
   isOpenWorkItemStatus,
   isStaleInProgressStatus,
-  staleInProgressDays,
   toDateString
 } from '../domain/work-risk-policy.js';
 import { NotFoundError } from '../errors/app-error.js';
@@ -27,12 +24,14 @@ import type {
   Milestone,
   Project,
   ProjectCycle,
-  ProjectStatusReport,
-  WorkItem
+  ProjectStatusReportSummaryRecord,
+  WorkItemEvaluation
 } from '../repositories/types.js';
-import { parseStoredProjectStatusReportSnapshot } from '../validation/project-status-report-snapshot.js';
+import { assertProjectStatusReportSnapshotMatchesRecord, parseStoredProjectStatusReportSnapshot } from '../validation/project-status-report-snapshot.js';
 import { DeliveryHealthService } from './delivery-health-service.js';
 import { toProjectDto, toProjectStatusReportSummaryDto } from './dto.js';
+
+import { riskContextFromEvaluation } from './work-risk-sections.js';
 
 const reportFreshnessThresholdDays = 14;
 const attentionLimit = 5;
@@ -57,12 +56,12 @@ export interface PortfolioServiceContext {
 }
 
 interface ProjectCollections {
-  workItems: WorkItem[];
-  dependencyBlockedWorkItems: WorkItem[];
-  blockingOpenWorkItems: WorkItem[];
+  workItems: WorkItemEvaluation[];
+  dependencyBlockedWorkItems: WorkItemEvaluation[];
+  blockingOpenWorkItems: WorkItemEvaluation[];
   milestones: Milestone[];
   activeCycle: ProjectCycle | null;
-  latestReport: ProjectStatusReport | null;
+  latestReport: ProjectStatusReportSummaryRecord | null;
 }
 
 export class PortfolioService {
@@ -84,35 +83,32 @@ export class PortfolioService {
     const workspaceId = this.context.actor.workspaceId;
     const allProjects = await this.context.repositories.projects.listByWorkspace(workspaceId);
     const activeProjects = allProjects.filter((project) => project.status === 'active');
-    const workRecords = await this.context.repositories.workItems.listByWorkspace(workspaceId, {
-      archivedProjects: 'exclude',
-      sort: 'updated_desc'
-    });
-    const dependencyBlockedRecords = await this.context.repositories.workItems.listByWorkspace(workspaceId, {
-      archivedProjects: 'exclude',
-      dependency: 'dependency_blocked',
-      sort: 'priority_desc'
-    });
-    const blockingOpenRecords = await this.context.repositories.workItems.listByWorkspace(workspaceId, {
-      archivedProjects: 'exclude',
-      dependency: 'blocking_open_work',
-      sort: 'priority_desc'
-    });
-    const members = await this.context.repositories.members.listByWorkspace(workspaceId);
-    const workItemsByProject = groupByProject(workRecords.map((record) => record.workItem));
-    const dependencyBlockedByProject = groupByProject(
-      dependencyBlockedRecords.map((record) => record.workItem)
-    );
-    const blockingOpenByProject = groupByProject(blockingOpenRecords.map((record) => record.workItem));
-    const membersById = new Map(members.map((member) => [member.id, member]));
-    const rows = await mapSequential(activeProjects, async (project) => {
-      const collections = await this.loadProjectCollections(project, {
-        workItemsByProject,
-        dependencyBlockedByProject,
-        blockingOpenByProject
-      });
-      return this.toPortfolioProjectRow(project, collections, membersById, generatedAt);
-    });
+    const projectIds = activeProjects.map(project => project.id);
+    const workRecords = await this.context.repositories.workItems.listEvaluationByWorkspace(workspaceId);
+    const workItems = workRecords.map(record => record.workItem);
+    const evaluationContext = riskContextFromEvaluation(workItems, generatedAt);
+    const workItemsByProject = groupByProject(workItems);
+    const dependencyBlockedByProject = groupByProject(workItems.filter(item => item.dependencyBlocked));
+    const blockingOpenByProject = groupByProject(workItems.filter(item => item.blockingOpenWork));
+    const milestones = await this.context.repositories.milestones.listByProjects(projectIds);
+    const cycles = await this.context.repositories.projectCycles.listActiveByProjects(projectIds);
+    const reports = await this.context.repositories.projectStatusReports.listLatestByProjects(projectIds);
+    const members = await this.context.repositories.members.listByIds([...new Set(reports.map(report => report.authorMemberId))]);
+    const membersById = new Map(members.map(member => [member.id, member]));
+    const milestonesByProject = new Map<string, Milestone[]>();
+    for (const milestone of milestones) {
+      const group = milestonesByProject.get(milestone.projectId) ?? []; group.push(milestone); milestonesByProject.set(milestone.projectId, group);
+    }
+    const cyclesByProject = new Map(cycles.map(cycle => [cycle.projectId, cycle]));
+    const reportsByProject = new Map(reports.map(report => [report.projectId, report]));
+    const rows = activeProjects.map(project => this.toPortfolioProjectRow(project, {
+      workItems: workItemsByProject.get(project.id) ?? [],
+      dependencyBlockedWorkItems: dependencyBlockedByProject.get(project.id) ?? [],
+      blockingOpenWorkItems: blockingOpenByProject.get(project.id) ?? [],
+      milestones: milestonesByProject.get(project.id) ?? [],
+      activeCycle: cyclesByProject.get(project.id) ?? null,
+      latestReport: reportsByProject.get(project.id) ?? null
+    }, membersById, generatedAt, evaluationContext));
     const sortedRows = rows.sort(comparePortfolioRows);
 
     return {
@@ -124,33 +120,12 @@ export class PortfolioService {
     };
   }
 
-  private async loadProjectCollections(
-    project: Project,
-    input: {
-      workItemsByProject: Map<string, WorkItem[]>;
-      dependencyBlockedByProject: Map<string, WorkItem[]>;
-      blockingOpenByProject: Map<string, WorkItem[]>;
-    }
-  ): Promise<ProjectCollections> {
-    const milestones = await this.context.repositories.milestones.listByProject(project.id, { includeArchived: true });
-    const activeCycle = await this.context.repositories.projectCycles.findActiveByProject(project.id);
-    const latestReport = await this.context.repositories.projectStatusReports.findLatestByProject(project.id);
-
-    return {
-      workItems: input.workItemsByProject.get(project.id) ?? [],
-      dependencyBlockedWorkItems: input.dependencyBlockedByProject.get(project.id) ?? [],
-      blockingOpenWorkItems: input.blockingOpenByProject.get(project.id) ?? [],
-      milestones,
-      activeCycle,
-      latestReport
-    };
-  }
-
   private toPortfolioProjectRow(
     project: Project,
     collections: ProjectCollections,
     membersById: Map<string, Member>,
-    generatedAt: Date
+    generatedAt: Date,
+    evaluationContext: ReturnType<typeof riskContextFromEvaluation>
   ): PortfolioProjectRowDto {
     const delivery = new DeliveryHealthService().derive({
       project,
@@ -158,7 +133,8 @@ export class PortfolioService {
       dependencyBlockedWorkItems: collections.dependencyBlockedWorkItems,
       blockingOpenWorkItems: collections.blockingOpenWorkItems,
       milestones: collections.milestones,
-      now: generatedAt
+      now: generatedAt,
+      evaluationContext
     });
     const projectDto = toProjectDto(project);
     const primaryMilestone = selectPrimaryMilestone(delivery.milestoneProgress);
@@ -195,7 +171,7 @@ export class PortfolioService {
             : {
                 id: activeCycle.id,
                 name: activeCycle.name,
-                health: deriveCycleHealth(activeCycle, collections, generatedAt),
+                health: deriveCycleHealth(activeCycle, collections, evaluationContext),
                 openWorkCount: collections.workItems.filter(
                   (workItem) =>
                     workItem.cycleId === activeCycle.id && isOpenWorkItemStatus(workItem.status)
@@ -209,17 +185,19 @@ export class PortfolioService {
   }
 }
 
-function groupByProject(workItems: WorkItem[]): Map<string, WorkItem[]> {
-  const grouped = new Map<string, WorkItem[]>();
+function groupByProject(workItems: WorkItemEvaluation[]): Map<string, WorkItemEvaluation[]> {
+  const grouped = new Map<string, WorkItemEvaluation[]>();
 
   for (const workItem of workItems) {
-    grouped.set(workItem.projectId, [...(grouped.get(workItem.projectId) ?? []), workItem]);
+    const group = grouped.get(workItem.projectId) ?? [];
+    group.push(workItem);
+    grouped.set(workItem.projectId, group);
   }
 
   return grouped;
 }
 
-function latestUpdatedAt(project: Project, workItems: WorkItem[]): Date {
+function latestUpdatedAt(project: Project, workItems: WorkItemEvaluation[]): Date {
   return workItems.reduce(
     (latest, workItem) => (workItem.updatedAt.getTime() > latest.getTime() ? workItem.updatedAt : latest),
     project.updatedAt
@@ -227,7 +205,7 @@ function latestUpdatedAt(project: Project, workItems: WorkItem[]): Date {
 }
 
 function createReportSummary(
-  report: ProjectStatusReport | null,
+  report: ProjectStatusReportSummaryRecord | null,
   membersById: Map<string, Member>,
   generatedAt: Date
 ): PortfolioProjectRowDto['report'] {
@@ -242,7 +220,7 @@ function createReportSummary(
 
   const author = membersById.get(report.authorMemberId);
 
-  if (author === undefined) {
+  if (author === undefined || author.workspaceId !== report.workspaceId) {
     throw new NotFoundError('Status report author not found.');
   }
 
@@ -250,6 +228,7 @@ function createReportSummary(
     ...report,
     snapshot: parseStoredProjectStatusReportSnapshot(report.snapshot)
   };
+  assertProjectStatusReportSnapshotMatchesRecord(parsedReport.snapshot, report);
   const daysSincePublished = daysBetweenUtcDates(report.publishedAt, generatedAt);
 
   return {
@@ -299,7 +278,7 @@ function selectPrimaryMilestone(
 function deriveCycleHealth(
   cycle: ProjectCycle,
   collections: ProjectCollections,
-  generatedAt: Date
+  context: ReturnType<typeof riskContextFromEvaluation>
 ): DeliveryHealthState {
   const cycleWork = collections.workItems.filter((workItem) => workItem.cycleId === cycle.id);
   const openCycleWork = cycleWork.filter((workItem) => isOpenWorkItemStatus(workItem.status));
@@ -308,7 +287,7 @@ function deriveCycleHealth(
     return cycle.status === 'completed' ? 'complete' : 'healthy';
   }
 
-  const dependencyBlockedIds = new Set(collections.dependencyBlockedWorkItems.map((workItem) => workItem.id));
+  const dependencyBlockedIds = context.dependencyBlockedIds;
 
   if (
     openCycleWork.some(
@@ -318,7 +297,7 @@ function deriveCycleHealth(
     return 'blocked';
   }
 
-  const staleCutoff = addDays(generatedAt, -staleInProgressDays);
+  const staleCutoff = context.staleCutoff;
   const completedEstimatePoints = cycleWork
     .filter((workItem) => workItem.status === 'done')
     .reduce((total, workItem) => total + (workItem.estimatePoints ?? 0), 0);

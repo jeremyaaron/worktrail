@@ -29,6 +29,7 @@ import type {
   Project,
   ProjectCycle,
   ProjectStatusReport,
+  ProjectStatusReportSummaryRecord,
   SavedWorkView,
   WorkItem,
   WorkItemSummary,
@@ -93,7 +94,7 @@ export function toProjectDto(project: Project): ProjectDto {
 }
 
 export function toProjectStatusReportSummaryDto(
-  report: ProjectStatusReport,
+  report: ProjectStatusReportSummaryRecord,
   author: Member
 ): ProjectStatusReportSummaryDto {
   return {

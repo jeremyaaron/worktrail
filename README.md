@@ -556,6 +556,11 @@ signals, not unique-ticket totals. New report/closeout snapshots use v2 with pre
 links; v1 evidence remains readable, publishable and replayable.
 See the [query, risk and snapshot policy](docs/v0.3.0/query-policy.md).
 
+Aggregate dashboards evaluate narrow work facts and enrich selected previews, not every matching work
+item. Planning risk previews show five rows with exact totals and full-list continuation; Portfolio
+metadata is batched across projects. Complete boards and historical closeout evidence remain complete.
+See the [aggregate read measurements and limits](docs/v0.3.0/aggregate-evidence.md).
+
 ## Verification
 
 The verification runner owns disposable resources for the full workflow and focused checks:

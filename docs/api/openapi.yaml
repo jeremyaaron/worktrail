@@ -3886,30 +3886,44 @@ components:
           $ref: "#/components/schemas/PlanningReview"
         blockedWork:
           type: array
+          maxItems: 5
+          description: Bounded preview. Exact category totals remain in deliveryHealth; use the matching Work query for all rows.
           items:
             $ref: "#/components/schemas/PlanningRiskItem"
         overdueWork:
           type: array
+          maxItems: 5
+          description: Bounded preview. Exact category totals remain in deliveryHealth; use the matching Work query for all rows.
           items:
             $ref: "#/components/schemas/PlanningRiskItem"
         dueSoonWork:
           type: array
+          maxItems: 5
+          description: Bounded preview. Exact category totals remain in deliveryHealth; use the matching Work query for all rows.
           items:
             $ref: "#/components/schemas/PlanningRiskItem"
         unassignedActiveWork:
           type: array
+          maxItems: 5
+          description: Bounded preview. Exact category totals remain in deliveryHealth; use the matching Work query for all rows.
           items:
             $ref: "#/components/schemas/PlanningRiskItem"
         staleInProgressWork:
           type: array
+          maxItems: 5
+          description: Bounded preview. Exact category totals remain in deliveryHealth; use the matching Work query for all rows.
           items:
             $ref: "#/components/schemas/PlanningRiskItem"
         dependencyBlockedWork:
           type: array
+          maxItems: 5
+          description: Bounded preview. Exact category totals remain in deliveryHealth; use the matching Work query for all rows.
           items:
             $ref: "#/components/schemas/PlanningRiskItem"
         blockingOpenWork:
           type: array
+          maxItems: 5
+          description: Bounded preview. Exact category totals remain in deliveryHealth; use the matching Work query for all rows.
           items:
             $ref: "#/components/schemas/PlanningRiskItem"
     ProjectPlanningCycleSummary:

@@ -70,12 +70,13 @@ const planningViews: { value: PlanningView; label: string }[] = [
   { value: 'cycles', label: 'Cycles' },
   { value: 'milestones', label: 'Milestones' }
 ];
-const visibleRiskItemLimit = 4;
+const visibleRiskItemLimit = 5;
 
 interface PlanningRiskSection {
   title: string;
   description: string;
   items: PlanningRiskItemDto[];
+  count: number;
   emptyTitle: string;
   emptyMessage: string;
   queryParams?: Record<string, string>;
@@ -380,7 +381,7 @@ interface PlanningReviewSection {
               <p>Review progress, due dates, dependencies, ownership gaps, and stale active work.</p>
             </div>
             @if (planningSummary(); as summary) {
-              <span>{{ totalRiskCount(summary) }} risks</span>
+              <span>{{ totalRiskCount(summary) }} risk signals</span>
             }
           </div>
 
@@ -536,42 +537,42 @@ interface PlanningReviewSection {
                 [queryParams]="{ status: 'blocked' }"
               >
                 <span>Blocked</span>
-                <strong>{{ summary.blockedWork.length }}</strong>
+                <strong>{{ summary.deliveryHealth.blockedWorkCount }}</strong>
               </a>
               <a
                 [routerLink]="['/projects', projectId(), 'work-items']"
                 [queryParams]="{ dueDateState: 'overdue', sort: 'due_date_asc' }"
               >
                 <span>Overdue</span>
-                <strong>{{ summary.overdueWork.length }}</strong>
+                <strong>{{ summary.deliveryHealth.overdueWorkCount }}</strong>
               </a>
               <a
                 [routerLink]="['/projects', projectId(), 'work-items']"
                 [queryParams]="{ dueDateState: 'due_soon', sort: 'due_date_asc' }"
               >
                 <span>Due soon</span>
-                <strong>{{ summary.dueSoonWork.length }}</strong>
+                <strong>{{ summary.deliveryHealth.dueSoonWorkCount }}</strong>
               </a>
               <a
                 [routerLink]="['/projects', projectId(), 'work-items']"
                 [queryParams]="{ dependency: 'dependency_blocked', sort: 'priority_desc' }"
               >
                 <span>Dep blocked</span>
-                <strong>{{ summary.dependencyBlockedWork.length }}</strong>
+                <strong>{{ summary.deliveryHealth.dependencyBlockedWorkCount }}</strong>
               </a>
               <a
                 [routerLink]="['/projects', projectId(), 'work-items']"
                 [queryParams]="{ dependency: 'blocking_open_work', sort: 'priority_desc' }"
               >
                 <span>Blocking</span>
-                <strong>{{ summary.blockingOpenWork.length }}</strong>
+                <strong>{{ summary.deliveryHealth.blockingOpenWorkCount }}</strong>
               </a>
               <a
                 [routerLink]="['/projects', projectId(), 'work-items']"
-                [queryParams]="{ status: 'in_progress', sort: 'updated_asc' }"
+                [queryParams]="{ workRisk: 'stale_in_progress', sort: 'updated_asc' }"
               >
                 <span>Stale</span>
-                <strong>{{ summary.staleInProgressWork.length }}</strong>
+                <strong>{{ summary.deliveryHealth.staleInProgressWorkCount }}</strong>
               </a>
             </section>
 
@@ -1444,6 +1445,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
         title: 'Blocked work',
         description: 'Items that need intervention before delivery can continue.',
         items: summary.blockedWork,
+        count: summary.deliveryHealth.blockedWorkCount,
         emptyTitle: 'No blocked work',
         emptyMessage: 'No work items are currently blocked.',
         queryParams: { status: 'blocked' }
@@ -1452,6 +1454,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
         title: 'Overdue work',
         description: 'Open items with due dates before today.',
         items: summary.overdueWork,
+        count: summary.deliveryHealth.overdueWorkCount,
         emptyTitle: 'No overdue work',
         emptyMessage: 'Open due dates are not past their target date.',
         queryParams: { dueDateState: 'overdue', sort: 'due_date_asc' }
@@ -1460,6 +1463,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
         title: 'Due soon',
         description: 'Open work due within the planning window.',
         items: summary.dueSoonWork,
+        count: summary.deliveryHealth.dueSoonWorkCount,
         emptyTitle: 'Nothing due soon',
         emptyMessage: 'No open work is due within the next week.',
         queryParams: { dueDateState: 'due_soon', sort: 'due_date_asc' }
@@ -1468,6 +1472,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
         title: 'Dependency blocked work',
         description: 'Open items blocked by upstream work that is not done.',
         items: summary.dependencyBlockedWork,
+        count: summary.deliveryHealth.dependencyBlockedWorkCount,
         emptyTitle: 'No dependency-blocked work',
         emptyMessage: 'No open work is waiting on upstream dependencies.',
         queryParams: { dependency: 'dependency_blocked', sort: 'priority_desc' }
@@ -1476,6 +1481,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
         title: 'Blocking open work',
         description: 'Open items currently blocking downstream work.',
         items: summary.blockingOpenWork,
+        count: summary.deliveryHealth.blockingOpenWorkCount,
         emptyTitle: 'No work blocking dependencies',
         emptyMessage: 'No open work is blocking other open items.',
         queryParams: { dependency: 'blocking_open_work', sort: 'priority_desc' }
@@ -1484,16 +1490,19 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
         title: 'Unassigned active work',
         description: 'Ready or in-progress items without an owner.',
         items: summary.unassignedActiveWork,
+        count: summary.deliveryHealth.unassignedActiveWorkCount,
         emptyTitle: 'No unassigned active work',
-        emptyMessage: 'Ready and in-progress work all has an assignee.'
+        emptyMessage: 'Ready and in-progress work all has an assignee.',
+        queryParams: { workRisk: 'unassigned_active', sort: 'priority_desc' }
       },
       {
         title: 'Stale in-progress work',
         description: 'In-progress items that have not changed recently.',
         items: summary.staleInProgressWork,
+        count: summary.deliveryHealth.staleInProgressWorkCount,
         emptyTitle: 'No stale in-progress work',
         emptyMessage: 'In-progress work has recent activity.',
-        queryParams: { status: 'in_progress', sort: 'updated_asc' }
+        queryParams: { workRisk: 'stale_in_progress', sort: 'updated_asc' }
       }
     ];
 
@@ -1917,13 +1926,13 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
 
   totalRiskCount(summary: ProjectPlanningSummaryDto): number {
     return (
-      summary.blockedWork.length +
-      summary.overdueWork.length +
-      summary.dueSoonWork.length +
-      summary.dependencyBlockedWork.length +
-      summary.blockingOpenWork.length +
-      summary.unassignedActiveWork.length +
-      summary.staleInProgressWork.length
+      summary.deliveryHealth.blockedWorkCount +
+      summary.deliveryHealth.overdueWorkCount +
+      summary.deliveryHealth.dueSoonWorkCount +
+      summary.deliveryHealth.dependencyBlockedWorkCount +
+      summary.deliveryHealth.blockingOpenWorkCount +
+      summary.deliveryHealth.unassignedActiveWorkCount +
+      summary.deliveryHealth.staleInProgressWorkCount
     );
   }
 
@@ -1956,7 +1965,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
   }
 
   hiddenRiskItemCount(section: PlanningRiskSection): number {
-    return Math.max(section.items.length - visibleRiskItemLimit, 0);
+    return Math.max(section.count - Math.min(section.items.length, visibleRiskItemLimit), 0);
   }
 
   reasonLabel(reason: DeliveryHealthReasonDto): string {

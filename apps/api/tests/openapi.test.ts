@@ -7,6 +7,14 @@ import { csvImportPaths, jsonBodyLimits } from '../src/adapters/express/body-par
 const openApiPath = fileURLToPath(new URL('../../../docs/api/openapi.yaml', import.meta.url));
 
 describe('OpenAPI reference', () => {
+  it('documents bounded Planning risks separately from exact health counts and complete history', async () => {
+    const openApi = await readFile(openApiPath, 'utf8');
+    const planning = openApi.split('    ProjectPlanningSummary:\n')[1]!.split('    ProjectPlanningCycleSummary:\n')[0]!;
+    expect(planning.match(/maxItems: 5/g)).toHaveLength(7);
+    expect(planning).toContain('Exact category totals remain in deliveryHealth');
+    const closeout = openApi.split('    ProjectCycleCloseoutSnapshotV2:\n')[1]!.split('    Member:\n')[0]!;
+    expect(closeout).not.toContain('maxItems: 5');
+  });
   it('documents estimate parity, live count units and independently frozen evidence versions', async () => {
     const openApi = await readFile(openApiPath, 'utf8');
     expect(openApi.match(/#\/components\/parameters\/WorkItemEstimateStateQuery/g)).toHaveLength(4);

@@ -21,7 +21,7 @@ import {
   staleInProgressDays,
   toDateString
 } from '../domain/work-risk-policy.js';
-import type { Milestone, Project, WorkItem } from '../repositories/types.js';
+import type { Milestone, Project, WorkItemEvaluationFacts } from '../repositories/types.js';
 import { toMilestoneDto } from './dto.js';
 
 const upcomingMilestoneWindowDays = 14;
@@ -41,11 +41,12 @@ const healthRank: Record<DeliveryHealthState, number> = {
 
 export interface DeliveryHealthInput {
   project: Project;
-  workItems: WorkItem[];
-  dependencyBlockedWorkItems: WorkItem[];
-  blockingOpenWorkItems: WorkItem[];
+  workItems: WorkItemEvaluationFacts[];
+  dependencyBlockedWorkItems: WorkItemEvaluationFacts[];
+  blockingOpenWorkItems: WorkItemEvaluationFacts[];
   milestones: Milestone[];
   now: Date;
+  evaluationContext?: Pick<EvaluationContext, 'today' | 'dueSoonEnd' | 'staleCutoff' | 'dependencyBlockedIds' | 'blockingOpenWorkIds'>;
 }
 
 export interface DeliveryHealthResult {
@@ -346,6 +347,10 @@ export class DeliveryHealthService {
 }
 
 function createEvaluationContext(input: DeliveryHealthInput): EvaluationContext {
+  if (input.evaluationContext !== undefined) return {
+    ...input.evaluationContext,
+    upcomingMilestoneEnd: toDateString(addDays(input.now, upcomingMilestoneWindowDays))
+  };
   const today = toDateString(input.now);
 
   return {
@@ -610,7 +615,7 @@ function getProjectReasons(input: {
 
 function getProjectHealth(input: {
   activeMilestones: MilestoneProgressDto[];
-  unmilestonedRiskItems: WorkItem[];
+  unmilestonedRiskItems: WorkItemEvaluationFacts[];
   dependencyBlockedIds: Set<string>;
   today: string;
   dueSoonEnd: string;
@@ -688,7 +693,7 @@ function createReason(
 }
 
 function toWorkItemReviewItem(
-  workItem: WorkItem,
+  workItem: WorkItemEvaluationFacts,
   severity: DeliveryHealthSeverity
 ): PlanningReviewItemDto {
   return {
@@ -732,7 +737,7 @@ function toMilestoneReviewItem(
 }
 
 function getWorkItemAttentionSeverity(
-  workItem: WorkItem,
+  workItem: WorkItemEvaluationFacts,
   context: EvaluationContext
 ): DeliveryHealthSeverity {
   if (workItem.status === 'blocked' || context.dependencyBlockedIds.has(workItem.id)) {
@@ -742,19 +747,19 @@ function getWorkItemAttentionSeverity(
   return 'warning';
 }
 
-function isOpenWorkItem(workItem: WorkItem): boolean {
+function isOpenWorkItem(workItem: WorkItemEvaluationFacts): boolean {
   return isOpenWorkItemStatus(workItem.status);
 }
 
-function isOverdue(workItem: WorkItem, today: string): boolean {
+function isOverdue(workItem: WorkItemEvaluationFacts, today: string): boolean {
   return isOverdueDueDate(workItem.dueDate, today);
 }
 
-function isDueSoon(workItem: WorkItem, today: string, dueSoonEnd: string): boolean {
+function isDueSoon(workItem: WorkItemEvaluationFacts, today: string, dueSoonEnd: string): boolean {
   return isDueSoonDueDate(workItem.dueDate, today, dueSoonEnd);
 }
 
-function isStaleInProgress(workItem: WorkItem, staleCutoff: Date): boolean {
+function isStaleInProgress(workItem: WorkItemEvaluationFacts, staleCutoff: Date): boolean {
   return isStaleInProgressStatus(workItem.status, workItem.updatedAt, staleCutoff);
 }
 

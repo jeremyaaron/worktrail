@@ -1,9 +1,9 @@
 # Worktrail Developer Ownership And Invariants
 
-This is the current implementation guide, not a release archive. As of v0.3.0 Phase 8, persistence
+This is the current implementation guide, not a release archive. As of v0.3.0 Phase 10, persistence
 ownership, batched queries, lifecycle coordination, authoritative work/relationship commands, and
-bounded HTTP parsing are implemented. Risk/snapshot policy, aggregate narrowing, and frontend consolidation
-remain later phases in the [implementation plan](v0.3.0/implementation-plan.md).
+bounded HTTP parsing, versioned risk/query policy and aggregate narrowing are implemented. Reactive
+frontend consolidation remains later work in the [implementation plan](v0.3.0/implementation-plan.md).
 
 ## Composition And Persistence
 
@@ -132,9 +132,9 @@ foreign optional member/parent/label data is not exposed. Workspace row and join
 both use the authorized workspace.
 
 `WorkItemSummary` excludes description source/format. Interactive project/workspace page, board,
-export, and parent-reference projections do not retrieve those unused bytes. Detail and existing
-internal full-domain evaluation reads retain their necessary types; this is not the Phase 10 dashboard
-projection/narrowing work. Search predicates can still search authored source without selecting it.
+export, and parent-reference projections do not retrieve those unused bytes. Detail and command reads
+retain their necessary full types; aggregate evaluation uses its separate narrow projection below.
+Search predicates can still search authored source without selecting it.
 
 The same hydrator serves CSV exports, child lists, and bulk response summaries. Export selection
 applies the canonical predicates/order, not page windows; the 19-column summary shape and 10,000-row
@@ -154,6 +154,26 @@ Owned API runs retain `hydration-evidence.json` next to their sanitized summary 
 `test-results/verification/<runId>/`. It contains only fixture mode, scope/transport, statement count,
 rows, payload bytes, and diagnostic elapsed time, not SQL parameters or application data. See
 [the Phase 5 evidence](v0.3.0/hydration-evidence.md) for the measured baseline and accepted results.
+
+## Aggregate Reads
+
+`WorkItemEvaluationFacts` contains only analytics/preview facts, not description source/format, type or
+board positions. Repository evaluation rows add dependency membership using the canonical SQL predicate.
+My Work selects each eight-row preview before hydrating one distinct summary union. Planning and scoped
+reviews use pure risk selection first, then load only selected member/milestone/parent references.
+All evaluation/enrichment and complete count/breakdown derivation stay on the enclosing repeatable-read
+scope with one captured clock. Planning cycle summaries reuse loaded facts rather than full reviews.
+
+Planning risk arrays are five-row previews; exact totals come from deliveryHealth. Do not use array
+lengths as category totals or risk signals. Portfolio batches milestone, active-cycle and latest-report
+metadata across all project IDs; selected reports omit narratives and use stable publishedAt/createdAt/ID
+ordering before snapshot validation. Full board/history/closeout arrays are not preview-limited.
+
+`tests/support/aggregate-fixture.ts` and the aggregate tests own 1/15-project evidence, complete HTTP SQL
+counts, evaluated/enriched rows, response bytes, diagnostic timings and external-commit consistency.
+See [aggregate evidence and remaining costs](v0.3.0/aggregate-evidence.md). Focused Angular verification
+can use the CLI's `--include=src/app/features/projects/project-planning-page.component.spec.ts` inside
+the existing owned manifest/private-workspace/Karma launcher; it is not a new public runner flag.
 
 ## Lock Ownership And Participation
 

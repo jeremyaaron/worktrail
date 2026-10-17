@@ -16,7 +16,7 @@ import {
   isOverdueDueDate,
   isStaleInProgressStatus
 } from '../domain/work-risk-policy.js';
-import type { ProjectCycle, WorkItem } from '../repositories/types.js';
+import type { ProjectCycle, WorkItemEvaluationFacts } from '../repositories/types.js';
 import type { WorkRiskEvaluationContext } from './work-risk-sections.js';
 
 export interface CycleEvaluation {
@@ -28,7 +28,7 @@ export interface CycleEvaluation {
 
 export function createCycleEvaluation(input: {
   cycle: ProjectCycle;
-  scopedWorkItems: WorkItem[];
+  scopedWorkItems: WorkItemEvaluationFacts[];
   context: WorkRiskEvaluationContext;
 }): CycleEvaluation {
   const progress = createCycleProgress(input.cycle, input.scopedWorkItems, input.context);
@@ -43,7 +43,7 @@ export function createCycleEvaluation(input: {
 
 export function createCycleProgress(
   cycle: ProjectCycle,
-  scopedWorkItems: WorkItem[],
+  scopedWorkItems: WorkItemEvaluationFacts[],
   context: WorkRiskEvaluationContext
 ): CycleReviewProgressDto {
   scopedWorkItems = distinctWorkItems(scopedWorkItems);
@@ -68,7 +68,7 @@ export function createCycleProgress(
 export function createCycleHealth(
   cycle: ProjectCycle,
   progress: CycleReviewProgressDto,
-  scopedWorkItems: WorkItem[],
+  scopedWorkItems: WorkItemEvaluationFacts[],
   context: WorkRiskEvaluationContext
 ): CycleReviewHealthDto {
   if (cycle.archivedAt !== null || cycle.status === 'canceled') {
@@ -118,7 +118,7 @@ export function createCycleHealth(
 }
 
 export function createCycleScopeBreakdown(
-  scopedWorkItems: WorkItem[],
+  scopedWorkItems: WorkItemEvaluationFacts[],
   context: WorkRiskEvaluationContext
 ): CycleReviewScopeBreakdownDto {
   const statusCounts = Object.fromEntries(
@@ -190,7 +190,7 @@ export function isCycleOverTarget(progress: CycleReviewProgressDto): boolean {
 function createActiveCycleReasons(
   cycle: ProjectCycle,
   progress: CycleReviewProgressDto,
-  scopedWorkItems: WorkItem[],
+  scopedWorkItems: WorkItemEvaluationFacts[],
   context: WorkRiskEvaluationContext
 ): DeliveryHealthReasonDto[] {
   const openItems = scopedWorkItems.filter(isOpenWorkItem);
@@ -361,11 +361,11 @@ function createReason(
   };
 }
 
-function isOpenWorkItem(workItem: WorkItem): boolean {
+function isOpenWorkItem(workItem: WorkItemEvaluationFacts): boolean {
   return isOpenWorkItemStatus(workItem.status);
 }
 
-function sumEstimatePoints(workItems: WorkItem[]): number {
+function sumEstimatePoints(workItems: WorkItemEvaluationFacts[]): number {
   return workItems.reduce((total, workItem) => total + (workItem.estimatePoints ?? 0), 0);
 }
 

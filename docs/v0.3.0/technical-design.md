@@ -773,6 +773,11 @@ and the limits of this phase; dashboard evaluation narrowing remains Phase 10.
 
 ### Aggregate Reads
 
+Phase 10 implementation and complete endpoint measurements are recorded in
+[aggregate-evidence.md](aggregate-evidence.md), including current scan/enrichment bounds and diagnostic
+timing limits. Planning's former full risk arrays are now five-row previews; existing exact health
+counts drive display and continuation rather than array lengths.
+
 Introduce a narrow evaluation projection containing IDs, project/parent/milestone/cycle references,
 status, priority, assignment/reporting, due date, estimate, timestamps, and dependency membership facts.
 Do not select authored source merely because the existing `WorkItem` row type includes it.

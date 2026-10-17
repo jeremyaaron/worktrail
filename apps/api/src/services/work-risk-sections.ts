@@ -19,7 +19,7 @@ import {
   isOverdueDueDate,
   isStaleInProgressStatus,
 } from '../domain/work-risk-policy.js';
-import type { Member, Milestone, WorkItem } from '../repositories/types.js';
+import type { Member, Milestone, WorkItemEvaluation, WorkItemEvaluationFacts } from '../repositories/types.js';
 import type { Repositories } from '../repositories/index.js';
 import { toMemberDto, toMilestoneDto } from './dto.js';
 
@@ -43,10 +43,10 @@ export interface WorkRiskEvaluationContext {
 interface WorkRiskSectionDefinition<RiskType extends string = MilestoneReviewRiskType> {
   type: RiskType;
   title: string;
-  description: (scope: 'milestone' | 'cycle') => string;
+  description: (scope: 'project' | 'milestone' | 'cycle') => string;
   query: WorkItemQuery;
-  filter: (workItem: WorkItem, context: WorkRiskEvaluationContext) => boolean;
-  sort: (left: WorkItem, right: WorkItem) => number;
+  filter: (workItem: WorkItemEvaluationFacts, context: WorkRiskEvaluationContext) => boolean;
+  sort: (left: WorkItemEvaluationFacts, right: WorkItemEvaluationFacts) => number;
 }
 
 const workRiskSectionDefinitions: WorkRiskSectionDefinition<MilestoneReviewRiskType>[] = [
@@ -127,10 +127,16 @@ const cycleRiskSectionDefinitions: WorkRiskSectionDefinition<CycleReviewRiskType
   }
 ];
 
+export function riskContextFromEvaluation(workItems: WorkItemEvaluation[], now: Date): WorkRiskEvaluationContext {
+  return createWorkRiskEvaluationContext({ now,
+    dependencyBlockedWorkItems: workItems.filter(item => item.dependencyBlocked),
+    blockingOpenWorkItems: workItems.filter(item => item.blockingOpenWork) });
+}
+
 export function createWorkRiskEvaluationContext(input: {
   now: Date;
-  dependencyBlockedWorkItems: WorkItem[];
-  blockingOpenWorkItems: WorkItem[];
+  dependencyBlockedWorkItems: WorkItemEvaluationFacts[];
+  blockingOpenWorkItems: WorkItemEvaluationFacts[];
 }): WorkRiskEvaluationContext {
   return {
     ...createRiskTimeWindow(input.now),
@@ -139,43 +145,37 @@ export function createWorkRiskEvaluationContext(input: {
   };
 }
 
-export function createMilestoneReviewRiskSections(input: {
-  milestoneId: string;
-  workItems: WorkItem[];
-  memberById: Map<string, Member>;
-  milestoneById: Map<string, Milestone>;
-  parentByChildId: Map<string, WorkItemParentDto>;
+export function selectMilestoneReviewRiskSections(input: {
+  milestoneId?: string;
+  workItems: WorkItemEvaluationFacts[];
   context: WorkRiskEvaluationContext;
-}): MilestoneReviewRiskSectionDto[] {
+}): SelectedRiskSection<MilestoneReviewRiskSectionDto>[] {
+  const boardOrder = new Map(input.workItems.map((item, index) => [item.id, index]));
   return workRiskSectionDefinitions.map((definition) => {
     const matchingItems = selectRiskSectionWorkItems(input.workItems, definition, input.context);
+    // Planning historically uses board order for these two previews; scoped reviews use risk priority.
+    if (input.milestoneId === undefined && ['blocked', 'unassigned_active'].includes(definition.type)) {
+      matchingItems.sort((left, right) => boardOrder.get(left.id)! - boardOrder.get(right.id)!);
+    }
 
     return {
       type: definition.type,
       title: definition.title,
-      description: definition.description('milestone'),
+      description: definition.description(input.milestoneId === undefined ? 'project' : 'milestone'),
       count: matchingItems.length,
       countUnit: 'work_items',
-      query: { milestoneId: input.milestoneId, ...definition.query },
-      items: toPlanningRiskItems(
-        matchingItems.slice(0, riskSectionPreviewLimit),
-        input.memberById,
-        input.milestoneById,
-        input.parentByChildId
-      )
+      query: { ...(input.milestoneId === undefined ? {} : { milestoneId: input.milestoneId }), ...definition.query },
+      items: matchingItems.slice(0, riskSectionPreviewLimit)
     };
   });
 }
 
-export function createCycleReviewRiskSections(input: {
+export function selectCycleReviewRiskSections(input: {
   cycleId: string;
-  workItems: WorkItem[];
-  memberById: Map<string, Member>;
-  milestoneById: Map<string, Milestone>;
-  parentByChildId: Map<string, WorkItemParentDto>;
+  workItems: WorkItemEvaluationFacts[];
   context: WorkRiskEvaluationContext;
   isOverTarget: boolean;
-}): CycleReviewRiskSectionDto[] {
+}): SelectedRiskSection<CycleReviewRiskSectionDto>[] {
   const sections = cycleRiskSectionDefinitions.map((definition) => {
     const matchingItems = selectRiskSectionWorkItems(input.workItems, definition, input.context);
 
@@ -186,12 +186,7 @@ export function createCycleReviewRiskSections(input: {
       count: matchingItems.length,
       countUnit: 'work_items' as const,
       query: { cycleId: input.cycleId, ...definition.query },
-      items: toPlanningRiskItems(
-        matchingItems.slice(0, riskSectionPreviewLimit),
-        input.memberById,
-        input.milestoneById,
-        input.parentByChildId
-      )
+      items: matchingItems.slice(0, riskSectionPreviewLimit)
     };
   });
 
@@ -211,23 +206,15 @@ export function createCycleReviewRiskSections(input: {
       count: input.isOverTarget ? 1 : 0,
       countUnit: 'scope_conditions',
       query: { cycleId: input.cycleId, sort: 'priority_desc' },
-      items: toPlanningRiskItems(
-        overTargetItems,
-        input.memberById,
-        input.milestoneById,
-        input.parentByChildId
-      )
+      items: overTargetItems
     }
   ];
 }
 
-export function createProjectStatusReportRiskSnapshots(input: {
-  workItems: WorkItem[];
-  memberById: Map<string, Member>;
-  milestoneById: Map<string, Milestone>;
-  parentByChildId: Map<string, WorkItemParentDto>;
+export function selectProjectStatusReportRiskSnapshots(input: {
+  workItems: WorkItemEvaluationFacts[];
   context: WorkRiskEvaluationContext;
-}): ProjectStatusReportRiskSnapshotV2Dto[] {
+}): SelectedRiskSection<ProjectStatusReportRiskSnapshotV2Dto>[] {
   return workRiskSectionDefinitions.map((definition) => {
     const matchingItems = selectRiskSectionWorkItems(input.workItems, definition, input.context);
 
@@ -237,27 +224,56 @@ export function createProjectStatusReportRiskSnapshots(input: {
       count: matchingItems.length,
       countUnit: 'work_items',
       query: { ...definition.query },
-      items: toPlanningRiskItems(
-        matchingItems.slice(0, riskSectionPreviewLimit),
-        input.memberById,
-        input.milestoneById,
-        input.parentByChildId
-      )
+      items: matchingItems.slice(0, riskSectionPreviewLimit)
     };
   });
 }
 
+
+export type SelectedRiskSection<T> = Omit<T, "items"> & { items: WorkItemEvaluationFacts[] };
+export interface RiskReferences {
+  memberById: Map<string, Member>;
+  milestoneById: Map<string, Milestone>;
+  parentByChildId: Map<string, WorkItemParentDto>;
+}
+
+export function enrichRiskItems(items: WorkItemEvaluationFacts[], references: RiskReferences): PlanningRiskItemDto[] {
+  return toPlanningRiskItems(items, references.memberById, references.milestoneById, references.parentByChildId);
+}
+
+export async function loadRiskReferences(items: WorkItemEvaluationFacts[], repositories: Repositories): Promise<RiskReferences> {
+  const selected = distinctWorkItems(items);
+  const members = await repositories.members.listByIds([...new Set(selected.flatMap(item => item.assigneeId === null ? [] : [item.assigneeId]))]);
+  const milestones = await repositories.milestones.listByIds([...new Set(selected.flatMap(item => item.milestoneId === null ? [] : [item.milestoneId]))]);
+  return { memberById: new Map(members.map(member => [member.id, member])), milestoneById: new Map(milestones.map(milestone => [milestone.id, milestone])),
+    parentByChildId: await loadPlanningRiskParents(selected, repositories) };
+}
+
+export function createMilestoneReviewRiskSections(input: Parameters<typeof selectMilestoneReviewRiskSections>[0] & RiskReferences): MilestoneReviewRiskSectionDto[] {
+  return selectMilestoneReviewRiskSections(input).map(section => ({ ...section, items: toPlanningRiskItems(section.items, input.memberById, input.milestoneById, input.parentByChildId) }));
+}
+
+export function createCycleReviewRiskSections(input: Parameters<typeof selectCycleReviewRiskSections>[0] & RiskReferences): CycleReviewRiskSectionDto[] {
+  return selectCycleReviewRiskSections(input).map(section => ({ ...section, items: toPlanningRiskItems(section.items, input.memberById, input.milestoneById, input.parentByChildId) }));
+}
+
+export function createProjectStatusReportRiskSnapshots(input: Parameters<typeof selectProjectStatusReportRiskSnapshots>[0] & RiskReferences): ProjectStatusReportRiskSnapshotV2Dto[] {
+  return selectProjectStatusReportRiskSnapshots(input).map(section => ({ ...section, items: toPlanningRiskItems(section.items, input.memberById, input.milestoneById, input.parentByChildId) }));
+}
+
 export function toPlanningRiskItems(
-  workItems: WorkItem[],
+  workItems: WorkItemEvaluationFacts[],
   memberById: Map<string, Member>,
   milestoneById: Map<string, Milestone>,
   parentByChildId: Map<string, WorkItemParentDto>
 ): PlanningRiskItemDto[] {
   return workItems.map((workItem) => {
-    const assignee =
+    const assignedMember =
       workItem.assigneeId === null ? null : memberById.get(workItem.assigneeId) ?? null;
-    const milestone =
+    const assignee = assignedMember?.workspaceId === workItem.workspaceId ? assignedMember : null;
+    const assignedMilestone =
       workItem.milestoneId === null ? null : milestoneById.get(workItem.milestoneId) ?? null;
+    const milestone = assignedMilestone?.workspaceId === workItem.workspaceId && assignedMilestone.projectId === workItem.projectId ? assignedMilestone : null;
 
     return {
       id: workItem.id,
@@ -275,7 +291,7 @@ export function toPlanningRiskItems(
 }
 
 export async function loadPlanningRiskParents(
-  workItems: WorkItem[],
+  workItems: WorkItemEvaluationFacts[],
   repositories: Repositories
 ): Promise<Map<string, WorkItemParentDto>> {
   const workItemIds = [...new Set(workItems.map((workItem) => workItem.id))];
@@ -285,9 +301,13 @@ export async function loadPlanningRiskParents(
   }
 
   const parentRecords = await repositories.workItems.listParentsForChildren(workItemIds);
+  const childById = new Map(workItems.map(item => [item.id, item]));
 
   return new Map(
-    parentRecords.map(({ childWorkItemId, parent }) => [
+    parentRecords.filter(({ childWorkItemId, parent }) => {
+      const child = childById.get(childWorkItemId);
+      return child?.workspaceId === parent.workspaceId && child.projectId === parent.projectId;
+    }).map(({ childWorkItemId, parent }) => [
       childWorkItemId,
       {
         id: parent.id,
@@ -301,7 +321,7 @@ export async function loadPlanningRiskParents(
   );
 }
 
-export function compareByDueDateThenPriority(left: WorkItem, right: WorkItem): number {
+export function compareByDueDateThenPriority(left: WorkItemEvaluationFacts, right: WorkItemEvaluationFacts): number {
   const dueDateCompare = (left.dueDate ?? '').localeCompare(right.dueDate ?? '');
 
   if (dueDateCompare !== 0) {
@@ -311,23 +331,23 @@ export function compareByDueDateThenPriority(left: WorkItem, right: WorkItem): n
   return priorityRank[right.priority] - priorityRank[left.priority];
 }
 
-export function compareByUpdatedAsc(left: WorkItem, right: WorkItem): number {
+export function compareByUpdatedAsc(left: WorkItemEvaluationFacts, right: WorkItemEvaluationFacts): number {
   return left.updatedAt.getTime() - right.updatedAt.getTime();
 }
 
 function selectRiskSectionWorkItems(
-  workItems: WorkItem[],
+  workItems: WorkItemEvaluationFacts[],
   definition: WorkRiskSectionDefinition<string>,
   context: WorkRiskEvaluationContext
-): WorkItem[] {
+): WorkItemEvaluationFacts[] {
   return distinctWorkItems(workItems).filter((workItem) => definition.filter(workItem, context)).sort(definition.sort);
 }
 
-function isOpenWorkItem(workItem: WorkItem): boolean {
+function isOpenWorkItem(workItem: WorkItemEvaluationFacts): boolean {
   return isOpenWorkItemStatus(workItem.status);
 }
 
-function compareByPriorityThenUpdatedDesc(left: WorkItem, right: WorkItem): number {
+function compareByPriorityThenUpdatedDesc(left: WorkItemEvaluationFacts, right: WorkItemEvaluationFacts): number {
   const priorityCompare = priorityRank[right.priority] - priorityRank[left.priority];
 
   if (priorityCompare !== 0) {

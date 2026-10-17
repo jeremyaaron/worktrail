@@ -23,6 +23,7 @@ import {
   buildProjectWorkItemOrderBy,
   buildWorkspaceWorkItemConditions,
   buildWorkspaceWorkItemOrderBy,
+  dependencyConditions,
   type ProjectWorkItemQuery
 } from './work-item-query-builder.js';
 import type { NewWorkItem, Project, WorkItem, WorkItemSummary } from './types.js';
@@ -63,6 +64,16 @@ export interface WorkspaceWorkItemSummaryRecord {
 }
 
 const { description: _description, descriptionFormat: _descriptionFormat, ...summaryColumns } = getTableColumns(workItems);
+const evaluationColumns = {
+  id: workItems.id, workspaceId: workItems.workspaceId, projectId: workItems.projectId,
+  parentWorkItemId: workItems.parentWorkItemId, milestoneId: workItems.milestoneId, cycleId: workItems.cycleId,
+  displayKey: workItems.displayKey, title: workItems.title, status: workItems.status, priority: workItems.priority,
+  assigneeId: workItems.assigneeId, reporterId: workItems.reporterId, dueDate: workItems.dueDate,
+  estimatePoints: workItems.estimatePoints, createdAt: workItems.createdAt, updatedAt: workItems.updatedAt,
+  itemNumber: workItems.itemNumber,
+  dependencyBlocked: dependencyConditions('dependency_blocked')[0]!.mapWith(Boolean),
+  blockingOpenWork: dependencyConditions('blocking_open_work')[0]!.mapWith(Boolean)
+};
 
 export interface EligibleParentCandidateInput {
   workItem: WorkItem;
@@ -122,6 +133,27 @@ function priorityRankSql(): SQL {
 
 export function createWorkItemRepository(db: RepositoryExecutor) {
   return {
+    async listEvaluationByProject(projectId: string) {
+      return db.select(evaluationColumns).from(workItems)
+        .where(and(...buildProjectWorkItemConditions(projectId)))
+        .orderBy(...buildProjectWorkItemOrderBy('board_order'));
+    },
+
+    async listEvaluationByWorkspace(workspaceId: string) {
+      return db.select({ workItem: evaluationColumns, project: {
+        id: projects.id, key: projects.key, name: projects.name, status: projects.status
+      } }).from(workItems).innerJoin(projects, eq(projects.id, workItems.projectId))
+        .where(and(...buildWorkspaceWorkItemConditions(workspaceId)))
+        .orderBy(...buildWorkspaceWorkItemOrderBy('updated_desc'));
+    },
+
+    async listWorkspaceSummariesByIds(workspaceId: string, ids: string[]) {
+      if (ids.length === 0) return [];
+      return db.select({ workItem: summaryColumns, project: {
+        id: projects.id, key: projects.key, name: projects.name, status: projects.status
+      } }).from(workItems).innerJoin(projects, eq(projects.id, workItems.projectId))
+        .where(and(...buildWorkspaceWorkItemConditions(workspaceId), inArray(workItems.id, [...new Set(ids)])));
+    },
     async create(input: NewWorkItem) {
       const [workItem] = await db.insert(workItems).values(input).returning();
       return workItem;

@@ -23,6 +23,12 @@ export interface UpdateProjectCycleInput {
 
 export function createProjectCycleRepository(db: RepositoryExecutor) {
   return {
+    async listActiveByProjects(projectIds: string[]) {
+      if (projectIds.length === 0) return [];
+      return db.selectDistinctOn([projectCycles.projectId]).from(projectCycles)
+        .where(and(inArray(projectCycles.projectId, projectIds), eq(projectCycles.status, 'active'), isNull(projectCycles.archivedAt)))
+        .orderBy(asc(projectCycles.projectId), asc(projectCycles.startDate), asc(projectCycles.name), asc(projectCycles.id));
+    },
     async findScheduleConflicts(workspaceId?: string) {
       const result = await db.execute<{
         projectId: string; projectKey: string; leftCycleId: string; rightCycleId: string;

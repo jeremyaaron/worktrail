@@ -232,35 +232,19 @@ function dueDateConditions(dueDateState: WorkItemQuery['dueDateState']): SQL[] {
 
   return [];
 }
-
-function dependencyConditions(dependency: WorkItemQuery['dependency']): SQL[] {
-  if (dependency === 'dependency_blocked') {
-    return [
-      sql`exists (
-        select 1 from ${workItemRelationships}
-        inner join ${workItems} blocker
-          on blocker.id = ${workItemRelationships.sourceWorkItemId}
-        where ${workItemRelationships.relationshipType} = 'blocks'
-          and ${workItemRelationships.targetWorkItemId} = ${workItems.id}
-          and blocker.status not in ${terminalStatusListSql()}
-      )`
-    ];
-  }
-
-  if (dependency === 'blocking_open_work') {
-    return [
-      sql`exists (
-        select 1 from ${workItemRelationships}
-        inner join ${workItems} blocked
-          on blocked.id = ${workItemRelationships.targetWorkItemId}
-        where ${workItemRelationships.relationshipType} = 'blocks'
-          and ${workItemRelationships.sourceWorkItemId} = ${workItems.id}
-          and blocked.status not in ${terminalStatusListSql()}
-      )`
-    ];
-  }
-
-  return [];
+export function dependencyConditions(dependency: WorkItemQuery['dependency']): SQL[] {
+  if (dependency === undefined) return [];
+  const blocked = dependency === 'dependency_blocked';
+  const relatedId = sql.identifier(blocked ? 'source_work_item_id' : 'target_work_item_id');
+  const currentId = sql.identifier(blocked ? 'target_work_item_id' : 'source_work_item_id');
+  // Explicit identifiers retain correlation in both WHERE and Drizzle's single-table SELECT projection.
+  return [sql`exists (
+    select 1 from ${workItemRelationships} as dependency_edge
+    inner join ${workItems} as related_work on related_work.id = dependency_edge.${relatedId}
+    where dependency_edge.relationship_type = 'blocks'
+      and dependency_edge.${currentId} = ${sql.identifier('work_items')}.${sql.identifier('id')}
+      and related_work.status not in ${terminalStatusListSql()}
+  )`];
 }
 
 function buildWorkItemOrderBy(

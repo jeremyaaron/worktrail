@@ -21,6 +21,11 @@ export interface UpdateMilestoneInput {
 
 export function createMilestoneRepository(db: RepositoryExecutor) {
   return {
+    async listByProjects(projectIds: string[]) {
+      if (projectIds.length === 0) return [];
+      return db.select().from(milestones).where(inArray(milestones.projectId, projectIds))
+        .orderBy(asc(milestones.targetDate), asc(milestones.name), asc(milestones.id));
+    },
     async create(input: NewMilestone) {
       const [milestone] = await db.insert(milestones).values(input).returning();
       return milestone;

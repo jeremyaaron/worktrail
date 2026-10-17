@@ -922,3 +922,83 @@ verification-labeled containers or owned verification processes. Build-only outp
 ignored result summary; private source/build/storage roots were removed. Working data were untouched.
 Local documentation links and whitespace were rechecked after status/evidence updates. Phase 9 is
 complete; Phase 10 and release-wide verification are not started. No commit/push/tag/deployment occurred.
+
+## Phase 10: Narrow Aggregate Reads And Preview Selection
+
+Completed October 17, 2026. [Aggregate evidence](aggregate-evidence.md) records the fixture, baseline/
+current HTTP SQL counts, bytes, narrow/enriched rows, first/repeat timing and remaining scaling costs.
+No migration, dependency/version change, snapshot rewrite or deployment was introduced.
+
+### Implementation And Acceptance
+
+Evaluation facts omit authored work source/format; pure health/cycle/risk policies no longer require
+full domain rows. My Work captures one clock, computes exact relevance/counts, selects six eight-row
+previews and hydrates their distinct union once. Planning reuses work/time/dependency context for cycle
+summaries rather than full reviews. Risk/movement selection precedes member/milestone/parent reads.
+Planning's five-row arrays no longer determine category totals; exact health counts drive metrics,
+risk signals and continuation. Portfolio batches metadata, omits report narratives, parses only selected
+latest evidence and uses publishedAt/createdAt/ID ties. Ownership/historical reference policies remain.
+
+| Check | Result |
+| --- | --- |
+| Final owned API | 239 cases in 20 affected files; all seven gates passed |
+| Resource checks | 42 passed; runner internals unchanged |
+| API source/test lint and typechecking | Passed in final owned run |
+| Focused Angular | 12 Planning cases passed, including exact 12-count/five-row/seven-more rendering |
+| Frontend lint | Changed Planning component/spec passed |
+| Production web build | Warning-free; 388.66 kB initial / 104.83 kB estimated transfer; budgets unchanged |
+| Complete HTTP statements | My Work 51 to 13; Portfolio 53 to 9; Planning 38 to 11; milestone 10 to 9; cycle 11 to 9 |
+| One versus 15 projects | Same SQL counts; Portfolio one query per metadata category |
+| Working PostgreSQL/storage | Never verification targets |
+| Omitted suites | Unchanged full Angular, browser/editor/site, dependency audits and release-wide full verification |
+
+Final API run `dd4ba41f-4dc0-408d-848f-b02ba67a6851` used:
+
+```sh
+npm run verify -- --mode=api --api-tests=aggregate-performance,aggregate-reads,my-work,portfolio,planning,milestones,project-cycles,project-cycle-service,project-cycle-closeout,status-reports,delivery-health-service,work-risk-sections,cycle-review-model,work-item-query-builder,work-item-relationships,work-items,work-item-csv-export,work-item-hydration-consistency,estimate-query-snapshots,openapi
+```
+
+The shared dependency SQL changed, so coverage includes its list/CSV/hydration/relationship/snapshot
+consumers, not only aggregate tests. The test gate took 20.02 seconds, not a timing acceptance threshold.
+Ten new aggregate-read regressions include complete-query My Work oracles, exact counts/scope, five
+external-commit repeatable-read cases with throwing root repositories, cross-project/terminal flags,
+latest report tie/older-malformed/binding cases, a complete 60-row board and complete 20-item closeout/
+replay. Two performance cases assert SQL/row/ownership bounds on one/15-project complete HTTP paths.
+
+Focused Angular/build run `aee22776-f69f-4c24-92b6-19a7f8994537` used the existing owned manifest/private
+workspace/port/process/cleanup/Karma helpers and CLI
+`--include=src/app/features/projects/project-planning-page.component.spec.ts`. It avoids 695 unchanged
+Angular cases, requires no PostgreSQL/application server and is not a new runner CLI mode. Production
+build separately verifies current templates, lazy graph and existing size/style budgets.
+
+### Diagnostics
+
+Baseline `16a11656-3ffc-4387-897d-817e3a03494b` passed the original complete HTTP measurement in an owned
+checkout with archived pre-phase service sources. Working files were never reverted. Its timing/bytes
+are in aggregate-evidence.md; it is measurement, not current-code acceptance.
+
+- `e8cdb6ce-c185-4e24-8802-186dbdcca079` and `a4967b81-7960-4bbd-82dd-3dfaa1636ecd` stopped at typecheck:
+  fixture options/type/required-summary mistakes were corrected before collecting the baseline.
+- `3abf41c6-cdeb-4f61-8845-ec83d9c09c71` rejected a nonexistent milestone-review test basename before
+  provisioning; that coverage lives in planning.test.ts.
+- `b359ef28-2465-48ad-91d9-d78c1b9e1870` passed 17/27 API cases. Single-table SELECT stripped SQL column
+  qualification inside dependency expressions, exposing ambiguous `id` correlation. Explicit identifiers
+  now preserve the same predicate in SELECT and WHERE, with a real membership regression for both scopes.
+- `a2281693-7c0a-4a84-ae60-606d721fc5dc` passed 52 API/42 resource cases. Later coverage is included in,
+  not added to, the final 239-case count.
+- `571594df-dbdc-439a-b75b-d0d0302c9e02` passed 11/12 Angular cases. The old fixture populated risk arrays
+  but left exact health counts zero; it now supplies coherent counts and expects Risk signals.
+
+Direct authoring typechecks caught an obsolete helper type and incorrect board method name. No test
+retry, timeout increase, worker reduction, forced click or assertion weakening was used. Commands used
+supported Node 24.16.0/npm 11.13.0 via explicit PATH. Exact scans, membership SQL per row, in-memory
+sorting and complete comparison rows still scale with data. Local timings vary with concurrent test
+work and do not prove general latency improvement. Remote CI/browser/UAT/full acceptance remain later
+gates; no remote result is claimed.
+
+### Closure
+
+All nine run summaries record `cleaned: true`; private roots, processes, Chromium/Karma and labeled
+verification containers were removed. Documentation links/YAML references/whitespace were checked after
+status updates. Phase 10 is complete; Phase 11 is not started. No commit/push/tag/version bump/deployment
+was performed, and working data were untouched.

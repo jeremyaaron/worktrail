@@ -2,8 +2,8 @@
 
 ## Status
 
-Approved for sequential execution. Phases 0-9 are complete as of October 17, 2026;
-Phases 10-21 are not started. Release verification remains pending. Merge, tag, publication,
+Approved for sequential execution. Phases 0-10 are complete as of October 17, 2026;
+Phases 11-21 are not started. Release verification remains pending. Merge, tag, publication,
 and Pages deployment remain separate user-controlled actions.
 
 ## Purpose
@@ -96,7 +96,7 @@ integration boundaries.
 | 7 | Authoritative work/hierarchy/board/dependency commands | Complete |
 | 8 | Import transport budgets and structured parser errors | Complete |
 | 9 | Live-query/risk policy, estimate state, and versioned snapshots | Complete |
-| 10 | Narrow aggregate reads and bounded preview enrichment | Not started |
+| 10 | Narrow aggregate reads and bounded preview enrichment | Complete |
 | 11 | Reactive route/actor context and stale-operation ownership | Not started |
 | 12 | Shared draft departure protection in production editors | Not started |
 | 13 | Read-first detail and focused editing/collaboration owners | Not started |
@@ -1064,7 +1064,25 @@ Acceptance:
 Verification: aggregate content/count/query parity, consistent reads, preview-hydration instrumentation,
 15-project endpoint evidence, complete board/history regressions, and API/Angular checks.
 
-Status: Not started.
+Status: Complete as of October 17, 2026.
+
+Completion evidence:
+
+- Added narrow evaluation with canonical dependency membership, one clock/context and preview-before-
+  enrichment. My Work hydrates its eight-row preview union once; Planning reuses loaded cycle facts.
+- Portfolio metadata uses one query per category; latest evidence has stable publishedAt/createdAt/ID
+  ties and omits narrative columns. Complete project rows, boards and stored arrays remain complete.
+- Planning uses exact health counts separately from five-row risk previews for metrics, continuation
+  and risk-signal totals. Scoped risks and eight-row movement retain their established count meanings.
+- [Endpoint evidence](aggregate-evidence.md) covers one/15-project fixtures, 900 authored work records,
+  statements/rows/bytes/timings and remaining costs. SQL counts fell from 51/53/38 to 13/9/11 for My Work/
+  Portfolio/Planning, with 32/0/22 work-preview IDs enriched in those endpoints.
+- Acceptance passed 239 affected API cases/42 resource cases, 12 focused Planning Angular cases and a
+  warning-free production build. External-commit consistency, root-scope escape detection, cross-project/
+  terminal dependencies, complete board/closeout/replay and old snapshot consumers passed.
+- README, current developer guidance, OpenAPI and [verification notes](verification-notes.md#phase-10-narrow-aggregate-reads-and-preview-selection)
+  record preview/count boundaries. Unchanged Angular/browser/site suites were not rerun or claimed
+  passed. Owned resources are removed; migrations/dependencies/version/commits/releases are unchanged.
 
 ## Phase 11: Reactive Route And Actor Context
 

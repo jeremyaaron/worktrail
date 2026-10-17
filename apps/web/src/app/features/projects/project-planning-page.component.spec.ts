@@ -311,7 +311,8 @@ const populatedPlanningReview: PlanningReviewDto = {
 
 const defaultPlanningSummary: ProjectPlanningSummaryDto = {
   project: activeProject,
-  deliveryHealth: blockedDeliveryHealth,
+  deliveryHealth: { ...blockedDeliveryHealth, overdueWorkCount: 1, blockingOpenWorkCount: 1,
+    unassignedActiveWorkCount: 1, staleInProgressWorkCount: 1 },
   milestoneProgress: [
     {
       milestone: activeMilestone,
@@ -451,7 +452,7 @@ describe('ProjectPlanningPageComponent', () => {
     expect(compiled.textContent).toContain('Draft report');
     expect(compiled.textContent).toContain('v0.0.3');
     expect(compiled.textContent).toContain('Planning dashboard');
-    expect(compiled.textContent).toContain('6 risks');
+    expect(compiled.textContent).toContain('6 risk signals');
     expect(compiled.textContent).toContain('Delivery health');
     expect(compiled.textContent).toContain('Child of WT-40');
     expect(compiled.textContent).toContain('Cycle planning');
@@ -602,6 +603,26 @@ describe('ProjectPlanningPageComponent', () => {
     expect(reasonLinks.some((href) => href.includes('status=blocked'))).toBeTrue();
     expect(listLinks.some((href) => href.includes('dependency=dependency_blocked'))).toBeTrue();
     expect(listLinks.some((href) => href.includes('dependency=blocking_open_work'))).toBeTrue();
+  });
+
+  it('uses exact counts and continuation links when the API returns only five risk preview rows', () => {
+    const summary: ProjectPlanningSummaryDto = { ...defaultPlanningSummary,
+      deliveryHealth: { ...defaultDeliveryHealth, health: 'blocked', blockedWorkCount: 12 },
+      blockedWork: Array.from({ length: 5 }, (_, index) => ({ ...blockedWorkItem,
+        id: 'preview-' + index, displayKey: 'WT-' + (index + 1) })) };
+    const { fixture } = setupPlanningPage(activeProject, [activeMilestone], owner, summary);
+    const component = fixture.componentInstance;
+    const section = component.riskSections().find(section => section.title === 'Blocked work')!;
+    expect(component.totalRiskCount(summary)).toBe(12);
+    expect(component.visibleRiskItems(section)).toHaveSize(5);
+    expect(component.hiddenRiskItemCount(section)).toBe(7);
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.risk-metrics strong')?.textContent).toBe('12');
+    const blocked = compiled.querySelector('[aria-labelledby="risk-blocked-work"]')!;
+    expect(blocked.querySelectorAll('.risk-row')).toHaveSize(5);
+    expect(blocked.querySelector('.risk-more')?.textContent).toContain('View 7 more');
+    expect(compiled.querySelector('[aria-labelledby="risk-stale-in-progress-work"] .section-heading a')?.getAttribute('href'))
+      .toContain('workRisk=stale_in_progress');
   });
 
   it('renders compact empty dashboard states', () => {

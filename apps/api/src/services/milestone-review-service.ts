@@ -19,14 +19,14 @@ import {
 } from '../domain/work-risk-policy.js';
 import { NotFoundError } from '../errors/app-error.js';
 import type { Repositories } from '../repositories/index.js';
-import type { Milestone, Project, WorkItem } from '../repositories/types.js';
+import type { Milestone, Project, WorkItemEvaluationFacts } from '../repositories/types.js';
 import { DeliveryHealthService } from './delivery-health-service.js';
 import { toMilestoneDto, toProjectDto } from './dto.js';
 import {
-  createMilestoneReviewRiskSections,
-  createWorkRiskEvaluationContext,
-  loadPlanningRiskParents,
-  toPlanningRiskItems
+  selectMilestoneReviewRiskSections,
+  riskContextFromEvaluation,
+  loadRiskReferences,
+  enrichRiskItems
 } from './work-risk-sections.js';
 
 const recentMovementLimit = 8;
@@ -60,17 +60,10 @@ export class MilestoneReviewService {
     milestoneId: string
   ): Promise<MilestoneReviewDto> {
     const project = await this.requireProject(projectId);
-    const workItems = await this.context.repositories.workItems.listByProject(projectId, { sort: 'board_order' });
-    const dependencyBlockedWorkItems = await this.context.repositories.workItems.listByProject(projectId, {
-      dependency: 'dependency_blocked',
-      sort: 'priority_desc'
-    });
-    const blockingOpenWorkItems = await this.context.repositories.workItems.listByProject(projectId, {
-      dependency: 'blocking_open_work',
-      sort: 'priority_desc'
-    });
+    const workItems = await this.context.repositories.workItems.listEvaluationByProject(projectId);
+    const dependencyBlockedWorkItems = workItems.filter(item => item.dependencyBlocked);
+    const blockingOpenWorkItems = workItems.filter(item => item.blockingOpenWork);
     const milestones = await this.context.repositories.milestones.listByProject(projectId, { includeArchived: true });
-    const members = await this.context.repositories.members.listByWorkspace(this.context.actor.workspaceId);
     const milestone = milestones.find((item) => item.id === milestoneId);
 
     if (milestone === undefined || milestone.projectId !== projectId) {
@@ -78,26 +71,20 @@ export class MilestoneReviewService {
     }
 
     const now = this.clock();
-    const evaluationContext = createWorkRiskEvaluationContext({
-      now,
-      dependencyBlockedWorkItems,
-      blockingOpenWorkItems
-    });
+    const evaluationContext = riskContextFromEvaluation(workItems, now);
     const healthSummary = new DeliveryHealthService().derive({
       project,
       workItems,
       dependencyBlockedWorkItems,
       blockingOpenWorkItems,
       milestones,
-      now
+      now,
+      evaluationContext
     });
-    const memberById = new Map(members.map((member) => [member.id, member]));
-    const milestoneById = new Map(milestones.map((candidate) => [candidate.id, candidate]));
-    const scopedWorkItems = workItems.filter((workItem) => workItem.milestoneId === milestoneId);
-    const parentByChildId = await loadPlanningRiskParents(
-      scopedWorkItems,
-      this.context.repositories
-    );
+    const scopedWorkItems = workItems.filter(item => item.milestoneId === milestoneId);
+    const sections = selectMilestoneReviewRiskSections({ milestoneId, workItems: scopedWorkItems, context: evaluationContext });
+    const recent = [...scopedWorkItems].sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime()).slice(0, recentMovementLimit);
+    const references = await loadRiskReferences([...sections.flatMap(section => section.items), ...recent], this.context.repositories);
     const progress =
       healthSummary.milestoneProgress.find((item) => item.milestone.id === milestoneId) ??
       createEmptyMilestoneProgress(milestone);
@@ -111,22 +98,8 @@ export class MilestoneReviewService {
         sort: 'priority_desc'
       },
       scopeBreakdown: createScopeBreakdown(scopedWorkItems, evaluationContext),
-      riskSections: createMilestoneReviewRiskSections({
-        milestoneId,
-        workItems: scopedWorkItems,
-        memberById,
-        milestoneById,
-        parentByChildId,
-        context: evaluationContext
-      }),
-      recentlyChangedWork: toPlanningRiskItems(
-        [...scopedWorkItems]
-          .sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime())
-          .slice(0, recentMovementLimit),
-        memberById,
-        milestoneById,
-        parentByChildId
-      )
+      riskSections: sections.map(section => ({ ...section, items: enrichRiskItems(section.items, references) })),
+      recentlyChangedWork: enrichRiskItems(recent, references)
     };
   }
 
@@ -159,8 +132,8 @@ function createEmptyMilestoneProgress(milestone: Milestone): MilestoneProgressDt
 }
 
 function createScopeBreakdown(
-  scopedWorkItems: WorkItem[],
-  context: ReturnType<typeof createWorkRiskEvaluationContext>
+  scopedWorkItems: WorkItemEvaluationFacts[],
+  context: ReturnType<typeof riskContextFromEvaluation>
 ): MilestoneReviewScopeBreakdownDto {
   const statusCounts = Object.fromEntries(
     workItemStatuses.map((status) => [status, 0])
@@ -224,6 +197,6 @@ function createScopeBreakdown(
   };
 }
 
-function isOpenWorkItem(workItem: WorkItem): boolean {
+function isOpenWorkItem(workItem: WorkItemEvaluationFacts): boolean {
   return isOpenWorkItemStatus(workItem.status);
 }

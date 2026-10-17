@@ -25,10 +25,10 @@ import { createCycleEvaluation } from './cycle-review-model.js';
 import { toProjectCycleDto, toProjectDto } from './dto.js';
 import { toProjectCycleCloseoutDto } from './project-cycle-closeout-mapper.js';
 import {
-  createCycleReviewRiskSections,
-  createWorkRiskEvaluationContext,
-  loadPlanningRiskParents,
-  toPlanningRiskItems
+  selectCycleReviewRiskSections,
+  riskContextFromEvaluation,
+  loadRiskReferences,
+  enrichRiskItems
 } from './work-risk-sections.js';
 
 export type ProjectCycleListOptions = ProjectCycleListQuery;
@@ -98,47 +98,18 @@ export class ProjectCycleService {
   private async getCycleReviewInScope(projectId: string, cycleId: string): Promise<ProjectCycleReviewDto> {
     const project = await this.requireProject(projectId, this.context.repositories);
     const cycle = await this.requireProjectCycle(projectId, cycleId, this.context.repositories);
-    const workItems = await this.context.repositories.workItems.listByProject(projectId, {
-      sort: 'board_order'
-    });
-    const dependencyBlockedWorkItems = await this.context.repositories.workItems.listByProject(
-      projectId,
-      {
-        dependency: 'dependency_blocked',
-        sort: 'priority_desc'
-      }
-    );
-    const blockingOpenWorkItems = await this.context.repositories.workItems.listByProject(
-      projectId,
-      {
-        dependency: 'blocking_open_work',
-        sort: 'priority_desc'
-      }
-    );
-    const milestones = await this.context.repositories.milestones.listByProject(projectId, {
-      includeArchived: true
-    });
-    const members = await this.context.repositories.members.listByWorkspace(
-      this.context.actor.workspaceId
-    );
-    const scopedWorkItems = workItems.filter((workItem) => workItem.cycleId === cycleId);
-    const parentByChildId = await loadPlanningRiskParents(
-      scopedWorkItems,
-      this.context.repositories
-    );
+    const workItems = await this.context.repositories.workItems.listEvaluationByProject(projectId);
+    const scopedWorkItems = workItems.filter(workItem => workItem.cycleId === cycleId);
     const now = this.clock();
-    const evaluationContext = createWorkRiskEvaluationContext({
-      now,
-      dependencyBlockedWorkItems,
-      blockingOpenWorkItems
-    });
-    const memberById = new Map(members.map((member) => [member.id, member]));
-    const milestoneById = new Map(milestones.map((milestone) => [milestone.id, milestone]));
+    const evaluationContext = riskContextFromEvaluation(workItems, now);
     const evaluation = createCycleEvaluation({
       cycle,
       scopedWorkItems,
       context: evaluationContext
     });
+    const sections = selectCycleReviewRiskSections({ cycleId, workItems: scopedWorkItems, context: evaluationContext, isOverTarget: evaluation.isOverTarget });
+    const recent = [...scopedWorkItems].sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime()).slice(0, recentMovementLimit);
+    const references = await loadRiskReferences([...sections.flatMap(section => section.items), ...recent], this.context.repositories);
     const closeoutRecord =
       cycle.status === 'completed'
         ? await this.context.repositories.projectCycleCloseouts.findByCycleId(cycleId)
@@ -166,23 +137,8 @@ export class ProjectCycleService {
         sort: 'priority_desc'
       },
       scopeBreakdown: evaluation.scopeBreakdown,
-      riskSections: createCycleReviewRiskSections({
-        cycleId,
-        workItems: scopedWorkItems,
-        memberById,
-        milestoneById,
-        parentByChildId,
-        context: evaluationContext,
-        isOverTarget: evaluation.isOverTarget
-      }),
-      recentlyChangedWork: toPlanningRiskItems(
-        [...scopedWorkItems]
-          .sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime())
-          .slice(0, recentMovementLimit),
-        memberById,
-        milestoneById,
-        parentByChildId
-      ),
+      riskSections: sections.map(section => ({ ...section, items: enrichRiskItems(section.items, references) })),
+      recentlyChangedWork: enrichRiskItems(recent, references),
       closeout
     };
   }
