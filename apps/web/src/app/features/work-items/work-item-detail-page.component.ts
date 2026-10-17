@@ -1,3 +1,6 @@
+import { normalizeAuthoredContentSource } from '@worktrail/contracts';
+import { DraftTracker } from '../../core/navigation/draft-tracker';
+import { DraftDepartureCoordinator, draftRouteKey } from '../../core/navigation/draft-departure-coordinator';
 import { Component, DestroyRef, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -21,6 +24,7 @@ import type {
   WorkspaceWorkItemListItemDto
 } from '@worktrail/contracts';
 import type { MonoTypeOperatorFunction, Subscription } from 'rxjs';
+import { merge } from 'rxjs';
 
 import { PageContext } from '../../core/navigation/page-context';
 import { CurrentUserService } from '../../core/current-user.service';
@@ -60,6 +64,7 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
 
 @Component({
   selector: 'app-work-item-detail-page',
+  host: { '[attr.inert]': 'departure.isDeparting() ? "": null' },
   imports: [
     AuthoredContentEditorComponent,
     AuthoredContentViewerComponent,
@@ -297,7 +302,7 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
               type="button"
               class="secondary-action"
               [disabled]="isArchivedProject() || isUpdating()"
-              (click)="discardDetailChanges()"
+              (click)="requestDiscardDetailChanges()"
             >
               Discard changes
             </button>
@@ -626,7 +631,7 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
                         >
                           {{ savingCommentId() === comment.id ? 'Saving...' : 'Save' }}
                         </button>
-                        <button type="button" class="secondary-action" (click)="cancelEditComment()">
+                        <button type="button" class="secondary-action" (click)="requestCancelCommentEdit()">
                           Cancel
                         </button>
                       </div>
@@ -647,10 +652,10 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
 
                     @if (canModifyComment(comment)) {
                       <div class="comment-actions">
-                        <button type="button" class="secondary-action" (click)="startEditComment(comment)">
+                        <button type="button" class="secondary-action" (click)="requestEditComment(comment)">
                           Edit
                         </button>
-                        <button type="button" class="danger-action" (click)="confirmDeleteComment(comment)">
+                        <button type="button" class="danger-action" (click)="requestDeleteComment(comment)">
                           Delete
                         </button>
                       </div>
@@ -1315,6 +1320,16 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
   `
 })
 export class WorkItemDetailPageComponent implements OnInit {
+  readonly departure = inject(DraftDepartureCoordinator);
+  private readonly detailDraft = new DraftTracker(() => this.detailDraftValue());
+  private readonly newCommentDraft = new DraftTracker(() => ({
+    content: this.normalizedContent(this.commentForm.getRawValue().bodyContent),
+    recipients: [...new Set(this.selectedMentionMemberIds())].sort()
+  }));
+  private readonly editCommentDraft = new DraftTracker(() =>
+    this.normalizedContent(this.editCommentForm.getRawValue().bodyContent));
+  private detailDraftToken!: symbol;
+  private editDraftToken!: symbol;
   private readonly context = new PageContext();
   private readonly projectsApi = inject(ProjectsApi);
   private readonly workItemsApi = inject(WorkItemsApi);
@@ -1523,6 +1538,7 @@ export class WorkItemDetailPageComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.registerDrafts();
     if (this.currentUser.members().length === 0) this.currentUser.loadMembers();
     this.context.start(() => {
       this.resetNavigationState();
@@ -1812,6 +1828,7 @@ export class WorkItemDetailPageComponent implements OnInit {
       authoredContentValidator({ baseline: bodyContent, requireNonWhitespace: true })
     );
     this.editCommentForm.reset({ bodyContent });
+    this.editCommentDraft.accept();
     this.syncReadOnlyState();
   }
 
@@ -1824,6 +1841,7 @@ export class WorkItemDetailPageComponent implements OnInit {
       authoredContentValidator({ requireNonWhitespace: true })
     );
     this.editCommentForm.reset({ bodyContent: { source: '', format: 'markdown_v1' } });
+    this.editCommentDraft.accept();
     this.syncReadOnlyState();
   }
 
@@ -2333,6 +2351,7 @@ export class WorkItemDetailPageComponent implements OnInit {
     this.commentForm.reset({ bodyContent: { source: '', format: 'markdown_v1' } });
     this.selectedMentionMemberIds.set([]);
     this.hasSubmittedComment.set(false);
+    this.newCommentDraft.accept();
   }
 
   private refreshAfterRelationshipMutation(afterRefresh: () => void): void {
@@ -2405,6 +2424,7 @@ export class WorkItemDetailPageComponent implements OnInit {
       milestoneId: workItem.milestone?.id ?? '',
       cycleId: workItem.cycle?.id ?? ''
     });
+    this.detailDraft.accept();
   }
 
   private resetNavigationState(): void {
@@ -2670,4 +2690,64 @@ export class WorkItemDetailPageComponent implements OnInit {
 
     return false;
   }
+  requestDiscardDetailChanges(): Promise<boolean> {
+    return this.departure.change(() => this.discardDetailChanges(), [this.detailDraftToken]);
+  }
+
+  requestCancelCommentEdit(): Promise<boolean> {
+    return this.departure.change(() => this.cancelEditComment(), [this.editDraftToken]);
+  }
+
+  requestEditComment(comment: CommentDto): Promise<boolean> {
+    return this.departure.change(() => this.startEditComment(comment), [this.editDraftToken]);
+  }
+
+  requestDeleteComment(comment: CommentDto): Promise<boolean> {
+    return this.departure.change(() => this.confirmDeleteComment(comment), [this.editDraftToken]);
+  }
+
+  private normalizedContent(value: AuthoredContentValue): AuthoredContentValue {
+    return { source: normalizeAuthoredContentSource(value.source), format: value.format };
+  }
+
+  private detailDraftValue() {
+    const value = this.detailForm.getRawValue();
+    return { ...value, title: value.title.trim(),
+      descriptionContent: this.normalizedContent(value.descriptionContent),
+      labels: [...new Set(this.selectedLabelIds())].sort() };
+  }
+
+  private registerDrafts(): void {
+    const base = {
+      context: () => this.context.contextKey(),
+      routeKey: () => draftRouteKey('detail', this.workItemId())
+    };
+    this.detailDraftToken = this.departure.register({ ...base, category: 'Work item details',
+      revision: () => this.detailDraft.revision(),
+      meaningful: () => this.workItem() !== null && this.detailDraft.meaningful(),
+      pending: () => this.isUpdating(), discard: () => this.discardDetailChanges()
+    }, this.destroyRef);
+    this.departure.register({ ...base, category: 'New comment',
+      context: () => base.context() + ':' + this.newCommentIdentity(),
+      revision: () => this.newCommentDraft.revision(),
+      meaningful: () => this.workItem() !== null && this.newCommentDraft.meaningful(),
+      pending: () => this.isCommenting(), discard: () => this.resetNewComment()
+    }, this.destroyRef);
+    this.editDraftToken = this.departure.register({ ...base, category: 'Comment edit',
+      context: () => base.context() + ':' + this.editCommentIdentity(),
+      revision: () => this.editCommentDraft.revision(),
+      meaningful: () => this.editingCommentId() !== null && this.editCommentDraft.meaningful(),
+      pending: () => this.savingCommentId() !== null || this.deletingCommentId() !== null,
+      discard: () => this.cancelEditComment()
+    }, this.destroyRef);
+    this.departure.register({ ...base, category: 'Work item action', revision: () => 0,
+      meaningful: () => false,
+      pending: () => this.isTransitioning() || this.isWatchUpdating() || this.isAddingRelationship() ||
+        this.removingRelationshipId() !== null,
+      discard: () => undefined
+    }, this.destroyRef);
+    merge(this.detailForm.valueChanges, this.commentForm.valueChanges, this.editCommentForm.valueChanges)
+      .pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.departure.refresh());
+  }
+
 }

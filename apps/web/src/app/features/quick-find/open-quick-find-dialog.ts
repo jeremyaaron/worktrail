@@ -22,7 +22,7 @@ export async function openQuickFindDialog(
       ariaLabelledBy: 'quick-find-heading',
       ariaModal: true,
       autoFocus: '.quick-find__input',
-      closeOnNavigation: true,
+      closeOnNavigation: false,
       data,
       disableClose: false,
       hasBackdrop: true,

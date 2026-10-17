@@ -1,3 +1,7 @@
+import { DestroyRef } from '@angular/core';
+import { normalizeAuthoredContentSource } from '@worktrail/contracts';
+import { DraftTracker } from '../../core/navigation/draft-tracker';
+import { DraftDepartureCoordinator, draftRouteKey } from '../../core/navigation/draft-departure-coordinator';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -14,7 +18,7 @@ import type {
   WorkItemType,
   WorkspaceCapabilitiesDto
 } from '@worktrail/contracts';
-import { Subscription, distinctUntilChanged } from 'rxjs';
+import { Subscription } from 'rxjs';
 
 import { PageContext } from '../../core/navigation/page-context';
 import { CurrentUserService } from '../../core/current-user.service';
@@ -35,6 +39,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
 
 @Component({
   selector: 'app-work-item-create-page',
+  host: { '[attr.inert]': 'departure.isDeparting() ? "": null' },
   imports: [
     AuthoredContentEditorComponent,
     EmptyStateComponent,
@@ -116,7 +121,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
 
         <div class="success-actions">
           <a [routerLink]="['/work-items', created.id]">Open work item</a>
-          <button type="button" class="secondary-action" (click)="createAnother()">
+          <button type="button" class="secondary-action" (click)="requestCreateAnother()">
             Create another
           </button>
           <a [routerLink]="returnTarget().path" [queryParams]="returnTarget().queryParams">
@@ -585,6 +590,11 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
   `
 })
 export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
+  readonly departure = inject(DraftDepartureCoordinator);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly creationDraft = new DraftTracker(() => this.creationDraftValue());
+  private creationDraftToken!: symbol;
+  private lastCycleRouteId = '';
   private readonly context = new PageContext();
   private readonly projectsApi = inject(ProjectsApi);
   private readonly workItemsApi = inject(WorkItemsApi);
@@ -679,6 +689,7 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
 
   ngOnInit(): void {
     if (this.currentUser.members().length === 0) this.currentUser.loadMembers();
+    this.registerDraft();
     this.watchProjectSelection();
     this.context.start(() => {
       this.clearProjectOptions();
@@ -711,12 +722,19 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
         cycleId: this.routeProjectId === '' ? '' : this.routeCycleId,
         dueDate: '', estimatePoints: ''
       }, { emitEvent: false });
+      this.creationDraft.accept();
+      this.lastCycleRouteId = this.routeCycleId;
       this.loadCapabilities();
       this.applyParentRouteState();
       if (this.isProjectScoped()) this.loadProjectContext(this.routeProjectId);
       else this.loadProjects();
     });
     this.subscriptions.add(this.context.queryParamMap$.subscribe(() => {
+      if (this.lastCycleRouteId !== this.routeCycleId) {
+        this.lastCycleRouteId = this.routeCycleId;
+        this.workItemForm.controls.cycleId.setValue(this.routeCycleId, { emitEvent: false });
+        this.creationDraft.accept();
+      }
       if (this.loadedParentRouteId !== this.initialParentWorkItemId) this.applyParentRouteState();
     }));
   }
@@ -757,17 +775,22 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
 
     const generation = this.projectSelectionGeneration;
     const parentGeneration = this.parentSelectionGeneration;
+    const submitted = this.creationDraftValue();
     this.isCreating.set(true);
+    this.syncReadOnlyState();
     this.workItemsApi.createWorkItem(this.selectedProjectId(), this.toRequest()).pipe(this.context.guardMutation(() =>
       generation === this.projectSelectionGeneration && parentGeneration === this.parentSelectionGeneration
     )).subscribe({
       next: (workItem) => {
         this.createdWorkItem.set(workItem);
+        this.creationDraft.accept(submitted);
         this.isCreating.set(false);
+        this.syncReadOnlyState();
       },
       error: (error: HttpErrorResponse) => {
         this.createError.set(this.toErrorMessage(error, 'The work item could not be created.'));
         this.isCreating.set(false);
+        this.syncReadOnlyState();
       }
     });
   }
@@ -790,6 +813,7 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
     this.hasSubmitted.set(false);
     this.createError.set(null);
     this.createdWorkItem.set(null);
+    this.creationDraft.accept();
   }
 
   showProjectError(): boolean {
@@ -933,35 +957,18 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
   }
 
   private watchProjectSelection(): void {
-    this.subscriptions.add(
-      this.workItemForm.controls.projectId.valueChanges
-        .pipe(distinctUntilChanged())
-        .subscribe((projectId) => {
-          if (this.isProjectScoped()) {
-            return;
-          }
-
+    this.subscriptions.add(this.workItemForm.controls.projectId.valueChanges
+      .subscribe((projectId) => {
+        if (this.isProjectScoped() || projectId === this.selectedProjectId()) return;
+        this.workItemForm.controls.projectId.setValue(this.selectedProjectId(), { emitEvent: false });
+        void this.departure.change(() => {
           this.clearProjectOptions();
-          this.isCreating.set(false);
-          this.createError.set(null);
           this.selectedProjectId.set(projectId);
-          this.selectedLabelIds.set([]);
-          this.workItemForm.controls.milestoneId.setValue('', { emitEvent: false });
-          this.workItemForm.controls.cycleId.setValue('', { emitEvent: false });
-          this.createdWorkItem.set(null);
-
-          if (projectId === '') {
-            this.project.set(null);
-            this.availableLabels.set([]);
-            this.availableMilestones.set([]);
-            this.availableCycles.set([]);
-            this.syncReadOnlyState();
-            return;
-          }
-
-          this.loadProjectContext(projectId);
-        })
-    );
+          this.resetCreationDraft();
+          if (projectId !== '') this.loadProjectContext(projectId);
+          this.syncReadOnlyState();
+        }, [this.creationDraftToken]);
+      }));
   }
 
   private applyParentRouteState(): void {
@@ -1051,7 +1058,7 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
   }
 
   private syncReadOnlyState(): void {
-    if (this.isArchivedProject() || !this.canCreateWorkItems()) {
+    if (this.isCreating() || this.isArchivedProject() || !this.canCreateWorkItems()) {
       this.workItemForm.disable({ emitEvent: false });
     } else {
       this.workItemForm.enable({ emitEvent: false });
@@ -1078,7 +1085,8 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
     };
   }
 
-  private normalizeEstimate(value: string | number): string {
+  private normalizeEstimate(value: string | number | null | undefined): string {
+    if (value === null || value === undefined) return '';
     return typeof value === 'number' ? value.toString() : value.trim();
   }
 
@@ -1143,6 +1151,45 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
     this.labelLoadError.set(null);
     this.milestoneLoadError.set(null);
     this.cycleLoadError.set(null);
+  }
+
+  private resetCreationDraft(): void {
+    this.workItemForm.reset({
+      projectId: this.selectedProjectId(), title: '',
+      descriptionContent: { source: '', format: 'markdown_v1' },
+      type: 'task', priority: 'medium', assigneeId: '', milestoneId: '',
+      cycleId: this.isProjectScoped() ? this.routeCycleId : '', dueDate: '', estimatePoints: ''
+    }, { emitEvent: false });
+    this.selectedLabelIds.set([]);
+    this.createdWorkItem.set(null);
+    this.createError.set(null);
+    this.hasSubmitted.set(false);
+    this.creationDraft.accept();
+  }
+
+  requestCreateAnother(): Promise<boolean> {
+    return this.departure.change(() => this.createAnother(), [this.creationDraftToken]);
+  }
+
+  private creationDraftValue() {
+    const value = this.workItemForm.getRawValue();
+    const estimate = this.normalizeEstimate(value.estimatePoints);
+    return { ...value, title: value.title.trim(),
+      descriptionContent: { ...value.descriptionContent,
+        source: normalizeAuthoredContentSource(value.descriptionContent.source) },
+      estimatePoints: estimate === '' ? null : /^\d+$/.test(estimate) && Number.isSafeInteger(Number(estimate)) ? Number(estimate) : estimate,
+      labels: [...new Set(this.selectedLabelIds())].sort() };
+  }
+
+  private registerDraft(): void {
+    this.creationDraftToken = this.departure.register({
+      category: 'New work item',
+      context: () => this.context.contextKey() + ':' + this.selectedProjectId(),
+      routeKey: () => draftRouteKey('create', this.routeProjectId, this.initialParentWorkItemId, this.routeCycleId),
+      revision: () => this.creationDraft.revision(), meaningful: () => this.creationDraft.meaningful(),
+      pending: () => this.isCreating(), discard: () => this.resetCreationDraft()
+    }, this.destroyRef);
+    this.subscriptions.add(this.workItemForm.valueChanges.subscribe(() => this.departure.refresh()));
   }
 
 }

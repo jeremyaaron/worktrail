@@ -139,6 +139,7 @@ test('authors descriptions across creation paths, preserves legacy text and draf
   await expect(summary.locator('strong, h3')).toHaveCount(0);
   await page.locator('#detail-description-format').selectOption('markdown_v1');
   await page.getByRole('button', { name: 'Discard changes', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Discard unsaved changes?' }).getByRole('button', { name: 'Discard', exact: true }).click();
   await expect(page.locator('#detail-description-format')).toHaveValue('plain_text');
   await expect(page.locator('#detail-description')).toHaveValue(legacySource);
   await page.locator('#detail-description-format').selectOption('markdown_v1');
@@ -162,6 +163,7 @@ test('authors descriptions across creation paths, preserves legacy text and draf
     .locator(`a[href="/work-items/${created.id}"]`)
     .filter({ hasText: `Renamed description ${suffix}` })
     .click();
+  await page.getByRole('dialog', { name: 'Discard unsaved changes?' }).getByRole('button', { name: 'Discard', exact: true }).click();
   await expect(summary.getByRole('heading', { level: 1 })).toHaveText(
     `Renamed description ${suffix}`
   );

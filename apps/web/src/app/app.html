@@ -54,9 +54,10 @@
           <label for="current-member">Acting as</label>
           @if (currentUser.activeMembers().length > 0) {
             <select
+              #memberSelector
               id="current-member"
               [ngModel]="currentUser.selectedMember()?.id"
-              (ngModelChange)="selectMember($event)"
+              (ngModelChange)="selectMember($event, memberSelector)"
             >
               @for (member of currentUser.activeMembers(); track member.id) {
                 <option [value]="member.id">{{ member.name }} · {{ member.role }}</option>
@@ -71,6 +72,9 @@
   </header>
 
   <main class="content-shell">
+    @if (departure.status()) {
+      <p role="status" aria-label="Draft departure status">{{ departure.status() }}</p>
+    }
     <router-outlet />
   </main>
 </div>

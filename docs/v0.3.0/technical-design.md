@@ -247,6 +247,10 @@ Quick Find navigation awaits router success before dismissing its dialog. A Stay
 close the search interaction or lose its query; handle its focus alongside the departure dialog rather
 than relying on `closeOnNavigation` to dismiss before the decision.
 
+Phase 12 production adoption, local baseline/guard ownership and verified limits are recorded in
+[draft departure evidence](draft-departure-evidence.md). The coordinator/guards are light root code;
+the CDK confirmation UI is lazy, and authored values remain in local editor trackers.
+
 ## Navigation Context And Section Targets
 
 ### Bounded Return Encoding

@@ -1096,3 +1096,106 @@ Real-router owner tests override presentation to isolate identity/lifetime behav
 tests and the five browser flows cover actual templates. Remote CI, complete browser/UAT and release
 acceptance are not claimed. Navigation cancellation/error preserves drafts, but prompting before an
 accepted departure and blocking pending writes remain Phase 12. Phase 11 is complete.
+
+## Phase 12: Draft Departure Protection
+
+Completed October 17, 2026 with Node 24.16.0/npm 11.13.0 selected by explicit PATH. The
+[draft departure evidence](draft-departure-evidence.md) records registrations, normalization, router
+and local decisions, pending writes, lazy UI, native-warning limits and production adoption.
+
+### Final Acceptance
+
+| Check | Result |
+| --- | --- |
+| Affected Angular | 263/263 passed in owned run `f08feec3-a7b7-4cbf-9ac4-19782a74b7b5` |
+| Frontend source lint and development template/type checking | Passed in that run |
+| Production build | Warning-free; initial 397.79 kB / estimated transfer 109.94 kB; budgets unchanged |
+| Static initial import graph | 155 inputs; zero CDK/dialog/heavy detail/Planning/report/creation/Markdown/editor inputs; 20 lazy page entries |
+| New departure browser flows | 3/3 passed together in `8422b87c-b166-4d3f-8a18-cfd42b4c308b`; 24.5 seconds, not a latency acceptance threshold |
+| Additional browser regressions | Four description/comment/Quick Find workflows passed in the earlier seven-flow run; unchanged evidence reused |
+| Verification TypeScript | `tsc --noEmit -p tsconfig.verification.json` passed |
+| Changed browser test lint | Passed for draft-departure, authored-description and authored-comments specs |
+| Visual inspection | 1280px/320px Stay/Discard screenshots inspected; text/actions fit, no horizontal overflow |
+| Documentation links / whitespace | Checked after completion updates |
+| Not applicable / omitted | Unchanged API/domain/contract/resource/editor-only/site suites; full Angular/application browser and release-wide verification; remote CI/UAT |
+
+The final owned frontend run used existing manifest/private-checkout/port/process/Karma/cleanup helpers,
+with no database or application server. It ran source lint, development build/typecheck, affected
+Angular cases, and a production `--stats-json` build. Selection was:
+
+```text
+--include=src/app/core/navigation/*.spec.ts
+--include=src/app/features/work-items/*spec.ts
+--include=src/app/features/projects/status-reports/project-status-report-draft-page.component.spec.ts
+--include=src/app/features/quick-find/*spec.ts
+--include=src/app/app*.spec.ts
+```
+
+This covers route/context consumers, actor shell, all three authoring owners and Quick Find rather
+than repeating unrelated Angular features. The initial graph check traversed non-dynamic imports
+from `src/main.ts` and explicitly rejected CDK and `open-draft-departure-dialog` alongside heavy
+feature/editor inputs. Gate/graph summaries are retained in ignored
+`test-results/verification/<runId>/summary.json`.
+
+Final browser command:
+
+```sh
+npm run verify -- --mode=e2e '--grep=draft departure'
+```
+
+It provisioned/migrated/seeded owned PostgreSQL 16/storage and started owned API/Angular servers. The
+three flows verify independent detail/comment/recipient drafts; default Stay/Escape; reused dependency
+routes; actor selector/storage/focus; native close-warning dismissal; nested Quick Find query/focus/
+navigation; repeated project-selection Stay; accepted project reset; pending create rejection and
+failed-create retention; report Stay/failure and prompt-free successful publication. Native close is
+invoked with Playwright's explicit `runBeforeUnload: true`; it verifies the browser warning and retained
+page/source on dismissal, not crash/mobile recovery or reliable automated CDP reload cancellation.
+
+The earlier browser command also selected description creation/reuse, both authored-comment workflows
+and the Quick Find launcher/keyboard flow. Their assertions were updated where intentional discard now
+needs the production confirmation. Those four workflows passed and were not rerun for later unrelated
+native-close harness/status-selector refinements. Their coverage overlaps, rather than adding counts
+to the final three-flow run.
+
+### Diagnostics And Refinements
+
+- `9ec68e63-48c0-48a6-a3a9-1ab1307d9349` passed the initial 246 affected cases before the new
+  coordinator regressions were added.
+- `f30ed110-767f-466c-b170-3a2a3f37f905` exposed a standalone-router history-listener omission. Its
+  synthetic global beforeunload dispatch also triggered Karma's independent reload detector and a
+  disconnect. The test now invokes only the captured application listener; real browser behavior is
+  covered separately. No browser/test deadline was increased.
+- `fcc8e2a3-6418-4b26-93e7-848f47d248da` passed 9/10 coordinator cases, timing out on history because
+  the standalone harness had not installed the router location listener. Calling the installed public
+  setup method and awaiting real cancellation fixed it. `6b7665c3-372b-4964-88c9-3ab7cc2de9af` passed 10/10.
+- First browser run `80da78cb-b436-42ac-ab07-b68c7f2488ba` passed five/seven cases. It caught actor
+  select focus restoration for programmatic select events and an ambiguous status locator that also
+  matched the source-length output. Actor rejection now explicitly refocuses the selector; the busy
+  status has a stable accessible name. Both behavior and selection assertions remain.
+- `c2505320-4750-486a-ac7a-f22694de0266` passed creation/report flows but the combined native-reload
+  test reached its existing 90-second deadline after dismissing a beforeunload warning. The test now
+  uses explicit supported close/unload semantics with a five-second event bound, rather than extending
+  reload/test deadlines or claiming unsupported recovery. `986dea79-e635-47ab-89cb-230b364cdb6a` passed
+  that combined native-close/actor/Quick Find/reuse flow before the final three-flow run.
+- `29e6e151-fe1e-4b77-aeda-6a711d2c64e4` passed 260 affected cases/lint/typecheck/build. The follow-up
+  build `e5007455-10d5-4997-bf7a-ef00f760e1ff` explicitly checked zero CDK/dialog inputs in the initial
+  graph. Both are superseded by final frontend acceptance, not additional coverage counts.
+- `9a51e449-1187-432a-befd-81757922f3ec` passed 62 creation/list cases for guarded Create another;
+  `478823d4-6126-4a95-bbf6-b9adeb6b36b3` passed 63 after a native numeric-control null regression was
+  added. Clearing Estimate safely yields null; unsafe integer text is not treated as a blank baseline.
+  Both refinements are included in final acceptance.
+- Final review added post-approval revalidation and a real asynchronous-later-guard regression using
+  Angular 20.3.33's installed public `Navigation.abort()` API. The final 263-case run includes it,
+  without a navigation cancel/replay loop or an increase to deadlines/retries/workers/budgets.
+
+### Closure
+
+All owned private checkouts/builds, Karma/Chromium profiles/processes, API/Angular servers, PostgreSQL
+containers and attachment roots were removed. Persisted run summaries record cleanup; focused helper
+runs print counts/run IDs and clean their roots without creating separate gate summaries. Working
+PostgreSQL on 5432 and ordinary attachment storage were not verification targets.
+
+No dependency/version change, authored-data migration, draft storage, commit/push/tag/publication or
+deployment was performed. Native warnings cannot guarantee mobile shutdown/crash protection, and a
+discarded UI subscription does not cancel a submitted server transaction. Phase 12 is complete;
+Phase 13 and release-wide verification remain separate work.

@@ -1,3 +1,7 @@
+import { DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { DraftTracker } from '../../../core/navigation/draft-tracker';
+import { DraftDepartureCoordinator, draftRouteKey } from '../../../core/navigation/draft-departure-coordinator';
 import { snapshotRiskCountLabel } from '@worktrail/contracts';
 import { PageContext } from '../../../core/navigation/page-context';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -27,6 +31,7 @@ const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 @Component({
   selector: 'app-project-status-report-draft-page',
+  host: { '[attr.inert]': 'departure.isDeparting() ? "": null' },
   imports: [
     ErrorPanelComponent,
     LoadingIndicatorComponent,
@@ -527,6 +532,10 @@ const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
   `
 })
 export class ProjectStatusReportDraftPageComponent implements OnInit {
+  readonly departure = inject(DraftDepartureCoordinator);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly narrativeDraft = new DraftTracker(() => this.narrativeValue());
+  private narrativeBaseline: ReturnType<ProjectStatusReportDraftPageComponent['narrativeValue']> | null = null;
   private readonly context = new PageContext();
   private narrativeInitialized = false;
   readonly riskCountLabel = snapshotRiskCountLabel;
@@ -557,8 +566,10 @@ export class ProjectStatusReportDraftPageComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    this.registerDraft();
     this.context.start(() => {
       this.narrativeInitialized = false;
+      this.narrativeBaseline = null;
       this.draft.set(null);
       this.isLoading.set(false);
       this.isPublishing.set(false);
@@ -589,6 +600,8 @@ export class ProjectStatusReportDraftPageComponent implements OnInit {
             nextSteps: draft.nextSteps
           });
           this.narrativeInitialized = true;
+          this.narrativeBaseline = this.narrativeValue();
+          this.narrativeDraft.accept();
           this.hasSubmitted.set(false);
         }
         this.isLoading.set(false);
@@ -615,15 +628,21 @@ export class ProjectStatusReportDraftPageComponent implements OnInit {
       return;
     }
 
+    const submitted = this.narrativeValue();
     this.isPublishing.set(true);
+    this.draftForm.disable({ emitEvent: false });
     this.projectsApi.publishProjectStatusReport(this.projectId(), this.toRequest(draft)).pipe(this.context.guardMutation()).subscribe({
       next: (report) => {
+        this.narrativeBaseline = submitted;
+        this.narrativeDraft.accept(submitted);
         this.isPublishing.set(false);
+        this.draftForm.enable({ emitEvent: false });
         void this.router.navigate(['/projects', this.projectId(), 'status', report.id]);
       },
       error: (error: HttpErrorResponse) => {
         this.publishError.set(this.toErrorMessage(error, 'Report could not be published.'));
         this.isPublishing.set(false);
+        this.draftForm.enable({ emitEvent: false });
       }
     });
   }
@@ -701,4 +720,27 @@ export class ProjectStatusReportDraftPageComponent implements OnInit {
     const message = (error.error as { error?: { message?: string } } | null)?.error?.message;
     return message ?? fallback;
   }
+  private narrativeValue() {
+    const value = this.draftForm.getRawValue();
+    return { title: value.title.trim(), statusDate: value.statusDate.trim(),
+      summary: value.summary.trim(), highlights: value.highlights.trim(),
+      risks: value.risks.trim(), nextSteps: value.nextSteps.trim() };
+  }
+
+  private registerDraft(): void {
+    this.departure.register({
+      category: 'Report narrative', context: () => this.context.contextKey(),
+      routeKey: () => draftRouteKey('report', this.projectId()),
+      revision: () => this.narrativeDraft.revision(),
+      meaningful: () => this.narrativeInitialized && this.narrativeDraft.meaningful(),
+      pending: () => this.isPublishing(),
+      discard: () => {
+        if (this.narrativeBaseline !== null) this.draftForm.reset(this.narrativeBaseline);
+        this.narrativeDraft.accept();
+      }
+    }, this.destroyRef);
+    this.draftForm.valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.departure.refresh());
+  }
+
 }

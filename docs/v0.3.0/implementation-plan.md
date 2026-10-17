@@ -2,8 +2,8 @@
 
 ## Status
 
-Approved for sequential execution. Phases 0-11 are complete as of October 17, 2026;
-Phases 12-21 are not started. Release verification remains pending. Merge, tag, publication,
+Approved for sequential execution. Phases 0-12 are complete as of October 17, 2026;
+Phases 13-21 are not started. Release verification remains pending. Merge, tag, publication,
 and Pages deployment remain separate user-controlled actions.
 
 ## Purpose
@@ -98,7 +98,7 @@ integration boundaries.
 | 9 | Live-query/risk policy, estimate state, and versioned snapshots | Complete |
 | 10 | Narrow aggregate reads and bounded preview enrichment | Complete |
 | 11 | Reactive route/actor context and stale-operation ownership | Complete |
-| 12 | Shared draft departure protection in production editors | Not started |
+| 12 | Shared draft departure protection in production editors | Complete |
 | 13 | Read-first detail and focused editing/collaboration owners | Not started |
 | 14 | Bounded return navigation and relevant section targeting | Not started |
 | 15 | Shared saved views, applied-query feedback, and work-list ergonomics | Not started |
@@ -1176,7 +1176,29 @@ Acceptance:
 Verification: coordinator unit tests, real guard/history/actor integration, cancelled-navigation and
 pending-submit tests, native dialog/unload browser checks where supported, and editor selection regressions.
 
-Status: Not started.
+Status: Complete (October 17, 2026).
+
+Completion evidence:
+
+- Independent local baseline trackers and coordinator registrations cover detail fields/description/
+  labels, new comments/recipients, inline comment edits, creation and report narrative. Equality uses
+  existing persistence normalization, not dirty flags; success updates only the owning baseline.
+- Production activation/deactivation guards share navigation-ID/revision decisions across reused
+  routes. Discard resets only captured old participants after commit; cancellation/error preserves
+  drafts. Post-approval revision changes during later guards abort through Angular's public navigation
+  API without URL replay. Actor/storage commits and in-form/explicit resets use the same decision path.
+- Lazy plain CDK Stay/Discard defaults to Stay and preserves focus/selection on rejection. Quick Find
+  awaits successful navigation and retains query/active option on Stay. Pending writes reject departure;
+  native unload protection is conditional. No draft persistence/autosave or server cancellation claim.
+- Final owned frontend acceptance passed 263 affected cases, source lint, development template/type
+  checking, production build and initial import inspection. All three new browser flows passed together;
+  four additional unchanged description/comment/Quick Find workflows passed earlier in this phase.
+  Final initial size is 397.79 kB / 109.94 kB estimated transfer, warning-free under unchanged budgets;
+  no CDK/dialog/heavy editor feature entered the initial graph and 20 page entries remain lazy.
+- [Draft evidence](draft-departure-evidence.md) and [verification notes](verification-notes.md) record
+  commands, diagnostics, overlapping counts, native-close limits and screenshot inspection. Owned
+  resources were removed; ordinary working data, dependencies/package version and release actions
+  remain unchanged. Backend/full/editor/site suites were not repeated for unchanged surfaces.
 
 ## Phase 13: Read-First Work-Item Detail
 

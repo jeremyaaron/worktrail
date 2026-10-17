@@ -398,8 +398,11 @@ export class QuickFindDialogComponent {
       return;
     }
 
-    this.dialogRef.close();
-    void this.router.navigate([...target.commands], extras);
+    void this.router.navigate([...target.commands], extras).then((accepted) => {
+      if (accepted) this.dialogRef.close();
+    }).catch(() => {
+      this.error.set('The destination could not be opened.');
+    });
   }
 
   private navigationExtras(target: QuickFindRouteTarget): NavigationExtras {

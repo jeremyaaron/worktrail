@@ -17,6 +17,7 @@ import type {
 import { BehaviorSubject } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
+import { DraftConfirmationService } from '../../core/navigation/draft-confirmation.service';
 import { ClipboardService } from '../../shared/clipboard.service';
 import { WorkItemImportPageComponent } from './work-item-import-page.component';
 import { WorkItemCreatePageComponent } from './work-item-create-page.component';
@@ -2691,6 +2692,27 @@ describe('WorkItemCreatePageComponent', () => {
     expect(component.workItemForm.pristine).toBeTrue();
   });
 
+  it('protects a new draft entered after creation before Create another resets it', async () => {
+    const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    flushCreateContext(http);
+    const component = fixture.componentInstance;
+    component.workItemForm.controls.title.setValue('Created work');
+    component.createWorkItem();
+    http.expectOne(`/api/projects/${projectId}/work-items`).flush({
+      ...workItem, description: '', descriptionFormat: 'markdown_v1',
+      relationships: emptyRelationships, comments: [], activity: []
+    });
+    component.workItemForm.controls.title.setValue('Another unsaved title');
+    const confirm = spyOn(TestBed.inject(DraftConfirmationService), 'confirm').and.resolveTo(false);
+    expect(await component.requestCreateAnother()).toBeFalse();
+    expect(component.workItemForm.controls.title.value).toBe('Another unsaved title');
+    confirm.and.resolveTo(true);
+    expect(await component.requestCreateAnother()).toBeTrue();
+    expect(component.workItemForm.controls.title.value).toBe('');
+  });
+
   it('rejects an oversized new description before sending a request', () => {
     const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
     const http = TestBed.inject(HttpTestingController);
@@ -2805,6 +2827,25 @@ describe('WorkItemCreatePageComponent', () => {
     ].map((option: HTMLOptionElement) => option.textContent?.trim());
     expect(assigneeOptions).toContain('Case Contributor');
     expect(assigneeOptions).not.toContain('Riley Former');
+  });
+
+  it('handles the native number control null value when an estimate is cleared', () => {
+    const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    flushCreateContext(http);
+    fixture.componentInstance.workItemForm.controls.title.setValue('Cleared estimate');
+    const input = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('[formControlName="estimatePoints"]')!;
+    input.value = '8';
+    input.dispatchEvent(new Event('input'));
+    input.value = '';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    fixture.componentInstance.createWorkItem();
+    const create = http.expectOne(`/api/projects/${projectId}/work-items`);
+    expect(create.request.body.estimatePoints).toBeNull();
+    create.flush({ ...workItem, description: '', descriptionFormat: 'markdown_v1',
+      relationships: emptyRelationships, comments: [], activity: [] });
   });
 
   it('normalizes numeric estimate values before posting', () => {

@@ -1,9 +1,9 @@
 # Worktrail Developer Ownership And Invariants
 
-This is the current implementation guide, not a release archive. As of v0.3.0 Phase 11, persistence
+This is the current implementation guide, not a release archive. As of v0.3.0 Phase 12, persistence
 ownership, batched queries, lifecycle coordination, authoritative work/relationship commands, and
 bounded HTTP parsing, versioned risk/query policy, aggregate narrowing and committed frontend context
-are implemented. Draft departure protection and presentation consolidation remain later work in the
+and shared draft departure protection are implemented. Presentation consolidation remains later work in the
 [implementation plan](v0.3.0/implementation-plan.md).
 
 ## Committed Frontend Context
@@ -35,8 +35,46 @@ only its first successful load in a new context initializes narrative fields.
 
 Touched pages use focused API clients directly; `WorktrailApiService` is compatibility-only for
 untouched consumers. The context owner imports no feature/editor/Planning modules. Regression evidence
-is in [reactive context evidence](v0.3.0/reactive-context-evidence.md). Phase 11 does not add Stay/Discard,
-native unload warnings, pending-write departure blocking or new navigation guards; those are Phase 12.
+is in [reactive context evidence](v0.3.0/reactive-context-evidence.md). The following departure layer
+was added in Phase 12; it is separate from committed route/request ownership.
+
+## Draft Departure Ownership
+
+`DraftDepartureCoordinator` stores registrations/callbacks, context keys and integer revisions, not
+authored source. Each editor keeps its normalized baseline in a local `DraftTracker`. `meaningful()`
+uses persisted-value equality, not `form.dirty`; source/format and explicit mention IDs remain paired,
+set-valued IDs are sorted and line endings follow the existing authored-source policy. Preview, focus
+and disclosure alone are not drafts. A reverted value is clean. `accept()` is called only for that
+editor's initialization, accepted reset or successful save; evidence refresh is not a narrative reset.
+
+Detail fields, new comment/recipients, inline comment edit, creation and report narrative are independent
+participants. Register with the owning `DestroyRef`, expose pending writes separately, and notify the
+coordinator on reactive-form changes. Signal-valued selections/pending flags are also observed for
+conditional `beforeunload`. Never put authored values in a URL, localStorage, log or global draft cache.
+
+Editable routes use both `protectEditorDeparture` and `protectReusedEditor`, route data `draftEditor`,
+and `runGuardsAndResolvers: 'always'`. Proposed route identity includes relevant creation parent/cycle
+seeds, but not fragments/return URLs. Decisions are shared by navigation ID and captured revision.
+Discard authorizes navigation; captured resets run only at `NavigationEnd`, while cancelled/error
+navigation expires approval without resetting a draft. New/different editor generations are not reset.
+Still-mounted revisions are revalidated through form/signal/router progress; stale approval calls
+Angular's `Navigation.abort()` before activation without replaying the URL. Editors become inert
+during approved commit to prevent intervening UI edits. The lazy CDK dialog
+defaults to Stay, Escape/backdrop means Stay, and focus/selection is restored on rejected attempts.
+
+Interactive actor changes go through `App.selectMember()`/`departure.change()` before the low-level
+user-service commit or storage write. Bootstrap reconciliation remains synchronous. Creation restores
+the committed project select value before asking; Stay leaves all other controls/options intact.
+Explicit discard/cancel/Create another UI commands use scoped participant tokens and do not prompt
+again during the accepted reset. Programmatic reset helpers remain separate from interactive requests.
+
+Pending writes reject affected route/actor/reset attempts with an operational status; Discard does not
+cancel a server transaction. Form authoring is disabled during creation/publication. Success establishes
+its own baseline before success navigation; failure retains the draft. Quick Find uses
+`closeOnNavigation: false` and closes after successful navigation, preserving query/active option on Stay.
+No navigation cancel/replay loop or queued actor/URL change is used. The browser warning is native and
+cannot guarantee mobile shutdown/crash recovery. Evidence and limits are in
+[draft departure evidence](v0.3.0/draft-departure-evidence.md).
 
 ## Composition And Persistence
 

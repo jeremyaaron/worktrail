@@ -89,6 +89,7 @@ export class PageContext {
 
   param(name: string): string { return this.state().params.get(name) ?? ''; }
   query(name: string): string { return this.state().query.get(name) ?? ''; }
+  contextKey(): string { return this.identity(); }
 
   start(reload: () => void): void {
     this.reload = reload;

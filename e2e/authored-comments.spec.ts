@@ -157,6 +157,7 @@ test('authors, previews, edits and deletes formatted comments without changing m
   await legacyRow.getByRole('button', { name: 'Edit', exact: true }).click();
   await edit.getByLabel('Format', { exact: true }).selectOption('markdown_v1');
   await edit.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Discard unsaved changes?' }).getByRole('button', { name: 'Discard', exact: true }).click();
   expect((await readDetail()).comments.find((entry) => entry.id === legacy.id)?.bodyFormat).toBe(
     'plain_text'
   );

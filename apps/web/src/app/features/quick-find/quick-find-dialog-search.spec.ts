@@ -268,10 +268,26 @@ describe('QuickFindDialogComponent search mode', () => {
       return true;
     });
     dispatchKey(input, 'Enter');
+    tick(0);
 
     expect(dialogRef.close).toHaveBeenCalledOnceWith();
     expect(router.navigate).toHaveBeenCalledOnceWith(['/my-work'], {});
-    expect(callOrder).toEqual(['close', 'navigate']);
+    expect(callOrder).toEqual(['navigate', 'close']);
+  }));
+
+  it('keeps the query and active result when navigation is rejected', fakeAsync(() => {
+    spyOn(router, 'navigate').and.resolveTo(false);
+    component.queryControl.setValue('xy');
+    tick(220);
+    component.queryControl.setValue('');
+    tick(0);
+    const option = component.selectableOptions()[0];
+    const active = component.activeOptionId();
+    component.activateOption(option);
+    tick(0);
+    expect(dialogRef.close).not.toHaveBeenCalled();
+    expect(component.queryControl.value).toBe('');
+    expect(component.activeOptionId()).toBe(active);
   }));
 
   it('synchronizes active-descendant state across loading, results, hover, and clear', fakeAsync(() => {
@@ -322,7 +338,7 @@ describe('QuickFindDialogComponent search mode', () => {
     );
   }));
 
-  it('routes every result and overflow through canonical close-first destinations', fakeAsync(() => {
+  it('routes every result and overflow through canonical navigation destinations before closing', fakeAsync(() => {
     const result = new Subject<QuickFindResponseDto>();
     api.search.and.returnValue(result);
     const callOrder: string[] = [];
@@ -342,6 +358,7 @@ describe('QuickFindDialogComponent search mode', () => {
 
     for (const option of component.resultOptions()) {
       component.activateOption(option);
+      tick(0);
     }
 
     expect(navigate.calls.allArgs()).toEqual([
@@ -362,13 +379,13 @@ describe('QuickFindDialogComponent search mode', () => {
       [['/work-items', 'work-item-1'], { fragment: 'files' }]
     ]);
     expect(callOrder).toEqual([
-      'close', 'navigate',
-      'close', 'navigate',
-      'close', 'navigate',
-      'close', 'navigate',
-      'close', 'navigate',
-      'close', 'navigate',
-      'close', 'navigate'
+      'navigate', 'close',
+      'navigate', 'close',
+      'navigate', 'close',
+      'navigate', 'close',
+      'navigate', 'close',
+      'navigate', 'close',
+      'navigate', 'close'
     ]);
   }));
 

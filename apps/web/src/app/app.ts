@@ -20,6 +20,7 @@ import {
 import { filter, take } from 'rxjs';
 
 import { CurrentUserService } from './core/current-user.service';
+import { DraftDepartureCoordinator } from './core/navigation/draft-departure-coordinator';
 import { InboxStateService } from './features/inbox/inbox-state.service';
 import type { QuickFindDialogRef } from './features/quick-find/open-quick-find-dialog';
 import { ErrorPanelComponent } from './shared/ui/error-panel.component';
@@ -49,6 +50,7 @@ export class App implements OnInit {
     import('./features/quick-find/open-quick-find-dialog');
 
   readonly currentUser = inject(CurrentUserService);
+  readonly departure = inject(DraftDepartureCoordinator);
   readonly inboxState = inject(InboxStateService);
   readonly currentProjectId = signal(
     projectIdFromRouteSnapshot(this.router.routerState.snapshot.root)
@@ -80,12 +82,21 @@ export class App implements OnInit {
     this.currentUser.loadMembers();
   }
 
-  selectMember(memberId: string): void {
-    this.closeQuickFind();
-    this.currentUser.selectMember(memberId);
+  async selectMember(memberId: string, select?: HTMLSelectElement): Promise<void> {
+    if (select) select.value = this.currentUser.selectedMember()?.id ?? '';
+    if (memberId === this.currentUser.selectedMember()?.id) return;
+    const accepted = await this.departure.change(() => {
+      if (!this.currentUser.activeMembers().some((member) => member.id === memberId)) return false;
+      this.closeQuickFind();
+      this.currentUser.selectMember(memberId);
+      if (select) select.value = memberId;
+      return true;
+    });
+    if (!accepted && !this.departure.isConfirming()) select?.focus({ preventScroll: true });
   }
 
   async openQuickFind(): Promise<void> {
+    if (this.departure.isConfirming() || this.departure.isDeparting()) return;
     if (this.quickFindRef !== null) {
       this.quickFindRef.componentInstance?.focusQueryInput();
       return;

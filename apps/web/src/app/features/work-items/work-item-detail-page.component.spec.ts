@@ -17,6 +17,8 @@ import type {
 import { BehaviorSubject } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
+import { DraftDepartureCoordinator } from '../../core/navigation/draft-departure-coordinator';
+import { DraftConfirmationService } from '../../core/navigation/draft-confirmation.service';
 import { WorkItemAttachmentsComponent } from './components/work-item-attachments.component';
 import { WorkItemDetailPageComponent } from './work-item-detail-page.component';
 import { AuthoredContentEditorComponent } from '../../shared/authored-content/authored-content-editor.component';
@@ -1468,6 +1470,60 @@ describe('WorkItemDetailPageComponent', () => {
     expect(compiled.textContent).toContain('v0.0.3');
     expect(compiled.textContent).toContain('Initial implementation note.');
     expect(compiled.textContent).toContain('Avery Owner created this work item.');
+  });
+
+  it('protects independent field and comment drafts and discards only the explicitly selected editor', async () => {
+    const { fixture } = setup();
+    const component = fixture.componentInstance;
+    const confirm = spyOn(TestBed.inject(DraftConfirmationService), 'confirm').and.resolveTo(false);
+    const description = { source: '  **My draft**\n', format: 'markdown_v1' as const };
+    const comment = { source: 'Comment draft', format: 'plain_text' as const };
+    component.detailForm.controls.descriptionContent.setValue(description);
+    component.commentForm.controls.bodyContent.setValue(comment);
+    component.addMentionMember(contributor.id);
+    expect(await component.requestDiscardDetailChanges()).toBeFalse();
+    expect(component.detailForm.controls.descriptionContent.value).toEqual(description);
+    expect(component.commentForm.controls.bodyContent.value).toEqual(comment);
+    expect(component.selectedMentionMemberIds()).toEqual([contributor.id]);
+    expect(confirm.calls.mostRecent().args[0]).toEqual(['Work item details']);
+    confirm.and.resolveTo(true);
+    expect(await component.requestDiscardDetailChanges()).toBeTrue();
+    expect(component.detailForm.controls.descriptionContent.value.source).toBe(detail.description);
+    expect(component.commentForm.controls.bodyContent.value).toEqual(comment);
+    confirm.and.resolveTo(false);
+    expect(await TestBed.inject(DraftDepartureCoordinator).change(() => undefined)).toBeFalse();
+    expect(confirm.calls.mostRecent().args[0]).toEqual(['New comment']);
+  });
+
+  it('does not mark unsaved fields as saved when a new comment succeeds', async () => {
+    const { fixture, http } = setup();
+    const component = fixture.componentInstance;
+    const confirm = spyOn(TestBed.inject(DraftConfirmationService), 'confirm').and.resolveTo(false);
+    component.detailForm.controls.title.setValue('Still unsaved');
+    component.commentForm.controls.bodyContent.setValue({ source: 'Posted comment', format: 'markdown_v1' });
+    component.addComment();
+    http.expectOne(`/api/work-items/${workItemId}/comments`).flush(detail.comments[0]);
+    http.expectOne(`/api/work-items/${workItemId}`).flush(detail);
+    expect(component.detailForm.controls.title.value).toBe('Still unsaved');
+    expect(await TestBed.inject(DraftDepartureCoordinator).change(() => undefined)).toBeFalse();
+    expect(confirm.calls.mostRecent().args[0]).toEqual(['Work item details']);
+  });
+
+  it('preserves inline comment source and format on Stay and treats a reverted editor as clean', async () => {
+    const { fixture } = setup();
+    const component = fixture.componentInstance;
+    const comment = detail.comments[0];
+    component.startEditComment(comment);
+    const value = { source: 'Inline draft', format: 'markdown_v1' as const };
+    component.editCommentForm.controls.bodyContent.setValue(value);
+    const confirm = spyOn(TestBed.inject(DraftConfirmationService), 'confirm').and.resolveTo(false);
+    expect(await component.requestCancelCommentEdit()).toBeFalse();
+    expect(component.editingCommentId()).toBe(comment.id);
+    expect(component.editCommentForm.controls.bodyContent.value).toEqual(value);
+    component.editCommentForm.controls.bodyContent.setValue({ source: comment.body, format: comment.bodyFormat });
+    confirm.calls.reset();
+    expect(await component.requestCancelCommentEdit()).toBeTrue();
+    expect(confirm).not.toHaveBeenCalled();
   });
 
   it('refreshes only activity when the attachment child reports a mutation', () => {

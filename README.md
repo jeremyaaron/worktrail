@@ -181,6 +181,12 @@ format selector, and preview. New descriptions and comments in the Angular app d
 existing edits preserve their stored format. Choose Plain text to retain literal punctuation, or
 deliberately convert to Markdown. Preview never saves a draft, and cancel/reset restores its context.
 
+The v0.3.0 working branch protects unsaved work-item fields, new/edited comments and recipients,
+creation forms, and report narratives with a shared Stay/Discard decision. It also protects reused
+record routes, actor/project changes, and Quick Find navigation. Pending writes block departure rather
+than offer cancellation. A conditional browser unload warning protects reload/close where supported;
+drafts are not autosaved or stored for recovery after a crash. Report evidence refresh preserves edits.
+
 The `markdown_v1` profile supports paragraphs and visible line breaks, headings, ordered/unordered
 lists, emphasis, quotations, inline code, fenced/indented code blocks, and explicit HTTP(S) links.
 Images display alternative text only. Raw HTML remains literal; tables, strikethrough, interactive

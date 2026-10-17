@@ -59,6 +59,7 @@ export class CurrentUserService {
     });
   }
 
+  // Low-level commit for bootstrap and accepted changes; interactive callers must use departure.change().
   selectMember(memberId: string): void {
     const member = this.activeMembers().find((item) => item.id === memberId);
 

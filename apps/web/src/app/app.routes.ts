@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { protectEditorDeparture, protectReusedEditor } from './core/navigation/draft-departure.guards';
 
 export const routes: Routes = [
   {
@@ -61,6 +62,10 @@ export const routes: Routes = [
       },
       {
         path: 'work-items/new',
+        data: { draftEditor: 'create' },
+        canActivate: [protectReusedEditor],
+        canDeactivate: [protectEditorDeparture],
+        runGuardsAndResolvers: 'always',
         loadComponent: () =>
           import('./features/work-items/work-item-create-page.component').then(
             (module) => module.WorkItemCreatePageComponent
@@ -109,6 +114,10 @@ export const routes: Routes = [
       },
       {
         path: 'status/new',
+        data: { draftEditor: 'report' },
+        canActivate: [protectReusedEditor],
+        canDeactivate: [protectEditorDeparture],
+        runGuardsAndResolvers: 'always',
         loadComponent: () =>
           import('./features/projects/status-reports/project-status-report-draft-page.component').then(
             (module) => module.ProjectStatusReportDraftPageComponent
@@ -159,6 +168,10 @@ export const routes: Routes = [
   },
   {
     path: 'work-items/new',
+    data: { draftEditor: 'create' },
+    canActivate: [protectReusedEditor],
+    canDeactivate: [protectEditorDeparture],
+    runGuardsAndResolvers: 'always',
     loadComponent: () =>
       import('./features/work-items/work-item-create-page.component').then(
         (module) => module.WorkItemCreatePageComponent
@@ -175,6 +188,10 @@ export const routes: Routes = [
   },
   {
     path: 'work-items/:workItemId',
+    data: { draftEditor: 'detail' },
+    canActivate: [protectReusedEditor],
+    canDeactivate: [protectEditorDeparture],
+    runGuardsAndResolvers: 'always',
     loadComponent: () =>
       import('./features/work-items/work-item-detail-page.component').then(
         (module) => module.WorkItemDetailPageComponent
