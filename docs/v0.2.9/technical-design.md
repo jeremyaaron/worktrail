@@ -2,18 +2,18 @@
 
 ## Status
 
-Implementation in progress. Phases 0-3 completed on October 11, 2026, Phases 4-6 on October 12,
-and Phase 7 on October 17. Persistence, format-aware reads and writes, locking, no-ops, activity, and
-CSV import/preview format support are implemented, along with bounded Markdown projection, the shared
-safe viewer, and the compound authoring control. Description/comment page integration remains pending. See the
-[implementation plan](implementation-plan.md) for evidence.
+Implemented and locally verified on October 17, 2026. Persistence, format-aware reads/writes,
+state-aware compatibility validation, bounded Markdown presentation, shared source authoring,
+description/comment integration, and CSV import/preview support are complete. See the
+[implementation plan](implementation-plan.md) and [verification notes](verification-notes.md) for
+phase evidence, final-tree checks, and manual validation limits. Release publication is separate.
 
 ## Summary
 
 v0.2.9 adds structured work-item descriptions and comments while retaining plain-text compatibility.
 The approved scope is defined in [the PRD](prd.md).
 
-The implementation will:
+The implementation:
 
 - persist `descriptionFormat` and `bodyFormat` alongside the existing source strings;
 - support `plain_text` and `markdown_v1`, with plain-text database and omitted-create defaults;

@@ -1,8 +1,8 @@
 # Worktrail v0.2.9 Phase 10 Verification
 
-Verified locally on October 17, 2026. This is implementation evidence, not a release announcement or
-a claim of internet-safe deployment. Phase 11 remains responsible for release documentation,
-public-site updates, metadata, and final gates.
+Verified locally on October 17, 2026. This records Phase 10 implementation evidence and Phase 11
+final-tree verification, not publication or internet-safe deployment. Release documentation,
+public-site source, metadata, and local gates are complete; merge, tag, and deployment are separate.
 
 ## Environment And Isolation
 
@@ -156,3 +156,55 @@ passed locally; a remote GitHub Actions run was not triggered in this phase.
 Local actor selection, local attachment storage, and existing deployment/security limitations remain
 unchanged. Phase-owned servers, the disposable container, and temporary storage are removed after
 verification; working data and unrelated processes are preserved.
+
+## Phase 11 Final Verification
+
+Finalization ran against the versioned `0.2.9` tree, not just the earlier phase results. It used
+PostgreSQL 16 container `worktrail-v029-p11-verify`, database `worktrail_v029_verify`, bound to
+`127.0.0.1:62767`, and owned roots under `/tmp/worktrail-v029-p11-storage-f5KXyA`. Migrations and two seed
+runs passed. Package tests used the `tests` storage root; browser runs used separate `original` and
+`e2e` roots with restoration enabled. Working data was never reset, migrated, or reseeded.
+
+Final commands and results:
+
+| Command or Check | Result |
+| --- | --- |
+| `npm run lint` | Passed, zero warnings |
+| `npm run typecheck` | Passed across all workspaces |
+| `npm test` | 1,306 passed: 601 API, 651 Angular, 54 contracts |
+| `npm run build` | Passed, no budget warnings; initial 386.62 kB / estimated transfer 104.33 kB |
+| `npm run test:e2e -- --retries=0` | All 34 passed |
+| `npm run test:editor` | All 5 passed |
+| `npx playwright test --config playwright.production.config.ts` | Compiled production-preview check passed on port 4319 |
+| `npm audit --omit=dev --audit-level=low` | Zero production vulnerabilities |
+| Development-inclusive `npm audit --json` | 34 findings: 8 moderate, 21 high, 5 critical; expected nonzero audit status |
+| `npm ls --workspaces --depth=0` | Passed; all workspace versions/contracts resolution are 0.2.9 |
+| Parsed package/lockfile/OpenAPI checks | Versions and dependency metadata agree; OpenAPI internal references resolve; historical reads have no new cap |
+| Static site and documentation checks | Assets, fragments, local documentation targets, image loading, and horizontal containment pass |
+| Pages configuration | Unchanged `main` push trigger, `site` artifact, main-only deployment guard |
+| `git diff --check` | Passed |
+
+The additional API test imports `authored-work-items.csv` through the real preview/apply service and
+checks stored source and formats. The final editor run again met timing targets; ordinary maximum
+total was 2.3 ms and the slowest adversarial maximum was 6.3 ms on this local run. The Phase 10 timing
+table remains its own identified run rather than mixing measurements from different executions.
+
+Captured `site/assets/worktrail-detail.png` from the compiled application at 1440 x 900 after the
+browser suite restored demo data. The public site now presents Readable Work, faithful preview,
+explicit mentions, compatibility, and the bounded Markdown profile without claiming a rich document
+platform or hosted application. Typography uses fixed breakpoint sizes; existing branding and Pages
+deployment are retained.
+
+Static-file browser checks passed at 1920, 1440, 1024, 640, 390, and 320 CSS pixels, with zero horizontal
+overflow, all images loaded, and text/link bounds inside the viewport. Desktop/mobile hero and product
+captures plus the actual detail asset were visually inspected. Hero captures leave the following
+section visible at the tested 900-pixel viewport height. Site screenshot links open the full asset.
+Site evidence is ignored under `test-results/site-*`; only the intentional product asset is tracked.
+Repository documentation links were checked against local targets intended to land with the merge,
+not claimed to be published on remote `main` already.
+
+No new user UAT, remote CI run, actual browser-chrome zoom, real OS IME, or screen-reader pass is claimed.
+The existing development-toolchain vulnerabilities and deployment/security limitations remain in the
+release notes. All phase-owned serving processes, the disposable container, and temporary storage
+were cleaned up; original listeners and working resources were preserved. No commit, push, tag,
+publication, merge, or deployment was performed.

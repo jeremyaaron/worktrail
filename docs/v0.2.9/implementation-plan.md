@@ -2,7 +2,8 @@
 
 ## Status
 
-Implementation in progress. Phases 0-10 are complete; Phase 11 has not started.
+Complete. Phases 0-11 are implemented and locally verified as of October 17, 2026. Merge, tag,
+publication, and GitHub Pages deployment remain separate user-controlled actions.
 
 ## Purpose
 
@@ -1266,7 +1267,35 @@ git status --short --branch
 Run browser checks on disposable resources. Verify site assets and version consistency separately;
 do not infer their correctness from Angular application tests.
 
-Status: Not started.
+Status: Complete (October 17, 2026).
+
+Completion notes:
+
+- Updated README capabilities, input units, API/UI defaults, source preservation and legacy exceptions,
+  current CSV guidance, migration instructions, CI commands, demo walkthrough, and limitations.
+- Reconciled OpenAPI profile/read descriptions and examples without imposing new-write limits on
+  historical responses. Required fields, omission behavior, tombstones, and plural import routes
+  remain documented; all internal references resolve.
+- Added a quoted multiline CSV example and an integration test through preview/apply/persisted reads.
+  Added destination-neutral release and pattern notes. No references to a proposed extraction
+  destination were introduced.
+- Updated the public site to v0.2.9 with authored-content capabilities, accurate non-goals, release
+  links, and a 1440 x 900 screenshot captured from the compiled WT-1 detail page. Checked desktop,
+  compact, and mobile layouts, assets, fragment links, repository document targets, and image loading.
+  The existing main-branch Pages workflow is unchanged; deployment was not triggered.
+- Root/API/web/contracts versions, lockfile workspace records, API contracts dependency, OpenAPI,
+  and its version assertion are consistently `0.2.9`. Installed workspace resolution also passes.
+- On the final versioned tree, lint/typecheck/build pass, with no production budget warnings and
+  386.62 kB initial size. All 1,306 package tests (601 API, 651 Angular, 54 contracts), 34 application
+  browser tests with retries disabled, 5 editor browser tests, and compiled production-preview check
+  pass. Production audit is clean; development-inclusive audit retains 34 documented findings.
+- Reconciled planning status and recorded final evidence in [verification notes](verification-notes.md).
+  Real OS IME, screen-reader announcements, and actual browser-chrome zoom remain explicitly untested;
+  no new user UAT, remote CI, production authentication, or hosted deployment is claimed.
+- Verification used disposable PostgreSQL 16 and owned temporary attachment roots. Owned servers,
+  container, and temporary storage were removed; user data and unrelated processes were preserved.
+  Reviewed tracked/untracked files and `git diff --check`; no evidence debris is added to version control.
+- No commit, push, tag, package publication, merge, or deployment was performed.
 
 ## Coverage Map
 

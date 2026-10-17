@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 
 import { stringify } from 'csv-stringify/sync';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -241,6 +242,32 @@ afterAll(async () => {
 });
 
 describe('work item CSV import validation', () => {
+  it('imports the documented multiline example without losing source or format defaults', async () => {
+    const fixture = await createFixture();
+    const service = createService(fixture.actor, { clock: now });
+    const csv = await readFile(
+      new URL('../../../docs/v0.2.9/authored-work-items.csv', import.meta.url),
+      'utf8'
+    );
+    const description = '  ## Acceptance criteria\n\n- Preserve **original source**, including indentation.\n- Review the `release` command.\n\n```text\nready -> review\n```\n';
+    const preview = await service.preview(fixture.projectId, csv);
+    expect(preview).toMatchObject({ validRows: 3, invalidRows: 0, errors: [] });
+    expect(preview.rows.map((row) => row.descriptionFormat)).toEqual([
+      'markdown_v1', 'plain_text', 'plain_text'
+    ]);
+    expect(preview.rows[0]?.descriptionExcerpt).toBe(description);
+    const result = await service.apply(fixture.projectId, csv);
+    expect(result.createdCount).toBe(3);
+    const expected = [
+      { description, descriptionFormat: 'markdown_v1' },
+      { description: '**Literal punctuation**, not emphasis.', descriptionFormat: 'plain_text' },
+      { description: '[Not a link](https://example.com/reference)', descriptionFormat: 'plain_text' }
+    ];
+    for (const [index, item] of result.workItems.entries()) {
+      expect(await repositories.workItems.findById(item.id)).toMatchObject(expected[index]!);
+    }
+  });
+
   it('preserves quoted multiline descriptions while trimming metadata and retaining identities', async () => {
     const fixture = await createFixture();
     const service = createService(fixture.actor, { clock: now });

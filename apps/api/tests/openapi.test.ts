@@ -137,7 +137,7 @@ describe('OpenAPI reference', () => {
       expect(openApi, `missing ${path}`).toContain(`  ${path}:`);
     }
 
-    expect(openApi).toContain('version: 0.2.8');
+    expect(openApi).toContain('version: 0.2.9');
     expect(openApi).toContain('x-worktrail-member-id');
     expect(openApi).toContain('x-worktrail-workspace-id');
     expect(openApi).toContain('x-worktrail-role');

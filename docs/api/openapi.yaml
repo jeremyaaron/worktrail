@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Worktrail API
-  version: 0.2.8
+  version: 0.2.9
   summary: HTTP API reference for the Worktrail local-first project management app.
   description: |
     This document describes the implemented Worktrail API routes. It is intentionally
@@ -5007,7 +5007,13 @@ components:
     AuthoredContentFormat:
       type: string
       enum: [plain_text, markdown_v1]
-      description: Explicit source format. Existing records default to plain_text; punctuation never determines the format.
+      description: |
+        Explicit source format. Existing records default to plain_text; punctuation never determines
+        the format. markdown_v1 is Worktrail's bounded profile: paragraphs, visible line breaks,
+        headings, lists, emphasis, quotations, inline/fenced code, and explicit HTTP(S) links.
+        Images show alternative text only; HTML is literal. No GFM tables, task controls,
+        strikethrough, syntax highlighting, or arbitrary HTML/attributes are rendered.
+        Unknown formats, parser failures, or projection-limit failures display complete literal source.
     WorkItemDetail:
       allOf:
         - $ref: "#/components/schemas/WorkItemListItem"
@@ -5016,6 +5022,9 @@ components:
           properties:
             description:
               type: string
+              description: Stored source, including historical whitespace and legacy oversized values; response reads are not capped by the new-write limit.
+              examples:
+                - "## Acceptance criteria\n\n- Preserve **original source**.\n"
             descriptionFormat:
               $ref: "#/components/schemas/AuthoredContentFormat"
             relationships:
@@ -5633,7 +5642,7 @@ components:
           $ref: "#/components/schemas/Member"
         body:
           type: string
-          description: Stored source, or an empty string for a deleted comment.
+          description: Stored source, including legacy oversized or blank values; response reads are not capped by the new-write limit. Deleted comments expose an empty string.
         bodyFormat:
           allOf:
             - $ref: "#/components/schemas/AuthoredContentFormat"

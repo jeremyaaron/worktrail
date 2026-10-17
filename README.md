@@ -1,8 +1,8 @@
 # Worktrail
 
-Worktrail is a project management reference app. The v0.2.8 baseline is a local-first Angular +
-TypeScript API + Postgres application focused on fast workspace navigation and bounded multi-entity
-search, files in work-item context, scalable work discovery, daily team workflow, two-level work
+Worktrail is a project management reference app. The v0.2.9 baseline is a local-first Angular +
+TypeScript API + Postgres application focused on readable descriptions and discussion, fast workspace
+navigation and bounded multi-entity search, files in work-item context, scalable work discovery, daily team workflow, two-level work
 breakdown, workspace portfolio review, collaboration updates, reliable filtered work views, pinned
 workspace and project operating lenses, explicit project batch triage, milestone review, cycle planning
 and closeout, published project reports and Markdown sharing, dependency-aware planning, workspace
@@ -16,8 +16,9 @@ attachments, live planning review, live milestone review, cycle management and r
 report drafts, immutable published report snapshots with cycle context, Markdown copy/download for
 published reports, print-friendly report detail pages, milestone/cycle/work links from reports,
 milestone management, durable boards, work item relationships, dependency-blocked signals, project
-delivery health, comments, mentions, work item watchers, activity, CSV import/export, production-like
-preview, health/readiness checks, checked-in API documentation, CI, lint, and responsive work item
+delivery health, formatted descriptions and comments with source editing and preview, explicit
+mentions, work item watchers, activity, CSV import/export, production-like preview, health/readiness
+checks, checked-in API documentation, CI, lint, and responsive work item
 scanning.
 
 The app is intentionally built as a credible product surface before generalizing reusable patterns. It runs locally today, while preserving a path toward an S3/CloudFront Angular frontend with API Gateway/Lambda-style endpoint handlers and managed Postgres.
@@ -43,6 +44,7 @@ docs/
   v0.2.6/  Scalable Work Discovery PRD, technical design, implementation plan, release notes, and pattern notes
   v0.2.7/  Files in Context PRD, technical design, implementation plan, release notes, and pattern notes
   v0.2.8/  Quick Find PRD, technical design, implementation plan, release notes, and pattern notes
+  v0.2.9/  Readable Work PRD, design, plan, release/pattern notes, CSV example, and verification evidence
   api/     OpenAPI reference
 site/       Static GitHub Pages product site
 e2e/        Playwright smoke tests
@@ -171,6 +173,52 @@ operation requires a future object-store adapter and coordination design.
 ## API Reference
 
 The checked-in OpenAPI reference lives at [docs/api/openapi.yaml](docs/api/openapi.yaml). It documents the implemented route surface, representative DTOs, development-only local actor headers, readiness behavior, and the common structured error shape.
+
+## Readable Work
+
+v0.2.9 adds structured descriptions and comments with a shared source editor, formatting toolbar,
+format selector, and preview. New descriptions and comments in the Angular app default to Markdown;
+existing edits preserve their stored format. Choose Plain text to retain literal punctuation, or
+deliberately convert to Markdown. Preview never saves a draft, and cancel/reset restores its context.
+
+The `markdown_v1` profile supports paragraphs and visible line breaks, headings, ordered/unordered
+lists, emphasis, quotations, inline code, fenced/indented code blocks, and explicit HTTP(S) links.
+Images display alternative text only. Raw HTML remains literal; tables, strikethrough, interactive
+task checkboxes, syntax highlighting, arbitrary attributes, and embedded content are not supported.
+Rejected links remain unlinked readable text. Naked URLs are not automatically linked. Code scrolls
+within its own region on narrow screens. Parsing/projection failures display complete literal source.
+This is a bounded Markdown profile, not full CommonMark/GFM or a WYSIWYG editor.
+
+Source plus its format (`plain_text` or `markdown_v1`) is authoritative; generated HTML is neither
+stored nor inserted. Markdown presentation uses a finite application-owned tree and static Angular
+templates. Relative destinations (including `/api/...`), non-HTTP(S) schemes, and credential-bearing
+URLs are rejected. Valid absolute HTTP(S) links may be same-origin or external; they are not a trusted
+destination allowlist. Viewing or previewing content does not fetch image or embed assets.
+
+API compatibility and input rules:
+
+- Work-item detail includes `descriptionFormat`; comments include `bodyFormat`.
+- API creation defaults an omitted format to `plain_text`, even though the Angular app explicitly
+  sends Markdown for new content. Existing API clients do not acquire Markdown by accident.
+- Updates preserve omitted source/format fields. A description format-only update is supported;
+  comment updates still require `body`, even when converting format.
+- New or changed pairs normalize CRLF/lone CR to LF without trimming indentation, leading/trailing
+  spaces, or blank lines. New/changed source is limited to 10,000 **UTF-16 code units**, not bytes,
+  graphemes, or Unicode code points. Descriptions may be empty; new/changed comments must not be blank.
+- Unchanged legacy pairs remain valid even when oversized or historically blank. Equivalent
+  normalized source preserves historical bytes. Converting an oversized record requires shortening
+  its source in the same request; a blank legacy comment needs nonblank source to convert.
+- Source-and-format no-ops preserve timestamps and emit no activity or notifications. Real changes
+  remain auditable. Explicit mention selection is separate from Markdown; typing `@name` creates no
+  recipient, and editing a comment does not change its mentions or resend creation notifications.
+- Archived descriptions/comments remain readable but cannot be changed. Deleted comments expose
+  tombstones without original source. Source-text search, summary CSV exports, published reports,
+  and closeout snapshots retain their previous semantics.
+
+Existing installations should run `npm run db:migrate` to apply additive migration
+`0019_nosy_junta.sql`; it backfills existing records as plain text without rewriting their source.
+Do not reset or reseed working data to upgrade. See the [release notes](docs/v0.2.9/release-notes.md)
+and [verification evidence](docs/v0.2.9/verification-notes.md) for compatibility and residual limits.
 
 ## Quick Find
 
@@ -448,6 +496,13 @@ Import is a two-step flow:
 
 If any row is invalid during apply, no work items are created. Project and workspace exports use the same applied filters as the visible list or discovery view, but ignore page and page size so the CSV contains every matching row rather than only the visible page. Exports include cycle context and direct parent key/title context where present. A synchronous export is limited to 10,000 matching rows; an oversized request returns an error without a partial download. CSV import does not assign cycles or parent relationships.
 
+Optional `description_format` accepts `plain_text` or `markdown_v1`; missing or blank values default
+to plain text. Quoted multiline descriptions preserve whitespace while normalizing line endings to
+LF, with a 10,000 normalized UTF-16 code-unit limit. Preview shows the format and a bounded escaped
+source excerpt, not rendered content. Summary exports deliberately omit description/format and are
+not round-trip import files. A ready-to-import [multiline example](docs/v0.2.9/authored-work-items.csv)
+demonstrates Markdown, explicit plain text, and the blank-format default.
+
 The detailed CSV guide is in [docs/v0.0.X/v0.0.7/csv-import-export.md](docs/v0.0.X/v0.0.7/csv-import-export.md).
 
 ## Relationships And Dependency Signals
@@ -500,12 +555,18 @@ Delivery health is derived at read time from milestones, cycles, work item statu
 npm run lint
 npm run typecheck
 npm test
-npm run test:e2e
 npm run build
+npm run test:e2e
+npm run test:editor
+npx playwright test --config playwright.production.config.ts
 npm audit --omit=dev --audit-level=low
 ```
 
-CI runs `npm ci`, `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` on pull requests and pushes to `main`. The verify job provisions a Postgres service, sets `DATABASE_URL`, and runs `npm run db:reset && npm run db:migrate && npm run db:seed` before tests. Playwright remains a local smoke test because it provisions and resets a local Postgres-backed app.
+CI runs install, production dependency audit, lint, typecheck, package tests, production build,
+standalone editor tests, application browser regressions, and compiled production preview on pull
+requests and pushes to `main`. It provisions disposable PostgreSQL 16 and temporary attachment roots,
+and uploads browser evidence on failure. Development-inclusive audit findings remain a separate
+toolchain backlog; a clean production-only audit does not mean every development dependency is clean.
 
 `npm run test:e2e` starts the local API and Angular dev server through Playwright. By default it runs:
 
@@ -516,6 +577,16 @@ npm run db:seed
 ```
 
 The Playwright suite resets, migrates, and seeds before the browser run, then restores deterministic seed data after mutation-heavy tests. That means the local `public` schema for the configured database is dropped and recreated. Attachment bytes use a unique OS-temporary marked store that is removed during global teardown; normal development attachment storage is restored with the final seed. Set `WORKTRAIL_E2E_SKIP_DB_RESET=true` only when you intentionally want to run the smoke test against an already prepared local database. Set `WORKTRAIL_E2E_SKIP_DB_RESTORE=true` only when you intentionally want to inspect post-test database mutations. `WORKTRAIL_E2E_ATTACHMENT_STORAGE_PATH` may override the isolated absolute storage path for deliberate test inspection.
+
+**Use a disposable database and isolated attachment roots for browser and database-backed package
+tests.** The reset-skip flags do not make mutation-heavy tests safe for working data. Configure both
+the original and e2e storage roots as temporary paths when using per-file/final demo restoration.
+The standalone editor suite does not use PostgreSQL. Compiled-preview checks require built artifacts,
+a migrated/seeded disposable database, an absolute isolated `WORKTRAIL_ATTACHMENT_STORAGE_PATH`, and
+a free `API_PORT` (default 4319); they do not prepare or reset data themselves. The application suite
+defaults to API 3000/web 4200; `WORKTRAIL_E2E_WEB_PORT` can select a free web port, but the checked-in
+Angular proxy still targets API 3000. See the [verification notes](docs/v0.2.9/verification-notes.md)
+for the isolated release setup.
 
 ## Public Site
 
@@ -543,6 +614,9 @@ Seeded data includes:
 - personal saved work views for each active seeded member, workspace-shared saved views for team operating lenses, and project-scoped shared/personal saved views for project rituals;
 - published Worktrail App and Reference Operations status reports with snapshot data for milestone, cycle, risk, recent-work, and Portfolio review;
 - project labels, comments, deleted-comment tombstones, project activity, and workspace activity events.
+- Markdown requirements on `WT-1`, reproduction steps and inert unsupported source on `WT-2`,
+  literal plain text and a code-bearing comment with explicit mentions on `WT-3`, and formatted
+  read-only context on archived `LEGACY-1`.
 
 Use the `Acting as` selector in the top bar to switch the local placeholder actor. The selector only shows active members. This is intentionally local-only behavior and is not production authentication; the API derives the actor role and active state from the selected member record instead of trusting a client-supplied role.
 
@@ -604,6 +678,8 @@ Suggested walkthrough:
 1. Mark an individual notification read, switch to All, and mark it unread again.
 1. Open the board, drag cards within a column to set planning order, reload, and confirm the order persists.
 1. Move a card through valid workflow columns with drag/drop or the status menu.
+1. Open `WT-1` and read its requirements; preview a description edit before saving. Open `WT-3` and
+   confirm its legacy punctuation is literal while its formatted code comment remains readable.
 1. Open the work item detail page, update fields, change milestone and cycle assignment, watch or unwatch the item, mention an active member in a new comment, add and edit another comment, delete a comment, and review activity.
 1. Switch to the mentioned actor and confirm the mention appears as an unread Inbox notification linking back to the work item.
 1. Add a blocking relationship, confirm the downstream dependency signal appears, move the blocker to done, and confirm the dependency signal clears.
@@ -755,6 +831,8 @@ Suggested walkthrough:
 - Persisted board ordering for same-status reorder and cross-status movement.
 - Angular CDK drag/drop board interaction backed by server-side workflow validation.
 - Comment add/edit/delete with role-aware UI affordances and deleted-comment tombstones.
+- Explicit plain-text/Markdown source formats for descriptions and comments, a shared authoring
+  toolbar and faithful preview, inert allowlisted presentation, and unchanged legacy-source support.
 - Workspace, project, milestone, label, work item, board movement, shared saved view, personal saved view, and comment lifecycle coverage through tests and activity where applicable.
 - Archived projects remain readable and block project, milestone, work item, label, comment, and transition writes.
 - Runtime configuration validation with development defaults and production-mode requirements.
@@ -764,7 +842,8 @@ Suggested walkthrough:
 - OpenAPI reference under `docs/api/openapi.yaml`.
 - Operations runbook for runtime modes, environment variables, migrations, seed/reset flow, preview, health checks, troubleshooting, and future cloud mapping.
 - ESLint guardrails for API, web, and contracts workspaces.
-- GitHub Actions CI for lint, typecheck, tests with a Postgres service, and production build.
+- GitHub Actions CI for production audit, lint, typecheck, package/editor/application browser tests,
+  and compiled production build/preview with a disposable Postgres service.
 
 ## Current Limitations
 
@@ -775,7 +854,10 @@ Suggested walkthrough:
 - Cycle planning is intentionally lightweight. Velocity charts, ceremony management, automatic rollover/closeout, member capacity calendars, cycle forecasting, cycle templates, retrospective tooling, closeout notifications, split carryover destinations, and safe reopen/undo are deferred.
 - Project status reports are immutable after publication. Report edits, report delete/archive, PDF generation, scheduled delivery, email/push distribution, approvals, comments, custom templates, subscriptions, recipients, public links, export history, analytics, workspace rollups, forecasting, and roadmap reporting are deferred.
 - Notifications are in-app only. Email, push, WebSockets, digests, notification preferences, deletion/archive controls, and background delivery workers are deferred.
-- Comment mentions are selected through an active-member picker. Rich-text editing and free-text `@name` parsing are deferred.
+- Descriptions/comments support a bounded Markdown source profile, not WYSIWYG editing, full GFM,
+  tables, interactive task lists, inline images, syntax highlighting, or coauthoring. Report narrative
+  and snapshots are not migrated to this content model.
+- Comment mentions are selected through an active-member picker. Free-text `@name` parsing is deferred.
 - Watchers are work-item scoped only. Project-level and workspace-level watching are deferred.
 - Saved views support workspace and project scopes with personal/shared visibility and pinned shortcuts. Custom pinned ordering, saved-view folders, icons, colors, descriptions, ownership transfer, custom permissions, short links, and analytics are deferred.
 - Portfolio review is read-only and active-project focused. Portfolio filters, custom sorting, charts, exports, stored portfolio snapshots, historical portfolio review, and cross-project mutation workflows are deferred.
@@ -806,7 +888,7 @@ Suggested walkthrough:
 
 ## Database Status
 
-The current schema includes workspace activity, member lifecycle metadata, project keys, scoped work item display keys, labels, milestones, project cycles, immutable project cycle closeouts with versioned JSONB evidence, work item cycle assignments, an indexed nullable work item parent self-reference, attachment metadata and integrity evidence, comments, comment mentions, project activity, due dates, durable board positions, work item relationships, work item watchers, notifications, workspace-scoped saved work views, project-scoped saved work views, saved-view pinned state, immutable project status report snapshots, and `pg_trgm` GIN indexes for work-item display-key, title, and description search.
+The current schema includes workspace activity, member lifecycle metadata, project keys, scoped work item display keys, labels, milestones, project cycles, immutable project cycle closeouts with versioned JSONB evidence, work item cycle assignments, an indexed nullable work item parent self-reference, attachment metadata and integrity evidence, comments, comment mentions, explicit description/comment source formats, project activity, due dates, durable board positions, work item relationships, work item watchers, notifications, workspace-scoped saved work views, project-scoped saved work views, saved-view pinned state, immutable project status report snapshots, and `pg_trgm` GIN indexes for work-item display-key, title, and description search.
 
 Useful database commands:
 

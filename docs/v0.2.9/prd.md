@@ -2,11 +2,13 @@
 
 ## Status
 
-Approved for implementation. Phase 0 completed on October 11, 2026.
+Implemented and locally verified on October 17, 2026. All phases are complete; merge, tag, and
+deployment remain separate actions. See the [release notes](release-notes.md) and
+[verification notes](verification-notes.md) for delivered behavior and validation limits.
 
 ## Summary
 
-Worktrail v0.2.9 should add **Readable Work: Structured Descriptions and Discussion**.
+Worktrail v0.2.9 adds **Readable Work: Structured Descriptions and Discussion**.
 
 Worktrail can organize, plan, find, and review work, and it now retains supporting files alongside
 that work. The next improvement should make the explanation inside a work item as useful as its
