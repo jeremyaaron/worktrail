@@ -6,8 +6,9 @@ Implementation baseline, confirmed during Phase 0 on October 17, 2026. This desi
 direction in the [PRD](prd.md), informed by the
 [UX audit](ux-audit.md), [technical debt audit](tech-debt-audit.md), and
 [public site audit](site-audit.md). The [implementation plan](implementation-plan.md) records Phase 0
-inventories, closed choices, sequencing, and acceptance. Phases 1-6 verification, toolchain,
-persistence, batched queries, and project/cycle coordination are complete; implementation is in progress.
+inventories, closed choices, sequencing, and acceptance. Phases 1-7 verification, toolchain,
+persistence, batched queries, project/cycle coordination, and authoritative work/relationship commands
+are complete; implementation is in progress.
 
 ## Summary
 
@@ -565,6 +566,35 @@ without schedule repair or schema changes. Synchronized real-connection tests co
 competing schedules, post-wait archive/reference validation, closeout scope/replay, and independent
 writers. Work-row/hierarchy/graph/board ordering and command extraction remain Phase 7, not completed
 by the project gate. Historical completed/canceled assignment behavior remains unchanged.
+
+Phase 7 implementation: the existing work service is now a forwarding facade over query, detail-read,
+single-command, and per-item bulk owners. A concrete write-policy owner shares existing reference
+rules; board-position and activity owners retain their algorithms behind the scoped commands.
+`work-item-command-locks.ts` plans hierarchy/board keys before counters/cycles/work rows and returns
+locked current state. Child creation allocates the project counter before parent rows. Type/parent
+edits share the hierarchy key without introducing type-specific parent restrictions. Cycle assignment
+returns a controlled conflict when its discovered source-cycle set changes while waiting, not a
+late earlier-order lock or implicit retry.
+
+Validated UUID casing is canonicalized before advisory ordering, identity hashing, reentry, and
+upgrade checks. Work-row lookup uses the discovered canonical ID rather than raw caller spelling.
+Equivalent uppercase/lowercase UUID inputs cannot create different gates for the same PostgreSQL row.
+
+Status and board decisions, bulk field/status comparisons, and activity/notification previous values
+use protected current work. Board moves lock the complete destination-column set plus moving row in
+ID order before any possible compaction. Position assignment retains board order, physical updates
+follow ID order, and the mover is excluded until its final update. No-op status/already-positioned
+board commands retain timestamps. Description-only PATCH takes no board/hierarchy key. Import plans
+its keys before its row loop; bulk domain failures roll back outside the callback before being
+converted to existing per-item error results.
+
+Relationship add/remove uses sorted project keys, the workspace dependency graph key, sorted endpoint
+rows, and then the edge row on removal; permission and reachability use current protected state.
+Comments and explicit watches lock work before their dependent rows, compatible with attachment and
+automatic watcher paths. Real synchronized tests cover these paths, including disjoint endpoint
+cycles and complete-column compaction. These are supported application protocols, not arbitrary SQL
+deadlock immunity or storage atomicity. Snapshot/risk policy and narrowed aggregate evaluations remain
+their later phases; this command extraction does not rewrite historical snapshots.
 
 ### Project Coordination
 

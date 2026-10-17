@@ -46,7 +46,7 @@ export class WorkItemWatcherService {
   }
 
   private async watchInScope(workItemId: string): Promise<WorkItemWatchStateDto> {
-    const workItem = await this.requireWorkItem(workItemId);
+    const workItem = await this.requireLockedWorkItem(workItemId);
     const project = await this.requireProject(workItem.projectId);
     this.assertProjectWritable(project);
     const timestamp = this.clock();
@@ -73,7 +73,7 @@ export class WorkItemWatcherService {
   }
 
   private async unwatchInScope(workItemId: string): Promise<WorkItemWatchStateDto> {
-    const workItem = await this.requireWorkItem(workItemId);
+    const workItem = await this.requireLockedWorkItem(workItemId);
     const project = await this.requireProject(workItem.projectId);
     this.assertProjectWritable(project);
     const timestamp = this.clock();
@@ -120,6 +120,12 @@ export class WorkItemWatcherService {
     }
 
     return workItem;
+  }
+
+  private async requireLockedWorkItem(workItemId: string): Promise<WorkItem> {
+    const [item] = await this.context.repositories.workItems.findManyByIdsForUpdate([workItemId]);
+    if (item === undefined || item.workspaceId !== this.context.actor.workspaceId) throw new NotFoundError('Work item not found.');
+    return item;
   }
 
   private async requireProject(projectId: string): Promise<Project> {

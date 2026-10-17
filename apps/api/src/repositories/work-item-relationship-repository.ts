@@ -34,6 +34,12 @@ export function createWorkItemRelationshipRepository(db: RepositoryExecutor) {
       return relationship ?? null;
     },
 
+    async findByIdForUpdate(id: string) {
+      const [relationship] = await db.select().from(workItemRelationships)
+        .where(eq(workItemRelationships.id, id)).limit(1).for('update');
+      return relationship ?? null;
+    },
+
     async findBetween(input: RelationshipLookupInput) {
       const [relationship] = await db
         .select()

@@ -3,8 +3,9 @@
 ## Status
 
 Approved implementation scope. Phase 0 planning and decision closure completed on October 17, 2026.
-Phases 1-6 verification, toolchain, persistence, batched queries, and project/cycle coordination are
-complete; implementation is in progress and release verification remains pending. See the
+Phases 1-7 verification, toolchain, persistence, batched queries, project/cycle coordination, and
+authoritative work/relationship commands are complete; implementation is in progress and release
+verification remains pending. See the
 [implementation plan](implementation-plan.md).
 
 ## Summary

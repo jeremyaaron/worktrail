@@ -100,7 +100,14 @@ test('renders hostile source and complete fallback without remote assets or priv
         data: { description: source, descriptionFormat: 'markdown_v1' }
       });
       expect(update.ok()).toBe(true);
-      await page.goto(`/work-items/${activeItemId}`);
+      const [detailResponse] = await Promise.all([
+        page.waitForResponse((response) =>
+          new URL(response.url()).pathname === `/api/work-items/${activeItemId}` && response.request().method() === 'GET'
+        ),
+        page.goto(`/work-items/${activeItemId}`)
+      ]);
+      expect(detailResponse.ok()).toBe(true);
+      expect(await detailResponse.finished()).toBeNull();
       const saved = page.locator('app-work-item-detail-summary app-authored-content-viewer');
       await expect(saved).toContainText(source === hostile ? 'Visible alternative' : fallback);
       await expectInert(saved);

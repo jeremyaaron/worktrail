@@ -54,7 +54,7 @@ export class CommentService {
 
   private async addCommentInScope(workItemId: string, input: CreateCommentRequest): Promise<CommentDto> {
     return this.withWriteRepositories(async (repositories) => {
-      const workItem = await this.requireWorkItem(workItemId, repositories);
+      const workItem = await this.requireLockedWorkItem(workItemId, repositories);
       const project = await this.requireProject(workItem.projectId, repositories);
       this.assertProjectWritable(project);
       const content = resolveNewAuthoredContent(
@@ -255,14 +255,24 @@ export class CommentService {
   }
 
   private async requireCommentForUpdate(commentId: string, repositories: Repositories): Promise<Comment> {
-    await this.requireComment(commentId, repositories);
+    const discovered = await this.requireComment(commentId, repositories);
+    const workItem = await this.requireLockedWorkItem(discovered.workItemId, repositories);
     const comment = await repositories.comments.findByIdForUpdate(commentId);
 
     if (comment === null || comment.workspaceId !== this.context.actor.workspaceId) {
       throw new NotFoundError('Comment not found.');
     }
+    if (comment.workItemId !== workItem.id || comment.projectId !== workItem.projectId) {
+      throw new ConflictError('Comment context changed while waiting. Retry the command.');
+    }
 
     return comment;
+  }
+
+  private async requireLockedWorkItem(workItemId: string, repositories: Repositories): Promise<WorkItem> {
+    const [item] = await repositories.workItems.findManyByIdsForUpdate([workItemId]);
+    if (item === undefined || item.workspaceId !== this.context.actor.workspaceId) throw new NotFoundError('Work item not found.');
+    return item;
   }
 
   private async requireProject(projectId: string, repositories: Repositories): Promise<Project> {

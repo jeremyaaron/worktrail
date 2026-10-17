@@ -518,12 +518,13 @@ export function createWorkItemRepository(db: RepositoryExecutor) {
       return workItem ?? null;
     },
 
-    async compactBoardPositions(projectId: string, status: WorkItem['status']) {
-      const items = await this.listByProjectAndStatusForBoard(projectId, status);
+    async compactBoardPositions(projectId: string, status: WorkItem['status'], excludeWorkItemId?: string) {
+      const items = (await this.listByProjectAndStatusForBoard(projectId, status)).filter(({ id }) => id !== excludeWorkItemId);
       const compacted: WorkItem[] = [];
-
-      for (const [index, item] of items.entries()) {
-        const boardPosition = (index + 1) * 1024;
+      const positions = new Map(items.map((item, index) => [item.id, (index + 1) * 1024]));
+      // Callers hold the board key and the complete target row set. Keep update order canonical too.
+      for (const item of [...items].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0)) {
+        const boardPosition = positions.get(item.id)!;
         const [updated] = await db
           .update(workItems)
           .set({ boardPosition })
@@ -535,7 +536,7 @@ export function createWorkItemRepository(db: RepositoryExecutor) {
         }
       }
 
-      return compacted;
+      return compacted.sort((a, b) => a.boardPosition - b.boardPosition);
     },
 
     async update(id: string, input: UpdateWorkItemInput) {

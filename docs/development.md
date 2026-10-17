@@ -1,9 +1,9 @@
 # Worktrail Developer Ownership And Invariants
 
-This is the current implementation guide, not a release archive. As of v0.3.0 Phase 6, persistence
-ownership, batched list/query hydration, and project/cycle lifecycle coordination are implemented.
-Authoritative work/relationship command extraction and row ordering remain Phase 7 in the
-[implementation plan](v0.3.0/implementation-plan.md).
+This is the current implementation guide, not a release archive. As of v0.3.0 Phase 7, persistence
+ownership, batched queries, lifecycle coordination, and authoritative work/relationship commands are
+implemented. Transport budgets, risk/snapshot policy, aggregate narrowing, and frontend consolidation
+remain later phases in the [implementation plan](v0.3.0/implementation-plan.md).
 
 ## Composition And Persistence
 
@@ -30,7 +30,8 @@ Service entry methods instantiate a scope-bound service and call a private `*InS
 ensures existing helpers using `this.context.repositories` see scoped repositories. Nested services
 must receive the enclosing `scope.persistence` and repositories, never the root capability.
 `createWorkItemWithScope` requires the caller's complete `PersistenceScope` and participates in its
-write capability and shared project gate; CSV import cannot bypass coordination with repositories alone.
+write capability, project gate, and preplanned hierarchy/board keys; CSV import cannot bypass
+coordination with repositories alone.
 Repository-accepting DTO enrichment, relationship summaries, and notification recording participate
 in their caller's scope; they do not own commits.
 Import apply owns one write including validation and all rows. CSV export owns one consistent read;
@@ -38,8 +39,13 @@ report publication and its nested cycle snapshot share one write.
 
 Bulk work-item updates deliberately commit per item and retain partial success. Each item executes
 on a newly bound service, not on the outer root instance. Each item acquires shared project coordination
-and rereads project writability; preliminary bulk validation is not authoritative. Detailed work-row
-and operation locking remains Phase 7.
+and rereads project writability; preliminary bulk validation is not authoritative. Per-item actions
+compare locked current work and labels, with board/cycle locks planned before work locks. Application
+errors escape the callback and roll back that item before being mapped to the existing failure result.
+Do not catch a post-write domain error inside the transaction and return a failed item that commits.
+Compose the public bulk entry with the root capability, not inside another write scope: bound writes
+join their parent and cannot provide independent per-item rollback/commits. Its private item body is
+the scope-bound entry; import and single-record commands remain safely composable inside writes.
 
 `RepositoryExecutor` in `db/client.ts` exposes the query methods common to the real Drizzle database
 and transaction types. All repository factories use this type without pretending a transaction is a
@@ -84,8 +90,33 @@ query budgets are described below; dashboard narrowing remains Phase 10 work.
 `services/work-item-query-service.ts` owns project/workspace list, page, and board reads. It receives
 only actor identity and persistence, not root repositories. Authorization, count/window resolution,
 reference reads, and DTO projection occur inside one `readConsistent` callback. `WorkItemService`
-retains forwarding methods for existing endpoint/dashboard callers; command and detail ownership
-remain there until their later extraction. Do not copy list orchestration back into that facade.
+retains forwarding methods for existing endpoint/dashboard callers. It is now a compatibility facade;
+do not copy query or command orchestration back into it.
+
+## Work Command Owners
+
+Owners below are under `apps/api/src/services/`; each uses the enclosing scoped repositories and
+capability, not a second root transaction:
+
+| Owner | Responsibility |
+| --- | --- |
+| `work-item-service.ts` | Existing public API forwarding and type reexports |
+| `work-item-command-service.ts` | Create, PATCH, status, board, and parent commands, including hierarchy validation |
+| `work-item-bulk-command-service.ts` | Explicit-ID per-item commits, current-state action decisions, rollback before partial-failure mapping |
+| `work-item-command-locks.ts` | Project/operation planning, ordered cycle/work sets, post-wait identity/reference revalidation |
+| `work-item-write-policy.ts` | Project and reference validation, historical assignment exceptions, set equality |
+| `work-item-board-positions.ts` | Current-column neighbor validation, insertion positions, and compaction decisions under the board key |
+| `work-item-activity.ts` | Field/source-format/label/milestone/cycle differences from locked previous values |
+| `work-item-read-service.ts` | Detail, children, parent candidates, and scoped command response projection |
+
+Relationship commands retain their focused service and mapper. They acquire both project keys, then
+the workspace dependency key and sorted endpoint rows; removal locks the existing edge afterward.
+Reachability, duplicate checks, and contributor permission use current protected state. No same-project
+restriction is added. Comments acquire work before comment rows, and explicit watch/unwatch acquires
+work before watcher writes, matching notification-driven watcher creation. Attachment project/work/file
+ordering and storage compensation remain unchanged.
+
+## Hydration Invariants
 
 `services/work-item-hydrator.ts` receives the enclosing repositories and selected summary rows.
 It deduplicates the reporter/assignee union and milestone/cycle IDs, then loads members, milestones,
@@ -127,13 +158,16 @@ rows, payload bytes, and diagnostic elapsed time, not SQL parameters or applicat
 ## Lock Ownership And Participation
 
 `repositories/locks.ts` provides transaction-scoped advisory coordination with parameterized,
-namespaced identities. Project requests are sorted by project ID, then workspace ID. Decide shared
-or exclusive mode before acquisition; shared-to-exclusive upgrades are rejected. Reentry is
+namespaced identities. Validated workspace/project/resource UUIDs are lowercased before sorting,
+deduplication, mode checks, and hashing. Project requests are sorted by project ID, then workspace ID.
+PostgreSQL treats equivalent
+uppercase/lowercase UUIDs as one record; they must not bypass coordination with different strings.
+Decide shared or exclusive mode before acquisition; shared-to-exclusive upgrades are rejected. Reentry is
 idempotent. Operation keys follow hierarchy, dependency, then board order, with stable keys within
 each namespace. Acquire the complete affected project set before operation keys. No new earlier
 project/operation key may be acquired after a later key.
 
-The canonical command order, with project gates and ordered closeout cycle locks implemented, is:
+The implemented canonical command order is:
 
 1. Project advisory coordination, sorted IDs and predetermined modes.
 2. Hierarchy, workspace dependency graph, and board operation keys, in that order.
@@ -146,28 +180,46 @@ The helper enforces advisory acquisition order and scope mode/lifetime, not row-
 `services/project-write-coordination.ts` owns command participation helpers. Preliminary work,
 comment, relationship, and reference reads discover immutable project IDs only; bodies reread state
 after acquiring the gate. Cross-project relationships discover both endpoint projects before taking
-either key. These helpers do not replace existing hierarchy/dependency/board repository locks yet.
+either key. Command planners use the typed hierarchy/dependency/board operation keys, and ordered
+repository queries acquire their complete existing work-row sets. Advisory helpers alone cannot
+infer required rows or repair an unsupported direct repository call's ordering.
 
-| Command Family | Implemented Project Participation | Remaining Command Responsibility |
+| Command Family | Implemented Project Participation | Command Protocol |
 | --- | --- | --- |
 | Existing project metadata/archive/reactivate | Exclusive | Preserve current-state activity |
 | Cycle create/update/archive/reactivate/closeout | Exclusive; authoritative cycle reread/row lock, closeout source/destination sorted by ID | Retain immutable replay; narrow dependency evaluation |
 | Label/milestone administration | Exclusive; excludes ordinary assignment validation | Retain historical reference exceptions |
-| Work creation/PATCH/status/board/parent/bulk/import | Shared, every affected project | Counter-before-work, hierarchy/board keys, locked revalidation, per-item bulk policy |
-| Dependency add/remove | Shared, both projects sorted | Workspace graph key, ordered affected records |
+| Work creation/PATCH/status/board/parent/bulk/import | Shared, every affected project | Hierarchy/board keys where required; counter before parent, ordered cycle/work sets, locked decisions; per-item bulk rollback |
+| Dependency add/remove | Shared, both projects sorted | Workspace graph key before reachability checks; ordered endpoints before edge row |
 | Comment add/edit/delete | Shared | Work-before-comment row order, no-op behavior |
 | Attachment upload/remove | Shared | Retain compensation, project/work/file order |
-| Watch/unwatch and report publication | Shared | Keep all database effects in the enclosing write |
+| Watch/unwatch and report publication | Shared | Work before explicit watcher writes; report publication keeps its own enclosing write |
 | Project saved-view changes, including pin/query/name | Shared | Retain permission and archived-project semantics |
 | Workspace views and Inbox read-state | None | Preserve independent workspace/member scope |
 | New project creation | No preexisting project key | Atomic creation/activity and unique-key backstop |
 
 Project gates are installed in every listed command family. Lifecycle decisions and ordinary writes
 exclude one another; two ordinary writers can still proceed together, and unrelated projects remain
-independent. This does not establish authoritative work-row previous-state activity, hierarchy/counter
-order, graph reachability serialization, or board ordering under competing shared writers. Those are
-Phase 7 work. In particular, creation can still lock a parent before its project counter, and adjacent
-comment/file paths retain their existing row order. Do not claim that all command deadlocks are fixed.
+independent. Creation takes hierarchy then board keys and allocates its counter before cycle/parent
+rows. Import acquires those operation keys before validation/its row loop; creation reentry is idempotent.
+Parent/type edits use the hierarchy key, retaining the existing type-agnostic two-level model. Work
+cannot become both a parent and a child; no story-only or new type restriction is introduced.
+
+Status/bulk-status/board writers take the project board key before work locks and neighbor reads.
+Board moves prelock the complete target column plus moving row in ID order because compaction may
+touch all of them. Compaction assigns positions in board order, updates rows in ID order, excludes the
+moving row until its final update, and preserves other rows' timestamps. Boards remain complete beyond
+interactive pagination. Description-only PATCH does not take the board or hierarchy key. Identical
+status and already-positioned board commands retain timestamps and emit no status evidence.
+
+Cycle assignment locks discovered source/requested destination IDs before work. If current cycle
+membership changed while waiting, return a controlled conflict rather than acquiring an unplanned
+earlier lock or overwriting with a stale decision. Hierarchy/relationship planners similarly revalidate
+their discovered context. These cooperative protocols cover the supported application paths, not every
+possible direct SQL mutation, arbitrary outer transaction, infrastructure failure, or storage operation.
+Large imports and complete-column compaction can hold locks for their full transaction; there is no
+automatic retry or claim of unlimited mutation throughput. Workspace graph mutations intentionally
+serialize even when endpoint pairs are disjoint, preventing multi-edge cross-project cycles.
 
 Cycle availability checks run after the exclusive gate. Inclusive overlap, one active nonarchived cycle,
 case-insensitive nonarchived names, and historical exceptions remain unchanged. A queued generic edit
@@ -212,6 +264,15 @@ covers inclusive schedule races, reactivation, both cross-project relationship k
 versus assignment, closeout/edit/assignment/status ordering, independent/shared writers, workspace
 view/Inbox independence, real unique-index backstops, and read-only diagnostic output. Test barriers
 have bounded waits; a timing sleep is not evidence that the second transaction reached its gate.
+
+`work-command-concurrency.test.ts` covers status/board/bulk previous values, no-op timestamps, changed
+cycle lock sets, opposing hierarchy and dependency commands, import/counter ordering, bulk rollback,
+and adjacent comment/file/watch paths. Its compaction race requires the first writer to acquire the
+moving row after the second writer has blocked on an earlier-ID row; locking the mover first would
+expose an inversion. A real 103-row column checks that compaction never uses a paginated subset.
+Disjoint endpoint pairs closing a longer dependency cycle prove workspace graph coordination, not
+merely incidental serialization from shared endpoint rows. Unsupported direct SQL remains outside
+these cooperative guarantees.
 
 API HTTP tests use `tests/support/local-http.ts` instead of importing Supertest directly. Its fluent
 assertions remain Supertest's, but connections target the owned listener's actual address family.

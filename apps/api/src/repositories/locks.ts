@@ -32,7 +32,10 @@ export function createRepositoryLocks(executor: RepositoryExecutor, assertWritab
   return {
     async projects(requests) {
       assertWritable();
-      const ordered = [...requests].sort((a, b) =>
+      // PostgreSQL UUID equality is case-insensitive; equivalent spellings must coordinate together.
+      const ordered = requests.map((request) => ({ ...request,
+        workspaceId: request.workspaceId.toLowerCase(), projectId: request.projectId.toLowerCase()
+      })).sort((a, b) =>
         compare(a.projectId, b.projectId) || compare(a.workspaceId, b.workspaceId)
       );
       // Validate the complete requested set before taking any lock. Never upgrade a shared lock.
@@ -62,6 +65,7 @@ export function createRepositoryLocks(executor: RepositoryExecutor, assertWritab
     },
     async operation(request) {
       assertWritable();
+      request = { ...request, workspaceId: request.workspaceId.toLowerCase(), resourceId: request.resourceId.toLowerCase() };
       const key = JSON.stringify([namespaceOrder[request.namespace], request.workspaceId, request.resourceId]);
       if (heldOperations.has(key)) return;
       if (lastOperation && compare(key, lastOperation) < 0) {

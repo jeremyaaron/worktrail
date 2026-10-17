@@ -1,6 +1,7 @@
 import { NotFoundError } from '../errors/app-error.js';
 import type { ProjectLockMode } from '../repositories/locks.js';
 import type { PersistenceScope } from '../repositories/persistence.js';
+import type { WorkItem } from '../repositories/types.js';
 
 export async function coordinateProjects(
   scope: PersistenceScope, workspaceId: string, projectIds: readonly string[], mode: ProjectLockMode
@@ -12,14 +13,16 @@ export async function coordinateProjects(
 // These reads discover immutable project IDs only. Command bodies reread authoritative state after the gate.
 export async function coordinateWorkItems(
   scope: PersistenceScope, workspaceId: string, workItemIds: readonly string[]
-): Promise<void> {
-  const projectIds: string[] = [];
+): Promise<WorkItem[]> {
+  const located = new Map<string, WorkItem>();
   for (const id of new Set(workItemIds)) {
     const item = await scope.repositories.workItems.findById(id);
     if (item === null || item.workspaceId !== workspaceId) throw new NotFoundError('Work item not found.');
-    projectIds.push(item.projectId);
+    located.set(item.id, item);
   }
-  await coordinateProjects(scope, workspaceId, projectIds, 'shared');
+  const items = [...located.values()];
+  await coordinateProjects(scope, workspaceId, items.map(({ projectId }) => projectId), 'shared');
+  return items;
 }
 
 export async function coordinateComment(scope: PersistenceScope, workspaceId: string, commentId: string): Promise<void> {
@@ -40,11 +43,11 @@ export async function coordinateReference(
 
 export async function coordinateRelationship(
   scope: PersistenceScope, workspaceId: string, workItemId: string, relationshipId: string
-): Promise<void> {
+): Promise<WorkItem[]> {
   const relationship = await scope.repositories.workItemRelationships.findById(relationshipId);
   if (relationship === null || relationship.workspaceId !== workspaceId ||
     (relationship.sourceWorkItemId !== workItemId && relationship.targetWorkItemId !== workItemId)) {
     throw new NotFoundError('Relationship not found.');
   }
-  await coordinateWorkItems(scope, workspaceId, [relationship.sourceWorkItemId, relationship.targetWorkItemId]);
+  return coordinateWorkItems(scope, workspaceId, [relationship.sourceWorkItemId, relationship.targetWorkItemId]);
 }

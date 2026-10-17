@@ -118,6 +118,25 @@ describe('explicit persistence capabilities', () => {
     expect(execute).toHaveBeenCalledTimes(3);
   });
 
+  it('canonicalizes UUID spelling before project deduplication, mode checks, and operation reentry', async () => {
+    const { persistence, execute } = fixture();
+    const workspaceId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    const projectId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    await persistence.write(async ({ locks }) => {
+      await locks.projects([{ workspaceId: workspaceId.toUpperCase(), projectId: projectId.toUpperCase(), mode: 'shared' }]);
+      await locks.projects([{ workspaceId, projectId, mode: 'shared' }]);
+      await expect(locks.projects([{ workspaceId, projectId, mode: 'exclusive' }])).rejects.toThrow('upgrades');
+      await locks.operation({ workspaceId: workspaceId.toUpperCase(), resourceId: projectId.toUpperCase(), namespace: 'board' });
+      await locks.operation({ workspaceId, resourceId: projectId, namespace: 'board' });
+    });
+    expect(execute).toHaveBeenCalledTimes(2);
+    const dialect = new PgDialect();
+    expect(execute.mock.calls.map(([query]) => dialect.sqlToQuery(query).params)).toEqual([
+      [JSON.stringify(['worktrail', 'project', workspaceId, projectId])],
+      [JSON.stringify(['worktrail', 'operation', 'board', workspaceId, projectId])]
+    ]);
+  });
+
   it('resolves duplicate requested modes before acquisition and validates the entire batch', async () => {
     const { persistence, execute } = fixture();
     await persistence.write(async ({ locks }) => {

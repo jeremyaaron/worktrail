@@ -1,4 +1,4 @@
-import { coordinateProjects } from './project-write-coordination.js';
+import { prepareWorkCreation } from './work-item-command-locks.js';
 import {
   authoredContentFormats,
   authoredContentSourceLimit,
@@ -131,7 +131,7 @@ export class WorkItemCsvImportService {
 
   async apply(projectId: string, csv: string): Promise<WorkItemCsvImportApplyDto> {
     return this.context.persistence.write(async (scope) => {
-      await coordinateProjects(scope, this.context.actor.workspaceId, [projectId], 'shared');
+      await prepareWorkCreation(scope, this.context.actor, projectId);
       return new WorkItemCsvImportService({ ...this.context, ...scope }).applyInScope(projectId, csv);
     });
   }

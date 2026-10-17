@@ -2,7 +2,7 @@
 
 ## Status
 
-Approved for sequential execution. Phases 0-6 are complete as of October 17, 2026; Phases 7-21 are
+Approved for sequential execution. Phases 0-7 are complete as of October 17, 2026; Phases 8-21 are
 not started. Release verification remains pending. Merge, tag, publication,
 and Pages deployment remain separate user-controlled actions.
 
@@ -85,7 +85,7 @@ integration boundaries.
 | 4 | Typed persistence executors and explicit transaction capabilities | Complete |
 | 5 | Batched work hydration, query ownership, and page/export evidence | Complete |
 | 6 | Project coordination and concurrent cycle lifecycle safety | Complete |
-| 7 | Authoritative work/hierarchy/board/dependency commands | Not started |
+| 7 | Authoritative work/hierarchy/board/dependency commands | Complete |
 | 8 | Import transport budgets and structured parser errors | Not started |
 | 9 | Live-query/risk policy, estimate state, and versioned snapshots | Not started |
 | 10 | Narrow aggregate reads and bounded preview enrichment | Not started |
@@ -886,7 +886,26 @@ Acceptance:
 Verification: synchronized status/board, hierarchy/counter, and opposing dependency-edge tests; complete
 board ordering/compaction; bulk/import transaction/rollback; attachment/comment regression; full API checks.
 
-Status: Not started.
+Status: Complete on October 17, 2026.
+
+Completion evidence:
+
+- Replaced the large work service with a forwarding facade over focused single-command, bulk,
+  detail-read, activity, board-position, lock-planning, and write-policy owners. Public service and
+  transport contracts remain supported.
+- Ordered project/operation/counter/cycle/work/dependent locks protect current-state decisions,
+  previous-state evidence, two-level hierarchy, complete-column compaction, and cross-project graph
+  validation. Equivalent UUID spellings share coordination keys; changed cycle lock sets conflict.
+- Import preplans operation keys before its atomic row loop. Failed bulk item writes roll back before
+  partial-error conversion. Comments and explicit watchers follow work-before-dependent-row ordering;
+  attachment storage retains its existing compensation boundary.
+- Added 33 synchronized real PostgreSQL integration cases and one UUID lock-identity unit regression.
+  Final owned full run `e9edfd3a-99ce-4bc3-bf04-6b0635cdb447` passed all 25 gates: 784 API, 54 contract,
+  652 Angular, and 41 resource tests; five editor, 34 application E2E, and one compiled-preview test.
+  Browser reports contain no unexpected, skipped, or flaky results. Deadlines/retries were not relaxed.
+- Audit/lint/typechecks/schema/build/site checks and owned cleanup passed. No working database/storage,
+  package version, schema, dependency, or build budget changed. Diagnostic runs and remaining limits
+  are recorded in [verification notes](verification-notes.md#phase-7-authoritative-work-commands).
 
 ## Phase 8: Import Transport And Structured Errors
 

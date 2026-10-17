@@ -599,3 +599,130 @@ servers; the accepted full run and diagnostic/focused run directories were remov
 results and browser evidence remain under their run IDs. No unrelated process was stopped.
 Remote Linux CI, release UAT, and final release acceptance remain separate later gates. No commit,
 push, tag, publication, deployment, or public-site feature claim is part of this phase.
+
+## Phase 7 Authoritative Work Commands
+
+Evidence collected October 17, 2026 with Node 24.16.0, npm 11.13.0, and owned PostgreSQL 16. The
+work service is now a forwarding facade over focused single-command, bulk, detail-read, activity,
+board-position, lock-planning, and write-policy owners. Existing service methods, endpoint/contracts,
+source-format rules, query hydration, explicit-ID bulk semantics, and historical reference policies
+remain supported. The [current guide](../development.md#work-command-owners) records their ownership.
+
+Hierarchy/board operation keys precede project counters, ordered cycle sets, and ordered existing
+work rows. Creation allocates its counter before locking a parent; import preplans keys before its
+row loop and retains atomic apply. PATCH/status/board/bulk decisions use locked current work and
+produce activity/notifications from real previous values. Bulk application failures now escape and
+roll back the item transaction before conversion to its existing partial-failure response.
+
+Relationship mutations acquire the workspace graph key after both project gates and before sorted
+endpoint rows, reachability checks, and edge writes. Removal locks its edge after work. Comments and
+explicit watches lock work before dependent records, compatible with attachment and automatic watcher
+paths. Compaction prelocks the complete target column and mover in ID order, assigns positions in
+board order, and updates rows in ID order without changing other items' timestamps. No-op status and
+already-positioned board requests retain timestamps; description-only edits take no operation key.
+
+UUID case normalization now precedes lock sorting/deduplication, mode checks, and key derivation.
+This closes a real gate-alias gap for valid uppercase/lowercase project UUIDs. The work planner uses
+the canonical discovered row ID, preserving previously supported uppercase PATCH/status/board IDs.
+If a cycle source lock set changed while waiting, the command returns a controlled conflict rather
+than acquiring an earlier-order lock late or applying a stale decision.
+
+### Phase 7 Verification
+
+| Check | Result |
+| --- | --- |
+| Focused owned API baseline | 750 existing API cases and 41 resource cases passed after initial extraction/locking |
+| Expanded owned API | 779 API cases across 60 files and 41 resource cases passed before final watcher/UUID coverage |
+| Final full `npm run verify` | All 25 gates passed; 784 API, 54 contract, 652 Angular, and 41 resource tests |
+| Final browser reports | Five editor, 34 application E2E, and one compiled-preview test; zero unexpected, skipped, or flaky results |
+| Audit/schema/build/site | Passed with existing dependency policy, schema, and build budgets unchanged |
+| API/verification lint and typechecks | Passed during implementation; repeated by the full owner |
+| Whitespace/local documentation links | Passed after final completion updates |
+
+Final acceptance run `e9edfd3a-99ce-4bc3-bf04-6b0635cdb447` used the supported Node runtime and a
+fresh disposable Docker PostgreSQL database after the user paused competing work. Its summary records
+`passed: true`, `cleaned: true`, no interruption, and all 25 successful gates. All 20 changed API/E2E
+source files matched the private verification snapshot. API verification took 19.79 seconds; the
+unchanged deadlines, worker settings, and disabled test retries were retained. Browser reports remain
+under `test-results/verification/<runId>/{editor,e2e,preview}/report.json`. The private run directory
+was removed, and post-run inspection found no remaining owned test/app/build servers or verification
+containers. Working application data and attachments were not verification targets.
+
+The final added coverage is 33 integration cases in `work-command-concurrency.test.ts` and one lock
+identity unit case in `persistence.test.ts`. The expanded suite contains 784 API cases:
+276 unit and 508 integration, not counts to sum with earlier focused runs. Test barriers observe a
+real blocked backend through `pg_stat_activity` and `pg_blocking_pids` before committing the first
+command, with bounded waits and local first-transaction lock/statement timeouts. No scheduling sleep,
+test retry, skip, timeout increase, or warning suppression substitutes for synchronization.
+
+Coverage includes queued status/board/bulk transitions and field comparisons, illegal transitions,
+no-op timestamps, stale neighbors, description/board independence, opposing hierarchy assignments,
+child creation versus parent/type edits, counter-before-parent and import key planning, import/child
+execution, changed cycle lock sets, rollback after a bulk evidence error, duplicate/opposing/disjoint
+dependency edges, permission after reassignment, duplicate edge removal, adjacent comment/file paths,
+automatic/explicit watchers, closeout replay after bulk changes, and equivalent UUID spellings.
+
+The compaction ordering race holds an earlier-ID row, starts a real move, observes its wait, and then
+requires the first transaction to acquire the higher-ID mover before committing. A mover-first lock
+would expose an inversion rather than being hidden by a generous deadline. A separate real 103-row
+target column verifies complete compaction, unique positions, final order, and unchanged timestamps
+outside the moving work item. The disjoint-endpoint dependency test closes a longer cross-project
+cycle, proving graph coordination rather than incidental shared-endpoint row serialization.
+
+### Phase 7 Diagnostic Runs
+
+- `0733d9ec-2a56-42b0-a12a-a5acbd19be77` passed the existing 750 API cases after the initial locking
+  and extraction changes, then removed owned resources.
+- `86620c44-936d-49d1-bcaa-28631eaf4f08` passed all 26 then-new concurrency cases and 774/776 total
+  API cases. Two existing HTTP cases (`saved-work-views` project mutation and the normalized UTF-16
+  work description boundary) failed with `socket hang up`, not an application-error response. Cleanup
+  passed. Inspection confirmed the local helper targets the listener's actual address family and
+  Superagent disables connection pooling by default; no specific root cause was established. No
+  retry, transport change, concurrency reduction, or timeout adjustment was introduced. Subsequent
+  independent runs retain those tests unchanged; a clean run does not establish that resets are fixed.
+- `35b933a6-eded-481b-8b65-e74ab3005a1a` passed 779 API cases and 41 resource cases after coverage
+  expanded to full compaction, type-agnostic hierarchy, and attachment removal; cleanup passed.
+- Full run `3ca0db41-803d-4d51-ac42-82847fb0cc17` passed 780 API cases, contracts 54, Angular 652,
+  editor five, audit/lint/typecheck/schema/build gates, and the first six application E2E cases. It was
+  deliberately interrupted with SIGINT after review exposed the UUID key-alias gap. Owner PID/start
+  identity were verified before signaling. Exit 130 and owned cleanup were retained; this superseded
+  snapshot is not final full acceptance. Unit and real-connection regressions now cover the fix.
+- `9c1bf0ba-7218-452b-81e0-e5d9dbd90451` passed 783 API cases, contracts 54, Angular 652, editor
+  five, and all 33 other application E2E cases. The authored-content security test failed its initial
+  five-second content assertion while the lazy detail route was still loading. Its trace showed
+  successful module requests and a successful detail response whose body finished only after the
+  assertion deadline; the captured page was the shell with an empty main region, not rendered unsafe
+  content. The test now waits for that exact GET response and its complete body before the unchanged
+  rendering/security assertions. No timeout, retry, security policy, or production code was relaxed.
+  Cleanup passed. A final relationship regression also retains the normal self-link validation error
+  for differently cased endpoint aliases by deduplicating discovered canonical IDs before row locking.
+- `1f31c828-45a2-47d1-9dc6-6b65dc57880d` passed audit/lint/typecheck/schema/resource gates and
+  782/784 API cases. The existing exact-page/complete-board repository test and the new queued board
+  previous-status case exceeded their unchanged five-second test deadlines; neither reported a
+  domain assertion or PostgreSQL deadlock error. The same development build took 69 seconds versus
+  roughly 17-19 seconds in preceding runs. Host inspection found substantial unrelated interactive
+  CPU usage, no remaining owned verification/browser/build processes, and no remaining Docker
+  containers. This is consistent with resource contention, not proof of a specific causal chain.
+  Cleanup passed. This prompted the resource-relief request before the final acceptance run above;
+  deadlines, worker counts, and retry settings were not relaxed, and no unrelated process was stopped
+  by the agent.
+
+Authoring typechecks caught missing constructor/import/delegation members during the owner split and
+test union/notification-enum mistakes; those were corrected before owned acceptance. Nullable/current
+state behavior and original validation bodies were retained rather than relaxing test expectations.
+
+### Phase 7 Limits
+
+This is a cooperative application protocol, not protection from arbitrary direct SQL, unreviewed
+outer transactions, or every infrastructure failure. Large imports/complete-column compaction retain
+transaction-length locks. Graph mutations intentionally serialize across the workspace. There is no
+automatic retry, storage redesign, new parent-type restriction, dependency change, schema migration,
+version bump, or budget increase. Attachment upload transfer/compensation stays outside DB locking;
+removal retains its existing object delete inside the DB callback and is not distributed atomicity.
+
+Snapshot/risk versioning and narrowed aggregate evaluation, HTTP import budgets, frontend context/
+draft safety, public-site consolidation, release UAT, and remote Linux CI remain their later gates.
+Phase 7 full-run acceptance is complete; the earlier HTTP socket resets remain unexplained rather
+than claimed fixed by a passing rerun. Failed, interrupted, and final runs cleaned their owned
+resources. No unrelated application was stopped by the agent. Working application data/storage were
+never verification targets; no commit/push/tag/publication/deployment is authorized by this phase.

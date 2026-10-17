@@ -8,7 +8,7 @@ import type {
 } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
-import { assertPersistence, type Persistence } from '../repositories/persistence.js';
+import { assertPersistence, type Persistence, type PersistenceScope } from '../repositories/persistence.js';
 import type { ActorContext } from '../domain/actor.js';
 import { canUpdateAssignedWorkItem } from '../domain/permissions.js';
 import { isTerminalWorkItemStatus } from '../domain/work-risk-policy.js';
@@ -94,7 +94,8 @@ export class WorkItemRelationshipService {
     input: CreateWorkItemRelationshipRequest
   ): Promise<WorkItemRelationshipDto> {
     return this.context.persistence.write(async (scope) => {
-      await coordinateWorkItems(scope, this.context.actor.workspaceId, [sourceWorkItemId, input.targetWorkItemId]);
+      const located = await coordinateWorkItems(scope, this.context.actor.workspaceId, [sourceWorkItemId, input.targetWorkItemId]);
+      await this.lockEndpoints(scope, located);
       return new WorkItemRelationshipService({ ...this.context, ...scope }).createRelationshipInScope(sourceWorkItemId, input);
     });
   }
@@ -180,7 +181,8 @@ export class WorkItemRelationshipService {
 
   async deleteRelationship(workItemId: string, relationshipId: string): Promise<void> {
     return this.context.persistence.write(async (scope) => {
-      await coordinateRelationship(scope, this.context.actor.workspaceId, workItemId, relationshipId);
+      const located = await coordinateRelationship(scope, this.context.actor.workspaceId, workItemId, relationshipId);
+      await this.lockEndpoints(scope, located);
       return new WorkItemRelationshipService({ ...this.context, ...scope }).deleteRelationshipInScope(workItemId, relationshipId);
     });
   }
@@ -188,7 +190,7 @@ export class WorkItemRelationshipService {
   private async deleteRelationshipInScope(workItemId: string, relationshipId: string): Promise<void> {
     await this.withWriteRepositories(async (repositories) => {
       const contextWorkItem = await this.requireWorkItem(workItemId, repositories);
-      const relationship = await repositories.workItemRelationships.findById(relationshipId);
+      const relationship = await repositories.workItemRelationships.findByIdForUpdate(relationshipId);
 
       if (
         relationship === null ||
@@ -252,6 +254,15 @@ export class WorkItemRelationshipService {
       sourceWorkItemId,
       targetWorkItemId
     };
+  }
+
+  private async lockEndpoints(scope: PersistenceScope, located: WorkItem[]): Promise<void> {
+    await scope.locks.operation({ workspaceId: this.context.actor.workspaceId, resourceId: this.context.actor.workspaceId, namespace: 'dependency' });
+    const locked = await scope.repositories.workItems.findManyByIdsForUpdate(located.map(({ id }) => id));
+    if (locked.length !== located.length || locked.some((item) => item.workspaceId !== this.context.actor.workspaceId ||
+      item.projectId !== located.find(({ id }) => id === item.id)?.projectId)) {
+      throw new ConflictError('Relationship endpoints changed while waiting. Retry the command.');
+    }
   }
 
   private async withWriteRepositories<T>(
