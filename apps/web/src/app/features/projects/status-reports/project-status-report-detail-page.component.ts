@@ -1,3 +1,5 @@
+import { NavigationSectionTargetDirective } from '../../../shared/navigation/section-target';
+import { recordOriginParams } from '../../../shared/navigation/work-navigation';
 import { snapshotRiskCountLabel } from '@worktrail/contracts';
 import { PageContext } from '../../../core/navigation/page-context';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
@@ -27,8 +29,10 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
 
 @Component({
   selector: 'app-project-status-report-detail-page',
-  imports: [ErrorPanelComponent, LoadingIndicatorComponent, RouterLink, WorkItemParentPillComponent],
+  imports: [NavigationSectionTargetDirective, ErrorPanelComponent, LoadingIndicatorComponent, RouterLink, WorkItemParentPillComponent],
   template: `
+    <section [appNavigationSectionTarget]="navigationFragment()" [navigationIdentity]="navigationIdentity()" [navigationReady]="report()">
+
     <section class="status-page">
       <div class="status-page__heading">
         <div>
@@ -361,6 +365,8 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
           </aside>
         </section>
       }
+    </section>
+
     </section>
   `,
   styles: `
@@ -869,6 +875,8 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
 })
 export class ProjectStatusReportDetailPageComponent implements OnInit {
   private readonly context = new PageContext();
+  readonly navigationFragment = this.context.fragment;
+  readonly navigationIdentity = computed(() => this.context.contextKey());
   readonly riskCountLabel = snapshotRiskCountLabel;
   private readonly projectsApi = inject(ProjectsApi);
   private readonly clipboard = inject(ClipboardService);
@@ -990,9 +998,7 @@ export class ProjectStatusReportDetailPageComponent implements OnInit {
     );
   }
 
-  workItemQueryParams(): { returnUrl: string } {
-    return { returnUrl: `/projects/${this.projectId()}/status/${this.reportId()}` };
-  }
+  workItemQueryParams(): { returnUrl: string } { return recordOriginParams(`/projects/${this.projectId()}/status/${this.reportId()}`, this.context.fragment()); }
 
   reasonLabel(reason: DeliveryHealthReasonDto): string {
     return deliveryHealthReasonLabel(reason);

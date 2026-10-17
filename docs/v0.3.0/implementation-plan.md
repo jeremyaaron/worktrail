@@ -2,8 +2,8 @@
 
 ## Status
 
-Approved for sequential execution. Phases 0-13 are complete as of October 17, 2026;
-Phases 14-21 are not started. Release verification remains pending. Merge, tag, publication,
+Approved for sequential execution. Phases 0-14 are complete as of October 17, 2026;
+Phases 15-21 are not started. Release verification remains pending. Merge, tag, publication,
 and Pages deployment remain separate user-controlled actions.
 
 ## Purpose
@@ -100,7 +100,7 @@ integration boundaries.
 | 11 | Reactive route/actor context and stale-operation ownership | Complete |
 | 12 | Shared draft departure protection in production editors | Complete |
 | 13 | Read-first detail and focused editing/collaboration owners | Complete |
-| 14 | Bounded return navigation and relevant section targeting | Not started |
+| 14 | Bounded return navigation and relevant section targeting | Complete |
 | 15 | Shared saved views, applied-query feedback, and work-list ergonomics | Not started |
 | 16 | Execution-first Planning and disclosed management | Not started |
 | 17 | Complete historical outcome and deliberate closeout destinations | Not started |
@@ -1291,7 +1291,28 @@ Acceptance:
 Verification: pure URL policy tests, real router/fragment/history journeys, cross-project/unauthorized
 destinations, deleted-comment/Files regressions, and browser scroll/focus assertions.
 
-Status: Not started.
+Status: Complete (October 17, 2026).
+
+Completion notes:
+
+- Added the adopted UrlTree/query-codec policy for one durable origin and optional immediate record,
+  with replacement/consumption, legacy compatibility, descriptive labels, strict local allowlists,
+  duplicate/self/recursive rejection and 4 KiB target / 12 KiB navigation bounds. Removed both old
+  detail/create parsers; no authorization rule moved into URL handling.
+- Migrated parent/child/all dependency groups, create preview/success and list/project capture,
+  reviews/closeout/results/reports, Inbox and Quick Find. Applied filters/sort/page/page size survive
+  reload and the parent -> child -> parent -> origin journey, including cross-project inspection.
+- Added committed post-render section/comment targeting, disclosure opening, sticky offset,
+  programmatic focus, history/reload/same-section repeat and reduced motion. Missing/deleted comments
+  fall back without source; Files retains its settled owner and rejects stale cross-record focus.
+- Affected frontend acceptance passed 354 tests/lint/production compilation and the initial lazy graph.
+  A final overlapping 153-case regression selection passed after the last focus/link changes. All nine
+  selected browser journeys completed successfully across documented focused runs, plus compiled
+  preview deep-link/Planning-subview checks. Initial size is 397.81 kB with 20 lazy page entries;
+  budgets/dependencies remain unchanged.
+- [Navigation evidence](bounded-navigation-evidence.md) and [verification notes](verification-notes.md)
+  record adoption, diagnostics, reuse, screenshot inspection, omitted suites and owned cleanup.
+  Versions remain 0.2.9; ordinary data/storage and release actions are untouched. Phase 15 is not started.
 
 ## Phase 15: Shared Saved Views And Work Lists
 

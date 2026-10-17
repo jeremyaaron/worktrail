@@ -169,7 +169,7 @@ describe('ProjectCycleCloseoutPageComponent', () => {
       (fixture.nativeElement as HTMLElement)
         .querySelector<HTMLAnchorElement>(`.work-row__identity a`)
         ?.getAttribute('href')
-    ).toBe(`/work-items/${itemId}`);
+    ).toBe(`/work-items/${itemId}?returnUrl=${encodeURIComponent(`/projects/${projectId}/cycles/${cycleId}/closeout#unfinished-heading`)}`);
   });
 
   it('shows load errors, retries, and reloads when route parameters change', () => {

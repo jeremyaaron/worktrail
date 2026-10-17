@@ -36,6 +36,15 @@ test('serves compiled assets and deep links with formatted read and preview beha
   }
   await page.locator('app-work-item-detail-editor').getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.getByRole('dialog', { name: 'Discard unsaved changes?' }).getByRole('button', { name: 'Discard', exact: true }).click();
+  const planning = '/projects/10000000-0000-4000-8000-000000000201/planning?view=cycles#cycles-heading';
+  await page.goto(`/work-items/10000000-0000-4000-8000-000000000401?returnUrl=${encodeURIComponent(planning)}#history`);
+  await expect(page.locator('#history')).toBeFocused();
+  await expect(page.locator('#history > details')).toHaveAttribute('open', '');
+  await page.reload();
+  await expect(page.locator('#history')).toBeFocused();
+  await page.getByRole('link', { name: 'Back to Planning', exact: true }).click();
+  await expect(page).toHaveURL(planning);
+  await expect(page.locator('#cycles-heading')).toBeFocused();
   await page.goto('/work-items/10000000-0000-4000-8000-000000000427');
   await expect(page.locator('app-work-item-detail-summary strong')).toHaveText('original source');
   await expect(page.locator('#detail-description')).toHaveCount(0);

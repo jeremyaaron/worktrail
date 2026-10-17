@@ -276,7 +276,7 @@ test('pages project and workspace work without losing navigation context', async
   const secondPageTitleText = (await secondPageTitle.textContent())?.trim() ?? '';
   await secondPageTitle.click();
   await expect(page.getByRole('heading', { level: 1, name: secondPageTitleText })).toBeVisible();
-  await page.getByRole('link', { name: 'Back', exact: true }).click();
+  await page.getByRole('link', { name: 'Back to project work', exact: true }).click();
   await expect(page).toHaveURL(/page=2/);
   await expect(projectResults.getByRole('heading', { name: '11-18 of 18 work items' })).toBeVisible();
 
@@ -1585,9 +1585,7 @@ test('completes the v0.2.5 work breakdown workflow', async ({ page, request }, t
     await addChildLink.focus();
     await expectFocused(addChildLink);
     await addChildLink.click();
-    await expect(page).toHaveURL(
-      new RegExp(`/projects/${demoProjectId}/work-items/new\\?parentWorkItemId=${hierarchyParentId}`)
-    );
+    await expect(page).toHaveURL(url => url.pathname === `/projects/${demoProjectId}/work-items/new` && url.searchParams.get('parentWorkItemId') === hierarchyParentId && url.searchParams.get('returnTo') === parentPath);
     await expect(page.getByLabel('Child work parent')).toContainText('Child of');
     await expect(page.getByLabel('Child work parent')).toContainText('WT-12');
 

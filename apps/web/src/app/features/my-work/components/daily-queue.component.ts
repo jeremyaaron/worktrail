@@ -1,3 +1,4 @@
+import { recordOriginParams } from '../../../shared/navigation/work-navigation';
 import { Component, Input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { MyWorkSummaryCountDto, WorkspaceWorkItemListItemDto } from '@worktrail/contracts';
@@ -345,7 +346,7 @@ export class DailyQueueComponent {
   childSummaryLabel = workItemChildSummaryLabel;
 
   detailQueryParams(): { returnUrl: string } | null {
-    return this.returnUrl === null ? null : { returnUrl: this.returnUrl };
+    return this.returnUrl === null ? null : recordOriginParams(this.returnUrl);
   }
 
   dueDateLabel(item: WorkspaceWorkItemListItemDto): string {

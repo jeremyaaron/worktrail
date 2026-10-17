@@ -1,3 +1,4 @@
+import { recordOriginParams } from '../../shared/navigation/work-navigation';
 import { Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type {
@@ -714,9 +715,7 @@ export class MyWorkPageComponent implements OnDestroy {
     this.selectedSummaryKey.set(null);
   }
 
-  detailQueryParams(): { returnUrl: string } {
-    return { returnUrl: '/my-work' };
-  }
+  detailQueryParams(): { returnUrl: string } { return recordOriginParams('/my-work'); }
 
   queueHeading(): string {
     const selectedKey = this.selectedSummaryKey();

@@ -1,3 +1,5 @@
+import { NavigationSectionTargetDirective } from '../../shared/navigation/section-target';
+import { recordOriginParams } from '../../shared/navigation/work-navigation';
 import { snapshotCountLabel } from '@worktrail/contracts';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
@@ -67,6 +69,7 @@ interface BreakdownMetric {
 @Component({
   selector: 'app-project-cycle-review-page',
   imports: [
+    NavigationSectionTargetDirective,
     CycleCloseoutResultComponent,
     EmptyStateComponent,
     ErrorPanelComponent,
@@ -75,6 +78,8 @@ interface BreakdownMetric {
     WorkItemParentPillComponent
   ],
   template: `
+    <section [appNavigationSectionTarget]="navigationFragment()" [navigationIdentity]="navigationIdentity()" [navigationReady]="review()">
+
     <section class="cycle-review-page">
       @if (isLoading()) {
         <app-loading-indicator label="Loading cycle review" />
@@ -417,6 +422,8 @@ interface BreakdownMetric {
           message="No cycle review data was returned for this route."
         />
       }
+    </section>
+
     </section>
   `,
   styles: `
@@ -911,6 +918,8 @@ interface BreakdownMetric {
 })
 export class ProjectCycleReviewPageComponent implements OnInit {
   private readonly context = new PageContext();
+  readonly navigationFragment = this.context.fragment;
+  readonly navigationIdentity = computed(() => this.context.contextKey());
   readonly riskCountLabel = snapshotCountLabel;
   private readonly cyclesApi = inject(CyclesApi);
   private readonly currentUser = inject(CurrentUserService);
@@ -1074,9 +1083,7 @@ export class ProjectCycleReviewPageComponent implements OnInit {
     return section.countUnit === 'work_items' ? Math.max(section.count - visibleRiskItemLimit, 0) : 0;
   }
 
-  detailQueryParams(): { returnUrl: string } {
-    return { returnUrl: `/projects/${this.projectId()}/cycles/${this.cycleId()}` };
-  }
+  detailQueryParams(): { returnUrl: string } { return recordOriginParams(`/projects/${this.projectId()}/cycles/${this.cycleId()}`, this.context.fragment()); }
 
   targetVarianceLabel(review: ProjectCycleReviewDto): string {
     const target = review.progress.targetPoints;

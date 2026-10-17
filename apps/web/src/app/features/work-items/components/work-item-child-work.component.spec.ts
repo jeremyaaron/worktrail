@@ -127,9 +127,9 @@ describe('WorkItemChildWorkComponent', () => {
     expect(compiled.textContent).toContain(childItem.title);
     expect(compiled.textContent).toContain('Showing 1 of 12 direct children.');
     expect(childLink?.getAttribute('href')).toContain(`/work-items/${childItem.id}`);
-    expect(childLink?.getAttribute('href')).toContain('returnUrl=%2Fwork-items%2Fwork-item-3');
+    expect(childLink?.getAttribute('href')).toContain('returnTo=%2Fwork-items%2Fwork-item-3');
     expect(addLink?.getAttribute('href')).toContain('parentWorkItemId=work-item-3');
-    expect(addLink?.getAttribute('href')).toContain('returnUrl=%2Fwork-items%2Fwork-item-3');
+    expect(addLink?.getAttribute('href')).toContain('returnTo=%2Fwork-items%2Fwork-item-3');
     expect(viewAllLink?.getAttribute('href')).toContain('parentKey=WT-3');
   });
 

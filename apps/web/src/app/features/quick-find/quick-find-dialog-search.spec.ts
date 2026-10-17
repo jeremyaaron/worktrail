@@ -362,7 +362,7 @@ describe('QuickFindDialogComponent search mode', () => {
     }
 
     expect(navigate.calls.allArgs()).toEqual([
-      [['/work-items', 'work-item-1'], {}],
+      [['/work-items', 'work-item-1'], { queryParams: { returnUrl: '/projects/project-1/work-items' } }],
       [
         ['/work-items'],
         {
@@ -376,7 +376,7 @@ describe('QuickFindDialogComponent search mode', () => {
       [['/projects', 'project-1', 'milestones', 'milestone-1'], {}],
       [['/projects', 'project-1', 'cycles', 'cycle-1'], {}],
       [['/projects', 'project-1', 'status', 'report-1'], {}],
-      [['/work-items', 'work-item-1'], { fragment: 'files' }]
+      [['/work-items', 'work-item-1'], { queryParams: { returnUrl: '/projects/project-1/work-items' }, fragment: 'files' }]
     ]);
     expect(callOrder).toEqual([
       'navigate', 'close',
@@ -412,7 +412,7 @@ describe('QuickFindDialogComponent search mode', () => {
     const pointerDestination = navigate.calls.mostRecent().args;
 
     expect(pointerDestination).toEqual(keyboardDestination);
-    expect(pointerDestination).toEqual([['/work-items', 'work-item-1'], {}]);
+    expect(pointerDestination).toEqual([['/work-items', 'work-item-1'], { queryParams: { returnUrl: '/projects/project-1/work-items' } }]);
   }));
 
   it('focuses Files after close when Angular would skip the same attachment URL', fakeAsync(() => {
@@ -423,7 +423,7 @@ describe('QuickFindDialogComponent search mode', () => {
     const focus = spyOn(target, 'focus');
     const scrollIntoView = spyOn(target, 'scrollIntoView');
     const navigate = spyOn(router, 'navigate').and.resolveTo(true);
-    spyOnProperty(router, 'url', 'get').and.returnValue('/work-items/work-item-1#files');
+    spyOnProperty(router, 'url', 'get').and.returnValue('/work-items/work-item-1?returnUrl=%2Fwork-items#files');
     dialogRef.close.and.callFake(() => {
       dialogClosed.next();
       dialogClosed.complete();
@@ -437,6 +437,25 @@ describe('QuickFindDialogComponent search mode', () => {
     expect(navigate).not.toHaveBeenCalled();
     expect(focus).toHaveBeenCalledOnceWith({ preventScroll: true });
     expect(scrollIntoView).toHaveBeenCalledOnceWith({ block: 'start' });
+    target.remove();
+  }));
+
+  it('leaves a changed record Files target to its readiness owner instead of focusing a stale node', fakeAsync(() => {
+    const target = document.createElement('section');
+    target.id = 'files';
+    document.body.append(target);
+    const focus = spyOn(target, 'focus');
+    let url = '/work-items/previous?returnUrl=%2Fmy-work#files';
+    spyOnProperty(router, 'url', 'get').and.callFake(() => url);
+    spyOn(router, 'navigate').and.callFake(async (commands, extras) => {
+      url = router.serializeUrl(router.createUrlTree(commands, extras));
+      return true;
+    });
+    dialogRef.close.and.callFake(() => { dialogClosed.next(); dialogClosed.complete(); });
+    component.activateOption({ type: 'result', result: fullResponse().groups.attachments.items[0] });
+    flushMicrotasks();
+    expect(dialogRef.close).toHaveBeenCalledOnceWith();
+    expect(focus).not.toHaveBeenCalled();
     target.remove();
   }));
 

@@ -53,6 +53,15 @@ function selectOwner(): CurrentUserService {
 describe('PageContext committed navigation', () => {
   afterEach(() => localStorage.removeItem('worktrail.selectedMemberId'));
 
+  it('retains duplicate query values so navigation policy can reject ambiguous return metadata', async () => {
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting(),
+      provideRouter([{ path: 'records/:recordId', component: ContextProbe }])] });
+    selectOwner();
+    const harness = await RouterTestingHarness.create();
+    const page = await harness.navigateByUrl('/records/a?returnUrl=%2Finbox&returnUrl=%2Fmy-work', ContextProbe);
+    expect(page.context.queryValues('returnUrl')).toEqual(['/inbox', '/my-work']);
+  });
+
   for (const failure of ['cancel', 'error'] as const) {
   it(`buffers early param emissions and leaves a draft intact after navigation ${failure}`, () => {
     const params = new BehaviorSubject(convertToParamMap({ recordId: 'a' }));

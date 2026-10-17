@@ -2809,7 +2809,7 @@ describe('WorkItemCreatePageComponent', () => {
     expect(compiled.textContent).toContain('WT-499 created');
     expect(
       compiled.querySelector<HTMLAnchorElement>(
-        'a[href="/work-items/10000000-0000-4000-8000-000000000499"]'
+        'a[href^="/work-items/10000000-0000-4000-8000-000000000499?"]'
       )
     ).not.toBeNull();
     expect(compiled.textContent).toContain('Create another');
@@ -3016,7 +3016,7 @@ describe('WorkItemCreatePageComponent global route', () => {
     expect(compiled.textContent).toContain('WT-497 created');
     expect(
       compiled.querySelector<HTMLAnchorElement>(
-        'a[href="/work-items/10000000-0000-4000-8000-000000000497"]'
+        'a[href^="/work-items/10000000-0000-4000-8000-000000000497?"]'
       )
     ).not.toBeNull();
 
@@ -3173,7 +3173,7 @@ describe('WorkItemCreatePageComponent child route', () => {
     expect(compiled.textContent).toContain('WT-4 created');
     expect(compiled.textContent).toContain('Back to WT-3');
     expect(
-      compiled.querySelector<HTMLAnchorElement>(`a[href="/work-items/${workItemId}"]`)
+      compiled.querySelector<HTMLAnchorElement>(`a[href^="/work-items/${workItemId}?"]`)
     ).not.toBeNull();
   });
 

@@ -1,3 +1,4 @@
+import { bareWorkItemUrl, createNavigationTarget, recordNavigationTarget, returnNavigationTarget, workNavigationContext } from '../../shared/navigation/work-navigation';
 import { computed, DestroyRef, effect, inject, Injectable, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, Validators, type ValidatorFn } from '@angular/forms';
@@ -199,26 +200,25 @@ export class WorkItemDetailStore {
     (this.workItem()?.labels ?? []).filter((label) => label.isArchived)
   );
 
+  readonly navigationContext = computed(() => workNavigationContext(
+    this.context.queryValues('returnUrl').length > 1 ? '\0' : this.context.query('returnUrl'),
+    this.context.queryValues('returnTo').length > 1 ? '\0' : this.context.query('returnTo'),
+    this.workItem() ? '/projects/' + this.workItem()!.projectId + '/work-items' : '/work-items',
+    this.workItemId()
+  ));
+  readonly currentRecordUrl = computed(() => bareWorkItemUrl(this.workItemId(), this.context.fragment()));
+  readonly createChildTarget = computed(() => createNavigationTarget(
+    this.workItem()?.projectId ?? '', this.workItemId(), this.navigationContext(), this.currentRecordUrl()));
   readonly returnTarget = computed(() => {
-    const item = this.workItem();
-    const fallbackPath = item === null ? '/work-items' : `/projects/${item.projectId}/work-items`;
-    const parsedReturnUrl = this.parseSafeReturnUrl(
-      this.context.query('returnUrl') || null
-    );
-
-    if (parsedReturnUrl !== null) {
-      return {
-        ...parsedReturnUrl,
-        label: 'Back'
-      };
-    }
-
-    return {
-      path: fallbackPath,
-      queryParams: null,
-      label: item === null ? 'Back to work items' : 'Back to project work'
-    };
+    const target = returnNavigationTarget(this.navigationContext());
+    const parent = this.workItem()?.parent;
+    return parent && target.path === '/work-items/' + parent.id
+      ? { ...target, label: 'Back to ' + parent.displayKey } : target;
   });
+
+  recordTarget(id: string) {
+    return recordNavigationTarget(id, this.navigationContext(), this.currentRecordUrl());
+  }
 
   readonly detailForm = this.formBuilder.nonNullable.group({
     title: ['', [Validators.required]],
@@ -614,6 +614,10 @@ export class WorkItemDetailStore {
     this.syncReadOnlyState();
   }
 
+  requestFilesFocus(): void {
+    this.filesTargetGeneration.set(++this.nextFilesTargetGeneration);
+  }
+
   syncFilesTarget(fragment: string | null, workItemChanged: boolean): void {
     if (fragment !== workItemFilesFragment) {
       this.filesTargetGeneration.set(null);
@@ -719,53 +723,6 @@ export class WorkItemDetailStore {
 
   guardContext<T>(isOperationCurrent: () => boolean = () => true): MonoTypeOperatorFunction<T> {
     return this.context.guardMutation(isOperationCurrent);
-  }
-
-  private parseSafeReturnUrl(rawReturnUrl: string | null): {
-    path: string;
-    queryParams: Record<string, string> | null;
-  } | null {
-    if (rawReturnUrl === null || rawReturnUrl.trim() === '') {
-      return null;
-    }
-
-    if (
-      !rawReturnUrl.startsWith('/') ||
-      rawReturnUrl.startsWith('//') ||
-      /^[a-z][a-z0-9+.-]*:/i.test(rawReturnUrl) ||
-      this.hasControlCharacter(rawReturnUrl)
-    ) {
-      return null;
-    }
-
-    const [pathAndQuery] = rawReturnUrl.split('#', 1);
-    const [path, queryString = ''] = pathAndQuery.split('?', 2);
-
-    if (path === '' || path.includes('\\')) {
-      return null;
-    }
-
-    const parsedQueryParams: Record<string, string> = {};
-    new URLSearchParams(queryString).forEach((value, key) => {
-      parsedQueryParams[key] = value;
-    });
-
-    return {
-      path,
-      queryParams: Object.keys(parsedQueryParams).length === 0 ? null : parsedQueryParams
-    };
-  }
-
-  private hasControlCharacter(value: string): boolean {
-    for (const character of value) {
-      const code = character.charCodeAt(0);
-
-      if (code <= 31 || code === 127) {
-        return true;
-      }
-    }
-
-    return false;
   }
 
   requestDiscardDetailChanges(): Promise<boolean> {

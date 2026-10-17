@@ -203,7 +203,7 @@ test.describe("Quick Find", () => {
       })
       .click();
 
-    await expect(page).toHaveURL(`/work-items/${inProgressWorkItemId}#files`);
+    await expect(page).toHaveURL(`/work-items/${inProgressWorkItemId}?returnUrl=%2Fmy-work#files`);
     const files = page.locator("#files");
     await expect(files).toBeVisible();
     await expectFocused(files);
@@ -215,7 +215,7 @@ test.describe("Quick Find", () => {
         name: /Attachment.*verification-evidence\.json.*WT-3/,
       })
       .click();
-    await expect(page).toHaveURL(`/work-items/${inProgressWorkItemId}#files`);
+    await expect(page).toHaveURL(`/work-items/${inProgressWorkItemId}?returnUrl=%2Fmy-work#files`);
     await expectFocused(files);
 
     await openQuickFind(page);
@@ -226,7 +226,7 @@ test.describe("Quick Find", () => {
     );
     await quickFindInput(page).press("Enter");
 
-    await expect(page).toHaveURL(`/work-items/${readyWorkItemId}`);
+    await expect(page).toHaveURL(url => url.pathname === `/work-items/${readyWorkItemId}` && url.searchParams.get('returnUrl') === '/my-work' && url.searchParams.get('returnTo') === `/work-items/${inProgressWorkItemId}#files`);
     await expect(
       page.getByRole("heading", {
         level: 1,

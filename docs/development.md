@@ -1,9 +1,9 @@
 # Worktrail Developer Ownership And Invariants
 
-This is the current implementation guide, not a release archive. As of v0.3.0 Phase 13, persistence
+This is the current implementation guide, not a release archive. As of v0.3.0 Phase 14, persistence
 ownership, batched queries, lifecycle coordination, authoritative work/relationship commands,
 bounded HTTP parsing, versioned risk/query policy, aggregate narrowing, committed frontend context,
-shared draft departure protection and read-first detail composition are implemented. Remaining presentation
+shared draft departure protection, read-first detail composition and bounded inspection navigation are implemented. Remaining presentation
 consolidation follows the [implementation plan](v0.3.0/implementation-plan.md).
 
 ## Committed Frontend Context
@@ -97,14 +97,48 @@ Detail opens with identity, a named project, readable source projection, plannin
 status/watch commands. Edit reveals the existing authored control and field form; Set/Change parent,
 dependency administration, watchers and history are disclosures. Children expand from compact totals:
 Closed means Done plus Canceled; Parent estimate and Child total remain independent. Discussion,
-Files, Dependencies and History have stable IDs and local scroll/focus links. Broader return parsing,
-incoming fragment/comment targeting and historical navigation are Phase 14 work.
+Files, Dependencies and History have stable IDs and local scroll/focus links. Incoming fragments and
+bounded return context use the shared navigation policy below.
 
 Estimate uses the numeric control's number/null contract (including zero); integers must fit the
 PostgreSQL nonnegative integer field. Due dates are calendar-validated date-only values, with an empty
 control mapped to null. Incomplete native numeric/date inputs remain invalid rather than silently
 clearing persisted facts. Existing PATCH authorization/no-op/source-preservation rules are unchanged.
 See [read-first detail evidence](v0.3.0/read-first-detail-evidence.md).
+
+## Bounded Inspection Navigation
+
+`shared/navigation/work-navigation.ts` parses known local route shapes using Angular UrlTree and the
+existing work-query/page codecs. `returnUrl` is a durable origin; optional `returnTo` is one immediate
+bare record plus a recognized fragment. Record links replace the immediate record. Returning to it
+consumes that parameter and retains the origin. Legacy record-valued `returnUrl` is accepted as an
+immediate target with project Work as fallback. This is deliberately not a traversal stack.
+
+Use `recordOriginParams()` for list/review/report destinations, `recordNavigationTarget()` for record
+inspection, `createNavigationTarget()` for child creation, and `returnNavigationTarget()` for returns.
+Quick Find uses `navigationContextFromPage()` to inherit safe current-page context. Do not copy the
+current decorated URL into a return parameter. Create success and parent-preview links retain context.
+Applied query/sort/page/page-size values survive; unapplied form state is not captured.
+
+The policy rejects external/protocol-relative URLs, control characters, backslashes, malformed
+encodings, auxiliary/matrix routes, unknown query fields, duplicate values, recursive metadata, and
+self returns. A decoded target is limited to 4 KiB and constructed navigation to 12 KiB. No repeated
+decoding is performed. Invalid context uses project/workspace Work. Resource clients and API services
+remain authoritative for access; URL parsing grants no permission. Labels use validated destination
+types or an already-authorized current parent key, never arbitrary query text.
+
+`WorkItemSectionTarget` observes committed record/actor/fragment identity after render, validates the
+accepted record, and targets Discussion/Dependencies/History or a live `comment-<id>`. Missing/deleted
+comments target Discussion without retrieving deleted source. Normal data refresh does not refocus;
+same-section activation explicitly requests a repeat. Stay cannot activate the proposed destination.
+Files retains its existing settled-load generation owner; Quick Find only requests direct repeat focus
+for the current record, never a previous record during a changed-record load.
+
+`NavigationSectionTargetDirective` waits for accepted review/report/planning data and a rendered,
+page-scoped recognized heading. Both owners use `focusSectionTarget()` to open enclosing disclosures,
+apply an 88px sticky offset, focus a programmatic target, and scroll without motion. Browser history,
+reloads and same-route fragments are supported. See
+[bounded navigation evidence](v0.3.0/bounded-navigation-evidence.md).
 
 ## Composition And Persistence
 

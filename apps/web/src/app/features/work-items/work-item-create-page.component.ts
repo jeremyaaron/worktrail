@@ -1,3 +1,4 @@
+import { recordNavigationTarget, returnNavigationTarget, workNavigationContext } from '../../shared/navigation/work-navigation';
 import { DestroyRef } from '@angular/core';
 import { normalizeAuthoredContentSource } from '@worktrail/contracts';
 import { DraftTracker } from '../../core/navigation/draft-tracker';
@@ -63,7 +64,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
         </p>
       </div>
 
-      <a [routerLink]="returnTarget().path" [queryParams]="returnTarget().queryParams">
+      <a [routerLink]="returnTarget().path" [queryParams]="returnTarget().queryParams" [fragment]="returnTarget().fragment ?? undefined">
         {{ returnTarget().label }}
       </a>
     </section>
@@ -106,7 +107,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
             (retry)="retryParentLoad()"
           />
         } @else if (parentWorkItem(); as parent) {
-          <app-work-item-parent-context [parent]="parent" />
+          <app-work-item-parent-context [parent]="parent" [navigationContext]="navigationContext()" />
           <p class="parent-preview__note">Milestone and cycle remain independent for this child.</p>
         }
       </section>
@@ -120,11 +121,11 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
         </div>
 
         <div class="success-actions">
-          <a [routerLink]="['/work-items', created.id]">Open work item</a>
+          <a [routerLink]="createdTarget().path" [queryParams]="createdTarget().queryParams" [fragment]="createdTarget().fragment ?? undefined">Open work item</a>
           <button type="button" class="secondary-action" (click)="requestCreateAnother()">
             Create another
           </button>
-          <a [routerLink]="returnTarget().path" [queryParams]="returnTarget().queryParams">
+          <a [routerLink]="returnTarget().path" [queryParams]="returnTarget().queryParams" [fragment]="returnTarget().fragment ?? undefined">
             {{ returnTarget().label }}
           </a>
         </div>
@@ -651,25 +652,20 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
       this.isParentLoading() ||
       this.isCreating()
   );
+
+  readonly navigationContext = computed(() => workNavigationContext(
+    this.context.queryValues('returnUrl').length > 1 ? '\0' : this.context.query('returnUrl'),
+    this.context.queryValues('returnTo').length > 1 ? '\0' : this.context.query('returnTo'),
+    this.selectedProjectId() ? '/projects/' + this.selectedProjectId() + '/work-items' : '/work-items'
+  ));
   readonly returnTarget = computed(() => {
-    const parsedReturnUrl = this.parseSafeReturnUrl(this.routeReturnUrl());
-
-    if (parsedReturnUrl !== null) {
-      return {
-        ...parsedReturnUrl,
-        label:
-          this.parentWorkItem() === null ? 'Back' : `Back to ${this.parentWorkItem()!.displayKey}`
-      };
-    }
-
-    return this.isProjectScoped()
-      ? {
-          path: `/projects/${this.routeProjectId}/work-items`,
-          queryParams: null,
-          label: 'Back to list'
-        }
-      : { path: '/my-work', queryParams: null, label: 'Back to My Work' };
+    const target = returnNavigationTarget(this.navigationContext());
+    const parent = this.parentWorkItem();
+    return parent && target.path === '/work-items/' + parent.id
+      ? { ...target, label: 'Back to ' + parent.displayKey } : target;
   });
+  readonly createdTarget = computed(() => recordNavigationTarget(
+    this.createdWorkItem()?.id ?? 'new-record', this.navigationContext()));
 
   readonly workItemForm = this.formBuilder.nonNullable.group({
     projectId: [this.routeProjectId, [Validators.required]],
@@ -1106,39 +1102,7 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
     return typeof message === 'string' ? message : fallback;
   }
 
-  private parseSafeReturnUrl(rawReturnUrl: string): {
-    path: string;
-    queryParams: Record<string, string> | null;
-  } | null {
-    if (
-      rawReturnUrl.trim() === '' ||
-      !rawReturnUrl.startsWith('/') ||
-      rawReturnUrl.startsWith('//') ||
-      /^[a-z][a-z0-9+.-]*:/i.test(rawReturnUrl) ||
-      rawReturnUrl.includes('\\')
-    ) {
-      return null;
-    }
 
-    for (const character of rawReturnUrl) {
-      const code = character.charCodeAt(0);
-      if (code <= 31 || code === 127) {
-        return null;
-      }
-    }
-
-    const [pathAndQuery] = rawReturnUrl.split('#', 1);
-    const [path, queryString = ''] = pathAndQuery.split('?', 2);
-    const queryParams: Record<string, string> = {};
-    new URLSearchParams(queryString).forEach((value, key) => {
-      queryParams[key] = value;
-    });
-
-    return {
-      path,
-      queryParams: Object.keys(queryParams).length === 0 ? null : queryParams
-    };
-  }
   private clearProjectOptions(): void {
     this.projectSelectionGeneration += 1;
     this.projectOptionsSubscription.unsubscribe();

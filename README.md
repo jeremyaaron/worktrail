@@ -193,6 +193,13 @@ including setting/clearing estimate and due date. Parent management, children, d
 watchers and history are expandable. Closed child work includes Done and Canceled; parent estimates
 remain independent of child totals. Field saves/cancellation preserve unrelated discussion and files.
 
+Inspection links on the working branch retain a validated origin and at most one immediate work item.
+Parent/child and dependency links, create success, reviews/reports, and Quick Find can return to the
+original filtered list and page, including after reload, without growing a nested URL stack. Return
+links describe their destination. Discussion, Files, Dependencies, History, and identifiable Inbox
+comments support loaded section focus; missing or deleted comment targets fall back to Discussion.
+Local URL validation does not replace record authorization.
+
 The `markdown_v1` profile supports paragraphs and visible line breaks, headings, ordered/unordered
 lists, emphasis, quotations, inline code, fenced/indented code blocks, and explicit HTTP(S) links.
 Images display alternative text only. Raw HTML remains literal; tables, strikethrough, interactive

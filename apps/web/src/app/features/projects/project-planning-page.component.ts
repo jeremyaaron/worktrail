@@ -1,3 +1,5 @@
+import { NavigationSectionTargetDirective } from '../../shared/navigation/section-target';
+import { recordOriginParams } from '../../shared/navigation/work-navigation';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -95,6 +97,7 @@ interface PlanningReviewSection {
 @Component({
   selector: 'app-project-planning-page',
   imports: [
+    NavigationSectionTargetDirective,
     EmptyStateComponent,
     ErrorPanelComponent,
     CycleManagerComponent,
@@ -107,6 +110,8 @@ interface PlanningReviewSection {
     WorkItemParentPillComponent
   ],
   template: `
+    <section [appNavigationSectionTarget]="navigationFragment()" [navigationIdentity]="navigationIdentity()" [navigationReady]="planningSummary()">
+
     <section class="page-header">
       <div>
         <p class="eyebrow">Planning · Live view</p>
@@ -725,6 +730,8 @@ interface PlanningReviewSection {
         }
       </section>
     }
+
+    </section>
   `,
   styles: `
     .page-header {
@@ -1388,6 +1395,8 @@ interface PlanningReviewSection {
 })
 export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
   private readonly context = new PageContext();
+  readonly navigationFragment = this.context.fragment;
+  readonly navigationIdentity = computed(() => this.context.contextKey());
   private readonly planningApi = inject(PlanningApi);
   private readonly projectsApi = inject(ProjectsApi);
   private readonly cyclesApi = inject(CyclesApi);
@@ -2019,9 +2028,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
       : null;
   }
 
-  detailQueryParams(): { returnUrl: string } {
-    return { returnUrl: `/projects/${this.projectId()}/planning?view=review` };
-  }
+  detailQueryParams(): { returnUrl: string } { return recordOriginParams(`/projects/${this.projectId()}/planning?view=${this.selectedPlanningView()}`, this.context.fragment()); }
 
   reviewQueryParams(item: PlanningReviewItemDto): Record<string, string> | null {
     return workItemQueryToRouterQueryParams(item.query, 'project');

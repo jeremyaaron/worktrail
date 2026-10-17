@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import type { MemberDto, ProjectSummaryDto } from '@worktrail/contracts';
 
 import { CurrentUserService } from '../../../core/current-user.service';
@@ -96,6 +96,15 @@ describe('ProjectShellComponent', () => {
     fixture = TestBed.createComponent(ProjectShellComponent);
     fixture.detectChanges();
   }
+
+  it('carries the current safe project subview into creation', () => {
+    spyOnProperty(TestBed.inject(Router), 'url', 'get').and.returnValue(`/projects/${projectId}/planning?view=cycles#cycles-heading`);
+    createComponent();
+    http.expectOne(`/api/projects/${projectId}/summary`).flush(projectSummary('active'));
+    fixture.detectChanges();
+    const link = (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('.project-shell__primary-action')!;
+    expect(new URL(link.href).searchParams.get('returnUrl')).toBe(`/projects/${projectId}/planning?view=cycles#cycles-heading`);
+  });
 
   it('renders project identity, health, actions, and section navigation', () => {
     createComponent();

@@ -118,7 +118,7 @@ describe('InboxPageComponent', () => {
     expect(compiled.textContent).toContain('You were mentioned on WT-3.');
     expect(compiled.textContent).toContain('Morgan Maintainer');
     expect(workItemLink?.getAttribute('href')).toBe(
-      `/work-items/${unreadNotification.workItem?.id}?returnUrl=%2Finbox`
+      `/work-items/${unreadNotification.workItem?.id}?returnUrl=%2Finbox#comment-10000000-0000-4000-8000-000000000502`
     );
   });
 

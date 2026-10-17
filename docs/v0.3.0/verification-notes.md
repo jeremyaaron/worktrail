@@ -1306,3 +1306,111 @@ under `test-results/verification`. Working PostgreSQL on 5432, ordinary storage 
 were not verification targets. No dependency/version change, migration, commit/push/tag/publication or
 deployment was performed. Phase 13 is complete; bounded returns/incoming section targeting remain
 Phase 14, and release-wide verification remains Phase 21.
+
+## Phase 14: Bounded Returns And Section Targeting
+
+Executed October 17, 2026 with Node 24.16.0/npm 11.13.0, explicit PATH, existing Chromium and
+owned disposable PostgreSQL 16/storage/checkouts. No working database on 5432 or ordinary attachment
+root was used. The implementation/adoption map is in
+[bounded navigation evidence](bounded-navigation-evidence.md).
+
+### Impact And Frontend Acceptance
+
+This phase changes frontend navigation policy, links and section focus. No backend, schema, shared
+DTO, editor engine, public site, dependency or toolchain source changed. Full API/contracts/editor/
+site suites and release-wide verification were omitted rather than reported passed. Existing API
+builds/migrations/seeding in browser provisioning are prerequisites, not backend regression suites.
+
+The owned frontend command used `createManifest('none')`, `prepareWorkspace`, `runCommand`, the
+owned random-port Karma config and `cleanupRun`, following the established phase acceptance pattern:
+
+```sh
+npm run lint --workspace @worktrail/web
+npm run ng --workspace @worktrail/web -- test --watch=false --karma-config <owned-checkout>/scripts/verification/karma.config.cjs --include=<affected-specs>
+npm run build --workspace @worktrail/web -- --stats-json
+```
+
+`cf237a91-9c65-4206-a78e-d948b9ac819e` passed 354 affected Angular cases, frontend lint, production
+compilation and static initial-graph checks. Selection covered core navigation, shared navigation,
+Quick Find, Inbox, work-list/board/create integration, detail, parent/child/Files, My Work,
+project shell, Planning/cycle/milestone review, closeout and report detail. Production initial size
+was 397.81 kB (109.93 kB estimated transfer), 155 initial inputs and 20 lazy page entries. No CDK,
+draft dialog, detail/Planning/editor/Markdown input entered the initial graph; no budget warning.
+
+After final stale-Files focus hardening and additional query/dependency regressions,
+`deaa10e9-b8a7-4906-bf82-b2e48e3f9821` passed 153 cases/lint across Quick Find search, detail,
+PageContext and result-list specs. These overlap the earlier run and are not added as distinct cases.
+This includes same-URL Files after dialog close, no stale Files node on changed-record navigation,
+all dependency groups, duplicate committed query values and comment/section targeting. Final frontend
+lint, touched browser-test ESLint, `tsc -p tsconfig.verification.json --noEmit` and `git diff --check`
+also passed. Subsequent production-source edits only removed whitespace; unchanged acceptance is reused.
+
+### Browser Journeys And Preview
+
+Application runs used `npm run verify -- --mode=e2e --grep=<selected-title-pattern>` with one worker,
+zero retries and unchanged deadlines. All nine distinct selected journeys completed successfully
+across the following runs; this is not a claim that the diagnostic multi-test runs passed wholesale.
+
+- `00901cec-bcc1-4af9-b7ea-2644c0e971ac`: Quick Find exact/repeated Files and the complete Work Breakdown
+  journey passed. The other six cases failed against the intermediate tree, as detailed below.
+- `b19dcd66-ee93-4fc4-825f-8136beb4b7e5`: completed passing attachment downloads/route reuse, authored
+  creation/description reuse, notification/comment fallback/history, independent draft/Quick Find
+  Stay/Discard and repeated Files cases. It was later interrupted and is not a clean overall run;
+  these five case completions were observed in runner output, not a completed JSON browser report.
+- `1f1b6b30-b020-4b05-82fd-a07ba8095421`: clean single-journey pass for filtered workspace page 3,
+  parent -> child -> reload -> parent -> original query/page, cross-project dependency -> parent
+  Dependencies focus, child creation/success -> parent with retained origin/fragment.
+- `a68bbd4c-ef38-4a47-8852-81104a92c4bd`: clean cycle-closeout/snapshot inspection -> cycle-result
+  heading return/focus pass, with explicit History disclosure for current activity.
+- `5f78e6fb-5835-48d7-8d40-25e8570e2238`: clean project/workspace paging, return context, query reset,
+  copy/export, visible-page bulk scope, responsive results and complete board-move pass.
+
+The notification journey proves loaded comment focus after commit/reload, Stay retaining its source
+editor, deleted/missing comment fallback without authored viewer/source, back/forward History focus,
+disclosure opening, reduced motion, 1280px/320px viewport containment and a rejected detail load clearing
+record targets. The 403 is intentionally intercepted frontend-denial coverage, not a new API authorization
+test. Screenshot inspection of both widths found no horizontal overflow or overlapping target text.
+
+`npm run verify -- --mode=preview` passed in `7c6da57f-688f-4024-800a-eb72ac2f993d`: production
+contracts/API/web build, one compiled-assets/deep-link journey, History focus/reload, return to
+Planning `view=cycles#cycles-heading` with heading focus, archived read-only detail, board and API 404.
+No page error, Vite client or budget warning. Its unchanged build/target evidence is reused after the
+final narrowly tested Quick Find closed-dialog subscription change; no route/template/style changed
+in that follow-up. Preview screenshots also covered 1440/1024/640/390/320px.
+
+### Diagnostic Failures And Focused Reruns
+
+- Early development compilation found nullable fragments incompatible with RouterLink's input type;
+  bindings now supply `undefined`. Initial lint found a control-character regex and directive input
+  naming; explicit character checks and conventional input names resolved them.
+- `ebb756d7-6994-4d44-8a8d-998364577d3c` failed that intermediate lint snapshot.
+  `9cce72df-4da3-4cef-a5db-6aed14730b40` ran 338 cases with 12 old URL/selector expectations failing.
+  `67b46cce-d44f-4646-bc18-6b8f7f0bfcdb` ran 344 with four remaining assertion issues: import links
+  intentionally remain bare, child Add uses `returnTo`, and Quick Find's project fallback is explicit.
+  `5e5341e8-026a-49d5-8865-c0e34317faf9` then passed 344/lint/build/graph before the added regressions.
+- Browser run `00901cec...` found two dependency variants still emitting bare links; all three groups
+  now adopt the builder and have direct regression coverage. Other failures were intermediate link
+  selectors, the denial test expecting API text instead of the existing safe load-error copy, and a
+  pre-read-first Metadata locator. Those were corrected without weakening destination assertions.
+- `aef40f1a-c995-40d2-ab43-45d0e485293a` ran 153 cases with one new dependency test lacking linked
+  fixtures. It now supplies relationships in all groups; the final 153-case run passed.
+- `b19dcd66...` encountered a new create test trying to use the child command inside a collapsed
+  Children disclosure, a summary locator matching both labelled wrapper and region, and paging's old
+  exact `Back` label. Tests now open the actual disclosure, use the named region and expect the
+  descriptive return label. The owned diagnostic run received SIGINT after those stale waits were
+  identified; its summary records interruption and successful cleanup. Only affected journeys were rerun.
+- `0f7dfce1-0bb3-403f-b99b-f225c42f2b9b` failed a five-second workspace-heading visibility assertion
+  during overlapping verification activity. Structured trace inspection showed the correct 26-row
+  API total and rendered heading. An isolated unchanged rerun (`5f78e6fb...`) passed all paging checks.
+  No data assertion, readiness deadline, retry, worker or budget was increased to make it pass.
+
+### Closure
+
+Owned roots, private builds/checkouts, Karma/browser profiles/processes, API/Angular/preview servers,
+PostgreSQL containers and attachment storage were removed, including interrupted/failed runs. Ignored
+summaries/screenshots remain under `test-results/verification`. No dependency/version change, schema
+change, commit/push/tag/publication or deployment was performed. Phase 14 is complete; Phase 15 and
+release-wide verification remain separate work. Documentation-only closure reuses the checks above.
+Final read-only cleanup inspection confirmed all 14 owned run summaries marked cleaned, their roots
+absent, and no matching owned Docker container or process remaining. Structured Markdown parsing
+validated 90 local links/anchors across the six current documents; `git diff --check` passed.

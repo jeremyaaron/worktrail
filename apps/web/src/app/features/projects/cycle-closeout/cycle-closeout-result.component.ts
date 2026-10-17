@@ -1,3 +1,4 @@
+import { recordOriginParams } from '../../../shared/navigation/work-navigation';
 import { Component, Input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type {
@@ -79,7 +80,7 @@ interface SnapshotGroup {
                   <article role="listitem">
                     <div>
                       <a
-                        [routerLink]="['/work-items', item.id]"
+                        [routerLink]="['/work-items', item.id]" [queryParams]="detailQueryParams()"
                         [attr.aria-label]="'Open current ' + item.displayKey"
                       >
                         {{ item.displayKey }}
@@ -153,6 +154,9 @@ interface SnapshotGroup {
 export class CycleCloseoutResultComponent {
   @Input({ required: true }) closeout!: ProjectCycleCloseoutDto;
 
+  detailQueryParams(): { returnUrl: string } {
+    return recordOriginParams('/projects/' + this.closeout.projectId + '/cycles/' + this.closeout.cycleId, 'cycle-result-heading');
+  }
   groups(): SnapshotGroup[] {
     return [
       {

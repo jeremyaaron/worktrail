@@ -1,3 +1,4 @@
+import { recordOriginParams } from '../../shared/navigation/work-navigation';
 import {
   CdkDrag,
   type CdkDragDrop,
@@ -712,9 +713,7 @@ export class WorkItemBoardPageComponent implements OnInit {
     return value.replaceAll('_', ' ');
   }
 
-  detailQueryParams(): { returnUrl: string } {
-    return { returnUrl: `/projects/${this.projectId()}/board` };
-  }
+  detailQueryParams(): { returnUrl: string } { return recordOriginParams(`/projects/${this.projectId()}/board`); }
 
   memberDisplayName(member: WorkItemListItemDto['assignee']): string {
     if (member === null) {

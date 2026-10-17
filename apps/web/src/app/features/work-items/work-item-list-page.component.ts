@@ -1,3 +1,4 @@
+import { recordOriginParams } from '../../shared/navigation/work-navigation';
 import { workItemFilterChips, type WorkItemFilterChip } from './query/work-item-filter-labels';
 import { defaultProjectWorkItemFilterValues, type ProjectWorkItemFilterFormValue } from './query/work-item-filter-state';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -156,7 +157,7 @@ const defaultBulkActionFormValue: BulkActionFormValue = {
           <a class="secondary-header-action" [routerLink]="['/projects', projectId(), 'work-items', 'import']">
             Import CSV
           </a>
-          <a class="primary-action" [routerLink]="['/projects', projectId(), 'work-items', 'new']">
+          <a class="primary-action" [routerLink]="['/projects', projectId(), 'work-items', 'new']" [queryParams]="createQueryParams()">
             Create work item
           </a>
         }
@@ -1974,6 +1975,8 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
       [savedViewId]: name
     });
   }
+
+  createQueryParams(): { returnUrl: string } { return recordOriginParams(this.detailReturnUrl()); }
 
   detailReturnUrl(): string {
     return this.queryState.returnUrl(`/projects/${this.projectId()}/work-items`);

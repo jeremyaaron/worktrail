@@ -30,7 +30,9 @@ import { WorkItemRelationshipsStore } from '../work-item-relationships.store';
                       <span class="relationship-project">
                         {{ relationship.workItem.project.key }} · {{ relationship.workItem.project.name }}
                       </span>
-                      <a [routerLink]="['/work-items', relationship.workItem.id]">
+                      <a [routerLink]="state.record.recordTarget(relationship.workItem.id).path"
+                        [queryParams]="state.record.recordTarget(relationship.workItem.id).queryParams"
+                        [fragment]="state.record.recordTarget(relationship.workItem.id).fragment ?? undefined">
                         {{ relationship.workItem.displayKey }} {{ relationship.workItem.title }}
                       </a>
                       <span class="relationship-meta">
@@ -65,7 +67,9 @@ import { WorkItemRelationshipsStore } from '../work-item-relationships.store';
                       <span class="relationship-project">
                         {{ relationship.workItem.project.key }} · {{ relationship.workItem.project.name }}
                       </span>
-                      <a [routerLink]="['/work-items', relationship.workItem.id]">
+                      <a [routerLink]="state.record.recordTarget(relationship.workItem.id).path"
+                        [queryParams]="state.record.recordTarget(relationship.workItem.id).queryParams"
+                        [fragment]="state.record.recordTarget(relationship.workItem.id).fragment ?? undefined">
                         {{ relationship.workItem.displayKey }} {{ relationship.workItem.title }}
                       </a>
                       <span class="relationship-meta">
@@ -100,7 +104,9 @@ import { WorkItemRelationshipsStore } from '../work-item-relationships.store';
                       <span class="relationship-project">
                         {{ relationship.workItem.project.key }} · {{ relationship.workItem.project.name }}
                       </span>
-                      <a [routerLink]="['/work-items', relationship.workItem.id]">
+                      <a [routerLink]="state.record.recordTarget(relationship.workItem.id).path"
+                        [queryParams]="state.record.recordTarget(relationship.workItem.id).queryParams"
+                        [fragment]="state.record.recordTarget(relationship.workItem.id).fragment ?? undefined">
                         {{ relationship.workItem.displayKey }} {{ relationship.workItem.title }}
                       </a>
                       <span class="relationship-meta">

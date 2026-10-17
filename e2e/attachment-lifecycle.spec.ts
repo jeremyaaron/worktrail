@@ -131,7 +131,7 @@ test.describe.serial('v0.2.7 attachment lifecycle', () => {
       .getByRole('region', { name: 'Blocks' })
       .getByRole('link', { name: /WT-2 Add filter controls to work item list/ })
       .click();
-    await expect(page).toHaveURL('/work-items/10000000-0000-4000-8000-000000000402');
+    await expect(page).toHaveURL(url => url.pathname === '/work-items/10000000-0000-4000-8000-000000000402' && url.searchParams.get('returnTo') === `/work-items/${inProgressWorkItemId}`);
     await expect(page.getByRole('heading', { name: 'Add filter controls to work item list' })).toBeVisible();
     await expect(attachments.getByRole('heading', { name: 'Attachments 0' })).toBeVisible();
     await expect(attachments.getByText('No attachments')).toBeVisible();

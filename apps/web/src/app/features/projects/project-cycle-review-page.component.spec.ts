@@ -405,7 +405,7 @@ describe('ProjectCycleReviewPageComponent', () => {
     expect(completedGroup?.querySelectorAll('[aria-label^="Open current WT-"]').length).toBe(8);
     expect(
       completedGroup?.querySelector<HTMLAnchorElement>('[aria-label="Open current WT-1"]')?.getAttribute('href')
-    ).toBe(`/work-items/${closeout.snapshot.items.completed[0]?.id}`);
+    ).toBe(`/work-items/${closeout.snapshot.items.completed[0]?.id}?returnUrl=${encodeURIComponent(`/projects/${closeout.projectId}/cycles/${closeout.cycleId}#cycle-result-heading`)}`);
     expect(
       Array.from(compiled.querySelectorAll<HTMLAnchorElement>('a')).find((link) =>
         link.textContent?.includes('Review destination cycle')

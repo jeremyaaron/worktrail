@@ -1,6 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { PageContext } from '../../../core/navigation/page-context';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { navigationContextFromPage, recordOriginParams } from '../../../shared/navigation/work-navigation';
 import type { DeliveryHealthState, ProjectSummaryDto } from '@worktrail/contracts';
 
 import { ProjectsApi } from '../../../core/api/projects-api';
@@ -67,6 +68,7 @@ interface ProjectSectionLink {
               <a
                 class="project-shell__primary-action"
                 [routerLink]="['/projects', projectId(), 'work-items', 'new']"
+                [queryParams]="createQueryParams()"
               >
                 Create
               </a>
@@ -320,6 +322,8 @@ interface ProjectSectionLink {
 })
 export class ProjectShellComponent implements OnInit {
   private readonly context = new PageContext();
+  private readonly router = inject(Router);
+
   private readonly projectsApi = inject(ProjectsApi);
 
   readonly summary = signal<ProjectSummaryDto | null>(null);
@@ -334,6 +338,10 @@ export class ProjectShellComponent implements OnInit {
     { label: 'Reports', commands: ['/projects', this.projectId(), 'status'], exact: false },
     { label: 'Settings', commands: ['/projects', this.projectId(), 'settings'], exact: false }
   ]);
+
+  createQueryParams(): { returnUrl: string } {
+    return recordOriginParams(navigationContextFromPage(this.router.url, `/projects/${this.projectId()}/work-items`).origin.url);
+  }
 
   ngOnInit(): void {
     this.context.start(() => {

@@ -1,3 +1,4 @@
+import { navigationContextFromPage, recordNavigationTarget } from '../../shared/navigation/work-navigation';
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import {
   Component,
@@ -19,11 +20,11 @@ import {
   Subject,
   catchError,
   distinctUntilChanged,
-  firstValueFrom,
   map,
   merge,
   of,
   switchMap,
+  take,
   tap,
   timer
 } from 'rxjs';
@@ -381,7 +382,21 @@ export class QuickFindDialogComponent {
   }
 
   private navigate(target: QuickFindRouteTarget): void {
+    const context = navigationContextFromPage(this.router.url,
+      this.data.currentProjectId ? '/projects/' + this.data.currentProjectId + '/work-items' : '/work-items');
+    const record = target.commands.length === 2 && target.commands[0] === '/work-items' && target.commands[1] !== 'new'
+      ? recordNavigationTarget(String(target.commands[1]), context, undefined, target.fragment ?? null)
+      : null;
+    if (record) target = { ...target, commands: record.kind === 'record' ? target.commands : [record.path], queryParams: record.queryParams ?? undefined, fragment: record.fragment ?? undefined };
     const extras = this.navigationExtras(target);
+    const repeatFiles = target.fragment === workItemFilesFragment && record?.path === context.immediate?.path;
+    const actorId = this.currentUser.selectedMember()?.id;
+    const closeAndFocus = () => {
+      if (repeatFiles) this.dialogRef.closed.pipe(take(1)).subscribe(() => queueMicrotask(() => {
+        if (this.router.url === destinationUrl && this.currentUser.selectedMember()?.id === actorId) focusWorkItemFilesTarget();
+      }));
+      this.dialogRef.close();
+    };
     const destinationUrl = this.router.serializeUrl(
       this.router.createUrlTree([...target.commands], extras)
     );
@@ -390,16 +405,12 @@ export class QuickFindDialogComponent {
       target.fragment === workItemFilesFragment &&
       destinationUrl === this.router.url
     ) {
-      const closed = firstValueFrom(this.dialogRef.closed);
-      this.dialogRef.close();
-      void closed.then(() => {
-        focusWorkItemFilesTarget();
-      });
+      closeAndFocus();
       return;
     }
 
     void this.router.navigate([...target.commands], extras).then((accepted) => {
-      if (accepted) this.dialogRef.close();
+      if (accepted) closeAndFocus();
     }).catch(() => {
       this.error.set('The destination could not be opened.');
     });

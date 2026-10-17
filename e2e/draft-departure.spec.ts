@@ -39,7 +39,7 @@ test('draft departure protects independent editors, actor storage, native unload
   await page.getByLabel('Mention members', { exact: true }).selectOption(contributorId);
   await page.locator('.comment-form').getByRole('button', { name: 'Preview', exact: true }).click();
   await page.locator(`#detail-description`).evaluate((element: HTMLTextAreaElement) => element.setSelectionRange(4, 12));
-  await page.locator(`a[href="/work-items/${b.id}"]`).filter({ hasText: b.title }).click();
+  await page.locator(`a[href^="/work-items/${b.id}?"]`).filter({ hasText: b.title }).click();
   await expect(decision(page)).toBeVisible();
   await expect(decision(page).getByRole('button', { name: 'Stay', exact: true })).toBeFocused();
   await expect(decision(page)).toContainText('Work item details, New comment');
@@ -81,7 +81,7 @@ test('draft departure protects independent editors, actor storage, native unload
   await expect(quickFind.locator('#quick-find-query')).toBeFocused();
   await result.click();
   await decision(page).getByRole('button', { name: 'Discard', exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/work-items/${b.id}$`));
+  await expect(page).toHaveURL(url => url.pathname === `/work-items/${b.id}` && url.searchParams.get('returnTo') === `/work-items/${a.id}`);
   await expect(quickFind).toBeHidden();
   await expect(page.locator('#detail-title')).toHaveCount(0);
   await page.locator('button[aria-controls="edit-work-item"]').click();

@@ -1,14 +1,13 @@
+import { focusSectionTarget } from '../../shared/navigation/section-target';
 export const workItemFilesFragment = 'files';
 export const workItemFilesTargetId = 'files';
 
 export function focusWorkItemFilesTarget(
   target: HTMLElement | null = document.getElementById(workItemFilesTargetId)
 ): boolean {
-  if (target === null) {
-    return false;
-  }
+  return focusWorkItemTarget(target);
+}
 
-  target.focus({ preventScroll: true });
-  target.scrollIntoView({ block: 'start' });
-  return true;
+export function focusWorkItemTarget(target: HTMLElement | null): boolean {
+  return focusSectionTarget(target);
 }

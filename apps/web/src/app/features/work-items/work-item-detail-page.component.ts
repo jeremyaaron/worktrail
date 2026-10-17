@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { LucidePencil } from '@lucide/angular';
+import { WorkItemSectionTarget } from './work-item-section-target';
 import { CurrentUserService } from '../../core/current-user.service';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
@@ -37,18 +38,18 @@ import { WorkItemWatchHistoryStore } from './work-item-watch-history.store';
           <span id="work-item-summary-heading" class="visually-hidden">Work item summary</span>
           <app-work-item-detail-summary [item]="item" [project]="state.project()" />
           @if (item.parent; as parent) {
-            <app-work-item-parent-context [parent]="parent" [returnUrl]="state.detailSelfUrl()" />
+            <app-work-item-parent-context [parent]="parent" [navigationContext]="state.navigationContext()" [sourceUrl]="state.currentRecordUrl()" />
           }
         </div>
 
         <div class="detail-header__actions">
-          <a [routerLink]="state.returnTarget().path" [queryParams]="state.returnTarget().queryParams">
+          <a [routerLink]="state.returnTarget().path" [queryParams]="state.returnTarget().queryParams" [fragment]="state.returnTarget().fragment ?? undefined">
             {{ state.returnTarget().label }}
           </a>
           @if (state.canAddChildWorkItem()) {
             <a
-              [routerLink]="['/projects', item.projectId, 'work-items', 'new']"
-              [queryParams]="{ parentWorkItemId: item.id, returnUrl: state.detailSelfUrl() }"
+              [routerLink]="state.createChildTarget().path"
+              [queryParams]="state.createChildTarget().queryParams"
             >
               Add child work item
             </a>
@@ -115,7 +116,7 @@ import { WorkItemWatchHistoryStore } from './work-item-watch-history.store';
           </details>
         }
         @if (item.childSummary !== null) {
-          <app-work-item-child-work [item]="item" [readOnly]="state.isArchivedProject()" />
+          <app-work-item-child-work [navigationContext]="state.navigationContext()" [sourceUrl]="state.currentRecordUrl()" [item]="item" [readOnly]="state.isArchivedProject()" />
         }
       </div>
       <app-work-item-detail-editor (closed)="editButton.focus()" />
@@ -174,13 +175,12 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly relationships = inject(WorkItemRelationshipsStore);
   readonly watch = inject(WorkItemWatchHistoryStore);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly sectionTarget = new WorkItemSectionTarget(this.state, this.host);
   private readonly currentUser = inject(CurrentUserService);
   private readonly destroyRef = inject(DestroyRef);
 
   scrollToSection(id: 'discussion' | 'files' | 'dependencies' | 'history'): void {
-    const section = this.host.nativeElement.querySelector<HTMLElement>('#' + id);
-    section?.scrollIntoView();
-    section?.focus({ preventScroll: true });
+    this.sectionTarget.repeat(id);
   }
 
   ngOnInit(): void {

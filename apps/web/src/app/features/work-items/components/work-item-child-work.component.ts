@@ -1,3 +1,4 @@
+import { bareWorkItemUrl, createNavigationTarget, recordNavigationTarget, workNavigationContext, type WorkNavigationContext } from '../../../shared/navigation/work-navigation';
 import { Component, computed, effect, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { WorkItemChildrenDto, WorkItemDetailDto } from '@worktrail/contracts';
@@ -26,8 +27,8 @@ const childRowLimit = 8;
         <div class="child-work__actions">
           @if (!readOnly()) {
             <a
-              [routerLink]="['/projects', item().projectId, 'work-items', 'new']"
-              [queryParams]="{ parentWorkItemId: item().id, returnUrl: detailUrl() }"
+              [routerLink]="createTarget().path"
+              [queryParams]="createTarget().queryParams"
             >
               Add child work item
             </a>
@@ -89,7 +90,7 @@ const childRowLimit = 8;
             <a
               class="child-row"
               [routerLink]="['/work-items', child.id]"
-              [queryParams]="{ returnUrl: detailUrl() }"
+              [queryParams]="childTarget(child.id).queryParams" [fragment]="childTarget(child.id).fragment ?? undefined"
             >
               <span class="child-row__identity">
                 <span class="child-key">{{ child.displayKey }}</span>
@@ -312,6 +313,13 @@ export class WorkItemChildWorkComponent {
   private requestId = 0;
   private loadedSignature = '';
 
+  readonly navigationContext = input<WorkNavigationContext | null>(null);
+  readonly sourceUrl = input<string | null>(null);
+  private readonly navigation = computed(() => this.navigationContext() ?? workNavigationContext(null, null, '/projects/' + this.item().projectId + '/work-items'));
+  readonly createTarget = computed(() => createNavigationTarget(this.item().projectId, this.item().id, this.navigation(), this.sourceUrl() ?? bareWorkItemUrl(this.item().id, null)));
+  childTarget(id: string) {
+    return recordNavigationTarget(id, this.navigation(), this.sourceUrl() ?? bareWorkItemUrl(this.item().id, null));
+  }
   readonly item = input.required<WorkItemDetailDto>();
   readonly readOnly = input(false);
   readonly children = signal<WorkItemChildrenDto>({ items: [], totalCount: 0, hasMore: false });

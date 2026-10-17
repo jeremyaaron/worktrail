@@ -1,3 +1,4 @@
+import { recordOriginParams } from '../../../shared/navigation/work-navigation';
 import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type {
@@ -704,7 +705,7 @@ export class WorkItemResultListComponent {
   childSummaryLabel = workItemChildSummaryLabel;
 
   detailQueryParams(): { returnUrl: string } | null {
-    return this.returnUrl === null ? null : { returnUrl: this.returnUrl };
+    return this.returnUrl === null ? null : recordOriginParams(this.returnUrl);
   }
 
   isSelected(itemId: string): boolean {

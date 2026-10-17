@@ -19,7 +19,7 @@ import { WorkItemDiscussionStore } from '../work-item-discussion.store';
           } @else {
             <div class="comment-list">
               @for (comment of item.comments; track comment.id) {
-                <article class="comment">
+                <article class="comment" [id]="'comment-' + comment.id" tabindex="-1">
                   <header>
                     <div>
                       <strong>{{ comment.author.name }}</strong>

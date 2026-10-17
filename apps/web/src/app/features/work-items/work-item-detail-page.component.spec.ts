@@ -392,6 +392,58 @@ function previewDescription(fixture: ComponentFixture<WorkItemDetailPageComponen
 }
 
 describe('WorkItemDetailPageComponent', () => {
+  for (const fragment of ['discussion', 'dependencies', 'history']) {
+    it('targets a committed loaded section and opens its disclosure: ' + fragment, async () => {
+      routeFragment.next(fragment);
+      const { fixture } = setup();
+      await fixture.whenStable();
+      const root = fixture.nativeElement as HTMLElement;
+      const target = root.querySelector<HTMLElement>('#' + fragment)!;
+      expect(document.activeElement).toBe(target);
+      if (fragment === 'history') expect(target.querySelector<HTMLDetailsElement>('details')?.open).toBeTrue();
+      const focus = spyOn(target, 'focus');
+      fixture.componentInstance.state.workItem.update(item => item ? { ...item, title: 'Refreshed fact' } : item);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(focus).not.toHaveBeenCalled();
+    });
+  }
+
+  it('targets an identified comment after render and falls back for missing/deleted comments', async () => {
+    routeFragment.next('comment-' + detail.comments[0].id);
+    const { fixture } = setup();
+    await fixture.whenStable();
+    const root = fixture.nativeElement as HTMLElement;
+    expect(document.activeElement).toBe(root.querySelector('#comment-' + detail.comments[0].id));
+    routeFragment.next('comment-missing-id');
+    fixture.detectChanges(); await fixture.whenStable();
+    expect(document.activeElement).toBe(root.querySelector('#discussion'));
+    fixture.componentInstance.state.workItem.update(item => item ? { ...item, comments: item.comments.map(comment => ({ ...comment, isDeleted: true, body: '' })) } : item);
+    routeFragment.next('comment-' + detail.comments[0].id);
+    fixture.detectChanges(); await fixture.whenStable();
+    expect(document.activeElement).toBe(root.querySelector('#discussion'));
+    expect(root.querySelector('article.comment app-authored-content-viewer')).toBeNull();
+  });
+
+  it('rejects recursive return metadata and keeps the record project fallback', () => {
+    routeQueryParams = { returnUrl: '/work-items/a?returnUrl=%2Finbox' };
+    const { fixture } = setup();
+    expect(fixture.componentInstance.state.returnTarget().path).toBe('/projects/' + projectId + '/work-items');
+  });
+
+  it('carries the same bounded origin through all dependency groups', () => {
+    routeQueryParams = { returnUrl: '/work-items?status=blocked&page=3&pageSize=10' };
+    const item = relationshipItem({ id: 'relationship', workItemId: blockedWorkItemId, displayKey: 'WT-5', title: 'Linked work', direction: 'outbound' });
+    const { fixture } = setup({ workItem: { ...detail, relationships: { ...detail.relationships, blockedBy: [item], blocks: [item], related: [item] } } });
+    const links = [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLAnchorElement>('#dependencies a')];
+    expect(links.length).toBe(3);
+    for (const link of links) {
+      const url = new URL(link.href);
+      expect(url.searchParams.get('returnUrl')).toBe(routeQueryParams['returnUrl']);
+      expect(url.searchParams.get('returnTo')).toBe('/work-items/' + workItemId);
+    }
+  });
+
   it('renders plain empty/loading watcher messages without template implementation names', () => {
     const { fixture } = setup({ watchState: { isWatchedByCurrentActor: false, watcherCount: 0, watchers: [] } });
     const panel = (fixture.nativeElement as HTMLElement).querySelector('.watch-panel')!;
@@ -2149,7 +2201,7 @@ describe('WorkItemDetailPageComponent', () => {
     );
 
     expect(addChildLink?.getAttribute('href')).toBe(
-      `/projects/${projectId}/work-items/new?parentWorkItemId=${workItemId}&returnUrl=%2Fwork-items%2F${workItemId}`
+      `/projects/${projectId}/work-items/new?returnUrl=%2Fprojects%2F${projectId}%2Fwork-items&returnTo=%2Fwork-items%2F${workItemId}&parentWorkItemId=${workItemId}`
     );
 
     const childDetail: WorkItemDetailDto = {
@@ -2185,7 +2237,7 @@ describe('WorkItemDetailPageComponent', () => {
     const parentLink = compiled.querySelector<HTMLAnchorElement>('app-work-item-parent-context a');
     expect(parentLink?.textContent?.trim()).toBe('WT-3 Implement detail surface');
     expect(parentLink?.getAttribute('href')).toBe(
-      `/work-items/${workItemId}?returnUrl=%2Fwork-items%2F${blockedWorkItemId}`
+      `/work-items/${workItemId}?returnUrl=%2Fprojects%2F${projectId}%2Fwork-items&returnTo=%2Fwork-items%2F${blockedWorkItemId}`
     );
     expect(compiled.textContent).not.toContain('Add child work item');
 

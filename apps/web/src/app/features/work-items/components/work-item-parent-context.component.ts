@@ -1,4 +1,5 @@
-import { Component, input } from '@angular/core';
+import { recordNavigationTarget, workNavigationContext, type WorkNavigationContext } from '../../../shared/navigation/work-navigation';
+import { Component, computed, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { WorkItemParentDto } from '@worktrail/contracts';
 
@@ -12,7 +13,7 @@ import { workItemStatusLabel } from '../../../shared/work-items/work-item-displa
       <span class="parent-context__label">Child of</span>
       <a
         [routerLink]="['/work-items', parent().id]"
-        [queryParams]="returnUrl() === null ? null : { returnUrl: returnUrl() }"
+        [queryParams]="target().queryParams" [fragment]="target().fragment ?? undefined"
       >
         {{ parent().displayKey }} {{ parent().title }}
       </a>
@@ -71,5 +72,10 @@ import { workItemStatusLabel } from '../../../shared/work-items/work-item-displa
 export class WorkItemParentContextComponent {
   readonly parent = input.required<WorkItemParentDto>();
   readonly returnUrl = input<string | null>(null);
+  readonly navigationContext = input<WorkNavigationContext | null>(null);
+  readonly sourceUrl = input<string | null>(null);
+  readonly target = computed(() => recordNavigationTarget(this.parent().id,
+    this.navigationContext() ?? workNavigationContext(this.returnUrl(), null, '/projects/' + this.parent().projectId + '/work-items'),
+    this.sourceUrl() ?? undefined));
   readonly workItemStatusLabel = workItemStatusLabel;
 }

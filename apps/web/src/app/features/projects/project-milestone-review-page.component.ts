@@ -1,3 +1,5 @@
+import { NavigationSectionTargetDirective } from '../../shared/navigation/section-target';
+import { recordOriginParams } from '../../shared/navigation/work-navigation';
 import { snapshotCountLabel } from '@worktrail/contracts';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
@@ -58,12 +60,15 @@ interface BreakdownMetric {
 @Component({
   selector: 'app-project-milestone-review-page',
   imports: [
+    NavigationSectionTargetDirective,
     ErrorPanelComponent,
     LoadingIndicatorComponent,
     RouterLink,
     WorkItemParentPillComponent
   ],
   template: `
+    <section [appNavigationSectionTarget]="navigationFragment()" [navigationIdentity]="navigationIdentity()" [navigationReady]="review()">
+
     @if (isLoading()) {
       <app-loading-indicator label="Loading milestone review" />
     } @else if (error()) {
@@ -338,6 +343,8 @@ interface BreakdownMetric {
         }
       </section>
     }
+
+    </section>
   `,
   styles: `
     :host {
@@ -779,6 +786,8 @@ interface BreakdownMetric {
 })
 export class ProjectMilestoneReviewPageComponent implements OnInit {
   private readonly context = new PageContext();
+  readonly navigationFragment = this.context.fragment;
+  readonly navigationIdentity = computed(() => this.context.contextKey());
   readonly riskCountLabel = snapshotCountLabel;
   private readonly planningApi = inject(PlanningApi);
 
@@ -905,9 +914,7 @@ export class ProjectMilestoneReviewPageComponent implements OnInit {
     return section.countUnit === 'work_items' ? Math.max(section.count - visibleRiskItemLimit, 0) : 0;
   }
 
-  detailQueryParams(): { returnUrl: string } {
-    return { returnUrl: `/projects/${this.projectId()}/milestones/${this.milestoneId()}` };
-  }
+  detailQueryParams(): { returnUrl: string } { return recordOriginParams(`/projects/${this.projectId()}/milestones/${this.milestoneId()}`, this.context.fragment()); }
 
   queryParamsFromQuery(query: WorkItemQuery | null): Record<string, string> | null {
     if (query === null) {

@@ -1,3 +1,5 @@
+import { NavigationSectionTargetDirective } from '../../../shared/navigation/section-target';
+import { recordOriginParams } from '../../../shared/navigation/work-navigation';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
@@ -41,8 +43,10 @@ const priorityLabels: Record<WorkItemPriority, string> = {
 
 @Component({
   selector: 'app-project-cycle-closeout-page',
-  imports: [ErrorPanelComponent, LoadingIndicatorComponent, ReactiveFormsModule, RouterLink],
+  imports: [NavigationSectionTargetDirective, ErrorPanelComponent, LoadingIndicatorComponent, ReactiveFormsModule, RouterLink],
   template: `
+    <section [appNavigationSectionTarget]="navigationFragment()" [navigationIdentity]="navigationIdentity()" [navigationReady]="preview()">
+
     <section class="closeout-page">
       @if (isLoading()) {
         <app-loading-indicator label="Loading cycle closeout preview" />
@@ -118,7 +122,7 @@ const priorityLabels: Record<WorkItemPriority, string> = {
               @for (item of preview.unfinishedItems; track item.id) {
                 <article class="work-row" role="listitem">
                   <div class="work-row__identity">
-                    <a [routerLink]="['/work-items', item.id]">{{ item.displayKey }}</a>
+                    <a [routerLink]="['/work-items', item.id]" [queryParams]="detailQueryParams()">{{ item.displayKey }}</a>
                     <strong>{{ item.title }}</strong>
                   </div>
                   <div class="work-row__metadata">
@@ -213,6 +217,8 @@ const priorityLabels: Record<WorkItemPriority, string> = {
         </form>
       }
     </section>
+
+    </section>
   `,
   styles: `
     :host { display: block; }
@@ -284,6 +290,8 @@ const priorityLabels: Record<WorkItemPriority, string> = {
 })
 export class ProjectCycleCloseoutPageComponent implements OnInit, OnDestroy {
   private readonly context = new PageContext();
+  readonly navigationFragment = this.context.fragment;
+  readonly navigationIdentity = computed(() => this.context.contextKey());
   private readonly router = inject(Router);
   private readonly cyclesApi = inject(CyclesApi);
   private readonly formBuilder = inject(FormBuilder);
@@ -291,6 +299,9 @@ export class ProjectCycleCloseoutPageComponent implements OnInit, OnDestroy {
   private previewSubscription: Subscription | null = null;
   private closeSubscription: Subscription | null = null;
 
+  detailQueryParams(): { returnUrl: string } {
+    return recordOriginParams('/projects/' + this.projectId() + '/cycles/' + this.cycleId() + '/closeout', 'unfinished-heading');
+  }
   readonly projectId = computed(() => this.context.param('projectId'));
   readonly cycleId = computed(() => this.context.param('cycleId'));
   readonly preview = signal<ProjectCycleCloseoutPreviewDto | null>(null);

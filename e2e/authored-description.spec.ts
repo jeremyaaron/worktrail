@@ -164,7 +164,7 @@ test('authors descriptions across creation paths, preserves legacy text and draf
   await page.locator('button[aria-controls="edit-work-item"]').click();
   await page.locator('#detail-description').fill('Unsaved source on old item');
   await page
-    .locator(`a[href="/work-items/${created.id}"]`)
+    .locator(`a[href^="/work-items/${created.id}?"]`)
     .filter({ hasText: `Renamed description ${suffix}` })
     .click();
   await page.getByRole('dialog', { name: 'Discard unsaved changes?' }).getByRole('button', { name: 'Discard', exact: true }).click();

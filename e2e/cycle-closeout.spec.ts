@@ -199,10 +199,14 @@ test.describe.serial('v0.2.4 cycle closeout', () => {
 
     await page.goto(sourceReviewPath);
     await page.getByRole('link', { name: 'Open current LAB-3' }).click();
-    await expect(page).toHaveURL(`/work-items/${carriedItemId}`);
+    await expect(page).toHaveURL(url => url.pathname === `/work-items/${carriedItemId}` && url.searchParams.get('returnUrl') === `${sourceReviewPath}#cycle-result-heading`);
     await expect(page.getByRole('heading', { name: longCarriedTitle })).toBeVisible();
-    await expect(page.getByLabel('Metadata')).toContainText('Follow-up Validation');
+    await expect(page.getByRole('region', { name: 'Work item summary', exact: true })).toContainText('Follow-up Validation');
+    await page.locator('#history > details > summary').click();
     await expect(page.getByRole('heading', { name: 'Activity' })).toBeVisible();
     await expect(page.getByText('Cycle changed to Follow-up Validation.')).toBeVisible();
+    await page.getByRole('link', { name: 'Back to cycle review', exact: true }).click();
+    await expect(page).toHaveURL(`${sourceReviewPath}#cycle-result-heading`);
+    await expect(page.locator('#cycle-result-heading')).toBeFocused();
   });
 });

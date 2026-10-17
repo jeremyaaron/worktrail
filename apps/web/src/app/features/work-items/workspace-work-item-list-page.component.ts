@@ -1,3 +1,4 @@
+import { recordOriginParams } from '../../shared/navigation/work-navigation';
 import { workItemFilterChips, type WorkItemFilterChip } from './query/work-item-filter-labels';
 import type { WorkspaceWorkItemFilterFormValue } from './query/work-item-filter-state';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -136,7 +137,7 @@ type WorkspaceFilterFormValue = WorkspaceWorkItemFilterFormValue;
           >
             {{ isExporting() ? 'Exporting...' : 'Export CSV' }}
           </button>
-          <a class="primary-action" routerLink="/work-items/new">Create work item</a>
+          <a class="primary-action" routerLink="/work-items/new" [queryParams]="createQueryParams()">Create work item</a>
           @if (copyLinkStatus()) {
             <span class="copy-link-status" aria-live="polite">{{ copyLinkStatus() }}</span>
           }
@@ -1270,6 +1271,8 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       members: this.members(), labels: this.labels(), milestones: this.milestones(), cycles: this.cycles(), projectSummaries: this.projectSummaries()
     });
   }
+
+  createQueryParams(): { returnUrl: string } { return recordOriginParams(this.detailReturnUrl()); }
 
   detailReturnUrl(): string {
     return this.queryState.returnUrl('/work-items');

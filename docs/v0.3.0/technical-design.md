@@ -253,6 +253,9 @@ the CDK confirmation UI is lazy, and authored values remain in local editor trac
 
 ## Navigation Context And Section Targets
 
+Phase 14 implements this policy in the shared navigation helpers and production link/target owners.
+See [bounded navigation evidence](bounded-navigation-evidence.md) for adoption and focused checks.
+
 ### Bounded Return Encoding
 
 Create shared parsing/building helpers under `shared/navigation`, backed by Angular `UrlTree` rather
