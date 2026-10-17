@@ -187,6 +187,12 @@ record routes, actor/project changes, and Quick Find navigation. Pending writes 
 than offer cancellation. A conditional browser unload warning protects reload/close where supported;
 drafts are not autosaved or stored for recovery after a crash. Report evidence refresh preserves edits.
 
+The working branch also makes work-item detail read-first: project and planning facts, description,
+independent status/watch actions and discussion precede administrative forms. Edit opens fields,
+including setting/clearing estimate and due date. Parent management, children, dependency management,
+watchers and history are expandable. Closed child work includes Done and Canceled; parent estimates
+remain independent of child totals. Field saves/cancellation preserve unrelated discussion and files.
+
 The `markdown_v1` profile supports paragraphs and visible line breaks, headings, ordered/unordered
 lists, emphasis, quotations, inline code, fenced/indented code blocks, and explicit HTTP(S) links.
 Images display alternative text only. Raw HTML remains literal; tables, strikethrough, interactive

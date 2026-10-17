@@ -452,6 +452,12 @@ Use semantic headings/regions and icon tools with tooltips where available. Avoi
 new marketing-style explanatory blocks. Extract section styles with their components rather than
 raising component budgets.
 
+Phase 13 production composition and verification are recorded in
+[read-first detail evidence](read-first-detail-evidence.md). The detail route provides record/edit,
+discussion, dependency and watch/history stores sharing one committed context. The attachment owner
+retains its state and lifetime across editing. Local section links scroll/focus stable regions;
+bounded return and incoming comment/section targeting remain Phase 14 work.
+
 ### Planning And Historical Outcomes
 
 Planning opens with compact project health and current execution: active cycle/date/scope, actionable

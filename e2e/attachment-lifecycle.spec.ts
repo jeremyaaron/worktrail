@@ -242,6 +242,7 @@ test.describe.serial('v0.2.7 attachment lifecycle', () => {
     await attachments.getByRole('button', { name: `Remove ${retryFileName}` }).click();
     await attachments.getByRole('button', { name: 'Remove file' }).click();
     await expect(attachments.getByText(`Removed attachment "${retryFileName}".`)).toBeVisible();
+    await page.locator('#history summary').click();
     await expect(page.getByText(`Removed attachment "${retryFileName}".`).last()).toBeVisible();
 
     await page.setViewportSize({ width: 1280, height: 900 });
@@ -249,6 +250,7 @@ test.describe.serial('v0.2.7 attachment lifecycle', () => {
     await attachments.getByRole('button', { name: `Remove ${longFileName}` }).click();
     await attachments.getByRole('button', { name: 'Remove file' }).click();
     await expect(attachments.getByText(longFileName, { exact: true })).toHaveCount(0);
+    await page.locator('#history summary').click();
     await expect(page.getByText(`Removed attachment "${longFileName}".`).last()).toBeVisible();
 
     await setProjectArchived(request, true);

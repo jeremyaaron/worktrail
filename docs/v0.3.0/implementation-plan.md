@@ -2,8 +2,8 @@
 
 ## Status
 
-Approved for sequential execution. Phases 0-12 are complete as of October 17, 2026;
-Phases 13-21 are not started. Release verification remains pending. Merge, tag, publication,
+Approved for sequential execution. Phases 0-13 are complete as of October 17, 2026;
+Phases 14-21 are not started. Release verification remains pending. Merge, tag, publication,
 and Pages deployment remain separate user-controlled actions.
 
 ## Purpose
@@ -99,7 +99,7 @@ integration boundaries.
 | 10 | Narrow aggregate reads and bounded preview enrichment | Complete |
 | 11 | Reactive route/actor context and stale-operation ownership | Complete |
 | 12 | Shared draft departure protection in production editors | Complete |
-| 13 | Read-first detail and focused editing/collaboration owners | Not started |
+| 13 | Read-first detail and focused editing/collaboration owners | Complete |
 | 14 | Bounded return navigation and relevant section targeting | Not started |
 | 15 | Shared saved views, applied-query feedback, and work-list ergonomics | Not started |
 | 16 | Execution-first Planning and disclosed management | Not started |
@@ -1233,7 +1233,30 @@ Acceptance:
 Verification: detail component/store/API tests; zero/null/calendar/no-op/permission cases; independent-draft
 and attachment/editor regressions; populated desktop/mobile screenshots and style/lazy build checks.
 
-Status: Not started.
+Status: Complete (October 17, 2026).
+
+Completion evidence:
+
+- Replaced monolithic detail orchestration with page-scoped record/edit, discussion, relationship
+  and watch/history owners, sharing one committed context and existing independent draft decisions.
+  Focused production components consume those owners; the old page implementation is removed.
+- Default detail is read-first, with named project/planning facts, independent status/watch and
+  explicit Edit/Cancel. Parent management, children, dependency administration, watchers and history
+  are disclosed; section links scroll/focus stable targets without losing the record/query.
+- Estimate/date set/clear use existing PATCH, including zero/null, integer/calendar/native-input
+  validation, failed/no-op saves and archived/contributor states. Field saves preserve newer comments,
+  status and hierarchy; scoped cancellation preserves independent discussion and mounted files.
+- Child Closed totals include Done and Canceled, distinguish parent estimate from child totals, and
+  preserve exact list continuation. Upload progress/retry/removal/capacity and source/format behavior
+  remain with their established owners.
+- Affected frontend acceptance passed 164 tests/lint/production compilation and unchanged
+  style/lazy budgets. All 15 distinct selected application browser flows passed across overlapping
+  runs, plus the compiled preview check. Initial size remains 397.79 kB with 20 lazy page entries.
+- A final watcher-copy correction/new regression passed 106/106 affected detail tests and lint;
+  unchanged build/browser evidence was reused for that text-only edit.
+- [Detail evidence](read-first-detail-evidence.md) and [verification notes](verification-notes.md)
+  record commands, diagnostics, screenshot inspection, omitted suites and owned cleanup. Package
+  versions/dependencies/working data/release actions are unchanged; Phase 14 is not started.
 
 ## Phase 14: Bounded Returns And Section Targeting
 

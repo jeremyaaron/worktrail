@@ -120,11 +120,10 @@ describe('WorkItemChildWorkComponent', () => {
 
     expect(compiled.textContent).toContain('Total12');
     expect(compiled.textContent).toContain('Open8');
-    expect(compiled.textContent).toContain('Done3');
-    expect(compiled.textContent).toContain('Canceled1');
+    expect(compiled.textContent).toContain('Closed4');
     expect(compiled.textContent).toContain('Estimated9');
     expect(compiled.textContent).toContain('Unestimated3');
-    expect(compiled.textContent).toContain('Child points34');
+    expect(compiled.textContent).toContain('Child total34');
     expect(compiled.textContent).toContain(childItem.title);
     expect(compiled.textContent).toContain('Showing 1 of 12 direct children.');
     expect(childLink?.getAttribute('href')).toContain(`/work-items/${childItem.id}`);

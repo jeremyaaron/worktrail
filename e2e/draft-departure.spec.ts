@@ -31,6 +31,7 @@ test('draft departure protects independent editors, actor storage, native unload
   });
   expect(link.ok()).toBe(true);
   await page.goto(`/work-items/${a.id}`);
+  await page.locator('button[aria-controls="edit-work-item"]').click();
   await expect(page.locator('#detail-title')).toHaveValue(a.title);
   await page.locator('#detail-description').fill('  # Keep source\n**Description draft**\n');
   await page.locator('#detail-description-format').selectOption('markdown_v1');
@@ -82,6 +83,8 @@ test('draft departure protects independent editors, actor storage, native unload
   await decision(page).getByRole('button', { name: 'Discard', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/work-items/${b.id}$`));
   await expect(quickFind).toBeHidden();
+  await expect(page.locator('#detail-title')).toHaveCount(0);
+  await page.locator('button[aria-controls="edit-work-item"]').click();
   await expect(page.locator('#detail-title')).toHaveValue(b.title);
   await expect(page.locator('#detail-description')).toHaveValue('Original source');
   await expect(page.locator('#comment-body')).toHaveValue('');

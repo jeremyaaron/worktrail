@@ -119,6 +119,7 @@ test('renders hostile source and complete fallback without remote assets or priv
         await expect(saved.locator('.plain-content')).toHaveText(fallback);
         await expect(saved.locator('a')).toHaveCount(0);
       }
+      await page.locator('button[aria-controls="edit-work-item"]').click();
       const editor = page.locator(
         'app-authored-content-editor[formcontrolname="descriptionContent"]'
       );
@@ -211,7 +212,8 @@ test('keeps seeded legacy and deleted content correct and archived formatted con
   await expect(page.locator('article.comment app-authored-content-viewer strong')).toHaveText(
     'migration decision'
   );
-  await expect(page.locator('#detail-description')).toBeDisabled();
+  await expect(page.locator('#detail-description')).toHaveCount(0);
+  await expect(page.locator('button[aria-controls="edit-work-item"]')).toBeDisabled();
   await expect(page.locator('#comment-body')).toBeDisabled();
   const itemResponse = await request.get(`${apiURL}/work-items/${archivedItemId}`, { headers });
   const item = (await itemResponse.json()) as WorkItemDetailDto;

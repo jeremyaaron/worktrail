@@ -1199,3 +1199,110 @@ No dependency/version change, authored-data migration, draft storage, commit/pus
 deployment was performed. Native warnings cannot guarantee mobile shutdown/crash protection, and a
 discarded UI subscription does not cancel a submitted server transaction. Phase 12 is complete;
 Phase 13 and release-wide verification remain separate work.
+
+## Phase 13: Read-First Detail
+
+Completed October 17, 2026. This is a frontend composition/correction phase: backend/domain/contracts,
+database schema, storage implementation, dependencies and package versions are unchanged. Verification
+targets affected production owners and browser journeys rather than repeating all Angular/API suites.
+
+### Acceptance
+
+| Check | Result |
+| --- | --- |
+| Affected Angular acceptance | 164/164 passed in `df8747e6-dd9d-4e50-bb7b-1126db22c147` |
+| Final copy-only refinement | 106/106 affected detail cases passed in `756a02a1-2e8c-4bf4-85cf-55cde639dbb6`, including its new regression; counts overlap |
+| Frontend source lint / production template and type compilation | Passed in that run |
+| Development template/type builds | Passed in earlier focused runs; not repeated after the final guarded close callback/test additions because test and production builds compile those owners |
+| Production budgets | Warning-free; unchanged thresholds; initial 397.79 kB / estimated transfer 109.95 kB |
+| Initial graph | 155 inputs; no CDK/dialog/heavy detail/Planning/report/creation/Markdown/editor inputs; 20 lazy page entries |
+| Targeted application browser coverage | All 15 distinct selected flows passed across overlapping runs listed below; not a single full-suite result |
+| Compiled production preview | 1/1 passed in `7052e140-a3db-4dbd-9879-3bbeb586286c` |
+| Changed browser test lint and verification TypeScript | Passed |
+| Visual inspection | Populated read-first 1440/390/320px; expanded children 1440/320px; narrow description editing/preview and compiled preview inspected; no page overflow beyond the existing one-pixel assertion |
+| Documentation links / whitespace / cleanup | 83 local links across six changed Markdown documents checked; whitespace and owned cleanup checked |
+| Omitted | Unchanged API/domain/contract/resource/editor-only/site suites, full application suites, remote CI and user UAT; release-wide gates remain Phase 21 |
+
+The final no-database frontend harness used existing manifest/private-checkout/process/Karma/port/
+cleanup helpers. It ran source lint, selected Angular tests, production `--stats-json` build and the
+same static non-dynamic import traversal used in Phase 12. The final selection was:
+
+```text
+--include=src/app/core/navigation/*.spec.ts
+--include=src/app/features/work-items/work-item-detail-page.component.spec.ts
+--include=src/app/features/work-items/components/work-item-parent-components.spec.ts
+--include=src/app/features/work-items/components/work-item-child-work.component.spec.ts
+--include=src/app/features/work-items/components/work-item-attachments.component.spec.ts
+```
+
+These exercise the extracted production owners through the real composed page, including zero/null,
+invalid/fractional/overflow estimates, leap/calendar dates, incomplete native controls, failure/no-op
+payloads, source baselines, archived/contributor rules, independent comment/mention drafts, preserved
+attachment instance, concurrent field/comment/status responses, scoped cancellation and stale close
+focus after route reuse/destruction. API interaction assertions use the existing HTTP contract.
+
+### Browser Runs And Diagnostics
+
+Owned application browser checks used `npm run verify -- --mode=e2e '--grep=...'`, one worker and zero
+retries. The initial selection was:
+
+```text
+read-first|authors descriptions|authors, previews|retains comment source|
+draft departure protects independent|downloads seeded files|handles upload retry|
+opens exact work items|work breakdown workflow|dependency workflow|
+inbox mention workflow|keeps seeded legacy
+```
+
+Later targeted reruns selected only failed/refined flows plus `pages project and workspace work` and
+`planning and adoption workflow` for additional affected consumers. Passing coverage is reused where
+the later edits do not affect it. Counts overlap and are not summed as new coverage:
+
+- `fde136ae-7d4a-4ab0-beaa-393460d76324`: 5/13 passed. It found a real 10px narrow watch-layout
+  overflow and old assertions that expected now-disclosed history/children. Downloads/reuse, draft
+  departure/actor/native unload, Quick Find Files targets, hierarchy continuation and dependencies passed.
+- `09e16e02-71bc-4ce1-9eb7-7269f369f953`: 6/8 passed after correcting responsive wrapping and explicit
+  disclosure setup. Both comment flows, archived legacy content, descriptions, mentions and hierarchy
+  management passed. Remaining failures identified history closing on actor replacement and native
+  fragment links resolving against the app's base URL. Links now use the router with preserved query
+  and explicit local scroll/focus; actor-replacement tests reopen history before inspecting it.
+- `b63edf8a-40b4-47d8-ac64-933b2b25a951`: 3/4 passed: attachment retry/removal/archive, the new real-API
+  planning/no-op/draft-preservation journey and pagination continuation. The adoption flow still used
+  the removed Metadata panel; it now reads milestone/label facts from the read summary and discloses history.
+- `acc8b516-4779-4435-901a-74854d5b4992`: 3/3 passed together: both new read-first/planning/hierarchy
+  journeys and the corrected adoption flow. Its read-first/child screenshots include final spacing and
+  the guarded Cancel focus callback. No authored draft is discarded without the production decision.
+- `npm run verify -- --mode=preview`: `7052e140-a3db-4dbd-9879-3bbeb586286c` passed compiled deep-link
+  reload, read/source/preview behavior, explicit draft discard, archived disabled authoring, static
+  assets and API 404 behavior. It also built API/contracts for the existing preview composition;
+  this is not an API unit-suite result.
+
+Initial frontend diagnostics `5f761419-e3d0-4bf5-ba72-a1a7c7aa402f` and
+`81544b18-5c44-4167-8dc1-b86d583105f4` stopped at unused-import/declaration lint errors during extraction.
+`74e5a71a-e3de-4473-93fc-90f096b0e079` ran 143 cases with seven old-layout/contract assertion failures;
+`e1651024-7411-47a5-854d-23fb23b5bdc0` ran 161 with one remaining back-link locator failure after the
+named project link was added. Those assertions now target the actual read-first controls and unchanged
+navigation behavior. `14e1371c-c529-4166-917c-f79c9739f533` and
+`2c8411f7-b7f3-4d89-a7d7-0a1dd91d6e1c` passed 162 cases/builds before the final two stale-close regressions;
+the 164-case acceptance supersedes them.
+
+Final screenshot inspection caught a stray `state.` prefix in two watcher loading/empty literals.
+The copy-only correction and new regression passed the 106-case detail file plus lint in
+`756a02a1-2e8c-4bf4-85cf-55cde639dbb6`. A structured Angular-template parse checked all six composed
+templates for remaining implementation-name text and found none. This final copy edit changes no
+bindings, imports, styles or routing, so unrelated tests/build/browser checks were not repeated. These
+106 overlap the 164-case run; together they cover 165 distinct affected Angular cases, not 270.
+
+`e556e14c-58fd-4b77-92c2-2385c9f73bc0` failed Docker loopback-port discovery before app/browser startup.
+An isolated owned provisioning diagnostic `ff62cb75-3b0d-43e4-b3da-9ad47b0d65cd` immediately obtained an
+owned loopback port and passed; subsequent application/preview provisioning passed unchanged. A separate
+read-only browser probe overlapped an owned test reset and timed out; it closed its browser in `finally`
+and is excluded from acceptance. No Docker/test readiness deadline, retry, worker or budget was increased.
+
+### Closure
+
+Owned private checkouts, builds, Karma/browser processes/profiles, API/Angular/preview servers,
+PostgreSQL containers and attachment roots were removed. Ignored run summaries and screenshots remain
+under `test-results/verification`. Working PostgreSQL on 5432, ordinary storage and unrelated processes
+were not verification targets. No dependency/version change, migration, commit/push/tag/publication or
+deployment was performed. Phase 13 is complete; bounded returns/incoming section targeting remain
+Phase 14, and release-wide verification remains Phase 21.

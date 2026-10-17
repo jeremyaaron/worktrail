@@ -324,6 +324,7 @@ test('pages project and workspace work without losing navigation context', async
   await expectNoPageOverflow(page);
 
   await page.goto('/work-items/10000000-0000-4000-8000-000000000402');
+  await page.locator('#dependencies summary').click();
   await page.getByRole('button', { name: 'Search', exact: true }).click();
   await expect(
     page.getByText('More matches are available. Refine the search to narrow the results.')
@@ -505,8 +506,9 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
   await page.getByRole('link', { name: 'Open work item' }).click();
   await expect(page.getByRole('heading', { name: title })).toBeVisible();
   await expect(page.getByText(/WT-\d+/)).toBeVisible();
-  await expect(page.getByLabel('Metadata').getByText(milestone)).toBeVisible();
-  await expect(page.getByLabel('Work item summary').getByText(label)).toBeVisible();
+  await expect(page.locator('app-work-item-detail-summary').getByText(milestone)).toBeVisible();
+  await expect(page.locator('app-work-item-detail-summary').getByText(label)).toBeVisible();
+  await page.locator('#history summary').click();
   await expect(page.getByText('Work item created.')).toBeVisible();
 
   await page.goto(`/projects/${demoProjectId}/work-items`);
@@ -548,6 +550,7 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
   await page.getByRole('button', { name: 'Add comment' }).click();
 
   await expect(page.getByText(comment)).toBeVisible();
+  await page.locator('#history summary').click();
   await expect(page.getByText('Comment added.')).toBeVisible();
 
   const commentCard = page.locator('article.comment').filter({ hasText: comment });
@@ -975,6 +978,7 @@ test('validates the v0.0.8 dependency workflow', async ({ page, request }) => {
   await expect(page.getByRole('heading', { name: blockedTitle })).toBeVisible();
 
   const relationshipPanel = page.locator('.relationship-panel');
+  await relationshipPanel.locator('summary').click();
   await relationshipPanel.getByLabel('Relationship').selectOption('blocked_by');
   await relationshipPanel.getByLabel('Find work item').fill(blockerTitle);
   await relationshipPanel.getByRole('button', { name: 'Search' }).click();
@@ -1021,6 +1025,7 @@ test('validates the v0.0.8 dependency workflow', async ({ page, request }) => {
   await page.getByLabel('Current status').selectOption('done');
   await page.getByRole('button', { name: 'Update status' }).click();
   await expect(page.getByLabel('Current status')).toHaveValue('done');
+  await page.locator('#history summary').click();
   await expect(page.getByText('Status changed from in_progress to done.')).toBeVisible();
 
   await page.goto(`/work-items?dependency=dependency_blocked&search=${encodeURIComponent(blockedTitle)}`);
@@ -1398,7 +1403,7 @@ test('completes the v0.1.1 inbox mention workflow', async ({ page }) => {
   await expect(
     page.getByRole('heading', { name: 'Implement transport-neutral API handler contract' })
   ).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Watchers' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Watchers' })).toBeVisible();
   await expect(page.locator('.watch-panel')).toContainText('3 watching');
 
   const watchPanel = page.locator('.watch-panel');
@@ -1415,6 +1420,7 @@ test('completes the v0.1.1 inbox mention workflow', async ({ page }) => {
   const createdComment = page.locator('article.comment').filter({ hasText: comment });
   await expect(createdComment).toBeVisible();
   await expect(createdComment.getByLabel('Mentioned members')).toContainText('@Casey Contributor');
+  await page.locator('#history summary').click();
   await expect(page.getByText('Comment added.')).toBeVisible();
 
   await page.locator('#current-member').selectOption({ label: 'Casey Contributor · contributor' });
@@ -1553,16 +1559,16 @@ test('completes the v0.2.5 work breakdown workflow', async ({ page, request }, t
     await page.goto(parentPath);
     await expect(page.getByRole('heading', { level: 1, name: parentTitle })).toBeVisible();
 
+    await page.locator('app-work-item-child-work > details > summary').click();
     const childSummary = page.getByLabel('Direct child work summary');
     await expect(childSummary).toContainText('Total');
     await expect(childSummary).toContainText('5');
     await expect(childSummary).toContainText('Open');
     await expect(childSummary).toContainText('3');
-    await expect(childSummary).toContainText('Done');
-    await expect(childSummary).toContainText('Canceled');
+    await expect(childSummary).toContainText('Closed');
     await expect(childSummary).toContainText('Unestimated');
     await expect(childSummary).toContainText('1');
-    await expect(childSummary).toContainText('Child points');
+    await expect(childSummary).toContainText('Child total');
     await expect(childSummary).toContainText('13');
 
     const seededChildLink = page.getByRole('link', { name: new RegExp(`WT-13.*${readyChildTitle}`) });
@@ -1597,6 +1603,7 @@ test('completes the v0.2.5 work breakdown workflow', async ({ page, request }, t
     await page.getByLabel('Work item created').getByRole('link', { name: 'Back to WT-12' }).click();
 
     await expect(page.getByRole('heading', { level: 1, name: parentTitle })).toBeVisible();
+    await page.locator('app-work-item-child-work > details > summary').click();
     await expect(page.getByLabel('Direct child work summary')).toContainText('6');
     const createdChildLink = page.getByRole('link', { name: new RegExp(createdChildTitle) });
     await expect(createdChildLink).toBeVisible();
@@ -1614,6 +1621,7 @@ test('completes the v0.2.5 work breakdown workflow', async ({ page, request }, t
 
     await page.goto(`/work-items/${hierarchyReadyChildId}`);
     await expect(page.getByRole('heading', { level: 1, name: readyChildTitle })).toBeVisible();
+    await page.locator('.hierarchy > details > summary').click();
     const parentSearch = page.getByLabel('Find a parent');
     await parentSearch.focus();
     await expectFocused(parentSearch);
@@ -1637,6 +1645,7 @@ test('completes the v0.2.5 work breakdown workflow', async ({ page, request }, t
     await expectFocused(saveParent);
     await saveParent.click();
     await expect(page.getByLabel('Parent work item')).toContainText('WT-18');
+    await page.locator('#history summary').click();
     await expect(page.getByText('Parent changed from WT-12 to WT-18.')).toBeVisible();
     const clearParent = page.getByRole('button', { name: 'Clear parent' });
     await clearParent.focus();
@@ -1653,6 +1662,7 @@ test('completes the v0.2.5 work breakdown workflow', async ({ page, request }, t
     await expect(page.getByText('Parent changed from WT-18 to WT-12.')).toBeVisible();
 
     await page.goto(parentPath);
+    await page.locator('app-work-item-child-work > details > summary').click();
     const viewChildrenLink = page.getByRole('link', { name: 'View all child work' });
     await viewChildrenLink.focus();
     await expectFocused(viewChildrenLink);
@@ -1697,6 +1707,7 @@ test('completes the v0.2.5 work breakdown workflow', async ({ page, request }, t
     await page.goto(parentPath);
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(page.getByRole('heading', { level: 1, name: parentTitle })).toBeVisible();
+    await page.locator('app-work-item-child-work > details > summary').click();
     await expect(page.getByLabel('Direct child work summary')).toBeVisible();
     await expectNoPageOverflow(page);
     await testInfo.attach('work-breakdown-parent-mobile', {

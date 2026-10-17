@@ -1,15 +1,15 @@
 # Worktrail Developer Ownership And Invariants
 
-This is the current implementation guide, not a release archive. As of v0.3.0 Phase 12, persistence
-ownership, batched queries, lifecycle coordination, authoritative work/relationship commands, and
-bounded HTTP parsing, versioned risk/query policy, aggregate narrowing and committed frontend context
-and shared draft departure protection are implemented. Presentation consolidation remains later work in the
-[implementation plan](v0.3.0/implementation-plan.md).
+This is the current implementation guide, not a release archive. As of v0.3.0 Phase 13, persistence
+ownership, batched queries, lifecycle coordination, authoritative work/relationship commands,
+bounded HTTP parsing, versioned risk/query policy, aggregate narrowing, committed frontend context,
+shared draft departure protection and read-first detail composition are implemented. Remaining presentation
+consolidation follows the [implementation plan](v0.3.0/implementation-plan.md).
 
 ## Committed Frontend Context
 
 `core/navigation/page-context.ts` owns a component's inherited route parameters, committed query/
-fragment state, and workspace/member identity. Construct it in the component injection context and
+fragment state, and workspace/member identity. Construct it in the component or page-scoped store injection context and
 register a reset/load callback with `start()` during initialization. Use `param()`/`query()` inside
 computed values instead of snapshot-only computed IDs. Mounted owners buffer parameter emissions
 until `NavigationEnd`; initial activation can initialize immediately. Cancellation/error is not an
@@ -75,6 +75,36 @@ its own baseline before success navigation; failure retains the draft. Quick Fin
 No navigation cancel/replay loop or queued actor/URL change is used. The browser warning is native and
 cannot guarantee mobile shutdown/crash recovery. Evidence and limits are in
 [draft departure evidence](v0.3.0/draft-departure-evidence.md).
+
+## Read-First Detail Ownership
+
+The detail route provides four local stores, not root singletons. `work-item-detail.store.ts` owns the
+single committed `PageContext`, persisted record, field/description/label baseline, project options,
+status command and Files target generation. The page coordinates reset/load once per accepted context.
+`work-item-discussion.store.ts` owns new and inline source/format editors, explicit recipients,
+comment generations, validation, pending writes and scoped draft registrations.
+`work-item-relationships.store.ts` owns dependency search/selection/commands;
+`work-item-watch-history.store.ts` owns watch commands and attachment-activity refresh. These owners
+patch only their corresponding persisted record fields. The superseded page orchestration is removed.
+
+Focused editor/discussion/dependency/watch/history components consume those production owners.
+The existing attachment component remains mounted across field editing/cancellation; its upload,
+retry, removal, capacity and byte ownership do not move into the record store. Field saves cannot
+replace later comments, status or hierarchy. Detail cancellation protects only the field draft and
+restores Edit focus after approval, with context/destruction checks on the asynchronous result.
+
+Detail opens with identity, a named project, readable source projection, planning facts and independent
+status/watch commands. Edit reveals the existing authored control and field form; Set/Change parent,
+dependency administration, watchers and history are disclosures. Children expand from compact totals:
+Closed means Done plus Canceled; Parent estimate and Child total remain independent. Discussion,
+Files, Dependencies and History have stable IDs and local scroll/focus links. Broader return parsing,
+incoming fragment/comment targeting and historical navigation are Phase 14 work.
+
+Estimate uses the numeric control's number/null contract (including zero); integers must fit the
+PostgreSQL nonnegative integer field. Due dates are calendar-validated date-only values, with an empty
+control mapped to null. Incomplete native numeric/date inputs remain invalid rather than silently
+clearing persisted facts. Existing PATCH authorization/no-op/source-preservation rules are unchanged.
+See [read-first detail evidence](v0.3.0/read-first-detail-evidence.md).
 
 ## Composition And Persistence
 
