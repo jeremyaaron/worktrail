@@ -45,6 +45,7 @@ function workItem(input: Partial<WorkItem> & Pick<WorkItem, 'id' | 'title'>): Wo
     projectId,
     title: input.title,
     description: input.description ?? '',
+    descriptionFormat: input.descriptionFormat ?? 'plain_text',
     itemNumber,
     displayKey: input.displayKey ?? `PLAN-${itemNumber}`,
     type: input.type ?? 'task',

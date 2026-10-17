@@ -1,6 +1,7 @@
 # Worktrail CSV Import And Export
 
-Worktrail v0.0.7 supports project-scoped CSV import and CSV export for project and workspace work item lists.
+Worktrail supports project-scoped CSV import and CSV export for project and workspace work item lists.
+This guide includes v0.2.9's optional authored-source format and whitespace-preserving descriptions.
 
 Import is intentionally a two-step workflow:
 
@@ -42,6 +43,7 @@ Required columns:
 Optional columns:
 
 - `description`
+- `description_format`
 - `status`
 - `assignee_email`
 - `reporter_email`
@@ -89,6 +91,12 @@ Unsupported headers are rejected. Header names must match the column names above
 
 `estimate_points` is optional. When provided, it must be a non-negative integer.
 
+`description_format` is optional. Missing/blank values default to `plain_text`; explicit values are
+`plain_text` or `markdown_v1` after metadata trimming. Invalid formats identify the row and block
+apply. Source punctuation never selects a format. Quoted `description` cells preserve leading and
+trailing whitespace, indentation, and newlines, normalizing CRLF/lone CR to LF without trimming.
+Descriptions may be empty in either format.
+
 ## Sample CSV
 
 ```csv
@@ -97,12 +105,19 @@ title,description,type,status,priority,assignee_email,reporter_email,label_names
 "Defaulted backlog story","Reporter defaults to the actor",story,,high,,,,,,
 ```
 
+The [v0.2.9 multiline example](../../v0.2.9/authored-work-items.csv) is a downloadable import file with
+Markdown, explicit plain text, and a blank format cell. Embedded newlines belong inside a quoted CSV
+field; double any embedded double quote as `""`. Preview exposes a format and an escaped source
+excerpt, not rendered Markdown or a full description. See the
+[current formatting rules](../../../README.md#readable-work) before choosing Markdown.
+
 ## Limits
 
 - Maximum CSV payload: 1 MiB.
 - Maximum data rows: 250.
 - Maximum labels per row: 20.
-- Maximum cell length: 10,000 characters.
+- Maximum description length: 10,000 UTF-16 code units after line-ending normalization.
+- Other cells: at most 10,000 raw UTF-16 code units.
 - Import is blocked for archived projects.
 
 The row count limit excludes the header row.
@@ -116,7 +131,11 @@ Preview returns:
 - `invalidRows`: rows with validation errors.
 - `errors`: file-level or row-level errors.
 - `warnings`: currently reserved for non-blocking import notes.
-- `rows`: normalized valid rows that would be imported.
+- `rows`: normalized valid-row metadata, including `descriptionFormat` and `descriptionExcerpt`.
+
+Description excerpts contain at most 240 UTF-16 code units, including a trailing `...` when
+truncated, and do not split a surrogate pair. Full source remains in the submitted CSV and is
+revalidated during apply; excerpts must never be used as replacement import source.
 
 Preview does not write to the database.
 
@@ -178,6 +197,10 @@ Export columns:
 `cycle_name`, `parent_key`, and `parent_title` are export context only. CSV import does not assign
 cycles or parent relationships. Top-level work exports empty parent values; child work includes its
 direct parent key and title.
+
+Exports ignore page/page size and include the full applied result set up to 10,000 matching rows.
+Larger synchronous exports fail without returning a partial file. Summary exports contain neither
+description source nor format; they are not round-trip import documents.
 
 ## Troubleshooting
 

@@ -2,6 +2,7 @@ import { Component, Input } from '@angular/core';
 import type { WorkItemDetailDto } from '@worktrail/contracts';
 
 import { memberDisplayName } from '../../../shared/display/member-display';
+import { AuthoredContentViewerComponent } from '../../../shared/authored-content/authored-content-viewer.component';
 import {
   workItemMetadata,
   workItemPriorityLabel,
@@ -10,12 +11,12 @@ import {
 
 @Component({
   selector: 'app-work-item-detail-summary',
+  imports: [AuthoredContentViewerComponent],
   template: `
     <section class="summary" aria-label="Work item summary">
       <div class="summary__title">
         <p class="eyebrow">Work item</p>
         <h1>{{ item.title }}</h1>
-        <p>{{ item.description || 'No description provided.' }}</p>
       </div>
 
       <div class="summary__facts" aria-label="Current work item state">
@@ -63,17 +64,41 @@ import {
           }
         }
       </div>
+
+      <section class="summary__description" aria-label="Description">
+        <h2>Description</h2>
+        @if (item.description) {
+          <app-authored-content-viewer
+            [source]="item.description"
+            [format]="item.descriptionFormat"
+          />
+        } @else {
+          <p>No description provided.</p>
+        }
+      </section>
     </section>
   `,
   styles: `
     .summary {
       display: grid;
       gap: 14px;
+      min-width: 0;
     }
 
     .summary__title {
       display: grid;
       gap: 8px;
+    }
+
+    .summary__description {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .summary__description h2 {
+      margin: 0;
+      font-size: 1rem;
     }
 
     .eyebrow,

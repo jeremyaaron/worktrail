@@ -176,6 +176,7 @@ function createWorkItem(input: Partial<WorkItem> & Pick<WorkItem, 'id' | 'title'
     projectId: 'project-1',
     title: input.title,
     description: '',
+    descriptionFormat: input.descriptionFormat ?? 'plain_text',
     itemNumber: 1,
     displayKey: `WT-${input.id}`,
     type: 'story',

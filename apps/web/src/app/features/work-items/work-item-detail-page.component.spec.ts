@@ -1,6 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { TestBed } from '@angular/core/testing';
+import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { ActivatedRoute, ParamMap, convertToParamMap, provideRouter } from '@angular/router';
 import type {
@@ -19,6 +19,7 @@ import { BehaviorSubject } from 'rxjs';
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorkItemAttachmentsComponent } from './components/work-item-attachments.component';
 import { WorkItemDetailPageComponent } from './work-item-detail-page.component';
+import { AuthoredContentEditorComponent } from '../../shared/authored-content/authored-content-editor.component';
 
 const projectId = '10000000-0000-4000-8000-000000000201';
 const workItemId = '10000000-0000-4000-8000-000000000403';
@@ -206,6 +207,7 @@ const detail: WorkItemDetailDto = {
   displayKey: 'WT-3',
   title: 'Implement detail surface',
   description: 'Build comments and activity UI.',
+  descriptionFormat: 'plain_text',
   type: 'task',
   status: 'in_progress',
   priority: 'high',
@@ -240,6 +242,7 @@ const detail: WorkItemDetailDto = {
       workItemId,
       author: owner,
       body: 'Initial implementation note.',
+      bodyFormat: 'plain_text',
       mentions: [],
       isEdited: false,
       isDeleted: false,
@@ -329,21 +332,54 @@ function setup(
   const project = input.project ?? activeProject;
   fixture.detectChanges();
   http.expectOne(`/api/work-items/${workItemId}`).flush(workItem);
-  http.expectOne(`/api/work-items/${workItemId}/watchers`).flush(input.watchState ?? unwatchedState);
+  http
+    .expectOne(`/api/work-items/${workItemId}/watchers`)
+    .flush(input.watchState ?? unwatchedState);
   http.expectOne(`/api/projects/${projectId}`).flush(project);
   http.expectOne(`/api/projects/${projectId}/labels`).flush([
-    { id: frontendLabelId, name: 'frontend', color: '#2563eb', isArchived: false, archivedAt: null },
+    {
+      id: frontendLabelId,
+      name: 'frontend',
+      color: '#2563eb',
+      isArchived: false,
+      archivedAt: null
+    },
     { id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }
   ]);
-  http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([
-    activeMilestone,
-    nextMilestone
-  ]);
+  http
+    .expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`)
+    .flush([activeMilestone, nextMilestone]);
   http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([activeCycle]);
   fixture.detectChanges();
   http.expectOne(`/api/work-items/${workItem.id}/attachments`).flush(emptyAttachmentList);
   fixture.detectChanges();
   return { fixture, http };
+}
+
+function finishReload(
+  fixture: ComponentFixture<WorkItemDetailPageComponent>,
+  http: HttpTestingController,
+  workItem = detail
+): void {
+  http.expectOne(`/api/work-items/${workItem.id}`).flush(workItem);
+  http.expectOne(`/api/work-items/${workItem.id}/watchers`).flush(unwatchedState);
+  http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+  http.expectOne(`/api/projects/${projectId}/labels`).flush([]);
+  http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([]);
+  http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([]);
+  fixture.detectChanges();
+  http.expectOne(`/api/work-items/${workItem.id}/attachments`).flush(emptyAttachmentList);
+  fixture.detectChanges();
+}
+
+function previewDescription(fixture: ComponentFixture<WorkItemDetailPageComponent>): void {
+  const buttons = [
+    ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+      'app-authored-content-editor button'
+    )
+  ];
+  buttons.find((button) => button.textContent?.trim() === 'Preview')!.click();
+  fixture.detectChanges();
 }
 
 describe('WorkItemDetailPageComponent', () => {
@@ -384,6 +420,1036 @@ describe('WorkItemDetailPageComponent', () => {
 
   afterEach(() => {
     TestBed.inject(HttpTestingController).verify();
+  });
+
+  for (const source of ['', ' \r\n\t', 'x'.repeat(10_001)]) {
+    it(`validates new comment source before POST (${source.length} code units)`, () => {
+      const { fixture, http } = setup();
+      const component = fixture.componentInstance;
+      expect(component.commentForm.controls.bodyContent.value).toEqual({
+        source: '',
+        format: 'markdown_v1'
+      });
+      component.commentForm.controls.bodyContent.setValue({ source, format: 'markdown_v1' });
+      component.addComment();
+      fixture.detectChanges();
+      expect(component.commentForm.invalid).toBeTrue();
+      expect(component.isCommenting()).toBeFalse();
+      const root = fixture.nativeElement as HTMLElement;
+      expect(root.querySelector('#comment-body')?.getAttribute('aria-invalid')).toBe('true');
+      expect(root.querySelector('#comment-body-error')?.textContent).toContain(
+        source.length > 10_000 ? '10,000' : 'required'
+      );
+      http.expectNone((request) => request.method === 'POST');
+    });
+  }
+
+  for (const format of ['plain_text', 'markdown_v1'] as const) {
+    it(`preserves ${format} creation source and explicit mentions through failure and matching success`, () => {
+      const { fixture, http } = setup();
+      const component = fixture.componentInstance;
+      const pair = { source: '  **Source** @Avery Owner WT-3 `@Case`\r\n', format };
+      component.commentForm.controls.bodyContent.setValue(pair);
+      component.commentForm.controls.bodyContent.markAsDirty();
+      component.addMentionMember(contributor.id);
+      fixture.detectChanges();
+      const editorElement = (fixture.nativeElement as HTMLElement).querySelector(
+        'form.comment-form app-authored-content-editor'
+      )!;
+      const preview = [...editorElement.querySelectorAll<HTMLButtonElement>('button')].find(
+        (button) => button.textContent?.trim() === 'Preview'
+      )!;
+      preview.click();
+      fixture.detectChanges();
+      component.addComment();
+      component.addComment();
+      expect(component.commentForm.disabled).toBeTrue();
+      component.removeMentionMember(contributor.id);
+      component.addMentionMember(owner.id);
+      const post = http.expectOne(`/api/work-items/${workItemId}/comments`);
+      expect(post.request.body).toEqual({
+        body: pair.source,
+        bodyFormat: format,
+        mentionMemberIds: [contributor.id]
+      });
+      post.flush({}, { status: 500, statusText: 'Failure' });
+      fixture.detectChanges();
+      expect(component.isCommenting()).toBeFalse();
+      expect(component.commentForm.enabled).toBeTrue();
+      expect(component.commentForm.dirty).toBeTrue();
+      expect(component.commentForm.controls.bodyContent.value).toEqual(pair);
+      expect(component.selectedMentionMemberIds()).toEqual([contributor.id]);
+      expect(editorElement.querySelector('[aria-label="Add comment preview"]')).not.toBeNull();
+      component.addComment();
+      const retry = http.expectOne(`/api/work-items/${workItemId}/comments`);
+      expect(retry.request.body).toEqual(post.request.body);
+      const created = {
+        ...detail.comments[0],
+        id: 'new-comment',
+        body: pair.source,
+        bodyFormat: format,
+        mentions: [contributor]
+      };
+      retry.flush(created);
+      const refresh = http.expectOne(`/api/work-items/${workItemId}`);
+      expect(
+        component.workItem()?.comments.some((comment) => comment.id === created.id)
+      ).toBeTrue();
+      expect(component.isCommenting()).toBeFalse();
+      expect(component.commentForm.controls.bodyContent.value).toEqual({
+        source: '',
+        format: 'markdown_v1'
+      });
+      expect(component.selectedMentionMemberIds()).toEqual([]);
+      expect(component.commentForm.pristine).toBeTrue();
+      refresh.flush({ ...detail, comments: [...detail.comments, created] });
+      fixture.detectChanges();
+      expect(editorElement.querySelector('[aria-label="Add comment preview"]')).toBeNull();
+    });
+  }
+
+  it('does not infer recipients from typed names, Markdown links, code, or display keys', () => {
+    const { fixture, http } = setup();
+    const source = '@Case Contributor [Avery](https://example.com) `@Case` WT-3';
+    fixture.componentInstance.commentForm.controls.bodyContent.setValue({
+      source,
+      format: 'markdown_v1'
+    });
+    fixture.componentInstance.addComment();
+    const post = http.expectOne(`/api/work-items/${workItemId}/comments`);
+    expect(post.request.body).toEqual({ body: source, bodyFormat: 'markdown_v1' });
+    post.flush({ ...detail.comments[0], body: source, bodyFormat: 'markdown_v1' });
+    http.expectOne(`/api/work-items/${workItemId}`).flush(detail);
+  });
+
+  it('loads exact legacy source/format, permits deliberate conversion, and cancels without persisting it', () => {
+    const source = '  # Legacy\r\n**not bold** <b>literal</b>  ';
+    const comment = { ...detail.comments[0], body: source };
+    const { fixture, http } = setup({ workItem: { ...detail, comments: [comment] } });
+    const component = fixture.componentInstance;
+    const row = (fixture.nativeElement as HTMLElement).querySelector('article.comment')!;
+    expect(row.querySelector('strong')?.textContent).toBe(owner.name);
+    expect(
+      row.querySelector('app-authored-content-viewer strong, app-authored-content-viewer h3')
+    ).toBeNull();
+    component.startEditComment(comment);
+    fixture.detectChanges();
+    expect(component.editCommentForm.controls.bodyContent.value).toEqual({
+      source,
+      format: 'plain_text'
+    });
+    const format = row.querySelector<HTMLSelectElement>(`#comment-edit-${comment.id}-format`)!;
+    format.value = 'markdown_v1';
+    format.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    expect(component.editCommentForm.dirty).toBeTrue();
+    expect(component.editCommentForm.controls.bodyContent.value).toEqual({
+      source,
+      format: 'markdown_v1'
+    });
+    component.cancelEditComment();
+    fixture.detectChanges();
+    expect(component.editingCommentId()).toBeNull();
+    expect(row.querySelector('app-authored-content-editor')).toBeNull();
+    expect(row.querySelector('app-authored-content-viewer')?.textContent).toBe(source);
+    http.expectNone((request) => request.method === 'PATCH');
+  });
+
+  for (const source of ['x'.repeat(10_001), ' \r\n']) {
+    it(`grandfathers unchanged legacy comments but validates conversion (${source.length} code units)`, () => {
+      const comment = { ...detail.comments[0], body: source };
+      const { fixture, http } = setup({ workItem: { ...detail, comments: [comment] } });
+      const component = fixture.componentInstance;
+      component.startEditComment(comment);
+      expect(component.editCommentForm.valid).toBeTrue();
+      component.saveComment(comment);
+      const update = http.expectOne(`/api/comments/${comment.id}`);
+      expect(update.request.body).toEqual({ body: source, bodyFormat: 'plain_text' });
+      update.flush(comment);
+      http.expectOne(`/api/work-items/${workItemId}`).flush({ ...detail, comments: [comment] });
+      component.startEditComment(comment);
+      component.editCommentForm.controls.bodyContent.setValue({ source, format: 'markdown_v1' });
+      component.saveComment(comment);
+      expect(component.editCommentForm.invalid).toBeTrue();
+      expect(component.savingCommentId()).toBeNull();
+      http.expectNone((request) => request.method === 'PATCH');
+    });
+  }
+
+  it('submits an explicit format-only edit without changing mentions or resending mention ids', () => {
+    const comment = {
+      ...detail.comments[0],
+      body: '  **Now formatted**\r\n',
+      mentions: [contributor]
+    };
+    const { fixture, http } = setup({ workItem: { ...detail, comments: [comment] } });
+    const component = fixture.componentInstance;
+    component.startEditComment(comment);
+    component.editCommentForm.controls.bodyContent.setValue({
+      source: comment.body,
+      format: 'markdown_v1'
+    });
+    component.saveComment(comment);
+    const update = http.expectOne(`/api/comments/${comment.id}`);
+    expect(update.request.body).toEqual({ body: comment.body, bodyFormat: 'markdown_v1' });
+    const updated = {
+      ...comment,
+      bodyFormat: 'markdown_v1' as const,
+      isEdited: true,
+      editedAt: comment.updatedAt
+    };
+    update.flush(updated);
+    expect(component.editingCommentId()).toBeNull();
+    expect(component.savingCommentId()).toBeNull();
+    http.expectOne(`/api/work-items/${workItemId}`).flush({ ...detail, comments: [updated] });
+    fixture.detectChanges();
+    const row = (fixture.nativeElement as HTMLElement).querySelector('article.comment')!;
+    expect(row.querySelector('app-authored-content-viewer strong')?.textContent).toBe(
+      'Now formatted'
+    );
+    expect(row.textContent).toContain('@Case Contributor');
+    expect(row.textContent).toContain('Edited');
+  });
+
+  it('preserves failed edit source, format, preview and other drafts, then recovers pending state', () => {
+    const { fixture, http } = setup();
+    const component = fixture.componentInstance;
+    const comment = detail.comments[0];
+    const pair = { source: '  ## Keep edit\n', format: 'markdown_v1' as const };
+    component.startEditComment(comment);
+    component.editCommentForm.controls.bodyContent.setValue(pair);
+    component.editCommentForm.controls.bodyContent.markAsDirty();
+    component.commentForm.controls.bodyContent.setValue({
+      source: 'Composer draft',
+      format: 'plain_text'
+    });
+    component.addMentionMember(contributor.id);
+    fixture.detectChanges();
+    const editElement = (fixture.nativeElement as HTMLElement).querySelector(
+      'form.comment-edit-form'
+    )!;
+    [...editElement.querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => button.textContent?.trim() === 'Preview')!
+      .click();
+    fixture.detectChanges();
+    component.saveComment(comment);
+    component.saveComment(comment);
+    expect(component.editCommentForm.disabled).toBeTrue();
+    http
+      .expectOne(`/api/comments/${comment.id}`)
+      .flush({}, { status: 403, statusText: 'Forbidden' });
+    fixture.detectChanges();
+    expect(component.editCommentForm.enabled).toBeTrue();
+    expect(component.editCommentForm.dirty).toBeTrue();
+    expect(component.editCommentForm.controls.bodyContent.value).toEqual(pair);
+    expect(component.commentForm.controls.bodyContent.value.source).toBe('Composer draft');
+    expect(component.selectedMentionMemberIds()).toEqual([contributor.id]);
+    expect(editElement.querySelector('[aria-label="Edit comment preview"]')).not.toBeNull();
+    component.saveComment(comment);
+    const retry = http.expectOne(`/api/comments/${comment.id}`);
+    expect(retry.request.body).toEqual({ body: pair.source, bodyFormat: pair.format });
+    const updated = { ...comment, body: pair.source, bodyFormat: pair.format };
+    retry.flush(updated);
+    http.expectOne(`/api/work-items/${workItemId}`).flush({ ...detail, comments: [updated] });
+    expect(component.editingCommentId()).toBeNull();
+  });
+
+  it('renders deleted rows before content or editors, even with retained source and an edit id', () => {
+    const comment = {
+      ...detail.comments[0],
+      body: '# Retained secret <script>x</script>',
+      bodyFormat: 'markdown_v1' as const,
+      isDeleted: true,
+      deletedAt: detail.updatedAt,
+      deletedBy: owner,
+      mentions: [contributor]
+    };
+    const { fixture } = setup({ workItem: { ...detail, comments: [comment] } });
+    fixture.componentInstance.editingCommentId.set(comment.id);
+    fixture.detectChanges();
+    const row = (fixture.nativeElement as HTMLElement).querySelector('article.comment')!;
+    expect(
+      row.querySelector(
+        'app-authored-content-viewer, app-authored-content-editor, .comment-mentions'
+      )
+    ).toBeNull();
+    expect(row.textContent).toContain('Comment deleted');
+    expect(row.textContent).not.toContain('Retained secret');
+  });
+
+  it('keeps formatted archived discussion readable while preventing new/edit/delete authoring', () => {
+    const comment = {
+      ...detail.comments[0],
+      body: '# History\n**Readable**',
+      bodyFormat: 'markdown_v1' as const
+    };
+    const { fixture, http } = setup({
+      project: archivedProject,
+      workItem: { ...detail, comments: [comment] }
+    });
+    const component = fixture.componentInstance;
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('article.comment app-authored-content-viewer h3')?.textContent).toBe(
+      'History'
+    );
+    expect(root.querySelector<HTMLTextAreaElement>('#comment-body')?.disabled).toBeTrue();
+    expect(root.querySelector<HTMLSelectElement>('#comment-body-format')?.disabled).toBeTrue();
+    component.startEditComment(comment);
+    component.confirmDeleteComment(comment);
+    component.addComment();
+    expect(component.editingCommentId()).toBeNull();
+    expect(component.confirmingDeleteCommentId()).toBeNull();
+    http.expectNone((request) => request.method !== 'GET');
+  });
+
+  it('preserves both comment editors and description drafts through activity, relationship and detail-save refreshes', () => {
+    const { fixture, http } = setup();
+    const component = fixture.componentInstance;
+    const comment = detail.comments[0];
+    component.startEditComment(comment);
+    const edit = { source: '**Edit draft**', format: 'markdown_v1' as const };
+    const create = { source: ' New draft ', format: 'plain_text' as const };
+    component.editCommentForm.controls.bodyContent.setValue(edit);
+    component.commentForm.controls.bodyContent.setValue(create);
+    component.addMentionMember(contributor.id);
+    component.detailForm.controls.title.setValue('Other title');
+    const editIdentity = component.editCommentIdentity();
+    const createIdentity = component.newCommentIdentity();
+    component.refreshAttachmentActivity();
+    http.expectOne(`/api/work-items/${workItemId}/activity`).flush([]);
+    component.relationshipForm.patchValue({ kind: 'blocks', targetWorkItemId: blockedWorkItemId });
+    component.addRelationship();
+    http.expectOne(`/api/work-items/${workItemId}/relationships`).flush({});
+    http.expectOne(`/api/work-items/${workItemId}`).flush(detail);
+    component.updateWorkItem();
+    http.expectOne(`/api/work-items/${workItemId}`).flush({ ...detail, title: 'Other title' });
+    expect(component.editCommentForm.controls.bodyContent.value).toEqual(edit);
+    expect(component.commentForm.controls.bodyContent.value).toEqual(create);
+    expect(component.editingCommentId()).toBe(comment.id);
+    expect(component.selectedMentionMemberIds()).toEqual([contributor.id]);
+    expect(component.editCommentIdentity()).toBe(editIdentity);
+    expect(component.newCommentIdentity()).toBe(createIdentity);
+  });
+
+  for (const outcome of ['success', 'error'] as const) {
+    it(`ignores a canceled save ${outcome} when the same comment has a newer edit`, () => {
+      const { fixture, http } = setup();
+      const component = fixture.componentInstance;
+      const comment = detail.comments[0];
+      component.startEditComment(comment);
+      component.editCommentForm.controls.bodyContent.setValue({
+        source: 'Old save',
+        format: 'markdown_v1'
+      });
+      component.saveComment(comment);
+      const oldSave = http.expectOne(`/api/comments/${comment.id}`);
+      component.cancelEditComment();
+      component.startEditComment(comment);
+      const pair = { source: 'New save', format: 'plain_text' as const };
+      component.editCommentForm.controls.bodyContent.setValue(pair);
+      component.saveComment(comment);
+      const newSave = http.expectOne(`/api/comments/${comment.id}`);
+      if (outcome === 'success') oldSave.flush({ ...comment, body: 'Old save' });
+      else oldSave.flush({}, { status: 500, statusText: 'Failure' });
+      expect(component.savingCommentId()).toBe(comment.id);
+      expect(component.editingCommentId()).toBe(comment.id);
+      expect(component.editCommentForm.controls.bodyContent.value).toEqual(pair);
+      expect(component.commentMutationError()).toBeNull();
+      http.expectNone(`/api/work-items/${workItemId}`);
+      newSave.flush({ ...comment, body: pair.source, bodyFormat: pair.format });
+      http.expectOne(`/api/work-items/${workItemId}`).flush(detail);
+      expect(component.editingCommentId()).toBeNull();
+    });
+  }
+
+  it('ignores an old successful-edit refresh after a newer edit opens on the same route', () => {
+    const { fixture, http } = setup();
+    const component = fixture.componentInstance;
+    const comment = detail.comments[0];
+    component.startEditComment(comment);
+    component.editCommentForm.controls.bodyContent.setValue({
+      source: 'First edit',
+      format: 'markdown_v1'
+    });
+    component.saveComment(comment);
+    const updated = { ...comment, body: 'First edit', bodyFormat: 'markdown_v1' as const };
+    http.expectOne(`/api/comments/${comment.id}`).flush(updated);
+    const oldRefresh = http.expectOne(`/api/work-items/${workItemId}`);
+    component.startEditComment(updated);
+    component.editCommentForm.controls.bodyContent.setValue({
+      source: 'Second draft',
+      format: 'plain_text'
+    });
+    oldRefresh.flush(detail);
+    expect(component.editingCommentId()).toBe(comment.id);
+    expect(component.editCommentForm.controls.bodyContent.value.source).toBe('Second draft');
+    expect(component.workItem()?.comments[0].body).toBe('First edit');
+  });
+
+  it('does not let an old delete callback clear a newer edit or refresh its state', () => {
+    const { fixture, http } = setup();
+    const component = fixture.componentInstance;
+    const comment = detail.comments[0];
+    component.confirmDeleteComment(comment);
+    component.deleteComment(comment);
+    const oldDelete = http.expectOne(`/api/comments/${comment.id}`);
+    component.cancelDeleteComment();
+    component.startEditComment(comment);
+    component.editCommentForm.controls.bodyContent.setValue({
+      source: 'New edit',
+      format: 'markdown_v1'
+    });
+    oldDelete.flush({ ...comment, isDeleted: true, body: '' });
+    expect(component.editingCommentId()).toBe(comment.id);
+    expect(component.editCommentForm.controls.bodyContent.value.source).toBe('New edit');
+    expect(component.workItem()?.comments[0].isDeleted).toBeFalse();
+    http.expectNone(`/api/work-items/${workItemId}`);
+  });
+
+  it('recovers from a discussion refresh failure without reposting or clearing a newer composer draft', () => {
+    const { fixture, http } = setup();
+    const component = fixture.componentInstance;
+    component.commentForm.controls.bodyContent.setValue({
+      source: 'Created source',
+      format: 'markdown_v1'
+    });
+    component.addComment();
+    const created = {
+      ...detail.comments[0],
+      id: 'new-comment',
+      body: 'Created source',
+      bodyFormat: 'markdown_v1' as const
+    };
+    http.expectOne(`/api/work-items/${workItemId}/comments`).flush(created);
+    const refresh = http.expectOne(`/api/work-items/${workItemId}`);
+    const pair = { source: '  Next draft\n', format: 'plain_text' as const };
+    component.commentForm.controls.bodyContent.setValue(pair);
+    component.addMentionMember(contributor.id);
+    refresh.flush({}, { status: 500, statusText: 'Failure' });
+    fixture.detectChanges();
+    expect(component.isCommenting()).toBeFalse();
+    expect(component.commentError()).toBeNull();
+    expect(component.commentForm.controls.bodyContent.value).toEqual(pair);
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('article.comment:last-child')?.textContent).toContain(
+      'Created source'
+    );
+    const panel = [...root.querySelectorAll('app-error-panel')].find((element) =>
+      element.textContent?.includes('Discussion not refreshed')
+    )!;
+    panel.querySelector<HTMLButtonElement>('button')!.click();
+    http
+      .expectOne(`/api/work-items/${workItemId}`)
+      .flush({ ...detail, comments: [...detail.comments, created] });
+    expect(component.commentForm.controls.bodyContent.value).toEqual(pair);
+    expect(component.selectedMentionMemberIds()).toEqual([contributor.id]);
+    http.expectNone((request) => request.method === 'POST');
+  });
+
+  for (const action of ['create', 'edit', 'delete'] as const) {
+    for (const outcome of ['success', 'error'] as const) {
+      it(`rejects stale ${action} ${outcome} after item/actor changes`, () => {
+        const { fixture, http } = setup();
+        const component = fixture.componentInstance;
+        const oldComment = detail.comments[0];
+        if (action === 'create') {
+          component.commentForm.controls.bodyContent.setValue({
+            source: 'Old create',
+            format: 'markdown_v1'
+          });
+          component.addComment();
+        } else if (action === 'edit') {
+          component.startEditComment(oldComment);
+          component.editCommentForm.controls.bodyContent.setValue({
+            source: 'Old edit',
+            format: 'markdown_v1'
+          });
+          component.saveComment(oldComment);
+        } else {
+          component.confirmDeleteComment(oldComment);
+          component.deleteComment(oldComment);
+        }
+        const oldRequest = http.expectOne(
+          action === 'create'
+            ? `/api/work-items/${workItemId}/comments`
+            : `/api/comments/${oldComment.id}`
+        );
+        // Reuse the item route, changing both the item and actor before the old callback runs.
+        routeParamMap.next(convertToParamMap({ workItemId: blockedWorkItemId }));
+        TestBed.inject(CurrentUserService).selectMember(contributor.id);
+        fixture.detectChanges();
+        const loads = http.match(`/api/work-items/${blockedWorkItemId}`);
+        const newComment = {
+          ...oldComment,
+          id: 'new-context-comment',
+          workItemId: blockedWorkItemId,
+          author: contributor
+        };
+        const newDetail = { ...detail, id: blockedWorkItemId, comments: [newComment] };
+        // The pre-actor load is intentionally late; only the current context may initialize.
+        loads[0].flush(newDetail);
+        if (loads.length > 1) loads[1].flush(newDetail);
+        http.expectOne(`/api/work-items/${blockedWorkItemId}/watchers`).flush(unwatchedState);
+        http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
+        http.expectOne(`/api/projects/${projectId}/labels`).flush([]);
+        http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([]);
+        http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([]);
+        fixture.detectChanges();
+        http
+          .expectOne(`/api/work-items/${blockedWorkItemId}/attachments`)
+          .flush(emptyAttachmentList);
+        fixture.detectChanges();
+        component.commentForm.controls.bodyContent.setValue({
+          source: 'New composer',
+          format: 'plain_text'
+        });
+        component.addMentionMember(owner.id);
+        component.startEditComment(newComment);
+        component.editCommentForm.controls.bodyContent.setValue({
+          source: 'New inline draft',
+          format: 'markdown_v1'
+        });
+        if (outcome === 'success')
+          oldRequest.flush(
+            action === 'delete' ? { ...oldComment, body: '', isDeleted: true } : oldComment
+          );
+        else oldRequest.flush({}, { status: 500, statusText: 'Failure' });
+        expect(component.commentForm.controls.bodyContent.value.source).toBe('New composer');
+        expect(component.editCommentForm.controls.bodyContent.value.source).toBe(
+          'New inline draft'
+        );
+        expect(component.editingCommentId()).toBe(newComment.id);
+        expect(component.selectedMentionMemberIds()).toEqual([owner.id]);
+        expect(component.commentError()).toBeNull();
+        expect(component.commentMutationError()).toBeNull();
+        expect(component.isCommenting()).toBeFalse();
+        expect(component.savingCommentId()).toBeNull();
+        expect(component.deletingCommentId()).toBeNull();
+        http.expectNone(`/api/work-items/${blockedWorkItemId}`);
+      });
+    }
+  }
+
+  it('clears all comment draft state when the actor changes without changing the item', () => {
+    const { fixture, http } = setup();
+    const component = fixture.componentInstance;
+    component.commentForm.controls.bodyContent.setValue({
+      source: 'Owner create draft',
+      format: 'plain_text'
+    });
+    component.addMentionMember(contributor.id);
+    component.startEditComment(detail.comments[0]);
+    component.editCommentForm.controls.bodyContent.setValue({
+      source: 'Owner edit draft',
+      format: 'markdown_v1'
+    });
+    fixture.detectChanges();
+    const oldTextarea = (fixture.nativeElement as HTMLElement).querySelector<HTMLTextAreaElement>(
+      '#comment-body'
+    )!;
+    TestBed.inject(CurrentUserService).selectMember(contributor.id);
+    fixture.detectChanges();
+    expect(component.commentForm.controls.bodyContent.value).toEqual({
+      source: '',
+      format: 'markdown_v1'
+    });
+    expect(component.selectedMentionMemberIds()).toEqual([]);
+    expect(component.editingCommentId()).toBeNull();
+    finishReload(fixture, http);
+    oldTextarea.value = 'Stale input';
+    oldTextarea.dispatchEvent(new Event('input'));
+    expect(component.commentForm.controls.bodyContent.value.source).toBe('');
+  });
+
+  for (const outcome of ['success', 'error'] as const) {
+    it(`rejects a discussion refresh ${outcome} after navigation returns to the same item`, () => {
+      const { fixture, http } = setup();
+      const component = fixture.componentInstance;
+      component.refreshDiscussion();
+      const oldRefresh = http.expectOne(`/api/work-items/${workItemId}`);
+      routeParamMap.next(convertToParamMap({ workItemId: blockedWorkItemId }));
+      const intermediate = http.expectOne(`/api/work-items/${blockedWorkItemId}`);
+      routeParamMap.next(convertToParamMap({ workItemId }));
+      fixture.detectChanges();
+      finishReload(fixture, http);
+      component.commentForm.controls.bodyContent.setValue({
+        source: 'Fresh route draft',
+        format: 'markdown_v1'
+      });
+      component.addMentionMember(contributor.id);
+      if (outcome === 'success') oldRefresh.flush({ ...detail, comments: [] });
+      else oldRefresh.flush({}, { status: 500, statusText: 'Failure' });
+      intermediate.flush({ ...detail, id: blockedWorkItemId });
+      expect(component.workItem()?.comments.length).toBe(1);
+      expect(component.discussionRefreshError()).toBeNull();
+      expect(component.commentForm.controls.bodyContent.value.source).toBe('Fresh route draft');
+      expect(component.selectedMentionMemberIds()).toEqual([contributor.id]);
+    });
+  }
+
+  it('does not let an older discussion read undo a newer successful edit', () => {
+    const { fixture, http } = setup();
+    const component = fixture.componentInstance;
+    component.refreshDiscussion();
+    const oldRefresh = http.expectOne(`/api/work-items/${workItemId}`);
+    const comment = detail.comments[0];
+    component.startEditComment(comment);
+    component.editCommentForm.controls.bodyContent.setValue({
+      source: 'Current saved body',
+      format: 'markdown_v1'
+    });
+    component.saveComment(comment);
+    const updated = { ...comment, body: 'Current saved body', bodyFormat: 'markdown_v1' as const };
+    http.expectOne(`/api/comments/${comment.id}`).flush(updated);
+    const latestRefresh = http.expectOne(`/api/work-items/${workItemId}`);
+    latestRefresh.flush({ ...detail, comments: [updated] });
+    oldRefresh.flush(detail);
+    expect(component.workItem()?.comments[0].body).toBe('Current saved body');
+  });
+
+  it('does not let an older field-save DTO undo a successful comment write', () => {
+    const { fixture, http } = setup();
+    const component = fixture.componentInstance;
+    component.detailForm.controls.title.setValue('Changed title');
+    component.updateWorkItem();
+    const fieldSave = http.expectOne(`/api/work-items/${workItemId}`);
+    const comment = detail.comments[0];
+    component.startEditComment(comment);
+    component.editCommentForm.controls.bodyContent.setValue({
+      source: 'Newest comment', format: 'markdown_v1'
+    });
+    component.saveComment(comment);
+    const updated = { ...comment, body: 'Newest comment', bodyFormat: 'markdown_v1' as const };
+    http.expectOne(`/api/comments/${comment.id}`).flush(updated);
+    const discussion = http.expectOne(`/api/work-items/${workItemId}`);
+    fieldSave.flush({ ...detail, title: 'Changed title' });
+    expect(component.workItem()?.comments[0].body).toBe('Newest comment');
+    discussion.flush({ ...detail, comments: [updated] });
+    expect(component.workItem()?.title).toBe('Changed title');
+  });
+
+  it('keeps legacy source literal until conversion, and discards an unsaved conversion', () => {
+    const source = '  # Legacy\r\n**literal** <b>text</b>  ';
+    const { fixture, http } = setup({ workItem: { ...detail, description: source } });
+    const component = fixture.componentInstance;
+    const summary = (fixture.nativeElement as HTMLElement).querySelector(
+      'app-work-item-detail-summary'
+    )!;
+    const editor = fixture.debugElement.query(By.directive(AuthoredContentEditorComponent))
+      .componentInstance as AuthoredContentEditorComponent;
+    expect(summary.querySelector('strong, b, h3')).toBeNull();
+    expect(summary.textContent).toContain(source);
+    expect(component.detailForm.controls.descriptionContent.value).toEqual({
+      source,
+      format: 'plain_text'
+    });
+    const format = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>(
+      '#detail-description-format'
+    )!;
+    format.value = 'markdown_v1';
+    format.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    expect(component.detailForm.dirty).toBeTrue();
+    expect(component.detailForm.controls.descriptionContent.value.source).toBe(source);
+    expect(editor.value().format).toBe('markdown_v1');
+    previewDescription(fixture);
+    fixture.detectChanges();
+    component.discardDetailChanges();
+    fixture.detectChanges();
+    expect(editor.mode()).toBe('edit');
+    expect(component.detailForm.pristine).toBeTrue();
+    expect(component.detailForm.controls.descriptionContent.value).toEqual({
+      source,
+      format: 'plain_text'
+    });
+    http.expectNone((request) => request.method === 'PATCH');
+  });
+
+  it('omits both unchanged description fields, including normalized line-ending equivalents', () => {
+    const { fixture, http } = setup({
+      workItem: { ...detail, description: '  old\r\nsource\r  ' }
+    });
+    fixture.componentInstance.detailForm.patchValue({
+      title: 'Only title changed',
+      descriptionContent: { source: '  old\nsource\n  ', format: 'plain_text' }
+    });
+    fixture.componentInstance.updateWorkItem();
+    const update = http.expectOne(`/api/work-items/${workItemId}`);
+    expect(Object.hasOwn(update.request.body, 'description')).toBeFalse();
+    expect(Object.hasOwn(update.request.body, 'descriptionFormat')).toBeFalse();
+    update.flush({ ...detail, title: 'Only title changed', description: '  old\r\nsource\r  ' });
+    expect(fixture.componentInstance.detailForm.controls.descriptionContent.value.source).toBe(
+      '  old\r\nsource\r  '
+    );
+    expect(fixture.componentInstance.detailForm.pristine).toBeTrue();
+  });
+
+  it('sends a format-only conversion once and adopts the successful pair as its new baseline', () => {
+    const source = '  **literal until saved**\n';
+    const { fixture, http } = setup({ workItem: { ...detail, description: source } });
+    fixture.componentInstance.detailForm.controls.descriptionContent.setValue({
+      source,
+      format: 'markdown_v1'
+    });
+    fixture.componentInstance.updateWorkItem();
+    const update = http.expectOne(`/api/work-items/${workItemId}`);
+    expect(update.request.body.description).toBe(source);
+    expect(update.request.body.descriptionFormat).toBe('markdown_v1');
+    update.flush({ ...detail, description: source, descriptionFormat: 'markdown_v1' });
+    fixture.detectChanges();
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('app-work-item-detail-summary strong')
+        ?.textContent
+    ).toBe('literal until saved');
+    fixture.componentInstance.updateWorkItem();
+    const unchanged = http.expectOne(`/api/work-items/${workItemId}`);
+    expect(Object.hasOwn(unchanged.request.body, 'description')).toBeFalse();
+    expect(Object.hasOwn(unchanged.request.body, 'descriptionFormat')).toBeFalse();
+    unchanged.flush({ ...detail, description: source, descriptionFormat: 'markdown_v1' });
+  });
+
+  it('allows unrelated edits to oversized legacy content but rejects conversion until shortened', () => {
+    const source = 'x'.repeat(10_001);
+    const { fixture, http } = setup({ workItem: { ...detail, description: source } });
+    const control = fixture.componentInstance.detailForm.controls.descriptionContent;
+    expect(control.valid).toBeTrue();
+    fixture.componentInstance.detailForm.controls.title.setValue('Other edit');
+    fixture.componentInstance.updateWorkItem();
+    const update = http.expectOne(`/api/work-items/${workItemId}`);
+    expect(Object.hasOwn(update.request.body, 'description')).toBeFalse();
+    update.flush({ ...detail, title: 'Other edit', description: source });
+    control.setValue({ source, format: 'markdown_v1' });
+    fixture.componentInstance.updateWorkItem();
+    fixture.detectChanges();
+    expect(control.hasError('authoredContentTooLong')).toBeTrue();
+    expect(
+      (fixture.nativeElement as HTMLElement)
+        .querySelector('#detail-description')
+        ?.getAttribute('aria-invalid')
+    ).toBe('true');
+    http.expectNone((request) => request.method === 'PATCH');
+    control.setValue({ source: 'shortened', format: 'markdown_v1' });
+    expect(control.valid).toBeTrue();
+  });
+
+  it('preserves the entire pair and preview after a failed save, and recovers pending state', () => {
+    const { fixture, http } = setup();
+    const component = fixture.componentInstance;
+    const draft = { source: '  # Keep my draft\n', format: 'markdown_v1' as const };
+    component.detailForm.controls.descriptionContent.setValue(draft);
+    component.detailForm.controls.descriptionContent.markAsDirty();
+    fixture.detectChanges();
+    const editor = fixture.debugElement.query(By.directive(AuthoredContentEditorComponent))
+      .componentInstance as AuthoredContentEditorComponent;
+    previewDescription(fixture);
+    component.updateWorkItem();
+    component.updateWorkItem();
+    fixture.detectChanges();
+    expect(component.detailForm.disabled).toBeTrue();
+    const update = http.expectOne(`/api/work-items/${workItemId}`);
+    update.flush({}, { status: 500, statusText: 'Failure' });
+    fixture.detectChanges();
+    expect(component.isUpdating()).toBeFalse();
+    expect(component.detailForm.enabled).toBeTrue();
+    expect(component.detailForm.controls.descriptionContent.value).toEqual(draft);
+    expect(component.detailForm.dirty).toBeTrue();
+    expect(editor.mode()).toBe('preview');
+    component.updateWorkItem();
+    const retry = http.expectOne(`/api/work-items/${workItemId}`);
+    expect(retry.request.body.description).toBe(draft.source);
+    retry.flush({ ...detail, description: draft.source, descriptionFormat: draft.format });
+    fixture.detectChanges();
+    expect(component.detailForm.pristine).toBeTrue();
+    expect(editor.mode()).toBe('edit');
+  });
+
+  it('does not reset description source, preview, or dirty state during attachment and discussion refreshes', () => {
+    const { fixture, http } = setup();
+    const component = fixture.componentInstance;
+    const draft = { source: '  **draft**\n', format: 'markdown_v1' as const };
+    component.detailForm.controls.descriptionContent.setValue(draft);
+    component.detailForm.controls.descriptionContent.markAsDirty();
+    fixture.detectChanges();
+    const editor = fixture.debugElement.query(By.directive(AuthoredContentEditorComponent))
+      .componentInstance as AuthoredContentEditorComponent;
+    previewDescription(fixture);
+    const identity = component.descriptionEditorIdentity();
+    component.refreshAttachmentActivity();
+    http.expectOne(`/api/work-items/${workItemId}/activity`).flush([]);
+    component.commentForm.setValue({
+      bodyContent: { source: 'Unrelated comment', format: 'markdown_v1' }
+    });
+    component.addComment();
+    http.expectOne(`/api/work-items/${workItemId}/comments`).flush(detail.comments[0]);
+    http.expectOne(`/api/work-items/${workItemId}`).flush(detail);
+    fixture.detectChanges();
+    expect(component.detailForm.controls.descriptionContent.value).toEqual(draft);
+    expect(component.detailForm.dirty).toBeTrue();
+    expect(editor.mode()).toBe('preview');
+    expect(component.descriptionEditorIdentity()).toBe(identity);
+  });
+
+  it('keeps description and comment drafts while applying parent and status changes', () => {
+    const { fixture, http } = setup();
+    const component = fixture.componentInstance;
+    const draft = { source: '  My source\n', format: 'markdown_v1' as const };
+    component.detailForm.controls.descriptionContent.setValue(draft);
+    component.commentForm.controls.bodyContent.setValue({
+      source: 'Discussion draft',
+      format: 'markdown_v1'
+    });
+    component.applyParentChange(detail);
+    component.statusForm.setValue({ status: 'ready' });
+    component.transitionStatus();
+    http
+      .expectOne(`/api/work-items/${workItemId}/transitions`)
+      .flush({ ...detail, status: 'ready' });
+    expect(component.detailForm.controls.descriptionContent.value).toEqual(draft);
+    expect(component.commentForm.controls.bodyContent.value.source).toBe('Discussion draft');
+    expect(component.statusForm.controls.status.value).toBe('ready');
+  });
+
+  it('does not let an older status response replace a newly saved description or its baseline', () => {
+    const { fixture, http } = setup();
+    const component = fixture.componentInstance;
+    component.statusForm.setValue({ status: 'ready' });
+    component.transitionStatus();
+    const status = http.expectOne(`/api/work-items/${workItemId}/transitions`);
+    component.detailForm.controls.descriptionContent.setValue({
+      source: 'New saved source',
+      format: 'markdown_v1'
+    });
+    component.updateWorkItem();
+    http
+      .expectOne(`/api/work-items/${workItemId}`)
+      .flush({ ...detail, description: 'New saved source', descriptionFormat: 'markdown_v1' });
+    status.flush({ ...detail, status: 'ready' });
+    expect(component.workItem()?.description).toBe('New saved source');
+    expect(component.detailForm.controls.descriptionContent.value).toEqual({
+      source: 'New saved source',
+      format: 'markdown_v1'
+    });
+    component.updateWorkItem();
+    const unchanged = http.expectOne(`/api/work-items/${workItemId}`);
+    expect(Object.hasOwn(unchanged.request.body, 'description')).toBeFalse();
+    unchanged.flush({
+      ...detail,
+      status: 'ready',
+      description: 'New saved source',
+      descriptionFormat: 'markdown_v1'
+    });
+  });
+
+  it('preserves description and comment drafts through relationship refreshes', () => {
+    const { fixture, http } = setup();
+    const component = fixture.componentInstance;
+    const draft = { source: '  **Relationship draft**\n', format: 'markdown_v1' as const };
+    component.detailForm.controls.descriptionContent.setValue(draft);
+    component.commentForm.controls.bodyContent.setValue({
+      source: 'Comment draft',
+      format: 'markdown_v1'
+    });
+    component.relationshipForm.patchValue({ kind: 'blocks', targetWorkItemId: blockedWorkItemId });
+    component.addRelationship();
+    http.expectOne(`/api/work-items/${workItemId}/relationships`).flush({});
+    http.expectOne(`/api/work-items/${workItemId}`).flush(detail);
+    expect(component.detailForm.controls.descriptionContent.value).toEqual(draft);
+    expect(component.commentForm.controls.bodyContent.value.source).toBe('Comment draft');
+    expect(component.isAddingRelationship()).toBeFalse();
+  });
+
+  it('does not let an old save clear the pending state of a new route save', () => {
+    const { fixture, http } = setup();
+    const component = fixture.componentInstance;
+    component.updateWorkItem();
+    const oldSave = http.expectOne(`/api/work-items/${workItemId}`);
+    routeParamMap.next(convertToParamMap({ workItemId: blockedWorkItemId }));
+    fixture.detectChanges();
+    const nextDetail = { ...detail, id: blockedWorkItemId };
+    finishReload(fixture, http, nextDetail);
+    component.detailForm.controls.descriptionContent.setValue({
+      source: 'New draft',
+      format: 'markdown_v1'
+    });
+    component.updateWorkItem();
+    const newSave = http.expectOne(`/api/work-items/${blockedWorkItemId}`);
+    oldSave.flush(detail);
+    expect(component.isUpdating()).toBeTrue();
+    expect(component.detailForm.disabled).toBeTrue();
+    expect(component.detailForm.controls.descriptionContent.value.source).toBe('New draft');
+    newSave.flush({}, { status: 500, statusText: 'Failure' });
+    expect(component.isUpdating()).toBeFalse();
+    expect(component.detailForm.enabled).toBeTrue();
+  });
+
+  it('rejects old-actor responses even after returning to the same actor and item', () => {
+    const { fixture, http } = setup();
+    const component = fixture.componentInstance;
+    component.updateWorkItem();
+    const oldSave = http.expectOne(`/api/work-items/${workItemId}`);
+    const user = TestBed.inject(CurrentUserService);
+    user.selectMember(contributor.id);
+    fixture.detectChanges();
+    finishReload(fixture, http);
+    user.selectMember(owner.id);
+    fixture.detectChanges();
+    finishReload(fixture, http);
+    component.detailForm.controls.descriptionContent.setValue({
+      source: 'New owner draft',
+      format: 'markdown_v1'
+    });
+    oldSave.flush({ ...detail, description: 'Obsolete owner response' });
+    expect(component.workItem()?.description).toBe(detail.description);
+    expect(component.detailForm.controls.descriptionContent.value.source).toBe('New owner draft');
+  });
+
+  it('ignores stale errors from superseded loads without breaking the current draft', () => {
+    const { fixture, http } = setup();
+    fixture.componentInstance.loadWorkItem();
+    const oldLoad = http.expectOne(`/api/work-items/${workItemId}`);
+    fixture.componentInstance.loadWorkItem();
+    fixture.detectChanges();
+    finishReload(fixture, http);
+    fixture.componentInstance.detailForm.controls.descriptionContent.setValue({
+      source: 'Retain me',
+      format: 'plain_text'
+    });
+    oldLoad.flush({}, { status: 500, statusText: 'Failure' });
+    expect(fixture.componentInstance.loadError()).toBeNull();
+    expect(fixture.componentInstance.isLoading()).toBeFalse();
+    expect(fixture.componentInstance.detailForm.controls.descriptionContent.value.source).toBe(
+      'Retain me'
+    );
+  });
+
+  for (const outcome of ['success', 'error'] as const) {
+    it(`ignores a stale save ${outcome} after route reuse and return to the same item`, () => {
+      const { fixture, http } = setup();
+      const component = fixture.componentInstance;
+      component.detailForm.controls.descriptionContent.setValue({
+        source: 'Old save',
+        format: 'markdown_v1'
+      });
+      component.updateWorkItem();
+      const oldSave = http.expectOne(`/api/work-items/${workItemId}`);
+      routeParamMap.next(convertToParamMap({ workItemId: blockedWorkItemId }));
+      const intermediate = http.expectOne(`/api/work-items/${blockedWorkItemId}`);
+      routeParamMap.next(convertToParamMap({ workItemId }));
+      fixture.detectChanges();
+      finishReload(fixture, http);
+      intermediate.flush({ ...detail, id: blockedWorkItemId });
+      component.detailForm.controls.descriptionContent.setValue({
+        source: 'New draft',
+        format: 'plain_text'
+      });
+      if (outcome === 'success') {
+        oldSave.flush({ ...detail, description: 'Old save', descriptionFormat: 'markdown_v1' });
+      } else {
+        oldSave.flush({}, { status: 500, statusText: 'Failure' });
+      }
+      expect(component.workItem()?.description).toBe(detail.description);
+      expect(component.detailForm.controls.descriptionContent.value.source).toBe('New draft');
+      expect(component.isUpdating()).toBeFalse();
+      expect(component.updateError()).toBeNull();
+    });
+  }
+
+  it('ignores superseded load responses for the same item', () => {
+    const { fixture, http } = setup();
+    fixture.componentInstance.loadWorkItem();
+    const oldLoad = http.expectOne(`/api/work-items/${workItemId}`);
+    fixture.componentInstance.loadWorkItem();
+    fixture.detectChanges();
+    finishReload(fixture, http, {
+      ...detail,
+      description: 'Newest source',
+      descriptionFormat: 'markdown_v1'
+    });
+    oldLoad.flush({ ...detail, description: 'Obsolete source' });
+    expect(fixture.componentInstance.detailForm.controls.descriptionContent.value).toEqual({
+      source: 'Newest source',
+      format: 'markdown_v1'
+    });
+  });
+
+  it('resets the editor on actor change and rejects the old actor save before the reload effect runs', () => {
+    const { fixture, http } = setup();
+    const component = fixture.componentInstance;
+    component.detailForm.controls.descriptionContent.setValue({
+      source: 'Owner draft',
+      format: 'markdown_v1'
+    });
+    component.updateWorkItem();
+    const oldSave = http.expectOne(`/api/work-items/${workItemId}`);
+    TestBed.inject(CurrentUserService).selectMember(contributor.id);
+    oldSave.flush({ ...detail, description: 'Owner draft', descriptionFormat: 'markdown_v1' });
+    expect(component.workItem()?.description).toBe(detail.description);
+    fixture.detectChanges();
+    expect(component.workItem()).toBeNull();
+    expect(component.isUpdating()).toBeFalse();
+    expect(component.detailForm.controls.descriptionContent.value.source).toBe('');
+    finishReload(fixture, http);
+    expect(component.detailForm.controls.descriptionContent.value).toEqual({
+      source: detail.description,
+      format: 'plain_text'
+    });
+  });
+
+  it('ignores late discussion mutations rather than refreshing or clearing another item draft', () => {
+    const { fixture, http } = setup();
+    const component = fixture.componentInstance;
+    component.commentForm.setValue({
+      bodyContent: { source: 'Old item comment', format: 'markdown_v1' }
+    });
+    component.addComment();
+    const comment = http.expectOne(`/api/work-items/${workItemId}/comments`);
+    routeParamMap.next(convertToParamMap({ workItemId: blockedWorkItemId }));
+    fixture.detectChanges();
+    finishReload(fixture, http, { ...detail, id: blockedWorkItemId });
+    component.commentForm.setValue({
+      bodyContent: { source: 'New item draft', format: 'markdown_v1' }
+    });
+    comment.flush(detail.comments[0]);
+    expect(component.commentForm.controls.bodyContent.value.source).toBe('New item draft');
+    http.expectNone(`/api/work-items/${blockedWorkItemId}`);
+  });
+
+  it('keeps formatted archived descriptions readable while disabling authoring', () => {
+    const { fixture, http } = setup({
+      project: archivedProject,
+      workItem: {
+        ...detail,
+        description: '# Read only\n**visible**',
+        descriptionFormat: 'markdown_v1'
+      }
+    });
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('app-work-item-detail-summary h2')?.textContent).toBe('Description');
+    expect(root.querySelector('app-work-item-detail-summary h3')?.textContent).toBe('Read only');
+    expect(root.querySelector('app-work-item-detail-summary strong')?.textContent).toBe('visible');
+    expect(root.querySelector<HTMLTextAreaElement>('#detail-description')?.disabled).toBeTrue();
+    expect(
+      root.querySelector<HTMLSelectElement>('#detail-description-format')?.disabled
+    ).toBeTrue();
+    fixture.componentInstance.updateWorkItem();
+    http.expectNone((request) => request.method === 'PATCH');
+  });
+
+  it('preserves the existing empty-description treatment below current-state facts', () => {
+    const { fixture } = setup({
+      workItem: { ...detail, description: '', descriptionFormat: 'markdown_v1' }
+    });
+    const summary = (fixture.nativeElement as HTMLElement).querySelector(
+      'app-work-item-detail-summary'
+    )!;
+    expect(summary.textContent).toContain('No description provided.');
+    expect(summary.querySelector('app-authored-content-viewer')).toBeNull();
+    expect(
+      summary
+        .querySelector('.summary__facts')!
+        .compareDocumentPosition(summary.querySelector('.summary__description')!) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 
   it('renders work item detail, comments, and activity', () => {
@@ -472,9 +1538,7 @@ describe('WorkItemDetailPageComponent', () => {
     expect(compiled.textContent).toContain('Activity not refreshed');
     expect(compiled.textContent).toContain('Avery Owner created this work item.');
 
-    compiled
-      .querySelector<HTMLButtonElement>('.history-section app-error-panel button')
-      ?.click();
+    compiled.querySelector<HTMLButtonElement>('.history-section app-error-panel button')?.click();
     http.expectOne(`/api/work-items/${workItemId}/activity`).flush(detail.activity);
     fixture.detectChanges();
 
@@ -516,9 +1580,9 @@ describe('WorkItemDetailPageComponent', () => {
 
     expect(fixture.componentInstance.watchState()?.isWatchedByCurrentActor).toBeFalse();
     expect(
-      (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.watch-panel button')
-        ?.textContent
-        ?.trim()
+      (fixture.nativeElement as HTMLElement)
+        .querySelector<HTMLButtonElement>('.watch-panel button')
+        ?.textContent?.trim()
     ).toBe('Watch');
   });
 
@@ -566,9 +1630,9 @@ describe('WorkItemDetailPageComponent', () => {
     http.expectOne(`/api/work-items/${workItemId}/attachments`).flush(emptyAttachmentList);
     unsafeFixture.detectChanges();
 
-    const fallbackLink = (unsafeFixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>(
-      '.detail-header a'
-    );
+    const fallbackLink = (
+      unsafeFixture.nativeElement as HTMLElement
+    ).querySelector<HTMLAnchorElement>('.detail-header a');
     expect(fallbackLink?.getAttribute('href')).toBe(`/projects/${projectId}/work-items`);
   });
 
@@ -626,7 +1690,9 @@ describe('WorkItemDetailPageComponent', () => {
     fixture.componentInstance.relationshipForm.patchValue({ search: 'api' });
     fixture.componentInstance.searchRelationshipCandidates();
 
-    const request = http.expectOne((candidateRequest) => candidateRequest.url === '/api/work-items');
+    const request = http.expectOne(
+      (candidateRequest) => candidateRequest.url === '/api/work-items'
+    );
     expect(request.request.method).toBe('GET');
     expect(request.request.params.get('search')).toBe('api');
     expect(request.request.params.get('archivedProjects')).toBe('exclude');
@@ -649,7 +1715,9 @@ describe('WorkItemDetailPageComponent', () => {
     expect(fixture.componentInstance.relationshipCandidates().map((item) => item.id)).toEqual([
       blockerWorkItemId
     ]);
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('WT-4 Finish API contract');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'WT-4 Finish API contract'
+    );
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'More matches are available. Refine the search to narrow the results.'
     );
@@ -918,7 +1986,9 @@ describe('WorkItemDetailPageComponent', () => {
     } satisfies WorkItemDetailDto);
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('WT-4 Finish API contract');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'WT-4 Finish API contract'
+    );
     expect(fixture.componentInstance.isAddingRelationship()).toBeFalse();
   });
 
@@ -984,7 +2054,9 @@ describe('WorkItemDetailPageComponent', () => {
 
     fixture.componentInstance.removeRelationship(relationship);
 
-    const request = http.expectOne(`/api/work-items/${workItemId}/relationships/${relationship.id}`);
+    const request = http.expectOne(
+      `/api/work-items/${workItemId}/relationships/${relationship.id}`
+    );
     expect(request.request.method).toBe('DELETE');
     request.flush(null);
 
@@ -1033,12 +2105,17 @@ describe('WorkItemDetailPageComponent', () => {
 
     fixture.componentInstance.startEditComment(comment);
     fixture.detectChanges();
-    fixture.componentInstance.editCommentForm.setValue({ body: 'Updated implementation note.' });
+    fixture.componentInstance.editCommentForm.setValue({
+      bodyContent: { source: 'Updated implementation note.', format: 'plain_text' }
+    });
     fixture.componentInstance.saveComment(comment);
 
     const update = http.expectOne(`/api/comments/${comment.id}`);
     expect(update.request.method).toBe('PATCH');
-    expect(update.request.body).toEqual({ body: 'Updated implementation note.' });
+    expect(update.request.body).toEqual({
+      body: 'Updated implementation note.',
+      bodyFormat: 'plain_text'
+    });
     update.flush({
       ...comment,
       body: 'Updated implementation note.',
@@ -1171,8 +2248,8 @@ describe('WorkItemDetailPageComponent', () => {
     TestBed.inject(CurrentUserService).selectMember(contributor.id);
     const { fixture } = setup();
     const compiled = fixture.nativeElement as HTMLElement;
-    const buttonLabels = Array.from(compiled.querySelectorAll('button')).map((button) =>
-      button.textContent?.trim()
+    const buttonLabels = Array.from(compiled.querySelectorAll('article.comment button')).map(
+      (button) => button.textContent?.trim()
     );
 
     expect(fixture.componentInstance.canModifyComment(detail.comments[0])).toBeFalse();
@@ -1209,7 +2286,9 @@ describe('WorkItemDetailPageComponent', () => {
     const comment = detail.comments[0];
 
     fixture.componentInstance.startEditComment(comment);
-    fixture.componentInstance.editCommentForm.setValue({ body: 'Rejected update.' });
+    fixture.componentInstance.editCommentForm.setValue({
+      bodyContent: { source: 'Rejected update.', format: 'plain_text' }
+    });
     fixture.componentInstance.saveComment(comment);
 
     const update = http.expectOne(`/api/comments/${comment.id}`);
@@ -1234,7 +2313,7 @@ describe('WorkItemDetailPageComponent', () => {
     const { fixture, http } = setup();
     fixture.componentInstance.detailForm.patchValue({
       title: 'Updated detail surface',
-      description: 'Updated description.',
+      descriptionContent: { source: '  Updated description.\n', format: 'markdown_v1' },
       type: 'story',
       priority: 'urgent',
       assigneeId: owner.id,
@@ -1249,7 +2328,8 @@ describe('WorkItemDetailPageComponent', () => {
     expect(request.request.method).toBe('PATCH');
     expect(request.request.body).toEqual({
       title: 'Updated detail surface',
-      description: 'Updated description.',
+      description: '  Updated description.\n',
+      descriptionFormat: 'markdown_v1',
       type: 'story',
       priority: 'urgent',
       assigneeId: owner.id,
@@ -1260,7 +2340,8 @@ describe('WorkItemDetailPageComponent', () => {
     request.flush({
       ...detail,
       title: 'Updated detail surface',
-      description: 'Updated description.',
+      description: '  Updated description.\n',
+      descriptionFormat: 'markdown_v1',
       type: 'story',
       priority: 'urgent',
       assignee: owner
@@ -1329,10 +2410,18 @@ describe('WorkItemDetailPageComponent', () => {
     http.expectOne(`/api/work-items/${workItemId}/watchers`).flush(unwatchedState);
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http.expectOne(`/api/projects/${projectId}/labels`).flush([
-      { id: frontendLabelId, name: 'frontend', color: '#2563eb', isArchived: false, archivedAt: null },
+      {
+        id: frontendLabelId,
+        name: 'frontend',
+        color: '#2563eb',
+        isArchived: false,
+        archivedAt: null
+      },
       { id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }
     ]);
-    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    http
+      .expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`)
+      .flush([activeMilestone]);
     http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([activeCycle]);
     fixture.detectChanges();
     http.expectOne(`/api/work-items/${workItemId}/attachments`).flush(emptyAttachmentList);
@@ -1359,10 +2448,18 @@ describe('WorkItemDetailPageComponent', () => {
     http.expectOne(`/api/work-items/${workItemId}/watchers`).flush(watchedState);
     http.expectOne(`/api/projects/${projectId}`).flush(archivedProject);
     http.expectOne(`/api/projects/${projectId}/labels`).flush([
-      { id: frontendLabelId, name: 'frontend', color: '#2563eb', isArchived: false, archivedAt: null },
+      {
+        id: frontendLabelId,
+        name: 'frontend',
+        color: '#2563eb',
+        isArchived: false,
+        archivedAt: null
+      },
       { id: labelId, name: 'backend', color: '#059669', isArchived: false, archivedAt: null }
     ]);
-    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([activeMilestone]);
+    http
+      .expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`)
+      .flush([activeMilestone]);
     http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([activeCycle]);
     fixture.detectChanges();
     http.expectOne(`/api/work-items/${workItemId}/attachments`).flush({
@@ -1385,7 +2482,9 @@ describe('WorkItemDetailPageComponent', () => {
     fixture.componentInstance.updateWorkItem();
     fixture.componentInstance.statusForm.setValue({ status: 'done' });
     fixture.componentInstance.transitionStatus();
-    fixture.componentInstance.commentForm.setValue({ body: 'Archived comment attempt.' });
+    fixture.componentInstance.commentForm.setValue({
+      bodyContent: { source: 'Archived comment attempt.', format: 'markdown_v1' }
+    });
     fixture.componentInstance.addComment();
     fixture.componentInstance.relationshipForm.patchValue({ targetWorkItemId: blockedWorkItemId });
     fixture.componentInstance.addRelationship();
@@ -1417,12 +2516,17 @@ describe('WorkItemDetailPageComponent', () => {
 
   it('adds a comment and refreshes comments and activity', () => {
     const { fixture, http } = setup();
-    fixture.componentInstance.commentForm.setValue({ body: 'New detail comment.' });
+    fixture.componentInstance.commentForm.setValue({
+      bodyContent: { source: 'New detail comment.', format: 'markdown_v1' }
+    });
     fixture.componentInstance.addComment();
 
     const commentRequest = http.expectOne(`/api/work-items/${workItemId}/comments`);
     expect(commentRequest.request.method).toBe('POST');
-    expect(commentRequest.request.body).toEqual({ body: 'New detail comment.' });
+    expect(commentRequest.request.body).toEqual({
+      body: 'New detail comment.',
+      bodyFormat: 'markdown_v1'
+    });
     commentRequest.flush({
       id: '10000000-0000-4000-8000-000000000502',
       workspaceId: owner.workspaceId,
@@ -1430,6 +2534,7 @@ describe('WorkItemDetailPageComponent', () => {
       workItemId,
       author: owner,
       body: 'New detail comment.',
+      bodyFormat: 'plain_text',
       mentions: [],
       isEdited: false,
       isDeleted: false,
@@ -1452,6 +2557,7 @@ describe('WorkItemDetailPageComponent', () => {
           workItemId,
           author: owner,
           body: 'New detail comment.',
+          bodyFormat: 'plain_text',
           mentions: [],
           isEdited: false,
           isDeleted: false,
@@ -1488,7 +2594,9 @@ describe('WorkItemDetailPageComponent', () => {
 
   it('creates a comment with selected mention member ids and renders returned mentions', () => {
     const { fixture, http } = setup();
-    fixture.componentInstance.commentForm.setValue({ body: 'Mentioning a collaborator.' });
+    fixture.componentInstance.commentForm.setValue({
+      bodyContent: { source: 'Mentioning a collaborator.', format: 'markdown_v1' }
+    });
     fixture.componentInstance.addMentionMember(contributor.id);
     fixture.componentInstance.addComment();
 
@@ -1496,6 +2604,7 @@ describe('WorkItemDetailPageComponent', () => {
     expect(commentRequest.request.method).toBe('POST');
     expect(commentRequest.request.body).toEqual({
       body: 'Mentioning a collaborator.',
+      bodyFormat: 'markdown_v1',
       mentionMemberIds: [contributor.id]
     });
     commentRequest.flush({
@@ -1505,6 +2614,7 @@ describe('WorkItemDetailPageComponent', () => {
       workItemId,
       author: owner,
       body: 'Mentioning a collaborator.',
+      bodyFormat: 'plain_text',
       mentions: [contributor],
       isEdited: false,
       isDeleted: false,
@@ -1527,6 +2637,7 @@ describe('WorkItemDetailPageComponent', () => {
           workItemId,
           author: owner,
           body: 'Mentioning a collaborator.',
+          bodyFormat: 'plain_text',
           mentions: [contributor],
           isEdited: false,
           isDeleted: false,

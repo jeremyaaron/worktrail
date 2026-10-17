@@ -130,6 +130,7 @@ function createWorkItem(input: {
     projectId: ids.project,
     title: input.title,
     description: '',
+    descriptionFormat: 'plain_text',
     itemNumber: input.itemNumber,
     displayKey: `CY-${input.itemNumber}`,
     type: 'story',

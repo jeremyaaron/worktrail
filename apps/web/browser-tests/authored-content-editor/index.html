@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Authored content editor test</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        color: #111827;
+        background: #fff;
+      }
+      main {
+        box-sizing: border-box;
+        max-width: 808px;
+        margin: auto;
+        padding: 24px;
+      }
+      pre {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 16px;
+      }
+      h1 {
+        font-size: 20px;
+      }
+      button {
+        font: inherit;
+      }
+      @media (max-width: 400px) {
+        main {
+          padding: 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <app-editor-test></app-editor-test>
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>

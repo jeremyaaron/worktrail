@@ -1,0 +1,85 @@
+:host {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.plain-content {
+  white-space: pre-wrap;
+}
+
+p,
+ul,
+ol,
+blockquote,
+pre {
+  margin: 0 0 0.75rem;
+}
+
+.markdown-content > :last-child,
+li > :last-child,
+blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  margin: 1rem 0 0.5rem;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.markdown-content > :first-child {
+  margin-top: 0;
+}
+
+ul,
+ol {
+  padding-left: 1.75rem;
+}
+
+li + li {
+  margin-top: 0.25rem;
+}
+
+blockquote {
+  border-left: 3px solid #cbd5e1;
+  padding-left: 1rem;
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.875em;
+  background: #f1f5f9;
+  padding: 0.125rem 0.25rem;
+  border-radius: 3px;
+  white-space: pre-wrap;
+}
+
+pre {
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #f8fafc;
+  overflow-x: auto;
+  overflow-wrap: normal;
+  white-space: pre;
+}
+
+pre code {
+  padding: 0;
+  background: transparent;
+  white-space: pre;
+}
+
+a:focus-visible,
+pre:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}

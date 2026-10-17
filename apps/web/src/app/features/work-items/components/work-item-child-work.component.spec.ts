@@ -26,6 +26,7 @@ const parentItem: WorkItemDetailDto = {
   displayKey: 'WT-3',
   title: 'Coordinate the release work breakdown',
   description: 'Parent work item.',
+  descriptionFormat: 'plain_text',
   type: 'story',
   status: 'in_progress',
   priority: 'high',

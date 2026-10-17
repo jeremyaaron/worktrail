@@ -1,0 +1,105 @@
+@let content = document();
+@if (content.kind === 'markdown') {
+  <div class="markdown-content">
+    <ng-container *ngTemplateOutlet="blocks; context: { $implicit: content.blocks }" />
+  </div>
+} @else {
+  <div class="plain-content">{{ content.source }}</div>
+}
+
+<ng-template #blocks let-nodes>
+  @for (node of nodes; track node) {
+    @switch (node.kind) {
+      @case ('paragraph') {
+        @if (node.tight) {
+          <ng-container *ngTemplateOutlet="inlines; context: { $implicit: node.children }" />
+        } @else {
+          <p><ng-container *ngTemplateOutlet="inlines; context: { $implicit: node.children }" /></p>
+        }
+      }
+      @case ('heading') {
+        @switch (node.level) {
+          @case (3) {
+            <h3>
+              <ng-container *ngTemplateOutlet="inlines; context: { $implicit: node.children }" />
+            </h3>
+          }
+          @case (4) {
+            <h4>
+              <ng-container *ngTemplateOutlet="inlines; context: { $implicit: node.children }" />
+            </h4>
+          }
+          @case (5) {
+            <h5>
+              <ng-container *ngTemplateOutlet="inlines; context: { $implicit: node.children }" />
+            </h5>
+          }
+          @case (6) {
+            <h6>
+              <ng-container *ngTemplateOutlet="inlines; context: { $implicit: node.children }" />
+            </h6>
+          }
+        }
+      }
+      @case ('quotation') {
+        <blockquote>
+          <ng-container *ngTemplateOutlet="blocks; context: { $implicit: node.children }" />
+        </blockquote>
+      }
+      @case ('unordered_list') {
+        <ul>
+          @for (item of node.items; track item) {
+            <li>
+              <ng-container *ngTemplateOutlet="blocks; context: { $implicit: item.children }" />
+            </li>
+          }
+        </ul>
+      }
+      @case ('ordered_list') {
+        <ol [attr.start]="node.start">
+          @for (item of node.items; track item) {
+            <li>
+              <ng-container *ngTemplateOutlet="blocks; context: { $implicit: item.children }" />
+            </li>
+          }
+        </ol>
+      }
+      @case ('code_block') {
+        <pre #codeRegion><code>{{ node.text }}</code></pre>
+      }
+    }
+  }
+</ng-template>
+
+<ng-template #inlines let-nodes>
+  @for (node of nodes; track node) {
+    @switch (node.kind) {
+      @case ('text') {
+        <ng-container>{{ node.text }}</ng-container>
+      }
+      @case ('inline_code') {
+        <code>{{ node.text }}</code>
+      }
+      @case ('break') {
+        <br />
+      }
+      @case ('emphasis') {
+        <em><ng-container *ngTemplateOutlet="inlines; context: { $implicit: node.children }" /></em>
+      }
+      @case ('strong') {
+        <strong
+          ><ng-container *ngTemplateOutlet="inlines; context: { $implicit: node.children }"
+        /></strong>
+      }
+      @case ('link') {
+        <a
+          [href]="node.href"
+          [attr.target]="linkTarget(node.href)"
+          rel="noopener noreferrer"
+          referrerpolicy="no-referrer"
+          ><ng-container *ngTemplateOutlet="inlines; context: { $implicit: node.children }"
+        /></a>
+      }
+    }
+  }
+</ng-template>

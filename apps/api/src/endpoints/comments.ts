@@ -1,4 +1,5 @@
 import type { CommentDto, CreateCommentRequest, UpdateCommentRequest } from '@worktrail/contracts';
+import { authoredContentFormats } from '@worktrail/contracts';
 import { z } from 'zod';
 
 import type { WorktrailDb } from '../db/client.js';
@@ -16,12 +17,14 @@ const commentIdParamSchema = z.object({
 });
 
 const createCommentSchema = z.object({
-  body: z.string().trim().min(1),
+  body: z.string(),
+  bodyFormat: z.enum(authoredContentFormats).optional(),
   mentionMemberIds: z.array(z.string().uuid()).optional()
 }) satisfies z.ZodType<CreateCommentRequest>;
 
 const updateCommentSchema = z.object({
-  body: z.string().trim().min(1)
+  body: z.string(),
+  bodyFormat: z.enum(authoredContentFormats).optional()
 }) satisfies z.ZodType<UpdateCommentRequest>;
 
 export function listCommentsHandler(input: {

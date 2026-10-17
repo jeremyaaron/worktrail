@@ -150,24 +150,32 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
             <h2>Preview</h2>
             <div class="preview-table" role="table" aria-label="Normalized import rows">
               <div class="preview-table__head" role="row">
-                <span>Row</span>
-                <span>Title</span>
-                <span>Status</span>
-                <span>Priority</span>
-                <span>Assignee</span>
-                <span>Labels</span>
+                <span role="columnheader">Row</span>
+                <span role="columnheader">Title</span>
+                <span role="columnheader">Format</span>
+                <span role="columnheader">Status</span>
+                <span role="columnheader">Priority</span>
+                <span role="columnheader">Assignee</span>
+                <span role="columnheader">Labels</span>
               </div>
               @for (row of currentPreview.rows; track row.rowNumber) {
                 <div class="preview-table__row" role="row">
-                  <span>{{ row.rowNumber }}</span>
-                  <span>
+                  <span role="cell">{{ row.rowNumber }}</span>
+                  <div class="preview-title" role="cell">
                     <strong>{{ row.title }}</strong>
                     <small>{{ formatToken(row.type) }}</small>
-                  </span>
-                  <span>{{ formatToken(row.status) }}</span>
-                  <span>{{ formatToken(row.priority) }}</span>
-                  <span>{{ row.assigneeEmail ?? 'Unassigned' }}</span>
-                  <span>{{ row.labelNames.length === 0 ? 'None' : row.labelNames.join(', ') }}</span>
+                    @if (row.descriptionExcerpt.length > 0) {
+                      <details class="description-source">
+                        <summary [attr.aria-label]="'Description source for ' + row.title">Description source</summary>
+                        <pre>{{ row.descriptionExcerpt }}</pre>
+                      </details>
+                    }
+                  </div>
+                  <span role="cell">{{ row.descriptionFormat === 'markdown_v1' ? 'Markdown' : 'Plain text' }}</span>
+                  <span role="cell">{{ formatToken(row.status) }}</span>
+                  <span role="cell">{{ formatToken(row.priority) }}</span>
+                  <span role="cell">{{ row.assigneeEmail ?? 'Unassigned' }}</span>
+                  <span role="cell">{{ row.labelNames.length === 0 ? 'None' : row.labelNames.join(', ') }}</span>
                 </div>
               }
             </div>
@@ -404,7 +412,7 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
 
     .preview-table__head,
     .preview-table__row {
-      grid-template-columns: 70px minmax(220px, 1.5fr) 120px 120px minmax(180px, 1fr) minmax(180px, 1fr);
+      grid-template-columns: 70px minmax(220px, 1.5fr) 90px 120px 120px minmax(180px, 1fr) minmax(180px, 1fr);
     }
 
     .report-table__head,
@@ -429,9 +437,32 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
       border-bottom: 0;
     }
 
-    .preview-table__row span {
+    .preview-table__row span,
+    .preview-title {
       display: grid;
       gap: 3px;
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .description-source summary {
+      width: fit-content;
+      padding: 4px 0;
+      color: #1f4f99;
+      cursor: pointer;
+    }
+
+    .description-source summary:focus-visible {
+      outline: 2px solid #1f4f99;
+      outline-offset: 2px;
+    }
+
+    .description-source pre {
+      margin: 6px 0 0;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      font-size: 0.75rem;
+      line-height: 1.5;
     }
 
     .preview-table__row strong {

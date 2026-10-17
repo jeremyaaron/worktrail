@@ -1,0 +1,12 @@
+title,type,priority,description,description_format
+Review rollout,task,medium,"  ## Acceptance criteria
+
+- Preserve **original source**, including indentation.
+- Review the `release` command.
+
+```text
+ready -> review
+```
+",markdown_v1
+Keep literal notes,chore,low,"**Literal punctuation**, not emphasis.",plain_text
+Default to plain text,task,medium,"[Not a link](https://example.com/reference)",

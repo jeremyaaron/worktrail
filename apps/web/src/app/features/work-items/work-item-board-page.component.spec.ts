@@ -276,6 +276,7 @@ describe('WorkItemBoardPageComponent', () => {
       ...childItem,
       status: 'in_progress',
       description: '',
+      descriptionFormat: 'plain_text',
       relationships: emptyRelationships,
       comments: [],
       activity: []
@@ -310,6 +311,7 @@ describe('WorkItemBoardPageComponent', () => {
       ...readyItem,
       status: 'in_progress',
       description: '',
+      descriptionFormat: 'plain_text',
       relationships: emptyRelationships,
       comments: [],
       activity: []
@@ -364,6 +366,7 @@ describe('WorkItemBoardPageComponent', () => {
       ...readyItem,
       status: 'in_progress',
       description: '',
+      descriptionFormat: 'plain_text',
       relationships: emptyRelationships,
       comments: [],
       activity: []
@@ -427,6 +430,7 @@ describe('WorkItemBoardPageComponent', () => {
     request.flush({
       ...thirdItem,
       description: '',
+      descriptionFormat: 'plain_text',
       relationships: emptyRelationships,
       comments: [],
       activity: []

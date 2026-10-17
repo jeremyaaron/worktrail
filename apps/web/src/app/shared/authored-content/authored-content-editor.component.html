@@ -1,0 +1,198 @@
+<label class="field-label" [id]="fieldId() + '-label'" [for]="fieldId()">{{ label() }}</label>
+<div class="editor-top">
+  <div class="format-control">
+    <label [for]="fieldId() + '-format'">Format</label>
+    <select
+      [id]="fieldId() + '-format'"
+      [value]="value().format"
+      [disabled]="toolsDisabled()"
+      (change)="changeFormat($event)"
+    >
+      <option value="plain_text">Plain text</option>
+      <option value="markdown_v1">Markdown</option>
+    </select>
+  </div>
+  <div class="modes" role="group" [attr.aria-label]="label() + ' mode'">
+    <button
+      type="button"
+      [attr.aria-pressed]="mode() === 'edit'"
+      [disabled]="toolsDisabled()"
+      (click)="changeMode('edit')"
+    >
+      Edit
+    </button>
+    <button
+      type="button"
+      [attr.aria-pressed]="mode() === 'preview'"
+      [disabled]="toolsDisabled()"
+      (click)="changeMode('preview')"
+    >
+      Preview
+    </button>
+  </div>
+</div>
+<div [hidden]="mode() !== 'edit'">
+  @if (value().format === 'markdown_v1') {
+    <div class="formatting" role="group" [attr.aria-label]="label() + ' formatting'">
+      <button
+        type="button"
+        aria-label="Bold"
+        title="Bold"
+        [disabled]="toolsDisabled()"
+        (click)="command('bold')"
+      >
+        <svg lucideBold aria-hidden="true"></svg>
+      </button>
+      <button
+        type="button"
+        aria-label="Italic"
+        title="Italic"
+        [disabled]="toolsDisabled()"
+        (click)="command('italic')"
+      >
+        <svg lucideItalic aria-hidden="true"></svg>
+      </button>
+      <button
+        type="button"
+        aria-label="Heading"
+        title="Heading"
+        [disabled]="toolsDisabled()"
+        (click)="command('heading')"
+      >
+        <svg lucideHeading2 aria-hidden="true"></svg>
+      </button>
+      <button
+        type="button"
+        aria-label="Bullet list"
+        title="Bullet list"
+        [disabled]="toolsDisabled()"
+        (click)="command('bullet_list')"
+      >
+        <svg lucideList aria-hidden="true"></svg>
+      </button>
+      <button
+        type="button"
+        aria-label="Numbered list"
+        title="Numbered list"
+        [disabled]="toolsDisabled()"
+        (click)="command('ordered_list')"
+      >
+        <svg lucideListOrdered aria-hidden="true"></svg>
+      </button>
+      <button
+        type="button"
+        aria-label="Quote"
+        title="Quote"
+        [disabled]="toolsDisabled()"
+        (click)="command('quote')"
+      >
+        <svg lucideQuote aria-hidden="true"></svg>
+      </button>
+      <button
+        type="button"
+        aria-label="Inline code"
+        title="Inline code"
+        [disabled]="toolsDisabled()"
+        (click)="command('inline_code')"
+      >
+        <svg lucideCode aria-hidden="true"></svg>
+      </button>
+      <button
+        type="button"
+        aria-label="Code block"
+        title="Code block"
+        [disabled]="toolsDisabled()"
+        (click)="command('code_block')"
+      >
+        <svg lucideSquareCode aria-hidden="true"></svg>
+      </button>
+      <button
+        type="button"
+        aria-label="Link"
+        title="Insert link"
+        [disabled]="toolsDisabled()"
+        (click)="openLink()"
+      >
+        <svg lucideLink aria-hidden="true"></svg>
+      </button>
+    </div>
+  }
+  @if (linkSelection()) {
+    <div class="link-entry" [attr.data-editor-revision]="revision()">
+      <label [for]="fieldId() + '-url'">URL</label>
+      <div class="link-controls">
+        <input
+          #linkInput
+          type="text"
+          inputmode="url"
+          [id]="fieldId() + '-url'"
+          autocomplete="off"
+          [spellcheck]="false"
+          [value]="linkUrl()"
+          [disabled]="disabled()"
+          (input)="urlInput($event)"
+          (keydown)="linkKeydown($event)"
+          (compositionstart)="urlComposition($event, true)"
+          (compositionend)="urlComposition($event, false)"
+          [attr.aria-invalid]="linkError() ? 'true' : null"
+          [attr.aria-describedby]="linkError() ? fieldId() + '-link-error' : null"
+        />
+        <button
+          type="button"
+          aria-label="Insert link"
+          title="Insert link"
+          [disabled]="toolsDisabled()"
+          (click)="insertLink()"
+        >
+          <svg lucideCheck aria-hidden="true"></svg>
+        </button>
+        <button
+          type="button"
+          aria-label="Cancel link"
+          title="Cancel link"
+          [disabled]="toolsDisabled()"
+          (click)="cancelLink()"
+        >
+          <svg lucideX aria-hidden="true"></svg>
+        </button>
+      </div>
+      @if (linkError()) {
+        <p class="link-error" [id]="fieldId() + '-link-error'" role="alert">{{ linkError() }}</p>
+      }
+    </div>
+  }
+  @for (identity of textareaInstances(); track identity.revision) {
+    <textarea
+      #textarea
+      [id]="fieldId()"
+      [rows]="rows()"
+      [disabled]="disabled()"
+      [attr.data-editor-revision]="identity.revision"
+      [attr.aria-describedby]="describedBy()"
+      [attr.aria-invalid]="invalid() ? 'true' : null"
+      (input)="sourceInput($event)"
+      (compositionstart)="compositionStart($event)"
+      (compositionend)="compositionEnd($event)"
+    ></textarea>
+  }
+</div>
+@if (mode() === 'preview') {
+  <div
+    class="preview"
+    role="region"
+    [attr.aria-label]="label() + ' preview'"
+    [style.min-height.px]="previewHeight()"
+  >
+    <app-authored-content-viewer [source]="value().source" [format]="value().format" />
+  </div>
+}
+<output
+  class="source-count"
+  [id]="fieldId() + '-count'"
+  aria-live="off"
+  [attr.aria-label]="
+    'Source length: ' + sourceCount() + ' of ' + sourceLimit + ' UTF-16 code units'
+  "
+>
+  {{ sourceCount().toLocaleString('en-US') }} / {{ sourceLimit.toLocaleString('en-US') }}
+</output>

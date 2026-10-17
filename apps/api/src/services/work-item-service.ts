@@ -27,6 +27,10 @@ import { randomUUID } from 'node:crypto';
 
 import type { WorktrailDb } from '../db/client.js';
 import type { ActorContext } from '../domain/actor.js';
+import {
+  resolveNewAuthoredContent,
+  resolveUpdatedAuthoredContent
+} from '../domain/authored-content-policy.js';
 import type { WorkItemStatus } from '../domain/constants.js';
 import { canTransitionWorkItem } from '../domain/workflow.js';
 import {
@@ -271,6 +275,10 @@ export class WorkItemService {
     const reporterId = input.reporterId ?? this.context.actor.memberId;
     const project = await this.requireProjectFromRepositories(projectId, repositories);
     this.assertProjectWritable(project);
+    const description = resolveNewAuthoredContent(
+      { source: input.description, format: input.descriptionFormat },
+      { sourceField: 'description', requireNonWhitespace: false }
+    );
     await this.validateLabels(projectId, labelIds, repositories);
     await this.validateMilestone(projectId, input.milestoneId ?? null, repositories);
     await this.validateCycle(projectId, input.cycleId ?? null, repositories);
@@ -300,7 +308,8 @@ export class WorkItemService {
       workspaceId: this.context.actor.workspaceId,
       projectId,
       title: input.title,
-      description: input.description ?? '',
+      description: description.source,
+      descriptionFormat: description.format,
       itemNumber,
       displayKey: `${numberedProject.key}-${itemNumber}`,
       type: input.type,
@@ -472,12 +481,22 @@ export class WorkItemService {
     input: UpdateWorkItemRequest
   ): Promise<WorkItemDetailDto> {
     return this.withWriteRepositories(async (repositories) => {
-      const current = await this.requireWorkItem(workItemId, repositories);
+      await this.requireWorkItem(workItemId, repositories);
+      const [current] = await repositories.workItems.findManyByIdsForUpdate([workItemId]);
+
+      if (current === undefined || current.workspaceId !== this.context.actor.workspaceId) {
+        throw new NotFoundError('Work item not found.');
+      }
+
       const project = await this.requireProjectFromRepositories(current.projectId, repositories);
       this.assertProjectWritable(project);
+      const description = resolveUpdatedAuthoredContent(
+        { source: current.description, format: current.descriptionFormat },
+        { source: input.description, format: input.descriptionFormat },
+        { sourceField: 'description', requireNonWhitespace: false }
+      );
       const currentLabels = await repositories.labels.listByWorkItem(workItemId);
-      const timestamp = this.clock();
-      const nextLabelIds = input.labelIds;
+      const nextLabelIds = input.labelIds === undefined ? undefined : [...new Set(input.labelIds)];
 
       if (nextLabelIds !== undefined) {
         await this.validateLabels(current.projectId, nextLabelIds, repositories, {
@@ -505,9 +524,33 @@ export class WorkItemService {
         });
       }
 
+      const scalarFields = [
+        'title',
+        'type',
+        'priority',
+        'assigneeId',
+        'milestoneId',
+        'cycleId',
+        'dueDate',
+        'estimatePoints'
+      ] as const;
+      const scalarChanged = scalarFields.some(
+        (field) => input[field] !== undefined && input[field] !== current[field]
+      );
+      const labelsChanged =
+        nextLabelIds !== undefined &&
+        !this.haveSameIds(currentLabels.map((label) => label.id), nextLabelIds);
+
+      if (!description.changed && !scalarChanged && !labelsChanged) {
+        return this.toDetailDto(current, repositories);
+      }
+
+      const timestamp = this.clock();
       const updated = await repositories.workItems.update(workItemId, {
         ...(input.title === undefined ? {} : { title: input.title }),
-        ...(input.description === undefined ? {} : { description: input.description }),
+        ...(description.changed
+          ? { description: description.source, descriptionFormat: description.format }
+          : {}),
         ...(input.type === undefined ? {} : { type: input.type }),
         ...(input.priority === undefined ? {} : { priority: input.priority }),
         ...(input.assigneeId === undefined ? {} : { assigneeId: input.assigneeId }),
@@ -522,7 +565,7 @@ export class WorkItemService {
         throw new NotFoundError('Work item not found.');
       }
 
-      if (nextLabelIds !== undefined) {
+      if (labelsChanged) {
         await repositories.labels.replaceForWorkItem(workItemId, nextLabelIds);
       }
 
@@ -531,7 +574,7 @@ export class WorkItemService {
         updated,
         currentLabels,
         nextLabels:
-          nextLabelIds === undefined ? currentLabels : await repositories.labels.listByWorkItem(workItemId),
+          labelsChanged ? await repositories.labels.listByWorkItem(workItemId) : currentLabels,
         repositories,
         timestamp
       });
@@ -1620,7 +1663,7 @@ export class WorkItemService {
     timestamp: Date;
   }): Promise<{ assigneeActivityEventId: string | null }> {
     await this.recordFieldActivity(input, 'title', 'work_item.title_changed');
-    await this.recordFieldActivity(input, 'description', 'work_item.description_changed');
+    await this.recordDescriptionActivity(input);
     await this.recordFieldActivity(input, 'priority', 'work_item.priority_changed');
     const assigneeActivity = await this.recordFieldActivity(
       input,
@@ -1680,10 +1723,9 @@ export class WorkItemService {
       repositories: Repositories;
       timestamp: Date;
     },
-    field: 'title' | 'description' | 'priority' | 'assigneeId',
+    field: 'title' | 'priority' | 'assigneeId',
     eventType:
       | 'work_item.title_changed'
-      | 'work_item.description_changed'
       | 'work_item.priority_changed'
       | 'work_item.assignee_changed'
   ): Promise<ActivityEvent | null> {
@@ -1701,6 +1743,45 @@ export class WorkItemService {
       summary: `${field} changed.`,
       previousValue: { [field]: input.current[field] },
       newValue: { [field]: input.updated[field] },
+      metadata: {},
+      createdAt: input.timestamp
+    });
+  }
+
+  private async recordDescriptionActivity(input: {
+    current: WorkItem;
+    updated: WorkItem;
+    repositories: Repositories;
+    timestamp: Date;
+  }): Promise<void> {
+    const { current, updated } = input;
+
+    if (
+      current.description === updated.description &&
+      current.descriptionFormat === updated.descriptionFormat
+    ) {
+      return;
+    }
+
+    await input.repositories.activityEvents.create({
+      id: this.idGenerator(),
+      workspaceId: updated.workspaceId,
+      projectId: updated.projectId,
+      workItemId: updated.id,
+      actorId: this.context.actor.memberId,
+      eventType: 'work_item.description_changed',
+      summary:
+        current.description === updated.description
+          ? 'Description format changed.'
+          : 'description changed.',
+      previousValue: {
+        description: current.description,
+        descriptionFormat: current.descriptionFormat
+      },
+      newValue: {
+        description: updated.description,
+        descriptionFormat: updated.descriptionFormat
+      },
       metadata: {},
       createdAt: input.timestamp
     });

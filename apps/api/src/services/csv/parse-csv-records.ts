@@ -14,6 +14,7 @@ export interface CsvParseIssue {
 export interface ParseCsvRecordsOptions {
   requiredHeaders: readonly string[];
   allowedHeaders: readonly string[];
+  preserveWhitespace?: boolean;
 }
 
 export interface ParseCsvRecordsResult {
@@ -56,7 +57,7 @@ export function parseCsvRecords(
       },
       info: true,
       skip_empty_lines: true,
-      trim: true
+      trim: !options.preserveWhitespace
     }) as ParsedRecord[];
   } catch {
     throw new CsvRecordsParseError([

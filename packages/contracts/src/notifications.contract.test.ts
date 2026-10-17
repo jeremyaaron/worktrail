@@ -84,6 +84,7 @@ describe('notification contracts', () => {
       workItemId: 'work-item-id',
       author: member,
       body: 'Can you review this?',
+      bodyFormat: 'plain_text',
       mentions: [member],
       isEdited: false,
       isDeleted: false,

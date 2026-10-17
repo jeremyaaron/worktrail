@@ -142,7 +142,13 @@ test.describe.serial('v0.2.4 cycle closeout', () => {
 
     await page.setViewportSize({ width: 1440, height: 900 });
     const closeButton = page.getByRole('button', { name: 'Close cycle' });
+    // Exercise font metrics beyond the minimum width on every OS, not only the Linux runner.
+    await closeButton.evaluate((button) => {
+      button.style.fontFamily = 'monospace';
+      button.style.fontSize = '24px';
+    });
     const restingButtonBox = await closeButton.boundingBox();
+    expect(restingButtonBox?.width).toBeGreaterThan(112);
 
     await page.route(
       closeRequest,

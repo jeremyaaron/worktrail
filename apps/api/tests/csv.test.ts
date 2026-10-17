@@ -10,6 +10,25 @@ const requiredHeaders = ['title', 'type'] as const;
 const allowedHeaders = ['title', 'type', 'label_names'] as const;
 
 describe('CSV service utilities', () => {
+  it('preserves unquoted whitespace only when requested and leaves headers normalized', () => {
+    const csv = ' title , type ,label_names\n  Literal source  , task ,  backend  \n';
+    const defaults = parseCsvRecords(csv, { requiredHeaders, allowedHeaders });
+    const preserved = parseCsvRecords(csv, { requiredHeaders, allowedHeaders, preserveWhitespace: true });
+
+    expect(defaults.records[0]?.values).toEqual({ title: 'Literal source', type: 'task', label_names: 'backend' });
+    expect(preserved.headers).toEqual(defaults.headers);
+    expect(preserved.records[0]?.values).toEqual({ title: '  Literal source  ', type: ' task ', label_names: '  backend  ' });
+  });
+
+  it('preserves quoted multiline cells, indentation, commas, and escaped quotes', () => {
+    const parsed = parseCsvRecords('title,type\r\n"  first, ""quoted""\r\n\tsecond  \rthird\n",task\r\n', {
+      requiredHeaders, allowedHeaders, preserveWhitespace: true
+    });
+    expect(parsed.records).toEqual([{ rowNumber: 6, values: {
+      title: '  first, "quoted"\r\n\tsecond  \rthird\n', type: 'task'
+    } }]);
+  });
+
   it('parses quoted commas, skips empty lines, and preserves physical row numbers', () => {
     const result = parseCsvRecords('title,type,label_names\n\n"Fix board, layout",bug,"frontend,ux"\n', {
       requiredHeaders,

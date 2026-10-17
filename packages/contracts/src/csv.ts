@@ -1,3 +1,4 @@
+import type { AuthoredContentFormat } from './authored-content.js';
 import type { WorkItemListItemDto, WorkItemPriority, WorkItemStatus, WorkItemType } from './work-items.js';
 
 export interface WorkItemCsvImportPreviewRequest {
@@ -23,6 +24,8 @@ export interface WorkItemCsvImportWarningDto {
 export interface WorkItemCsvImportPreviewRowDto {
   rowNumber: number;
   title: string;
+  descriptionFormat: AuthoredContentFormat;
+  descriptionExcerpt: string;
   type: WorkItemType;
   status: WorkItemStatus;
   priority: WorkItemPriority;

@@ -6,6 +6,61 @@ import { describe, expect, it } from 'vitest';
 const openApiPath = fileURLToPath(new URL('../../../docs/api/openapi.yaml', import.meta.url));
 
 describe('OpenAPI reference', () => {
+  it('documents format-aware CSV import and bounded source previews without changing exports', async () => {
+    const openApi = await readFile(openApiPath, 'utf8');
+    const requestSchema = openApi.split('    WorkItemCsvImportPreviewRequest:\n')[1]?.split('    WorkItemCsvImportApplyRequest:')[0];
+    const row = openApi.split('    WorkItemCsvImportPreviewRow:\n')[1]?.split('    WorkItemCsvImportPreview:')[0];
+    expect(requestSchema).toContain('description_format');
+    expect(requestSchema).toContain('missing/blank values default to plain_text');
+    expect(requestSchema).toContain('10,000 normalized UTF-16 code units');
+    expect(row).toContain('- descriptionFormat');
+    expect(row).toContain('- descriptionExcerpt');
+    expect(row).toContain('maxLength: 240');
+    expect(row).toContain('not HTML or Markdown');
+    expect(openApi).toContain('not round-trip import documents');
+  });
+
+  it('documents comment write formats, required source, legacy exceptions, and lifecycle safety', async () => {
+    const openApi = await readFile(openApiPath, 'utf8');
+    const create = openApi.split('    CreateCommentRequest:\n')[1]?.split('    UpdateCommentRequest:')[0];
+    const update = openApi.split('    UpdateCommentRequest:\n')[1]?.split('    NotificationType:')[0];
+
+    for (const schema of [create, update]) {
+      expect(schema).toContain('required: [body]');
+      expect(schema).toContain('bodyFormat:');
+      expect(schema).toContain('$ref: "#/components/schemas/AuthoredContentFormat"');
+      expect(schema).toContain('UTF-16 code units');
+      expect(schema).toContain('VALIDATION_ERROR');
+      expect(schema).not.toContain('maxLength:');
+    }
+    expect(create).toContain('default: plain_text');
+    expect(create).toContain('Only explicit mentionMemberIds');
+    expect(update).toContain('current locked format');
+    expect(update).toContain('Unchanged legacy pairs');
+    expect(update).toContain('previousBodyFormat/newBodyFormat');
+    expect(update).toContain('never replaces mention rows');
+    expect(update).toContain('409 CONFLICT');
+  });
+
+  it('documents format-aware description writes without falsely capping historical reads', async () => {
+    const openApi = await readFile(openApiPath, 'utf8');
+    const create = openApi.split('    CreateWorkItemRequest:\n')[1]?.split('    SetWorkItemParentRequest:')[0];
+    const update = openApi.split('    UpdateWorkItemRequest:\n')[1]?.split('    TransitionWorkItemRequest:')[0];
+
+    for (const schema of [create, update]) {
+      expect(schema).toContain('descriptionFormat:');
+      expect(schema).toContain('$ref: "#/components/schemas/AuthoredContentFormat"');
+      expect(schema).toContain('UTF-16 code units');
+      expect(schema).toContain('VALIDATION_ERROR');
+      expect(schema).not.toContain('maxLength:');
+    }
+    expect(create).toContain('default: plain_text');
+    expect(update).toContain('current locked pair');
+    expect(update).toContain('Unchanged legacy pairs');
+    expect(update).toContain('full PATCH no-op');
+    expect(update).toContain('Description format changed.');
+  });
+
   it('documents key implemented API paths and local development behavior', async () => {
     const openApi = await readFile(openApiPath, 'utf8');
 
@@ -82,7 +137,7 @@ describe('OpenAPI reference', () => {
       expect(openApi, `missing ${path}`).toContain(`  ${path}:`);
     }
 
-    expect(openApi).toContain('version: 0.2.8');
+    expect(openApi).toContain('version: 0.2.9');
     expect(openApi).toContain('x-worktrail-member-id');
     expect(openApi).toContain('x-worktrail-workspace-id');
     expect(openApi).toContain('x-worktrail-role');
@@ -96,6 +151,10 @@ describe('OpenAPI reference', () => {
     expect(openApi).toContain('WorkItemRelationshipSummary:');
     expect(openApi).toContain('CreateWorkItemRelationshipRequest:');
     expect(openApi).toContain('WorkItemRelationship:');
+    expect(openApi).toContain('AuthoredContentFormat:');
+    expect(openApi).toContain('enum: [plain_text, markdown_v1]');
+    expect(openApi).toContain('required: [description, descriptionFormat, relationships, comments, activity]');
+    expect(openApi).toContain('body, bodyFormat, mentions');
     expect(openApi).toContain('WorkItemAttachment:');
     expect(openApi).toContain('WorkItemAttachmentList:');
     expect(openApi).toContain('WorkItemAttachmentUsage:');

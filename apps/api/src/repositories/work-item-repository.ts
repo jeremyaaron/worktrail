@@ -31,6 +31,7 @@ export type WorkItemFilters = ProjectWorkItemQuery;
 export interface UpdateWorkItemInput {
   title?: string;
   description?: string;
+  descriptionFormat?: WorkItem['descriptionFormat'];
   type?: WorkItem['type'];
   status?: WorkItem['status'];
   priority?: WorkItem['priority'];

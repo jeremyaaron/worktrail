@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Worktrail API
-  version: 0.2.8
+  version: 0.2.9
   summary: HTTP API reference for the Worktrail local-first project management app.
   description: |
     This document describes the implemented Worktrail API routes. It is intentionally
@@ -5004,14 +5004,29 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/WorkspaceWorkItemListItem"
+    AuthoredContentFormat:
+      type: string
+      enum: [plain_text, markdown_v1]
+      description: |
+        Explicit source format. Existing records default to plain_text; punctuation never determines
+        the format. markdown_v1 is Worktrail's bounded profile: paragraphs, visible line breaks,
+        headings, lists, emphasis, quotations, inline/fenced code, and explicit HTTP(S) links.
+        Images show alternative text only; HTML is literal. No GFM tables, task controls,
+        strikethrough, syntax highlighting, or arbitrary HTML/attributes are rendered.
+        Unknown formats, parser failures, or projection-limit failures display complete literal source.
     WorkItemDetail:
       allOf:
         - $ref: "#/components/schemas/WorkItemListItem"
         - type: object
-          required: [description, relationships, comments, activity]
+          required: [description, descriptionFormat, relationships, comments, activity]
           properties:
             description:
               type: string
+              description: Stored source, including historical whitespace and legacy oversized values; response reads are not capped by the new-write limit.
+              examples:
+                - "## Acceptance criteria\n\n- Preserve **original source**.\n"
+            descriptionFormat:
+              $ref: "#/components/schemas/AuthoredContentFormat"
             relationships:
               $ref: "#/components/schemas/WorkItemRelationshipSummary"
             comments:
@@ -5149,6 +5164,16 @@ components:
       type: object
       required: [csv]
       additionalProperties: false
+      description: |
+        Import requires title, type, and priority headers. Optional description_format accepts
+        plain_text or markdown_v1 after metadata trimming; missing/blank values default to plain_text.
+        Invalid formats produce row-specific errors and block apply. Description cells preserve
+        whitespace and CSV quoting, normalizing CRLF/lone CR to LF without trimming. Descriptions may
+        be empty and must fit 10,000 normalized UTF-16 code units. Other cells retain the 10,000 raw
+        code-unit limit. Files retain the 1 MiB, 250-row, and 20-labels-per-row limits. Preview returns
+        format metadata and bounded source excerpts, not rendered Markdown or full descriptions.
+      examples:
+        - csv: "title,type,priority,description,description_format\nStructured task,task,medium,\"  ## Acceptance\n\n- Ready for review\n\",markdown_v1\n"
       properties:
         csv:
           type: string
@@ -5157,6 +5182,11 @@ components:
       type: object
       required: [csv]
       additionalProperties: false
+      description: |
+        Revalidates the same file and current references using preview rules, then applies all valid
+        rows transactionally; any validation error blocks the entire import. Description source and
+        format are preserved together. Summary project/workspace CSV export columns are unchanged:
+        they do not include descriptions or formats and are not round-trip import documents.
       properties:
         csv:
           type: string
@@ -5178,6 +5208,8 @@ components:
       required:
         - rowNumber
         - title
+        - descriptionFormat
+        - descriptionExcerpt
         - type
         - status
         - priority
@@ -5192,6 +5224,12 @@ components:
           type: integer
         title:
           type: string
+        descriptionFormat:
+          $ref: "#/components/schemas/AuthoredContentFormat"
+        descriptionExcerpt:
+          type: string
+          maxLength: 240
+          description: Normalized source text, at most 240 UTF-16 code units including a trailing ASCII "..." when truncated, without splitting a surrogate pair. Render only as escaped text, not HTML or Markdown.
         type:
           $ref: "#/components/schemas/WorkItemType"
         status:
@@ -5255,11 +5293,31 @@ components:
     CreateWorkItemRequest:
       type: object
       required: [title, type, priority]
+      description: |
+        Omitted description is empty and omitted descriptionFormat is plain_text; Markdown is never
+        inferred from source. CRLF and lone CR normalize to LF without trimming other whitespace.
+        New descriptions must be at most 10,000 UTF-16 code units after normalization. Empty or
+        whitespace-only descriptions are valid in either format. Invalid/null formats or oversized
+        source return 400 VALIDATION_ERROR. Size errors report only field, source_too_long, and
+        maximumCodeUnits (10000), never the submitted source.
+      examples:
+        - title: Plain-text task
+          type: task
+          priority: medium
+          description: "  **literal punctuation**\n"
+        - title: Structured task
+          type: task
+          priority: medium
+          description: "## Acceptance\n\n- Preserve indentation\n"
+          descriptionFormat: markdown_v1
       properties:
         title:
           type: string
         description:
           type: string
+        descriptionFormat:
+          $ref: "#/components/schemas/AuthoredContentFormat"
+          default: plain_text
         type:
           $ref: "#/components/schemas/WorkItemType"
         status:
@@ -5300,11 +5358,32 @@ components:
           description: Eligible same-project top-level work item ID, or null to clear the current parent.
     UpdateWorkItemRequest:
       type: object
+      minProperties: 1
+      description: |
+        Supply at least one editable field. Omitted source/format preserves the current locked pair;
+        descriptionFormat alone explicitly converts existing source. Changed source normalizes CRLF
+        and lone CR to LF without trimming. An equivalent normalized source retains historical bytes.
+        Changed pairs must fit 10,000 normalized UTF-16 code units, including format-only conversion;
+        shorten oversized legacy source in the same request to convert it. Unchanged legacy pairs
+        remain valid even when oversized, including unrelated metadata edits. Invalid/null formats
+        and oversized changed pairs return 400 VALIDATION_ERROR. Size errors contain only field,
+        source_too_long, and maximumCodeUnits (10000), not submitted or stored source.
+        A full PATCH no-op compares supplied scalar fields and label sets without order or duplicates;
+        it preserves updatedAt and emits no activity or notifications. Changed description pairs
+        create one description_changed event containing previous/new source and format; format-only
+        events use the summary "Description format changed." Real assignee changes still notify.
+      examples:
+        - description: "  Updated source\n"
+        - descriptionFormat: markdown_v1
+        - description: Shortened legacy description
+          descriptionFormat: markdown_v1
       properties:
         title:
           type: string
         description:
           type: string
+        descriptionFormat:
+          $ref: "#/components/schemas/AuthoredContentFormat"
         type:
           $ref: "#/components/schemas/WorkItemType"
         priority:
@@ -5545,7 +5624,7 @@ components:
             $ref: "#/components/schemas/WorkItemWatcher"
     Comment:
       type: object
-      required: [id, workspaceId, projectId, workItemId, author, body, mentions, isEdited, isDeleted, createdAt, updatedAt]
+      required: [id, workspaceId, projectId, workItemId, author, body, bodyFormat, mentions, isEdited, isDeleted, createdAt, updatedAt]
       properties:
         id:
           type: string
@@ -5563,6 +5642,11 @@ components:
           $ref: "#/components/schemas/Member"
         body:
           type: string
+          description: Stored source, including legacy oversized or blank values; response reads are not capped by the new-write limit. Deleted comments expose an empty string.
+        bodyFormat:
+          allOf:
+            - $ref: "#/components/schemas/AuthoredContentFormat"
+          description: Persisted source format, or plain_text for a deleted comment tombstone.
         mentions:
           type: array
           items:
@@ -5590,9 +5674,25 @@ components:
     CreateCommentRequest:
       type: object
       required: [body]
+      description: |
+        Omitted bodyFormat defaults to plain_text; Markdown is never inferred from source. CRLF and
+        lone CR normalize to LF without trimming indentation or surrounding whitespace. New body
+        source must contain non-whitespace content and fit 10,000 UTF-16 code units after normalization.
+        Invalid/null formats, blank body, or oversized source return 400 VALIDATION_ERROR. Source
+        policy error details contain field (body), reason (empty_source or source_too_long), and
+        maximumCodeUnits (10000) for size errors, never submitted source. Only explicit mentionMemberIds
+        select recipients; formatting syntax and member-like text do not create mentions. Duplicate
+        mention IDs and overlapping watcher recipients follow the existing notification deduplication.
+      examples:
+        - body: "  **Literal punctuation**\n"
+        - body: "## Update\n\n- Ready for review\n"
+          bodyFormat: markdown_v1
       properties:
         body:
           type: string
+        bodyFormat:
+          $ref: "#/components/schemas/AuthoredContentFormat"
+          default: plain_text
         mentionMemberIds:
           type: array
           items:
@@ -5601,9 +5701,29 @@ components:
     UpdateCommentRequest:
       type: object
       required: [body]
+      description: |
+        Body remains required, including for explicit format conversion. Omitted bodyFormat preserves
+        the current locked format. Changed source normalizes CRLF and lone CR to LF without trimming;
+        equivalent normalized source retains historical bytes. Changed source/format pairs must be
+        non-whitespace and fit 10,000 normalized UTF-16 code units. Unchanged legacy pairs remain valid
+        even if blank or oversized. Supply valid source in the same request to convert such records.
+        Unknown/null formats, blank changed pairs, or oversized changed pairs return 400 VALIDATION_ERROR
+        with the same source-free policy details as creation. A source/format no-op preserves updatedAt,
+        editedAt, and isEdited, and creates no activity or notifications. Real changes write the pair
+        and edit timestamps atomically and create one comment.edited event without body history.
+        Format changes add previousBodyFormat/newBodyFormat to event metadata; format-only changes
+        use the summary "Comment format changed." Editing never replaces mention rows or resends
+        creation notifications. Edits/deletions serialize on the comment row, recheck permissions and
+        project writability, and reject already-deleted comments with 409 CONFLICT, including no-ops.
+      examples:
+        - body: "  Updated source\n"
+        - body: "**Existing source**"
+          bodyFormat: markdown_v1
       properties:
         body:
           type: string
+        bodyFormat:
+          $ref: "#/components/schemas/AuthoredContentFormat"
     NotificationType:
       type: string
       enum:
