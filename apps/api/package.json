@@ -16,6 +16,7 @@
     "db:seed": "tsx src/db/seed.ts",
     "db:performance-evidence": "tsx src/db/performance-evidence.ts",
     "db:quick-find-performance-evidence": "tsx src/db/quick-find-performance-evidence.ts",
+    "db:cycle-diagnostics": "tsx src/db/cycle-diagnostics.ts",
     "storage:reset": "tsx src/storage/reset.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src --max-warnings=0",

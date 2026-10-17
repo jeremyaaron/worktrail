@@ -1,4 +1,5 @@
 import type { WorkItemAttachmentDto, WorkItemAttachmentListDto } from '@worktrail/contracts';
+import { coordinateProjects } from './project-write-coordination.js';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
 import { assertPersistence, type Persistence } from '../repositories/persistence.js';
@@ -143,7 +144,9 @@ export class AttachmentService {
     }
 
     try {
-      const created = await this.context.persistence.write(async ({ repositories }) => {
+      const created = await this.context.persistence.write(async (scope) => {
+        await coordinateProjects(scope, actor.workspaceId, [prechecked.project.id], 'shared');
+        const repositories = scope.repositories;
         const project = await repositories.projects.findByIdForShare(prechecked.project.id);
 
         if (project === null || project.workspaceId !== actor.workspaceId) {
@@ -286,7 +289,9 @@ export class AttachmentService {
     this.assertProjectWritable(prechecked.project);
     this.assertCanRemove(precheckedActor, prechecked.attachment);
 
-    await this.context.persistence.write(async ({ repositories }) => {
+    await this.context.persistence.write(async (scope) => {
+      await coordinateProjects(scope, actor.workspaceId, [prechecked.project.id], 'shared');
+      const repositories = scope.repositories;
       const project = await repositories.projects.findByIdForShare(prechecked.project.id);
 
       if (project === null || project.workspaceId !== actor.workspaceId) {

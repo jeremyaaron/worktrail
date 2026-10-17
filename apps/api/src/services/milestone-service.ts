@@ -1,3 +1,5 @@
+import { milestoneConstraintConflicts, rethrowConstraintConflict } from '../errors/persistence-conflict.js';
+import { coordinateProjects, coordinateReference } from './project-write-coordination.js';
 import type { CreateMilestoneRequest, MilestoneDto, UpdateMilestoneRequest } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
@@ -51,9 +53,10 @@ export class MilestoneService {
   }
 
   async createMilestone(projectId: string, input: CreateMilestoneRequest): Promise<MilestoneDto> {
-    return this.context.persistence.write((scope) =>
-      new MilestoneService({ ...this.context, ...scope }).createMilestoneInScope(projectId, input)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateProjects(scope, this.context.actor.workspaceId, [projectId], 'exclusive');
+      return new MilestoneService({ ...this.context, ...scope }).createMilestoneInScope(projectId, input);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, milestoneConstraintConflicts));
   }
 
   private async createMilestoneInScope(projectId: string, input: CreateMilestoneRequest): Promise<MilestoneDto> {
@@ -105,9 +108,10 @@ export class MilestoneService {
     milestoneId: string,
     input: UpdateMilestoneRequest
   ): Promise<MilestoneDto> {
-    return this.context.persistence.write((scope) =>
-      new MilestoneService({ ...this.context, ...scope }).updateMilestoneInScope(milestoneId, input)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateReference(scope, this.context.actor.workspaceId, 'milestones', milestoneId, 'exclusive');
+      return new MilestoneService({ ...this.context, ...scope }).updateMilestoneInScope(milestoneId, input);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, milestoneConstraintConflicts));
   }
 
   private async updateMilestoneInScope(
@@ -147,9 +151,10 @@ export class MilestoneService {
   }
 
   async archiveMilestone(milestoneId: string): Promise<MilestoneDto> {
-    return this.context.persistence.write((scope) =>
-      new MilestoneService({ ...this.context, ...scope }).archiveMilestoneInScope(milestoneId)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateReference(scope, this.context.actor.workspaceId, 'milestones', milestoneId, 'exclusive');
+      return new MilestoneService({ ...this.context, ...scope }).archiveMilestoneInScope(milestoneId);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, milestoneConstraintConflicts));
   }
 
   private async archiveMilestoneInScope(milestoneId: string): Promise<MilestoneDto> {
@@ -193,9 +198,10 @@ export class MilestoneService {
   }
 
   async reactivateMilestone(milestoneId: string): Promise<MilestoneDto> {
-    return this.context.persistence.write((scope) =>
-      new MilestoneService({ ...this.context, ...scope }).reactivateMilestoneInScope(milestoneId)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateReference(scope, this.context.actor.workspaceId, 'milestones', milestoneId, 'exclusive');
+      return new MilestoneService({ ...this.context, ...scope }).reactivateMilestoneInScope(milestoneId);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, milestoneConstraintConflicts));
   }
 
   private async reactivateMilestoneInScope(milestoneId: string): Promise<MilestoneDto> {

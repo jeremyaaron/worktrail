@@ -2,8 +2,8 @@
 
 ## Status
 
-Approved for sequential execution. Phases 0-5 are complete as of October 17, 2026; Phases 6-21 are
-not started. Implementation is in progress; release verification remains pending. Merge, tag, publication,
+Approved for sequential execution. Phases 0-6 are complete as of October 17, 2026; Phases 7-21 are
+not started. Release verification remains pending. Merge, tag, publication,
 and Pages deployment remain separate user-controlled actions.
 
 ## Purpose
@@ -82,9 +82,9 @@ integration boundaries.
 | 1 | Disposable verification resources and destructive-operation guards | Complete |
 | 2 | Owned browser/full verification, CI, and test-code gates | Complete |
 | 3 | Compatible toolchain remediation and bounded advisory gate | Complete |
-| 4 | Typed persistence executors and explicit transaction capabilities | Not started |
-| 5 | Batched work hydration, query ownership, and page/export evidence | Not started |
-| 6 | Project coordination and concurrent cycle lifecycle safety | Not started |
+| 4 | Typed persistence executors and explicit transaction capabilities | Complete |
+| 5 | Batched work hydration, query ownership, and page/export evidence | Complete |
+| 6 | Project coordination and concurrent cycle lifecycle safety | Complete |
 | 7 | Authoritative work/hierarchy/board/dependency commands | Not started |
 | 8 | Import transport budgets and structured parser errors | Not started |
 | 9 | Live-query/risk policy, estimate state, and versioned snapshots | Not started |
@@ -823,7 +823,30 @@ Acceptance:
 Verification: synchronized real-connection PostgreSQL tests with bounded timeouts; active/name conflict,
 archive/reactivation, closeout replay/rollback, and writer-participation tests; owned API/full regressions.
 
-Status: Not started.
+Status: Complete.
+
+Completion evidence:
+
+- All inventoried project-dependent writes acquire predetermined shared/exclusive transaction-scoped
+  project gates; cross-project relationship commands acquire both endpoint projects together in ID
+  order. Workspace views and Inbox read-state remain independent. Bulk rereads writability per item;
+  import retains atomic apply through a complete scoped creation capability.
+- Cycle availability/current-state checks run after exclusion; generic edits lock/reread the cycle,
+  and closeout locks source/destination cycles in ID order before enumeration. Existing inclusive
+  overlap, active/name uniqueness, historical exceptions, replay, and error contracts remain intact.
+  Known unique backstops map to controlled conflicts without exposing database detail.
+- Added 83 real-PostgreSQL coordination/diagnostic cases and ten constraint-mapping unit cases. Tests
+  observe actual advisory waits before releasing the first writer, validate queued archive/reference
+  changes, exercise closeout races and real unique indexes, and prove independent/shared writers.
+- Focused owned API verification passed 724 cases during implementation. Final full verification
+  passed all 25 gates: 750 API, 54 contracts, 652 Angular, 41 resource, five editor, 34 application E2E,
+  and one production-preview test, plus audit/lint/typecheck/schema/build/site checks. Owned resources
+  were removed. One diagnostic bulk assertion failure and its contract-preserving correction are
+  recorded in [verification notes](verification-notes.md).
+- Added the [read-only cycle diagnostic](../cycle-diagnostics.md) and remediation guide, and updated
+  the [current participation inventory](../development.md#lock-ownership-and-participation). No working
+  data, schema, extensions, dependencies, versions, or budgets changed. Authoritative work/graph/
+  hierarchy/board command ownership and row ordering remain Phase 7.
 
 ## Phase 7: Authoritative Work And Relationship Commands
 

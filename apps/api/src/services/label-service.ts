@@ -1,3 +1,5 @@
+import { labelConstraintConflicts, rethrowConstraintConflict } from '../errors/persistence-conflict.js';
+import { coordinateProjects, coordinateReference } from './project-write-coordination.js';
 import type { CreateLabelRequest, LabelDto, UpdateLabelRequest } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
@@ -46,9 +48,10 @@ export class LabelService {
   }
 
   async createLabel(projectId: string, input: CreateLabelRequest): Promise<LabelDto> {
-    return this.context.persistence.write((scope) =>
-      new LabelService({ ...this.context, ...scope }).createLabelInScope(projectId, input)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateProjects(scope, this.context.actor.workspaceId, [projectId], 'exclusive');
+      return new LabelService({ ...this.context, ...scope }).createLabelInScope(projectId, input);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, labelConstraintConflicts));
   }
 
   private async createLabelInScope(projectId: string, input: CreateLabelRequest): Promise<LabelDto> {
@@ -90,9 +93,10 @@ export class LabelService {
   }
 
   async updateLabel(labelId: string, input: UpdateLabelRequest): Promise<LabelDto> {
-    return this.context.persistence.write((scope) =>
-      new LabelService({ ...this.context, ...scope }).updateLabelInScope(labelId, input)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateReference(scope, this.context.actor.workspaceId, 'labels', labelId, 'exclusive');
+      return new LabelService({ ...this.context, ...scope }).updateLabelInScope(labelId, input);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, labelConstraintConflicts));
   }
 
   private async updateLabelInScope(labelId: string, input: UpdateLabelRequest): Promise<LabelDto> {
@@ -123,9 +127,10 @@ export class LabelService {
   }
 
   async archiveLabel(labelId: string): Promise<LabelDto> {
-    return this.context.persistence.write((scope) =>
-      new LabelService({ ...this.context, ...scope }).archiveLabelInScope(labelId)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateReference(scope, this.context.actor.workspaceId, 'labels', labelId, 'exclusive');
+      return new LabelService({ ...this.context, ...scope }).archiveLabelInScope(labelId);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, labelConstraintConflicts));
   }
 
   private async archiveLabelInScope(labelId: string): Promise<LabelDto> {
@@ -165,9 +170,10 @@ export class LabelService {
   }
 
   async reactivateLabel(labelId: string): Promise<LabelDto> {
-    return this.context.persistence.write((scope) =>
-      new LabelService({ ...this.context, ...scope }).reactivateLabelInScope(labelId)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateReference(scope, this.context.actor.workspaceId, 'labels', labelId, 'exclusive');
+      return new LabelService({ ...this.context, ...scope }).reactivateLabelInScope(labelId);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, labelConstraintConflicts));
   }
 
   private async reactivateLabelInScope(labelId: string): Promise<LabelDto> {

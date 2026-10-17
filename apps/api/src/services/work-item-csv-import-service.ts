@@ -1,3 +1,4 @@
+import { coordinateProjects } from './project-write-coordination.js';
 import {
   authoredContentFormats,
   authoredContentSourceLimit,
@@ -129,9 +130,10 @@ export class WorkItemCsvImportService {
   }
 
   async apply(projectId: string, csv: string): Promise<WorkItemCsvImportApplyDto> {
-    return this.context.persistence.write((scope) =>
-      new WorkItemCsvImportService({ ...this.context, ...scope }).applyInScope(projectId, csv)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateProjects(scope, this.context.actor.workspaceId, [projectId], 'shared');
+      return new WorkItemCsvImportService({ ...this.context, ...scope }).applyInScope(projectId, csv);
+    });
   }
 
   private async applyInScope(projectId: string, csv: string): Promise<WorkItemCsvImportApplyDto> {
@@ -157,7 +159,8 @@ export class WorkItemCsvImportService {
       });
     }
 
-    const workItems = await this.withWriteRepositories(async (repositories) => {
+    const workItems = await this.context.persistence.write(async (scope) => {
+      const repositories = scope.repositories;
       const service = new WorkItemService({
         persistence: this.context.persistence,
         actor: this.context.actor,
@@ -169,7 +172,7 @@ export class WorkItemCsvImportService {
 
       for (const row of result.rows) {
         created.push(
-          await service.createWorkItemWithRepositories(
+          await service.createWorkItemWithScope(
             projectId,
             {
               title: row.title,
@@ -185,7 +188,7 @@ export class WorkItemCsvImportService {
               dueDate: row.dueDate,
               estimatePoints: row.estimatePoints
             },
-            repositories
+            scope
           )
         );
       }
@@ -198,13 +201,6 @@ export class WorkItemCsvImportService {
       workItems
     };
   }
-
-  private async withWriteRepositories<T>(
-    callback: (repositories: Repositories) => Promise<T>
-  ): Promise<T> {
-    return this.context.persistence.write(({ repositories }) => callback(repositories));
-  }
-
   private async validate(projectId: string, csv: string): Promise<ImportValidationResult> {
     this.validateHardLimitsBeforeParse(csv);
 

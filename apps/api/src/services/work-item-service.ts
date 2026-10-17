@@ -1,3 +1,4 @@
+import { coordinateProjects, coordinateWorkItems } from './project-write-coordination.js';
 import type {
   ActivityEventDto,
   BulkUpdateWorkItemsAction,
@@ -25,7 +26,7 @@ import type {
 } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
-import { assertPersistence, type Persistence } from '../repositories/persistence.js';
+import { assertPersistence, type Persistence, type PersistenceScope } from '../repositories/persistence.js';
 import type { ActorContext } from '../domain/actor.js';
 import {
   resolveNewAuthoredContent,
@@ -143,14 +144,15 @@ export class WorkItemService {
   }
 
   async createWorkItem(projectId: string, input: CreateWorkItemRequest): Promise<WorkItemDetailDto> {
-    return this.context.persistence.write((scope) =>
-      new WorkItemService({ ...this.context, ...scope }).createWorkItemInScope(projectId, input)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateProjects(scope, this.context.actor.workspaceId, [projectId], 'shared');
+      return new WorkItemService({ ...this.context, ...scope }).createWorkItemInScope(projectId, input);
+    });
   }
 
   private async createWorkItemInScope(projectId: string, input: CreateWorkItemRequest): Promise<WorkItemDetailDto> {
-    return this.withWriteRepositories(async (repositories) => {
-      return this.createWorkItemWithRepositories(projectId, input, repositories);
+    return this.context.persistence.write(async (scope) => {
+      return this.createWorkItemWithScope(projectId, input, scope);
     });
   }
 
@@ -168,14 +170,17 @@ export class WorkItemService {
     for (const workItemId of input.workItemIds) {
       try {
         results.push(
-          await this.context.persistence.write((scope) =>
-            new WorkItemService({ ...this.context, ...scope }).applyBulkActionToWorkItem({
+          await this.context.persistence.write(async (scope) => {
+            await coordinateProjects(scope, this.context.actor.workspaceId, [projectId], 'shared');
+            const service = new WorkItemService({ ...this.context, ...scope });
+            service.assertProjectWritable(await service.requireProject(projectId));
+            return service.applyBulkActionToWorkItem({
               projectId,
               workItemId,
               action: input.action,
               repositories: scope.repositories
-            })
-          )
+            });
+          })
         );
       } catch (error) {
         if (error instanceof AppError) {
@@ -208,7 +213,18 @@ export class WorkItemService {
     };
   }
 
-  async createWorkItemWithRepositories(
+  async createWorkItemWithScope(
+    projectId: string,
+    input: WorkItemCreationInput,
+    scope: PersistenceScope
+  ): Promise<WorkItemDetailDto> {
+    return scope.persistence.write(async (current) => {
+      await coordinateProjects(current, this.context.actor.workspaceId, [projectId], 'shared');
+      return new WorkItemService({ ...this.context, ...current }).insertWorkItem(projectId, input, current.repositories);
+    });
+  }
+
+  private async insertWorkItem(
     projectId: string,
     input: WorkItemCreationInput,
     repositories: Repositories
@@ -365,9 +381,10 @@ export class WorkItemService {
     workItemId: string,
     input: SetWorkItemParentRequest
   ): Promise<WorkItemDetailDto> {
-    return this.context.persistence.write((scope) =>
-      new WorkItemService({ ...this.context, ...scope }).setParentInScope(workItemId, input)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateWorkItems(scope, this.context.actor.workspaceId, [workItemId]);
+      return new WorkItemService({ ...this.context, ...scope }).setParentInScope(workItemId, input);
+    });
   }
 
   private async setParentInScope(
@@ -451,9 +468,10 @@ export class WorkItemService {
     workItemId: string,
     input: UpdateWorkItemRequest
   ): Promise<WorkItemDetailDto> {
-    return this.context.persistence.write((scope) =>
-      new WorkItemService({ ...this.context, ...scope }).updateWorkItemInScope(workItemId, input)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateWorkItems(scope, this.context.actor.workspaceId, [workItemId]);
+      return new WorkItemService({ ...this.context, ...scope }).updateWorkItemInScope(workItemId, input);
+    });
   }
 
   private async updateWorkItemInScope(
@@ -577,9 +595,10 @@ export class WorkItemService {
     workItemId: string,
     input: TransitionWorkItemRequest
   ): Promise<WorkItemDetailDto> {
-    return this.context.persistence.write((scope) =>
-      new WorkItemService({ ...this.context, ...scope }).transitionWorkItemInScope(workItemId, input)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateWorkItems(scope, this.context.actor.workspaceId, [workItemId]);
+      return new WorkItemService({ ...this.context, ...scope }).transitionWorkItemInScope(workItemId, input);
+    });
   }
 
   private async transitionWorkItemInScope(
@@ -652,9 +671,10 @@ export class WorkItemService {
     workItemId: string,
     input: MoveWorkItemOnBoardRequest
   ): Promise<WorkItemDetailDto> {
-    return this.context.persistence.write((scope) =>
-      new WorkItemService({ ...this.context, ...scope }).moveWorkItemOnBoardInScope(workItemId, input)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateWorkItems(scope, this.context.actor.workspaceId, [workItemId]);
+      return new WorkItemService({ ...this.context, ...scope }).moveWorkItemOnBoardInScope(workItemId, input);
+    });
   }
 
   private async moveWorkItemOnBoardInScope(

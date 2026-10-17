@@ -1,3 +1,4 @@
+import { coordinateComment, coordinateWorkItems } from './project-write-coordination.js';
 import type { CommentDto, CreateCommentRequest, UpdateCommentRequest } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
@@ -45,9 +46,10 @@ export class CommentService {
   }
 
   async addComment(workItemId: string, input: CreateCommentRequest): Promise<CommentDto> {
-    return this.context.persistence.write((scope) =>
-      new CommentService({ ...this.context, ...scope }).addCommentInScope(workItemId, input)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateWorkItems(scope, this.context.actor.workspaceId, [workItemId]);
+      return new CommentService({ ...this.context, ...scope }).addCommentInScope(workItemId, input);
+    });
   }
 
   private async addCommentInScope(workItemId: string, input: CreateCommentRequest): Promise<CommentDto> {
@@ -112,9 +114,10 @@ export class CommentService {
   }
 
   async updateComment(commentId: string, input: UpdateCommentRequest): Promise<CommentDto> {
-    return this.context.persistence.write((scope) =>
-      new CommentService({ ...this.context, ...scope }).updateCommentInScope(commentId, input)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateComment(scope, this.context.actor.workspaceId, commentId);
+      return new CommentService({ ...this.context, ...scope }).updateCommentInScope(commentId, input);
+    });
   }
 
   private async updateCommentInScope(commentId: string, input: UpdateCommentRequest): Promise<CommentDto> {
@@ -173,9 +176,10 @@ export class CommentService {
   }
 
   async deleteComment(commentId: string): Promise<CommentDto> {
-    return this.context.persistence.write((scope) =>
-      new CommentService({ ...this.context, ...scope }).deleteCommentInScope(commentId)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateComment(scope, this.context.actor.workspaceId, commentId);
+      return new CommentService({ ...this.context, ...scope }).deleteCommentInScope(commentId);
+    });
   }
 
   private async deleteCommentInScope(commentId: string): Promise<CommentDto> {

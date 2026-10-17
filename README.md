@@ -611,7 +611,9 @@ databases/directories/processes. Sanitized gate summaries, browser JSON reports,
 remain under `test-results/verification/<runId>/`. Browser acceptance uses zero retries.
 See the [v0.3.0 verification evidence](docs/v0.3.0/verification-notes.md).
 The [developer ownership guide](docs/development.md) describes persistence scopes, database effects,
-query sequencing, test fakes, and the staged lock-participation contract.
+query sequencing, test fakes, and project lock participation. The
+[cycle diagnostic guide](docs/cycle-diagnostics.md) covers read-only schedule inspection and deliberate
+operator remediation with `npm run db:cycle-diagnostics`.
 
 Ports are selected automatically. To request ports or select a focused browser regression:
 

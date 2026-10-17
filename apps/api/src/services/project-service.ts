@@ -1,3 +1,5 @@
+import { projectConstraintConflicts, rethrowConstraintConflict } from '../errors/persistence-conflict.js';
+import { coordinateProjects } from './project-write-coordination.js';
 import type {
   CreateProjectRequest,
   ProjectDto,
@@ -130,7 +132,7 @@ export class ProjectService {
   async createProject(input: CreateProjectRequest): Promise<ProjectDto> {
     return this.context.persistence.write((scope) =>
       new ProjectService({ ...this.context, ...scope }).createProjectInScope(input)
-    );
+    ).catch((error: unknown) => rethrowConstraintConflict(error, projectConstraintConflicts));
   }
 
   private async createProjectInScope(input: CreateProjectRequest): Promise<ProjectDto> {
@@ -190,9 +192,10 @@ export class ProjectService {
   }
 
   async updateProject(projectId: string, input: UpdateProjectRequest): Promise<ProjectDto> {
-    return this.context.persistence.write((scope) =>
-      new ProjectService({ ...this.context, ...scope }).updateProjectInScope(projectId, input)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateProjects(scope, this.context.actor.workspaceId, [projectId], 'exclusive');
+      return new ProjectService({ ...this.context, ...scope }).updateProjectInScope(projectId, input);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, projectConstraintConflicts));
   }
 
   private async updateProjectInScope(projectId: string, input: UpdateProjectRequest): Promise<ProjectDto> {
@@ -235,9 +238,10 @@ export class ProjectService {
   }
 
   async archiveProject(projectId: string): Promise<ProjectDto> {
-    return this.context.persistence.write((scope) =>
-      new ProjectService({ ...this.context, ...scope }).archiveProjectInScope(projectId)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateProjects(scope, this.context.actor.workspaceId, [projectId], 'exclusive');
+      return new ProjectService({ ...this.context, ...scope }).archiveProjectInScope(projectId);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, projectConstraintConflicts));
   }
 
   private async archiveProjectInScope(projectId: string): Promise<ProjectDto> {
@@ -279,9 +283,10 @@ export class ProjectService {
   }
 
   async reactivateProject(projectId: string): Promise<ProjectDto> {
-    return this.context.persistence.write((scope) =>
-      new ProjectService({ ...this.context, ...scope }).reactivateProjectInScope(projectId)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateProjects(scope, this.context.actor.workspaceId, [projectId], 'exclusive');
+      return new ProjectService({ ...this.context, ...scope }).reactivateProjectInScope(projectId);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, projectConstraintConflicts));
   }
 
   private async reactivateProjectInScope(projectId: string): Promise<ProjectDto> {

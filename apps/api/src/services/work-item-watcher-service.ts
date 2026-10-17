@@ -1,3 +1,4 @@
+import { coordinateWorkItems } from './project-write-coordination.js';
 import type { WorkItemWatchStateDto } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
@@ -38,9 +39,10 @@ export class WorkItemWatcherService {
   }
 
   async watch(workItemId: string): Promise<WorkItemWatchStateDto> {
-    return this.context.persistence.write((scope) =>
-      new WorkItemWatcherService({ ...this.context, ...scope }).watchInScope(workItemId)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateWorkItems(scope, this.context.actor.workspaceId, [workItemId]);
+      return new WorkItemWatcherService({ ...this.context, ...scope }).watchInScope(workItemId);
+    });
   }
 
   private async watchInScope(workItemId: string): Promise<WorkItemWatchStateDto> {
@@ -64,9 +66,10 @@ export class WorkItemWatcherService {
   }
 
   async unwatch(workItemId: string): Promise<WorkItemWatchStateDto> {
-    return this.context.persistence.write((scope) =>
-      new WorkItemWatcherService({ ...this.context, ...scope }).unwatchInScope(workItemId)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateWorkItems(scope, this.context.actor.workspaceId, [workItemId]);
+      return new WorkItemWatcherService({ ...this.context, ...scope }).unwatchInScope(workItemId);
+    });
   }
 
   private async unwatchInScope(workItemId: string): Promise<WorkItemWatchStateDto> {

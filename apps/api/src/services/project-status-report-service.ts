@@ -1,3 +1,4 @@
+import { coordinateProjects } from './project-write-coordination.js';
 import type {
   CreateProjectStatusReportRequest,
   MilestoneProgressDto,
@@ -185,9 +186,10 @@ export class ProjectStatusReportService {
     projectId: string,
     input: CreateProjectStatusReportRequest
   ): Promise<ProjectStatusReportDetailDto> {
-    return this.context.persistence.write((scope) =>
-      new ProjectStatusReportService({ ...this.context, ...scope }).publishProjectStatusReportInScope(projectId, input)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateProjects(scope, this.context.actor.workspaceId, [projectId], 'shared');
+      return new ProjectStatusReportService({ ...this.context, ...scope }).publishProjectStatusReportInScope(projectId, input);
+    });
   }
 
   private async publishProjectStatusReportInScope(

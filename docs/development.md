@@ -1,8 +1,9 @@
 # Worktrail Developer Ownership And Invariants
 
-This is the current implementation guide, not a release archive. As of v0.3.0 Phase 5, persistence
-ownership and batched list/query hydration are implemented; command extraction and lifecycle coordination remain assigned
-to later phases in the [implementation plan](v0.3.0/implementation-plan.md).
+This is the current implementation guide, not a release archive. As of v0.3.0 Phase 6, persistence
+ownership, batched list/query hydration, and project/cycle lifecycle coordination are implemented.
+Authoritative work/relationship command extraction and row ordering remain Phase 7 in the
+[implementation plan](v0.3.0/implementation-plan.md).
 
 ## Composition And Persistence
 
@@ -28,14 +29,17 @@ keep count, row window, and DTO enrichment on the same snapshot.
 Service entry methods instantiate a scope-bound service and call a private `*InScope` body. This
 ensures existing helpers using `this.context.repositories` see scoped repositories. Nested services
 must receive the enclosing `scope.persistence` and repositories, never the root capability.
-Repository-accepting helpers such as `createWorkItemWithRepositories`, DTO enrichment, relationship
-summaries, and notification recording participate in their caller's scope; they do not own commits.
+`createWorkItemWithScope` requires the caller's complete `PersistenceScope` and participates in its
+write capability and shared project gate; CSV import cannot bypass coordination with repositories alone.
+Repository-accepting DTO enrichment, relationship summaries, and notification recording participate
+in their caller's scope; they do not own commits.
 Import apply owns one write including validation and all rows. CSV export owns one consistent read;
 report publication and its nested cycle snapshot share one write.
 
 Bulk work-item updates deliberately commit per item and retain partial success. Each item executes
-on a newly bound service, not on the outer root instance. Preliminary bulk validation is not proof
-against lifecycle races; authoritative coordination/revalidation belongs to Phases 6-7.
+on a newly bound service, not on the outer root instance. Each item acquires shared project coordination
+and rereads project writability; preliminary bulk validation is not authoritative. Detailed work-row
+and operation locking remains Phase 7.
 
 `RepositoryExecutor` in `db/client.ts` exposes the query methods common to the real Drizzle database
 and transaction types. All repository factories use this type without pretending a transaction is a
@@ -63,10 +67,12 @@ capabilities. Applicable state, activity, mentions, automatic watchers, and noti
 roll back together. Failure injection must instrument **scoped**, not root, repositories.
 
 Attachments retain their explicit database write callbacks and existing project/work/attachment row
-locks. File bytes are written outside the database transaction. Upload compensates a failed database
+locks, after shared project coordination. Upload bytes are written outside the database transaction.
+Upload compensates a failed database
 write by removing the stored object; failed compensation records safe operational evidence without
 replacing the original failure. Object-store I/O is not a distributed transaction. Do not wrap the
-entire upload/download operation in a database scope or hold locks during object transfer.
+entire upload/download operation in a database scope. Removal retains its existing object-store delete
+inside the database callback; this phase does not redesign that failure window or claim storage atomicity.
 
 Health, Quick Find, and activity-feed reads retain their existing focused read owners. Attachment
 list/download preflight reads also retain their existing behavior. Required capability injection does
@@ -127,7 +133,7 @@ idempotent. Operation keys follow hierarchy, dependency, then board order, with 
 each namespace. Acquire the complete affected project set before operation keys. No new earlier
 project/operation key may be acquired after a later key.
 
-The canonical command order for subsequent adoption is:
+The canonical command order, with project gates and ordered closeout cycle locks implemented, is:
 
 1. Project advisory coordination, sorted IDs and predetermined modes.
 2. Hierarchy, workspace dependency graph, and board operation keys, in that order.
@@ -136,16 +142,17 @@ The canonical command order for subsequent adoption is:
 5. Work-item rows by ID.
 6. Dependent rows by ID, then state/activity/notification evidence.
 
-The helper enforces advisory acquisition order and scope mode/lifetime, not row-lock ordering or
-command participation. It does not replace existing hierarchy/dependency/board repository locks yet.
-Preliminary reads may discover IDs; they must not substitute for authoritative locked transition
-validation or previous values.
+The helper enforces advisory acquisition order and scope mode/lifetime, not row-lock ordering.
+`services/project-write-coordination.ts` owns command participation helpers. Preliminary work,
+comment, relationship, and reference reads discover immutable project IDs only; bodies reread state
+after acquiring the gate. Cross-project relationships discover both endpoint projects before taking
+either key. These helpers do not replace existing hierarchy/dependency/board repository locks yet.
 
-| Command Family | Required Project Participation Planned For Phase 6 | Additional Phase 7 Responsibility |
+| Command Family | Implemented Project Participation | Remaining Command Responsibility |
 | --- | --- | --- |
 | Existing project metadata/archive/reactivate | Exclusive | Preserve current-state activity |
-| Cycle create/update/archive/reactivate/closeout | Exclusive | Source/destination cycle and work order; immutable replay |
-| Label/milestone administration | Exclusive | Serialize reference lifecycle with work assignment |
+| Cycle create/update/archive/reactivate/closeout | Exclusive; authoritative cycle reread/row lock, closeout source/destination sorted by ID | Retain immutable replay; narrow dependency evaluation |
+| Label/milestone administration | Exclusive; excludes ordinary assignment validation | Retain historical reference exceptions |
 | Work creation/PATCH/status/board/parent/bulk/import | Shared, every affected project | Counter-before-work, hierarchy/board keys, locked revalidation, per-item bulk policy |
 | Dependency add/remove | Shared, both projects sorted | Workspace graph key, ordered affected records |
 | Comment add/edit/delete | Shared | Work-before-comment row order, no-op behavior |
@@ -155,11 +162,25 @@ validation or previous values.
 | Workspace views and Inbox read-state | None | Preserve independent workspace/member scope |
 | New project creation | No preexisting project key | Atomic creation/activity and unique-key backstop |
 
-**Phase 4 does not install these project advisory gates into commands.** Atomic transaction ownership
-alone does not fix archive/assignment, overlap/closeout, stale status, graph, or hierarchy races.
-Phases 6-7 must migrate every participant and prove the protocol with synchronized real connections
-before claiming lifecycle safety. Member/workspace administration remains outside project coordination;
-preserve its existing policies rather than inferring new role restrictions.
+Project gates are installed in every listed command family. Lifecycle decisions and ordinary writes
+exclude one another; two ordinary writers can still proceed together, and unrelated projects remain
+independent. This does not establish authoritative work-row previous-state activity, hierarchy/counter
+order, graph reachability serialization, or board ordering under competing shared writers. Those are
+Phase 7 work. In particular, creation can still lock a parent before its project counter, and adjacent
+comment/file paths retain their existing row order. Do not claim that all command deadlocks are fixed.
+
+Cycle availability checks run after the exclusive gate. Inclusive overlap, one active nonarchived cycle,
+case-insensitive nonarchived names, and historical exceptions remain unchanged. A queued generic edit
+cannot reactivate a completed cycle. Closeout excludes assignment/status writers during enumeration;
+completed/canceled assignments remain permitted by the existing work-reference policy after it commits.
+Stored closeout evidence and replay are not recomputed from later live work changes. Known project-key,
+cycle-active/name, label-name, and milestone-name unique violations map to controlled conflicts; unrelated
+database failures are not relabeled.
+
+These locks are cooperative, transaction-scoped application guarantees. Arbitrary SQL/repository calls
+outside command owners bypass them. Member/workspace administration remains outside project coordination;
+preserve its existing policies rather than inferring new role restrictions. See the
+[read-only cycle diagnostic and remediation guide](cycle-diagnostics.md) for preexisting schedule issues.
 
 ## Testing And Verification
 
@@ -172,7 +193,9 @@ Repository-only unit tests explicitly choose `tests/support/fake-persistence.ts`
 callbacks and refuses database locks; it does not simulate rollback, MVCC, or lifecycle safety. Real
 tests use `createPersistence(db)` or `withTransactionScope(tx, mode, callback)` when coordinating an
 explicit outer transaction. The outer-transaction caller owns its isolation/access configuration and
-commit/rollback. Inject failures into the callback's repositories without replacing real persistence.
+commit/rollback. Outer write callers must retain read-committed isolation for fresh post-gate rereads;
+a bound capability does not replace an enclosing repeatable-read snapshot. Inject failures into the
+callback's repositories without replacing real persistence.
 
 The `persistence.test.ts` unit suite covers composition, configuration, scope identity/lifetime,
 read-only restrictions, and advisory order. `persistence-integration.test.ts` proves real rollback,
@@ -181,6 +204,14 @@ lifetime/modes, and nested import/export/report participation. Existing attachme
 real queued-edit/closeout/concurrency tests remain required. New database-independent test filenames
 must be classified explicitly in `apps/api/vitest.config.ts`; unclassified files default to guarded
 integration execution.
+
+`project-coordination.test.ts` enumerates every participating write entry, blocks it behind an
+incompatible project gate, and checks post-wait project writability. Separate real connections wait
+for PostgreSQL to report the expected advisory blocker before releasing the first writer. It also
+covers inclusive schedule races, reactivation, both cross-project relationship keys, reference archive
+versus assignment, closeout/edit/assignment/status ordering, independent/shared writers, workspace
+view/Inbox independence, real unique-index backstops, and read-only diagnostic output. Test barriers
+have bounded waits; a timing sleep is not evidence that the second transaction reached its gate.
 
 API HTTP tests use `tests/support/local-http.ts` instead of importing Supertest directly. Its fluent
 assertions remain Supertest's, but connections target the owned listener's actual address family.

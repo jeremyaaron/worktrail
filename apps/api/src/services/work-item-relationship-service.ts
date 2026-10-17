@@ -1,3 +1,4 @@
+import { coordinateRelationship, coordinateWorkItems } from './project-write-coordination.js';
 import type {
   CreateWorkItemRelationshipRequest,
   WorkItemRelationshipDto,
@@ -92,9 +93,10 @@ export class WorkItemRelationshipService {
     sourceWorkItemId: string,
     input: CreateWorkItemRelationshipRequest
   ): Promise<WorkItemRelationshipDto> {
-    return this.context.persistence.write((scope) =>
-      new WorkItemRelationshipService({ ...this.context, ...scope }).createRelationshipInScope(sourceWorkItemId, input)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateWorkItems(scope, this.context.actor.workspaceId, [sourceWorkItemId, input.targetWorkItemId]);
+      return new WorkItemRelationshipService({ ...this.context, ...scope }).createRelationshipInScope(sourceWorkItemId, input);
+    });
   }
 
   private async createRelationshipInScope(
@@ -177,9 +179,10 @@ export class WorkItemRelationshipService {
   }
 
   async deleteRelationship(workItemId: string, relationshipId: string): Promise<void> {
-    return this.context.persistence.write((scope) =>
-      new WorkItemRelationshipService({ ...this.context, ...scope }).deleteRelationshipInScope(workItemId, relationshipId)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateRelationship(scope, this.context.actor.workspaceId, workItemId, relationshipId);
+      return new WorkItemRelationshipService({ ...this.context, ...scope }).deleteRelationshipInScope(workItemId, relationshipId);
+    });
   }
 
   private async deleteRelationshipInScope(workItemId: string, relationshipId: string): Promise<void> {

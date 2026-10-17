@@ -1,3 +1,5 @@
+import { cycleConstraintConflicts, rethrowConstraintConflict } from '../errors/persistence-conflict.js';
+import { coordinateProjects } from './project-write-coordination.js';
 import type {
   CreateProjectCycleRequest,
   ProjectCycleDto,
@@ -189,9 +191,10 @@ export class ProjectCycleService {
     projectId: string,
     input: CreateProjectCycleRequest
   ): Promise<ProjectCycleDto> {
-    return this.context.persistence.write((scope) =>
-      new ProjectCycleService({ ...this.context, ...scope }).createProjectCycleInScope(projectId, input)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateProjects(scope, this.context.actor.workspaceId, [projectId], 'exclusive');
+      return new ProjectCycleService({ ...this.context, ...scope }).createProjectCycleInScope(projectId, input);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, cycleConstraintConflicts));
   }
 
   private async createProjectCycleInScope(
@@ -244,9 +247,10 @@ export class ProjectCycleService {
     cycleId: string,
     input: UpdateProjectCycleRequest
   ): Promise<ProjectCycleDto> {
-    return this.context.persistence.write((scope) =>
-      new ProjectCycleService({ ...this.context, ...scope }).updateProjectCycleInScope(projectId, cycleId, input)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateProjects(scope, this.context.actor.workspaceId, [projectId], 'exclusive');
+      return new ProjectCycleService({ ...this.context, ...scope }).updateProjectCycleInScope(projectId, cycleId, input);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, cycleConstraintConflicts));
   }
 
   private async updateProjectCycleInScope(
@@ -258,7 +262,7 @@ export class ProjectCycleService {
 
     return this.withWriteRepositories(async (repositories) => {
       this.assertCanManageCycles();
-      const current = await this.requireProjectCycle(projectId, cycleId, repositories);
+      const current = await this.requireLockedProjectCycle(projectId, cycleId, repositories);
       const project = await this.requireProject(projectId, repositories);
       this.assertProjectWritable(project);
       this.assertCycleWritable(current);
@@ -295,15 +299,16 @@ export class ProjectCycleService {
   }
 
   async archiveProjectCycle(projectId: string, cycleId: string): Promise<ProjectCycleDto> {
-    return this.context.persistence.write((scope) =>
-      new ProjectCycleService({ ...this.context, ...scope }).archiveProjectCycleInScope(projectId, cycleId)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateProjects(scope, this.context.actor.workspaceId, [projectId], 'exclusive');
+      return new ProjectCycleService({ ...this.context, ...scope }).archiveProjectCycleInScope(projectId, cycleId);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, cycleConstraintConflicts));
   }
 
   private async archiveProjectCycleInScope(projectId: string, cycleId: string): Promise<ProjectCycleDto> {
     return this.withWriteRepositories(async (repositories) => {
       this.assertCanManageCycles();
-      const current = await this.requireProjectCycle(projectId, cycleId, repositories);
+      const current = await this.requireLockedProjectCycle(projectId, cycleId, repositories);
       const project = await this.requireProject(projectId, repositories);
       this.assertProjectWritable(project);
 
@@ -327,15 +332,16 @@ export class ProjectCycleService {
   }
 
   async reactivateProjectCycle(projectId: string, cycleId: string): Promise<ProjectCycleDto> {
-    return this.context.persistence.write((scope) =>
-      new ProjectCycleService({ ...this.context, ...scope }).reactivateProjectCycleInScope(projectId, cycleId)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateProjects(scope, this.context.actor.workspaceId, [projectId], 'exclusive');
+      return new ProjectCycleService({ ...this.context, ...scope }).reactivateProjectCycleInScope(projectId, cycleId);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, cycleConstraintConflicts));
   }
 
   private async reactivateProjectCycleInScope(projectId: string, cycleId: string): Promise<ProjectCycleDto> {
     return this.withWriteRepositories(async (repositories) => {
       this.assertCanManageCycles();
-      const current = await this.requireProjectCycle(projectId, cycleId, repositories);
+      const current = await this.requireLockedProjectCycle(projectId, cycleId, repositories);
       const project = await this.requireProject(projectId, repositories);
       this.assertProjectWritable(project);
 
@@ -473,6 +479,14 @@ export class ProjectCycleService {
       throw new NotFoundError('Project cycle not found.');
     }
 
+    return cycle;
+  }
+
+  private async requireLockedProjectCycle(projectId: string, cycleId: string, repositories: Repositories): Promise<ProjectCycle> {
+    const cycle = await repositories.projectCycles.findByIdForUpdate(cycleId);
+    if (cycle === null || cycle.workspaceId !== this.context.actor.workspaceId || cycle.projectId !== projectId) {
+      throw new NotFoundError('Project cycle not found.');
+    }
     return cycle;
   }
 

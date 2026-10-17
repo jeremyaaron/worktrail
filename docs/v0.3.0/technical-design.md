@@ -6,8 +6,8 @@ Implementation baseline, confirmed during Phase 0 on October 17, 2026. This desi
 direction in the [PRD](prd.md), informed by the
 [UX audit](ux-audit.md), [technical debt audit](tech-debt-audit.md), and
 [public site audit](site-audit.md). The [implementation plan](implementation-plan.md) records Phase 0
-inventories, closed choices, sequencing, and acceptance. Phases 1-5 verification, toolchain,
-persistence, and batched query foundations are complete; implementation is in progress.
+inventories, closed choices, sequencing, and acceptance. Phases 1-6 verification, toolchain,
+persistence, batched queries, and project/cycle coordination are complete; implementation is in progress.
 
 ## Summary
 
@@ -546,10 +546,25 @@ inside writes inherit read committed; only independent read scopes start repeata
 transactions. Writes and lock acquisition are rejected in read-only scopes, and capability/lock reuse
 after callback exit is rejected. Repository closures must still remain inside the callback.
 Database calls sharing a transaction connection are sequential rather than eagerly aggregated.
-Bulk commits remain per item; attachment object I/O/compensation stays outside transaction callbacks.
+Bulk commits remain per item; attachment upload object writes/compensation stay outside transaction
+callbacks. Existing removal deletes its object inside the database callback; storage is not atomic
+with PostgreSQL, and Phase 6 does not redesign that behavior.
 The [current developer guide](../development.md) records ownership and the complete staged lock
 inventory. Advisory helpers exist and are tested, but project-gate adoption and lifecycle race repair
 remain Phases 6-7, not a guarantee of this capability migration.
+
+Phase 6 implementation: all inventoried project-dependent write entries now acquire the selected
+shared/exclusive project gates through `project-write-coordination.ts` before authoritative lifecycle
+checks. Both relationship endpoint projects are acquired together in sorted order. Workspace saved
+views and Inbox read-state remain independent. Bulk rereads project writability inside each item
+transaction; import retains one atomic apply and uses `createWorkItemWithScope` rather than a
+repository-only creation bypass. Cycle edits lock/reread current rows, and closeout locks all source/
+destination cycle IDs in one ordered query before enumeration. Known unique-index violations map to
+controlled conflicts. The [operator diagnostic](../cycle-diagnostics.md) performs read-only inspection
+without schedule repair or schema changes. Synchronized real-connection tests cover participation,
+competing schedules, post-wait archive/reference validation, closeout scope/replay, and independent
+writers. Work-row/hierarchy/graph/board ordering and command extraction remain Phase 7, not completed
+by the project gate. Historical completed/canceled assignment behavior remains unchanged.
 
 ### Project Coordination
 

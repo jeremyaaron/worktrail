@@ -5,7 +5,7 @@ import { defineConfig } from 'vitest/config';
 const unitTests = [
   'app-error', 'attachment-object-store', 'attachment-policy', 'authored-content-policy',
   'csv', 'cycle-review-model', 'delivery-health-service', 'domain', 'local-http', 'main', 'openapi',
-  'persistence', 'project-cycle-closeout-snapshot', 'quick-find-endpoint', 'quick-find-query',
+  'persistence', 'persistence-conflict', 'project-cycle-closeout-snapshot', 'quick-find-endpoint', 'quick-find-query',
   'quick-find-service', 'repository-read-transaction', 'request-logging', 'runtime-config',
   'server', 'status-report-markdown-renderer', 'storage-reset', 'work-item-csv-export',
   'work-item-hydrator', 'work-item-page', 'work-item-page-query', 'work-item-query', 'work-item-query-builder',

@@ -23,6 +23,27 @@ export interface UpdateProjectCycleInput {
 
 export function createProjectCycleRepository(db: RepositoryExecutor) {
   return {
+    async findScheduleConflicts(workspaceId?: string) {
+      const result = await db.execute<{
+        projectId: string; projectKey: string; leftCycleId: string; rightCycleId: string;
+        dateOverlap: boolean; activeConflict: boolean;
+      }>(sql`
+        select a.project_id as "projectId", p.key as "projectKey",
+          a.id as "leftCycleId", b.id as "rightCycleId",
+          (a.start_date <= b.end_date and a.end_date >= b.start_date) as "dateOverlap",
+          (a.status = 'active' and b.status = 'active') as "activeConflict"
+        from project_cycles a
+        join project_cycles b on a.project_id = b.project_id and a.workspace_id = b.workspace_id and a.id < b.id
+        join projects p on p.id = a.project_id and p.workspace_id = a.workspace_id
+        where a.archived_at is null and b.archived_at is null
+          and a.status in ('planned', 'active') and b.status in ('planned', 'active')
+          and ((a.start_date <= b.end_date and a.end_date >= b.start_date) or (a.status = 'active' and b.status = 'active'))
+          and ${workspaceId === undefined ? sql`true` : sql`a.workspace_id = ${workspaceId}`}
+        order by a.project_id, a.id, b.id
+      `);
+      return result.rows;
+    },
+
     async create(input: NewProjectCycle) {
       const [cycle] = await db.insert(projectCycles).values(input).returning();
       return cycle;
@@ -47,12 +68,18 @@ export function createProjectCycleRepository(db: RepositoryExecutor) {
       return cycle ?? null;
     },
 
+    async findManyByIdsForUpdate(ids: readonly string[]) {
+      if (ids.length === 0) return [];
+      return db.select().from(projectCycles).where(inArray(projectCycles.id, [...new Set(ids)]))
+        .orderBy(asc(projectCycles.id)).for('update');
+    },
+
     async listByIds(ids: string[]) {
       if (ids.length === 0) return [];
       return db.select().from(projectCycles).where(inArray(projectCycles.id, [...new Set(ids)]));
     },
 
-    async findActiveByProject(projectId: string) {
+    async findActiveByProject(projectId: string): Promise<ProjectCycle | null> {
       const [cycle] = await db
         .select()
         .from(projectCycles)
@@ -68,7 +95,7 @@ export function createProjectCycleRepository(db: RepositoryExecutor) {
       return cycle ?? null;
     },
 
-    async findNonArchivedByProjectName(projectId: string, name: string) {
+    async findNonArchivedByProjectName(projectId: string, name: string): Promise<ProjectCycle | null> {
       const [cycle] = await db
         .select()
         .from(projectCycles)

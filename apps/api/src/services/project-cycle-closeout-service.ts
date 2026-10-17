@@ -1,3 +1,4 @@
+import { coordinateProjects } from './project-write-coordination.js';
 import type {
   CloseProjectCycleRequest,
   CloseProjectCycleResultDto,
@@ -141,9 +142,10 @@ export class ProjectCycleCloseoutService {
     cycleId: string,
     input: CloseProjectCycleRequest
   ): Promise<CloseProjectCycleResultDto> {
-    return this.context.persistence.write((scope) =>
-      new ProjectCycleCloseoutService({ ...this.context, ...scope }).closeInScope(projectId, cycleId, input)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateProjects(scope, this.context.actor.workspaceId, [projectId], 'exclusive');
+      return new ProjectCycleCloseoutService({ ...this.context, ...scope }).closeInScope(projectId, cycleId, input);
+    });
   }
 
   private async closeInScope(
@@ -155,7 +157,10 @@ export class ProjectCycleCloseoutService {
     this.assertCanCloseCycles();
 
     return this.withWriteRepositories(async (repositories) => {
-      const sourceCycle = await repositories.projectCycles.findByIdForUpdate(cycleId);
+      const lockedCycles = await repositories.projectCycles.findManyByIdsForUpdate(
+        body.destinationCycleId === null ? [cycleId] : [cycleId, body.destinationCycleId]
+      );
+      const sourceCycle = lockedCycles.find((cycle) => cycle.id === cycleId) ?? null;
 
       if (
         sourceCycle === null ||
@@ -185,7 +190,7 @@ export class ProjectCycleCloseoutService {
         projectId,
         cycleId,
         body.destinationCycleId,
-        repositories
+        lockedCycles
       );
       const scopedWorkItems = await repositories.workItems.listByCycleForUpdate(projectId, cycleId);
       const unfinishedItems = scopedWorkItems
@@ -368,7 +373,7 @@ export class ProjectCycleCloseoutService {
     projectId: string,
     sourceCycleId: string,
     destinationCycleId: string | null,
-    repositories: Repositories
+    lockedCycles: ProjectCycle[]
   ): Promise<ProjectCycle | null> {
     if (destinationCycleId === null) {
       return null;
@@ -378,7 +383,7 @@ export class ProjectCycleCloseoutService {
       throw new ConflictError('A cycle cannot carry unfinished work into itself.');
     }
 
-    const destination = await repositories.projectCycles.findByIdForUpdate(destinationCycleId);
+    const destination = lockedCycles.find((cycle) => cycle.id === destinationCycleId) ?? null;
 
     if (
       destination === null ||

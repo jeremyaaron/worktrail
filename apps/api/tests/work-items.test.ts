@@ -329,9 +329,9 @@ describe('authored work-item descriptions', () => {
     expect(JSON.stringify(response.body)).not.toContain(input.description);
     await request(app).patch(`/api/work-items/${item.id}`).set(fixture.headers)
       .send({ description: input.description }).expect(400);
-    await expect(createService(fixture).createWorkItemWithRepositories(
-      fixture.projectId, input, repositories
-    )).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    await expect(createPersistence(db).write((scope) => createService(fixture).createWorkItemWithScope(
+      fixture.projectId, input, scope
+    ))).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
     expect(await repositories.projects.findById(fixture.projectId)).toEqual(project);
     expect(await repositories.workItems.findById(item.id)).toEqual(item);
     expect(await repositories.activityEvents.findByWorkItem(item.id)).toEqual([]);
@@ -339,9 +339,9 @@ describe('authored work-item descriptions', () => {
 
   it('normalizes direct creation without inferring a format', async () => {
     const fixture = await createFixture();
-    const item = await createService(fixture).createWorkItemWithRepositories(fixture.projectId, {
+    const item = await createPersistence(db).write((scope) => createService(fixture).createWorkItemWithScope(fixture.projectId, {
       title: 'Direct', type: 'task', priority: 'medium', description: '  **literal**\r\n'
-    }, repositories);
+    }, scope));
     expect(item).toMatchObject({ description: '  **literal**\n', descriptionFormat: 'plain_text' });
   });
 

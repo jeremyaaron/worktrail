@@ -509,3 +509,93 @@ rows and hydrate more than its preview; that is Phase 10 work. Capped CSV output
 in memory, and total export queries can grow by 500-row chunk. Exact count/index cost is not constant
 in dataset size. Project/cycle/hierarchy/graph lifecycle coordination and command extraction remain
 Phases 6-7; batching and snapshot coherence do not establish those race guarantees.
+
+## Phase 6 Project And Cycle Coordination
+
+Evidence collected October 17, 2026 on macOS with Node 24.16.0, npm 11.13.0, and owned PostgreSQL 16.
+All project-dependent application write entries now acquire shared/exclusive transaction-scoped
+project gates before authoritative lifecycle validation. Both relationship endpoint projects are
+acquired together in stable ID order. Cycle edits lock/reread current state, and closeout locks its
+source/destination cycle rows in ID order before enumerating work. Known unique-index backstops
+produce controlled conflicts with the normal validation messages.
+
+The [current command inventory](../development.md#lock-ownership-and-participation) records all owners
+and the remaining Phase 7 obligations. Import remains one atomic apply and uses the complete scoped
+creation capability, not a repository-only helper. Bulk retains per-item commits and existing error
+codes, with project writability reread inside each item transaction. Workspace saved views and Inbox
+read-state do not acquire a project key. No new role restrictions, assignment lifecycle rules,
+extensions, constraints, migrations, dependencies, package versions, or budget thresholds were added.
+
+### Phase 6 Verification
+
+| Check | Result |
+| --- | --- |
+| Focused owned `npm run verify -- --mode=api` | 724 API tests across 59 files and 41 resource tests passed before the final coverage additions; cleaned owned resources |
+| Final full `npm run verify` | All 25 gates passed; owned resources removed |
+| API/contracts/Angular | 750 API tests across 59 files, 54 contract tests across 12 files, and 652 Angular tests passed |
+| Resource/browser regressions | 41 resource, five editor, 34 application E2E, and one compiled production-preview test passed |
+| Audit/lint/typechecks/schema/build/site | Passed; zero production audit findings, unchanged bounded development exceptions, no schema drift or budget warnings, and site assets/links valid |
+| Read-only cycle diagnostic | Real CLI output and repository results match on an owned legacy-overlap fixture; schedules unchanged |
+| Local documentation links | 58 local targets across seven files passed after final status updates |
+| Whitespace review | `git diff --check` passed |
+
+The final API coverage contains 275 unit and 475 integration tests, including ten new constraint
+mapping unit cases and 83 real project-coordination cases. The focused run's tests are included in
+the complete suite, not additional tests to sum again. Existing closeout rollback/replay, archived
+and historical references, role, attachment compensation, no-op, and hydration budgets also pass.
+
+Accepted full run: `76e71868-5274-45dd-9dc8-1ac69bb0c373`. Its sanitized summary under
+`test-results/verification/<runId>/summary.json` records `passed: true`, `cleaned: true`, no interruption,
+and 25 successful gates. Production initial output remains 386.62 kB with unchanged budgets. Browser
+acceptance uses zero retries; no test skip or warning suppression was introduced.
+
+The concurrency suite executes real service commands through separate PostgreSQL connections. Its
+queue barrier observes an advisory-lock wait with the expected blocking backend in `pg_stat_activity`
+and `pg_blocking_pids` before allowing the first writer to commit. Barrier waits are bounded, and the
+explicit first transaction has local lock/statement timeouts; no timing sleep substitutes for reaching
+the lock. Independent/shared-writer checks require the second command to finish while the first
+connection still holds its gate.
+
+Coverage enumerates every participating entry and checks post-wait archived-project behavior for
+all shared entries, preserving saved-view `FORBIDDEN` and bulk per-item `VALIDATION_ERROR` contracts.
+It covers both cross-project relationship keys, workspace view/Inbox independence, planned overlap,
+inclusive touching dates, active/name conflicts, update/create and reactivation/create races, real
+PostgreSQL unique-index violations, reference archive versus assignment, assignments before/after
+closeout, queued status changes, and cycle edits on both sides of closeout. Completed state cannot
+be resurrected by a queued edit;
+stored carry-forward counts and replay remain unchanged by subsequent live work mutations.
+
+The [operator diagnostic](../cycle-diagnostics.md) is read-only and excludes historical/archived
+cycles. Its real CLI test compares exact conflict pairs/flags and verifies unchanged rows. Duplicate
+active detection is available for legacy schemas without the current unique backstop; tests do not
+drop that index or manufacture an unsupported schema to create duplicates.
+
+### Phase 6 Diagnostics And Limits
+
+Initial owned run `4d1c9b75-b049-4566-b009-f93ad5ed8225` passed the prior 657 API cases after gate
+adoption. Expanded focused run `3a95feb5-02e6-4d15-b362-7a45838b00fa` passed 724 cases. Both cleaned
+their resources. During authoring, typechecks caught test union/repository-name mistakes and nullable
+lookup signatures; those were corrected before the expanded runs.
+
+Full diagnostic run `9c54300f-9c52-4b34-acd2-cdfa664c059a` passed 746/747 API cases and failed only
+the new bulk archive assertion: its expected `CONFLICT` did not match the existing per-item mapping
+to `VALIDATION_ERROR`. The assertion now checks that existing code and the archived-project message;
+production bulk error semantics were not changed. The run stopped at API verification and cleaned
+its resources. Final mapping unit coverage also includes project, label, and milestone constraints.
+No retries, skips, timeout increases, or warning suppression were used to resolve that failure.
+
+These are cooperative project lifecycle guarantees, not protection from arbitrary SQL or direct
+repository mutations. Shared ordinary writers are intentionally compatible. Authoritative work-row
+previous values, hierarchy/counter and adjacent comment/file row order, graph reachability, board
+serialization, and command extraction remain Phase 7. Creation's parent-before-counter inversion
+is not repaired here. Attachment removal retains its existing object deletion inside a database
+callback; upload transfer/compensation remains outside it, and neither is distributed storage atomicity.
+Historical completed/canceled cycle assignments remain permitted after closeout commits; immutable
+closeout evidence is distinct from later live membership.
+
+All test mutations and CLI inspection used owned disposable resources, never the ordinary configured
+database/store. Final inspection found no verification-labeled containers or owned application/test
+servers; the accepted full run and diagnostic/focused run directories were removed. Ignored sanitized
+results and browser evidence remain under their run IDs. No unrelated process was stopped.
+Remote Linux CI, release UAT, and final release acceptance remain separate later gates. No commit,
+push, tag, publication, deployment, or public-site feature claim is part of this phase.

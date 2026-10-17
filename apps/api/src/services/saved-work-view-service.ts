@@ -1,3 +1,4 @@
+import { coordinateProjects, coordinateReference } from './project-write-coordination.js';
 import type {
   ActivityEventType,
   CreateSavedWorkViewRequest,
@@ -73,9 +74,10 @@ export class SavedWorkViewService {
   }
 
   async createSavedView(input: CreateSavedWorkViewRequest): Promise<SavedWorkViewDto> {
-    return this.context.persistence.write((scope) =>
-      new SavedWorkViewService({ ...this.context, ...scope }).createSavedViewInScope(input)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateProjects(scope, this.context.actor.workspaceId, input.scope === 'project' && input.projectId ? [input.projectId] : [], 'shared');
+      return new SavedWorkViewService({ ...this.context, ...scope }).createSavedViewInScope(input);
+    });
   }
 
   private async createSavedViewInScope(input: CreateSavedWorkViewRequest): Promise<SavedWorkViewDto> {
@@ -130,9 +132,10 @@ export class SavedWorkViewService {
     savedViewId: string,
     input: UpdateSavedWorkViewRequest
   ): Promise<SavedWorkViewDto> {
-    return this.context.persistence.write((scope) =>
-      new SavedWorkViewService({ ...this.context, ...scope }).updateSavedViewInScope(savedViewId, input)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateReference(scope, this.context.actor.workspaceId, 'savedWorkViews', savedViewId, 'shared');
+      return new SavedWorkViewService({ ...this.context, ...scope }).updateSavedViewInScope(savedViewId, input);
+    });
   }
 
   private async updateSavedViewInScope(
@@ -199,9 +202,10 @@ export class SavedWorkViewService {
   }
 
   async deleteSavedView(savedViewId: string): Promise<void> {
-    return this.context.persistence.write((scope) =>
-      new SavedWorkViewService({ ...this.context, ...scope }).deleteSavedViewInScope(savedViewId)
-    );
+    return this.context.persistence.write(async (scope) => {
+      await coordinateReference(scope, this.context.actor.workspaceId, 'savedWorkViews', savedViewId, 'shared');
+      return new SavedWorkViewService({ ...this.context, ...scope }).deleteSavedViewInScope(savedViewId);
+    });
   }
 
   private async deleteSavedViewInScope(savedViewId: string): Promise<void> {
