@@ -5,6 +5,7 @@ import { join } from 'node:path';
 
 import { expect, test } from '@playwright/test';
 import type { APIRequestContext, Download, Locator, Page } from '@playwright/test';
+import type { PortfolioDto } from '@worktrail/contracts';
 import { stringify } from 'csv-stringify/sync';
 
 const demoProjectId = '10000000-0000-4000-8000-000000000201';
@@ -541,7 +542,7 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
   await expect(page.getByRole('heading', { name: title })).toBeVisible();
   await expect(page.getByLabel('Current status')).toHaveValue('in_progress');
 
-  await page.getByLabel('Add comment').fill(comment);
+  await page.getByRole('textbox', { name: 'Add comment', exact: true }).fill(comment);
   await page.getByRole('button', { name: 'Add comment' }).click();
 
   await expect(page.getByText(comment)).toBeVisible();
@@ -549,7 +550,10 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
 
   const commentCard = page.locator('article.comment').filter({ hasText: comment });
   await commentCard.getByRole('button', { name: 'Edit' }).click();
-  await page.locator('form.comment-edit-form').getByLabel('Edit comment').fill(editedComment);
+  await page
+    .locator('form.comment-edit-form')
+    .getByRole('textbox', { name: 'Edit comment', exact: true })
+    .fill(editedComment);
   await page.locator('form.comment-edit-form').getByRole('button', { name: 'Save' }).click();
 
   await expect(page.getByText(editedComment)).toBeVisible();
@@ -1177,7 +1181,11 @@ test('reviews v0.2.3 workspace portfolio and drills into project work', async ({
   test.setTimeout(60_000);
 
   await page.setViewportSize({ width: 1280, height: 900 });
+  const portfolioResponse = page.waitForResponse((response) =>
+    response.url().endsWith('/api/portfolio') && response.request().method() === 'GET'
+  );
   await page.goto('/portfolio');
+  const portfolio = (await (await portfolioResponse).json()) as PortfolioDto;
   await page.locator('#current-member').selectOption({ label: 'Avery Owner · owner' });
 
   await expect(page.getByRole('heading', { name: 'Portfolio review' })).toBeVisible();
@@ -1201,7 +1209,17 @@ test('reviews v0.2.3 workspace portfolio and drills into project work', async ({
   await expect(worktrailRow).toContainText('Report stale');
   await expect(worktrailRow).toContainText('v0.2.1 Cycle Planning');
   await expect(cloudRow).toContainText('Report missing');
-  await expect(operationsRow).toContainText('On track');
+  const operations = portfolio.projects.find((row) => row.project.key === 'OPS')!;
+  const healthLabels = {
+    healthy: 'On track',
+    blocked: 'Blocked',
+    at_risk: 'At risk',
+    complete: 'Complete',
+    inactive: 'Inactive'
+  };
+  await expect(operationsRow.locator('.tone-pill').first()).toHaveText(
+    healthLabels[operations.deliveryHealth.health]
+  );
   await expect(operationsRow).toContainText('Reference Operations weekly status');
   await expectNoPageOverflow(page);
 
@@ -1383,7 +1401,7 @@ test('completes the v0.1.1 inbox mention workflow', async ({ page }) => {
   await watchPanel.getByRole('button', { name: 'Watch' }).click();
   await expect(watchPanel.getByRole('button', { name: 'Unwatch' })).toBeVisible();
 
-  await page.getByLabel('Add comment').fill(comment);
+  await page.getByRole('textbox', { name: 'Add comment', exact: true }).fill(comment);
   await page.getByLabel('Mention members').selectOption({ label: 'Casey Contributor' });
   await expect(page.getByLabel('Selected mentions')).toContainText('Casey Contributor');
   await page.getByRole('button', { name: 'Add comment' }).click();

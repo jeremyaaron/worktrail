@@ -41,6 +41,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=low
+
       - name: Lint
         run: npm run lint
 
@@ -56,8 +59,31 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Install editor test browser
+      - name: Install browser test runtime
         run: npx playwright install --with-deps chromium
 
       - name: Test authored-content editor
         run: npm run test:editor
+
+      - name: Test application browser workflows
+        env:
+          WORKTRAIL_ATTACHMENT_STORAGE_PATH: ${{ runner.temp }}/worktrail-original-attachments
+          WORKTRAIL_E2E_ATTACHMENT_STORAGE_PATH: ${{ runner.temp }}/worktrail-e2e-attachments
+          WORKTRAIL_E2E_WEB_PORT: 4315
+          API_PORT: 3000
+        run: npm run test:e2e
+
+      - name: Test compiled production preview
+        env:
+          WORKTRAIL_ATTACHMENT_STORAGE_PATH: ${{ runner.temp }}/worktrail-original-attachments
+          API_PORT: 4319
+        run: npx playwright test --config playwright.production.config.ts
+
+      - name: Upload browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-failure-evidence
+          path: test-results
+          if-no-files-found: ignore
+          retention-days: 7

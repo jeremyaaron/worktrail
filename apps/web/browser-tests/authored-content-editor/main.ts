@@ -5,6 +5,9 @@ import { bootstrapApplication } from '@angular/platform-browser';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { AuthoredContentEditorComponent } from '../../src/app/shared/authored-content/authored-content-editor.component';
 import type { AuthoredContentValue } from '../../src/app/shared/authored-content/authored-content-value';
+import { runContentBenchmark } from './content-benchmark';
+
+window.runContentBenchmark = runContentBenchmark;
 
 @Component({
   selector: 'app-editor-test',

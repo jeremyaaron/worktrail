@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementation in progress. Phases 0-8 are complete; Phases 9-11 have not started.
+Implementation in progress. Phases 0-10 are complete; Phase 11 has not started.
 
 ## Purpose
 
@@ -80,6 +80,8 @@ behavior differ.
   resets storage and, by default, resets/migrates/seeds the database using the original storage root.
   Do not run either against working data. For disposable verification, explicitly export the test
   `DATABASE_URL`, isolated storage paths, and `WORKTRAIL_E2E_SKIP_DB_RESTORE=true` before invocation.
+  Alternatively, use `false` only when the original and test storage roots are both disposable and
+  per-file restoration is needed for full-suite isolation, as recorded in Phase 10 evidence.
 - Use isolated attachment storage for verification, including production-preview checks. Do not
   remove the user's attachment root while cleaning temporary evidence.
 - Before database-backed package checks, apply the currently committed migrations to the disposable
@@ -92,9 +94,9 @@ behavior differ.
   it. Check port availability before browser runs; an alternate API port requires a matching proxy.
 - Keep deterministic correctness/security assertions in CI. Record rendering timing separately as
   local evidence, not a fragile elapsed-time assertion on a shared runner.
-- Current CI runs install, lint, typecheck, database preparation, package tests, and build using
-  PostgreSQL 16 and Node 20. Browser and dependency-audit commands are separate local release gates;
-  they are not currently included in the workflow.
+- CI runs install, production dependency audit, lint, typecheck, database preparation, package tests,
+  build, editor/application browser suites, and compiled production preview using PostgreSQL 16 and
+  Node 20. Phase 10 added the audit/application/production browser gates and failure artifacts.
 
 ## Phase 0: Baseline Planning And Decision Closure
 
@@ -1028,7 +1030,7 @@ Completion notes:
   isolated temporary attachment storage. No API/schema/dependency/release-version changes were made;
   local working data was not reset, migrated, or seeded. The phase-owned container, temporary
   attachment storage, editor compiler outputs, and test servers were removed after verification.
-  Phase 9 remains unstarted.
+  Comment integration was left to Phase 9.
 
 ## Phase 9: Comment Workflow And Draft Lifecycle Integration
 
@@ -1074,7 +1076,54 @@ npm run build:web
 git diff --check
 ```
 
-Status: Not started.
+Status: Complete (October 17, 2026).
+
+Completion notes:
+
+- New and inline-edited comments use compound `bodyContent` controls with the shared editor and
+  viewer. New drafts default/reset to empty Markdown; editing loads the exact persisted pair. Write
+  requests preserve source whitespace and explicitly send `bodyFormat`. Comment validation requires
+  non-whitespace new/changed source, enforces the normalized length limit, and permits unchanged
+  blank/oversized legacy pairs. Unchanged edits still reach the API's locked no-op policy.
+- Deleted rows branch to tombstones before content/editor rendering, including retained-source
+  fixtures. Author, timestamps, edited markers, mention chips, modification permissions, and explicit
+  delete confirmation remain. Archived formatted discussion stays readable with authoring disabled.
+- Mention selection remains outside the editor. Only selected member ids are sent on creation;
+  typed names, links, code, and display keys add no recipients. Edits send source/format only, retaining
+  existing mentions without resending notifications.
+- Pending creation locks its source/format and mention controls; pending edits lock their own content
+  control. Duplicate submissions are suppressed. Failures restore editing without resetting source,
+  format, Preview, dirty state, or selected mentions. Matching successful creation resets only its
+  composer and mentions; matching successful editing closes only its current edit session.
+- Comment editor identities, create/delete generations, and the page's item/actor/context guards
+  reject stale successes and failures, including cancellation followed by another edit of the same
+  comment. Context changes clear drafts and pending state. Cancel ends the local session; it does
+  not promise rollback of a request already accepted by the API.
+- Successful writes update the visible comment/tombstone immediately, independently of their
+  subsequent discussion/activity read. That read has its own generation and captured comment-session
+  guards; it never resets authoring controls or pending flags. A separate read-error panel retries
+  GET rather than replaying a successful write. Older field-save DTOs preserve current comment rows.
+  Attachment, relationship, status, and detail-save workflows preserve unrelated authoring drafts.
+- Added 30 Angular cases for formats, validation/no-ops, legacy conversion/cancel, mentions, failures,
+  tombstones, archived access, independent drafts, successive edits, route/actor reuse, stale reads,
+  and pending recovery. The full Angular suite passes with 651 tests. The existing PostgreSQL
+  comment/activity and notification/watcher suites pass with 45 tests.
+- Added two real API/browser comment scenarios in `e2e/authored-comments.spec.ts`. They verify source
+  persistence, preview/display parity, CRUD, conversion/cancel, no-op activity/timestamps, mention and
+  watcher deduplication, unchanged notification counts after edits, and failed-write recovery.
+  Both pass alongside description integration, planning/adoption, and inbox mention smoke tests
+  (five application scenarios). Existing selectors now target specific textboxes/editors because
+  description and comment editors coexist. The independent editor browser suite also passes (three).
+- Saved comment and edit-preview screenshots at 1440, 390, and 320 px were reviewed; containment
+  checks pass without page-level horizontal overflow. Generated evidence remains in ignored
+  `test-results`. Broader seed/security/accessibility evidence remains Phase 10 work.
+- Root lint/typecheck/build, explicit web-spec TypeScript checking, and `git diff --check` pass.
+  Production initial size remains 386.62 kB with unchanged budgets and no warnings; authored-content
+  code remains lazy-loaded. No API/schema/dependency/release-version changes were needed.
+- Database-backed checks used a phase-owned PostgreSQL 16 container on a random loopback port and
+  isolated attachment storage. The user's local database and files were not reset, migrated, or
+  seeded. Phase-owned services and temporary storage/compiler outputs were removed after checks.
+  Phases 10-11 remain unstarted.
 
 ## Phase 10: Seed, Browser, Security, And Regression Evidence
 
@@ -1141,7 +1190,25 @@ Use the disposable database and isolated storage for database-backed commands, i
 production-preview command and nondefault ports should be recorded with their actual runtime setup
 rather than assumed to be free.
 
-Status: Not started.
+Status: Complete (October 17, 2026).
+
+Completion notes:
+
+- Added repeatable formatted requirements, reproduction, code, explicit-mention, legacy literal,
+  edited/deleted, unsafe-source, and archived-read examples. Fresh migration plus first/repeated seed
+  produced identical rows across seven relevant tables in disposable PostgreSQL 16.
+- All 1,305 package tests, 34 application browser tests, 5 editor browser tests, and the compiled
+  production-preview test passed locally. Full browser regressions used zero retries.
+- Added inert DOM/network, complete fallback, archived denied-write, keyboard/composition, responsive
+  code-containment, and parser/projection-policy timing evidence. Fixed mobile comment grid overflow
+  and a date-sensitive portfolio test assumption found during the full suite.
+- Production build passes unchanged budgets without warnings; initial size is 386.62 kB and the
+  authored-content parser remains lazy. Production dependency audit reports zero vulnerabilities;
+  the existing 34 development-toolchain findings are explicitly recorded, not silently ignored.
+- CI now runs production audit, application browser regressions, compiled preview, and failure
+  artifact upload. No remote run is claimed. Release/site/version changes remain Phase 11 work.
+- See [verification notes](verification-notes.md) for isolation, commands, measurements, screenshots,
+  cleanup, and manual validation limitations (real IME, screen reader, actual browser zoom).
 
 ## Phase 11: Documentation, Public Site, And Release Finalization
 

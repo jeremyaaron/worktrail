@@ -679,8 +679,8 @@ Use existing subscriptions and reset hooks; do not create another global state s
 A page-local RxJS operator captures context generation, item id, and workspace/member identity before
 each affected request, gates both emitted values and errors, and unsubscribes on page destruction.
 Actor changes clear/reload detail; navigation generations also reject A-to-B-to-A responses. A separate
-load generation handles superseded same-item loads. Comment-specific edit-session generations are
-added with the Phase 9 integration, not inferred from the description baseline.
+load generation handles superseded same-item loads. Comment-specific edit-session generations extend
+these guards independently of the description baseline.
 
 Unrelated attachment/activity refreshes must not reset active description or comment drafts. Existing
 successful mutation refresh behavior stays explicit and tested. Archived state disables content
@@ -701,6 +701,24 @@ editor. Deleted rows branch to the existing tombstone before mounting a viewer o
 After successful creation, reset to empty Markdown and clear selected mentions under current behavior.
 After a failed creation/edit, retain source, format, and selected mentions. Cancel closes edit and
 restores the persisted viewer. Actor/item changes close local link insertion and clear all drafts.
+
+Each comment control uses the shared non-whitespace/length validator. An edit validator captures that
+session's exact loaded pair as its legacy baseline; unchanged edits send the pair to the API's locked
+no-op resolution rather than assuming the stored row still matches the editor baseline. Requests never
+trim source or infer recipients from content.
+
+Creation has a request generation and reset identity; each opened/canceled edit has its own identity,
+including successive edits of the same comment. Delete confirmations have a separate generation.
+Mutation callbacks require the matching session plus the page's item/actor/context. Authoring and
+mention controls for a pending creation, or content for a pending edit, are disabled; duplicate
+submissions are ignored. Cancellation invalidates local callbacks but cannot roll back an already
+accepted server write.
+
+Matching successful mutations apply their returned comment/tombstone immediately and finish only
+their own draft/session before fetching discussion/activity. This GET captures a read generation and
+the current comment-session generations, gates values and errors, and never clears drafts, closes an
+edit, or changes mutation pending flags. A read failure has a separate GET-only retry. Detail field-save
+responses preserve current comment rows so an older unrelated DTO cannot undo a newer comment write.
 
 Preserve author, timestamps, edited marker, delete confirmation, and independent mention chips. Do
 not run member resolution or notification logic inside the shared editor.
@@ -867,6 +885,13 @@ Retain plain-text seed records as compatibility examples. Add a structured requi
 reproduction steps, a code-bearing comment, safe links, image/HTML literal examples, and formatted
 archived context. Include a comment with explicit mentions to demonstrate that formatting and
 recipients are separate. Preserve deterministic ids and repeatable seed behavior.
+
+Phase 10 implements these examples in WT-1, WT-2, WT-3, and the new archived LEGACY-1. Comment
+upserts restore source, format, and deterministic timestamps together. The detail comment grid uses
+shrinkable tracks so fenced code scrolls locally rather than expanding the page. See the
+[Phase 10 verification notes](verification-notes.md) for fresh/repeated seed comparison, browser
+security and compiled-preview evidence, bundle inspection, timing measurements, and manual-check
+limitations. CI now runs the production audit and application/compiled-preview browser gates.
 
 At release finalization update README, OpenAPI, CSV examples, release notes, public site copy and a
 current detail screenshot. Document supported syntax, image-alt fallback, HTTP(S)-only links,

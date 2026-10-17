@@ -49,6 +49,7 @@ import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
 import { AuthoredContentEditorComponent } from '../../shared/authored-content/authored-content-editor.component';
+import { AuthoredContentViewerComponent } from '../../shared/authored-content/authored-content-viewer.component';
 import { authoredContentValidator } from '../../shared/authored-content/authored-content-validation';
 import {
   authoredContentEquals,
@@ -79,6 +80,7 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
   selector: 'app-work-item-detail-page',
   imports: [
     AuthoredContentEditorComponent,
+    AuthoredContentViewerComponent,
     ActivityTimelineComponent,
     EmptyStateComponent,
     ErrorPanelComponent,
@@ -620,18 +622,26 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
                       (ngSubmit)="saveComment(comment)"
                       novalidate
                     >
-                      <label [for]="'comment-edit-' + comment.id">Edit comment</label>
-                      <textarea
-                        [id]="'comment-edit-' + comment.id"
-                        rows="4"
-                        formControlName="body"
-                      ></textarea>
+                      <app-authored-content-editor
+                        [fieldId]="'comment-edit-' + comment.id"
+                        label="Edit comment"
+                        [rows]="4"
+                        formControlName="bodyContent"
+                        [resetIdentity]="editCommentIdentity()"
+                        [invalid]="showEditCommentError()"
+                        [errorDescriptionIds]="'comment-edit-error-' + comment.id"
+                      />
                       @if (showEditCommentError()) {
-                        <p class="field-error">Comment body is required.</p>
+                        <p class="field-error" [id]="'comment-edit-error-' + comment.id">
+                          {{ commentValidationMessage(true) }}
+                        </p>
                       }
 
                       <div class="comment-actions">
-                        <button type="submit" [disabled]="savingCommentId() === comment.id">
+                        <button
+                          type="submit"
+                          [disabled]="isArchivedProject() || savingCommentId() === comment.id"
+                        >
                           {{ savingCommentId() === comment.id ? 'Saving...' : 'Save' }}
                         </button>
                         <button type="button" class="secondary-action" (click)="cancelEditComment()">
@@ -640,7 +650,10 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
                       </div>
                     </form>
                   } @else {
-                    <p>{{ comment.body }}</p>
+                    <app-authored-content-viewer
+                      [source]="comment.body"
+                      [format]="comment.bodyFormat"
+                    />
 
                     @if (comment.mentions.length > 0) {
                       <div class="comment-mentions" aria-label="Mentioned members">
@@ -667,7 +680,7 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
                         <button
                           type="button"
                           class="danger-action"
-                          [disabled]="deletingCommentId() === comment.id"
+                          [disabled]="isArchivedProject() || deletingCommentId() === comment.id"
                           (click)="deleteComment(comment)"
                         >
                           {{ deletingCommentId() === comment.id ? 'Deleting...' : 'Delete comment' }}
@@ -691,15 +704,26 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
             />
           }
 
+          @if (discussionRefreshError()) {
+            <app-error-panel
+              title="Discussion not refreshed"
+              [message]="discussionRefreshError() ?? ''"
+              (retry)="refreshDiscussion()"
+            />
+          }
+
           <form class="comment-form" [formGroup]="commentForm" (ngSubmit)="addComment()" novalidate>
-            <label for="comment-body">Add comment</label>
-            <textarea
-              id="comment-body"
-              rows="4"
-              formControlName="body"
-            ></textarea>
+            <app-authored-content-editor
+              fieldId="comment-body"
+              label="Add comment"
+              [rows]="4"
+              formControlName="bodyContent"
+              [resetIdentity]="newCommentIdentity()"
+              [invalid]="showCommentError()"
+              errorDescriptionIds="comment-body-error"
+            />
             @if (showCommentError()) {
-              <p class="field-error">Comment body is required.</p>
+              <p id="comment-body-error" class="field-error">{{ commentValidationMessage() }}</p>
             }
 
             <section class="mention-picker" aria-label="Comment mentions">
@@ -708,7 +732,9 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
                 <select
                   id="comment-mention-member"
                   #mentionSelect
-                  [disabled]="isArchivedProject() || availableMentionMembers().length === 0"
+                  [disabled]="
+                    isArchivedProject() || isCommenting() || availableMentionMembers().length === 0
+                  "
                   (change)="addMentionMember(mentionSelect.value); mentionSelect.value = ''"
                 >
                   <option value="">Add mention</option>
@@ -726,6 +752,7 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
                       <button
                         type="button"
                         class="chip-remove"
+                        [disabled]="isArchivedProject() || isCommenting()"
                         [attr.aria-label]="'Remove ' + memberDisplayName(member)"
                         (click)="removeMentionMember(member.id)"
                       >
@@ -965,6 +992,7 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
 
     .panel {
       display: grid;
+      min-width: 0;
       gap: 14px;
       border: 1px solid #e5e7eb;
       border-radius: 8px;
@@ -1155,6 +1183,15 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
       gap: 10px;
     }
 
+    .comment-list {
+      min-width: 0;
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .comment {
+      min-width: 0;
+    }
+
     .comment,
     .activity-list li {
       border: 1px solid #e5e7eb;
@@ -1309,6 +1346,11 @@ export class WorkItemDetailPageComponent implements OnInit {
   private actorKey = '';
   private descriptionBaseline: AuthoredContentValue | null = null;
   readonly descriptionEditorIdentity = signal(0);
+  private commentCreateGeneration = 0;
+  private commentDeleteGeneration = 0;
+  private discussionRefreshGeneration = 0;
+  readonly newCommentIdentity = signal(0);
+  readonly editCommentIdentity = signal(0);
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
 
@@ -1369,6 +1411,7 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly milestoneLoadError = signal<string | null>(null);
   readonly cycleLoadError = signal<string | null>(null);
   readonly attachmentActivityError = signal<string | null>(null);
+  readonly discussionRefreshError = signal<string | null>(null);
   readonly availableLabels = signal<LabelDto[]>([]);
   readonly availableMilestones = signal<MilestoneDto[]>([]);
   readonly availableCycles = signal<ProjectCycleDto[]>([]);
@@ -1473,11 +1516,17 @@ export class WorkItemDetailPageComponent implements OnInit {
   });
 
   readonly commentForm = this.formBuilder.nonNullable.group({
-    body: ['', [Validators.required]]
+    bodyContent: this.formBuilder.nonNullable.control<AuthoredContentValue>(
+      { source: '', format: 'markdown_v1' },
+      authoredContentValidator({ requireNonWhitespace: true })
+    )
   });
 
   readonly editCommentForm = this.formBuilder.nonNullable.group({
-    body: ['', [Validators.required]]
+    bodyContent: this.formBuilder.nonNullable.control<AuthoredContentValue>(
+      { source: '', format: 'markdown_v1' },
+      authoredContentValidator({ requireNonWhitespace: true })
+    )
   });
 
   readonly relationshipForm = this.formBuilder.nonNullable.group({
@@ -1592,7 +1641,8 @@ export class WorkItemDetailPageComponent implements OnInit {
       .subscribe({
         next: (workItem) => {
           this.isUpdating.set(false);
-          this.applyWorkItem(workItem);
+          // A field save does not own discussion; its older DTO must not undo a comment write.
+          this.applyWorkItem({ ...workItem, comments: this.workItem()?.comments ?? workItem.comments });
           this.hasSubmittedDetail.set(false);
         },
         error: () => {
@@ -1703,6 +1753,9 @@ export class WorkItemDetailPageComponent implements OnInit {
   }
 
   addComment(): void {
+    if (this.isCommenting() || this.workItem() === null) {
+      return;
+    }
     this.hasSubmittedComment.set(true);
     this.commentError.set(null);
 
@@ -1716,19 +1769,24 @@ export class WorkItemDetailPageComponent implements OnInit {
     }
 
     this.isCommenting.set(true);
+    const generation = ++this.commentCreateGeneration;
+    this.discussionRefreshGeneration += 1;
+    this.syncReadOnlyState();
     this.api
       .createComment(this.workItemId(), this.toCreateCommentRequest())
-      .pipe(this.guardContext())
+      .pipe(this.guardContext(() => generation === this.commentCreateGeneration))
       .subscribe({
-        next: () => {
-          this.commentForm.reset();
-          this.selectedMentionMemberIds.set([]);
-          this.hasSubmittedComment.set(false);
-          this.refreshAfterComment();
+        next: (comment) => {
+          this.applyComment(comment);
+          this.resetNewComment();
+          this.isCommenting.set(false);
+          this.syncReadOnlyState();
+          this.refreshDiscussion();
         },
         error: () => {
           this.commentError.set('The comment could not be added.');
           this.isCommenting.set(false);
+          this.syncReadOnlyState();
         }
       });
   }
@@ -1793,19 +1851,35 @@ export class WorkItemDetailPageComponent implements OnInit {
     }
 
     this.commentMutationError.set(null);
-    this.confirmingDeleteCommentId.set(null);
+    this.cancelDeleteComment();
+    this.editCommentIdentity.update((identity) => identity + 1);
+    this.savingCommentId.set(null);
     this.editingCommentId.set(comment.id);
     this.hasSubmittedEditComment.set(false);
-    this.editCommentForm.reset({ body: comment.body });
+    const bodyContent = { source: comment.body, format: comment.bodyFormat };
+    this.editCommentForm.controls.bodyContent.setValidators(
+      authoredContentValidator({ baseline: bodyContent, requireNonWhitespace: true })
+    );
+    this.editCommentForm.reset({ bodyContent });
+    this.syncReadOnlyState();
   }
 
   cancelEditComment(): void {
+    this.editCommentIdentity.update((identity) => identity + 1);
+    this.savingCommentId.set(null);
     this.editingCommentId.set(null);
     this.hasSubmittedEditComment.set(false);
-    this.editCommentForm.reset({ body: '' });
+    this.editCommentForm.controls.bodyContent.setValidators(
+      authoredContentValidator({ requireNonWhitespace: true })
+    );
+    this.editCommentForm.reset({ bodyContent: { source: '', format: 'markdown_v1' } });
+    this.syncReadOnlyState();
   }
 
   saveComment(comment: CommentDto): void {
+    if (this.editingCommentId() !== comment.id || this.savingCommentId() !== null) {
+      return;
+    }
     this.hasSubmittedEditComment.set(true);
     this.commentMutationError.set(null);
 
@@ -1819,19 +1893,25 @@ export class WorkItemDetailPageComponent implements OnInit {
     }
 
     this.savingCommentId.set(comment.id);
+    const identity = this.editCommentIdentity();
+    const bodyContent = this.editCommentForm.getRawValue().bodyContent;
+    this.discussionRefreshGeneration += 1;
+    this.syncReadOnlyState();
     this.api
-      .updateComment(comment.id, { body: this.editCommentForm.getRawValue().body.trim() })
-      .pipe(this.guardContext())
+      .updateComment(comment.id, { body: bodyContent.source, bodyFormat: bodyContent.format })
+      .pipe(this.guardContext(() =>
+        identity === this.editCommentIdentity() && this.editingCommentId() === comment.id
+      ))
       .subscribe({
-        next: () => {
-          this.refreshAfterCommentMutation(() => {
-            this.savingCommentId.set(null);
-            this.cancelEditComment();
-          });
+        next: (updatedComment) => {
+          this.applyComment(updatedComment);
+          this.cancelEditComment();
+          this.refreshDiscussion();
         },
         error: () => {
           this.commentMutationError.set('The comment could not be updated.');
           this.savingCommentId.set(null);
+          this.syncReadOnlyState();
         }
       });
   }
@@ -1842,15 +1922,22 @@ export class WorkItemDetailPageComponent implements OnInit {
     }
 
     this.commentMutationError.set(null);
-    this.editingCommentId.set(null);
+    this.cancelEditComment();
+    this.commentDeleteGeneration += 1;
+    this.deletingCommentId.set(null);
     this.confirmingDeleteCommentId.set(comment.id);
   }
 
   cancelDeleteComment(): void {
+    this.commentDeleteGeneration += 1;
+    this.deletingCommentId.set(null);
     this.confirmingDeleteCommentId.set(null);
   }
 
   deleteComment(comment: CommentDto): void {
+    if (this.confirmingDeleteCommentId() !== comment.id || this.deletingCommentId() !== null) {
+      return;
+    }
     this.commentMutationError.set(null);
 
     if (!this.canModifyComment(comment)) {
@@ -1858,15 +1945,18 @@ export class WorkItemDetailPageComponent implements OnInit {
     }
 
     this.deletingCommentId.set(comment.id);
+    const generation = this.commentDeleteGeneration;
+    this.discussionRefreshGeneration += 1;
     this.api
       .deleteComment(comment.id)
-      .pipe(this.guardContext())
+      .pipe(this.guardContext(() =>
+        generation === this.commentDeleteGeneration && this.confirmingDeleteCommentId() === comment.id
+      ))
       .subscribe({
-        next: () => {
-          this.refreshAfterCommentMutation(() => {
-            this.deletingCommentId.set(null);
-            this.cancelDeleteComment();
-          });
+        next: (deletedComment) => {
+          this.applyComment(deletedComment);
+          this.cancelDeleteComment();
+          this.refreshDiscussion();
         },
         error: () => {
           this.commentMutationError.set('The comment could not be deleted.');
@@ -2038,7 +2128,7 @@ export class WorkItemDetailPageComponent implements OnInit {
   }
 
   addMentionMember(memberId: string): void {
-    if (memberId === '' || this.isArchivedProject()) {
+    if (memberId === '' || this.isArchivedProject() || this.isCommenting()) {
       return;
     }
 
@@ -2052,6 +2142,9 @@ export class WorkItemDetailPageComponent implements OnInit {
   }
 
   removeMentionMember(memberId: string): void {
+    if (this.isArchivedProject() || this.isCommenting()) {
+      return;
+    }
     this.selectedMentionMemberIds.set(
       this.selectedMentionMemberIds().filter((selectedMemberId) => selectedMemberId !== memberId)
     );
@@ -2185,13 +2278,22 @@ export class WorkItemDetailPageComponent implements OnInit {
   }
 
   showCommentError(): boolean {
-    const control = this.commentForm.controls.body;
+    const control = this.commentForm.controls.bodyContent;
     return control.invalid && (control.touched || this.hasSubmittedComment());
   }
 
   showEditCommentError(): boolean {
-    const control = this.editCommentForm.controls.body;
+    const control = this.editCommentForm.controls.bodyContent;
     return control.invalid && (control.touched || this.hasSubmittedEditComment());
+  }
+
+  commentValidationMessage(editing = false): string {
+    const control = editing
+      ? this.editCommentForm.controls.bodyContent
+      : this.commentForm.controls.bodyContent;
+    return control.hasError('authoredContentTooLong')
+      ? 'Comment body must be 10,000 characters or fewer.'
+      : 'Comment body is required.';
   }
 
   canModifyComment(comment: CommentDto): boolean {
@@ -2230,40 +2332,56 @@ export class WorkItemDetailPageComponent implements OnInit {
     return `Comment deleted${actor}${timestamp}.`;
   }
 
-  private refreshAfterComment(): void {
+  refreshDiscussion(): void {
+    if (this.workItem() === null) {
+      return;
+    }
+    const generation = ++this.discussionRefreshGeneration;
+    const createGeneration = this.commentCreateGeneration;
+    const editIdentity = this.editCommentIdentity();
+    const deleteGeneration = this.commentDeleteGeneration;
+    this.discussionRefreshError.set(null);
     this.api
       .getWorkItem(this.workItemId())
-      .pipe(this.guardContext())
+      .pipe(this.guardContext(() =>
+        generation === this.discussionRefreshGeneration &&
+        createGeneration === this.commentCreateGeneration &&
+        editIdentity === this.editCommentIdentity() &&
+        deleteGeneration === this.commentDeleteGeneration
+      ))
       .subscribe({
         next: (workItem) => {
           this.applyDiscussionRefresh(workItem);
-          this.isCommenting.set(false);
         },
         error: () => {
-          this.commentError.set(
-            'The comment was added, but the latest activity could not be loaded.'
+          this.discussionRefreshError.set(
+            'The latest discussion and activity could not be loaded.'
           );
-          this.isCommenting.set(false);
         }
       });
   }
 
-  private refreshAfterCommentMutation(afterRefresh: () => void): void {
-    this.api
-      .getWorkItem(this.workItemId())
-      .pipe(this.guardContext())
-      .subscribe({
-        next: (workItem) => {
-          this.applyDiscussionRefresh(workItem);
-          afterRefresh();
-        },
-        error: () => {
-          this.commentMutationError.set(
-            'The comment changed, but the latest activity could not be loaded.'
-          );
-          afterRefresh();
-        }
-      });
+  private applyComment(comment: CommentDto): void {
+    this.workItem.update((current) => {
+      if (current === null || comment.workItemId !== current.id) {
+        return current;
+      }
+      const exists = current.comments.some((existing) => existing.id === comment.id);
+      return {
+        ...current,
+        comments: exists
+          ? current.comments.map((existing) => existing.id === comment.id ? comment : existing)
+          : [...current.comments, comment]
+      };
+    });
+  }
+
+  private resetNewComment(): void {
+    this.commentCreateGeneration += 1;
+    this.newCommentIdentity.update((identity) => identity + 1);
+    this.commentForm.reset({ bodyContent: { source: '', format: 'markdown_v1' } });
+    this.selectedMentionMemberIds.set([]);
+    this.hasSubmittedComment.set(false);
   }
 
   private refreshAfterRelationshipMutation(afterRefresh: () => void): void {
@@ -2340,6 +2458,7 @@ export class WorkItemDetailPageComponent implements OnInit {
 
   private resetNavigationState(): void {
     this.contextGeneration += 1;
+    this.discussionRefreshGeneration += 1;
     this.descriptionBaseline = null;
     this.descriptionEditorIdentity.update((identity) => identity + 1);
     this.detailForm.controls.descriptionContent.setValidators(authoredContentValidator());
@@ -2384,6 +2503,7 @@ export class WorkItemDetailPageComponent implements OnInit {
     this.milestoneLoadError.set(null);
     this.cycleLoadError.set(null);
     this.attachmentActivityError.set(null);
+    this.discussionRefreshError.set(null);
     this.detailForm.reset({
       title: '',
       descriptionContent: { source: '', format: 'markdown_v1' },
@@ -2394,8 +2514,9 @@ export class WorkItemDetailPageComponent implements OnInit {
       cycleId: ''
     });
     this.statusForm.reset({ status: 'backlog' });
-    this.commentForm.reset({ body: '' });
-    this.editCommentForm.reset({ body: '' });
+    this.resetNewComment();
+    this.cancelEditComment();
+    this.cancelDeleteComment();
     this.relationshipForm.reset({
       kind: 'blocked_by',
       search: '',
@@ -2439,12 +2560,14 @@ export class WorkItemDetailPageComponent implements OnInit {
 
   private toCreateCommentRequest(): CreateCommentRequest {
     const mentionMemberIds = this.selectedMentionMemberIds();
+    const bodyContent = this.commentForm.getRawValue().bodyContent;
     const request: CreateCommentRequest = {
-      body: this.commentForm.getRawValue().body.trim()
+      body: bodyContent.source,
+      bodyFormat: bodyContent.format
     };
 
     if (mentionMemberIds.length > 0) {
-      request.mentionMemberIds = mentionMemberIds;
+      request.mentionMemberIds = [...mentionMemberIds];
     }
 
     return request;
@@ -2525,8 +2648,16 @@ export class WorkItemDetailPageComponent implements OnInit {
       } else {
         this.detailForm.enable(options);
       }
-      this.commentForm.enable(options);
-      this.editCommentForm.enable(options);
+      if (this.isCommenting()) {
+        this.commentForm.disable(options);
+      } else {
+        this.commentForm.enable(options);
+      }
+      if (this.savingCommentId() !== null) {
+        this.editCommentForm.disable(options);
+      } else {
+        this.editCommentForm.enable(options);
+      }
       this.relationshipForm.enable(options);
 
       if (this.isStatusTransitionReadOnly()) {
@@ -2543,7 +2674,7 @@ export class WorkItemDetailPageComponent implements OnInit {
   }
 
   // Gate successes and failures: matching only item ids misses A -> B -> A and actor reuse.
-  private guardContext<T>(): MonoTypeOperatorFunction<T> {
+  private guardContext<T>(isOperationCurrent: () => boolean = () => true): MonoTypeOperatorFunction<T> {
     const generation = this.contextGeneration;
     const workItemId = this.workItemId();
     const actorKey = this.currentActorKey();
@@ -2551,7 +2682,8 @@ export class WorkItemDetailPageComponent implements OnInit {
       !this.destroyRef.destroyed &&
       generation === this.contextGeneration &&
       workItemId === this.workItemId() &&
-      actorKey === this.currentActorKey();
+      actorKey === this.currentActorKey() &&
+      isOperationCurrent();
     return pipe(
       filter(isCurrent),
       catchError((error: unknown) => (isCurrent() ? throwError(() => error) : EMPTY)),

@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test';
 import type { WorkItemDetailDto } from '@worktrail/contracts';
+import { resetDemoDatabase } from './reset-demo-database';
+
+test.afterAll(resetDemoDatabase);
 
 const projectId = '10000000-0000-4000-8000-000000000201';
 const headers = {
@@ -15,7 +18,7 @@ test('authors descriptions across creation paths, preserves legacy text and draf
   test.setTimeout(90_000);
   const suffix = Date.now();
   const source = '  # Shipping notes\n\n**Important** and `literal <code>`\n\n- First\n- Second\n';
-  const editor = page.locator('app-authored-content-editor');
+  const editor = page.locator('app-authored-content-editor[formcontrolname="descriptionContent"]');
   const summary = page.locator('app-work-item-detail-summary');
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));

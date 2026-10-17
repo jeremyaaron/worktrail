@@ -93,7 +93,8 @@ const ids = {
     hierarchyDone: '10000000-0000-4000-8000-000000000423',
     hierarchyCanceled: '10000000-0000-4000-8000-000000000424',
     hierarchyBlocked: '10000000-0000-4000-8000-000000000425',
-    hierarchyTerminalCandidate: '10000000-0000-4000-8000-000000000426'
+    hierarchyTerminalCandidate: '10000000-0000-4000-8000-000000000426',
+    archivedContent: '10000000-0000-4000-8000-000000000427'
   },
   workItemRelationships: {
     sameProjectBlock: '10000000-0000-4000-8000-000000000451',
@@ -105,7 +106,10 @@ const ids = {
   },
   comments: {
     first: '10000000-0000-4000-8000-000000000501',
-    second: '10000000-0000-4000-8000-000000000502'
+    second: '10000000-0000-4000-8000-000000000502',
+    deletedContent: '10000000-0000-4000-8000-000000000503',
+    literalContent: '10000000-0000-4000-8000-000000000504',
+    archivedContent: '10000000-0000-4000-8000-000000000505'
   },
   workItemWatchers: {
     inProgressOwner: '10000000-0000-4000-8000-000000000551',
@@ -124,7 +128,9 @@ const ids = {
     comment: '10000000-0000-4000-8000-000000000606',
     milestone: '10000000-0000-4000-8000-000000000607',
     statusReport: '10000000-0000-4000-8000-000000000608',
-    operationsStatusReport: '10000000-0000-4000-8000-000000000609'
+    operationsStatusReport: '10000000-0000-4000-8000-000000000609',
+    commentEdited: '10000000-0000-4000-8000-000000000612',
+    commentDeleted: '10000000-0000-4000-8000-000000000613'
   },
   statusReports: {
     appWeekly: '10000000-0000-4000-8000-000000000651',
@@ -315,7 +321,7 @@ try {
           id: ids.projects.archived,
           workspaceId: ids.workspace,
           key: 'LEGACY',
-          nextWorkItemNumber: 1,
+          nextWorkItemNumber: 2,
           name: 'Legacy Tracker',
           description: 'Archived project used to verify archived states.',
           status: 'archived',
@@ -1151,6 +1157,28 @@ try {
           updatedAt: now
         },
         {
+          id: ids.workItems.archivedContent,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.archived,
+          itemNumber: 1,
+          displayKey: 'LEGACY-1',
+          title: 'Retain the archived migration decision',
+          description: '',
+          descriptionFormat: 'markdown_v1',
+          type: 'chore',
+          status: 'done',
+          priority: 'low',
+          assigneeId: null,
+          reporterId: ids.members.owner,
+          milestoneId: null,
+          cycleId: null,
+          boardPosition: 1024,
+          dueDate: null,
+          estimatePoints: null,
+          createdAt: earlier,
+          updatedAt: earlier
+        },
+        {
           id: ids.workItems.closeoutBlocker,
           workspaceId: ids.workspace,
           projectId: ids.projects.closeoutLab,
@@ -1186,6 +1214,33 @@ try {
           updatedAt: sql`excluded.updated_at`
         }
       });
+
+    const authoredDescriptions = [
+      {
+        id: ids.workItems.backlog,
+        description: '# Project summary requirements\n\nShow counts by status and recently updated work.\n\n## Acceptance criteria\n\n- Include all six workflow states.\n- Keep **current delivery state** ahead of historical context.\n- Link counts to the matching filtered work list.\n\n[Design reference](https://example.com/worktrail/summary)',
+        descriptionFormat: 'markdown_v1' as const
+      },
+      {
+        id: ids.workItems.ready,
+        description: '# Filter restoration checks\n\nFilter by status, assignee, type, label, and priority.\n\n1. Open the project work list.\n2. Choose **Ready** and a label.\n3. Reload the URL and confirm the same rows remain visible.\n\nExpected: the URL and active filter chips agree.\n\n> Preserve independent saved-view ownership and pinned shortcuts.',
+        descriptionFormat: 'markdown_v1' as const
+      },
+      {
+        id: ids.workItems.inProgress,
+        description: 'Keep Express concerns out of application services.\n\nLiteral legacy notes: **not emphasis**, # not a heading, and [not a link](https://example.com/reference).',
+        descriptionFormat: 'plain_text' as const
+      },
+      {
+        id: ids.workItems.archivedContent,
+        description: '# Migration decision\n\nKeep the **original source** readable after archival.\n\n> Historical context remains available; authoring is read-only.\n\n[Decision reference](https://example.com/worktrail/decisions)',
+        descriptionFormat: 'markdown_v1' as const
+      }
+    ];
+    // Reseeding restores both fields of the authored examples without rewriting other descriptions.
+    for (const { id, ...content } of authoredDescriptions) {
+      await tx.update(workItems).set(content).where(eq(workItems.id, id));
+    }
 
     const hierarchyChildIds = [
       ids.workItems.hierarchyReady,
@@ -1407,7 +1462,8 @@ try {
           projectId: ids.projects.app,
           workItemId: ids.workItems.inProgress,
           authorId: ids.members.inactive,
-          body: 'This is the first slice that should prove the local API shape.',
+          body: 'This is the first slice that should prove the local API shape.\n\n**Literal legacy punctuation** stays plain text.',
+          bodyFormat: 'plain_text',
           editedAt: null,
           deletedAt: null,
           deletedById: null,
@@ -1420,22 +1476,66 @@ try {
           projectId: ids.projects.app,
           workItemId: ids.workItems.inProgress,
           authorId: ids.members.maintainer,
-          body: 'Keep the handler contract small enough to adapt to Lambda later.',
+          body: 'Keep the handler contract small enough to adapt to Lambda later.\n\n## Handler boundary\n\n```ts\nconst result = await handle(request, dependencies);\nreturn { statusCode: result.status, body: result.body };\n```\n\n[Contract reference](https://example.com/worktrail/handlers)\n\n**Review requested** from the explicitly selected members below.',
+          bodyFormat: 'markdown_v1',
           editedAt: null,
           deletedAt: null,
           deletedById: null,
           createdAt: now,
           updatedAt: now
+        },
+        {
+          id: ids.comments.deletedContent,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.app,
+          workItemId: ids.workItems.inProgress,
+          authorId: ids.members.maintainer,
+          body: '# Retained deleted source\n\nThis original body must never appear in the tombstone.',
+          bodyFormat: 'markdown_v1',
+          editedAt: null,
+          deletedAt: now,
+          deletedById: ids.members.owner,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.comments.literalContent,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.app,
+          workItemId: ids.workItems.ready,
+          authorId: ids.members.owner,
+          body: '## Unsupported source remains inert\n\n<img src="https://assets.example.invalid/pixel" onerror="alert(1)">\n\n![Diagram alternative text](https://assets.example.invalid/diagram.png)\n\n[Rejected destination](javascript:alert%281%29)\n\n~~Not strikethrough~~ and - [x] not an interactive checklist.',
+          bodyFormat: 'markdown_v1',
+          editedAt: now,
+          deletedAt: null,
+          deletedById: null,
+          createdAt: earlier,
+          updatedAt: now
+        },
+        {
+          id: ids.comments.archivedContent,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.archived,
+          workItemId: ids.workItems.archivedContent,
+          authorId: ids.members.owner,
+          body: '## Archived review\n\nThe **migration decision** was accepted.\n\n```text\nsource + format -> safe presentation\n```',
+          bodyFormat: 'markdown_v1',
+          editedAt: null,
+          deletedAt: null,
+          deletedById: null,
+          createdAt: earlier,
+          updatedAt: earlier
         }
       ])
       .onConflictDoUpdate({
         target: comments.id,
         set: {
           body: sql`excluded.body`,
+          bodyFormat: sql`excluded.body_format`,
           editedAt: sql`excluded.edited_at`,
           deletedAt: sql`excluded.deleted_at`,
           deletedById: sql`excluded.deleted_by_id`,
-          updatedAt: now
+          updatedAt: sql`excluded.updated_at`
         }
       });
 
@@ -1538,6 +1638,32 @@ try {
           previousValue: null,
           newValue: null,
           metadata: { commentId: ids.comments.second },
+          createdAt: now
+        },
+        {
+          id: ids.activity.commentEdited,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.app,
+          workItemId: ids.workItems.ready,
+          actorId: ids.members.owner,
+          eventType: 'comment.edited',
+          summary: 'Comment edited.',
+          previousValue: null,
+          newValue: null,
+          metadata: { commentId: ids.comments.literalContent },
+          createdAt: now
+        },
+        {
+          id: ids.activity.commentDeleted,
+          workspaceId: ids.workspace,
+          projectId: ids.projects.app,
+          workItemId: ids.workItems.inProgress,
+          actorId: ids.members.owner,
+          eventType: 'comment.deleted',
+          summary: 'Comment deleted.',
+          previousValue: null,
+          newValue: null,
+          metadata: { commentId: ids.comments.deletedContent },
           createdAt: now
         },
         {
