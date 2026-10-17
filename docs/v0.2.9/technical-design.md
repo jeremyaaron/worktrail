@@ -2,10 +2,10 @@
 
 ## Status
 
-Implementation in progress. Phases 0-3 completed on October 11, 2026, and Phases 4-6 completed on
-October 12, 2026. Persistence, format-aware reads and writes, locking, no-ops, activity, and CSV
-import/preview format support are implemented, along with bounded Markdown projection and the shared
-safe viewer. The shared editor and description/comment UI integration remain pending. See the
+Implementation in progress. Phases 0-3 completed on October 11, 2026, Phases 4-6 on October 12,
+and Phase 7 on October 17. Persistence, format-aware reads and writes, locking, no-ops, activity, and
+CSV import/preview format support are implemented, along with bounded Markdown projection, the shared
+safe viewer, and the compound authoring control. Description/comment page integration remains pending. See the
 [implementation plan](implementation-plan.md) for evidence.
 
 ## Summary
@@ -594,6 +594,18 @@ Behavior:
 - A reset identity change closes Preview/link insertion and discards selection snapshots even if the
   next source happens to be identical.
 
+Keep the same textarea mounted across Edit/Preview, and do not assign its value when a native input
+event already matches the model. Parent `writeValue` calls and reset-identity changes replace the
+textarea to discard prior-context selection and native history. Revision checks suppress input,
+composition, and blur events from the replaced context, including events before the next render.
+Resetting a focused parent form must not mark its new control touched.
+
+The temporary URL field is a text input with `inputmode="url"`, validated by the shared URL policy;
+an unfinished link must not add a native validation constraint to the parent form. Enter inserts only
+from that field; action buttons retain native keyboard activation. Escape/cancel restores the captured
+source selection. Source and URL IME composition suppress commands and mode/format switches without
+disabling the input currently composing.
+
 New controls default to `{ source: '', format: 'markdown_v1' }`. Existing edits use the exact loaded
 source and format. Baseline-aware validators accept unchanged historical pairs, reject oversized
 conversions/changes, and check non-whitespace source for comments.
@@ -603,14 +615,16 @@ conversions/changes, and check non-whitespace source for comments.
 Keep source manipulation in pure functions returning `{ source, selectionStart, selectionEnd }`.
 Use established parsing for Markdown itself; these functions only insert authoring syntax.
 
-- Bold and italic wrap selected text, or insert a selected placeholder when empty.
+- Bold and italic wrap selected text, or insert a selected placeholder when empty. Keep boundary
+  whitespace outside markers and escape embedded asterisks/backslashes. Wrap multiline selections
+  independently per nonblank line rather than attempt emphasis across paragraph boundaries.
 - Heading inserts/replaces an ATX marker at selected line starts, using `##` as the default command.
 - Bullet, ordered-list, and quote actions prefix selected lines; number ordered lines sequentially.
 - Inline code chooses a backtick delimiter longer than any run in the selection and handles boundary
   spaces according to the profile's parser behavior.
 - Code block uses a fence longer than existing backtick runs, with newlines at block boundaries.
-- Link insertion escapes the selected label and uses a validated URL serialization that cannot break
-  Markdown destination delimiters.
+- Link insertion escapes the selected label, turns label line endings into spaces, and uses an
+  angle-delimited validated URL serialization that cannot break Markdown destination delimiters.
 - Preserve all source outside the affected selection/lines, including leading and trailing whitespace.
 - Capture selection before opening the link form; do not overwrite it with the URL input's selection.
 - Use textarea selection/range APIs for editing only, never DOM HTML insertion or `execCommand`.
@@ -625,6 +639,12 @@ map is introduced; native text editing and the existing Quick Find shortcut supp
 Programmatic source edits must update Angular control state. Verify native typing undo behavior;
 do not claim a custom cross-command undo history or introduce an editor engine in this release.
 
+`npm run test:editor` uses a standalone Angular-compiled fixture outside application routes and a
+separate Playwright configuration. It tests trusted keyboard input, native typing undo/redo through
+Preview and after formatting, link selection/focus/cancellation, and desktop/mobile containment without
+an API or database. CI runs this suite after the production build. Compilation outputs are temporary;
+screenshots remain ignored test evidence, not application assets.
+
 ## Page Integration And Lifecycle
 
 ### Creation
@@ -635,6 +655,7 @@ Keep title/type/priority and all other fields unchanged.
 Request builders map the pair to `description` and `descriptionFormat` without `.trim()`. Project and
 child defaults do not copy or infer a parent description/format; they use the existing create defaults
 and a new empty Markdown description. Failed creation retains both fields and pending-state handling.
+Global, project, and child creation share this same component and request builder.
 
 ### Work-Item Detail
 
@@ -645,14 +666,31 @@ When building a PATCH, omit both description fields if the pair matches its base
 format changed, send the pair explicitly. Other submitted field behavior remains intact. The server
 still handles old clients that resubmit unchanged strings.
 
+The detail form is disabled while its save is pending, including label selection, and duplicate saves
+are suppressed. Failure restores editing without resetting the pair, dirty state, or Preview. Success
+loads the returned pair as the new validation/PATCH baseline. Discard changes resets the editable fields
+to the current loaded item and explicitly resets editor presentation; it makes no request.
+
 Changing item/actor increments an editor/request generation and clears the prior form baseline. A
 matching response applies only when generation, actor, and item still match. Apply the same guards
 to comment create/edit callbacks that can otherwise reset a newer draft or trigger a wrong-item refresh.
 Use existing subscriptions and reset hooks; do not create another global state store.
 
+A page-local RxJS operator captures context generation, item id, and workspace/member identity before
+each affected request, gates both emitted values and errors, and unsubscribes on page destruction.
+Actor changes clear/reload detail; navigation generations also reject A-to-B-to-A responses. A separate
+load generation handles superseded same-item loads. Comment-specific edit-session generations are
+added with the Phase 9 integration, not inferred from the description baseline.
+
 Unrelated attachment/activity refreshes must not reset active description or comment drafts. Existing
 successful mutation refresh behavior stays explicit and tested. Archived state disables content
 controls under the page's existing read-only rules.
+
+Only initial loading, matching successful detail saves, explicit discard, and context reset write the
+description control. Discussion refreshes merge comments/activity; relationship refreshes merge their
+relationship/dependency state and activity. Status/parent callbacks merge their affected fields without
+replacing a newer persisted description or resetting any active authoring control. The summary's
+Description h2 follows current-state facts and labels, and its viewer remaps authored headings below it.
 
 ### Comments
 

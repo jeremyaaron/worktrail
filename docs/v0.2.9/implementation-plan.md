@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementation in progress. Phases 0-6 are complete; Phases 7-11 have not started.
+Implementation in progress. Phases 0-8 are complete; Phases 9-11 have not started.
 
 ## Purpose
 
@@ -866,6 +866,8 @@ Scope:
 - Use the Phase 6 viewer for Preview; do not parse hidden preview content on every Edit keystroke.
 - Implement IME composition guards, reset identity, local state clearing, and disabled controls.
 - Test selection/focus and native typing undo behavior; do not add a custom editor history engine.
+- Add a database-independent Angular browser fixture and CI check for trusted keyboard input,
+  native undo/redo, and responsive layouts. Do not introduce a production test route.
 
 Acceptance criteria:
 
@@ -881,11 +883,64 @@ Suggested checks:
 npm run lint --workspace @worktrail/web
 npm run typecheck --workspace @worktrail/web
 npm run test --workspace @worktrail/web
+npm run test:editor
 npm run build:web
 git diff --check
 ```
 
-Status: Not started.
+The editor browser suite needs Playwright Chromium (`npx playwright install chromium` locally;
+CI installs Chromium with its system dependencies). It defaults to loopback port 4317; set
+`WORKTRAIL_EDITOR_TEST_PORT` to use another port. Unlike `test:e2e`, it does not reset or connect to a
+database or attachment store.
+
+Status: Complete on October 17, 2026.
+
+Completion evidence:
+
+- Added the standalone compound `AuthoredContentEditorComponent` with reactive-form CVA semantics,
+  explicit Plain text/Markdown selection, Edit/Preview modes, normalized UTF-16 count, configurable
+  label/id/rows/error associations, and disabled-state handling. New/null values use empty Markdown;
+  loaded pairs retain exact source/format without inference or feedback emissions.
+- Preview conditionally mounts the Phase 6 viewer. It does not parse Edit keystrokes, emit changes,
+  mark source dirty, or replace the native textarea. Formatting/URL controls are buttons with Lucide
+  icons, accessible names, native title tooltips, and fixed 34 px dimensions that wrap at narrow widths.
+- Added `authoredContentEquals` and the parent-usable `authoredContentValidator`. Validation measures
+  normalized UTF-16 source without trimming, optionally requires non-whitespace comments, accepts
+  unchanged historical pairs (including oversized/blank source), and validates changed/conversion
+  pairs against a copied baseline. No unconditional native `maxlength` was introduced.
+- Added pure commands for bold/italic, ATX headings, bullet/numbered lists, quotes, inline code,
+  fenced code, and descriptive links. Tests cover escaped delimiters, preserved boundary whitespace,
+  multiline ranges, CRLF/lone-CR boundaries, safe fence lengths/padding, destination parentheses,
+  selection placeholders, clamped/reversed ranges, and intact surrogate pairs.
+- Source edits use native range/selection APIs and update both form fields together. Native input
+  events are not followed by redundant value assignment, preserving browser typing undo. Parent
+  writes and reset identities clear local preview/link/composition state and replace the textarea;
+  revision checks prevent stale DOM events or reset-induced blur from changing the next context.
+- Link insertion captures the source selection before URL focus, shares the viewer's explicit HTTP(S)
+  policy, validates locally, and restores focus/selection on insert or cancel. Enter, Escape, and
+  native action-button activation do not submit the parent form. The temporary URL uses text input
+  with URL keyboard hints, so unfinished URL syntax does not block parent form submission. IME
+  guards cover both source and URL input without disabling the actively composing field.
+- Added 83 focused validation/command/editor unit cases; the authored-content suite now has 175
+  cases. The full Angular suite passes with 599 tests, including existing page regressions.
+- Added `npm run test:editor`, a dedicated Playwright configuration, and an Angular AOT fixture under
+  `apps/web/browser-tests/authored-content-editor`. The loopback server reuses the web compiler and
+  build-tool dependencies, compiles into an owned temporary directory, and removes outputs on exit.
+  No application route, API, database, attachment store, or new dependency is involved.
+- All three Chromium browser tests pass. Trusted input verifies native undo/redo across Preview
+  and after a formatting command, with parent-model synchronization. Keyboard link cancellation and
+  insertion preserve selection; format conversion, reset, disabled state, and zero accidental
+  submissions are covered. These are native typing checks, not a custom cross-command history claim.
+- Browser layout checks at 1440, 390, and 320 px pass without horizontal page overflow or remote
+  requests. Edit/link-entry and Preview screenshots were visually reviewed; evidence is generated
+  under ignored `test-results/editor`. CI now installs Chromium and runs this independent suite.
+- Final checks passed: root `npm run lint`, root `npm run typecheck`, explicit web-spec TypeScript
+  checking, full web tests, `npm run test:editor`, root `npm run build`, and `git diff --check`.
+  Production initial size remains 383.01 kB with unchanged budgets and no warnings. Root-shell/page
+  imports remain unchanged; feature integration is still reserved for Phases 8-9.
+- No API/schema/release-version/dependency changes were made. Verification used no database or
+  attachment resets. Phase-owned browser/Karma servers and compiler temporary directories were
+  removed; the user's application processes and local data were not modified.
 
 ## Phase 8: Description Workflow Integration
 
@@ -933,7 +988,47 @@ git diff --check
 Add a focused browser smoke scenario using the disposable verification database once this workflow
 is wired; broader browser evidence belongs to Phase 10.
 
-Status: Not started.
+Status: Complete (October 17, 2026).
+
+Completion notes:
+
+- Global, project, and child creation now use the shared compound editor and a validated empty
+  Markdown default. Requests explicitly map source and format without trimming or line-ending
+  conversion. Child creation keeps its independent planning defaults; failed creation retains the pair.
+- Detail editing initializes from the exact persisted description pair. Baseline-aware validation
+  permits unchanged oversized legacy content, rejects oversized conversions, and omits both fields
+  from PATCH when their normalized pair is unchanged. A successful save adopts the returned pair as
+  the next baseline. Discard changes restores the loaded fields, baseline, and editor presentation.
+- Detail summary renders through the shared viewer after identity/current-state facts and labels,
+  under a compact Description h2. Existing empty-description copy remains. Archived descriptions
+  remain readable while source, format, and mutation controls are disabled.
+- Item/actor changes reset the baseline, editor identity, and pending state. Context generations,
+  captured item/actor identity, and destruction-bound subscriptions gate both successes and failures,
+  including return to an earlier item/actor. A separate load generation rejects superseded same-item
+  loads. Description fields and labels are disabled during save; duplicate saves are suppressed, and
+  failed saves restore editing without discarding source, format, Preview, or dirty state.
+- Attachment activity remains a narrow refresh. Discussion, relationships, parent changes, and
+  status changes merge their relevant read state without resetting description/comment drafts or
+  rewriting description baselines. An older status response cannot replace a newly saved description.
+  Comment-specific editor/session behavior remains Phase 9 work.
+- Added 22 Angular cases across creation and detail workflows. The full Angular suite passes with
+  621 tests, including archived, attachment, relationship, hierarchy, watcher, and comment regressions.
+- Added `e2e/authored-description.spec.ts`. Its real API/browser scenario verifies all creation entry
+  points, exact source persistence, preview/saved rendering parity, unchanged PATCH omission,
+  failed-save recovery, explicit conversion/discard, and linked-ticket route reuse. It passes with
+  existing planning/adoption, dependency, and work-breakdown smoke scenarios (four application tests).
+  Updated the existing child-creation selector to target the Description textbox rather than matching
+  the editor's labeled groups. The independent shared-editor browser suite also passes (three tests).
+- Description source, Preview, and summary screenshots at 1440, 390, and 320 px remain under ignored
+  `test-results`; containment checks pass without page-level horizontal overflow.
+- Root lint/typecheck/build, explicit web-spec TypeScript checking, and
+  `git diff --check` pass. Production initial size is 386.62 kB with unchanged budgets and no warnings.
+  Production stats place the parser/viewer/editor in a 131.73 kB lazy chunk, outside the initial graph.
+- Browser verification used a phase-owned PostgreSQL 16 container on a random loopback port and
+  isolated temporary attachment storage. No API/schema/dependency/release-version changes were made;
+  local working data was not reset, migrated, or seeded. The phase-owned container, temporary
+  attachment storage, editor compiler outputs, and test servers were removed after verification.
+  Phase 9 remains unstarted.
 
 ## Phase 9: Comment Workflow And Draft Lifecycle Integration
 
@@ -1036,11 +1131,13 @@ npm run typecheck
 npm test
 npm run build
 npm run test:e2e
+npm run test:editor
 npm audit --omit=dev --audit-level=low
 git diff --check
 ```
 
-Use the disposable database and isolated storage for every database/browser command above. The
+Use the disposable database and isolated storage for database-backed commands, including `test:e2e`;
+`test:editor` uses only its standalone fixture. The
 production-preview command and nondefault ports should be recorded with their actual runtime setup
 rather than assumed to be free.
 
@@ -1093,6 +1190,7 @@ npm run typecheck
 npm test
 npm run build
 npm run test:e2e
+npm run test:editor
 npm audit --omit=dev --audit-level=low
 git diff --check
 git status --short --branch

@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "types": []
+  },
+  "angularCompilerOptions": {
+    "compilationMode": "full"
+  },
+  "files": ["main.ts"],
+  "include": [],
+  "references": []
+}

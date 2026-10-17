@@ -22,6 +22,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "test:e2e": "playwright test",
+    "test:editor": "playwright test --config playwright.editor.config.ts",
     "test:e2e:ui": "playwright test --ui",
     "lint": "npm run lint --workspaces --if-present",
     "db:start": "docker compose up -d postgres",

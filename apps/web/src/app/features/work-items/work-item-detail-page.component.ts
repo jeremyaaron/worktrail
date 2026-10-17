@@ -1,4 +1,13 @@
-import { Component, DestroyRef, OnInit, computed, effect, inject, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  OnInit,
+  computed,
+  effect,
+  inject,
+  signal,
+  untracked
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -20,7 +29,18 @@ import type {
   WorkItemWatchStateDto,
   WorkspaceWorkItemListItemDto
 } from '@worktrail/contracts';
-import { combineLatest, distinctUntilChanged, map, type Subscription } from 'rxjs';
+import {
+  EMPTY,
+  catchError,
+  combineLatest,
+  distinctUntilChanged,
+  filter,
+  map,
+  pipe,
+  throwError,
+  type MonoTypeOperatorFunction,
+  type Subscription
+} from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { CyclesApi } from '../../core/api/cycles-api';
@@ -28,6 +48,12 @@ import { WorktrailApiService } from '../../core/worktrail-api.service';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
+import { AuthoredContentEditorComponent } from '../../shared/authored-content/authored-content-editor.component';
+import { authoredContentValidator } from '../../shared/authored-content/authored-content-validation';
+import {
+  authoredContentEquals,
+  type AuthoredContentValue
+} from '../../shared/authored-content/authored-content-value';
 import { ActivityTimelineComponent } from './components/activity-timeline.component';
 import { WorkItemAttachmentsComponent } from './components/work-item-attachments.component';
 import { WorkItemChildWorkComponent } from './components/work-item-child-work.component';
@@ -52,6 +78,7 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
 @Component({
   selector: 'app-work-item-detail-page',
   imports: [
+    AuthoredContentEditorComponent,
     ActivityTimelineComponent,
     EmptyStateComponent,
     ErrorPanelComponent,
@@ -111,7 +138,8 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
         <section class="dependency-alert" aria-label="Dependency state">
           <strong>{{ dependencyStateLabel(item) }}</strong>
           <p>
-            Review dependencies before changing status or publishing updates that reference this work.
+            Review dependencies before changing status or publishing updates that reference this
+            work.
           </p>
         </section>
       }
@@ -131,7 +159,12 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
           <p class="section-eyebrow">Act</p>
           <h2 id="edit-work-item-heading">Edit work item</h2>
 
-          <form class="detail-form" [formGroup]="detailForm" (ngSubmit)="updateWorkItem()" novalidate>
+          <form
+            class="detail-form"
+            [formGroup]="detailForm"
+            (ngSubmit)="updateWorkItem()"
+            novalidate
+          >
             <label for="detail-title">Title</label>
             <input
               id="detail-title"
@@ -144,12 +177,20 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
               <p id="detail-title-error" class="field-error">Title is required.</p>
             }
 
-            <label for="detail-description">Description</label>
-            <textarea
-              id="detail-description"
-              rows="5"
-              formControlName="description"
-            ></textarea>
+            <app-authored-content-editor
+              fieldId="detail-description"
+              label="Description"
+              [rows]="5"
+              formControlName="descriptionContent"
+              [resetIdentity]="descriptionEditorIdentity()"
+              [invalid]="showDescriptionError()"
+              errorDescriptionIds="detail-description-error"
+            />
+            @if (showDescriptionError()) {
+              <p id="detail-description-error" class="field-error">
+                Changed descriptions must be 10,000 characters or fewer.
+              </p>
+            }
 
             <div class="form-grid">
               <label>
@@ -225,7 +266,9 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
                   [message]="labelLoadError() ?? ''"
                   (retry)="loadProjectLabels(item.projectId)"
                 />
-              } @else if (assignableLabels().length === 0 && archivedAttachedLabels().length === 0) {
+              } @else if (
+                assignableLabels().length === 0 && archivedAttachedLabels().length === 0
+              ) {
                 <p>No project labels are available.</p>
               } @else {
                 @if (assignableLabels().length > 0) {
@@ -235,7 +278,7 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
                         <input
                           type="checkbox"
                           [checked]="isLabelSelected(label.id)"
-                          [disabled]="isArchivedProject()"
+                          [disabled]="isArchivedProject() || isUpdating()"
                           (change)="toggleLabel(label.id, $event)"
                         />
                         <span [style.background]="label.color ?? '#e2e8f0'"></span>
@@ -265,6 +308,14 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
 
             <button type="submit" [disabled]="isArchivedProject() || isUpdating()">
               {{ isUpdating() ? 'Saving...' : 'Save changes' }}
+            </button>
+            <button
+              type="button"
+              class="secondary-action"
+              [disabled]="isArchivedProject() || isUpdating()"
+              (click)="discardDetailChanges()"
+            >
+              Discard changes
             </button>
           </form>
         </section>
@@ -1253,6 +1304,11 @@ export class WorkItemDetailPageComponent implements OnInit {
   private attachmentActivityGeneration = 0;
   private nextFilesTargetGeneration = 0;
   private hasInitializedRoute = false;
+  private contextGeneration = 0;
+  private loadGeneration = 0;
+  private actorKey = '';
+  private descriptionBaseline: AuthoredContentValue | null = null;
+  readonly descriptionEditorIdentity = signal(0);
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
 
@@ -1261,7 +1317,9 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly priorities = priorities;
   readonly members = computed<MemberDto[]>(() => this.currentUser.members());
   readonly assigneeOptions = computed<MemberDto[]>(() => {
-    const membersById = new Map(this.currentUser.activeMembers().map((member) => [member.id, member]));
+    const membersById = new Map(
+      this.currentUser.activeMembers().map((member) => [member.id, member])
+    );
     const currentAssignee = this.workItem()?.assignee;
 
     if (currentAssignee !== null && currentAssignee !== undefined) {
@@ -1321,7 +1379,9 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly watchers = computed(() => this.watchState()?.watchers ?? []);
   readonly watcherCount = computed(() => this.watchState()?.watcherCount ?? this.watchers().length);
   readonly selectedMentionMembers = computed(() => {
-    const membersById = new Map(this.currentUser.activeMembers().map((member) => [member.id, member]));
+    const membersById = new Map(
+      this.currentUser.activeMembers().map((member) => [member.id, member])
+    );
 
     return this.selectedMentionMemberIds()
       .map((memberId) => membersById.get(memberId))
@@ -1342,7 +1402,9 @@ export class WorkItemDetailPageComponent implements OnInit {
       this.workItem()?.childSummary === null &&
       !this.isArchivedProject()
   );
-  readonly isTerminalWorkItem = computed(() => terminalStatuses.has(this.workItem()?.status ?? 'backlog'));
+  readonly isTerminalWorkItem = computed(() =>
+    terminalStatuses.has(this.workItem()?.status ?? 'backlog')
+  );
   readonly canReopenTerminalWorkItem = computed(() => {
     const actor = this.currentUser.selectedMember();
     return actor?.role === 'owner' || actor?.role === 'maintainer';
@@ -1353,7 +1415,9 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly isStatusTransitionReadOnly = computed(
     () => this.isArchivedProject() || this.isTerminalStatusReadOnly()
   );
-  readonly assignableLabels = computed(() => this.availableLabels().filter((label) => !label.isArchived));
+  readonly assignableLabels = computed(() =>
+    this.availableLabels().filter((label) => !label.isArchived)
+  );
   readonly archivedAttachedLabels = computed(() =>
     (this.workItem()?.labels ?? []).filter((label) => label.isArchived)
   );
@@ -1393,7 +1457,10 @@ export class WorkItemDetailPageComponent implements OnInit {
 
   readonly detailForm = this.formBuilder.nonNullable.group({
     title: ['', [Validators.required]],
-    description: [''],
+    descriptionContent: this.formBuilder.nonNullable.control<AuthoredContentValue>(
+      { source: '', format: 'markdown_v1' },
+      authoredContentValidator()
+    ),
     type: ['task'],
     priority: ['medium'],
     assigneeId: [''],
@@ -1421,12 +1488,23 @@ export class WorkItemDetailPageComponent implements OnInit {
 
   constructor() {
     effect(() => {
+      const actorKey = this.currentActorKey();
+      untracked(() => {
+        if (this.hasInitializedRoute && actorKey !== this.actorKey) {
+          this.actorKey = actorKey;
+          this.resetNavigationState();
+          this.loadWorkItem();
+        }
+      });
+    });
+    effect(() => {
       this.isStatusTransitionReadOnly();
       this.syncReadOnlyState();
     });
   }
 
   ngOnInit(): void {
+    this.actorKey = this.currentActorKey();
     if (this.currentUser.members().length === 0) {
       this.currentUser.loadMembers();
     }
@@ -1443,8 +1521,7 @@ export class WorkItemDetailPageComponent implements OnInit {
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe(([workItemId, fragment]) => {
-        const workItemChanged =
-          !this.hasInitializedRoute || workItemId !== this.workItemId();
+        const workItemChanged = !this.hasInitializedRoute || workItemId !== this.workItemId();
 
         this.hasInitializedRoute = true;
         this.workItemId.set(workItemId);
@@ -1459,35 +1536,42 @@ export class WorkItemDetailPageComponent implements OnInit {
 
   loadWorkItem(): void {
     const workItemId = this.workItemId();
+    const generation = ++this.loadGeneration;
     this.isLoading.set(true);
     this.loadError.set(null);
 
-    this.api.getWorkItem(workItemId).subscribe({
-      next: (workItem) => {
-        if (workItemId !== this.workItemId()) {
-          return;
-        }
+    this.api
+      .getWorkItem(workItemId)
+      .pipe(this.guardContext())
+      .subscribe({
+        next: (workItem) => {
+          if (generation !== this.loadGeneration) {
+            return;
+          }
 
-        this.applyWorkItem(workItem);
-        this.loadWatchState();
-        this.loadProject(workItem.projectId);
-        this.loadProjectLabels(workItem.projectId);
-        this.loadProjectMilestones(workItem.projectId);
-        this.loadProjectCycles(workItem.projectId);
-        this.isLoading.set(false);
-      },
-      error: () => {
-        if (workItemId !== this.workItemId()) {
-          return;
-        }
+          this.applyWorkItem(workItem);
+          this.loadWatchState();
+          this.loadProject(workItem.projectId);
+          this.loadProjectLabels(workItem.projectId);
+          this.loadProjectMilestones(workItem.projectId);
+          this.loadProjectCycles(workItem.projectId);
+          this.isLoading.set(false);
+        },
+        error: () => {
+          if (generation !== this.loadGeneration) {
+            return;
+          }
 
-        this.loadError.set('Work item detail could not be loaded from the API.');
-        this.isLoading.set(false);
-      }
-    });
+          this.loadError.set('Work item detail could not be loaded from the API.');
+          this.isLoading.set(false);
+        }
+      });
   }
 
   updateWorkItem(): void {
+    if (this.isUpdating() || this.workItem() === null) {
+      return;
+    }
     this.hasSubmittedDetail.set(true);
     this.updateError.set(null);
 
@@ -1501,22 +1585,44 @@ export class WorkItemDetailPageComponent implements OnInit {
     }
 
     this.isUpdating.set(true);
-    this.api.updateWorkItem(this.workItemId(), this.toUpdateRequest()).subscribe({
-      next: (workItem) => {
-        this.applyWorkItem(workItem);
-        this.hasSubmittedDetail.set(false);
-        this.isUpdating.set(false);
-      },
-      error: () => {
-        this.updateError.set('The work item could not be updated.');
-        this.isUpdating.set(false);
-      }
-    });
+    this.syncReadOnlyState();
+    this.api
+      .updateWorkItem(this.workItemId(), this.toUpdateRequest())
+      .pipe(this.guardContext())
+      .subscribe({
+        next: (workItem) => {
+          this.isUpdating.set(false);
+          this.applyWorkItem(workItem);
+          this.hasSubmittedDetail.set(false);
+        },
+        error: () => {
+          this.updateError.set('The work item could not be updated.');
+          this.isUpdating.set(false);
+          this.syncReadOnlyState();
+        }
+      });
+  }
+
+  discardDetailChanges(): void {
+    const workItem = this.workItem();
+    if (workItem !== null && !this.isUpdating() && !this.isArchivedProject()) {
+      this.resetDetailForm(workItem);
+      this.hasSubmittedDetail.set(false);
+      this.updateError.set(null);
+    }
   }
 
   applyParentChange(workItem: WorkItemDetailDto): void {
     if (workItem.id === this.workItemId()) {
-      this.applyWorkItem(workItem);
+      this.workItem.update((current) =>
+        current === null ? current : {
+          ...current,
+          parent: workItem.parent,
+          childSummary: workItem.childSummary,
+          updatedAt: workItem.updatedAt,
+          activity: workItem.activity
+        }
+      );
     }
   }
 
@@ -1528,29 +1634,35 @@ export class WorkItemDetailPageComponent implements OnInit {
 
     this.attachmentActivitySubscription = this.api
       .listWorkItemActivity(workItemId)
-      .pipe(takeUntilDestroyed(this.destroyRef))
+      .pipe(this.guardContext())
       .subscribe({
-      next: (activity) => {
-        if (generation !== this.attachmentActivityGeneration || workItemId !== this.workItemId()) {
-          return;
-        }
+        next: (activity) => {
+          if (
+            generation !== this.attachmentActivityGeneration ||
+            workItemId !== this.workItemId()
+          ) {
+            return;
+          }
 
-        this.workItem.update((workItem) =>
-          workItem?.id === workItemId ? { ...workItem, activity } : workItem
-        );
-        this.attachmentActivitySubscription = null;
-      },
-      error: () => {
-        if (generation !== this.attachmentActivityGeneration || workItemId !== this.workItemId()) {
-          return;
-        }
+          this.workItem.update((workItem) =>
+            workItem?.id === workItemId ? { ...workItem, activity } : workItem
+          );
+          this.attachmentActivitySubscription = null;
+        },
+        error: () => {
+          if (
+            generation !== this.attachmentActivityGeneration ||
+            workItemId !== this.workItemId()
+          ) {
+            return;
+          }
 
-        this.attachmentActivityError.set(
-          'The file changed, but the latest activity could not be loaded.'
-        );
-        this.attachmentActivitySubscription = null;
-      }
-    });
+          this.attachmentActivityError.set(
+            'The file changed, but the latest activity could not be loaded.'
+          );
+          this.attachmentActivitySubscription = null;
+        }
+      });
   }
 
   transitionStatus(): void {
@@ -1565,16 +1677,29 @@ export class WorkItemDetailPageComponent implements OnInit {
     this.statusError.set(null);
     this.isTransitioning.set(true);
 
-    this.api.transitionWorkItem(this.workItemId(), { status }).subscribe({
-      next: (workItem) => {
-        this.applyWorkItem(workItem);
-        this.isTransitioning.set(false);
-      },
-      error: () => {
-        this.statusError.set('The requested status transition was rejected.');
-        this.isTransitioning.set(false);
-      }
-    });
+    this.api
+      .transitionWorkItem(this.workItemId(), { status })
+      .pipe(this.guardContext())
+      .subscribe({
+        next: (workItem) => {
+          this.workItem.update((current) =>
+            current === null ? current : {
+              ...current,
+              status: workItem.status,
+              boardPosition: workItem.boardPosition,
+              updatedAt: workItem.updatedAt,
+              activity: workItem.activity
+            }
+          );
+          this.statusForm.reset({ status: workItem.status });
+          this.syncReadOnlyState();
+          this.isTransitioning.set(false);
+        },
+        error: () => {
+          this.statusError.set('The requested status transition was rejected.');
+          this.isTransitioning.set(false);
+        }
+      });
   }
 
   addComment(): void {
@@ -1591,18 +1716,21 @@ export class WorkItemDetailPageComponent implements OnInit {
     }
 
     this.isCommenting.set(true);
-    this.api.createComment(this.workItemId(), this.toCreateCommentRequest()).subscribe({
-      next: () => {
-        this.commentForm.reset();
-        this.selectedMentionMemberIds.set([]);
-        this.hasSubmittedComment.set(false);
-        this.refreshAfterComment();
-      },
-      error: () => {
-        this.commentError.set('The comment could not be added.');
-        this.isCommenting.set(false);
-      }
-    });
+    this.api
+      .createComment(this.workItemId(), this.toCreateCommentRequest())
+      .pipe(this.guardContext())
+      .subscribe({
+        next: () => {
+          this.commentForm.reset();
+          this.selectedMentionMemberIds.set([]);
+          this.hasSubmittedComment.set(false);
+          this.refreshAfterComment();
+        },
+        error: () => {
+          this.commentError.set('The comment could not be added.');
+          this.isCommenting.set(false);
+        }
+      });
   }
 
   loadWatchState(): void {
@@ -1610,25 +1738,28 @@ export class WorkItemDetailPageComponent implements OnInit {
     this.isWatchLoading.set(true);
     this.watchError.set(null);
 
-    this.api.getWorkItemWatchState(workItemId).subscribe({
-      next: (watchState) => {
-        if (workItemId !== this.workItemId()) {
-          return;
-        }
+    this.api
+      .getWorkItemWatchState(workItemId)
+      .pipe(this.guardContext())
+      .subscribe({
+        next: (watchState) => {
+          if (workItemId !== this.workItemId()) {
+            return;
+          }
 
-        this.watchState.set(watchState);
-        this.isWatchLoading.set(false);
-      },
-      error: () => {
-        if (workItemId !== this.workItemId()) {
-          return;
-        }
+          this.watchState.set(watchState);
+          this.isWatchLoading.set(false);
+        },
+        error: () => {
+          if (workItemId !== this.workItemId()) {
+            return;
+          }
 
-        this.watchError.set('Watch state could not be loaded from the API.');
-        this.watchState.set(null);
-        this.isWatchLoading.set(false);
-      }
-    });
+          this.watchError.set('Watch state could not be loaded from the API.');
+          this.watchState.set(null);
+          this.isWatchLoading.set(false);
+        }
+      });
   }
 
   toggleWatch(): void {
@@ -1644,7 +1775,7 @@ export class WorkItemDetailPageComponent implements OnInit {
     this.isWatchUpdating.set(true);
     this.watchError.set(null);
 
-    request.subscribe({
+    request.pipe(this.guardContext()).subscribe({
       next: (watchState) => {
         this.watchState.set(watchState);
         this.isWatchUpdating.set(false);
@@ -1688,18 +1819,21 @@ export class WorkItemDetailPageComponent implements OnInit {
     }
 
     this.savingCommentId.set(comment.id);
-    this.api.updateComment(comment.id, { body: this.editCommentForm.getRawValue().body.trim() }).subscribe({
-      next: () => {
-        this.refreshAfterCommentMutation(() => {
+    this.api
+      .updateComment(comment.id, { body: this.editCommentForm.getRawValue().body.trim() })
+      .pipe(this.guardContext())
+      .subscribe({
+        next: () => {
+          this.refreshAfterCommentMutation(() => {
+            this.savingCommentId.set(null);
+            this.cancelEditComment();
+          });
+        },
+        error: () => {
+          this.commentMutationError.set('The comment could not be updated.');
           this.savingCommentId.set(null);
-          this.cancelEditComment();
-        });
-      },
-      error: () => {
-        this.commentMutationError.set('The comment could not be updated.');
-        this.savingCommentId.set(null);
-      }
-    });
+        }
+      });
   }
 
   confirmDeleteComment(comment: CommentDto): void {
@@ -1724,18 +1858,21 @@ export class WorkItemDetailPageComponent implements OnInit {
     }
 
     this.deletingCommentId.set(comment.id);
-    this.api.deleteComment(comment.id).subscribe({
-      next: () => {
-        this.refreshAfterCommentMutation(() => {
+    this.api
+      .deleteComment(comment.id)
+      .pipe(this.guardContext())
+      .subscribe({
+        next: () => {
+          this.refreshAfterCommentMutation(() => {
+            this.deletingCommentId.set(null);
+            this.cancelDeleteComment();
+          });
+        },
+        error: () => {
+          this.commentMutationError.set('The comment could not be deleted.');
           this.deletingCommentId.set(null);
-          this.cancelDeleteComment();
-        });
-      },
-      error: () => {
-        this.commentMutationError.set('The comment could not be deleted.');
-        this.deletingCommentId.set(null);
-      }
-    });
+        }
+      });
   }
 
   clearCommentMutationError(): void {
@@ -1757,11 +1894,15 @@ export class WorkItemDetailPageComponent implements OnInit {
     this.isSearchingCandidates.set(true);
 
     this.api
-      .listWorkspaceWorkItems({
-        search,
-        archivedProjects: 'exclude',
-        sort: 'updated_desc'
-      }, { page: 1, pageSize: 25 })
+      .listWorkspaceWorkItems(
+        {
+          search,
+          archivedProjects: 'exclude',
+          sort: 'updated_desc'
+        },
+        { page: 1, pageSize: 25 }
+      )
+      .pipe(this.guardContext())
       .subscribe({
         next: (response) => {
           this.relationshipCandidates.set(
@@ -1810,7 +1951,8 @@ export class WorkItemDetailPageComponent implements OnInit {
 
     const kind = formValue.kind as RelationshipKind;
     const sourceWorkItemId = kind === 'blocked_by' ? targetWorkItemId : this.workItemId();
-    const relationshipTargetWorkItemId = kind === 'blocked_by' ? this.workItemId() : targetWorkItemId;
+    const relationshipTargetWorkItemId =
+      kind === 'blocked_by' ? this.workItemId() : targetWorkItemId;
     const relationshipType: WorkItemRelationshipType = kind === 'related' ? 'relates_to' : 'blocks';
 
     this.isAddingRelationship.set(true);
@@ -1819,6 +1961,7 @@ export class WorkItemDetailPageComponent implements OnInit {
         relationshipType,
         targetWorkItemId: relationshipTargetWorkItemId
       })
+      .pipe(this.guardContext())
       .subscribe({
         next: () => {
           this.refreshAfterRelationshipMutation(() => {
@@ -1841,17 +1984,20 @@ export class WorkItemDetailPageComponent implements OnInit {
     }
 
     this.removingRelationshipId.set(relationship.id);
-    this.api.deleteWorkItemRelationship(this.workItemId(), relationship.id).subscribe({
-      next: () => {
-        this.refreshAfterRelationshipMutation(() => {
+    this.api
+      .deleteWorkItemRelationship(this.workItemId(), relationship.id)
+      .pipe(this.guardContext())
+      .subscribe({
+        next: () => {
+          this.refreshAfterRelationshipMutation(() => {
+            this.removingRelationshipId.set(null);
+          });
+        },
+        error: () => {
+          this.relationshipError.set('The relationship could not be removed.');
           this.removingRelationshipId.set(null);
-        });
-      },
-      error: () => {
-        this.relationshipError.set('The relationship could not be removed.');
-        this.removingRelationshipId.set(null);
-      }
-    });
+        }
+      });
   }
 
   isRelationshipReadOnly(): boolean {
@@ -1912,7 +2058,7 @@ export class WorkItemDetailPageComponent implements OnInit {
   }
 
   toggleLabel(labelId: string, event: Event): void {
-    if (this.isArchivedProject()) {
+    if (this.isArchivedProject() || this.isUpdating()) {
       return;
     }
 
@@ -1935,89 +2081,106 @@ export class WorkItemDetailPageComponent implements OnInit {
   loadProjectLabels(projectId: string): void {
     this.labelLoadError.set(null);
 
-    this.api.listProjectLabels(projectId).subscribe({
-      next: (labels) => {
-        if (this.workItem()?.projectId !== projectId) {
-          return;
-        }
+    this.api
+      .listProjectLabels(projectId)
+      .pipe(this.guardContext())
+      .subscribe({
+        next: (labels) => {
+          if (this.workItem()?.projectId !== projectId) {
+            return;
+          }
 
-        this.availableLabels.set(labels.filter((label) => !label.isArchived));
-      },
-      error: () => {
-        if (this.workItem()?.projectId !== projectId) {
-          return;
-        }
+          this.availableLabels.set(labels.filter((label) => !label.isArchived));
+        },
+        error: () => {
+          if (this.workItem()?.projectId !== projectId) {
+            return;
+          }
 
-        this.labelLoadError.set('Project labels could not be loaded from the API.');
-      }
-    });
+          this.labelLoadError.set('Project labels could not be loaded from the API.');
+        }
+      });
   }
 
   loadProjectMilestones(projectId: string): void {
     this.milestoneLoadError.set(null);
 
-    this.api.listProjectMilestones(projectId, { includeArchived: true }).subscribe({
-      next: (milestones) => {
-        if (this.workItem()?.projectId !== projectId) {
-          return;
-        }
+    this.api
+      .listProjectMilestones(projectId, { includeArchived: true })
+      .pipe(this.guardContext())
+      .subscribe({
+        next: (milestones) => {
+          if (this.workItem()?.projectId !== projectId) {
+            return;
+          }
 
-        this.availableMilestones.set(this.sortMilestones(this.mergeCurrentMilestone(milestones)));
-      },
-      error: () => {
-        if (this.workItem()?.projectId !== projectId) {
-          return;
-        }
+          this.availableMilestones.set(this.sortMilestones(this.mergeCurrentMilestone(milestones)));
+        },
+        error: () => {
+          if (this.workItem()?.projectId !== projectId) {
+            return;
+          }
 
-        this.milestoneLoadError.set('Project milestones could not be loaded from the API.');
-      }
-    });
+          this.milestoneLoadError.set('Project milestones could not be loaded from the API.');
+        }
+      });
   }
 
   loadProjectCycles(projectId: string): void {
     this.cycleLoadError.set(null);
 
-    this.cyclesApi.listCycles(projectId, { includeArchived: true }).subscribe({
-      next: (cycles) => {
-        if (this.workItem()?.projectId !== projectId) {
-          return;
-        }
+    this.cyclesApi
+      .listCycles(projectId, { includeArchived: true })
+      .pipe(this.guardContext())
+      .subscribe({
+        next: (cycles) => {
+          if (this.workItem()?.projectId !== projectId) {
+            return;
+          }
 
-        this.availableCycles.set(this.sortCycles(this.mergeCurrentCycle(cycles)));
-      },
-      error: () => {
-        if (this.workItem()?.projectId !== projectId) {
-          return;
-        }
+          this.availableCycles.set(this.sortCycles(this.mergeCurrentCycle(cycles)));
+        },
+        error: () => {
+          if (this.workItem()?.projectId !== projectId) {
+            return;
+          }
 
-        this.cycleLoadError.set('Project cycles could not be loaded from the API.');
-      }
-    });
+          this.cycleLoadError.set('Project cycles could not be loaded from the API.');
+        }
+      });
   }
 
   loadProject(projectId: string): void {
-    this.api.getProject(projectId).subscribe({
-      next: (project) => {
-        if (this.workItem()?.projectId !== projectId) {
-          return;
-        }
+    this.api
+      .getProject(projectId)
+      .pipe(this.guardContext())
+      .subscribe({
+        next: (project) => {
+          if (this.workItem()?.projectId !== projectId) {
+            return;
+          }
 
-        this.project.set(project);
-        this.syncReadOnlyState();
-      },
-      error: () => {
-        if (this.workItem()?.projectId !== projectId) {
-          return;
-        }
+          this.project.set(project);
+          this.syncReadOnlyState();
+        },
+        error: () => {
+          if (this.workItem()?.projectId !== projectId) {
+            return;
+          }
 
-        this.project.set(null);
-        this.syncReadOnlyState();
-      }
-    });
+          this.project.set(null);
+          this.syncReadOnlyState();
+        }
+      });
   }
 
   showTitleError(): boolean {
     const control = this.detailForm.controls.title;
+    return control.invalid && (control.touched || this.hasSubmittedDetail());
+  }
+
+  showDescriptionError(): boolean {
+    const control = this.detailForm.controls.descriptionContent;
     return control.invalid && (control.touched || this.hasSubmittedDetail());
   }
 
@@ -2060,69 +2223,126 @@ export class WorkItemDetailPageComponent implements OnInit {
   }
 
   deletedCommentText(comment: CommentDto): string {
-    const actor = comment.deletedBy === null ? '' : ` by ${this.memberDisplayName(comment.deletedBy)}`;
-    const timestamp = comment.deletedAt === null ? '' : ` on ${this.formatDateTime(comment.deletedAt)}`;
+    const actor =
+      comment.deletedBy === null ? '' : ` by ${this.memberDisplayName(comment.deletedBy)}`;
+    const timestamp =
+      comment.deletedAt === null ? '' : ` on ${this.formatDateTime(comment.deletedAt)}`;
     return `Comment deleted${actor}${timestamp}.`;
   }
 
   private refreshAfterComment(): void {
-    this.api.getWorkItem(this.workItemId()).subscribe({
-      next: (workItem) => {
-        this.applyWorkItem(workItem);
-        this.isCommenting.set(false);
-      },
-      error: () => {
-        this.commentError.set('The comment was added, but the latest activity could not be loaded.');
-        this.isCommenting.set(false);
-      }
-    });
+    this.api
+      .getWorkItem(this.workItemId())
+      .pipe(this.guardContext())
+      .subscribe({
+        next: (workItem) => {
+          this.applyDiscussionRefresh(workItem);
+          this.isCommenting.set(false);
+        },
+        error: () => {
+          this.commentError.set(
+            'The comment was added, but the latest activity could not be loaded.'
+          );
+          this.isCommenting.set(false);
+        }
+      });
   }
 
   private refreshAfterCommentMutation(afterRefresh: () => void): void {
-    this.api.getWorkItem(this.workItemId()).subscribe({
-      next: (workItem) => {
-        this.applyWorkItem(workItem);
-        afterRefresh();
-      },
-      error: () => {
-        this.commentMutationError.set('The comment changed, but the latest activity could not be loaded.');
-        afterRefresh();
-      }
-    });
+    this.api
+      .getWorkItem(this.workItemId())
+      .pipe(this.guardContext())
+      .subscribe({
+        next: (workItem) => {
+          this.applyDiscussionRefresh(workItem);
+          afterRefresh();
+        },
+        error: () => {
+          this.commentMutationError.set(
+            'The comment changed, but the latest activity could not be loaded.'
+          );
+          afterRefresh();
+        }
+      });
   }
 
   private refreshAfterRelationshipMutation(afterRefresh: () => void): void {
-    this.api.getWorkItem(this.workItemId()).subscribe({
-      next: (workItem) => {
-        this.applyWorkItem(workItem);
-        afterRefresh();
-      },
-      error: () => {
-        this.relationshipError.set('The relationship changed, but the latest detail could not be loaded.');
-        afterRefresh();
-      }
-    });
+    this.api
+      .getWorkItem(this.workItemId())
+      .pipe(this.guardContext())
+      .subscribe({
+        next: (workItem) => {
+          this.workItem.update((current) =>
+            current === null
+              ? current
+              : {
+                  ...current,
+                  relationships: workItem.relationships,
+                  dependencyBlocked: workItem.dependencyBlocked,
+                  openBlockerCount: workItem.openBlockerCount,
+                  openBlockedWorkCount: workItem.openBlockedWorkCount,
+                  updatedAt: workItem.updatedAt,
+                  activity: workItem.activity
+                }
+          );
+          afterRefresh();
+        },
+        error: () => {
+          this.relationshipError.set(
+            'The relationship changed, but the latest detail could not be loaded.'
+          );
+          afterRefresh();
+        }
+      });
+  }
+
+  private applyDiscussionRefresh(workItem: WorkItemDetailDto): void {
+    this.workItem.update((current) =>
+      current === null
+        ? current
+        : {
+            ...current,
+            comments: workItem.comments,
+            updatedAt: workItem.updatedAt,
+            activity: workItem.activity
+          }
+    );
   }
 
   private applyWorkItem(workItem: WorkItemDetailDto): void {
     this.workItem.set(workItem);
-    this.selectedLabelIds.set(workItem.labels.filter((label) => !label.isArchived).map((label) => label.id));
     this.mergeAvailableLabels(workItem.labels);
+    this.resetDetailForm(workItem);
+    this.statusForm.reset({ status: workItem.status });
+    this.relationshipError.set(null);
+    this.syncReadOnlyState();
+  }
+
+  private resetDetailForm(workItem: WorkItemDetailDto): void {
+    this.descriptionBaseline = { source: workItem.description, format: workItem.descriptionFormat };
+    this.detailForm.controls.descriptionContent.setValidators(
+      authoredContentValidator({ baseline: this.descriptionBaseline })
+    );
+    this.descriptionEditorIdentity.update((identity) => identity + 1);
+    this.selectedLabelIds.set(
+      workItem.labels.filter((label) => !label.isArchived).map((label) => label.id)
+    );
     this.detailForm.reset({
       title: workItem.title,
-      description: workItem.description,
+      descriptionContent: { ...this.descriptionBaseline },
       type: workItem.type,
       priority: workItem.priority,
       assigneeId: workItem.assignee?.id ?? '',
       milestoneId: workItem.milestone?.id ?? '',
       cycleId: workItem.cycle?.id ?? ''
     });
-    this.statusForm.reset({ status: workItem.status });
-    this.relationshipError.set(null);
-    this.syncReadOnlyState();
   }
 
   private resetNavigationState(): void {
+    this.contextGeneration += 1;
+    this.descriptionBaseline = null;
+    this.descriptionEditorIdentity.update((identity) => identity + 1);
+    this.detailForm.controls.descriptionContent.setValidators(authoredContentValidator());
     this.attachmentActivitySubscription?.unsubscribe();
     this.attachmentActivitySubscription = null;
     this.attachmentActivityGeneration += 1;
@@ -2166,7 +2386,7 @@ export class WorkItemDetailPageComponent implements OnInit {
     this.attachmentActivityError.set(null);
     this.detailForm.reset({
       title: '',
-      description: '',
+      descriptionContent: { source: '', format: 'markdown_v1' },
       type: 'task',
       priority: 'medium',
       assigneeId: '',
@@ -2197,16 +2417,23 @@ export class WorkItemDetailPageComponent implements OnInit {
 
   private toUpdateRequest(): UpdateWorkItemRequest {
     const formValue = this.detailForm.getRawValue();
+    const description = formValue.descriptionContent;
 
     return {
       title: formValue.title.trim(),
-      description: formValue.description.trim(),
+      ...(this.descriptionBaseline !== null &&
+      authoredContentEquals(description, this.descriptionBaseline)
+        ? {}
+        : { description: description.source, descriptionFormat: description.format }),
       type: formValue.type as WorkItemType,
       priority: formValue.priority as WorkItemPriority,
       assigneeId: formValue.assigneeId === '' ? null : formValue.assigneeId,
       milestoneId: formValue.milestoneId === '' ? null : formValue.milestoneId,
       cycleId: formValue.cycleId === '' ? null : formValue.cycleId,
-      labelIds: [...this.selectedLabelIds(), ...this.archivedAttachedLabels().map((label) => label.id)]
+      labelIds: [
+        ...this.selectedLabelIds(),
+        ...this.archivedAttachedLabels().map((label) => label.id)
+      ]
     };
   }
 
@@ -2278,7 +2505,9 @@ export class WorkItemDetailPageComponent implements OnInit {
       labelsById.set(label.id, label);
     }
 
-    this.availableLabels.set([...labelsById.values()].sort((left, right) => left.name.localeCompare(right.name)));
+    this.availableLabels.set(
+      [...labelsById.values()].sort((left, right) => left.name.localeCompare(right.name))
+    );
   }
 
   private syncReadOnlyState(): void {
@@ -2291,7 +2520,11 @@ export class WorkItemDetailPageComponent implements OnInit {
       this.editCommentForm.disable(options);
       this.relationshipForm.disable(options);
     } else {
-      this.detailForm.enable(options);
+      if (this.isUpdating()) {
+        this.detailForm.disable(options);
+      } else {
+        this.detailForm.enable(options);
+      }
       this.commentForm.enable(options);
       this.editCommentForm.enable(options);
       this.relationshipForm.enable(options);
@@ -2302,6 +2535,28 @@ export class WorkItemDetailPageComponent implements OnInit {
         this.statusForm.enable(options);
       }
     }
+  }
+
+  private currentActorKey(): string {
+    const actor = this.currentUser.selectedMember();
+    return actor === null ? '' : `${actor.workspaceId}:${actor.id}`;
+  }
+
+  // Gate successes and failures: matching only item ids misses A -> B -> A and actor reuse.
+  private guardContext<T>(): MonoTypeOperatorFunction<T> {
+    const generation = this.contextGeneration;
+    const workItemId = this.workItemId();
+    const actorKey = this.currentActorKey();
+    const isCurrent = () =>
+      !this.destroyRef.destroyed &&
+      generation === this.contextGeneration &&
+      workItemId === this.workItemId() &&
+      actorKey === this.currentActorKey();
+    return pipe(
+      filter(isCurrent),
+      catchError((error: unknown) => (isCurrent() ? throwError(() => error) : EMPTY)),
+      takeUntilDestroyed(this.destroyRef)
+    );
   }
 
   private parseSafeReturnUrl(rawReturnUrl: string | null): {

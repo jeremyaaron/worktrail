@@ -1560,7 +1560,7 @@ test('completes the v0.2.5 work breakdown workflow', async ({ page, request }, t
     await expect(page.getByLabel('Child work parent')).toContainText('WT-12');
 
     await page.getByLabel('Title').fill(createdChildTitle);
-    await page.getByLabel('Description').fill(
+    await page.getByRole('textbox', { name: 'Description', exact: true }).fill(
       'Created from the seeded parent by the Work Breakdown browser workflow.'
     );
     await page.getByLabel('Priority').selectOption('high');

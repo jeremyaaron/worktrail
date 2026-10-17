@@ -22,6 +22,9 @@ import { WorktrailApiService } from '../../core/worktrail-api.service';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
+import { AuthoredContentEditorComponent } from '../../shared/authored-content/authored-content-editor.component';
+import { authoredContentValidator } from '../../shared/authored-content/authored-content-validation';
+import type { AuthoredContentValue } from '../../shared/authored-content/authored-content-value';
 import { WorkItemParentContextComponent } from './components/work-item-parent-context.component';
 
 const types: WorkItemType[] = ['task', 'bug', 'story', 'chore'];
@@ -30,6 +33,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
 @Component({
   selector: 'app-work-item-create-page',
   imports: [
+    AuthoredContentEditorComponent,
     EmptyStateComponent,
     ErrorPanelComponent,
     LoadingIndicatorComponent,
@@ -109,7 +113,9 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
 
         <div class="success-actions">
           <a [routerLink]="['/work-items', created.id]">Open work item</a>
-          <button type="button" class="secondary-action" (click)="createAnother()">Create another</button>
+          <button type="button" class="secondary-action" (click)="createAnother()">
+            Create another
+          </button>
           <a [routerLink]="returnTarget().path" [queryParams]="returnTarget().queryParams">
             {{ returnTarget().label }}
           </a>
@@ -165,12 +171,19 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
         <p id="work-item-title-error" class="field-error">Title is required.</p>
       }
 
-      <label for="work-item-description">Description</label>
-      <textarea
-        id="work-item-description"
-        rows="5"
-        formControlName="description"
-      ></textarea>
+      <app-authored-content-editor
+        fieldId="work-item-description"
+        label="Description"
+        [rows]="5"
+        formControlName="descriptionContent"
+        [invalid]="showDescriptionError()"
+        errorDescriptionIds="work-item-description-error"
+      />
+      @if (showDescriptionError()) {
+        <p id="work-item-description-error" class="field-error">
+          Description must be 10,000 characters or fewer.
+        </p>
+      }
 
       <div class="form-grid">
         <label>
@@ -228,12 +241,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
 
         <label>
           <span>Estimate</span>
-          <input
-            type="number"
-            min="0"
-            step="1"
-            formControlName="estimatePoints"
-          />
+          <input type="number" min="0" step="1" formControlName="estimatePoints" />
         </label>
       </div>
 
@@ -630,9 +638,8 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
     if (parsedReturnUrl !== null) {
       return {
         ...parsedReturnUrl,
-        label: this.parentWorkItem() === null
-          ? 'Back'
-          : `Back to ${this.parentWorkItem()!.displayKey}`
+        label:
+          this.parentWorkItem() === null ? 'Back' : `Back to ${this.parentWorkItem()!.displayKey}`
       };
     }
 
@@ -648,7 +655,10 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
   readonly workItemForm = this.formBuilder.nonNullable.group({
     projectId: [this.routeProjectId, [Validators.required]],
     title: ['', [Validators.required]],
-    description: [''],
+    descriptionContent: this.formBuilder.nonNullable.control<AuthoredContentValue>(
+      { source: '', format: 'markdown_v1' },
+      authoredContentValidator()
+    ),
     type: ['task'],
     priority: ['medium'],
     assigneeId: [''],
@@ -680,6 +690,9 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
   }
 
   createWorkItem(): void {
+    if (this.isCreating()) {
+      return;
+    }
     this.hasSubmitted.set(true);
     this.createError.set(null);
     this.createdWorkItem.set(null);
@@ -722,7 +735,7 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
     this.workItemForm.reset({
       projectId,
       title: '',
-      description: '',
+      descriptionContent: { source: '', format: 'markdown_v1' },
       type: 'task',
       priority: 'medium',
       assigneeId: '',
@@ -744,6 +757,11 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
 
   showTitleError(): boolean {
     const control = this.workItemForm.controls.title;
+    return control.invalid && (control.touched || this.hasSubmitted());
+  }
+
+  showDescriptionError(): boolean {
+    const control = this.workItemForm.controls.descriptionContent;
     return control.invalid && (control.touched || this.hasSubmitted());
   }
 
@@ -822,7 +840,10 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
       next: (cycles) => {
         this.availableCycles.set(
           this.sortCycles(
-            cycles.filter((cycle) => !cycle.isArchived && cycle.status !== 'completed' && cycle.status !== 'canceled')
+            cycles.filter(
+              (cycle) =>
+                !cycle.isArchived && cycle.status !== 'completed' && cycle.status !== 'canceled'
+            )
           )
         );
       },
@@ -1013,7 +1034,8 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
 
     return {
       title: formValue.title.trim(),
-      description: formValue.description.trim(),
+      description: formValue.descriptionContent.source,
+      descriptionFormat: formValue.descriptionContent.format,
       type: formValue.type as WorkItemType,
       priority: formValue.priority as WorkItemPriority,
       assigneeId: formValue.assigneeId === '' ? null : formValue.assigneeId,
@@ -1022,9 +1044,7 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
       cycleId: formValue.cycleId === '' ? null : formValue.cycleId,
       dueDate: formValue.dueDate === '' ? null : formValue.dueDate,
       estimatePoints: estimate === '' ? null : Number.parseInt(estimate, 10),
-      ...(this.parentWorkItem() === null
-        ? {}
-        : { parentWorkItemId: this.parentWorkItem()!.id })
+      ...(this.parentWorkItem() === null ? {} : { parentWorkItemId: this.parentWorkItem()!.id })
     };
   }
 

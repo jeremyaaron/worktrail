@@ -2649,6 +2649,72 @@ describe('WorkItemCreatePageComponent', () => {
     http.expectNone((request) => request.method === 'POST');
   });
 
+  it('starts with empty Markdown and restores that default for another work item', () => {
+    const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    flushCreateContext(http);
+    const component = fixture.componentInstance;
+    expect(component.workItemForm.controls.descriptionContent.value).toEqual({
+      source: '', format: 'markdown_v1'
+    });
+    component.workItemForm.patchValue({ title: 'Empty description' });
+    component.createWorkItem();
+    const create = http.expectOne(`/api/projects/${projectId}/work-items`);
+    expect(create.request.body.description).toBe('');
+    expect(create.request.body.descriptionFormat).toBe('markdown_v1');
+    create.flush({
+      ...workItem, description: '', descriptionFormat: 'markdown_v1',
+      relationships: emptyRelationships, comments: [], activity: []
+    });
+    component.workItemForm.controls.descriptionContent.setValue({
+      source: 'old source', format: 'plain_text'
+    });
+    component.createAnother();
+    fixture.detectChanges();
+    expect(component.workItemForm.controls.descriptionContent.value).toEqual({
+      source: '', format: 'markdown_v1'
+    });
+    expect(component.workItemForm.pristine).toBeTrue();
+  });
+
+  it('rejects an oversized new description before sending a request', () => {
+    const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    flushCreateContext(http);
+    fixture.componentInstance.workItemForm.patchValue({
+      title: 'Too long',
+      descriptionContent: { source: 'x'.repeat(10_001), format: 'markdown_v1' }
+    });
+    fixture.componentInstance.createWorkItem();
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.textContent).toContain('Description must be 10,000 characters or fewer.');
+    expect(root.querySelector('#work-item-description')?.getAttribute('aria-invalid')).toBe('true');
+    expect(fixture.componentInstance.isCreating()).toBeFalse();
+    http.expectNone((request) => request.method === 'POST');
+  });
+
+  it('submits an explicitly selected plain-text pair without trimming or normalizing it', () => {
+    const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    flushCreateContext(http);
+    const source = '  **literal**\r\n';
+    fixture.componentInstance.workItemForm.patchValue({
+      title: 'Plain source', descriptionContent: { source, format: 'plain_text' }
+    });
+    fixture.componentInstance.createWorkItem();
+    const create = http.expectOne(`/api/projects/${projectId}/work-items`);
+    expect(create.request.body.description).toBe(source);
+    expect(create.request.body.descriptionFormat).toBe('plain_text');
+    create.flush({
+      ...workItem, description: source, descriptionFormat: 'plain_text',
+      relationships: emptyRelationships, comments: [], activity: []
+    });
+  });
+
   it('creates a work item and renders success actions', () => {
     const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
     const http = TestBed.inject(HttpTestingController);
@@ -2662,7 +2728,7 @@ describe('WorkItemCreatePageComponent', () => {
     fixture.componentInstance.workItemForm.setValue({
       projectId,
       title: 'Create filtering UI',
-      description: 'Build the Phase 10 list filters.',
+      descriptionContent: { source: '  Build the Phase 10 list filters.\n', format: 'markdown_v1' },
       type: 'story',
       priority: 'urgent',
       assigneeId: contributorId,
@@ -2680,7 +2746,8 @@ describe('WorkItemCreatePageComponent', () => {
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({
       title: 'Create filtering UI',
-      description: 'Build the Phase 10 list filters.',
+      description: '  Build the Phase 10 list filters.\n',
+      descriptionFormat: 'markdown_v1',
       type: 'story',
       priority: 'urgent',
       assigneeId: contributorId,
@@ -2695,8 +2762,8 @@ describe('WorkItemCreatePageComponent', () => {
       id: '10000000-0000-4000-8000-000000000499',
       displayKey: 'WT-499',
       title: 'Create filtering UI',
-      description: 'Build the Phase 10 list filters.',
-      descriptionFormat: 'plain_text',
+      description: '  Build the Phase 10 list filters.\n',
+      descriptionFormat: 'markdown_v1',
       relationships: emptyRelationships,
       comments: [],
       activity: []
@@ -2849,7 +2916,9 @@ describe('WorkItemCreatePageComponent global route', () => {
 
     fixture.componentInstance.workItemForm.patchValue({
       title: 'Capture from workspace',
-      description: 'Create without entering a project first.',
+      descriptionContent: {
+        source: '  Create without entering a project first.\n', format: 'markdown_v1'
+      },
       type: 'task',
       priority: 'high',
       assigneeId: contributorId,
@@ -2866,7 +2935,8 @@ describe('WorkItemCreatePageComponent global route', () => {
     const create = http.expectOne(`/api/projects/${projectId}/work-items`);
     expect(create.request.body).toEqual({
       title: 'Capture from workspace',
-      description: 'Create without entering a project first.',
+      description: '  Create without entering a project first.\n',
+      descriptionFormat: 'markdown_v1',
       type: 'task',
       priority: 'high',
       assigneeId: contributorId,
@@ -2881,8 +2951,8 @@ describe('WorkItemCreatePageComponent global route', () => {
       id: '10000000-0000-4000-8000-000000000497',
       displayKey: 'WT-497',
       title: 'Capture from workspace',
-      description: 'Create without entering a project first.',
-      descriptionFormat: 'plain_text',
+      description: '  Create without entering a project first.\n',
+      descriptionFormat: 'markdown_v1',
       relationships: emptyRelationships,
       comments: [],
       activity: []
@@ -2916,7 +2986,7 @@ describe('WorkItemCreatePageComponent global route', () => {
 
     fixture.componentInstance.workItemForm.patchValue({
       title: 'Keep this title',
-      description: 'Keep this description.',
+      descriptionContent: { source: '  Keep this description.\n', format: 'plain_text' },
       type: 'bug',
       priority: 'urgent'
     });
@@ -2936,9 +3006,10 @@ describe('WorkItemCreatePageComponent global route', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Title must be unique within this project.');
     expect(fixture.componentInstance.workItemForm.controls.title.value).toBe('Keep this title');
-    expect(fixture.componentInstance.workItemForm.controls.description.value).toBe(
-      'Keep this description.'
-    );
+    expect(fixture.componentInstance.workItemForm.controls.descriptionContent.value).toEqual({
+      source: '  Keep this description.\n', format: 'plain_text'
+    });
+    expect(fixture.componentInstance.isCreating()).toBeFalse();
   });
 
   it('shows create permission copy and disables submission', () => {
@@ -3013,7 +3084,7 @@ describe('WorkItemCreatePageComponent child route', () => {
 
     fixture.componentInstance.workItemForm.patchValue({
       title: 'Implement child creation',
-      description: 'Reuse the complete create form.',
+      descriptionContent: { source: '  Reuse the complete create form.\n', format: 'markdown_v1' },
       type: 'story',
       priority: 'high'
     });
@@ -3022,6 +3093,8 @@ describe('WorkItemCreatePageComponent child route', () => {
     expect(create.request.body).toEqual(
       jasmine.objectContaining({
         title: 'Implement child creation',
+        description: '  Reuse the complete create form.\n',
+        descriptionFormat: 'markdown_v1',
         milestoneId: null,
         cycleId: null,
         parentWorkItemId: workItemId
@@ -3090,7 +3163,7 @@ describe('WorkItemCreatePageComponent child route', () => {
     http.expectOne(`/api/work-items/${workItemId}`).flush(parentDetail);
     fixture.componentInstance.workItemForm.patchValue({
       title: 'Keep child draft',
-      description: 'Keep every entered field.',
+      descriptionContent: { source: 'Keep every entered field.', format: 'markdown_v1' },
       type: 'bug',
       priority: 'urgent',
       estimatePoints: '5'
@@ -3113,7 +3186,7 @@ describe('WorkItemCreatePageComponent child route', () => {
     expect(fixture.componentInstance.workItemForm.getRawValue()).toEqual(
       jasmine.objectContaining({
         title: 'Keep child draft',
-        description: 'Keep every entered field.',
+        descriptionContent: { source: 'Keep every entered field.', format: 'markdown_v1' },
         type: 'bug',
         priority: 'urgent',
         estimatePoints: '5'
