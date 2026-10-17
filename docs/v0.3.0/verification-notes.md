@@ -7,6 +7,9 @@ was collected on October 17, 2026 on macOS, using Node 20.19.1, npm 10.8.2, Dock
 PostgreSQL 16 containers, and the unchanged v0.2.9 dependency graph. Release acceptance remains
 scheduled for later phases in the [implementation plan](implementation-plan.md).
 
+Phase 3 uses the updated dependency graph and Node 24/npm 11; its evidence and diagnostics are
+recorded separately below. Earlier phase results retain their original toolchain context.
+
 ## Phase 1 Commands And Results
 
 | Command | Result |
@@ -240,3 +243,106 @@ and local fragments. It does not verify external link availability or the render
 assigned to Phase 19. UI mode's ownership path is implemented, but interactive UI operation is not
 claimed as manual UAT. Linux remote CI, dependency remediation (Phase 3), and final v0.3.0 product
 acceptance (Phases 20-21) remain separate gates. Versions and the dependency lockfile are unchanged.
+
+## Phase 3 Toolchain And Audit Gate
+
+The [dependency disposition](dependency-remediation.md), [structured before/after evidence](dependency-audit-evidence.json),
+and [exception policy](../security/development-audit-exceptions.json) record the exact graph and
+review. Baseline audit commit: `696c67fa7c20f08f7b07a7ec7dd660d1c7ad3340`. It was audited again in
+an owned scratch checkout with the original manifests/lockfile: 34 full findings (8 moderate,
+21 high, 5 critical), zero production findings.
+
+Final compatible versions are Angular CLI/build `20.3.40`, Vitest `4.1.12` for API/contracts,
+web Vitest peer `3.2.7` (Karma remains active), and concurrently `9.2.5`. Transitive security
+updates stay within their updated owners' ranges. Angular runtime/compiler `20.3.33`, CDK
+`20.2.14`, TypeScript `5.9.3`, Drizzle ORM `0.45.2`/Kit `0.31.10`, pg `8.22.0`, and Playwright
+`1.61.1` remain unchanged. Package/release identity remains `0.2.9`.
+
+Local acceptance uses installed Node `24.16.0`, npm `11.13.0`, Docker `27.3.1`, PostgreSQL 16,
+and Chromium `149.0.7827.55`. `.nvmrc`, root engines, README, and CI now select Node 24/npm 11;
+the former Node 20 runtime is no longer the declared supported baseline. No global nvm default
+or global npm installation was changed during this work.
+
+The full audit now reports **13** package findings: 5 moderate, 6 high, and 2 critical. They trace
+to five advisory IDs and 19 exact advisory/package/path/version/severity fingerprints, including
+npm's affected-parent rows. Production remains at **zero**. Remaining critical rows belong to the
+unexecuted web Vitest 3/Tinypool graph, not the active API/contracts Vitest 4 runner. This is a
+bounded disposition, not a clean full-tree audit or a claim that development risk is harmless.
+
+All five exceptions have owner `jeremyaaron`, concrete commands, dependency chains, preconditions,
+mitigations, follow-up, and expiry at 00:00 UTC November 16, 2026 or v0.3.1, whichever is first.
+Phase 21 must supply the actual release date; expiry cannot exceed 30 days after that date.
+`npm run audit:dependencies` validates installed peer compatibility, checks separate production/
+full reports, and rejects unknown/changed findings, stale/duplicate records, expired policy, and
+transport/JSON/status/count failures. Production findings cannot use exceptions.
+
+The full runner checks schema generation after owned database provisioning, inside its private
+source snapshot. All 19 tables and the complete SQL/journal/snapshot inventory match without
+generated churn. Root migration files are not rewritten. Audit graph checks inspect the actual
+read-only dependency installation owner only after matching its lockfile bytes to the snapshot;
+they do not mistake the intentionally symlinked mirror for a new npm installation.
+
+## Phase 3 Diagnostic Runs
+
+- npm 10.8.2 and a temporary npm 10.9.9 resolver invocation failed initial compatible peer
+  resolution with an Arborist `edgesOut` TypeError. npm 11.13.0 resolved without forced peers.
+- Early Node 20 full run `345cb835-f9fa-407b-8c34-2da521662601` passed audit/lint/typechecks,
+  generation/migrations, and 38 resource tests, then failed two API HTTP cases with `socket hang up`
+  (599/601 passed). It cleaned its resources. The transient cause remains unproven, as in Phase 2;
+  no test retries, timeout increases, or application behavior changes were used to hide it.
+- npm 11's pruned optional-peer candidate had ten full findings and passed all 25 application gates
+  in run `0436bf64-40f1-4b92-81b6-4a02da1bf8b0`, but `npm ls --all` exposed Angular's invalid
+  optional Vitest peer. It is rejected compatibility evidence, not the final accepted graph. The
+  explicit web Vitest 3 peer binding restores valid ranges and the honest 13-finding disposition.
+- During gate integration, run `d7dc9704-5307-4316-b025-a488f916a4ad` failed graph validation because
+  npm interpreted the private dependency mirror's symlinks as extraneous/missing packages; cleanup
+  succeeded before database provisioning. The gate now checks the matching real installation owner.
+  A snapshot test's raw trailing-slash path comparison was also corrected; all 41 resource tests
+  subsequently passed. Superseded run `842bafa8-a577-4e18-9761-c1de135133d4` was intentionally
+  interrupted during typechecking and cleaned before the final run.
+
+## Phase 3 Acceptance Results
+
+| Check | Result |
+| --- | --- |
+| Clean `npm ci` on Node 24/npm 11 | Passed on the final peer-complete lockfile; 804 installed packages, no engine or peer-resolution failure |
+| `npm ls --all` and `npm run audit:dependencies` | Valid installed graph; zero production findings; all 13 full findings accounted by five unexpired advisory records |
+| Final owned `npm run verify` | All 25 gates passed; 41 resource, 601 API across 51 files, 54 contracts across 12 files, and 652 Angular tests |
+| Browser reports from that full run | 5 editor, 34 application E2E, 1 compiled-preview test; zero unexpected, skipped, or flaky results; retries remain disabled |
+| Scratch `db:generate` inventory | 19 tables, no changes to SQL, journal, or snapshots; no working migration churn |
+| `npm run test:verification:integration` | 10 passed, zero failed/skipped; 106.4 seconds; includes complete service-mode API verification |
+| Final audit-threshold refinement | Informational findings included explicitly; fresh live audit and all 15 focused audit/graph/policy tests passed |
+| CI YAML, current documentation links, structured audit evidence | Parsed/checked; recorded final audit matches all 19 fresh fingerprints |
+| `git diff --check` | Passed |
+
+Accepted full run: `4e3aad8e-20ab-4bbe-b727-80b305afdd13`. Its sanitized summary records
+`passed: true`, `cleaned: true`, and all 25 gates passed. Browser reports remain at
+`test-results/verification/<runId>/{editor,e2e,preview}/report.json`. The subsequent threshold-only
+refinement changes audit exit semantics for informational findings; focused checks reran after it.
+It does not change the accepted dependency graph, application code, build, or browser behavior.
+
+Final lockfile SHA-256: `1ec83ae173d3ff00de10d2021cf3c9129adbf271a3cd4c15bedeae521ec3b5ff`.
+Production initial output remains **386.62 kB**, **104.33 kB** estimated transfer; heavy detail,
+Planning, and Markdown code remains lazy. Initial 550 kB warning/1 MB error and component-style
+8 kB warning/12 kB error limits are unchanged, and production compilation emits no budget warning.
+Compiled preview retains deep links, hashed assets, editor/read behavior, API 404 separation, and
+responsive checks from 320 to 1440 pixels. No assertion timeout or test retry was increased.
+
+Lifecycle verification reproves fresh service databases, refusal/preservation sentinels, repeated
+migrations/seeds/resets, partial Docker cleanup, abandoned cleanup, failure status, SIGINT/SIGTERM,
+two concurrent API/web/database/storage/result contexts, and real editor-browser descendant cleanup.
+Its nested API/E2E counts overlap the full suite and must not be added as new domain coverage.
+The ordinary configured PostgreSQL database and attachment store were not test resources.
+
+Final inspection found no containers bearing the verification ownership label and no owned
+verification runner, API, Angular, or editor server processes. The final focused verification
+lint and all 40 checked local documentation links passed.
+
+## Phase 3 Limits
+
+This is local macOS acceptance, not a remote Linux CI result or manual v0.3.0 UAT. CI retains its
+owned service-mode full workflow and now selects Node 24; merge/push remain user-controlled.
+The full dependency tree is not clean: use the bounded exception policy and review its exact
+exposure assumptions before changing test builders or exposing development/schema tooling.
+No global runtime default was changed, no working data was reset, and no release identity was bumped.
+Phase 4 and later feature/refactor work and final release acceptance remain pending.

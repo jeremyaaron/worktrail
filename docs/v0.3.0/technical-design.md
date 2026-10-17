@@ -6,7 +6,7 @@ Implementation baseline, confirmed during Phase 0 on October 17, 2026. This desi
 direction in the [PRD](prd.md), informed by the
 [UX audit](ux-audit.md), [technical debt audit](tech-debt-audit.md), and
 [public site audit](site-audit.md). The [implementation plan](implementation-plan.md) records Phase 0
-inventories, closed choices, sequencing, and acceptance. Phases 1-2 verification foundations are complete;
+inventories, closed choices, sequencing, and acceptance. Phases 1-3 verification and toolchain foundations are complete;
 implementation is in progress.
 
 ## Summary
@@ -830,6 +830,13 @@ Add a check that rejects new unaccounted advisory IDs/paths and expired exceptio
 production audit strictly clean. Supported compatible updates must pass schema generation/migrations,
 contract source tests, editor/native inputs, lazy graph/budgets, both server modes, and runner isolation.
 Record versions and residual risk in release verification notes, not as a recurring phase reminder.
+
+Phase 3 implemented this policy with Node 24/npm 11, compatible Angular 20/Vitest/concurrently
+updates, separate production/full auditing, installed peer validation, and owned scratch schema
+generation. Production is clean; five development advisories have exact, owned, expiring records.
+The lower-count but peer-invalid pruned graph was rejected. See the
+[dependency disposition](dependency-remediation.md) and [verification notes](verification-notes.md)
+for the final graph, bounds, diagnostics, and passing acceptance evidence.
 
 ## Fixtures, Documentation, And Public Site
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Approved for sequential execution. Phases 0-2 are complete as of October 17, 2026; Phases 3-21 are
+Approved for sequential execution. Phases 0-3 are complete as of October 17, 2026; Phases 4-21 are
 not started. Implementation is in progress; release verification remains pending. Merge, tag, publication,
 and Pages deployment remain separate user-controlled actions.
 
@@ -81,7 +81,7 @@ integration boundaries.
 | 0 | Baseline, inventories, and decision closure | Complete |
 | 1 | Disposable verification resources and destructive-operation guards | Complete |
 | 2 | Owned browser/full verification, CI, and test-code gates | Complete |
-| 3 | Compatible toolchain remediation and bounded advisory gate | Not started |
+| 3 | Compatible toolchain remediation and bounded advisory gate | Complete |
 | 4 | Typed persistence executors and explicit transaction capabilities | Not started |
 | 5 | Batched work hydration, query ownership, and page/export evidence | Not started |
 | 6 | Project coordination and concurrent cycle lifecycle safety | Not started |
@@ -616,7 +616,37 @@ Acceptance:
 Verification: clean install on the changed lockfile, audit gate tests, owned full verification, schema/
 migration checks, and recorded dependency/version/exception evidence.
 
-Status: Not started.
+Status: Complete (October 17, 2026).
+
+Completion evidence:
+
+- Angular CLI/build `20.3.40`, API/contracts Vitest `4.1.12`, concurrently `9.2.5`, and compatible
+  transitive security updates are lockfile-reproducible. Angular runtime/compiler `20.3.33`, CDK
+  `20.2.14`, TypeScript `5.9.3`, and Drizzle ORM/Kit remain in their existing lines. No forced fixes,
+  broad overrides, framework migration, or suggested downgrade was used.
+- Node 24 LTS/npm 11 replace the EOL Node 20 local/CI baseline; `.nvmrc`, engines, workflow, and
+  README agree. Acceptance used installed Node `24.16.0` and npm `11.13.0`. A lower-count npm-pruned
+  optional peer graph was rejected because it exposed incompatible Vitest 4 to Angular's ^3 peer.
+  The explicit web Vitest `~3.2.7` binding preserves valid peers and the active Karma builder.
+- Production audit is zero. Full auditing fell from 34 to 13 findings (5 moderate, 6 high, 2 critical),
+  tracing to five advisory IDs and 19 exact fingerprints. Each remaining development advisory has
+  commands, paths, preconditions, mitigation, follow-up, owner `jeremyaaron`, and expiry at
+  00:00 UTC November 16, 2026 or v0.3.1, whichever is first. Phase 21 must set the actual release date.
+- `npm run audit:dependencies` and the full runner enforce installed peer validity, separate strict
+  production/full reports, exact advisory/path/version/severity matching, expiry/release limits,
+  stale/duplicate record removal, and fail-closed transport/JSON/status handling. Private snapshots
+  check their matching real read-only installation owner, not an artificial npm mirror graph.
+- Clean `npm ci`, full owned run `4e3aad8e-20ab-4bbe-b727-80b305afdd13` (25 gates), and the ten-case
+  lifecycle suite passed. Full counts: 41 resource, 601 API, 54 contracts, 652 Angular, and 40 browser
+  tests. The final informational audit-threshold refinement passed a fresh audit and 15 focused tests.
+- Owned scratch generation matched all 19 tables and SQL/journal/snapshot bytes with no working
+  migration churn. Migration/preservation, native editor, dev/compiled server modes, lazy chunks,
+  unchanged budgets, concurrent isolation, signals, and cleanup passed. Initial production output
+  remains 386.62 kB (104.33 kB estimated transfer), with no budget warnings.
+- [Dependency disposition](dependency-remediation.md), [audit evidence](dependency-audit-evidence.json),
+  [exception policy](../security/development-audit-exceptions.json), and
+  [verification notes](verification-notes.md) retain diagnostics separately from acceptance.
+  Package/release identity remains `0.2.9`; remote Linux CI and release acceptance remain later gates.
 
 ## Phase 4: Explicit Persistence Capabilities
 

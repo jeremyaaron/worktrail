@@ -7,6 +7,7 @@ import { childEnvironment, createManifest, readCleanupManifest, saveManifest } f
 import { processIdentity, runCommand } from './verification/processes.mjs';
 import { planBrowserPorts, selectPort } from './verification/ports.mjs';
 import { cleanupRun, prepareApiDatabase, provisionDatabase } from './verification/resources.mjs';
+import { verifySchemaGeneration } from './verification/schema.mjs';
 import { checkSite } from './verification/site.mjs';
 import { prepareWorkspace } from './verification/workspace.mjs';
 
@@ -58,12 +59,13 @@ async function main() {
     });
     const npmGate = (name, args, env) => gate(name, () => npm(args, env));
     if (options.mode === 'full') {
-      await npmGate('audit:production', ['audit', '--omit=dev', '--audit-level=low']);
+      await npmGate('audit:dependencies', ['run', 'audit:dependencies']);
       await npmGate('lint', ['run', 'lint']);
       await npmGate('typecheck', ['run', 'typecheck']);
     }
     if (database !== 'none') {
       await gate('database:provision', () => provisionDatabase(manifest, { signal: controller.signal }));
+      if (options.mode === 'full') await gate('schema:generate', () => verifySchemaGeneration(checkout, () => npm(['run', 'db:generate'])));
       await gate('database:migrate', () => prepareApiDatabase(manifest, { signal: controller.signal, cwd: checkout }));
     }
     if (['api', 'full'].includes(options.mode)) {

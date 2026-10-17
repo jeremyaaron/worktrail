@@ -1,0 +1,732 @@
+{
+  "capturedOn": "2026-10-17",
+  "baselineCommit": "696c67fa7c20f08f7b07a7ec7dd660d1c7ad3340",
+  "baseline": {
+    "production": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0,
+      "total": 0
+    },
+    "full": {
+      "info": 0,
+      "low": 0,
+      "moderate": 8,
+      "high": 21,
+      "critical": 5,
+      "total": 34
+    },
+    "packages": [
+      {
+        "package": "@angular/build",
+        "severity": "critical",
+        "nodes": [
+          {
+            "path": "apps/web/node_modules/@angular/build",
+            "version": "20.3.31"
+          }
+        ],
+        "advisories": [
+          "GHSA-5gmw-xhrv-c9v3",
+          "GHSA-67c8-pqhq-4rmx",
+          "GHSA-82fw-gwwq-j7x9",
+          "GHSA-85c8-ppgw-ccpr",
+          "GHSA-vfj7-8cjw-p6xm"
+        ]
+      },
+      {
+        "package": "@angular/cli",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "node_modules/@angular/cli",
+            "version": "20.3.31"
+          }
+        ],
+        "advisories": [
+          "GHSA-6qxp-vccf-f47h"
+        ]
+      },
+      {
+        "package": "@esbuild-kit/core-utils",
+        "severity": "moderate",
+        "nodes": [
+          {
+            "path": "node_modules/@esbuild-kit/core-utils",
+            "version": "3.3.2"
+          }
+        ],
+        "advisories": [
+          "GHSA-67mh-4wv8-2f99"
+        ]
+      },
+      {
+        "package": "@esbuild-kit/esm-loader",
+        "severity": "moderate",
+        "nodes": [
+          {
+            "path": "node_modules/@esbuild-kit/esm-loader",
+            "version": "2.6.5"
+          }
+        ],
+        "advisories": [
+          "GHSA-67mh-4wv8-2f99"
+        ]
+      },
+      {
+        "package": "@hono/node-server",
+        "severity": "moderate",
+        "nodes": [
+          {
+            "path": "node_modules/@hono/node-server",
+            "version": "1.19.14"
+          }
+        ],
+        "advisories": [
+          "GHSA-frvp-7c67-39w9"
+        ]
+      },
+      {
+        "package": "@modelcontextprotocol/sdk",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "node_modules/@modelcontextprotocol/sdk",
+            "version": "1.26.0"
+          }
+        ],
+        "advisories": [
+          "GHSA-6qxp-vccf-f47h"
+        ]
+      },
+      {
+        "package": "@vitest/mocker",
+        "severity": "moderate",
+        "nodes": [
+          {
+            "path": "apps/web/node_modules/vitest/node_modules/@vitest/mocker",
+            "version": "3.2.6"
+          },
+          {
+            "path": "node_modules/@vitest/mocker",
+            "version": "4.1.9"
+          }
+        ],
+        "advisories": [
+          "GHSA-82fw-gwwq-j7x9"
+        ]
+      },
+      {
+        "package": "baseline-browser-mapping",
+        "severity": "moderate",
+        "nodes": [
+          {
+            "path": "node_modules/baseline-browser-mapping",
+            "version": "2.10.41"
+          }
+        ],
+        "advisories": [
+          "GHSA-w5vr-8v7q-w6rv"
+        ]
+      },
+      {
+        "package": "brace-expansion",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "node_modules/@npmcli/package-json/node_modules/brace-expansion",
+            "version": "5.0.7"
+          },
+          {
+            "path": "node_modules/@tufjs/models/node_modules/brace-expansion",
+            "version": "5.0.7"
+          },
+          {
+            "path": "node_modules/@typescript-eslint/typescript-estree/node_modules/brace-expansion",
+            "version": "5.0.7"
+          },
+          {
+            "path": "node_modules/brace-expansion",
+            "version": "1.1.15"
+          },
+          {
+            "path": "node_modules/cacache/node_modules/brace-expansion",
+            "version": "5.0.7"
+          },
+          {
+            "path": "node_modules/ignore-walk/node_modules/brace-expansion",
+            "version": "5.0.7"
+          }
+        ],
+        "advisories": [
+          "GHSA-3jxr-9vmj-r5cp",
+          "GHSA-6j4f-fj2g-mc7p",
+          "GHSA-mh99-v99m-4gvg",
+          "GHSA-q2hr-2g5m-vwhr",
+          "GHSA-qhr7-859c-m2p7",
+          "GHSA-rgw5-rvv9-x895"
+        ]
+      },
+      {
+        "package": "braces",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "node_modules/braces",
+            "version": "3.0.3"
+          }
+        ],
+        "advisories": [
+          "GHSA-vfj7-8cjw-p6xm"
+        ]
+      },
+      {
+        "package": "browserslist",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "node_modules/browserslist",
+            "version": "4.28.4"
+          }
+        ],
+        "advisories": [
+          "GHSA-73wf-gq98-2v4g",
+          "GHSA-c83g-rgw3-j3cx"
+        ]
+      },
+      {
+        "package": "chokidar",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "node_modules/karma/node_modules/chokidar",
+            "version": "3.6.0"
+          }
+        ],
+        "advisories": [
+          "GHSA-vfj7-8cjw-p6xm"
+        ]
+      },
+      {
+        "package": "concurrently",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "node_modules/concurrently",
+            "version": "9.2.3"
+          }
+        ],
+        "advisories": [
+          "GHSA-395f-4hp3-45gv",
+          "GHSA-pqg4-j6r4-53mv"
+        ]
+      },
+      {
+        "package": "drizzle-kit",
+        "severity": "moderate",
+        "nodes": [
+          {
+            "path": "node_modules/drizzle-kit",
+            "version": "0.31.10"
+          }
+        ],
+        "advisories": [
+          "GHSA-67mh-4wv8-2f99"
+        ]
+      },
+      {
+        "package": "engine.io",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "node_modules/engine.io",
+            "version": "6.6.9"
+          }
+        ],
+        "advisories": [
+          "GHSA-2gc4-cqfq-p2gv"
+        ]
+      },
+      {
+        "package": "esbuild",
+        "severity": "moderate",
+        "nodes": [
+          {
+            "path": "node_modules/@esbuild-kit/core-utils/node_modules/esbuild",
+            "version": "0.18.20"
+          }
+        ],
+        "advisories": [
+          "GHSA-67mh-4wv8-2f99"
+        ]
+      },
+      {
+        "package": "fast-uri",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "node_modules/fast-uri",
+            "version": "3.1.3"
+          }
+        ],
+        "advisories": [
+          "GHSA-5jgf-p345-68v8",
+          "GHSA-7p8r-x3mc-p8w7",
+          "GHSA-f65p-4m7j-42xc",
+          "GHSA-fph4-wmhf-6fwf",
+          "GHSA-hrr3-gc8f-f4qj",
+          "GHSA-jqff-g426-hqxp",
+          "GHSA-qw65-cvwx-89v3",
+          "GHSA-v2hh-gcrm-f6hx"
+        ]
+      },
+      {
+        "package": "hono",
+        "severity": "moderate",
+        "nodes": [
+          {
+            "path": "node_modules/hono",
+            "version": "4.12.27"
+          }
+        ],
+        "advisories": [
+          "GHSA-54fx-42gc-7vw4",
+          "GHSA-79qm-7rj5-m7r9",
+          "GHSA-8j4g-w8fx-2239",
+          "GHSA-crvj-82cr-hjcx",
+          "GHSA-f23p-vx2j-j53r",
+          "GHSA-g6gw-c38x-mqfc",
+          "GHSA-gqvv-2mrq-wpjv",
+          "GHSA-hxh3-vqpv-xpqv"
+        ]
+      },
+      {
+        "package": "http-cache-semantics",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "node_modules/http-cache-semantics",
+            "version": "4.2.0"
+          }
+        ],
+        "advisories": [
+          "GHSA-ch52-4w7c-c8xp"
+        ]
+      },
+      {
+        "package": "ip-address",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "node_modules/ip-address",
+            "version": "10.2.0"
+          }
+        ],
+        "advisories": [
+          "GHSA-22jq-vg5j-6vgg",
+          "GHSA-2vr4-cq9g-pvrc",
+          "GHSA-4xrf-jv44-h6hh",
+          "GHSA-h3mg-xc3c-68pw",
+          "GHSA-j6r3-76f7-8jcv",
+          "GHSA-mwp4-54f8-5fhr",
+          "GHSA-rpw4-54j3-4h4q"
+        ]
+      },
+      {
+        "package": "js-yaml",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "node_modules/js-yaml",
+            "version": "4.3.0"
+          }
+        ],
+        "advisories": [
+          "GHSA-2883-xcg3-v3hh",
+          "GHSA-5p4m-2wfm-xmqj"
+        ]
+      },
+      {
+        "package": "karma",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "node_modules/karma",
+            "version": "6.4.4"
+          }
+        ],
+        "advisories": [
+          "GHSA-vfj7-8cjw-p6xm"
+        ]
+      },
+      {
+        "package": "karma-jasmine",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "node_modules/karma-jasmine",
+            "version": "5.1.0"
+          }
+        ],
+        "advisories": [
+          "GHSA-vfj7-8cjw-p6xm"
+        ]
+      },
+      {
+        "package": "karma-jasmine-html-reporter",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "node_modules/karma-jasmine-html-reporter",
+            "version": "2.1.0"
+          }
+        ],
+        "advisories": [
+          "GHSA-vfj7-8cjw-p6xm"
+        ]
+      },
+      {
+        "package": "nanoid",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "node_modules/nanoid",
+            "version": "3.3.15"
+          }
+        ],
+        "advisories": [
+          "GHSA-28wg-ghj8-5hjv",
+          "GHSA-2v37-7h3g-55p8"
+        ]
+      },
+      {
+        "package": "piscina",
+        "severity": "critical",
+        "nodes": [
+          {
+            "path": "node_modules/piscina",
+            "version": "5.2.0"
+          }
+        ],
+        "advisories": [
+          "GHSA-67c8-pqhq-4rmx"
+        ]
+      },
+      {
+        "package": "postcss",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "node_modules/postcss",
+            "version": "8.5.16"
+          }
+        ],
+        "advisories": [
+          "GHSA-fxqj-rqcc-2cmp",
+          "GHSA-r28c-9q8g-f849"
+        ]
+      },
+      {
+        "package": "shell-quote",
+        "severity": "critical",
+        "nodes": [
+          {
+            "path": "node_modules/shell-quote",
+            "version": "1.8.4"
+          }
+        ],
+        "advisories": [
+          "GHSA-395f-4hp3-45gv",
+          "GHSA-pqg4-j6r4-53mv"
+        ]
+      },
+      {
+        "package": "socket.io-parser",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "node_modules/socket.io-parser",
+            "version": "4.2.6"
+          }
+        ],
+        "advisories": [
+          "GHSA-2m8v-j782-fhvr"
+        ]
+      },
+      {
+        "package": "source-map-js",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "node_modules/source-map-js",
+            "version": "1.2.1"
+          }
+        ],
+        "advisories": [
+          "GHSA-68fv-2mgg-jv7q"
+        ]
+      },
+      {
+        "package": "tar",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "node_modules/tar",
+            "version": "7.5.19"
+          }
+        ],
+        "advisories": [
+          "GHSA-r292-9mhp-454m"
+        ]
+      },
+      {
+        "package": "tinypool",
+        "severity": "critical",
+        "nodes": [
+          {
+            "path": "node_modules/tinypool",
+            "version": "1.1.1"
+          }
+        ],
+        "advisories": [
+          "GHSA-5gmw-xhrv-c9v3",
+          "GHSA-85c8-ppgw-ccpr"
+        ]
+      },
+      {
+        "package": "undici",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "node_modules/undici",
+            "version": "6.27.0"
+          }
+        ],
+        "advisories": [
+          "GHSA-3wwx-pv8p-q78v",
+          "GHSA-8xcm-r25x-g524",
+          "GHSA-m8rv-5g2x-5cg5",
+          "GHSA-r53p-7pc4-xj5r",
+          "GHSA-rfgv-xxqx-mfg5",
+          "GHSA-v3r7-h72x-cjcm"
+        ]
+      },
+      {
+        "package": "vitest",
+        "severity": "critical",
+        "nodes": [
+          {
+            "path": "apps/web/node_modules/vitest",
+            "version": "3.2.6"
+          },
+          {
+            "path": "node_modules/vitest",
+            "version": "4.1.9"
+          }
+        ],
+        "advisories": [
+          "GHSA-5gmw-xhrv-c9v3",
+          "GHSA-82fw-gwwq-j7x9",
+          "GHSA-85c8-ppgw-ccpr"
+        ]
+      }
+    ]
+  },
+  "updated": {
+    "production": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0,
+      "total": 0
+    },
+    "full": {
+      "info": 0,
+      "low": 0,
+      "moderate": 5,
+      "high": 6,
+      "critical": 2,
+      "total": 13
+    },
+    "packages": [
+      {
+        "package": "@angular/build",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "apps/web/node_modules/@angular/build",
+            "version": "20.3.40"
+          }
+        ],
+        "advisories": [
+          "GHSA-5gmw-xhrv-c9v3",
+          "GHSA-82fw-gwwq-j7x9",
+          "GHSA-85c8-ppgw-ccpr",
+          "GHSA-vfj7-8cjw-p6xm"
+        ]
+      },
+      {
+        "package": "@esbuild-kit/core-utils",
+        "severity": "moderate",
+        "nodes": [
+          {
+            "path": "node_modules/@esbuild-kit/core-utils",
+            "version": "3.3.2"
+          }
+        ],
+        "advisories": [
+          "GHSA-67mh-4wv8-2f99"
+        ]
+      },
+      {
+        "package": "@esbuild-kit/esm-loader",
+        "severity": "moderate",
+        "nodes": [
+          {
+            "path": "node_modules/@esbuild-kit/esm-loader",
+            "version": "2.6.5"
+          }
+        ],
+        "advisories": [
+          "GHSA-67mh-4wv8-2f99"
+        ]
+      },
+      {
+        "package": "@vitest/mocker",
+        "severity": "moderate",
+        "nodes": [
+          {
+            "path": "apps/web/node_modules/vitest/node_modules/@vitest/mocker",
+            "version": "3.2.7"
+          }
+        ],
+        "advisories": [
+          "GHSA-82fw-gwwq-j7x9"
+        ]
+      },
+      {
+        "package": "braces",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "node_modules/braces",
+            "version": "3.0.3"
+          }
+        ],
+        "advisories": [
+          "GHSA-vfj7-8cjw-p6xm"
+        ]
+      },
+      {
+        "package": "chokidar",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "node_modules/karma/node_modules/chokidar",
+            "version": "3.6.0"
+          }
+        ],
+        "advisories": [
+          "GHSA-vfj7-8cjw-p6xm"
+        ]
+      },
+      {
+        "package": "drizzle-kit",
+        "severity": "moderate",
+        "nodes": [
+          {
+            "path": "node_modules/drizzle-kit",
+            "version": "0.31.10"
+          }
+        ],
+        "advisories": [
+          "GHSA-67mh-4wv8-2f99"
+        ]
+      },
+      {
+        "package": "esbuild",
+        "severity": "moderate",
+        "nodes": [
+          {
+            "path": "node_modules/@esbuild-kit/core-utils/node_modules/esbuild",
+            "version": "0.18.20"
+          }
+        ],
+        "advisories": [
+          "GHSA-67mh-4wv8-2f99"
+        ]
+      },
+      {
+        "package": "karma",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "node_modules/karma",
+            "version": "6.4.4"
+          }
+        ],
+        "advisories": [
+          "GHSA-vfj7-8cjw-p6xm"
+        ]
+      },
+      {
+        "package": "karma-jasmine",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "node_modules/karma-jasmine",
+            "version": "5.1.0"
+          }
+        ],
+        "advisories": [
+          "GHSA-vfj7-8cjw-p6xm"
+        ]
+      },
+      {
+        "package": "karma-jasmine-html-reporter",
+        "severity": "high",
+        "nodes": [
+          {
+            "path": "node_modules/karma-jasmine-html-reporter",
+            "version": "2.1.0"
+          }
+        ],
+        "advisories": [
+          "GHSA-vfj7-8cjw-p6xm"
+        ]
+      },
+      {
+        "package": "tinypool",
+        "severity": "critical",
+        "nodes": [
+          {
+            "path": "node_modules/tinypool",
+            "version": "1.1.1"
+          }
+        ],
+        "advisories": [
+          "GHSA-5gmw-xhrv-c9v3",
+          "GHSA-85c8-ppgw-ccpr"
+        ]
+      },
+      {
+        "package": "vitest",
+        "severity": "critical",
+        "nodes": [
+          {
+            "path": "apps/web/node_modules/vitest",
+            "version": "3.2.7"
+          }
+        ],
+        "advisories": [
+          "GHSA-5gmw-xhrv-c9v3",
+          "GHSA-82fw-gwwq-j7x9",
+          "GHSA-85c8-ppgw-ccpr"
+        ]
+      }
+    ]
+  }
+}

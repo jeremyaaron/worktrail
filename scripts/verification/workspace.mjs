@@ -21,7 +21,7 @@ export async function prepareWorkspace(manifest) {
   await mkdir(checkout);
   // Snapshot source/configuration and isolate every build/cache output. Only installed dependencies
   // are shared read-only; the internal package link must resolve the run's compiled contracts.
-  for (const name of ['apps', 'packages', 'scripts', 'e2e', 'site', 'docs', 'README.md', 'package.json', 'package-lock.json',
+  for (const name of ['apps', 'packages', 'scripts', 'e2e', 'site', 'docs', '.github', 'README.md', '.nvmrc', 'package.json', 'package-lock.json',
     'tsconfig.base.json', 'tsconfig.verification.json', 'eslint.config.js',
     'playwright.config.ts', 'playwright.editor.config.ts', 'playwright.production.config.ts']) {
     await cp(join(repositoryRoot, name), join(checkout, name), {

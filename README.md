@@ -52,17 +52,17 @@ e2e/        Playwright smoke tests
 
 ## Requirements
 
-- Node.js 20.19 or newer
-- npm 10 or newer
+- Node.js 24 LTS (`nvm use` selects the repository's `.nvmrc`)
+- npm 11
 - Docker, for the local Postgres container
 - Playwright browser dependencies for end-to-end smoke tests
 
 ## Local Setup
 
-Install dependencies:
+Select Node 24, then install dependencies from the lockfile:
 
 ```sh
-npm install
+npm ci
 ```
 
 Install the Playwright Chromium browser used by the e2e smoke test:
@@ -568,8 +568,9 @@ full/API/E2E/preview modes, or explicitly select service provisioning below.
 Process ownership uses macOS/Linux `ps` and POSIX process groups. Editor and site modes never
 provision or connect to PostgreSQL; site mode does not need a browser runtime.
 
-`npm run verify` defaults to full verification: strict production dependency audit, lint, scoped
-test/config typechecks, workspace typechecks, resource/API/contracts/Angular tests, production build,
+`npm run verify` defaults to full verification: strict production and bounded development dependency
+audits, lint, scoped test/config typechecks, workspace typechecks, scratch schema generation,
+resource/API/contracts/Angular tests, production build,
 standalone editor, application E2E, compiled preview, and current site assets/local fragments. Karma/Jasmine
 still execute the Angular suite; their verification launcher uses Playwright's installed Chromium.
 The runner does not install dependencies or browser binaries itself.
@@ -629,6 +630,7 @@ Database-independent checks and resource lifecycle regressions are also availabl
 ```sh
 npm run test:verification
 npm run test:verification:integration
+npm run audit:dependencies
 npm run test --workspace @worktrail/api -- --project=unit
 npm run lint:verification
 npm run typecheck:verification
@@ -640,8 +642,13 @@ the matching owned stage; use the root commands instead. Skip flags grant no own
 
 CI installs dependencies/browser runtime, then invokes the full runner with `--database=service`
 against its disposable PostgreSQL 16 administrator. Gate output remains visible, and failure artifacts
-are uploaded from `test-results/`. Development-inclusive advisory remediation remains Phase 3 work;
-a clean production-only audit does not establish that every development dependency is clean.
+are uploaded from `test-results/`. `npm run audit:dependencies` reports production and full audits
+separately and validates the installed workspace peer graph. Production findings always fail.
+Reviewed development exceptions are exact advisory/
+package/path/version/severity records with an owner, exposure limits, mitigation, follow-up, and expiry;
+unknown findings, stale records, transport failures, or expired exceptions fail the gate.
+See the [dependency disposition](docs/v0.3.0/dependency-remediation.md) and
+[exception data](docs/security/development-audit-exceptions.json). The full tree is not vulnerability-free.
 
 ## Public Site
 

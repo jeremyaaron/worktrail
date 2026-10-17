@@ -1,0 +1,219 @@
+{
+  "schemaVersion": 1,
+  "createdOn": "2026-10-17",
+  "releaseVersion": "0.3.0",
+  "reviewBeforeVersion": "0.3.1",
+  "releaseDate": null,
+  "maxExpiresOn": "2026-11-16",
+  "exceptions": [
+    {
+      "advisory": "GHSA-vfj7-8cjw-p6xm",
+      "owner": "jeremyaaron",
+      "expiresOn": "2026-11-16",
+      "commands": [
+        "npm run verify (test:web)",
+        "npm test --workspace @worktrail/web"
+      ],
+      "dependencyPaths": [
+        "@worktrail/web > karma@6.4.4 > braces@3.0.3",
+        "@worktrail/web > karma@6.4.4 > chokidar@3.6.0 > braces@3.0.3",
+        "@worktrail/web > karma-jasmine-html-reporter@2.1.0 > karma-jasmine@5.1.0 > karma@6.4.4",
+        "@worktrail/web > @angular/build@20.3.40 > optional peer karma@6.4.4"
+      ],
+      "trustBoundary": "Development test configuration and filesystem glob patterns; not a production dependency.",
+      "preconditions": "A deeply nested attacker-controlled brace pattern must reach braces compilation/expansion. Karma consumes repository test configuration/globs; application request values are not passed to it. No patched braces release is available in the inspected owner range.",
+      "mitigation": "Use reviewed repository glob patterns, never user-supplied patterns. Owned verification runs Karma on loopback with retries disabled. Do not expose standalone Karma or run untrusted repository/test code with credentials.",
+      "followUp": "Recheck braces/Karma patches before expiry; if still unavailable, explicitly scope a supported Angular test-runner migration rather than downgrading Karma.",
+      "affected": [
+        {
+          "package": "@angular/build",
+          "path": "apps/web/node_modules/@angular/build",
+          "version": "20.3.40",
+          "severity": "high"
+        },
+        {
+          "package": "braces",
+          "path": "node_modules/braces",
+          "version": "3.0.3",
+          "severity": "high"
+        },
+        {
+          "package": "chokidar",
+          "path": "node_modules/karma/node_modules/chokidar",
+          "version": "3.6.0",
+          "severity": "high"
+        },
+        {
+          "package": "karma-jasmine-html-reporter",
+          "path": "node_modules/karma-jasmine-html-reporter",
+          "version": "2.1.0",
+          "severity": "high"
+        },
+        {
+          "package": "karma-jasmine",
+          "path": "node_modules/karma-jasmine",
+          "version": "5.1.0",
+          "severity": "high"
+        },
+        {
+          "package": "karma",
+          "path": "node_modules/karma",
+          "version": "6.4.4",
+          "severity": "high"
+        }
+      ]
+    },
+    {
+      "advisory": "GHSA-67mh-4wv8-2f99",
+      "owner": "jeremyaaron",
+      "expiresOn": "2026-11-16",
+      "commands": [
+        "npm run db:generate"
+      ],
+      "dependencyPaths": [
+        "@worktrail/api > drizzle-kit@0.31.10 > @esbuild-kit/esm-loader@2.6.5 > @esbuild-kit/core-utils@3.3.2 > esbuild@0.18.20"
+      ],
+      "trustBoundary": "Local schema tooling only. Production migrations use Drizzle ORM, not the Drizzle Kit CLI.",
+      "preconditions": "The vulnerable esbuild serve API must be started and a developer must visit an attacker-controlled website. drizzle-kit generate loads trusted local schema and generates SQL without starting esbuild serve. The legacy loader pins ~0.18.20, outside the fixed >=0.25.0 line.",
+      "mitigation": "Use Drizzle Kit only for local generation from reviewed schema; do not use drizzle-kit studio or start esbuild serve from this legacy graph. Do not expose schema tooling to a network or run it against untrusted schema/config.",
+      "followUp": "Adopt a maintainer release removing the legacy loader, or evaluate a separately scoped Drizzle Kit migration before expiry. Do not downgrade Kit to npm's suggested 0.18.1.",
+      "affected": [
+        {
+          "package": "@esbuild-kit/core-utils",
+          "path": "node_modules/@esbuild-kit/core-utils",
+          "version": "3.3.2",
+          "severity": "moderate"
+        },
+        {
+          "package": "@esbuild-kit/esm-loader",
+          "path": "node_modules/@esbuild-kit/esm-loader",
+          "version": "2.6.5",
+          "severity": "moderate"
+        },
+        {
+          "package": "drizzle-kit",
+          "path": "node_modules/drizzle-kit",
+          "version": "0.31.10",
+          "severity": "moderate"
+        },
+        {
+          "package": "esbuild",
+          "path": "node_modules/@esbuild-kit/core-utils/node_modules/esbuild",
+          "version": "0.18.20",
+          "severity": "moderate"
+        }
+      ]
+    },
+    {
+      "owner": "jeremyaaron",
+      "expiresOn": "2026-11-16",
+      "commands": [
+        "npm run verify (web test stage uses Karma; Vitest 3 peer is not executed)",
+        "npm test --workspace @worktrail/web (Karma)"
+      ],
+      "advisory": "GHSA-82fw-gwwq-j7x9",
+      "dependencyPaths": [
+        "@worktrail/web > vitest@3.2.7 > @vitest/mocker@3.2.7",
+        "@worktrail/web > @angular/build@20.3.40 > optional peer vitest@^3.1.1 (bound to web Vitest 3.2.7)"
+      ],
+      "trustBoundary": "Web-only Vitest 3 peer binding; Karma remains the active Angular test builder. API/contracts resolve patched Vitest 4.1.12.",
+      "preconditions": "Redirect-mock registration must reach the vulnerable Vite plugin. Public mockerPlugin/interceptorPlugin handlers can be unauthenticated on a reachable HMR WebSocket; Vitest browser RPC instead requires its per-run token. Neither path is enabled by the configured Karma builder.",
+      "mitigation": "Keep the web Karma builder and do not run web Vitest 3 browser/UI/server APIs or install its mocking plugins in dev serve. API/contracts run Vitest 4.1.12 in run mode. Do not expose development/test servers to untrusted networks.",
+      "followUp": "Adopt a maintainer-supported fixed Vitest 3 backport or separately scope the Angular test-builder upgrade before expiry. Do not force Vitest 4 into Angular 20's ^3.1.1 peer.",
+      "affected": [
+        {
+          "package": "@angular/build",
+          "path": "apps/web/node_modules/@angular/build",
+          "version": "20.3.40",
+          "severity": "high"
+        },
+        {
+          "package": "@vitest/mocker",
+          "path": "apps/web/node_modules/vitest/node_modules/@vitest/mocker",
+          "version": "3.2.7",
+          "severity": "moderate"
+        },
+        {
+          "package": "vitest",
+          "path": "apps/web/node_modules/vitest",
+          "version": "3.2.7",
+          "severity": "critical"
+        }
+      ]
+    },
+    {
+      "owner": "jeremyaaron",
+      "expiresOn": "2026-11-16",
+      "commands": [
+        "npm run verify (web test stage uses Karma; Vitest 3 peer is not executed)",
+        "npm test --workspace @worktrail/web (Karma)"
+      ],
+      "advisory": "GHSA-5gmw-xhrv-c9v3",
+      "dependencyPaths": [
+        "@worktrail/web > vitest@3.2.7 > tinypool@1.1.1",
+        "@worktrail/web > @angular/build@20.3.40 > optional peer vitest@^3.1.1 (bound to web Vitest 3.2.7)"
+      ],
+      "trustBoundary": "Unexecuted web Vitest 3 worker pool, installed to satisfy Angular's optional peer coherently. Not a production dependency or the API/contracts Vitest 4 pool.",
+      "preconditions": "An attacker must first pollute Object.prototype and cause the affected Tinypool constructor to consume inherited worker options. The configured web Karma builder does not execute this pool. Fixed Tinypool 2.1.2 is outside Vitest 3's ^1.1.1 owner range.",
+      "mitigation": "Do not invoke the nested web Vitest 3 binary or enable its worker pool. Use only reviewed tests/config in isolated least-privilege CI, with no credentials for untrusted PR code.",
+      "followUp": "Recheck a compatible owner-supported Vitest 3/Tinypool backport or explicitly scope an Angular/test-builder upgrade before expiry; do not apply a Tinypool major override.",
+      "affected": [
+        {
+          "package": "@angular/build",
+          "path": "apps/web/node_modules/@angular/build",
+          "version": "20.3.40",
+          "severity": "high"
+        },
+        {
+          "package": "tinypool",
+          "path": "node_modules/tinypool",
+          "version": "1.1.1",
+          "severity": "critical"
+        },
+        {
+          "package": "vitest",
+          "path": "apps/web/node_modules/vitest",
+          "version": "3.2.7",
+          "severity": "critical"
+        }
+      ]
+    },
+    {
+      "owner": "jeremyaaron",
+      "expiresOn": "2026-11-16",
+      "commands": [
+        "npm run verify (web test stage uses Karma; Vitest 3 peer is not executed)",
+        "npm test --workspace @worktrail/web (Karma)"
+      ],
+      "advisory": "GHSA-85c8-ppgw-ccpr",
+      "dependencyPaths": [
+        "@worktrail/web > vitest@3.2.7 > tinypool@1.1.1",
+        "@worktrail/web > @angular/build@20.3.40 > optional peer vitest@^3.1.1 (bound to web Vitest 3.2.7)"
+      ],
+      "trustBoundary": "Unexecuted web Vitest 3 run() worker options; Karma is the web test engine and API/contracts use Vitest 4.1.12.",
+      "preconditions": "An attacker must first pollute Object.prototype.filename and cause Tinypool run() to use a caller-supplied options object without an own filename. This requires worker-pool execution, which is not part of the web Karma workflow. The fixed Tinypool line is incompatible with the Vitest 3 owner range.",
+      "mitigation": "Keep web Vitest 3 disabled and do not pass untrusted worker options or run unreviewed test code with secrets. Development/test servers are not public application services.",
+      "followUp": "Recheck an owner-supported backport or plan the supported Angular test-builder migration before expiry; do not force an incompatible Tinypool major to lower the audit count.",
+      "affected": [
+        {
+          "package": "@angular/build",
+          "path": "apps/web/node_modules/@angular/build",
+          "version": "20.3.40",
+          "severity": "high"
+        },
+        {
+          "package": "tinypool",
+          "path": "node_modules/tinypool",
+          "version": "1.1.1",
+          "severity": "critical"
+        },
+        {
+          "package": "vitest",
+          "path": "apps/web/node_modules/vitest",
+          "version": "3.2.7",
+          "severity": "critical"
+        }
+      ]
+    }
+  ]
+}
