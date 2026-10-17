@@ -34,6 +34,7 @@ export type ProjectWorkItemQuery = Pick<
   | 'milestoneId'
   | 'cycleId'
   | 'dueDateState'
+  | 'estimateState'
   | 'blocked'
   | 'dependency'
   | 'workRisk'
@@ -92,9 +93,13 @@ function buildCommonWorkItemConditions(filters: ProjectWorkItemQuery): SQL[] {
     conditions.push(inArray(workItems.status, riskTerminalWorkItemStatuses));
   }
 
+  // False retains historical no-restriction semantics, not "not blocked".
   if (filters.blocked === true && filters.status === undefined) {
     conditions.push(eq(workItems.status, 'blocked'));
   }
+
+  if (filters.estimateState === 'estimated') conditions.push(isNotNull(workItems.estimatePoints));
+  if (filters.estimateState === 'unestimated') conditions.push(isNull(workItems.estimatePoints));
 
   if (filters.assigneeId !== undefined) {
     conditions.push(eq(workItems.assigneeId, filters.assigneeId));
@@ -190,7 +195,7 @@ function workRiskConditions(workRisk: WorkItemQuery['workRisk']): SQL[] {
   if (workRisk === 'stale_in_progress') {
     return [
       eq(workItems.status, 'in_progress'),
-      sql`${workItems.updatedAt} < now() - (${staleInProgressDays} * interval '1 day')`
+      sql`${workItems.updatedAt} < now() - (${staleInProgressDays} * interval '24 hours')`
     ];
   }
 
@@ -208,15 +213,15 @@ function labelCondition(labelId: string): SQL {
 function dueDateConditions(dueDateState: WorkItemQuery['dueDateState']): SQL[] {
   if (dueDateState === 'overdue') {
     return [
-      sql`${workItems.dueDate} < current_date`,
+      sql`${workItems.dueDate} < (now() at time zone 'UTC')::date`,
       sql`${workItems.status} not in ${terminalStatusListSql()}`
     ];
   }
 
   if (dueDateState === 'due_soon') {
     return [
-      sql`${workItems.dueDate} >= current_date`,
-      sql`${workItems.dueDate} <= current_date + (${dueSoonWindowDays} * interval '1 day')`,
+      sql`${workItems.dueDate} >= (now() at time zone 'UTC')::date`,
+      sql`${workItems.dueDate} <= (now() at time zone 'UTC')::date + (${dueSoonWindowDays} * interval '1 day')`,
       sql`${workItems.status} not in ${terminalStatusListSql()}`
     ];
   }

@@ -22,7 +22,7 @@ export function parseArguments(args) {
     }
     else throw new Error('Unknown verification argument. Use --help.');
   }
-  if (!['full', 'api', 'e2e', 'preview', 'editor', 'site'].includes(options.mode)) throw new Error('Unknown verification mode.');
+  if (!['full', 'api', 'web', 'e2e', 'preview', 'editor', 'site'].includes(options.mode)) throw new Error('Unknown verification mode.');
   if (!['docker', 'service'].includes(options.database)) throw new Error('Unknown verification database mode.');
   if (options.ui && options.mode !== 'e2e') throw new Error('--ui requires --mode=e2e.');
   if (options.apiTests !== null && options.mode !== 'api') throw new Error('--api-tests requires --mode=api.');

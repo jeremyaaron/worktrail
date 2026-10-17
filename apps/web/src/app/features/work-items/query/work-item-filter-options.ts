@@ -39,7 +39,7 @@ export const dueDateStateOptions: Array<{ label: string; value: DueDateState }> 
 
 export const blockedFilterOptions: Array<{ label: string; value: string }> = [
   { label: 'Blocked only', value: 'true' },
-  { label: 'Not blocked', value: 'false' }
+  { label: 'Any status', value: 'false' }
 ];
 
 export const dependencyFilterOptions: Array<{ label: string; value: DependencyFilter }> = [

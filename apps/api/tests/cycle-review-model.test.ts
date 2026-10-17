@@ -108,6 +108,8 @@ describe('cycle review model', () => {
       dependency: { dependencyBlockedCount: 1, blockingOpenWorkCount: 1 }
     });
     expect(evaluation.isOverTarget).toBe(true);
+    expect(createCycleEvaluation({ cycle, scopedWorkItems: [...workItems, ...workItems], context }))
+      .toEqual(evaluation);
   });
 });
 

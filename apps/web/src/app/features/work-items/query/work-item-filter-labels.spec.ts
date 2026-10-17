@@ -88,6 +88,10 @@ describe('work item filter labels', () => {
       projectWorkItemFilterLabels(
         {
           search: 'api',
+          workState: '',
+          assigneeState: '',
+          blocked: '',
+          estimateState: '',
           status: 'in_progress',
           assigneeId: inactiveMember.id,
           reporterId: activeMember.id,
@@ -133,6 +137,8 @@ describe('work item filter labels', () => {
       workspaceWorkItemFilterLabels(
         {
           search: '',
+          assigneeState: '',
+          estimateState: '',
           projectId: project.id,
           status: '',
           workState: 'open',
@@ -163,8 +169,8 @@ describe('work item filter labels', () => {
     ).toEqual([
       'Project: WT · Worktrail',
       'State: Open',
-      'Parent: WT-42',
       'Blocked: Blocked only',
+      'Parent: WT-42',
       'Projects: Archived only'
     ]);
   });

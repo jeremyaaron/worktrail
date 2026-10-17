@@ -303,6 +303,11 @@ on ordinary same-record data refreshes.
 
 ## Query, Risk, And Snapshot Contracts
 
+Phase 9 implementation policy and exhaustive field/round-trip matrix are recorded in
+[query-policy.md](query-policy.md). Explicit false retains its historical unrestricted-status meaning.
+The existing over-target health count is points-over-target (`estimate_points`); its risk section is
+one `scope_conditions`. Version 1 Markdown keeps its historical serializer independently of live links.
+
 ### Estimate State
 
 Extend `WorkItemQuery` and its project/workspace HTTP schemas with:

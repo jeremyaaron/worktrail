@@ -14,7 +14,7 @@ import { prepareWorkspace } from './verification/workspace.mjs';
 async function main() {
   const options = parseArguments(process.argv.slice(2));
   if (options.help) {
-    console.log('npm run verify [--mode=full|api|e2e|preview|editor|site] [--database=docker|service]\nDefault: full with disposable Docker PostgreSQL 16. Editor/site need no database.\nService provisioning requires WORKTRAIL_VERIFY_ADMIN_DATABASE_URL.\nAPI mode includes backend lint/typechecks. Select files: --mode=api --api-tests=server,work-item-csv-http\nBrowser options: --api-port=N --web-port=N --preview-port=N --editor-port=N\nFocused browser selection: --grep=expression. Interactive application tests: --mode=e2e --ui\nAbandoned run: npm run verify -- --cleanup /absolute/run/manifest.json');
+    console.log('npm run verify [--mode=full|api|web|e2e|preview|editor|site] [--database=docker|service]\nDefault: full with disposable Docker PostgreSQL 16. Web/editor/site need no database. Web mode runs frontend lint/typecheck/Angular tests and production build.\nService provisioning requires WORKTRAIL_VERIFY_ADMIN_DATABASE_URL.\nAPI mode includes backend lint/typechecks. Select files: --mode=api --api-tests=server,work-item-csv-http\nBrowser options: --api-port=N --web-port=N --preview-port=N --editor-port=N\nFocused browser selection: --grep=expression. Interactive application tests: --mode=e2e --ui\nAbandoned run: npm run verify -- --cleanup /absolute/run/manifest.json');
     return;
   }
   if (options.cleanup) {
@@ -44,7 +44,7 @@ async function main() {
     finally { record.durationMs = Date.now() - start; }
   };
   try {
-    const database = ['editor', 'site'].includes(options.mode) ? 'none' : options.database;
+    const database = ['web', 'editor', 'site'].includes(options.mode) ? 'none' : options.database;
     manifest = await createManifest(database);
     const identity = await processIdentity(process.pid);
     if (!identity) throw new Error('Could not record verification owner identity.');
@@ -74,6 +74,10 @@ async function main() {
       await npmGate('lint:api-tests', ['exec', '--', 'eslint', 'apps/api/tests', 'apps/api/vitest.config.ts', '--max-warnings=0']);
       await npmGate('typecheck:api', ['run', 'typecheck', '--workspace', '@worktrail/api']);
     }
+    if (options.mode === 'web') {
+      await npmGate('lint:web', ['run', 'lint', '--workspace', '@worktrail/web']);
+      await npmGate('typecheck:web', ['run', 'typecheck', '--workspace', '@worktrail/web']);
+    }
     if (database !== 'none') {
       await gate('database:provision', () => provisionDatabase(manifest, { signal: controller.signal }));
       if (options.mode === 'full') await gate('schema:generate', () => verifySchemaGeneration(checkout, () => npm(['run', 'db:generate'])));
@@ -85,6 +89,8 @@ async function main() {
     }
     if (options.mode === 'full') {
       await npmGate('test:contracts', ['run', 'test', '--workspace', '@worktrail/contracts']);
+    }
+    if (['full', 'web'].includes(options.mode)) {
       const karmaPort = await selectPort();
       manifest.ports = { ...manifest.ports, karma: karmaPort };
       await saveManifest(manifest);
@@ -93,6 +99,7 @@ async function main() {
       }));
     }
     if (['full', 'preview'].includes(options.mode)) await npmGate('build:production', ['run', 'build']);
+    if (options.mode === 'web') await npmGate('build:web', ['run', 'build', '--workspace', '@worktrail/web']);
     const browser = async (kind) => {
       if (kind !== 'editor') {
         const env = { ...childEnvironment(manifest), API_PORT: String(kind === 'preview' ? manifest.ports.preview : manifest.ports.api) };

@@ -3,7 +3,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import type {
   ActivityEventType,
   CreateProjectStatusReportRequest,
-  DeliveryHealthReasonDto,
+  SnapshotHealthReasonV1Dto as DeliveryHealthReasonDto,
   MemberDto,
   MilestoneDto,
   PlanningRiskItemDto,

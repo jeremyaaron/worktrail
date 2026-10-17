@@ -133,7 +133,7 @@ describe('project cycle closeout snapshot validation', () => {
   });
 
   it.each([
-    ['unsupported version', { ...validSnapshot, snapshotVersion: 2 }],
+    ['unsupported version', { ...validSnapshot, snapshotVersion: 3 }],
     [
       'invalid project id',
       { ...validSnapshot, project: { ...validSnapshot.project, id: 'not-a-uuid' } }
@@ -193,7 +193,7 @@ describe('project cycle closeout snapshot validation', () => {
 
   it('uses validation errors for requested snapshots', () => {
     expect(() =>
-      parseRequestedProjectCycleCloseoutSnapshot({ ...validSnapshot, snapshotVersion: 2 })
+      parseRequestedProjectCycleCloseoutSnapshot({ ...validSnapshot, snapshotVersion: 3 })
     ).toThrowError(ValidationError);
   });
 

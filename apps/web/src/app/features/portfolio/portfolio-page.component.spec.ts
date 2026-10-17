@@ -59,6 +59,7 @@ const deliveryHealth: ProjectDeliveryHealthDto = {
       severity: 'critical',
       message: '1 blocked work item',
       count: 1,
+      countUnit: 'work_items' as const,
       query: { status: 'blocked', sort: 'priority_desc' }
     }
   ]
@@ -378,7 +379,7 @@ describe('PortfolioPageComponent', () => {
       `/projects/${project.id}/work-items?dependency=dependency_blocked&sort=priority_desc`
     );
     expect(linkHref(compiled, 'Overdue work')).toBe(
-      `/projects/${project.id}/work-items?dueDateState=overdue&sort=due_date_asc`
+      `/projects/${project.id}/work-items?workState=open&dueDateState=overdue&sort=due_date_asc`
     );
   });
 });

@@ -803,16 +803,23 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     const router = TestBed.inject(Router);
     const navigate = spyOn(router, 'navigate').and.resolveTo(true);
     fixture.componentInstance.filterForm.controls.projectId.setValue(projectId);
+    http.expectOne(`/api/projects/${projectId}/labels?includeArchived=true`).flush([designLabel]);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([milestone]);
+    http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([activeCycle]);
+    expect(navigate).not.toHaveBeenCalled();
+    fixture.componentInstance.applyFilters();
     expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
       jasmine.objectContaining({ projectId, page: null, pageSize: null })
     );
 
     fixture.componentInstance.filterForm.controls.archivedProjects.setValue('only');
+    fixture.componentInstance.applyFilters();
     expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
       jasmine.objectContaining({ archivedProjects: 'only', page: null, pageSize: null })
     );
 
     fixture.componentInstance.filterForm.controls.sort.setValue('created_desc');
+    fixture.componentInstance.applyFilters();
     expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
       jasmine.objectContaining({ sort: 'created_desc', page: null, pageSize: null })
     );
@@ -1013,7 +1020,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect(fixture.componentInstance.isExporting()).toBeFalse();
   });
 
-  it('applies dropdown filters immediately without showing pending filter pills', () => {
+  it('keeps dropdown filters pending until Apply without showing pending pills', () => {
     const { fixture, http } = setup();
     flushProjectSummaries(http);
     flushSavedViews(http);
@@ -1024,6 +1031,8 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     const navigate = spyOn(router, 'navigate').and.resolveTo(true);
 
     fixture.componentInstance.filterForm.controls.status.setValue('ready');
+    expect(navigate).not.toHaveBeenCalled();
+    fixture.componentInstance.applyFilters();
     fixture.detectChanges();
 
     expect(navigate).toHaveBeenCalled();
@@ -1064,11 +1073,14 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     const navigate = spyOn(router, 'navigate').and.resolveTo(true);
 
     fixture.componentInstance.filterForm.controls.priority.setValue('urgent');
+    expect(navigate).not.toHaveBeenCalled();
+    fixture.componentInstance.applyFilters();
     expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
       jasmine.objectContaining({ priority: 'urgent', parentKey: 'WT-42', hierarchy: null })
     );
 
     fixture.componentInstance.filterForm.controls.hierarchy.setValue('children');
+    fixture.componentInstance.applyFilters();
     expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
       jasmine.objectContaining({ hierarchy: 'children', parentKey: null })
     );
@@ -1092,13 +1104,13 @@ describe('WorkspaceWorkItemListPageComponent', () => {
       'Work breakdown: Child work'
     );
 
-    fixture.componentInstance.removeActiveFilter('Work breakdown: Child work');
+    fixture.componentInstance.removeActiveFilter('hierarchy');
     expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
       jasmine.objectContaining({ hierarchy: null, parentKey: null })
     );
   });
 
-  it('debounces search before updating URL query params', fakeAsync(() => {
+  it('keeps search pending until Apply', fakeAsync(() => {
     const { fixture, http } = setup();
     flushProjectSummaries(http);
     flushSavedViews(http);
@@ -1113,6 +1125,8 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect(navigate).not.toHaveBeenCalled();
 
     tick(1);
+    expect(navigate).not.toHaveBeenCalled();
+    fixture.componentInstance.applyFilters();
     expect(navigate).toHaveBeenCalledOnceWith(
       [],
       jasmine.objectContaining({

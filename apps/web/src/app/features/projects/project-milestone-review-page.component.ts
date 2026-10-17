@@ -1,3 +1,4 @@
+import { snapshotCountLabel } from '@worktrail/contracts';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type {
@@ -24,7 +25,7 @@ import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
 import { WorkItemParentPillComponent } from '../../shared/work-items/work-item-parent-pill.component';
 
-const visibleRiskItemLimit = 4;
+const visibleRiskItemLimit = 5;
 const workItemStatuses: WorkItemStatus[] = [
   'backlog',
   'ready',
@@ -227,7 +228,7 @@ interface BreakdownMetric {
             <p class="panel-eyebrow">Risks</p>
             <h2 id="risk-sections-heading">Needs attention</h2>
           </div>
-          <span>{{ totalRiskCount(review) }} items</span>
+          <span>{{ totalRiskCount(review) }} risk signals</span>
         </div>
 
         @if (review.riskSections.length === 0) {
@@ -243,6 +244,7 @@ interface BreakdownMetric {
                   <div>
                     <h3 [id]="riskHeadingId(section)">{{ section.title }}</h3>
                     <p>{{ section.description }}</p>
+                    <span>{{ riskCountLabel(section) }}</span>
                   </div>
                   <a
                     [routerLink]="['/projects', projectId(), 'work-items']"
@@ -776,6 +778,7 @@ interface BreakdownMetric {
   `
 })
 export class ProjectMilestoneReviewPageComponent implements OnInit, OnDestroy {
+  readonly riskCountLabel = snapshotCountLabel;
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(WorktrailApiService);
   private routeSubscription: Subscription | null = null;
@@ -898,7 +901,7 @@ export class ProjectMilestoneReviewPageComponent implements OnInit, OnDestroy {
   }
 
   hiddenRiskItemCount(section: MilestoneReviewRiskSectionDto): number {
-    return Math.max(section.count - visibleRiskItemLimit, 0);
+    return section.countUnit === 'work_items' ? Math.max(section.count - visibleRiskItemLimit, 0) : 0;
   }
 
   detailQueryParams(): { returnUrl: string } {

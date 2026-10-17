@@ -1,3 +1,4 @@
+import { defaultProjectWorkItemFilterValues, defaultWorkspaceWorkItemFilterValues } from '../query/work-item-filter-state';
 import { computed, signal, type Signal, type WritableSignal } from '@angular/core';
 import type {
   ResolvedWorkItemPageQuery,
@@ -69,23 +70,7 @@ export class WorkListQueryStore<TFormValue extends WorkListFilterFormValue> {
 
   static project(): WorkListQueryStore<ProjectWorkItemFilterFormValue> {
     return new WorkListQueryStore<ProjectWorkItemFilterFormValue>({
-      defaultFilterValues: {
-        search: '',
-        status: '',
-        assigneeId: '',
-        reporterId: '',
-        type: '',
-        labelId: '',
-        milestoneId: '',
-        cycleId: '',
-        priority: '',
-        dueDateState: '',
-        dependency: '',
-        workRisk: '',
-        hierarchy: '',
-        parentKey: '',
-        sort: 'updated_desc'
-      },
+      defaultFilterValues: defaultProjectWorkItemFilterValues,
       formValueFromQuery: projectFormValueFromQuery,
       formValueFromQueryParams: projectFormValueFromQueryParams,
       queryFromFormValue: projectQueryFromFormValue,
@@ -96,27 +81,7 @@ export class WorkListQueryStore<TFormValue extends WorkListFilterFormValue> {
 
   static workspace(): WorkListQueryStore<WorkspaceWorkItemFilterFormValue> {
     return new WorkListQueryStore<WorkspaceWorkItemFilterFormValue>({
-      defaultFilterValues: {
-        search: '',
-        status: '',
-        assigneeId: '',
-        reporterId: '',
-        type: '',
-        labelId: '',
-        milestoneId: '',
-        cycleId: '',
-        priority: '',
-        dueDateState: '',
-        dependency: '',
-        workRisk: '',
-        hierarchy: '',
-        parentKey: '',
-        sort: 'updated_desc',
-        projectId: '',
-        workState: '',
-        blocked: '',
-        archivedProjects: 'exclude'
-      },
+      defaultFilterValues: defaultWorkspaceWorkItemFilterValues,
       formValueFromQuery: workspaceFormValueFromQuery,
       formValueFromQueryParams: workspaceFormValueFromQueryParams,
       queryFromFormValue: workspaceQueryFromFormValue,

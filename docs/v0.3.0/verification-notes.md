@@ -808,3 +808,117 @@ remain materialized within finite limits. Disconnected clients cannot receive a 
 malformed HTTP framing rejected before Express is not covered by middleware logging. Existing domain
 response/CSV policies remain unchanged. Remote Linux CI and release-wide browser/UAT acceptance are
 later gates. Phase 9 onward is not started; no commit, push, tag, or deployment was performed.
+
+## Phase 9: Query And Risk Policy With Versioned Snapshots
+
+Implementation covers the [field/round-trip policy](query-policy.md), complete shared live serializers,
+key-based applied chips, explicit Apply, estimate SQL/count/page/CSV parity, scope-aware descriptions,
+distinct within-category risk counts, explicit units and shared UTC boundaries. New report and closeout
+producers write v2; independently frozen v1 parsers/types/Markdown preserve old accepted behavior.
+Discriminated readers reject unsupported versions safely and validate stored record bindings.
+New JSONB evidence does not require DDL; no migrations, dependency versions or release identity changed.
+
+### Verification Scope
+
+The changed contracts affect API and frontend consumers, so broad contract/Angular coverage and
+production web budgets are applicable here. Backend diagnostics included the full API suite; final
+corrections use affected API files, not another full application run. Browser selection covers query,
+saved/pinned views, risk links, report sharing, hierarchy, closeout, portfolio and CSV. Standalone editor,
+authored-content security, unrelated inbox/governance, compiled preview, external dependency audit and
+public-site suites are not phase acceptance gates and were not rerun or claimed passed. Resource tests
+include their existing small site-fixture check, not the full public-site browser suite.
+
+All commands used Node 24.16.0/npm 11.13.0 via explicit PATH. Databases/storage/ports/profiles belonged
+to private verification runs with Docker PostgreSQL 16; the working database/storage were never used.
+The new `--mode=web` owns frontend lint, development typecheck/build, Karma and production build without
+PostgreSQL/application servers. Final print-only CSS rechecks use an owned build-only invocation of the
+existing manifest/workspace/process/cleanup helpers, avoiding another unchanged 707-case Angular run.
+
+| Acceptance Evidence | Result |
+| --- | --- |
+| Contracts | 88 cases in 13 files passed, including 34 new field/UTC/unit cases |
+| Final affected API | 151 cases in 14 files and 42 resource cases passed; API source/test lint/typechecks passed |
+| Angular | 707 cases passed, including 55 new field-matrix/pending-query cases |
+| Web profile | Four gates passed; no database provisioning |
+| Production build | 388.66 kB initial / 104.82 kB estimated transfer; budgets warning-free |
+| Browser affected workflows | Ten original workflows passed in diagnostic selection; four corrected flows then passed together |
+| V1/v2 evidence browser | Publication/read/download/current-work links, v2 desktop and v1 mobile print-media/overflow checks passed |
+| Verification source/E2E types and lint | Passed separately, including the new fixture import |
+| OpenAPI | YAML parses; all 803 local references resolve; four list/export operations expose estimate/risk parameters |
+| Documentation | 51 local targets resolve before closeout-note additions; whitespace clean |
+
+The 14 final API files are `cycle-review-model`, `work-risk-sections`, `estimate-query-snapshots`,
+`project-cycle-closeout`, `status-reports`, `planning`, `saved-work-views`, `versioned-snapshots`, `openapi`,
+`query-parity`, `work-item-query`, `work-item-query-builder`, `delivery-health-service`, and
+`status-report-markdown-renderer`. Final run `1b352094-e915-482a-96cf-9650a346d089` passed all seven gates
+and cleaned resources. The eight real estimate/preservation cases cover zero/null, terminal work,
+ANDed label/parent/cycle predicates, opposite-side UTC sessions, shared/personal pins, overlapping
+risks, v2 production/replay after edits, valid v1 publication and unchanged v1 JSONB across migrations.
+
+Web run `56577a7f-aaa8-4755-bd09-2e344305a3aa` passed all four gates and cleaned resources. Earlier clean
+web run `34bb7893-d355-43b9-8efb-3dced2e2b0ba` had the same 707 cases and initial size. Build-only run
+`dc19c2e3-1c44-4c6f-a8cb-7f3de2752bb7` rechecked final print CSS without Angular/PostgreSQL, passed and
+removed its private root; its generated summary records `mode: web-build-only` (not a new CLI mode).
+
+Browser run `b121b518-c18e-4b1b-908d-6e7837fad2aa` passed all four selected flows: estimate pending/Apply,
+saved pin/copy/return/reload/mobile, pagination/navigation, seeded report sharing, and CSV import/export
+(the estimate sequence is one test). Desktop 1280px and mobile 390px screenshots were inspected and
+overflow/control-fit assertions passed. Fixture projects are archived in afterEach so workspace totals
+do not depend on previous tests. Evidence run `cb249c27-dbe9-4f30-8826-661a2edc4a19` passed the combined
+v2 and actual v1 client workflow, not just newly seeded v2 evidence. Print screenshot review then found
+a historical no-wrap link problem; print URLs now wrap and explicit print overflow checks were added.
+
+### Diagnostic Runs And Corrections
+
+Diagnostics are not clean acceptance and counts are not summed across reruns:
+
+- `7c8da17c-67f9-42ca-9a42-cec2f569f768`: 76/81 API cases; expected new version still 1 and unsupported
+  version still 2. Updated assertions to new 2 / unsupported 3. New real estimate cases already passed.
+- `38a6bb41-bf3b-407e-84c2-764bc2fa69fd`: 70/71; old unestimated-link expectation omitted estimateState.
+- `b8326a7c-dd64-4735-8ee9-0226b8eb4020` and `e6ebbd1e-1b9e-416c-9bd3-e4ece76dc84b`: 689/707 then
+  705/707 Angular; corrected old dropped-field, automatic-apply, default-null and broader-link expectations.
+- `2be5650f-5658-4fc9-b4c7-1e301a1a5761`: full API 860/862; one stale-risk expectation and one saved-view
+  HTTP socket reset. No response established its cause; no transport retry or timeout relaxation added.
+- `0c7f9313-36f2-455e-b4ed-3e7cc818edf7`: typecheck caught missing titles in a new unit fixture.
+- `56aba0b8-c161-415c-96da-8a3e7ea94499`: full API 863/864; new unit helper ignored its estimate override.
+  Corrected helper, then 2/2 passed in `3a6318bc-055e-41da-93ec-1986046f412b`. The final 151-case affected
+  run also passes those regressions. Neither failed full run is represented as a clean 864-case run.
+- `84cf07bf-964c-4fff-8d15-244c5c3e8f05`: browser collection caught a runtime import of unbuilt contracts;
+  the test now imports the pure source helper and retains type-only package imports.
+- `4e6a6a9a-16c2-4e92-abf6-47a9248f68ca`: 10/15 browser; exact label ambiguity, duplicate report heading,
+  new reason-link mobile overflow and one missed CSV Apply interaction. Fixed selectors/expectations,
+  wrapping and explicit Apply; no force clicks or assertion weakening.
+- `ca947a86-3860-4ba0-b23a-d4071b946bec`: 1/3; return URL was read before router commit and new fixture
+  projects contaminated workspace totals. Wait for the actual detail URL/heading and archive fixtures.
+- `fb43043d-d421-44af-8bc7-a7eb0a1a4cba`: legacy test expected plural for a one-item golden fixture;
+  fixed singular assertion. Typecheck also required widening the golden value to its declared v1 DTO.
+- `e6d6ba5d-f789-4d06-b0ec-93c21b84b533`: one query URL assertion expired during a concurrent production
+  build before the new print checks; the failure screenshot showed the correct filtered work list.
+  Repeated serially with unchanged deadlines/retries/workers, rather than claiming a proven root cause.
+
+Every completed diagnostic summary records `cleaned: true`. Direct authoring units caught stale link
+expectations and type/fixture mistakes before acceptance. Successful v1 Markdown is compared byte for
+byte against a committed fixture captured from the pre-phase renderer/serializer; v1 unknown stripping,
+optional parent/cycle and strict closeout behavior remain explicitly tested.
+
+### Limits
+
+Print checks emulate Chromium print media and inspect screenshots; they are not physical printer or
+paginated PDF certification. Links always open current data, not a reconstructed historical work set.
+No clock freezing, automatic retries, deadline/budget increases, version bump, commit or deployment was
+introduced. Aggregate hydration and reactive route/actor ownership remain Phases 10 and 11. Remote
+Linux CI and release-wide manual/full acceptance remain later gates.
+
+### Final Closure
+
+Serial browser run `7e0f17db-3f94-4690-910b-183de9aef93b` passed the final combined v2/v1 workflow with
+the added print-overflow assertions. Final mobile v1 print and desktop v2 print screenshots were
+inspected: appended URLs wrap within the page, with historical values and legacy wording retained.
+The browser run cleaned its resources. Final typechecking passed after the renderer's item parameter
+was changed to the frozen snapshot type (type-only, no runtime change).
+
+All 20 completed run summaries record `cleaned: true`; final Docker/process inspection found no
+verification-labeled containers or owned verification processes. Build-only output remains in its
+ignored result summary; private source/build/storage roots were removed. Working data were untouched.
+Local documentation links and whitespace were rechecked after status/evidence updates. Phase 9 is
+complete; Phase 10 and release-wide verification are not started. No commit/push/tag/deployment occurred.

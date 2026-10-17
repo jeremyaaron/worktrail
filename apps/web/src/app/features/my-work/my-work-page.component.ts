@@ -6,6 +6,7 @@ import type {
   WorkspaceWorkItemListItemDto
 } from '@worktrail/contracts';
 import { Subscription } from 'rxjs';
+import { addDays, toDateString } from '@worktrail/contracts';
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorktrailApiService } from '../../core/worktrail-api.service';
@@ -556,6 +557,7 @@ const priorityOrder = new Map([
   `
 })
 export class MyWorkPageComponent implements OnDestroy {
+  private evaluationNow = new Date();
   private readonly api = inject(WorktrailApiService);
   readonly currentUser = inject(CurrentUserService);
   readonly inboxState = inject(InboxStateService);
@@ -680,6 +682,7 @@ export class MyWorkPageComponent implements OnDestroy {
     this.dashboardSubscription = this.api.getMyWork().subscribe({
       next: (dashboard) => {
         this.dashboard.set(dashboard);
+        this.evaluationNow = new Date();
         this.selectedSummaryKey.set(null);
         this.isLoading.set(false);
       },
@@ -855,7 +858,7 @@ export class MyWorkPageComponent implements OnDestroy {
   }
 
   private isOverdue(item: WorkspaceWorkItemListItemDto): boolean {
-    return item.dueDate !== null && item.dueDate < this.dateString(new Date());
+    return item.dueDate !== null && item.dueDate < this.dateString(this.evaluationNow);
   }
 
   private isDueSoon(item: WorkspaceWorkItemListItemDto): boolean {
@@ -863,23 +866,21 @@ export class MyWorkPageComponent implements OnDestroy {
       return false;
     }
 
-    return item.dueDate <= this.dateString(this.addDays(new Date(), dueSoonWindowDays));
+    return item.dueDate <= this.dateString(this.addDays(this.evaluationNow, dueSoonWindowDays));
   }
 
   private isStaleInProgress(item: WorkspaceWorkItemListItemDto): boolean {
     return (
       item.status === 'in_progress' &&
-      new Date(item.updatedAt).getTime() < this.addDays(new Date(), -staleInProgressDays).getTime()
+      new Date(item.updatedAt).getTime() < this.addDays(this.evaluationNow, -staleInProgressDays).getTime()
     );
   }
 
   private addDays(date: Date, days: number): Date {
-    const nextDate = new Date(date.getTime());
-    nextDate.setDate(nextDate.getDate() + days);
-    return nextDate;
+    return addDays(date, days);
   }
 
   private dateString(date: Date): string {
-    return date.toISOString().slice(0, 10);
+    return toDateString(date);
   }
 }

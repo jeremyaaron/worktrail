@@ -321,7 +321,7 @@ describe('project status reports', () => {
     expect(draft.statusDate).toBe('2026-07-10');
     expect(draft.summary).toContain('4 open work items');
     expect(draft.risks).toContain('Blocked work: 1');
-    expect(draft.snapshot.snapshotVersion).toBe(1);
+    expect(draft.snapshot.snapshotVersion).toBe(2);
     expect(draft.snapshot.project).toMatchObject({ id: fixture.projectId, key: 'STAT' });
     expect(draft.snapshot.counts).toMatchObject({
       openWorkCount: 4,
@@ -385,7 +385,8 @@ describe('project status reports', () => {
       }),
       expect.objectContaining({
         key: 'unestimated_work',
-        query: { cycleId: activeCycle.id, workState: 'open', sort: 'priority_desc' }
+        countUnit: 'work_items',
+        query: { cycleId: activeCycle.id, workState: 'open', estimateState: 'unestimated', sort: 'priority_desc' }
       })
     ]));
     expect(draft.snapshot.recentWork).toHaveLength(4);
@@ -537,7 +538,7 @@ describe('project status reports', () => {
     });
 
     await pool.query('update project_status_reports set snapshot = $1::jsonb where id = $2', [
-      JSON.stringify({ ...draft.snapshot, snapshotVersion: 2 }),
+      JSON.stringify({ ...draft.snapshot, snapshotVersion: 3 }),
       published.id
     ]);
 
@@ -702,7 +703,7 @@ describe('project status report API', () => {
       .expect(({ body }) => {
         expect(body.project.id).toBe(fixture.projectId);
         expect(body.title).toMatch(/^Status update - \d{4}-\d{2}-\d{2}$/);
-        expect(body.snapshot.snapshotVersion).toBe(1);
+        expect(body.snapshot.snapshotVersion).toBe(2);
         expect(body.snapshot.counts.blockedWorkCount).toBe(1);
         expect(body.snapshot.risks.map((risk: { type: string }) => risk.type)).toEqual([
           'blocked',
@@ -873,7 +874,7 @@ describe('project status report API', () => {
         summary: 'Snapshot shape should be validated.',
         snapshot: {
           ...draft.snapshot,
-          snapshotVersion: 2
+          snapshotVersion: 3
         }
       })
       .expect(400)

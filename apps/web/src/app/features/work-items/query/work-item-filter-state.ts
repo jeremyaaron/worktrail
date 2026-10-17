@@ -1,6 +1,10 @@
 export interface ProjectWorkItemFilterFormValue {
   search: string;
   status: string;
+  workState: string;
+  assigneeState: string;
+  blocked: string;
+  estimateState: string;
   assigneeId: string;
   reporterId: string;
   type: string;
@@ -18,14 +22,16 @@ export interface ProjectWorkItemFilterFormValue {
 
 export interface WorkspaceWorkItemFilterFormValue extends ProjectWorkItemFilterFormValue {
   projectId: string;
-  workState: string;
-  blocked: string;
   archivedProjects: string;
 }
 
 export const defaultProjectWorkItemFilterValues: ProjectWorkItemFilterFormValue = {
   search: '',
   status: '',
+  workState: '',
+  assigneeState: '',
+  blocked: '',
+  estimateState: '',
   assigneeId: '',
   reporterId: '',
   type: '',

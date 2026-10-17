@@ -15,7 +15,7 @@ describe('ActiveFilterChipsComponent', () => {
 
   it('renders active labels and emits removals without changing label text', () => {
     const removed: string[] = [];
-    fixture.componentInstance.labels = ['Status: Ready', 'Label: design'];
+    fixture.componentInstance.chips = [{ key: 'status', label: 'Status: Ready' }, { key: 'labelId', label: 'Label: design' }];
     fixture.componentInstance.remove.subscribe((label) => removed.push(label));
     fixture.detectChanges();
 
@@ -26,6 +26,6 @@ describe('ActiveFilterChipsComponent', () => {
 
     expect(labels).toEqual(['Status: Ready', 'Label: design']);
     compiled.querySelector<HTMLButtonElement>('button[aria-label="Remove Label: design"]')?.click();
-    expect(removed).toEqual(['Label: design']);
+    expect(removed).toEqual(['labelId']);
   });
 });

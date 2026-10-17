@@ -1,7 +1,8 @@
+import { snapshotRiskCountLabel } from '@worktrail/contracts';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type {
-  DeliveryHealthReasonDto,
+  HealthReasonReadDto as DeliveryHealthReasonDto,
   DeliveryHealthState,
   ProjectStatusReportCycleSnapshotDto,
   ProjectStatusReportDetailDto,
@@ -207,6 +208,10 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
                     @for (reason of cycle.reasons; track reason.key + reason.message) {
                       <span class="reason-chip" [attr.data-tone]="reasonTone(reason)">
                         {{ reasonLabel(reason) }}
+                        @if (report.snapshot.snapshotVersion === 2 && reason.query !== null) {
+                          <a [routerLink]="['/projects', projectId(), 'work-items']" [queryParams]="reasonQueryParams(reason)"
+                            [attr.aria-label]="'Open current work: ' + reason.message">Open current work</a>
+                        }
                       </span>
                     }
                   </div>
@@ -267,7 +272,7 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
                   <article class="risk-section">
                     <div>
                       <h3>{{ risk.title }}</h3>
-                      <p>{{ risk.count }} matching work item{{ risk.count === 1 ? '' : 's' }}</p>
+                      <p>{{ riskCountLabel(risk) }}</p>
                     </div>
                     <a
                       [routerLink]="['/projects', projectId(), 'work-items']"
@@ -572,6 +577,16 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
       white-space: nowrap;
     }
 
+    .reason-chip {
+      max-width: 100%;
+      min-width: 0;
+      flex: 0 1 auto;
+      flex-wrap: wrap;
+      gap: 4px 8px;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+
     .health-pill[data-tone='positive'],
     .reason-chip[data-tone='positive'] {
       border-color: #86efac;
@@ -828,6 +843,14 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
         overflow-wrap: anywhere;
       }
 
+      .risk-section > a,
+      .report-links a {
+        display: block;
+        max-width: 100%;
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+
       .milestone-row,
       .work-row,
       .risk-section > a {
@@ -844,6 +867,7 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
   `
 })
 export class ProjectStatusReportDetailPageComponent implements OnInit {
+  readonly riskCountLabel = snapshotRiskCountLabel;
   private readonly api = inject(WorktrailApiService);
   private readonly clipboard = inject(ClipboardService);
   private readonly route = inject(ActivatedRoute);
@@ -961,6 +985,10 @@ export class ProjectStatusReportDetailPageComponent implements OnInit {
 
   reasonLabel(reason: DeliveryHealthReasonDto): string {
     return deliveryHealthReasonLabel(reason);
+  }
+
+  reasonQueryParams(reason: DeliveryHealthReasonDto): Record<string, string> | null {
+    return routerLinkQueryParamsFromWorkItemQuery(reason.query, 'project');
   }
 
   reasonTone(reason: DeliveryHealthReasonDto): string {

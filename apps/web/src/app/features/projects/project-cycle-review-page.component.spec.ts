@@ -190,6 +190,7 @@ function cycleReview(input: Partial<ProjectCycleReviewDto> = {}): ProjectCycleRe
           severity: 'warning',
           message: 'Cycle estimate is 3 points over target.',
           count: 3,
+          countUnit: 'estimate_points' as const,
           query: { cycleId, sort: 'priority_desc' }
         }
       ]
@@ -232,6 +233,7 @@ function cycleReview(input: Partial<ProjectCycleReviewDto> = {}): ProjectCycleRe
         title: 'Blocked work',
         description: 'Work items currently blocked inside this cycle.',
         count: 1,
+        countUnit: 'work_items' as const,
         query: { cycleId, status: 'blocked', sort: 'priority_desc' },
         items: [blockedWorkItem]
       }
@@ -466,6 +468,7 @@ describe('ProjectCycleReviewPageComponent', () => {
             title: 'Unestimated work',
             description: 'Open cycle work without an estimate.',
             count: 0,
+            countUnit: 'work_items' as const,
             query: { cycleId, sort: 'priority_desc' },
             items: []
           }

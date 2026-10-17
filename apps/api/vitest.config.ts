@@ -9,7 +9,7 @@ const unitTests = [
   'quick-find-service', 'repository-read-transaction', 'request-logging', 'runtime-config',
   'server', 'status-report-markdown-renderer', 'storage-reset', 'work-item-csv-export',
   'work-item-hydrator', 'work-item-page', 'work-item-page-query', 'work-item-query', 'work-item-query-builder',
-  'work-risk-sections'
+  'work-risk-sections', 'versioned-snapshots', 'query-parity'
 ].map((name) => `tests/${name}.test.ts`);
 
 export default defineConfig({

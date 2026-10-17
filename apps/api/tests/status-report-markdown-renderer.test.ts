@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type {
-  DeliveryHealthReasonDto,
+  SnapshotHealthReasonV1Dto as DeliveryHealthReasonDto,
   MemberDto,
   MilestoneDto,
   PlanningRiskItemDto,
@@ -197,7 +197,7 @@ describe('projectWorkItemPathFromQuery', () => {
         blocked: true,
         sort: 'updated_desc'
       })
-    ).toBe('/projects/project-id/work-items');
+    ).toBe('/projects/project-id/work-items?blocked=true');
   });
 
   it('serializes cycle-scoped open-work links', () => {

@@ -25,6 +25,10 @@ import {
 describe('work item query serialization', () => {
   const projectFormValue: ProjectWorkItemFilterFormValue = {
     search: '  api  ',
+    workState: '',
+    assigneeState: '',
+    blocked: '',
+    estimateState: '',
     status: 'ready',
     assigneeId: 'member-1',
     reporterId: 'reporter-1',
@@ -71,6 +75,10 @@ describe('work item query serialization', () => {
   it('omits default project query params while preserving non-default values', () => {
     expect(projectQueryParamsFromFilters({ search: 'api', sort: 'updated_desc' })).toEqual({
       search: 'api',
+      workState: null,
+      assigneeState: null,
+      blocked: null,
+      estimateState: null,
       status: null,
       assigneeId: null,
       reporterId: null,
@@ -106,6 +114,10 @@ describe('work item query serialization', () => {
       })
     ).toEqual({
       search: 'client',
+      workState: '',
+      assigneeState: '',
+      blocked: '',
+      estimateState: '',
       status: '',
       assigneeId: '',
       reporterId: '',
@@ -141,6 +153,8 @@ describe('work item query serialization', () => {
     ).toEqual({
       search: 'api',
       cycleId: 'cycle-1',
+      workState: 'open',
+      blocked: 'true',
       workRisk: 'stale_in_progress',
       sort: 'priority_desc'
     });
@@ -167,6 +181,7 @@ describe('work item query serialization', () => {
       dueDateState: 'overdue',
       blocked: false,
       dependency: 'dependency_blocked',
+      workRisk: 'stale_in_progress',
       archivedProjects: 'include'
     });
   });
@@ -210,7 +225,9 @@ describe('work item query serialization', () => {
       priority: 'urgent',
       dueDateState: 'overdue',
       blocked: null,
+      estimateState: null,
       dependency: 'dependency_blocked',
+      workRisk: 'stale_in_progress',
       hierarchy: null,
       parentKey: null,
       archivedProjects: null,
@@ -243,6 +260,8 @@ describe('work item query serialization', () => {
       })
     ).toEqual({
       search: '',
+      assigneeState: 'unassigned',
+      estimateState: '',
       projectId: '',
       status: '',
       workState: 'open',

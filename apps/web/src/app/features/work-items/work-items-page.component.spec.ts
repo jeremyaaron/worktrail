@@ -2107,6 +2107,10 @@ describe('WorkItemListPageComponent', () => {
       relativeTo: TestBed.inject(ActivatedRoute),
       queryParams: {
         search: 'client',
+        workState: null,
+        assigneeState: null,
+        estimateState: null,
+        blocked: null,
         status: 'ready',
         assigneeId: contributorId,
         reporterId: contributorId,
@@ -2159,6 +2163,8 @@ describe('WorkItemListPageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Risk: Stale in progress');
 
     fixture.componentInstance.filterForm.controls.priority.setValue('urgent');
+    expect(navigate).not.toHaveBeenCalled();
+    fixture.componentInstance.applyFilters();
 
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
@@ -2168,7 +2174,7 @@ describe('WorkItemListPageComponent', () => {
       })
     });
 
-    fixture.componentInstance.removeActiveFilter('Risk: Stale in progress');
+    fixture.componentInstance.removeActiveFilter('workRisk');
 
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
@@ -2203,11 +2209,14 @@ describe('WorkItemListPageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Parent: WT-42');
 
     fixture.componentInstance.filterForm.controls.priority.setValue('urgent');
+    expect(navigate).not.toHaveBeenCalled();
+    fixture.componentInstance.applyFilters();
     expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
       jasmine.objectContaining({ priority: 'urgent', parentKey: 'WT-42', hierarchy: null })
     );
 
     fixture.componentInstance.filterForm.controls.hierarchy.setValue('parents');
+    fixture.componentInstance.applyFilters();
     expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
       jasmine.objectContaining({ hierarchy: 'parents', parentKey: null })
     );
@@ -2286,7 +2295,7 @@ describe('WorkItemListPageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Label: backend');
   });
 
-  it('applies dropdown filters immediately', () => {
+  it('keeps dropdown filters pending until Apply', () => {
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
     const router = TestBed.inject(Router);
@@ -2303,6 +2312,8 @@ describe('WorkItemListPageComponent', () => {
       .flush(projectWorkItemPage([workItem]));
 
     fixture.componentInstance.filterForm.controls.priority.setValue('urgent');
+    expect(navigate).not.toHaveBeenCalled();
+    fixture.componentInstance.applyFilters();
 
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
@@ -2312,7 +2323,7 @@ describe('WorkItemListPageComponent', () => {
     });
   });
 
-  it('debounces search before applying filters', fakeAsync(() => {
+  it('keeps search pending until Apply', fakeAsync(() => {
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
     const router = TestBed.inject(Router);
@@ -2338,6 +2349,8 @@ describe('WorkItemListPageComponent', () => {
     );
 
     tick(1);
+    expect(navigate).not.toHaveBeenCalled();
+    fixture.componentInstance.applyFilters();
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
       queryParams: jasmine.objectContaining({

@@ -490,7 +490,7 @@ describe('project cycle closeout command', () => {
         destinationCycleId: destination.id,
         closedBy: { id: fixture.actorId },
         snapshot: {
-          snapshotVersion: 1,
+          snapshotVersion: 2,
           cycle: { id: source.id, status: 'active' },
           destination: { kind: 'cycle', cycle: { id: destination.id } },
           counts: {

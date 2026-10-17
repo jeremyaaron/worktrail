@@ -1,13 +1,15 @@
 import type {
-  DeliveryHealthReasonDto,
-  PlanningRiskItemDto,
+  HealthReasonReadDto as DeliveryHealthReasonDto,
+  SnapshotRiskItemV1Dto,
   ProjectStatusReportDetailDto,
   ProjectStatusReportCycleSnapshotDto,
   ProjectStatusReportMilestoneSnapshotDto,
   ProjectStatusReportRiskSnapshotDto
 } from '@worktrail/contracts';
+import { snapshotCountLabel } from '@worktrail/contracts';
 
 import { projectWorkItemPathFromQuery } from './work-item-query-link.js';
+import { snapshotV1WorkItemPathFromQuery } from './snapshot-v1-work-link.js';
 
 export interface StatusReportMarkdownRenderOptions {
   appBasePath?: string;
@@ -112,7 +114,7 @@ function renderHealthReasons(reasons: DeliveryHealthReasonDto[]): string {
     '## Health Reasons',
     ...reasons.map(
       (reason) =>
-        `- ${escapeMarkdownInline(reason.message)} (${formatToken(reason.severity)}, ${reason.count})`
+        `- ${escapeMarkdownInline(reason.message)} (${formatToken(reason.severity)}, ${snapshotCountLabel(reason)})`
     )
   ].join('\n');
 }
@@ -185,11 +187,11 @@ function renderCycle(report: ProjectStatusReportDetailDto, basePath: string): st
     `- Dependency-blocked work: ${cycle.dependencyBlockedWorkCount}`,
     `- Unestimated open work: ${cycle.unestimatedWorkCount}`,
     `- ${workLink}`,
-    renderCycleReasons(cycle)
+    renderCycleReasons(cycle, report.projectId, basePath, report.snapshot.snapshotVersion)
   ].join('\n');
 }
 
-function renderCycleReasons(cycle: ProjectStatusReportCycleSnapshotDto): string {
+function renderCycleReasons(cycle: ProjectStatusReportCycleSnapshotDto, projectId: string, basePath: string, version: 1 | 2): string {
   if (cycle.reasons.length === 0) {
     return '- Cycle reasons: none recorded.';
   }
@@ -198,7 +200,8 @@ function renderCycleReasons(cycle: ProjectStatusReportCycleSnapshotDto): string 
     '- Cycle reasons:',
     ...cycle.reasons.map(
       (reason) =>
-        `  - ${escapeMarkdownInline(reason.message)} (${formatToken(reason.severity)}, ${reason.count})`
+        `  - ${escapeMarkdownInline(reason.message)} (${formatToken(reason.severity)}, ${snapshotCountLabel(reason)})` +
+        (version === 2 && reason.query !== null ? ` - ${markdownLink('Open current work', basePath + projectWorkItemPathFromQuery(projectId, reason.query))}` : '')
     )
   ].join('\n');
 }
@@ -219,10 +222,12 @@ function renderRiskSection(
   risk: ProjectStatusReportRiskSnapshotDto,
   basePath: string
 ): string {
-  const workPath = `${basePath}${projectWorkItemPathFromQuery(report.projectId, risk.query)}`;
+  const workPath = `${basePath}${report.snapshot.snapshotVersion === 1
+    ? snapshotV1WorkItemPathFromQuery(report.projectId, risk.query)
+    : projectWorkItemPathFromQuery(report.projectId, risk.query)}`;
   const lines = [
     `### ${escapeMarkdownText(risk.title)}`,
-    `${risk.count} matching ${risk.count === 1 ? 'item' : 'items'}.`,
+    'countUnit' in risk ? `${snapshotCountLabel(risk)}.` : `${risk.count} matching ${risk.count === 1 ? 'item' : 'items'}.`,
     markdownLink('Open current work', workPath)
   ];
 
@@ -235,7 +240,7 @@ function renderRiskSection(
   return lines.join('\n');
 }
 
-function renderRecentWork(items: PlanningRiskItemDto[], basePath: string): string {
+function renderRecentWork(items: SnapshotRiskItemV1Dto[], basePath: string): string {
   if (items.length === 0) {
     return ['## Recent Work', 'No recent work captured.'].join('\n\n');
   }
@@ -245,7 +250,7 @@ function renderRecentWork(items: PlanningRiskItemDto[], basePath: string): strin
   );
 }
 
-function renderWorkItemSummary(item: PlanningRiskItemDto, basePath: string): string {
+function renderWorkItemSummary(item: SnapshotRiskItemV1Dto, basePath: string): string {
   const link = markdownLink(
     `${item.displayKey} - ${item.title}`,
     `${basePath}/work-items/${encodeURIComponent(item.id)}`

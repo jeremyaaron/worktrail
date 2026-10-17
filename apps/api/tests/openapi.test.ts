@@ -7,6 +7,22 @@ import { csvImportPaths, jsonBodyLimits } from '../src/adapters/express/body-par
 const openApiPath = fileURLToPath(new URL('../../../docs/api/openapi.yaml', import.meta.url));
 
 describe('OpenAPI reference', () => {
+  it('documents estimate parity, live count units and independently frozen evidence versions', async () => {
+    const openApi = await readFile(openApiPath, 'utf8');
+    expect(openApi.match(/#\/components\/parameters\/WorkItemEstimateStateQuery/g)).toHaveLength(4);
+    expect(openApi.match(/#\/components\/parameters\/WorkItemRiskQuery/g)).toHaveLength(4);
+    expect(openApi).toContain('enum: [estimated, unestimated]');
+    for (const name of ['ProjectStatusReportSnapshot', 'ProjectCycleCloseoutSnapshot']) {
+      expect(openApi).toContain(`${name}V1:`);
+      expect(openApi).toContain(`${name}V2:`);
+      const frozen = openApi.split(`    ${name}V1:\n`)[1]!.split(`    ${name}V2:\n`)[0]!;
+      expect(frozen).not.toContain('#/components/schemas/WorkItemQuery');
+      expect(frozen).not.toContain('estimateState:');
+      expect(frozen).not.toContain('countUnit:');
+    }
+    expect(openApi).toContain('scope_conditions');
+    expect(openApi).toContain('risk signals, not unique items');
+  });
   it('documents the implemented import/ordinary transport budgets and safe parser errors', async () => {
     const openApi = await readFile(openApiPath, 'utf8');
     expect(openApi).toContain(jsonBodyLimits.ordinary.toLocaleString('en-US') + '-byte (100 KiB)');

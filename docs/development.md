@@ -245,11 +245,17 @@ Choose checks from changed code, affected consumers, and risk. API mode includes
 lint, backend typechecks, resource checks, and API tests without Angular/build/browser/site execution.
 For narrow changes, `--api-tests=server,work-item-csv-http` selects existing API test basenames; path,
 option, empty, and nonexistent selections fail rather than passing an empty suite. Shared HTTP or
-persistence infrastructure warrants the full API suite. Frontend-only changes use affected frontend
-tests/browser flows; shared contracts include affected consumers. Docs-only updates need links and
+persistence infrastructure warrants the full API suite. `--mode=web` runs frontend lint, development
+typecheck/build, Karma/Jasmine and production build/budgets without PostgreSQL or application servers.
+Frontend changes use that profile and affected browser flows; shared contracts include affected consumers.
+Docs-only updates need links and
 format checks. Broaden for dependency/toolchain/cross-cutting changes. Reserve full verification for
 release closeout and CI merge acceptance, not every phase. State selected checks and omissions in
 phase evidence; unchanged-code results need not be rerun after documentation-only completion edits.
+
+The [query/risk policy](v0.3.0/query-policy.md) owns the live field matrix and frozen v1/v2 semantics.
+Do not evolve stored snapshot types/parsers by inheriting expanded live shapes. Risk links must preserve
+open/scope/estimate predicates and explicit false values end to end.
 
 ## HTTP Parsing And Safe Logging
 

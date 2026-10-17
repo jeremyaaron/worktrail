@@ -99,6 +99,7 @@ describe('work item query contracts', () => {
       severity: 'critical',
       message: '2 work items are blocked by dependencies',
       count: 2,
+      countUnit: 'work_items',
       query
     } satisfies DeliveryHealthReasonDto;
 

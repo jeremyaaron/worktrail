@@ -1,12 +1,10 @@
+import type { SnapshotRiskItemV1Dto, SnapshotHealthState, SnapshotHealthReasonV1Dto, SnapshotHealthReasonV2Dto, SnapshotProjectHealthV1Dto, SnapshotProjectHealthV2Dto, SnapshotWorkItemQueryV1, SnapshotWorkItemQueryV2 } from './snapshot-policy.js';
 import type {
-  DeliveryHealthReasonDto,
   DeliveryHealthState,
   ProjectDeliveryHealthDto
 } from './health.js';
 import type { MemberDto } from './members.js';
-import type { ProjectCycleStatus } from './cycles.js';
-import type { MilestoneStatus, PlanningRiskItemDto } from './planning.js';
-import type { WorkItemQuery, WorkItemStatus } from './work-items.js';
+import type { WorkItemStatus } from './work-items.js';
 
 export type ProjectStatus = 'active' | 'archived';
 
@@ -73,10 +71,10 @@ export interface ProjectStatusReportCountSnapshotDto {
   staleInProgressWorkCount: number;
 }
 
-export interface ProjectStatusReportMilestoneSnapshotDto {
+export interface ProjectStatusReportMilestoneSnapshotV1Dto {
   id: string;
   name: string;
-  status: MilestoneStatus;
+  status: 'planned' | 'active' | 'completed' | 'canceled';
   targetDate: string | null;
   totalCount: number;
   openCount: number;
@@ -87,8 +85,8 @@ export interface ProjectStatusReportMilestoneSnapshotDto {
   dueSoonCount: number;
   unassignedActiveCount: number;
   staleInProgressCount: number;
-  health: DeliveryHealthState;
-  reasons: DeliveryHealthReasonDto[];
+  health: SnapshotHealthState;
+  reasons: SnapshotHealthReasonV1Dto[];
 }
 
 export type ProjectStatusReportLinkType =
@@ -97,11 +95,11 @@ export type ProjectStatusReportLinkType =
   | 'cycle_review'
   | 'work_item';
 
-export interface ProjectStatusReportLinkDto {
+export interface ProjectStatusReportLinkV1Dto {
   type: ProjectStatusReportLinkType;
   label: string;
   projectId: string;
-  query?: WorkItemQuery;
+  query?: SnapshotWorkItemQueryV1;
   milestoneId?: string;
   cycleId?: string;
   workItemId?: string;
@@ -116,19 +114,19 @@ export type ProjectStatusReportRiskType =
   | 'stale_in_progress'
   | 'blocking_open_work';
 
-export interface ProjectStatusReportRiskSnapshotDto {
+export interface ProjectStatusReportRiskSnapshotV1Dto {
   type: ProjectStatusReportRiskType;
   title: string;
   count: number;
-  query: WorkItemQuery;
-  items: PlanningRiskItemDto[];
+  query: SnapshotWorkItemQueryV1;
+  items: SnapshotRiskItemV1Dto[];
 }
 
-export interface ProjectStatusReportCycleSnapshotDto {
+export interface ProjectStatusReportCycleSnapshotV1Dto {
   id: string;
   name: string;
   goal: string;
-  status: ProjectCycleStatus;
+  status: 'planned' | 'active' | 'completed' | 'canceled';
   startDate: string;
   endDate: string;
   targetPoints: number | null;
@@ -138,26 +136,26 @@ export interface ProjectStatusReportCycleSnapshotDto {
   blockedWorkCount: number;
   dependencyBlockedWorkCount: number;
   unestimatedWorkCount: number;
-  health: DeliveryHealthState;
-  reasons: DeliveryHealthReasonDto[];
-  links: ProjectStatusReportLinkDto[];
+  health: SnapshotHealthState;
+  reasons: SnapshotHealthReasonV1Dto[];
+  links: ProjectStatusReportLinkV1Dto[];
 }
 
-export interface ProjectStatusReportSnapshotDto {
+export interface ProjectStatusReportSnapshotV1Dto {
   snapshotVersion: 1;
   generatedAt: string;
   project: {
     id: string;
     key: string;
     name: string;
-    status: ProjectStatus;
+    status: 'active' | 'archived';
   };
-  health: ProjectDeliveryHealthDto;
+  health: SnapshotProjectHealthV1Dto;
   counts: ProjectStatusReportCountSnapshotDto;
-  milestones: ProjectStatusReportMilestoneSnapshotDto[];
-  cycle?: ProjectStatusReportCycleSnapshotDto | null;
-  risks: ProjectStatusReportRiskSnapshotDto[];
-  recentWork: PlanningRiskItemDto[];
+  milestones: ProjectStatusReportMilestoneSnapshotV1Dto[];
+  cycle?: ProjectStatusReportCycleSnapshotV1Dto | null;
+  risks: ProjectStatusReportRiskSnapshotV1Dto[];
+  recentWork: SnapshotRiskItemV1Dto[];
 }
 
 export interface ProjectStatusReportSummaryDto {
@@ -201,3 +199,20 @@ export interface CreateProjectStatusReportRequest {
   nextSteps?: string;
   snapshot?: ProjectStatusReportSnapshotDto;
 }
+
+export interface ProjectStatusReportLinkV2Dto extends Omit<ProjectStatusReportLinkV1Dto, 'query'> { query?: SnapshotWorkItemQueryV2; }
+export interface ProjectStatusReportMilestoneSnapshotV2Dto extends Omit<ProjectStatusReportMilestoneSnapshotV1Dto, 'reasons'> { reasons: SnapshotHealthReasonV2Dto[]; }
+export interface ProjectStatusReportRiskSnapshotV2Dto extends Omit<ProjectStatusReportRiskSnapshotV1Dto, 'query'> { query: SnapshotWorkItemQueryV2; countUnit: 'work_items'; }
+export interface ProjectStatusReportCycleSnapshotV2Dto extends Omit<ProjectStatusReportCycleSnapshotV1Dto, 'reasons' | 'links'> { reasons: SnapshotHealthReasonV2Dto[]; links: ProjectStatusReportLinkV2Dto[]; }
+export interface ProjectStatusReportSnapshotV2Dto extends Omit<ProjectStatusReportSnapshotV1Dto, 'snapshotVersion' | 'health' | 'milestones' | 'cycle' | 'risks'> {
+  snapshotVersion: 2;
+  health: SnapshotProjectHealthV2Dto;
+  milestones: ProjectStatusReportMilestoneSnapshotV2Dto[];
+  cycle?: ProjectStatusReportCycleSnapshotV2Dto | null;
+  risks: ProjectStatusReportRiskSnapshotV2Dto[];
+}
+export type ProjectStatusReportMilestoneSnapshotDto = ProjectStatusReportMilestoneSnapshotV1Dto | ProjectStatusReportMilestoneSnapshotV2Dto;
+export type ProjectStatusReportLinkDto = ProjectStatusReportLinkV1Dto | ProjectStatusReportLinkV2Dto;
+export type ProjectStatusReportRiskSnapshotDto = ProjectStatusReportRiskSnapshotV1Dto | ProjectStatusReportRiskSnapshotV2Dto;
+export type ProjectStatusReportCycleSnapshotDto = ProjectStatusReportCycleSnapshotV1Dto | ProjectStatusReportCycleSnapshotV2Dto;
+export type ProjectStatusReportSnapshotDto = ProjectStatusReportSnapshotV1Dto | ProjectStatusReportSnapshotV2Dto;

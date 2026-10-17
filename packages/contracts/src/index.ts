@@ -12,5 +12,8 @@ export * from './portfolio.js';
 export * from './projects.js';
 export * from './quick-find.js';
 export * from './saved-work-views.js';
+export * from './snapshot-policy.js';
 export * from './workspace.js';
 export * from './work-items.js';
+export * from './work-item-query-policy.js';
+export * from './work-risk-policy.js';

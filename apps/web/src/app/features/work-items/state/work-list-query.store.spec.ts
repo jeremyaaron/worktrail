@@ -85,6 +85,10 @@ describe('WorkListQueryStore', () => {
     expect(nextFilters.sort).toBe('updated_desc');
     expect(store.pendingRouterQueryParams()).toEqual({
       search: null,
+      workState: null,
+      assigneeState: null,
+      estimateState: null,
+      blocked: null,
       status: null,
       assigneeId: null,
       reporterId: null,

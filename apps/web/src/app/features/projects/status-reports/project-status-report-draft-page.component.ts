@@ -1,3 +1,4 @@
+import { snapshotRiskCountLabel } from '@worktrail/contracts';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -215,7 +216,7 @@ const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
                   @for (risk of topRisks(); track risk.type) {
                     <article class="compact-row">
                       <strong>{{ risk.title }}</strong>
-                      <span>{{ risk.count }} matching work item{{ risk.count === 1 ? '' : 's' }}</span>
+                      <span>{{ riskCountLabel(risk) }}</span>
                     </article>
                   }
                 </div>
@@ -525,6 +526,7 @@ const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
   `
 })
 export class ProjectStatusReportDraftPageComponent implements OnInit {
+  readonly riskCountLabel = snapshotRiskCountLabel;
   private readonly api = inject(WorktrailApiService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);

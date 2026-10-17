@@ -12,6 +12,7 @@ import type {
 import {
   addDays,
   dueSoonWindowDays,
+  distinctWorkItems,
   isActiveUnassignedWorkItemStatus,
   isDueSoonDueDate,
   isOpenWorkItemStatus,
@@ -64,6 +65,9 @@ interface EvaluationContext {
 
 export class DeliveryHealthService {
   derive(input: DeliveryHealthInput): DeliveryHealthResult {
+    input = { ...input, workItems: distinctWorkItems(input.workItems),
+      dependencyBlockedWorkItems: distinctWorkItems(input.dependencyBlockedWorkItems),
+      blockingOpenWorkItems: distinctWorkItems(input.blockingOpenWorkItems) };
     const context = createEvaluationContext(input);
     const milestoneProgress = this.deriveMilestoneProgress(input, context);
     const deliveryHealth = this.deriveProjectDeliveryHealth(input, milestoneProgress, context);
@@ -152,7 +156,7 @@ export class DeliveryHealthService {
         health: 'inactive',
         inactiveMilestoneCount: milestoneProgress.filter((progress) => progress.health === 'inactive').length,
         reasons: [
-          createReason('inactive_milestone', 'info', 'Project is archived.', 1, null)
+          createReason('inactive_milestone', 'info', 'Project is archived.', 1, null, 'scope_conditions')
         ]
       };
     }
@@ -419,7 +423,7 @@ function getMilestoneReasons(input: {
   const reasons: DeliveryHealthReasonDto[] = [];
 
   if (input.health === 'inactive') {
-    reasons.push(createReason('inactive_milestone', 'info', 'Milestone is inactive.', 1, null));
+    reasons.push(createReason('inactive_milestone', 'info', 'Milestone is inactive.', 1, null, 'scope_conditions'));
     return reasons;
   }
 
@@ -487,7 +491,7 @@ function getMilestoneReasons(input: {
       'warning',
       formatCount(input.unassignedActiveCount, 'unassigned active work item', 'unassigned active work items'),
       input.unassignedActiveCount,
-      milestoneQuery({ assigneeState: 'unassigned', workState: 'open', sort: 'priority_desc' })
+      milestoneQuery({ workRisk: 'unassigned_active', sort: 'priority_desc' })
     ));
   }
 
@@ -497,12 +501,12 @@ function getMilestoneReasons(input: {
       'warning',
       formatCount(input.staleInProgressCount, 'stale in-progress work item', 'stale in-progress work items'),
       input.staleInProgressCount,
-      milestoneQuery({ status: 'in_progress', sort: 'updated_asc' })
+      milestoneQuery({ workRisk: 'stale_in_progress', sort: 'updated_asc' })
     ));
   }
 
   if (planningMilestoneStatuses.has(input.milestone.status) && input.totalCount === 0) {
-    reasons.push(createReason('empty_active_milestone', 'warning', 'Milestone has no assigned work.', 1, null));
+    reasons.push(createReason('empty_active_milestone', 'warning', 'Milestone has no assigned work.', 1, null, 'scope_conditions'));
   }
 
   return reasons.sort(compareReasons);
@@ -523,11 +527,11 @@ function getProjectReasons(input: {
   const reasons: DeliveryHealthReasonDto[] = [];
 
   if (input.blockedMilestoneCount > 0) {
-    reasons.push(createReason('blocked_work', 'critical', formatCount(input.blockedMilestoneCount, 'blocked milestone', 'blocked milestones'), input.blockedMilestoneCount, null));
+    reasons.push(createReason('blocked_work', 'critical', formatCount(input.blockedMilestoneCount, 'blocked milestone', 'blocked milestones'), input.blockedMilestoneCount, null, 'milestones'));
   }
 
   if (input.atRiskMilestoneCount > 0) {
-    reasons.push(createReason('open_work', 'warning', formatCount(input.atRiskMilestoneCount, 'at-risk milestone', 'at-risk milestones'), input.atRiskMilestoneCount, null));
+    reasons.push(createReason('open_work', 'warning', formatCount(input.atRiskMilestoneCount, 'at-risk milestone', 'at-risk milestones'), input.atRiskMilestoneCount, null, 'milestones'));
   }
 
   if (input.blockedWorkCount > 0) {
@@ -577,7 +581,7 @@ function getProjectReasons(input: {
       'warning',
       formatCount(input.unassignedActiveWorkCount, 'unassigned active work item', 'unassigned active work items'),
       input.unassignedActiveWorkCount,
-      { assigneeState: 'unassigned', workState: 'open', sort: 'priority_desc' }
+      { workRisk: 'unassigned_active', sort: 'priority_desc' }
     ));
   }
 
@@ -587,7 +591,7 @@ function getProjectReasons(input: {
       'warning',
       formatCount(input.staleInProgressWorkCount, 'stale in-progress work item', 'stale in-progress work items'),
       input.staleInProgressWorkCount,
-      { status: 'in_progress', sort: 'updated_asc' }
+      { workRisk: 'stale_in_progress', sort: 'updated_asc' }
     ));
   }
 
@@ -670,13 +674,15 @@ function createReason(
   severity: DeliveryHealthSeverity,
   message: string,
   count: number,
-  query: WorkItemQuery | null
+  query: WorkItemQuery | null,
+  countUnit: DeliveryHealthReasonDto['countUnit'] = 'work_items'
 ): DeliveryHealthReasonDto {
   return {
     key,
     severity,
     message,
     count,
+    countUnit,
     query
   };
 }

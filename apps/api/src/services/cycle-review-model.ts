@@ -9,6 +9,7 @@ import type {
 
 import { workItemPriorities, workItemStatuses } from '../domain/constants.js';
 import {
+  distinctWorkItems,
   isActiveUnassignedWorkItemStatus,
   isDueSoonDueDate,
   isOpenWorkItemStatus,
@@ -45,6 +46,7 @@ export function createCycleProgress(
   scopedWorkItems: WorkItem[],
   context: WorkRiskEvaluationContext
 ): CycleReviewProgressDto {
+  scopedWorkItems = distinctWorkItems(scopedWorkItems);
   const openItems = scopedWorkItems.filter(isOpenWorkItem);
   const doneItems = scopedWorkItems.filter((workItem) => workItem.status === 'done');
 
@@ -99,7 +101,7 @@ export function createCycleHealth(
     };
   }
 
-  const reasons = createActiveCycleReasons(cycle, progress, scopedWorkItems, context);
+  const reasons = createActiveCycleReasons(cycle, progress, distinctWorkItems(scopedWorkItems), context);
   const hasBlockedReason = reasons.some(
     (reason) => reason.key === 'blocked_work' || reason.key === 'dependency_blocked'
   );
@@ -136,7 +138,7 @@ export function createCycleScopeBreakdown(
   let dependencyBlockedCount = 0;
   let blockingOpenWorkCount = 0;
 
-  for (const workItem of scopedWorkItems) {
+  for (const workItem of distinctWorkItems(scopedWorkItems)) {
     statusCounts[workItem.status] += 1;
     priorityCounts[workItem.priority] += 1;
 
@@ -331,6 +333,7 @@ function createActiveCycleReasons(
         {
           cycleId: cycle.id,
           workState: 'open',
+          estimateState: 'unestimated',
           sort: 'priority_desc'
         }
       )
@@ -352,6 +355,8 @@ function createReason(
     severity,
     message,
     count,
+    countUnit: key === 'cycle_over_target' ? 'estimate_points' :
+      key === 'inactive_milestone' || key === 'all_work_done' ? 'scope_conditions' : 'work_items',
     query
   };
 }

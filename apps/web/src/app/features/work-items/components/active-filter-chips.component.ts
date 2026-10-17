@@ -1,18 +1,23 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { LucideX } from '@lucide/angular';
+import type { WorkItemQuery } from '@worktrail/contracts';
+import type { WorkItemFilterChip } from '../query/work-item-filter-labels';
 
 @Component({
   selector: 'app-active-filter-chips',
+  imports: [LucideX],
   template: `
-    @if (labels.length > 0) {
+    @if (chips.length > 0) {
       <section class="active-filters" aria-label="Active filters">
-        @for (label of labels; track $index) {
+        @for (chip of chips; track chip.key) {
           <span>
-            {{ label }}
+            {{ chip.label }}
             <button
               type="button"
-              [attr.aria-label]="'Remove ' + label"
-              (click)="remove.emit(label)"
-            ></button>
+              [attr.aria-label]="'Remove ' + chip.label"
+              [title]="'Remove ' + chip.label"
+              (click)="remove.emit(chip.key)"
+            ><svg lucideX aria-hidden="true"></svg></button>
           </span>
         }
       </section>
@@ -41,23 +46,25 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
     }
 
     .active-filters button {
-      width: 14px;
-      height: 14px;
+      display: grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
       border: 0;
       border-radius: 999px;
       padding: 0;
-      background:
-        linear-gradient(45deg, transparent 45%, #1d4ed8 45%, #1d4ed8 55%, transparent 55%),
-        linear-gradient(-45deg, transparent 45%, #1d4ed8 45%, #1d4ed8 55%, transparent 55%);
+      background: transparent;
+      color: inherit;
       cursor: pointer;
     }
 
     .active-filters button:hover {
       background-color: #dbeafe;
     }
+    .active-filters svg { width: 14px; height: 14px; }
   `
 })
 export class ActiveFilterChipsComponent {
-  @Input({ required: true }) labels: string[] = [];
-  @Output() readonly remove = new EventEmitter<string>();
+  @Input({ required: true }) chips: WorkItemFilterChip[] = [];
+  @Output() readonly remove = new EventEmitter<keyof WorkItemQuery>();
 }

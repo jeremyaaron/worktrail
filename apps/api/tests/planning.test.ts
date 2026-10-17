@@ -455,7 +455,7 @@ describe('planning summary', () => {
             key: 'stale_in_progress',
             query: {
               milestoneId: plannedMilestone.id,
-              status: 'in_progress',
+              workRisk: 'stale_in_progress',
               sort: 'updated_asc'
             }
           })

@@ -1,5 +1,5 @@
 import { HttpParams } from '@angular/common/http';
-import type { ResolvedWorkItemPageQuery, WorkItemQuery } from '@worktrail/contracts';
+import { workItemQueryEntries, type ResolvedWorkItemPageQuery, type WorkItemQuery } from '@worktrail/contracts';
 
 export type QueryParamValue = boolean | number | string | null | undefined;
 
@@ -16,28 +16,7 @@ export function queryToHttpParams<T extends object>(query: T): HttpParams {
 }
 
 export function workItemQueryToHttpParams(query: WorkItemQuery): HttpParams {
-  return queryToHttpParams({
-    projectId: query.projectId,
-    status: query.status,
-    workState: query.workState,
-    assigneeId: query.assigneeId,
-    assigneeState: query.assigneeState,
-    reporterId: query.reporterId,
-    type: query.type,
-    priority: query.priority,
-    labelId: query.labelId,
-    milestoneId: query.milestoneId,
-    cycleId: query.cycleId,
-    dueDateState: query.dueDateState,
-    blocked: query.blocked,
-    dependency: query.dependency,
-    workRisk: query.workRisk,
-    hierarchy: query.hierarchy,
-    parentKey: query.parentKey,
-    archivedProjects: query.archivedProjects,
-    search: query.search,
-    sort: query.sort
-  });
+  return queryToHttpParams(Object.fromEntries(workItemQueryEntries(query, 'workspace', false)));
 }
 
 export function workItemPageRequestToHttpParams(

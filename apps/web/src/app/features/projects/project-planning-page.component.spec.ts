@@ -62,6 +62,7 @@ const blockedDeliveryHealth: ProjectDeliveryHealthDto = {
       severity: 'critical',
       message: '1 blocked work item',
       count: 1,
+      countUnit: 'work_items' as const,
       query: { status: 'blocked', sort: 'priority_desc' }
     },
     {
@@ -69,6 +70,7 @@ const blockedDeliveryHealth: ProjectDeliveryHealthDto = {
       severity: 'critical',
       message: '1 dependency-blocked work item',
       count: 1,
+      countUnit: 'work_items' as const,
       query: { dependency: 'dependency_blocked', sort: 'priority_desc' }
     }
   ]
@@ -329,6 +331,7 @@ const defaultPlanningSummary: ProjectPlanningSummaryDto = {
           severity: 'critical',
           message: '1 blocked work item',
           count: 1,
+          countUnit: 'work_items' as const,
           query: {
             milestoneId: activeMilestone.id,
             status: 'blocked',

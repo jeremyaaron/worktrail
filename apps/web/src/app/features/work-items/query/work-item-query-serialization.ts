@@ -1,355 +1,111 @@
-import type {
-  ArchivedProjectMode,
-  AssigneeState,
-  DependencyFilter,
-  DueDateState,
-  WorkItemPriority,
-  WorkItemHierarchyFilter,
-  WorkItemQuery,
-  WorkItemRiskFilter,
-  WorkItemSort,
-  WorkItemState,
-  WorkItemStatus,
-  WorkItemType
-} from '@worktrail/contracts';
-
+import { workItemQueryEntries, workItemQueryFields, workItemQueryFieldPolicy, type WorkItemQuery, type WorkItemHierarchyFilter, type WorkItemQueryScope } from '@worktrail/contracts';
 import { unassignedAssigneeValue } from './work-item-filter-options';
-import type {
-  ProjectWorkItemFilterFormValue,
-  WorkspaceWorkItemFilterFormValue
-} from './work-item-filter-state';
+import type { ProjectWorkItemFilterFormValue, WorkspaceWorkItemFilterFormValue } from './work-item-filter-state';
 
-export interface ProjectWorkItemFilters {
-  status?: WorkItemStatus;
-  assigneeId?: string;
-  reporterId?: string;
-  type?: WorkItemType;
-  labelId?: string;
-  milestoneId?: string;
-  cycleId?: string;
-  priority?: WorkItemPriority;
-  dueDateState?: DueDateState;
-  dependency?: DependencyFilter;
-  workRisk?: WorkItemRiskFilter;
-  hierarchy?: WorkItemHierarchyFilter;
-  parentKey?: string;
-  search?: string;
-  sort?: WorkItemSort;
-}
-
-export type WorkItemQueryScope = 'project' | 'workspace';
+export type { WorkItemQueryScope } from '@worktrail/contracts';
+export type ProjectWorkItemFilters = Omit<WorkItemQuery, 'projectId' | 'archivedProjects'>;
 export type RouterQueryParams = Record<string, string | null>;
 export type RouterLinkQueryParams = Record<string, string>;
+export interface QueryParamReader { get(name: string): string | null; }
 
-export interface QueryParamReader {
-  get(name: string): string | null;
+export function optionalFilterValue(value: string): string | undefined { return value.trim() || undefined; }
+
+export function projectFiltersFromFormValue(formValue: ProjectWorkItemFilterFormValue): ProjectWorkItemFilters {
+  return projectQueryFromFormValue(formValue);
 }
-
-export function optionalFilterValue(value: string): string | undefined {
-  const trimmed = value.trim();
-  return trimmed === '' ? undefined : trimmed;
-}
-
-export function projectFiltersFromFormValue(
-  formValue: ProjectWorkItemFilterFormValue
-): ProjectWorkItemFilters {
-  return projectQueryFromFormValue(formValue) as ProjectWorkItemFilters;
-}
-
 export function projectQueryFromFormValue(formValue: ProjectWorkItemFilterFormValue): WorkItemQuery {
   const hierarchy = normalizeHierarchy(formValue.hierarchy);
-
-  return compactWorkItemQuery({
+  const status = optionalFilterValue(formValue.status);
+  const assigneeId = optionalFilterValue(formValue.assigneeId);
+  const assigneeState = assigneeId === unassignedAssigneeValue ? 'unassigned' : optionalFilterValue(formValue.assigneeState);
+  const query: WorkItemQuery = {
     search: optionalFilterValue(formValue.search),
-    status: optionalFilterValue(formValue.status) as WorkItemStatus | undefined,
-    assigneeId: optionalFilterValue(formValue.assigneeId),
+    status: status as WorkItemQuery['status'],
+    workState: status === undefined ? optionalFilterValue(formValue.workState) as WorkItemQuery['workState'] : undefined,
+    assigneeId: assigneeId === unassignedAssigneeValue ? undefined : assigneeId,
+    assigneeState: assigneeId && assigneeId !== unassignedAssigneeValue && assigneeState === 'unassigned' ? undefined : assigneeState as WorkItemQuery['assigneeState'],
     reporterId: optionalFilterValue(formValue.reporterId),
-    type: optionalFilterValue(formValue.type) as WorkItemType | undefined,
-    labelId: optionalFilterValue(formValue.labelId),
-    milestoneId: optionalFilterValue(formValue.milestoneId),
-    cycleId: optionalFilterValue(formValue.cycleId),
-    priority: optionalFilterValue(formValue.priority) as WorkItemPriority | undefined,
-    dueDateState: optionalFilterValue(formValue.dueDateState) as DueDateState | undefined,
-    dependency: optionalFilterValue(formValue.dependency) as DependencyFilter | undefined,
-    workRisk: optionalFilterValue(formValue.workRisk) as WorkItemRiskFilter | undefined,
-    hierarchy,
-    parentKey: hierarchy === undefined ? normalizeParentKey(formValue.parentKey) : undefined,
-    sort: formValue.sort as WorkItemSort
-  });
-}
-
-export function projectQueryParamsFromFilters(
-  filters: ProjectWorkItemFilters
-): RouterQueryParams {
-  return projectRouterQueryParamsFromQuery(filters);
-}
-
-export function projectRouterQueryParamsFromQuery(query: WorkItemQuery): RouterQueryParams {
-  const sort = query.sort ?? 'updated_desc';
-  const hierarchy = normalizeHierarchy(query.hierarchy);
-
-  return {
-    search: nonEmptyString(query.search) ?? null,
-    status: query.status ?? null,
-    assigneeId: nonEmptyString(query.assigneeId) ?? null,
-    reporterId: nonEmptyString(query.reporterId) ?? null,
-    type: query.type ?? null,
-    labelId: nonEmptyString(query.labelId) ?? null,
-    milestoneId: nonEmptyString(query.milestoneId) ?? null,
-    cycleId: nonEmptyString(query.cycleId) ?? null,
-    priority: query.priority ?? null,
-    dueDateState: query.dueDateState ?? null,
-    dependency: query.dependency ?? null,
-    workRisk: query.workRisk ?? null,
-    hierarchy: hierarchy ?? null,
-    parentKey: hierarchy === undefined ? normalizeParentKey(query.parentKey) ?? null : null,
-    sort: sort === 'updated_desc' ? null : sort
+    type: optionalFilterValue(formValue.type) as WorkItemQuery['type'],
+    labelId: optionalFilterValue(formValue.labelId), milestoneId: optionalFilterValue(formValue.milestoneId),
+    cycleId: optionalFilterValue(formValue.cycleId), priority: optionalFilterValue(formValue.priority) as WorkItemQuery['priority'],
+    dueDateState: optionalFilterValue(formValue.dueDateState) as WorkItemQuery['dueDateState'],
+    estimateState: normalizeEstimateState(formValue.estimateState),
+    blocked: formValue.blocked === '' ? undefined : formValue.blocked === 'true',
+    dependency: optionalFilterValue(formValue.dependency) as WorkItemQuery['dependency'],
+    workRisk: optionalFilterValue(formValue.workRisk) as WorkItemQuery['workRisk'],
+    hierarchy, parentKey: hierarchy === undefined ? normalizeParentKey(formValue.parentKey) : undefined,
+    sort: formValue.sort as WorkItemQuery['sort']
   };
+  return Object.fromEntries(Object.entries(query).filter(([, value]) => value !== undefined));
+}
+export function workspaceQueryFromFormValue(formValue: WorkspaceWorkItemFilterFormValue): WorkItemQuery {
+  const query = projectQueryFromFormValue(formValue);
+  if (query.sort === 'updated_desc') delete query.sort;
+  return { ...query, ...Object.fromEntries([
+    ['projectId', optionalFilterValue(formValue.projectId)],
+    ['archivedProjects', formValue.archivedProjects === 'exclude' ? undefined : optionalFilterValue(formValue.archivedProjects)]
+  ].filter(([, value]) => value !== undefined)) };
 }
 
-export function projectFormValueFromQueryParams(
-  params: QueryParamReader
-): ProjectWorkItemFilterFormValue {
-  const hierarchy = normalizeHierarchy(params.get('hierarchy'));
-
-  return {
-    search: params.get('search') ?? '',
-    status: params.get('status') ?? '',
-    assigneeId: params.get('assigneeId') ?? '',
-    reporterId: params.get('reporterId') ?? '',
-    type: params.get('type') ?? '',
-    labelId: params.get('labelId') ?? '',
-    milestoneId: params.get('milestoneId') ?? '',
-    cycleId: params.get('cycleId') ?? '',
-    priority: params.get('priority') ?? '',
-    dueDateState: params.get('dueDateState') ?? '',
-    dependency: params.get('dependency') ?? '',
-    workRisk: params.get('workRisk') ?? '',
-    hierarchy: hierarchy ?? '',
-    parentKey: hierarchy === undefined ? normalizeParentKey(params.get('parentKey')) ?? '' : '',
-    sort: params.get('sort') ?? 'updated_desc'
-  };
+function routerParams(query: WorkItemQuery, scope: WorkItemQueryScope): RouterQueryParams {
+  const canonical = projectQueryFromFormValue(projectFormValueFromQuery(query));
+  if (scope === 'workspace') {
+    canonical.projectId = query.projectId;
+    canonical.archivedProjects = query.archivedProjects;
+  }
+  const empty = Object.fromEntries(workItemQueryFields.filter(key => scope === 'workspace' || workItemQueryFieldPolicy[key].scope === 'both').map(key => [key, null]));
+  return { ...empty, ...Object.fromEntries(workItemQueryEntries(canonical, scope)) };
 }
+export function projectQueryParamsFromFilters(filters: ProjectWorkItemFilters): RouterQueryParams { return projectRouterQueryParamsFromQuery(filters); }
+export function projectRouterQueryParamsFromQuery(query: WorkItemQuery): RouterQueryParams { return routerParams(query, 'project'); }
+export function workspaceRouterQueryParamsFromQuery(query: WorkItemQuery): RouterQueryParams { return routerParams(query, 'workspace'); }
+export function workspaceQueryParamsFromFormValue(value: WorkspaceWorkItemFilterFormValue): RouterQueryParams { return workspaceRouterQueryParamsFromQuery(workspaceQueryFromFormValue(value)); }
 
 export function projectFormValueFromQuery(query: WorkItemQuery): ProjectWorkItemFilterFormValue {
   const hierarchy = normalizeHierarchy(query.hierarchy);
-
   return {
-    search: query.search ?? '',
-    status: query.status ?? '',
-    assigneeId: query.assigneeId ?? '',
-    reporterId: query.reporterId ?? '',
-    type: query.type ?? '',
-    labelId: query.labelId ?? '',
-    milestoneId: query.milestoneId ?? '',
-    cycleId: query.cycleId ?? '',
-    priority: query.priority ?? '',
-    dueDateState: query.dueDateState ?? '',
-    dependency: query.dependency ?? '',
-    workRisk: query.workRisk ?? '',
-    hierarchy: hierarchy ?? '',
-    parentKey: hierarchy === undefined ? normalizeParentKey(query.parentKey) ?? '' : '',
-    sort: query.sort ?? 'updated_desc'
-  };
-}
-
-export function workspaceQueryFromFormValue(
-  formValue: WorkspaceWorkItemFilterFormValue
-): WorkItemQuery {
-  const assigneeId = optionalFilterValue(formValue.assigneeId);
-  const blocked = optionalFilterValue(formValue.blocked);
-  const archivedProjects = optionalFilterValue(formValue.archivedProjects);
-  const sort = optionalFilterValue(formValue.sort);
-  const hierarchy = normalizeHierarchy(formValue.hierarchy);
-
-  return compactWorkItemQuery({
-    search: optionalFilterValue(formValue.search),
-    projectId: optionalFilterValue(formValue.projectId),
-    status: optionalFilterValue(formValue.status) as WorkItemStatus | undefined,
-    workState: optionalFilterValue(formValue.status) === undefined
-      ? (optionalFilterValue(formValue.workState) as WorkItemState | undefined)
-      : undefined,
-    assigneeId: assigneeId === unassignedAssigneeValue ? undefined : assigneeId,
-    assigneeState:
-      assigneeId === unassignedAssigneeValue ? ('unassigned' satisfies AssigneeState) : undefined,
-    reporterId: optionalFilterValue(formValue.reporterId),
-    type: optionalFilterValue(formValue.type) as WorkItemType | undefined,
-    labelId: optionalFilterValue(formValue.labelId),
-    milestoneId: optionalFilterValue(formValue.milestoneId),
-    cycleId: optionalFilterValue(formValue.cycleId),
-    priority: optionalFilterValue(formValue.priority) as WorkItemPriority | undefined,
-    dueDateState: optionalFilterValue(formValue.dueDateState) as DueDateState | undefined,
-    blocked: blocked === undefined ? undefined : blocked === 'true',
-    dependency: optionalFilterValue(formValue.dependency) as DependencyFilter | undefined,
-    hierarchy,
-    parentKey: hierarchy === undefined ? normalizeParentKey(formValue.parentKey) : undefined,
-    archivedProjects:
-      archivedProjects === undefined || archivedProjects === 'exclude'
-        ? undefined
-        : (archivedProjects as ArchivedProjectMode),
-    sort: sort === undefined || sort === 'updated_desc' ? undefined : (sort as WorkItemSort)
-  });
-}
-
-export function workspaceQueryParamsFromFormValue(
-  formValue: WorkspaceWorkItemFilterFormValue
-): RouterQueryParams {
-  return workspaceRouterQueryParamsFromQuery(workspaceQueryFromFormValue(formValue));
-}
-
-export function workspaceRouterQueryParamsFromQuery(query: WorkItemQuery): RouterQueryParams {
-  const formValue = workspaceFormValueFromQuery(query);
-  const assigneeId = optionalFilterValue(formValue.assigneeId);
-  const sort = optionalFilterValue(formValue.sort) ?? 'updated_desc';
-  const archivedProjects = optionalFilterValue(formValue.archivedProjects) ?? 'exclude';
-  const hierarchy = normalizeHierarchy(query.hierarchy);
-
-  return {
-    search: nonEmptyString(query.search) ?? null,
-    projectId: nonEmptyString(query.projectId) ?? null,
-    status: query.status ?? null,
-    workState: query.status === undefined ? (query.workState ?? null) : null,
-    assigneeId: assigneeId === unassignedAssigneeValue ? null : assigneeId ?? null,
-    assigneeState: assigneeId === unassignedAssigneeValue ? 'unassigned' : null,
-    reporterId: nonEmptyString(query.reporterId) ?? null,
-    type: query.type ?? null,
-    labelId: nonEmptyString(query.labelId) ?? null,
-    milestoneId: nonEmptyString(query.milestoneId) ?? null,
-    cycleId: nonEmptyString(query.cycleId) ?? null,
-    priority: query.priority ?? null,
-    dueDateState: query.dueDateState ?? null,
-    blocked: query.blocked === undefined ? null : String(query.blocked),
-    dependency: query.dependency ?? null,
-    hierarchy: hierarchy ?? null,
-    parentKey: hierarchy === undefined ? normalizeParentKey(query.parentKey) ?? null : null,
-    archivedProjects: archivedProjects === 'exclude' ? null : archivedProjects,
-    sort: sort === 'updated_desc' ? null : sort
-  };
-}
-
-export function workspaceFormValueFromQuery(query: WorkItemQuery): WorkspaceWorkItemFilterFormValue {
-  const hierarchy = normalizeHierarchy(query.hierarchy);
-
-  return {
-    search: query.search ?? '',
-    projectId: query.projectId ?? '',
-    status: query.status ?? '',
+    search: query.search ?? '', status: query.status ?? '',
     workState: query.status === undefined ? query.workState ?? '' : '',
-    assigneeId:
-      query.assigneeId ?? (query.assigneeState === 'unassigned' ? unassignedAssigneeValue : ''),
-    reporterId: query.reporterId ?? '',
-    type: query.type ?? '',
-    labelId: query.labelId ?? '',
-    milestoneId: query.milestoneId ?? '',
-    cycleId: query.cycleId ?? '',
-    priority: query.priority ?? '',
-    dueDateState: query.dueDateState ?? '',
+    assigneeId: query.assigneeId ?? (query.assigneeState === 'unassigned' ? unassignedAssigneeValue : ''),
+    assigneeState: query.assigneeState ?? '', reporterId: query.reporterId ?? '',
+    type: query.type ?? '', labelId: query.labelId ?? '', milestoneId: query.milestoneId ?? '', cycleId: query.cycleId ?? '',
+    priority: query.priority ?? '', dueDateState: query.dueDateState ?? '', estimateState: normalizeEstimateState(query.estimateState) ?? '',
     blocked: query.blocked === undefined ? '' : String(query.blocked),
-    dependency: query.dependency ?? '',
-    workRisk: '',
-    hierarchy: hierarchy ?? '',
-    parentKey: hierarchy === undefined ? normalizeParentKey(query.parentKey) ?? '' : '',
-    archivedProjects: query.archivedProjects ?? 'exclude',
+    dependency: query.dependency ?? '', workRisk: query.workRisk ?? '',
+    hierarchy: hierarchy ?? '', parentKey: hierarchy === undefined ? normalizeParentKey(query.parentKey) ?? '' : '',
     sort: query.sort ?? 'updated_desc'
   };
 }
-
-export function workspaceFormValueFromQueryParams(
-  params: QueryParamReader
-): WorkspaceWorkItemFilterFormValue {
-  const status = params.get('status') ?? '';
-  const assigneeId = params.get('assigneeId') ?? '';
-  const assigneeState = params.get('assigneeState') ?? '';
-  const hierarchy = normalizeHierarchy(params.get('hierarchy'));
-
-  return {
-    search: params.get('search') ?? '',
-    projectId: params.get('projectId') ?? '',
-    status,
-    workState: status === '' ? params.get('workState') ?? '' : '',
-    assigneeId:
-      assigneeId !== '' ? assigneeId : assigneeState === 'unassigned' ? unassignedAssigneeValue : '',
-    reporterId: params.get('reporterId') ?? '',
-    type: params.get('type') ?? '',
-    labelId: params.get('labelId') ?? '',
-    milestoneId: params.get('milestoneId') ?? '',
-    cycleId: params.get('cycleId') ?? '',
-    priority: params.get('priority') ?? '',
-    dueDateState: params.get('dueDateState') ?? '',
-    blocked: params.get('blocked') ?? '',
-    dependency: params.get('dependency') ?? '',
-    workRisk: '',
-    hierarchy: hierarchy ?? '',
-    parentKey: hierarchy === undefined ? normalizeParentKey(params.get('parentKey')) ?? '' : '',
-    archivedProjects: params.get('archivedProjects') ?? 'exclude',
-    sort: params.get('sort') ?? 'updated_desc'
-  };
+export function workspaceFormValueFromQuery(query: WorkItemQuery): WorkspaceWorkItemFilterFormValue {
+  return { ...projectFormValueFromQuery(query), projectId: query.projectId ?? '', archivedProjects: query.archivedProjects ?? 'exclude' };
 }
-
-export function routerLinkQueryParamsFromWorkItemQuery(
-  query: WorkItemQuery | null,
-  scope: WorkItemQueryScope
-): RouterLinkQueryParams | null {
-  if (query === null) {
-    return null;
-  }
-
-  const routerParams =
-    scope === 'project'
-      ? projectRouterQueryParamsFromQuery(query)
-      : workspaceRouterQueryParamsFromQuery(query);
-  const linkParams = Object.fromEntries(
-    Object.entries(routerParams).filter(([, value]) => value !== null)
-  ) as RouterLinkQueryParams;
-
-  return Object.keys(linkParams).length === 0 ? null : linkParams;
+function queryFromParams(params: QueryParamReader): WorkItemQuery {
+  const query = Object.fromEntries(workItemQueryFields.map(key => [key, params.get(key) ?? undefined])) as WorkItemQuery;
+  query.blocked = params.get('blocked') === null || params.get('blocked') === '' ? undefined : params.get('blocked') === 'true';
+  return query;
 }
+export function projectFormValueFromQueryParams(params: QueryParamReader): ProjectWorkItemFilterFormValue { return projectFormValueFromQuery(queryFromParams(params)); }
+export function workspaceFormValueFromQueryParams(params: QueryParamReader): WorkspaceWorkItemFilterFormValue { return workspaceFormValueFromQuery(queryFromParams(params)); }
 
-export function returnUrlFromWorkItemQuery(
-  path: string,
-  query: WorkItemQuery,
-  scope: WorkItemQueryScope
-): string {
-  const queryParams = routerLinkQueryParamsFromWorkItemQuery(query, scope);
-
-  if (queryParams === null) {
-    return path;
-  }
-
-  const searchParams = new URLSearchParams(queryParams);
-  const queryString = searchParams.toString();
-  return queryString === '' ? path : `${path}?${queryString}`;
+export function routerLinkQueryParamsFromWorkItemQuery(query: WorkItemQuery | null, scope: WorkItemQueryScope): RouterLinkQueryParams | null {
+  if (query === null) return null;
+  const params = Object.fromEntries(Object.entries(routerParams(query, scope)).filter((entry): entry is [string, string] => entry[1] !== null));
+  return Object.keys(params).length ? params : null;
 }
-
-export function meaningfulWorkItemQueryFieldCount(
-  query: WorkItemQuery,
-  scope: WorkItemQueryScope
-): number {
+export function returnUrlFromWorkItemQuery(path: string, query: WorkItemQuery, scope: WorkItemQueryScope): string {
+  const params = routerLinkQueryParamsFromWorkItemQuery(query, scope);
+  return params === null ? path : `${path}?${new URLSearchParams(params)}`;
+}
+export function meaningfulWorkItemQueryFieldCount(query: WorkItemQuery, scope: WorkItemQueryScope): number {
   return Object.keys(routerLinkQueryParamsFromWorkItemQuery(query, scope) ?? {}).length;
 }
-
-function compactWorkItemQuery(query: WorkItemQuery): WorkItemQuery {
-  return Object.fromEntries(
-    Object.entries(query).filter(([, value]) => value !== undefined)
-  ) as WorkItemQuery;
+function normalizeHierarchy(value: string | null | undefined): WorkItemHierarchyFilter | undefined {
+  return value === 'top_level' || value === 'children' || value === 'parents' ? value : undefined;
 }
-
-function nonEmptyString(value: string | undefined): string | undefined {
-  return value === undefined || value.trim() === '' ? undefined : value;
-}
-
-function normalizeHierarchy(
-  value: WorkItemHierarchyFilter | string | null | undefined
-): WorkItemHierarchyFilter | undefined {
-  return value === 'top_level' || value === 'children' || value === 'parents'
-    ? value
-    : undefined;
-}
-
 function normalizeParentKey(value: string | null | undefined): string | undefined {
-  const normalized = value?.trim().toUpperCase();
-
-  return normalized !== undefined && /^[A-Z0-9]{2,8}-[1-9]\d*$/.test(normalized)
-    ? normalized
-    : undefined;
+  const key = value?.trim().toUpperCase();
+  return key && /^[A-Z0-9]{2,8}-[1-9]\d*$/.test(key) ? key : undefined;
+}
+function normalizeEstimateState(value: string | null | undefined): WorkItemQuery['estimateState'] {
+  return value === 'estimated' || value === 'unestimated' ? value : undefined;
 }

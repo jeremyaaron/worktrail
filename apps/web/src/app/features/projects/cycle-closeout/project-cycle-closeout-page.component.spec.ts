@@ -52,6 +52,7 @@ function closeoutPreview(
           severity: 'warning',
           message: '1 open work item is dependency blocked.',
           count: 1,
+          countUnit: 'work_items' as const,
           query: { cycleId, dependency: 'dependency_blocked' }
         }
       ]

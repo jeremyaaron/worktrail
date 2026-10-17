@@ -1,3 +1,5 @@
+import { workItemFilterChips, type WorkItemFilterChip } from './query/work-item-filter-labels';
+import { defaultProjectWorkItemFilterValues, type ProjectWorkItemFilterFormValue } from './query/work-item-filter-state';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, ViewChild, computed, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
@@ -24,7 +26,7 @@ import type {
   WorkItemStatus,
   WorkItemType
 } from '@worktrail/contracts';
-import { Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
+import { Subscription, distinctUntilChanged } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorktrailApiService } from '../../core/worktrail-api.service';
@@ -99,41 +101,9 @@ interface BulkActionFormValue {
   status: WorkItemStatus | '';
 }
 
-interface WorkItemFilterFormValue {
-  search: string;
-  status: string;
-  assigneeId: string;
-  reporterId: string;
-  type: string;
-  labelId: string;
-  milestoneId: string;
-  cycleId: string;
-  priority: string;
-  dueDateState: string;
-  dependency: string;
-  workRisk: string;
-  hierarchy: string;
-  parentKey: string;
-  sort: string;
-}
+type WorkItemFilterFormValue = ProjectWorkItemFilterFormValue;
 
-const defaultFilterValues: WorkItemFilterFormValue = {
-  search: '',
-  status: '',
-  assigneeId: '',
-  reporterId: '',
-  type: '',
-  labelId: '',
-  milestoneId: '',
-  cycleId: '',
-  priority: '',
-  dueDateState: '',
-  dependency: '',
-  workRisk: '',
-  hierarchy: '',
-  parentKey: '',
-  sort: 'updated_desc'
-};
+const defaultFilterValues: WorkItemFilterFormValue = { ...defaultProjectWorkItemFilterValues };
 
 const defaultBulkActionFormValue: BulkActionFormValue = {
   actionType: '',
@@ -243,7 +213,7 @@ const defaultBulkActionFormValue: BulkActionFormValue = {
     </section>
 
     <section class="work-list-filters" aria-label="Project work item filters">
-    <app-active-filter-chips [labels]="activeFilterLabels()" (remove)="removeActiveFilter($event)" />
+    <app-active-filter-chips [chips]="activeFilterChips()" (remove)="removeActiveFilter($event)" />
 
     <app-work-item-filter-panel [formGroup]="filterForm" (apply)="applyFilters()">
       <label filterCore>
@@ -361,6 +331,52 @@ const defaultBulkActionFormValue: BulkActionFormValue = {
       </label>
 
       <label filterAdvanced>
+        <span>Assignment</span>
+        <select formControlName="assigneeState">
+          <option value="">Any assignment</option>
+          <option value="assigned">Assigned</option>
+          <option value="unassigned">Unassigned</option>
+        </select>
+      </label>
+
+      <label filterAdvanced>
+        <span>Estimate</span>
+        <select formControlName="estimateState">
+          <option value="">Any estimate</option>
+          <option value="estimated">Estimated</option>
+          <option value="unestimated">Unestimated</option>
+        </select>
+      </label>
+
+      <label filterAdvanced>
+        <span>Risk</span>
+        <select formControlName="workRisk">
+          <option value="">Any risk</option>
+          <option value="unassigned_active">Unassigned active</option>
+          <option value="stale_in_progress">Stale in progress</option>
+        </select>
+      </label>
+
+      <label filterAdvanced>
+        <span>State</span>
+        <select formControlName="workState">
+          <option value="">Any state</option>
+          <option value="open">Open</option>
+          <option value="terminal">Terminal</option>
+        </select>
+      </label>
+
+      <label filterAdvanced>
+        <span>Blocked</span>
+        <select formControlName="blocked">
+          <option value="">Any status</option>
+          <option value="true">Blocked only</option>
+          <option value="false">Any status (explicit)</option>
+        </select>
+      </label>
+      <label filterAdvanced><span>Parent key</span><input formControlName="parentKey" maxlength="80" /></label>
+
+      <label filterAdvanced>
         <span>Sort</span>
         <select formControlName="sort">
           @for (sort of sorts; track sort.value) {
@@ -370,6 +386,7 @@ const defaultBulkActionFormValue: BulkActionFormValue = {
       </label>
 
       <div filterActions>
+        <button type="submit" class="primary-action">Apply</button>
         <button type="button" class="secondary-action" (click)="clearFilters()">Clear</button>
       </div>
     </app-work-item-filter-panel>
@@ -1374,6 +1391,10 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   );
 
   readonly filterForm = this.formBuilder.nonNullable.group({
+    assigneeState: [''],
+    estimateState: [''],
+    workState: [''],
+    blocked: [''],
     search: [''],
     status: [''],
     assigneeId: [''],
@@ -1713,8 +1734,12 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     }).format(new Date(year, month - 1, day));
   }
 
-  activeFilterLabels(): string[] {
-    return this.getActiveFilterLabels();
+  activeFilterLabels(): string[] { return this.activeFilterChips().map(chip => chip.label); }
+
+  activeFilterChips(): WorkItemFilterChip[] {
+    return workItemFilterChips(this.queryState.activeQuery(), 'project', {
+      members: this.members(), labels: this.labels(), milestones: this.milestones(), cycles: this.cycles()
+    });
   }
 
   savePersonalProjectView(name: string): void {
@@ -1937,44 +1962,11 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     return this.queryState.returnUrl(`/projects/${this.projectId()}/work-items`);
   }
 
-  removeActiveFilter(label: string): void {
-    const filterName = label.split(':', 1)[0];
-    const updates: Partial<WorkItemFilterFormValue> = {};
-
-    if (filterName === 'Search') {
-      updates.search = '';
-    } else if (filterName === 'Status') {
-      updates.status = '';
-    } else if (filterName === 'Assignee') {
-      updates.assigneeId = '';
-    } else if (filterName === 'Reporter') {
-      updates.reporterId = '';
-    } else if (filterName === 'Type') {
-      updates.type = '';
-    } else if (filterName === 'Label') {
-      updates.labelId = '';
-    } else if (filterName === 'Milestone') {
-      updates.milestoneId = '';
-    } else if (filterName === 'Cycle') {
-      updates.cycleId = '';
-    } else if (filterName === 'Priority') {
-      updates.priority = '';
-    } else if (filterName === 'Due date') {
-      updates.dueDateState = '';
-    } else if (filterName === 'Dependency') {
-      updates.dependency = '';
-    } else if (filterName === 'Risk') {
-      updates.workRisk = '';
-    } else if (filterName === 'Work breakdown') {
-      updates.hierarchy = '';
-    } else if (filterName === 'Parent') {
-      updates.parentKey = '';
-    } else if (filterName === 'Sort') {
-      updates.sort = 'updated_desc';
-    }
-
-    this.filterForm.patchValue(updates, { emitEvent: false });
-    this.applyFilters();
+  removeActiveFilter(key: keyof WorkItemQuery): void {
+    const query = { ...this.queryState.activeQuery() };
+    delete query[key];
+    if (key === 'projectId') { delete query.labelId; delete query.milestoneId; delete query.cycleId; }
+    void this.router.navigate([], { relativeTo: this.route, queryParams: this.queryState.routerQueryParamsFromQuery(query) });
   }
 
   memberDisplayName(member: MemberDto): string {
@@ -2116,34 +2108,13 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   private watchFilterChanges(): void {
-    this.subscriptions.add(
-      this.filterForm.controls.search.valueChanges
-        .pipe(debounceTime(400), distinctUntilChanged())
-        .subscribe(() => this.applyFilters())
-    );
-
-    const controls = [
-      this.filterForm.controls.status,
-      this.filterForm.controls.assigneeId,
-      this.filterForm.controls.reporterId,
-      this.filterForm.controls.type,
-      this.filterForm.controls.labelId,
-      this.filterForm.controls.milestoneId,
-      this.filterForm.controls.cycleId,
-      this.filterForm.controls.priority,
-      this.filterForm.controls.dueDateState,
-      this.filterForm.controls.dependency,
-      this.filterForm.controls.workRisk,
-      this.filterForm.controls.hierarchy,
-      this.filterForm.controls.sort
-    ];
-
-    for (const control of controls) {
-      this.subscriptions.add(
-        control.valueChanges.pipe(distinctUntilChanged()).subscribe(() => this.applyFilters())
-      );
-    }
-
+    this.subscriptions.add(this.filterForm.valueChanges.subscribe(() => this.queryState.setPendingFilterValues(this.filterForm.getRawValue())));
+    this.subscriptions.add(this.filterForm.controls.status.valueChanges.subscribe(value => { if (value) this.filterForm.patchValue({ workState: '' }, { emitEvent: false }); }));
+    this.subscriptions.add(this.filterForm.controls.workState.valueChanges.subscribe(value => { if (value) this.filterForm.patchValue({ status: '' }, { emitEvent: false }); }));
+    this.subscriptions.add(this.filterForm.controls.hierarchy.valueChanges.subscribe(value => { if (value) this.filterForm.patchValue({ parentKey: '' }, { emitEvent: false }); }));
+    this.subscriptions.add(this.filterForm.controls.parentKey.valueChanges.subscribe(value => { if (value) this.filterForm.patchValue({ hierarchy: '' }, { emitEvent: false }); }));
+    this.subscriptions.add(this.filterForm.controls.assigneeState.valueChanges.subscribe(value => { if (value === 'unassigned') this.filterForm.patchValue({ assigneeId: '' }, { emitEvent: false }); }));
+    this.subscriptions.add(this.filterForm.controls.assigneeId.valueChanges.subscribe(value => { if (value && value !== '__unassigned' && this.filterForm.controls.assigneeState.value === 'unassigned') this.filterForm.patchValue({ assigneeState: '' }, { emitEvent: false }); }));
     this.subscriptions.add(
       this.bulkActionForm.controls.actionType.valueChanges
         .pipe(distinctUntilChanged())
@@ -2297,38 +2268,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     }
   }
 
-  private getActiveFilterLabels(): string[] {
-    const formValue = this.appliedFilterValues();
-    const labels: string[] = [];
-
-    if (formValue.search.trim() !== '') {
-      labels.push(`Search: ${formValue.search.trim()}`);
-    }
-
-    this.pushLookupLabel(labels, 'Status', formValue.status, (value) => this.formatToken(value));
-    this.pushLookupLabel(labels, 'Assignee', formValue.assigneeId, (value) => this.memberName(value));
-    this.pushLookupLabel(labels, 'Reporter', formValue.reporterId, (value) => this.memberName(value));
-    this.pushLookupLabel(labels, 'Type', formValue.type, (value) => this.formatToken(value));
-    this.pushLookupLabel(labels, 'Label', formValue.labelId, (value) => this.labelName(value));
-    this.pushLookupLabel(labels, 'Milestone', formValue.milestoneId, (value) => this.milestoneName(value));
-    this.pushLookupLabel(labels, 'Cycle', formValue.cycleId, (value) => this.cycleName(value));
-    this.pushLookupLabel(labels, 'Priority', formValue.priority, (value) => this.formatToken(value));
-    this.pushLookupLabel(labels, 'Due date', formValue.dueDateState, (value) => this.dueDateStateLabel(value));
-    this.pushLookupLabel(labels, 'Dependency', formValue.dependency, (value) =>
-      this.dependencyLabel(value)
-    );
-    this.pushLookupLabel(labels, 'Risk', formValue.workRisk, (value) => this.workRiskLabel(value));
-    this.pushLookupLabel(labels, 'Work breakdown', formValue.hierarchy, (value) =>
-      workItemHierarchyOptions.find((option) => option.value === value)?.label ?? value
-    );
-    this.pushLookupLabel(labels, 'Parent', formValue.parentKey, (value) => value);
-
-    if (formValue.sort !== 'updated_desc') {
-      labels.push(`Sort: ${this.sortLabel(formValue.sort)}`);
-    }
-
-    return labels;
-  }
+  private getActiveFilterLabels(): string[] { return this.activeFilterChips().map(chip => chip.label); }
 
   private pushLookupLabel(
     labels: string[],

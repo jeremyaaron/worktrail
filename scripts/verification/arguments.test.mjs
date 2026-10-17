@@ -6,7 +6,7 @@ test('selects full by default and supports focused modes with explicit database 
   assert.equal(parseArguments(['--mode=api']).database, 'docker');
   assert.equal(parseArguments(['--mode=api', '--database=service']).database, 'service');
   assert.equal(parseArguments([]).mode, 'full');
-  for (const mode of ['full', 'e2e', 'editor', 'preview', 'site']) assert.equal(parseArguments([`--mode=${mode}`]).mode, mode);
+  for (const mode of ['full', 'web', 'e2e', 'editor', 'preview', 'site']) assert.equal(parseArguments([`--mode=${mode}`]).mode, mode);
 });
 
 test('validates focused selection, UI, and explicit port requests without command passthrough', () => {

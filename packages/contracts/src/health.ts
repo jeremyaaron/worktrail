@@ -45,11 +45,14 @@ export type DeliveryHealthReasonKey =
   | 'cycle_over_target'
   | 'unmilestoned_risk';
 
+export type RiskCountUnit = 'work_items' | 'milestones' | 'scope_conditions' | 'estimate_points';
+
 export interface DeliveryHealthReasonDto {
   key: DeliveryHealthReasonKey;
   severity: DeliveryHealthSeverity;
   message: string;
   count: number;
+  countUnit: RiskCountUnit;
   query: WorkItemQuery | null;
 }
 

@@ -549,6 +549,13 @@ Delivery-health support includes:
 
 Delivery health is derived at read time from milestones, cycles, work item status, due dates, assignees, stale in-progress work, estimates, and dependency relationships. It is not stored in the database and does not trigger automatic workflow transitions.
 
+Work lists support estimated/unestimated filtering, including saved/pinned views, copy and return links,
+and CSV export. Zero is estimated; only a missing estimate is unestimated. Filters remain drafts until
+Apply; chips describe applied results. Risk sections use explicit units and category sums are risk
+signals, not unique-ticket totals. New report/closeout snapshots use v2 with precise unestimated-work
+links; v1 evidence remains readable, publishable and replayable.
+See the [query, risk and snapshot policy](docs/v0.3.0/query-policy.md).
+
 ## Verification
 
 The verification runner owns disposable resources for the full workflow and focused checks:
@@ -557,6 +564,7 @@ The verification runner owns disposable resources for the full workflow and focu
 npm run verify
 npm run verify -- --mode=api
 npm run verify -- --mode=api --api-tests=server,work-item-csv-http
+npm run verify -- --mode=web
 npm run test:e2e
 npm run test:preview
 npm run test:editor
@@ -566,7 +574,7 @@ npm run test:site
 Run `npm ci` first. Full/E2E/preview/editor modes also need `npx playwright install chromium`
 (Linux may need `npx playwright install --with-deps chromium`). Start Docker Desktop for
 full/API/E2E/preview modes, or explicitly select service provisioning below.
-Process ownership uses macOS/Linux `ps` and POSIX process groups. Editor and site modes never
+Process ownership uses macOS/Linux `ps` and POSIX process groups. Web, editor and site modes never
 provision or connect to PostgreSQL; site mode does not need a browser runtime.
 
 `npm run verify` defaults to full verification: strict production and bounded development dependency

@@ -1,3 +1,4 @@
+import type { SnapshotCloseoutItemV1Dto, SnapshotCycleHealthV1Dto, SnapshotCycleHealthV2Dto } from './snapshot-policy.js';
 import type { DeliveryHealthReasonDto, DeliveryHealthState } from './health.js';
 import type { MemberDto } from './members.js';
 import type { ProjectDto } from './projects.js';
@@ -77,7 +78,7 @@ export type ProjectCycleCloseoutDestinationDto =
   | { kind: 'unplanned'; cycle: null }
   | { kind: 'none'; cycle: null };
 
-export interface ProjectCycleCloseoutSnapshotDto {
+export interface ProjectCycleCloseoutSnapshotV1Dto {
   snapshotVersion: 1;
   project: Pick<ProjectDto, 'id' | 'key' | 'name'>;
   cycle: Pick<
@@ -86,13 +87,13 @@ export interface ProjectCycleCloseoutSnapshotDto {
   > & { status: 'active' };
   closedAt: string;
   closedBy: Pick<MemberDto, 'id' | 'name'>;
-  health: CycleReviewHealthDto;
+  health: SnapshotCycleHealthV1Dto;
   counts: ProjectCycleCloseoutCountsDto;
   destination: ProjectCycleCloseoutDestinationDto;
   items: {
-    completed: ProjectCycleCloseoutItemSnapshotDto[];
-    canceled: ProjectCycleCloseoutItemSnapshotDto[];
-    unfinished: ProjectCycleCloseoutItemSnapshotDto[];
+    completed: SnapshotCloseoutItemV1Dto[];
+    canceled: SnapshotCloseoutItemV1Dto[];
+    unfinished: SnapshotCloseoutItemV1Dto[];
   };
 }
 
@@ -178,6 +179,7 @@ export interface CycleReviewRiskSectionDto {
   title: string;
   description: string;
   count: number;
+  countUnit: 'work_items' | 'scope_conditions';
   query: WorkItemQuery;
   items: PlanningRiskItemDto[];
 }
@@ -198,3 +200,9 @@ export interface ProjectCycleReviewDto {
   recentlyChangedWork: PlanningRiskItemDto[];
   closeout: ProjectCycleCloseoutDto | null;
 }
+
+export interface ProjectCycleCloseoutSnapshotV2Dto extends Omit<ProjectCycleCloseoutSnapshotV1Dto, 'snapshotVersion' | 'health'> {
+ snapshotVersion: 2;
+ health: SnapshotCycleHealthV2Dto;
+}
+export type ProjectCycleCloseoutSnapshotDto = ProjectCycleCloseoutSnapshotV1Dto | ProjectCycleCloseoutSnapshotV2Dto;

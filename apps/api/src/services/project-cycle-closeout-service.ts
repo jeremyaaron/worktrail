@@ -238,7 +238,7 @@ export class ProjectCycleCloseoutService {
         .sort(compareSnapshotWorkItems);
       const closeoutId = this.idGenerator();
       const snapshot: ProjectCycleCloseoutSnapshotDto = {
-        snapshotVersion: 1,
+        snapshotVersion: 2,
         project: { id: project.id, key: project.key, name: project.name },
         cycle: {
           id: sourceCycle.id,

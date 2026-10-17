@@ -2,8 +2,8 @@
 
 ## Status
 
-Approved for sequential execution. Phases 0-8 are complete as of October 17, 2026; Phases 9-21 are
-not started. Release verification remains pending. Merge, tag, publication,
+Approved for sequential execution. Phases 0-9 are complete as of October 17, 2026;
+Phases 10-21 are not started. Release verification remains pending. Merge, tag, publication,
 and Pages deployment remain separate user-controlled actions.
 
 ## Purpose
@@ -95,7 +95,7 @@ integration boundaries.
 | 6 | Project coordination and concurrent cycle lifecycle safety | Complete |
 | 7 | Authoritative work/hierarchy/board/dependency commands | Complete |
 | 8 | Import transport budgets and structured parser errors | Complete |
-| 9 | Live-query/risk policy, estimate state, and versioned snapshots | Not started |
+| 9 | Live-query/risk policy, estimate state, and versioned snapshots | Complete |
 | 10 | Narrow aggregate reads and bounded preview enrichment | Not started |
 | 11 | Reactive route/actor context and stale-operation ownership | Not started |
 | 12 | Shared draft departure protection in production editors | Not started |
@@ -1011,7 +1011,26 @@ Acceptance:
 Verification: contracts/API/Angular parity tests; SQL and HTTP query/export tests; source and formatted
 snapshot golden tests; v1 publication/replay and v2 production; UTC/DST/risk fixtures; owned full checks.
 
-Status: Not started.
+Status: Complete as of October 17, 2026.
+
+Completion evidence:
+
+- Published the exhaustive shared live policy and [field/round-trip matrix](query-policy.md). Project
+  and workspace forms, applied chips, API/client links, saved/pinned views, copy/return URLs and CSV
+  retain supported fields and false. Explicit Apply separates pending edits from active results.
+- Added estimated/null-only filtering with count/page/export parity and zero-point coverage. Exact
+  unestimated links retain open/cycle predicates; risk signals, distinct category counts and scope
+  conditions use correct units. UTC/DST/midnight/cutoff and session-timezone fixtures passed.
+- Froze original v1 types/parsers and Markdown serialization; new v2 drafts/closeouts carry supported
+  precise queries/units. Actual v1 publication/read/download/print/replay, migration preservation,
+  version rejection and binding checks passed without rewriting JSONB or adding DDL.
+- Acceptance includes 88 contract cases, 151 affected API cases/42 resource cases, 707 Angular cases,
+  affected browser flows, and a warning-free 388.66 kB initial production bundle. Final print CSS used
+  build-only verification, not another unchanged Angular suite. Mobile/desktop/print screenshots and
+  control/page overflow assertions were checked; owned resources are removed.
+- Updated README, development guidance, OpenAPI, and [verification evidence](verification-notes.md#phase-9-query-and-risk-policy-with-versioned-snapshots).
+  Diagnostics and omitted unrelated suites are recorded separately; no clean full-API/full-app result
+  is inferred from a diagnostic run. Phase 10 is not started; release identity remains 0.2.9.
 
 ## Phase 10: Narrow Aggregate Reads And Preview Selection
 

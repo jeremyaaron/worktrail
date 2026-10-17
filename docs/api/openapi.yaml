@@ -978,6 +978,8 @@ paths:
         - $ref: "#/components/parameters/WorkItemMilestoneIdQuery"
         - $ref: "#/components/parameters/WorkItemCycleIdQuery"
         - $ref: "#/components/parameters/WorkItemDueDateStateQuery"
+        - $ref: "#/components/parameters/WorkItemEstimateStateQuery"
+        - $ref: "#/components/parameters/WorkItemRiskQuery"
         - $ref: "#/components/parameters/WorkItemBlockedQuery"
         - $ref: "#/components/parameters/WorkItemDependencyQuery"
         - $ref: "#/components/parameters/WorkItemHierarchyQuery"
@@ -1014,6 +1016,8 @@ paths:
         - $ref: "#/components/parameters/WorkItemMilestoneIdQuery"
         - $ref: "#/components/parameters/WorkItemCycleIdQuery"
         - $ref: "#/components/parameters/WorkItemDueDateStateQuery"
+        - $ref: "#/components/parameters/WorkItemEstimateStateQuery"
+        - $ref: "#/components/parameters/WorkItemRiskQuery"
         - $ref: "#/components/parameters/WorkItemBlockedQuery"
         - $ref: "#/components/parameters/WorkItemDependencyQuery"
         - $ref: "#/components/parameters/WorkItemHierarchyQuery"
@@ -1065,6 +1069,8 @@ paths:
         - $ref: "#/components/parameters/WorkItemMilestoneIdQuery"
         - $ref: "#/components/parameters/WorkItemCycleIdQuery"
         - $ref: "#/components/parameters/WorkItemDueDateStateQuery"
+        - $ref: "#/components/parameters/WorkItemEstimateStateQuery"
+        - $ref: "#/components/parameters/WorkItemRiskQuery"
         - $ref: "#/components/parameters/WorkItemBlockedQuery"
         - $ref: "#/components/parameters/WorkItemDependencyQuery"
         - $ref: "#/components/parameters/WorkItemHierarchyQuery"
@@ -1246,6 +1252,8 @@ paths:
         - $ref: "#/components/parameters/WorkItemMilestoneIdQuery"
         - $ref: "#/components/parameters/WorkItemCycleIdQuery"
         - $ref: "#/components/parameters/WorkItemDueDateStateQuery"
+        - $ref: "#/components/parameters/WorkItemEstimateStateQuery"
+        - $ref: "#/components/parameters/WorkItemRiskQuery"
         - $ref: "#/components/parameters/WorkItemBlockedQuery"
         - $ref: "#/components/parameters/WorkItemDependencyQuery"
         - $ref: "#/components/parameters/WorkItemHierarchyQuery"
@@ -2223,6 +2231,18 @@ components:
       schema:
         type: string
         enum: [overdue, due_soon, none]
+    WorkItemEstimateStateQuery:
+      name: estimateState
+      in: query
+      description: Any is omission. Zero is estimated; null is unestimated. Does not imply open work.
+      schema:
+        type: string
+        enum: [estimated, unestimated]
+    WorkItemRiskQuery:
+      name: workRisk
+      in: query
+      schema:
+        $ref: "#/components/schemas/WorkItemRiskFilter"
     WorkItemBlockedQuery:
       name: blocked
       in: query
@@ -2875,7 +2895,7 @@ components:
           type: string
           format: uuid
         status:
-          $ref: "#/components/schemas/WorkItemStatus"
+          $ref: '#/components/schemas/WorkItemStatus'
         workState:
           type: string
           enum: [open, terminal]
@@ -2889,9 +2909,9 @@ components:
           type: string
           format: uuid
         type:
-          $ref: "#/components/schemas/WorkItemType"
+          $ref: '#/components/schemas/WorkItemType'
         priority:
-          $ref: "#/components/schemas/WorkItemPriority"
+          $ref: '#/components/schemas/WorkItemPriority'
         labelId:
           type: string
           format: uuid
@@ -2906,16 +2926,17 @@ components:
           enum: [overdue, due_soon, none]
         blocked:
           type: boolean
+          description: True restricts to blocked. False is preserved but imposes no status restriction (historical behavior).
         dependency:
-          $ref: "#/components/schemas/DependencyFilter"
+          $ref: '#/components/schemas/DependencyFilter'
         workRisk:
-          $ref: "#/components/schemas/WorkItemRiskFilter"
+          $ref: '#/components/schemas/WorkItemRiskFilter'
         hierarchy:
-          $ref: "#/components/schemas/WorkItemHierarchyFilter"
+          $ref: '#/components/schemas/WorkItemHierarchyFilter'
         parentKey:
           type: string
           maxLength: 80
-          pattern: "^[A-Z0-9]{2,8}-[1-9][0-9]*$"
+          pattern: ^[A-Z0-9]{2,8}-[1-9][0-9]*$
         archivedProjects:
           type: string
           enum: [exclude, include, only]
@@ -2925,6 +2946,462 @@ components:
         sort:
           type: string
           enum: [updated_desc, updated_asc, priority_desc, priority_asc, due_date_asc, created_desc, board_order]
+        estimateState:
+          type: string
+          enum: [estimated, unestimated]
+          description: Omission means any. Zero is estimated; only null is unestimated. AND-combined; does not imply open work.
+    ProjectStatusReportSnapshotV1:
+      type: object
+      properties:
+        snapshotVersion:
+          type: number
+          const: 1
+        generatedAt:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$
+        project:
+          type: object
+          properties: {id: {type: string, minLength: 1}, key: {type: string}, name: {type: string}, status: {type: string, enum: [active, archived]}}
+          required: [id, key, name, status]
+        health:
+          type: object
+          properties: {health: {type: string, enum: [healthy, at_risk, blocked, complete, inactive]}, activeMilestoneCount: {type: integer, minimum: 0, maximum: 9007199254740991}, healthyMilestoneCount: {type: integer, minimum: 0, maximum: 9007199254740991}, atRiskMilestoneCount: {type: integer, minimum: 0, maximum: 9007199254740991}, blockedMilestoneCount: {type: integer, minimum: 0, maximum: 9007199254740991}, completeMilestoneCount: {type: integer, minimum: 0, maximum: 9007199254740991}, inactiveMilestoneCount: {type: integer, minimum: 0, maximum: 9007199254740991}, openWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, blockedWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, dependencyBlockedWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, blockingOpenWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, overdueWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, dueSoonWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, unassignedActiveWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, staleInProgressWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, unmilestonedActiveRiskCount: {type: integer, minimum: 0, maximum: 9007199254740991}, reasons: {type: array, items: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV1/$defs/__schema0'}}}
+          required: [health, activeMilestoneCount, healthyMilestoneCount, atRiskMilestoneCount, blockedMilestoneCount, completeMilestoneCount, inactiveMilestoneCount, openWorkCount, blockedWorkCount, dependencyBlockedWorkCount, blockingOpenWorkCount, overdueWorkCount, dueSoonWorkCount, unassignedActiveWorkCount, staleInProgressWorkCount, unmilestonedActiveRiskCount, reasons]
+        counts:
+          type: object
+          properties: {openWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, blockedWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, dependencyBlockedWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, blockingOpenWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, overdueWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, dueSoonWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, unassignedActiveWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, staleInProgressWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}}
+          required: [openWorkCount, blockedWorkCount, dependencyBlockedWorkCount, blockingOpenWorkCount, overdueWorkCount, dueSoonWorkCount, unassignedActiveWorkCount, staleInProgressWorkCount]
+        milestones:
+          type: array
+          items: {type: object, properties: {id: {type: string, minLength: 1}, name: {type: string}, status: {type: string, enum: [planned, active, completed, canceled]}, targetDate: {anyOf: [{type: string, pattern: '^\d{4}-\d{2}-\d{2}$'}, {type: 'null'}]}, totalCount: {type: integer, minimum: 0, maximum: 9007199254740991}, openCount: {type: integer, minimum: 0, maximum: 9007199254740991}, doneCount: {type: integer, minimum: 0, maximum: 9007199254740991}, blockedCount: {type: integer, minimum: 0, maximum: 9007199254740991}, dependencyBlockedCount: {type: integer, minimum: 0, maximum: 9007199254740991}, overdueCount: {type: integer, minimum: 0, maximum: 9007199254740991}, dueSoonCount: {type: integer, minimum: 0, maximum: 9007199254740991}, unassignedActiveCount: {type: integer, minimum: 0, maximum: 9007199254740991}, staleInProgressCount: {type: integer, minimum: 0, maximum: 9007199254740991}, health: {type: string, enum: [healthy, at_risk, blocked, complete, inactive]}, reasons: {type: array, items: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV1/$defs/__schema0'}}}, required: [id, name, status, targetDate, totalCount, openCount, doneCount, blockedCount, dependencyBlockedCount, overdueCount, dueSoonCount, unassignedActiveCount, staleInProgressCount, health, reasons]}
+        cycle:
+          anyOf: [{type: object, properties: {id: {type: string, minLength: 1}, name: {type: string}, goal: {type: string}, status: {type: string, enum: [planned, active, completed, canceled]}, startDate: {type: string, pattern: '^\d{4}-\d{2}-\d{2}$'}, endDate: {type: string, pattern: '^\d{4}-\d{2}-\d{2}$'}, targetPoints: {anyOf: [{type: integer, exclusiveMinimum: 0, maximum: 9007199254740991}, {type: 'null'}]}, committedEstimatePoints: {type: integer, minimum: 0, maximum: 9007199254740991}, completedEstimatePoints: {type: integer, minimum: 0, maximum: 9007199254740991}, openWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, blockedWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, dependencyBlockedWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, unestimatedWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, health: {type: string, enum: [healthy, at_risk, blocked, complete, inactive]}, reasons: {type: array, items: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV1/$defs/__schema0'}}, links: {type: array, items: {type: object, properties: {type: {type: string, enum: [project_work, milestone_review, cycle_review, work_item]}, label: {type: string}, projectId: {type: string, minLength: 1}, query: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV1/$defs/__schema1'}, milestoneId: {type: string, minLength: 1}, cycleId: {type: string, minLength: 1}, workItemId: {type: string, minLength: 1}}, required: [type, label, projectId]}}}, required: [id, name, goal, status, startDate, endDate, targetPoints, committedEstimatePoints, completedEstimatePoints, openWorkCount, blockedWorkCount, dependencyBlockedWorkCount, unestimatedWorkCount, health, reasons, links]}, {type: 'null'}]
+        risks:
+          type: array
+          items: {type: object, properties: {type: {type: string, enum: [blocked, dependency_blocked, overdue, due_soon, unassigned_active, stale_in_progress, blocking_open_work]}, title: {type: string}, count: {type: integer, minimum: 0, maximum: 9007199254740991}, query: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV1/$defs/__schema1'}, items: {type: array, items: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV1/$defs/__schema2'}}}, required: [type, title, count, query, items]}
+        recentWork:
+          type: array
+          items: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV1/$defs/__schema2'}
+      required:
+        - snapshotVersion
+        - generatedAt
+        - project
+        - health
+        - counts
+        - milestones
+        - risks
+        - recentWork
+      $defs:
+        __schema0:
+          type: object
+          properties: {key: {type: string, enum: [all_work_done, blocked_work, blocking_open_work, completed_with_open_work, dependency_blocked, due_soon, empty_active_milestone, inactive_milestone, open_work, overdue_work, stale_in_progress, target_date_past, unassigned_active, unestimated_work, cycle_over_target, unmilestoned_risk]}, severity: {type: string, enum: [info, warning, critical]}, message: {type: string}, count: {type: integer, minimum: 0, maximum: 9007199254740991}, query: {anyOf: [{$ref: '#/components/schemas/ProjectStatusReportSnapshotV1/$defs/__schema1'}, {type: 'null'}]}}
+          required: [key, severity, message, count, query]
+        __schema1:
+          type: object
+          properties: {projectId: {type: string, minLength: 1}, status: {type: string, enum: [backlog, ready, in_progress, blocked, done, canceled]}, workState: {type: string, enum: [open, terminal]}, assigneeId: {type: string, minLength: 1}, assigneeState: {type: string, enum: [assigned, unassigned]}, reporterId: {type: string, minLength: 1}, type: {type: string, enum: [task, bug, story, chore]}, priority: {type: string, enum: [low, medium, high, urgent]}, labelId: {type: string, minLength: 1}, milestoneId: {type: string, minLength: 1}, cycleId: {type: string, minLength: 1}, dueDateState: {type: string, enum: [overdue, due_soon, none]}, blocked: {type: boolean}, dependency: {type: string, enum: [dependency_blocked, blocking_open_work]}, workRisk: {type: string, enum: [unassigned_active, stale_in_progress]}, archivedProjects: {type: string, enum: [exclude, include, only]}, search: {type: string}, sort: {type: string, enum: [updated_desc, updated_asc, priority_desc, priority_asc, due_date_asc, created_desc, board_order]}}
+        __schema2:
+          type: object
+          properties: {id: {type: string, minLength: 1}, displayKey: {type: string}, title: {type: string}, status: {type: string, enum: [backlog, ready, in_progress, blocked, done, canceled]}, priority: {type: string, enum: [low, medium, high, urgent]}, assignee: {anyOf: [{type: object, properties: {id: {type: string, minLength: 1}, workspaceId: {type: string, minLength: 1}, name: {type: string}, email: {type: string}, role: {type: string, enum: [owner, maintainer, contributor]}, isActive: {type: boolean}, deactivatedAt: {type: [string, 'null']}, createdAt: {type: string}, updatedAt: {type: string}}, required: [id, workspaceId, name, email, role, isActive, deactivatedAt, createdAt, updatedAt]}, {type: 'null'}]}, dueDate: {anyOf: [{type: string, pattern: '^\d{4}-\d{2}-\d{2}$'}, {type: 'null'}]}, milestone: {anyOf: [{type: object, properties: {id: {type: string, minLength: 1}, workspaceId: {type: string, minLength: 1}, projectId: {type: string, minLength: 1}, name: {type: string}, description: {type: string}, status: {type: string, enum: [planned, active, completed, canceled]}, targetDate: {anyOf: [{type: string, pattern: '^\d{4}-\d{2}-\d{2}$'}, {type: 'null'}]}, isArchived: {type: boolean}, archivedAt: {type: [string, 'null']}, createdAt: {type: string}, updatedAt: {type: string}}, required: [id, workspaceId, projectId, name, description, status, targetDate, isArchived, archivedAt, createdAt, updatedAt]}, {type: 'null'}]}, updatedAt: {type: string}, parent: {anyOf: [{type: object, properties: {id: {type: string, minLength: 1}, projectId: {type: string, minLength: 1}, displayKey: {type: string}, title: {type: string}, type: {type: string, enum: [task, bug, story, chore]}, status: {type: string, enum: [backlog, ready, in_progress, blocked, done, canceled]}}, required: [id, projectId, displayKey, title, type, status]}, {type: 'null'}]}}
+          required: [id, displayKey, title, status, priority, assignee, dueDate, milestone, updatedAt]
+      description: >-
+        Frozen historical shape. Reports strip unknown fields and preserve optional cycle/parent; closeouts reject unknown
+        fields. No count units are inferred. API additionally enforces closeout count/category and record-binding
+        refinements.
+    ProjectStatusReportSnapshotV2:
+      type: object
+      properties:
+        snapshotVersion:
+          type: number
+          const: 2
+        generatedAt:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$
+        project:
+          type: object
+          properties: {id: {type: string, minLength: 1}, key: {type: string}, name: {type: string}, status: {type: string, enum: [active, archived]}}
+          required: [id, key, name, status]
+        health:
+          type: object
+          properties: {health: {type: string, enum: [healthy, at_risk, blocked, complete, inactive]}, activeMilestoneCount: {type: integer, minimum: 0, maximum: 9007199254740991}, healthyMilestoneCount: {type: integer, minimum: 0, maximum: 9007199254740991}, atRiskMilestoneCount: {type: integer, minimum: 0, maximum: 9007199254740991}, blockedMilestoneCount: {type: integer, minimum: 0, maximum: 9007199254740991}, completeMilestoneCount: {type: integer, minimum: 0, maximum: 9007199254740991}, inactiveMilestoneCount: {type: integer, minimum: 0, maximum: 9007199254740991}, openWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, blockedWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, dependencyBlockedWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, blockingOpenWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, overdueWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, dueSoonWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, unassignedActiveWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, staleInProgressWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, unmilestonedActiveRiskCount: {type: integer, minimum: 0, maximum: 9007199254740991}, reasons: {type: array, items: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema0'}}}
+          required: [health, activeMilestoneCount, healthyMilestoneCount, atRiskMilestoneCount, blockedMilestoneCount, completeMilestoneCount, inactiveMilestoneCount, openWorkCount, blockedWorkCount, dependencyBlockedWorkCount, blockingOpenWorkCount, overdueWorkCount, dueSoonWorkCount, unassignedActiveWorkCount, staleInProgressWorkCount, unmilestonedActiveRiskCount, reasons]
+        counts:
+          type: object
+          properties: {openWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, blockedWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, dependencyBlockedWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, blockingOpenWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, overdueWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, dueSoonWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, unassignedActiveWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, staleInProgressWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}}
+          required: [openWorkCount, blockedWorkCount, dependencyBlockedWorkCount, blockingOpenWorkCount, overdueWorkCount, dueSoonWorkCount, unassignedActiveWorkCount, staleInProgressWorkCount]
+        milestones:
+          type: array
+          items: {type: object, properties: {id: {type: string, minLength: 1}, name: {type: string}, status: {type: string, enum: [planned, active, completed, canceled]}, targetDate: {anyOf: [{type: string, pattern: '^\d{4}-\d{2}-\d{2}$'}, {type: 'null'}]}, totalCount: {type: integer, minimum: 0, maximum: 9007199254740991}, openCount: {type: integer, minimum: 0, maximum: 9007199254740991}, doneCount: {type: integer, minimum: 0, maximum: 9007199254740991}, blockedCount: {type: integer, minimum: 0, maximum: 9007199254740991}, dependencyBlockedCount: {type: integer, minimum: 0, maximum: 9007199254740991}, overdueCount: {type: integer, minimum: 0, maximum: 9007199254740991}, dueSoonCount: {type: integer, minimum: 0, maximum: 9007199254740991}, unassignedActiveCount: {type: integer, minimum: 0, maximum: 9007199254740991}, staleInProgressCount: {type: integer, minimum: 0, maximum: 9007199254740991}, health: {type: string, enum: [healthy, at_risk, blocked, complete, inactive]}, reasons: {type: array, items: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema0'}}}, required: [id, name, status, targetDate, totalCount, openCount, doneCount, blockedCount, dependencyBlockedCount, overdueCount, dueSoonCount, unassignedActiveCount, staleInProgressCount, health, reasons]}
+        cycle:
+          anyOf: [{type: object, properties: {id: {type: string, minLength: 1}, name: {type: string}, goal: {type: string}, status: {type: string, enum: [planned, active, completed, canceled]}, startDate: {type: string, pattern: '^\d{4}-\d{2}-\d{2}$'}, endDate: {type: string, pattern: '^\d{4}-\d{2}-\d{2}$'}, targetPoints: {anyOf: [{type: integer, exclusiveMinimum: 0, maximum: 9007199254740991}, {type: 'null'}]}, committedEstimatePoints: {type: integer, minimum: 0, maximum: 9007199254740991}, completedEstimatePoints: {type: integer, minimum: 0, maximum: 9007199254740991}, openWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, blockedWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, dependencyBlockedWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, unestimatedWorkCount: {type: integer, minimum: 0, maximum: 9007199254740991}, health: {type: string, enum: [healthy, at_risk, blocked, complete, inactive]}, reasons: {type: array, items: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema0'}}, links: {type: array, items: {type: object, properties: {type: {type: string, enum: [project_work, milestone_review, cycle_review, work_item]}, label: {type: string}, projectId: {type: string, minLength: 1}, query: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema6'}, milestoneId: {type: string, minLength: 1}, cycleId: {type: string, minLength: 1}, workItemId: {type: string, minLength: 1}}, required: [type, label, projectId]}}}, required: [id, name, goal, status, startDate, endDate, targetPoints, committedEstimatePoints, completedEstimatePoints, openWorkCount, blockedWorkCount, dependencyBlockedWorkCount, unestimatedWorkCount, health, reasons, links]}, {type: 'null'}]
+        risks:
+          type: array
+          items: {type: object, properties: {type: {type: string, enum: [blocked, dependency_blocked, overdue, due_soon, unassigned_active, stale_in_progress, blocking_open_work]}, title: {type: string}, count: {type: integer, minimum: 0, maximum: 9007199254740991}, query: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema6'}, items: {type: array, items: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema29'}}, countUnit: {type: string, const: work_items}}, required: [type, title, count, query, items, countUnit]}
+        recentWork:
+          type: array
+          items: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema29'}
+      required:
+        - snapshotVersion
+        - generatedAt
+        - project
+        - health
+        - counts
+        - milestones
+        - risks
+        - recentWork
+      $defs:
+        __schema0:
+          type: object
+          properties: {key: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema1'}, severity: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema2'}, message: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema3'}, count: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema4'}, query: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema5'}, countUnit: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema28'}}
+          required: [key, severity, message, count, query, countUnit]
+          additionalProperties: false
+        __schema1:
+          type: string
+          enum: [all_work_done, blocked_work, blocking_open_work, completed_with_open_work, dependency_blocked, due_soon, empty_active_milestone, inactive_milestone, open_work, overdue_work, stale_in_progress, target_date_past, unassigned_active, unestimated_work, cycle_over_target, unmilestoned_risk]
+        __schema2:
+          type: string
+          enum: [info, warning, critical]
+        __schema3:
+          type: string
+        __schema4:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        __schema5:
+          anyOf: [{$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema6'}, {type: 'null'}]
+        __schema6:
+          type: object
+          properties: {projectId: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema7'}, status: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema8'}, workState: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema9'}, assigneeId: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema10'}, assigneeState: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema11'}, reporterId: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema12'}, type: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema13'}, priority: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema14'}, labelId: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema15'}, milestoneId: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema16'}, cycleId: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema17'}, dueDateState: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema18'}, estimateState: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema19'}, blocked: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema20'}, dependency: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema21'}, workRisk: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema22'}, hierarchy: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema23'}, parentKey: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema24'}, archivedProjects: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema25'}, search: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema26'}, sort: {$ref: '#/components/schemas/ProjectStatusReportSnapshotV2/$defs/__schema27'}}
+          additionalProperties: false
+        __schema7:
+          type: string
+          format: uuid
+          pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+        __schema8:
+          type: string
+          enum: [backlog, ready, in_progress, blocked, done, canceled]
+        __schema9:
+          type: string
+          enum: [open, terminal]
+        __schema10:
+          type: string
+          format: uuid
+          pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+        __schema11:
+          type: string
+          enum: [assigned, unassigned]
+        __schema12:
+          type: string
+          format: uuid
+          pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+        __schema13:
+          type: string
+          enum: [task, bug, story, chore]
+        __schema14:
+          type: string
+          enum: [low, medium, high, urgent]
+        __schema15:
+          type: string
+          format: uuid
+          pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+        __schema16:
+          type: string
+          format: uuid
+          pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+        __schema17:
+          type: string
+          format: uuid
+          pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+        __schema18:
+          type: string
+          enum: [overdue, due_soon, none]
+        __schema19:
+          type: string
+          enum: [estimated, unestimated]
+        __schema20:
+          type: boolean
+        __schema21:
+          type: string
+          enum: [dependency_blocked, blocking_open_work]
+        __schema22:
+          type: string
+          enum: [unassigned_active, stale_in_progress]
+        __schema23:
+          type: string
+          enum: [top_level, children, parents]
+        __schema24:
+          type: string
+          maxLength: 80
+          pattern: ^[A-Z0-9]{2,8}-[1-9]\d*$
+        __schema25:
+          type: string
+          enum: [exclude, include, only]
+        __schema26:
+          type: string
+          maxLength: 120
+        __schema27:
+          type: string
+          enum: [updated_desc, updated_asc, priority_desc, priority_asc, due_date_asc, created_desc, board_order]
+        __schema28:
+          type: string
+          enum: [work_items, milestones, scope_conditions, estimate_points]
+        __schema29:
+          type: object
+          properties: {id: {type: string, minLength: 1}, displayKey: {type: string}, title: {type: string}, status: {type: string, enum: [backlog, ready, in_progress, blocked, done, canceled]}, priority: {type: string, enum: [low, medium, high, urgent]}, assignee: {anyOf: [{type: object, properties: {id: {type: string, minLength: 1}, workspaceId: {type: string, minLength: 1}, name: {type: string}, email: {type: string}, role: {type: string, enum: [owner, maintainer, contributor]}, isActive: {type: boolean}, deactivatedAt: {type: [string, 'null']}, createdAt: {type: string}, updatedAt: {type: string}}, required: [id, workspaceId, name, email, role, isActive, deactivatedAt, createdAt, updatedAt]}, {type: 'null'}]}, dueDate: {anyOf: [{type: string, pattern: '^\d{4}-\d{2}-\d{2}$'}, {type: 'null'}]}, milestone: {anyOf: [{type: object, properties: {id: {type: string, minLength: 1}, workspaceId: {type: string, minLength: 1}, projectId: {type: string, minLength: 1}, name: {type: string}, description: {type: string}, status: {type: string, enum: [planned, active, completed, canceled]}, targetDate: {anyOf: [{type: string, pattern: '^\d{4}-\d{2}-\d{2}$'}, {type: 'null'}]}, isArchived: {type: boolean}, archivedAt: {type: [string, 'null']}, createdAt: {type: string}, updatedAt: {type: string}}, required: [id, workspaceId, projectId, name, description, status, targetDate, isArchived, archivedAt, createdAt, updatedAt]}, {type: 'null'}]}, updatedAt: {type: string}, parent: {anyOf: [{type: object, properties: {id: {type: string, minLength: 1}, projectId: {type: string, minLength: 1}, displayKey: {type: string}, title: {type: string}, type: {type: string, enum: [task, bug, story, chore]}, status: {type: string, enum: [backlog, ready, in_progress, blocked, done, canceled]}}, required: [id, projectId, displayKey, title, type, status]}, {type: 'null'}]}}
+          required: [id, displayKey, title, status, priority, assignee, dueDate, milestone, updatedAt]
+      description: >-
+        Frozen version 2 for new evidence, with explicit count units. Unestimated reasons require estimateState=unestimated
+        and workState=open. API additionally rejects contradictory query fields and enforces closeout count/category and
+        record-binding refinements.
+    ProjectCycleCloseoutSnapshotV1:
+      type: object
+      properties:
+        snapshotVersion:
+          $ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV1/$defs/__schema0'
+        project:
+          $ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV1/$defs/__schema1'
+        cycle:
+          $ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV1/$defs/__schema2'
+        closedAt:
+          $ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV1/$defs/__schema3'
+        closedBy:
+          $ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV1/$defs/__schema4'
+        health:
+          $ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV1/$defs/__schema5'
+        counts:
+          $ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV1/$defs/__schema6'
+        destination:
+          $ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV1/$defs/__schema7'
+        items:
+          $ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV1/$defs/__schema8'
+      required:
+        - snapshotVersion
+        - project
+        - cycle
+        - closedAt
+        - closedBy
+        - health
+        - counts
+        - destination
+        - items
+      additionalProperties: false
+      $defs:
+        __schema0:
+          type: number
+          const: 1
+        __schema1:
+          type: object
+          properties: {id: {type: string, format: uuid, pattern: '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$'}, key: {type: string}, name: {type: string}}
+          required: [id, key, name]
+          additionalProperties: false
+        __schema2:
+          type: object
+          properties: {id: {type: string, format: uuid, pattern: '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$'}, name: {type: string}, goal: {type: string}, status: {type: string, const: active}, startDate: {type: string, pattern: '^\d{4}-\d{2}-\d{2}$'}, endDate: {type: string, pattern: '^\d{4}-\d{2}-\d{2}$'}, targetPoints: {anyOf: [{type: integer, exclusiveMinimum: 0, maximum: 9007199254740991}, {type: 'null'}]}}
+          required: [id, name, goal, status, startDate, endDate, targetPoints]
+          additionalProperties: false
+        __schema3:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$
+        __schema4:
+          type: object
+          properties: {id: {type: string, format: uuid, pattern: '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$'}, name: {type: string}}
+          required: [id, name]
+          additionalProperties: false
+        __schema5:
+          type: object
+          properties: {health: {type: string, enum: [healthy, at_risk, blocked, complete, inactive]}, reasons: {type: array, items: {type: object, properties: {key: {type: string, enum: [all_work_done, blocked_work, blocking_open_work, completed_with_open_work, dependency_blocked, due_soon, empty_active_milestone, inactive_milestone, open_work, overdue_work, stale_in_progress, target_date_past, unassigned_active, unestimated_work, cycle_over_target, unmilestoned_risk]}, severity: {type: string, enum: [info, warning, critical]}, message: {type: string}, count: {type: integer, minimum: 0, maximum: 9007199254740991}, query: {anyOf: [{type: object, properties: {projectId: {type: string, format: uuid, pattern: '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$'}, status: {type: string, enum: [backlog, ready, in_progress, blocked, done, canceled]}, workState: {type: string, enum: [open, terminal]}, assigneeId: {type: string, format: uuid, pattern: '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$'}, assigneeState: {type: string, enum: [assigned, unassigned]}, reporterId: {type: string, format: uuid, pattern: '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$'}, type: {type: string, enum: [task, bug, story, chore]}, priority: {type: string, enum: [low, medium, high, urgent]}, labelId: {type: string, format: uuid, pattern: '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$'}, milestoneId: {type: string, format: uuid, pattern: '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$'}, cycleId: {type: string, format: uuid, pattern: '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$'}, dueDateState: {type: string, enum: [overdue, due_soon, none]}, blocked: {type: boolean}, dependency: {type: string, enum: [dependency_blocked, blocking_open_work]}, workRisk: {type: string, enum: [unassigned_active, stale_in_progress]}, archivedProjects: {type: string, enum: [exclude, include, only]}, search: {type: string}, sort: {type: string, enum: [updated_desc, updated_asc, priority_desc, priority_asc, due_date_asc, created_desc, board_order]}}, additionalProperties: false}, {type: 'null'}]}}, required: [key, severity, message, count, query], additionalProperties: false}}}
+          required: [health, reasons]
+          additionalProperties: false
+        __schema6:
+          type: object
+          properties: {totalCount: {type: integer, minimum: 0, maximum: 9007199254740991}, completedCount: {type: integer, minimum: 0, maximum: 9007199254740991}, canceledCount: {type: integer, minimum: 0, maximum: 9007199254740991}, unfinishedCount: {type: integer, minimum: 0, maximum: 9007199254740991}, retainedCount: {type: integer, minimum: 0, maximum: 9007199254740991}, movedCount: {type: integer, minimum: 0, maximum: 9007199254740991}, committedEstimatePoints: {type: integer, minimum: 0, maximum: 9007199254740991}, completedEstimatePoints: {type: integer, minimum: 0, maximum: 9007199254740991}, unfinishedEstimatePoints: {type: integer, minimum: 0, maximum: 9007199254740991}, unestimatedUnfinishedCount: {type: integer, minimum: 0, maximum: 9007199254740991}}
+          required: [totalCount, completedCount, canceledCount, unfinishedCount, retainedCount, movedCount, committedEstimatePoints, completedEstimatePoints, unfinishedEstimatePoints, unestimatedUnfinishedCount]
+          additionalProperties: false
+        __schema7:
+          oneOf: [{type: object, properties: {kind: {type: string, const: cycle}, cycle: {type: object, properties: {id: {type: string, format: uuid, pattern: '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$'}, name: {type: string}, startDate: {type: string, pattern: '^\d{4}-\d{2}-\d{2}$'}, endDate: {type: string, pattern: '^\d{4}-\d{2}-\d{2}$'}}, required: [id, name, startDate, endDate], additionalProperties: false}}, required: [kind, cycle], additionalProperties: false}, {type: object, properties: {kind: {type: string, const: unplanned}, cycle: {type: 'null'}}, required: [kind, cycle], additionalProperties: false}, {type: object, properties: {kind: {type: string, const: none}, cycle: {type: 'null'}}, required: [kind, cycle], additionalProperties: false}]
+        __schema8:
+          type: object
+          properties: {completed: {type: array, items: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV1/$defs/__schema9'}}, canceled: {type: array, items: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV1/$defs/__schema9'}}, unfinished: {type: array, items: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV1/$defs/__schema9'}}}
+          required: [completed, canceled, unfinished]
+          additionalProperties: false
+        __schema9:
+          type: object
+          properties: {id: {type: string, format: uuid, pattern: '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$'}, displayKey: {type: string, minLength: 1}, title: {type: string}, status: {type: string, enum: [backlog, ready, in_progress, blocked, done, canceled]}, priority: {type: string, enum: [low, medium, high, urgent]}, assignee: {anyOf: [{type: object, properties: {id: {type: string, format: uuid, pattern: '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$'}, name: {type: string}}, required: [id, name], additionalProperties: false}, {type: 'null'}]}, estimatePoints: {anyOf: [{type: integer, minimum: 0, maximum: 9007199254740991}, {type: 'null'}]}, dependencyBlocked: {type: boolean}}
+          required: [id, displayKey, title, status, priority, assignee, estimatePoints, dependencyBlocked]
+          additionalProperties: false
+      description: >-
+        Frozen historical shape. Reports strip unknown fields and preserve optional cycle/parent; closeouts reject unknown
+        fields. No count units are inferred. API additionally enforces closeout count/category and record-binding
+        refinements.
+    ProjectCycleCloseoutSnapshotV2:
+      type: object
+      properties:
+        snapshotVersion:
+          $ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema0'
+        project:
+          $ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema1'
+        cycle:
+          $ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema2'
+        closedAt:
+          $ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema3'
+        closedBy:
+          $ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema4'
+        health:
+          $ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema5'
+        counts:
+          $ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema33'
+        destination:
+          $ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema34'
+        items:
+          $ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema35'
+      required:
+        - snapshotVersion
+        - project
+        - cycle
+        - closedAt
+        - closedBy
+        - health
+        - counts
+        - destination
+        - items
+      additionalProperties: false
+      $defs:
+        __schema0:
+          type: number
+          const: 2
+        __schema1:
+          type: object
+          properties: {id: {type: string, format: uuid, pattern: '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$'}, key: {type: string}, name: {type: string}}
+          required: [id, key, name]
+          additionalProperties: false
+        __schema2:
+          type: object
+          properties: {id: {type: string, format: uuid, pattern: '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$'}, name: {type: string}, goal: {type: string}, status: {type: string, const: active}, startDate: {type: string, pattern: '^\d{4}-\d{2}-\d{2}$'}, endDate: {type: string, pattern: '^\d{4}-\d{2}-\d{2}$'}, targetPoints: {anyOf: [{type: integer, exclusiveMinimum: 0, maximum: 9007199254740991}, {type: 'null'}]}}
+          required: [id, name, goal, status, startDate, endDate, targetPoints]
+          additionalProperties: false
+        __schema3:
+          type: string
+          format: date-time
+          pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$
+        __schema4:
+          type: object
+          properties: {id: {type: string, format: uuid, pattern: '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$'}, name: {type: string}}
+          required: [id, name]
+          additionalProperties: false
+        __schema5:
+          type: object
+          properties: {health: {type: string, enum: [healthy, at_risk, blocked, complete, inactive]}, reasons: {type: array, items: {type: object, properties: {key: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema6'}, severity: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema7'}, message: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema8'}, count: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema9'}, query: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema10'}, countUnit: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema32'}}, required: [key, severity, message, count, query, countUnit], additionalProperties: false}}}
+          required: [health, reasons]
+          additionalProperties: false
+        __schema6:
+          type: string
+          enum: [all_work_done, blocked_work, blocking_open_work, completed_with_open_work, dependency_blocked, due_soon, empty_active_milestone, inactive_milestone, open_work, overdue_work, stale_in_progress, target_date_past, unassigned_active, unestimated_work, cycle_over_target, unmilestoned_risk]
+        __schema7:
+          type: string
+          enum: [info, warning, critical]
+        __schema8:
+          type: string
+        __schema9:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        __schema10:
+          anyOf: [{type: object, properties: {projectId: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema11'}, status: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema12'}, workState: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema13'}, assigneeId: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema14'}, assigneeState: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema15'}, reporterId: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema16'}, type: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema17'}, priority: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema18'}, labelId: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema19'}, milestoneId: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema20'}, cycleId: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema21'}, dueDateState: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema22'}, estimateState: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema23'}, blocked: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema24'}, dependency: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema25'}, workRisk: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema26'}, hierarchy: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema27'}, parentKey: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema28'}, archivedProjects: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema29'}, search: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema30'}, sort: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema31'}}, additionalProperties: false}, {type: 'null'}]
+        __schema11:
+          type: string
+          format: uuid
+          pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+        __schema12:
+          type: string
+          enum: [backlog, ready, in_progress, blocked, done, canceled]
+        __schema13:
+          type: string
+          enum: [open, terminal]
+        __schema14:
+          type: string
+          format: uuid
+          pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+        __schema15:
+          type: string
+          enum: [assigned, unassigned]
+        __schema16:
+          type: string
+          format: uuid
+          pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+        __schema17:
+          type: string
+          enum: [task, bug, story, chore]
+        __schema18:
+          type: string
+          enum: [low, medium, high, urgent]
+        __schema19:
+          type: string
+          format: uuid
+          pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+        __schema20:
+          type: string
+          format: uuid
+          pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+        __schema21:
+          type: string
+          format: uuid
+          pattern: ^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$
+        __schema22:
+          type: string
+          enum: [overdue, due_soon, none]
+        __schema23:
+          type: string
+          enum: [estimated, unestimated]
+        __schema24:
+          type: boolean
+        __schema25:
+          type: string
+          enum: [dependency_blocked, blocking_open_work]
+        __schema26:
+          type: string
+          enum: [unassigned_active, stale_in_progress]
+        __schema27:
+          type: string
+          enum: [top_level, children, parents]
+        __schema28:
+          type: string
+          maxLength: 80
+          pattern: ^[A-Z0-9]{2,8}-[1-9]\d*$
+        __schema29:
+          type: string
+          enum: [exclude, include, only]
+        __schema30:
+          type: string
+          maxLength: 120
+        __schema31:
+          type: string
+          enum: [updated_desc, updated_asc, priority_desc, priority_asc, due_date_asc, created_desc, board_order]
+        __schema32:
+          type: string
+          enum: [work_items, milestones, scope_conditions, estimate_points]
+        __schema33:
+          type: object
+          properties: {totalCount: {type: integer, minimum: 0, maximum: 9007199254740991}, completedCount: {type: integer, minimum: 0, maximum: 9007199254740991}, canceledCount: {type: integer, minimum: 0, maximum: 9007199254740991}, unfinishedCount: {type: integer, minimum: 0, maximum: 9007199254740991}, retainedCount: {type: integer, minimum: 0, maximum: 9007199254740991}, movedCount: {type: integer, minimum: 0, maximum: 9007199254740991}, committedEstimatePoints: {type: integer, minimum: 0, maximum: 9007199254740991}, completedEstimatePoints: {type: integer, minimum: 0, maximum: 9007199254740991}, unfinishedEstimatePoints: {type: integer, minimum: 0, maximum: 9007199254740991}, unestimatedUnfinishedCount: {type: integer, minimum: 0, maximum: 9007199254740991}}
+          required: [totalCount, completedCount, canceledCount, unfinishedCount, retainedCount, movedCount, committedEstimatePoints, completedEstimatePoints, unfinishedEstimatePoints, unestimatedUnfinishedCount]
+          additionalProperties: false
+        __schema34:
+          oneOf: [{type: object, properties: {kind: {type: string, const: cycle}, cycle: {type: object, properties: {id: {type: string, format: uuid, pattern: '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$'}, name: {type: string}, startDate: {type: string, pattern: '^\d{4}-\d{2}-\d{2}$'}, endDate: {type: string, pattern: '^\d{4}-\d{2}-\d{2}$'}}, required: [id, name, startDate, endDate], additionalProperties: false}}, required: [kind, cycle], additionalProperties: false}, {type: object, properties: {kind: {type: string, const: unplanned}, cycle: {type: 'null'}}, required: [kind, cycle], additionalProperties: false}, {type: object, properties: {kind: {type: string, const: none}, cycle: {type: 'null'}}, required: [kind, cycle], additionalProperties: false}]
+        __schema35:
+          type: object
+          properties: {completed: {type: array, items: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema36'}}, canceled: {type: array, items: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema36'}}, unfinished: {type: array, items: {$ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2/$defs/__schema36'}}}
+          required: [completed, canceled, unfinished]
+          additionalProperties: false
+        __schema36:
+          type: object
+          properties: {id: {type: string, format: uuid, pattern: '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$'}, displayKey: {type: string, minLength: 1}, title: {type: string}, status: {type: string, enum: [backlog, ready, in_progress, blocked, done, canceled]}, priority: {type: string, enum: [low, medium, high, urgent]}, assignee: {anyOf: [{type: object, properties: {id: {type: string, format: uuid, pattern: '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$'}, name: {type: string}}, required: [id, name], additionalProperties: false}, {type: 'null'}]}, estimatePoints: {anyOf: [{type: integer, minimum: 0, maximum: 9007199254740991}, {type: 'null'}]}, dependencyBlocked: {type: boolean}}
+          required: [id, displayKey, title, status, priority, assignee, estimatePoints, dependencyBlocked]
+          additionalProperties: false
+      description: >-
+        Frozen version 2 for new evidence, with explicit count units. Unestimated reasons require estimateState=unestimated
+        and workState=open. API additionally rejects contradictory query fields and enforces closeout count/category and
+        record-binding refinements.
     Member:
       type: object
       required: [id, workspaceId, name, email, role, isActive, deactivatedAt, createdAt, updatedAt]
@@ -3674,59 +4151,14 @@ components:
           items:
             $ref: "#/components/schemas/PlanningRiskItem"
     ProjectStatusReportSnapshot:
-      type: object
-      required:
-        - snapshotVersion
-        - generatedAt
-        - project
-        - health
-        - counts
-        - milestones
-        - risks
-        - recentWork
-      properties:
-        snapshotVersion:
-          const: 1
-        generatedAt:
-          type: string
-          format: date-time
-        project:
-          type: object
-          required: [id, key, name, status]
-          properties:
-            id:
-              type: string
-              format: uuid
-            key:
-              type: string
-            name:
-              type: string
-            status:
-              $ref: "#/components/schemas/ProjectStatus"
-        health:
-          $ref: "#/components/schemas/ProjectDeliveryHealth"
-        counts:
-          $ref: "#/components/schemas/ProjectStatusReportCountSnapshot"
-        milestones:
-          type: array
-          description: Active and planned milestone summaries captured when the report snapshot was generated.
-          items:
-            $ref: "#/components/schemas/ProjectStatusReportMilestoneSnapshot"
-        cycle:
-          anyOf:
-            - $ref: "#/components/schemas/ProjectStatusReportCycleSnapshot"
-            - type: "null"
-          description: Active-cycle summary captured when the report snapshot was generated; omitted on legacy snapshots and null when no active cycle existed.
-        risks:
-          type: array
-          description: Fixed-order risk sections captured when the report snapshot was generated.
-          items:
-            $ref: "#/components/schemas/ProjectStatusReportRiskSnapshot"
-        recentWork:
-          type: array
-          maxItems: 8
-          items:
-            $ref: "#/components/schemas/PlanningRiskItem"
+      oneOf:
+        - $ref: '#/components/schemas/ProjectStatusReportSnapshotV1'
+        - $ref: '#/components/schemas/ProjectStatusReportSnapshotV2'
+      discriminator:
+        propertyName: snapshotVersion
+      description: >-
+        Readers accept 1 and 2. New drafts/closeouts use 2. Valid v1 drafts remain publishable; replay returns the original
+        stored version.
     ProjectStatusReportSummary:
       type: object
       required: [id, workspaceId, projectId, title, statusDate, health, author, publishedAt, createdAt]
@@ -3897,10 +4329,17 @@ components:
               minimum: 0
     MilestoneReviewRiskSection:
       type: object
-      required: [type, title, description, count, query, items]
+      required:
+        - type
+        - title
+        - description
+        - count
+        - query
+        - items
+        - countUnit
       properties:
         type:
-          $ref: "#/components/schemas/MilestoneReviewRiskType"
+          $ref: '#/components/schemas/MilestoneReviewRiskType'
         title:
           type: string
         description:
@@ -3908,13 +4347,16 @@ components:
         count:
           type: integer
           minimum: 0
+          description: Distinct within-category count in countUnit. Category sums are risk signals, not unique items. Over target risk section is one scope condition; its preview shows related scope.
         query:
-          $ref: "#/components/schemas/WorkItemQuery"
+          $ref: '#/components/schemas/WorkItemQuery'
         items:
           type: array
           description: Preview rows capped by the API; use the query to open the complete filtered project Work list.
-          items:
-            $ref: "#/components/schemas/PlanningRiskItem"
+          items: {$ref: '#/components/schemas/PlanningRiskItem'}
+        countUnit:
+          type: string
+          enum: [work_items]
     MilestoneReview:
       type: object
       required:
@@ -4052,10 +4494,17 @@ components:
               minimum: 0
     CycleReviewRiskSection:
       type: object
-      required: [type, title, description, count, query, items]
+      required:
+        - type
+        - title
+        - description
+        - count
+        - query
+        - items
+        - countUnit
       properties:
         type:
-          $ref: "#/components/schemas/CycleReviewRiskType"
+          $ref: '#/components/schemas/CycleReviewRiskType'
         title:
           type: string
         description:
@@ -4063,13 +4512,16 @@ components:
         count:
           type: integer
           minimum: 0
+          description: Distinct within-category count in countUnit. Category sums are risk signals, not unique items. Over target risk section is one scope condition; its preview shows related scope.
         query:
-          $ref: "#/components/schemas/WorkItemQuery"
+          $ref: '#/components/schemas/WorkItemQuery'
         items:
           type: array
           description: Preview rows capped by the API; use the query to open the complete filtered project Work list.
-          items:
-            $ref: "#/components/schemas/PlanningRiskItem"
+          items: {$ref: '#/components/schemas/PlanningRiskItem'}
+        countUnit:
+          type: string
+          enum: [work_items, scope_conditions]
     CycleReviewHealth:
       type: object
       required: [health, reasons]
@@ -4119,23 +4571,31 @@ components:
             - type: "null"
     DeliveryHealthReason:
       type: object
-      required: [key, severity, message, count, query]
+      required:
+        - key
+        - severity
+        - message
+        - count
+        - query
+        - countUnit
       properties:
         key:
-          $ref: "#/components/schemas/DeliveryHealthReasonKey"
+          $ref: '#/components/schemas/DeliveryHealthReasonKey'
         severity:
-          $ref: "#/components/schemas/DeliveryHealthSeverity"
+          $ref: '#/components/schemas/DeliveryHealthSeverity'
         message:
           type: string
           examples: [1 blocked work item, 2 due-soon work items]
         count:
           type: integer
           minimum: 0
+          description: Distinct within-category count in countUnit. Category sums are risk signals, not unique items. Over target risk section is one scope condition; its preview shows related scope.
         query:
-          anyOf:
-            - $ref: "#/components/schemas/WorkItemQuery"
-            - type: "null"
+          anyOf: [{$ref: '#/components/schemas/WorkItemQuery'}, {type: 'null'}]
           description: Work item filter query when the reason can be represented by the current query contract.
+        countUnit:
+          type: string
+          enum: [work_items, milestones, scope_conditions, estimate_points]
     ProjectDeliveryHealth:
       type: object
       required:
@@ -4682,73 +5142,14 @@ components:
       discriminator:
         propertyName: kind
     ProjectCycleCloseoutSnapshot:
-      type: object
-      required: [snapshotVersion, project, cycle, closedAt, closedBy, health, counts, destination, items]
-      properties:
-        snapshotVersion:
-          type: integer
-          const: 1
-        project:
-          type: object
-          required: [id, key, name]
-          properties:
-            id:
-              type: string
-              format: uuid
-            key:
-              type: string
-            name:
-              type: string
-        cycle:
-          type: object
-          required: [id, name, goal, status, startDate, endDate, targetPoints]
-          properties:
-            id:
-              type: string
-              format: uuid
-            name:
-              type: string
-            goal:
-              type: string
-            status:
-              type: string
-              const: active
-            startDate:
-              type: string
-              format: date
-            endDate:
-              type: string
-              format: date
-            targetPoints:
-              type: [integer, "null"]
-              minimum: 1
-        closedAt:
-          type: string
-          format: date-time
-        closedBy:
-          $ref: "#/components/schemas/ProjectCycleCloseoutMemberIdentity"
-        health:
-          $ref: "#/components/schemas/CycleReviewHealth"
-        counts:
-          $ref: "#/components/schemas/ProjectCycleCloseoutCounts"
-        destination:
-          $ref: "#/components/schemas/ProjectCycleCloseoutDestination"
-        items:
-          type: object
-          required: [completed, canceled, unfinished]
-          properties:
-            completed:
-              type: array
-              items:
-                $ref: "#/components/schemas/ProjectCycleCloseoutItemSnapshot"
-            canceled:
-              type: array
-              items:
-                $ref: "#/components/schemas/ProjectCycleCloseoutItemSnapshot"
-            unfinished:
-              type: array
-              items:
-                $ref: "#/components/schemas/ProjectCycleCloseoutItemSnapshot"
+      oneOf:
+        - $ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV1'
+        - $ref: '#/components/schemas/ProjectCycleCloseoutSnapshotV2'
+      discriminator:
+        propertyName: snapshotVersion
+      description: >-
+        Readers accept 1 and 2. New drafts/closeouts use 2. Valid v1 drafts remain publishable; replay returns the original
+        stored version.
     ProjectCycleCloseout:
       type: object
       required: [id, workspaceId, projectId, cycleId, closedAt, closedBy, destinationCycleId, snapshot]

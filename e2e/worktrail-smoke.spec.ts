@@ -251,10 +251,11 @@ test('pages project and workspace work without losing navigation context', async
   await expect(projectResults.getByRole('heading', { name: '1-10 of 18 work items' })).toBeVisible();
 
   await projectPager.getByRole('button', { name: 'Page 2' }).click();
-  await page.locator('form.filters').getByLabel('Status').selectOption('ready');
+  await page.locator('form.filters').getByRole('combobox', { name: 'Status', exact: true }).selectOption('ready');
+  await page.locator('form.filters').getByRole('button', { name: 'Apply', exact: true }).click();
   await expect(page).toHaveURL(/status=ready/);
   await expect(page).not.toHaveURL(/page=2/);
-  await expect(page.getByLabel('Active filters')).toContainText('Status: ready');
+  await expect(page.getByLabel('Active filters')).toContainText('Status: Ready');
 
   await page.goto(`/projects/${demoProjectId}/work-items?page=2&pageSize=10`);
   await page.getByRole('button', { name: 'Open pinned shared view Ready for QA' }).click();
@@ -511,6 +512,7 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
   await page.goto(`/projects/${demoProjectId}/work-items`);
   await page.getByText('Advanced filters').click();
   await page.locator('form.filters').getByLabel('Milestone').selectOption({ label: milestone });
+  await page.locator('form.filters').getByRole('button', { name: 'Apply', exact: true }).click();
   await expect(page.getByText(`Milestone: ${milestone}`)).toBeVisible();
   await expect(page.getByRole('row', { name: new RegExp(title) })).toBeVisible();
 
@@ -649,6 +651,7 @@ test('completes the v0.0.5 daily workspace workflow', async ({ page }) => {
   await page.goto('/work-items');
   await expect(workspaceWorkItemsHeading(page)).toBeVisible();
   await page.locator('form.filters').getByLabel('Search').fill(title);
+  await page.locator('form.filters').getByRole('button', { name: 'Apply', exact: true }).click();
   await expect(page).toHaveURL(/search=/);
   await expect(page.getByText(`Search: ${title}`)).toBeVisible();
   await expect(page.getByRole('row', { name: new RegExp(title) })).toBeVisible();
@@ -671,10 +674,12 @@ test('persists v0.1.2 workspace filters through URL reloads', async ({ page, req
   await expect(workspaceWorkItemsHeading(page)).toBeVisible();
 
   await page.locator('form.filters').getByLabel('Search').fill(title);
+  await page.locator('form.filters').getByRole('button', { name: 'Apply', exact: true }).click();
   await expect(page).toHaveURL(/search=/);
   await expect(page.getByText(`Search: ${title}`)).toBeVisible();
 
-  await page.locator('form.filters').getByLabel('Status').selectOption('ready');
+  await page.locator('form.filters').getByRole('combobox', { name: 'Status', exact: true }).selectOption('ready');
+  await page.locator('form.filters').getByRole('button', { name: 'Apply', exact: true }).click();
   await expect(page).toHaveURL(/status=ready/);
   await expect(page.getByText('Status: Ready')).toBeVisible();
   await expect(page.getByRole('row', { name: new RegExp(title) })).toBeVisible();
@@ -759,7 +764,7 @@ test('opens and saves v0.1.4 project saved views as owner and contributor', asyn
   await openSavedViewFromCompactControl(page, 'Ready for QA');
   await expect(page).toHaveURL(/\/projects\/10000000-0000-4000-8000-000000000201\/work-items\?/);
   await expect(page).toHaveURL(/status=ready/);
-  await expect(page.getByText('Status: ready')).toBeVisible();
+  await expect(page.getByText('Status: Ready')).toBeVisible();
   await expect(page.getByRole('row', { name: /Add filter controls to work item list/ })).toBeVisible();
 
   await openSaveViewForm(page);
@@ -775,7 +780,7 @@ test('opens and saves v0.1.4 project saved views as owner and contributor', asyn
   await selectManagedSavedView(page, personalViewName);
   await openSavedViewFromCompactControl(page, personalViewName);
   await expect(page).toHaveURL(/status=ready/);
-  await expect(page.getByText('Status: ready')).toBeVisible();
+  await expect(page.getByText('Status: Ready')).toBeVisible();
   await expect(page.getByRole('row', { name: /Add filter controls to work item list/ })).toBeVisible();
 
   await page.locator('#current-member').selectOption({ label: 'Casey Contributor · contributor' });
@@ -795,7 +800,7 @@ test('opens and saves v0.1.4 project saved views as owner and contributor', asyn
 
   await openSavedViewFromCompactControl(page, 'Ready for QA');
   await expect(page).toHaveURL(/status=ready/);
-  await expect(page.getByText('Status: ready')).toBeVisible();
+  await expect(page.getByText('Status: Ready')).toBeVisible();
   await expect(page.getByRole('row', { name: /Add filter controls to work item list/ })).toBeVisible();
 });
 
@@ -836,7 +841,7 @@ test('opens seeded v0.1.5 pinned workspace and project saved views', async ({ pa
   await page.getByRole('button', { name: 'Open pinned shared view Ready for QA' }).click();
   await expect(page).toHaveURL(/\/projects\/10000000-0000-4000-8000-000000000201\/work-items\?/);
   await expect(page).toHaveURL(/status=ready/);
-  await expect(page.getByText('Status: ready')).toBeVisible();
+  await expect(page.getByText('Status: Ready')).toBeVisible();
   await expect(page.getByRole('row', { name: /Add filter controls to work item list/ })).toBeVisible();
 
   await page.locator('#current-member').selectOption({ label: 'Casey Contributor · contributor' });
@@ -914,6 +919,7 @@ test('creates and opens a v0.1.5 pinned personal workspace saved view shortcut',
   await page.locator('#current-member').selectOption({ label: 'Avery Owner · owner' });
   await page.getByText('Advanced filters').click();
   await page.locator('form.filters').getByLabel('Assignee').selectOption({ label: 'Avery Owner' });
+  await page.locator('form.filters').getByRole('button', { name: 'Apply', exact: true }).click();
   await expect(page).toHaveURL(/assigneeId=10000000-0000-4000-8000-000000000101/);
   await expect(page.getByText('Assignee: Avery Owner')).toBeVisible();
 
@@ -1505,6 +1511,7 @@ test('imports project work items from CSV and exports filtered results', async (
   await page.getByRole('link', { name: 'Project list' }).click();
   await expect(page.getByRole('heading', { name: 'Project work items' })).toBeVisible();
   await page.getByLabel('Search').fill(firstTitle);
+  await page.locator('form.filters').getByRole('button', { name: 'Apply', exact: true }).click();
   await expect(page.getByText(`Search: ${firstTitle}`)).toBeVisible();
   await expect(page.getByRole('row', { name: new RegExp(firstTitle) })).toBeVisible();
 

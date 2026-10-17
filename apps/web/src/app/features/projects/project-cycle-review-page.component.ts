@@ -1,3 +1,4 @@
+import { snapshotCountLabel } from '@worktrail/contracts';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -33,7 +34,7 @@ import { WorkItemParentPillComponent } from '../../shared/work-items/work-item-p
 import { routerLinkQueryParamsFromWorkItemQuery } from '../work-items/query/work-item-query-serialization';
 import { CycleCloseoutResultComponent } from './cycle-closeout/cycle-closeout-result.component';
 
-const visibleRiskItemLimit = 4;
+const visibleRiskItemLimit = 5;
 const workItemStatuses: WorkItemStatus[] = [
   'backlog',
   'ready',
@@ -301,7 +302,7 @@ interface BreakdownMetric {
               <p class="eyebrow">Risks</p>
               <h2 id="risk-sections-heading">Needs attention</h2>
             </div>
-            <span>{{ totalRiskCount(review) }} items</span>
+            <span>{{ totalRiskCount(review) }} risk signals</span>
           </div>
 
           @if (review.riskSections.length === 0) {
@@ -317,6 +318,7 @@ interface BreakdownMetric {
                     <div>
                       <h3 [id]="riskHeadingId(section)">{{ section.title }}</h3>
                       <p>{{ section.description }}</p>
+                    <span>{{ riskCountLabel(section) }}</span>
                     </div>
                     <a
                       [routerLink]="['/projects', projectId(), 'work-items']"
@@ -908,6 +910,7 @@ interface BreakdownMetric {
   `
 })
 export class ProjectCycleReviewPageComponent implements OnInit, OnDestroy {
+  readonly riskCountLabel = snapshotCountLabel;
   private readonly route = inject(ActivatedRoute);
   private readonly cyclesApi = inject(CyclesApi);
   private readonly currentUser = inject(CurrentUserService);
@@ -1068,7 +1071,7 @@ export class ProjectCycleReviewPageComponent implements OnInit, OnDestroy {
   }
 
   hiddenRiskItemCount(section: CycleReviewRiskSectionDto): number {
-    return Math.max(section.count - visibleRiskItemLimit, 0);
+    return section.countUnit === 'work_items' ? Math.max(section.count - visibleRiskItemLimit, 0) : 0;
   }
 
   detailQueryParams(): { returnUrl: string } {

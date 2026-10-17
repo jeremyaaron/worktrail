@@ -4,11 +4,11 @@ import type {
   MilestoneProgressDto,
   ProjectStatusReportCountSnapshotDto,
   ProjectCycleReviewDto,
-  ProjectStatusReportCycleSnapshotDto,
+  ProjectStatusReportCycleSnapshotV2Dto as ProjectStatusReportCycleSnapshotDto,
   ProjectStatusReportDetailDto,
   ProjectStatusReportDraftDto,
-  ProjectStatusReportLinkDto,
-  ProjectStatusReportMilestoneSnapshotDto,
+  ProjectStatusReportLinkV2Dto as ProjectStatusReportLinkDto,
+  ProjectStatusReportMilestoneSnapshotV2Dto as ProjectStatusReportMilestoneSnapshotDto,
   ProjectStatusReportSnapshotDto,
   ProjectStatusReportSummaryDto
 } from '@worktrail/contracts';
@@ -40,6 +40,7 @@ import {
   toPlanningRiskItems
 } from './work-risk-sections.js';
 import {
+  assertProjectStatusReportSnapshotMatchesRecord,
   parseRequestedProjectStatusReportSnapshot,
   parseStoredProjectStatusReportSnapshot
 } from '../validation/project-status-report-snapshot.js';
@@ -311,9 +312,11 @@ export class ProjectStatusReportService {
   }
 
   private withParsedStoredSnapshot(report: ProjectStatusReport): ProjectStatusReport {
+    const snapshot = parseStoredProjectStatusReportSnapshot(report.snapshot);
+    assertProjectStatusReportSnapshotMatchesRecord(snapshot, report);
     return {
       ...report,
-      snapshot: parseStoredProjectStatusReportSnapshot(report.snapshot)
+      snapshot
     };
   }
 
@@ -366,7 +369,7 @@ export class ProjectStatusReportService {
         );
 
     return {
-      snapshotVersion: 1,
+      snapshotVersion: 2,
       generatedAt: input.generatedAt.toISOString(),
       project: {
         id: input.project.id,
