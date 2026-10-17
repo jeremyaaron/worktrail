@@ -5,7 +5,6 @@ export function resetDemoDatabase(): void {
   execFileSync(execPath, ['--input-type=module', '-e',
     "import { assertOwnedDatabase } from './scripts/verification/ownership.mjs'; await assertOwnedDatabase();"
   ], { cwd: process.cwd(), env: process.env, stdio: 'inherit' });
-  if (process.env.WORKTRAIL_E2E_SKIP_DB_RESTORE === 'true') return;
   const env = { ...process.env };
   delete env.NO_COLOR;
   delete env.FORCE_COLOR;

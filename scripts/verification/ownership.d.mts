@@ -5,7 +5,7 @@ export interface VerificationManifest {
   runId: string;
   nonce: string;
   root: string;
-  databaseMode: 'docker' | 'service';
+  databaseMode: 'docker' | 'service' | 'none';
   databaseName: string;
   databaseUrl: string | null;
   adminUrl: string | null;

@@ -9,8 +9,13 @@ import {
   assertOwnedDatabase, childEnvironment, createManifest, createVerificationPool,
   databaseMarker, readCleanupManifest, repositoryRoot, saveManifest
 } from './ownership.mjs';
-import { runCommand } from './processes.mjs';
+import { processIdentity, runCommand } from './processes.mjs';
 import { cleanupRun, prepareApiDatabase, provisionDatabase } from './resources.mjs';
+import { parseArguments } from './arguments.mjs';
+import { runBrowser } from './browser.mjs';
+import { readBrowserContext } from './browser-context.mjs';
+import { selectPort } from './ports.mjs';
+import { prepareWorkspace } from './workspace.mjs';
 
 const require = createRequire(new URL('../../apps/api/package.json', import.meta.url));
 const { escapeIdentifier, escapeLiteral } = require('pg');
@@ -186,6 +191,167 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 
 test('service-mode CLI runs the complete API suite and cleans successfully', async () => {
   const result = await runCli();
-  assert.equal(result.code, 0);
+  assert.equal(result.code, 0, result.output.slice(-8000));
   assert.match(result.output, /API verification passed/);
+});
+
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((done, fail) => { resolve = done; reject = fail; });
+  promise.catch(() => undefined);
+  return { promise, resolve, reject };
+}
+
+test('simultaneous browser runs isolate proxy, builds, results, data and storage; interruption leaves the other usable', { timeout: 240_000 }, async () => {
+  const runs = [];
+  let browser;
+  try {
+    const selected = new Set();
+    for (let index = 0; index < 2; index += 1) {
+      const manifest = await createManifest('service');
+      const run = { manifest, controller: new AbortController(), ready: deferred(), proceed: deferred() };
+      runs.push(run);
+      await provisionDatabase(manifest, { env: { WORKTRAIL_VERIFY_ADMIN_DATABASE_URL: host.databaseUrl } });
+      run.checkout = await prepareWorkspace(manifest);
+      await prepareApiDatabase(manifest, { cwd: run.checkout });
+      await runCommand('npm', ['run', 'db:seed'], { cwd: run.checkout, env: childEnvironment(manifest) });
+      await writeFile(join(manifest.storageRoot, 'isolation-sentinel'), manifest.runId);
+      const pool = createVerificationPool(manifest.databaseUrl);
+      try {
+        await pool.query('create table verification_sentinel(value text)');
+        await pool.query('insert into verification_sentinel values ($1)', [manifest.runId]);
+      } finally { await pool.end(); }
+      const ports = [];
+      for (let count = 0; count < 2; count += 1) {
+        let port;
+        do { port = await selectPort(); } while (selected.has(port) || [3000, 4200, 4317, 4319].includes(port));
+        selected.add(port); ports.push(port);
+      }
+      run.options = parseArguments(['--mode=e2e', '--grep=persists v0.1.2', `--api-port=${ports[0]}`, `--web-port=${ports[1]}`]);
+    }
+    for (const run of runs) {
+      run.finished = runBrowser(run.manifest, run.checkout, 'e2e', run.options, {
+        signal: run.controller.signal,
+        gate: async (_name, operation) => {
+          run.ready.resolve();
+          const abort = () => run.proceed.reject(new Error('browser run interrupted'));
+          run.controller.signal.addEventListener('abort', abort, { once: true });
+          if (run.controller.signal.aborted) abort();
+          try { await run.proceed.promise; await operation(); }
+          finally { run.controller.signal.removeEventListener('abort', abort); }
+        }
+      }).then(() => null, (error) => { run.ready.reject(error); return error; });
+    }
+    for (const run of runs) await run.ready.promise;
+    const [first, second] = runs;
+    assert.notEqual(first.manifest.browser.port, second.manifest.browser.port);
+    assert.notEqual(first.manifest.resultsRoot, second.manifest.resultsRoot);
+    for (const run of runs) {
+      const env = { ...childEnvironment(run.manifest), WORKTRAIL_VERIFY_STAGE: 'e2e',
+        API_PORT: String(run.manifest.browser.apiPort), WORKTRAIL_E2E_HOST: '127.0.0.1',
+        WORKTRAIL_E2E_WEB_PORT: String(run.manifest.browser.port) };
+      await readBrowserContext('e2e', env);
+      await assert.rejects(readBrowserContext('e2e', { ...env, API_PORT: undefined }), /HTTP target fallback/);
+      await assert.rejects(readBrowserContext('e2e', { ...env, API_PORT: '3000' }), /HTTP target fallback/);
+      await assert.rejects(readBrowserContext('e2e', { ...env, WORKTRAIL_E2E_HOST: 'localhost' }), /HTTP target fallback/);
+      const proxy = JSON.parse(await readFile(join(run.manifest.root, 'proxy.json'), 'utf8'));
+      assert.equal(proxy['/api'].target, `http://127.0.0.1:${run.manifest.browser.apiPort}`);
+      assert.equal((await fetch(`${run.manifest.browser.baseURL}/api/health/ready`)).status, 200);
+    }
+    const { chromium } = require('@playwright/test');
+    browser = await chromium.launch();
+    for (const run of runs) {
+      run.page = await browser.newPage();
+      await run.page.goto(`${run.manifest.browser.baseURL}/work-items`);
+      await run.page.getByRole('heading', { level: 1 }).waitFor();
+      assert.match(await run.page.getByRole('heading', { level: 1 }).textContent(), /work items/i);
+    }
+    first.controller.abort();
+    assert.match((await first.finished).message, /interrupted/);
+    await cleanupRun(first.manifest);
+    assert.equal(await databaseExists(first.manifest.databaseName), false);
+    assert.equal(await stat(first.manifest.root).then(() => true, () => false), false);
+    await second.page.reload();
+    await second.page.getByRole('heading', { level: 1 }).waitFor();
+    assert.equal((await fetch(`${second.manifest.browser.baseURL}/api/health/ready`)).status, 200);
+    assert.equal(await readFile(join(second.manifest.storageRoot, 'isolation-sentinel'), 'utf8'), second.manifest.runId);
+    const pool = createVerificationPool(second.manifest.databaseUrl);
+    try {
+      assert.equal((await pool.query('select value from verification_sentinel')).rows[0].value, second.manifest.runId);
+      await assertOwnedDatabase(childEnvironment(second.manifest), pool);
+    } finally { await pool.end(); }
+    second.proceed.resolve();
+    assert.equal(await second.finished, null);
+    const report = JSON.parse(await readFile(join(second.manifest.resultsRoot, 'e2e/report.json'), 'utf8'));
+    assert.equal(report.stats.unexpected, 0);
+    assert.equal(report.stats.expected, 1);
+  } finally {
+    await browser?.close();
+    for (const run of runs) {
+      run.controller.abort();
+      if (run.finished) await run.finished;
+      await cleanupRun(run.manifest);
+    }
+  }
+});
+
+test('editor CLI needs no database or Docker and stops its real browser descendants on SIGTERM', { timeout: 120_000 }, async () => {
+  const sentinel = join(host.storageRoot, 'editor-must-not-touch');
+  await writeFile(sentinel, 'keep');
+  const child = spawn(process.execPath, ['scripts/verify.mjs', '--mode=editor'], {
+    cwd: repositoryRoot,
+    env: { ...process.env, DOCKER_HOST: 'unix:///no-verification-docker.sock',
+      DATABASE_URL: 'postgres://unavailable:unavailable@127.0.0.1:1/no_database',
+      WORKTRAIL_VERIFY_ADMIN_DATABASE_URL: 'postgres://unavailable:unavailable@127.0.0.1:1/no_database',
+      WORKTRAIL_ATTACHMENT_STORAGE_PATH: host.storageRoot },
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+  const complete = new Promise((resolve, reject) => { child.once('close', resolve); child.once('error', reject); });
+  let output = '';
+  let path;
+  let signaled = false;
+  let signaling;
+  let signalingFailure;
+  let timedOut = false;
+  const descendants = [];
+  const timeout = setTimeout(() => { timedOut = true; child.kill('SIGTERM'); }, 90_000);
+  const signalAfterBrowser = async () => {
+    const listing = await runCommand('ps', ['-axo', 'pid=,ppid=,command=']);
+    const records = listing.split('\n').map((line) => /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(line)).filter(Boolean)
+      .map((match) => ({ pid: Number(match[1]), parent: Number(match[2]), command: match[3] }));
+    const owned = new Set([child.pid]);
+    for (let changed = true; changed;) {
+      changed = false;
+      for (const record of records) if (owned.has(record.parent) && !owned.has(record.pid)) { owned.add(record.pid); changed = true; }
+    }
+    for (const record of records.filter((item) => owned.has(item.pid) && item.pid !== child.pid)) {
+      const identity = await processIdentity(record.pid);
+      if (identity) descendants.push({ ...record, identity });
+    }
+    signaled = child.kill('SIGTERM');
+  };
+  child.stdout.on('data', (chunk) => {
+    output += chunk;
+    path ??= /Ownership manifest: ([^\n]+)/.exec(output)?.[1];
+    if (!signaling && output.includes('preserves native typing undo')) signaling = signalAfterBrowser().catch((error) => { signalingFailure = error; child.kill('SIGTERM'); });
+  });
+  child.stderr.on('data', (chunk) => { output += chunk; });
+  try {
+    const code = await complete;
+    await signaling;
+    if (signalingFailure) throw signalingFailure;
+    assert.equal(timedOut, false);
+    assert.equal(signaled, true);
+    assert.equal(code, 143);
+    assert.ok(descendants.some((record) => /chrome-headless-shell|headless_shell|Chromium|Chrome/.test(record.command)), 'Captured a real owned Chromium descendant');
+    for (const record of descendants) assert.notEqual(await processIdentity(record.pid), record.identity, `Owned child ${record.pid} has exited`);
+    assert.equal(await readFile(sentinel, 'utf8'), 'keep');
+    assert.equal(await stat(path).then(() => true, () => false), false);
+    assert.ok(!output.includes('database:provision'));
+  } finally {
+    clearTimeout(timeout);
+    if (child.exitCode === null && child.signalCode === null) { child.kill('SIGTERM'); await complete; }
+    if (path && await stat(path).then(() => true, () => false)) await cleanupRun(await readCleanupManifest(path));
+  }
 });

@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["node"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true
+  },
+  "include": [
+    "playwright*.config.ts",
+    "apps/api/vitest.config.ts",
+    "e2e/**/*.ts",
+    "apps/web/browser-tests/authored-content-editor/*.spec.ts",
+    "apps/web/browser-tests/authored-content-editor/content-benchmark.ts",
+    "scripts/verification/ports.mjs"
+  ]
+}

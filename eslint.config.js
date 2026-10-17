@@ -20,7 +20,8 @@ export default tseslint.config(
     ]
   },
   {
-    files: ['apps/api/src/**/*.ts', 'packages/contracts/src/**/*.ts'],
+    files: ['apps/api/src/**/*.ts', 'packages/contracts/src/**/*.ts', 'apps/api/tests/**/*.ts',
+      'apps/api/vitest.config.ts', 'e2e/**/*.ts', 'playwright*.config.ts', 'apps/web/browser-tests/**/*.ts'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     languageOptions: {
       globals: globals.node
@@ -28,6 +29,12 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', unusedVarsOptions]
     }
+  },
+  {
+    files: ['scripts/**/*.mjs', 'scripts/**/*.cjs'],
+    extends: [js.configs.recommended],
+    languageOptions: { globals: globals.node },
+    rules: { 'no-unused-vars': ['error', unusedVarsOptions] }
   },
   {
     files: ['apps/api/src/**/*.spec.ts', 'packages/contracts/src/**/*.spec.ts'],

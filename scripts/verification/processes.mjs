@@ -18,6 +18,20 @@ function groupExists(pid) {
   catch (error) { if (error.code === 'ESRCH') return false; throw error; }
 }
 
+async function descendantGroups(root) {
+  if (await processIdentity(root.pid) !== root.identity) return [];
+  const { stdout } = await execute('ps', ['-axo', 'pid=,ppid=,pgid='], { timeout: 5_000 });
+  const rows = stdout.trim().split('\n').map((line) => line.trim().split(/\s+/).map(Number));
+  const owned = new Set([root.pid]);
+  for (let changed = true; changed;) {
+    changed = false;
+    for (const [pid, parent] of rows) if (owned.has(parent) && !owned.has(pid)) { owned.add(pid); changed = true; }
+  }
+  // A detached group is owned only after its leader was observed in this child's ancestry tree.
+  // Never infer ownership from a browser executable name or an unrelated port.
+  return rows.filter(([pid, , group]) => pid === group && pid !== root.pid && owned.has(pid)).map(([pid]) => pid);
+}
+
 export async function stopOwnedProcess(record, { allowMissingLeader = false } = {}) {
   const identity = await processIdentity(record.pid);
   if (!identity && !groupExists(record.pid)) return;
@@ -38,7 +52,7 @@ export async function stopOwnedProcess(record, { allowMissingLeader = false } = 
 }
 
 export async function runCommand(command, args, options = {}) {
-  const { manifest, env = process.env, cwd, inherit = false, signal, timeoutMs = inherit ? 300_000 : 60_000 } = options;
+  const { manifest, env = process.env, cwd, inherit = false, signal, timeoutMs = inherit ? 300_000 : 60_000, onStarted, trackDescendants = false } = options;
   if (signal?.aborted) throw new Error('Verification interrupted.');
   const child = spawn(command, args, { cwd, env, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
   const completion = new Promise((resolve) => {
@@ -77,6 +91,12 @@ export async function runCommand(command, args, options = {}) {
   let timedOut = false;
   const deadline = setTimeout(() => { timedOut = true; stop(); }, timeoutMs);
   if (signal?.aborted) stop();
+  let failure;
+  let scanTimer;
+  let scanning = Promise.resolve();
+  let busy = false;
+  let trackingFailure;
+  const subgroups = new Map();
   try {
     if (!record.identity && child.pid && child.exitCode === null && child.signalCode === null) {
       stop();
@@ -84,16 +104,50 @@ export async function runCommand(command, args, options = {}) {
       throw new Error('Could not record verification child identity.');
     }
     if (manifest && record.identity) { manifest.processes.push(record); await saveManifest(manifest); }
+    onStarted?.(record);
+    if (trackDescendants && record.identity) {
+      const scan = async () => {
+        if (busy) return;
+        busy = true;
+        scanning = (async () => {
+          for (const pid of await descendantGroups(record)) {
+            if (subgroups.has(pid)) continue;
+            const identity = await processIdentity(pid);
+            if (!identity) continue;
+            const subgroup = { pid, identity };
+            subgroups.set(pid, subgroup);
+            if (manifest) { manifest.processes.push(subgroup); await saveManifest(manifest); }
+          }
+        })().catch(() => { trackingFailure = new Error('Could not track owned browser descendants.'); }).finally(() => { busy = false; });
+        await scanning;
+      };
+      scanTimer = setInterval(scan, 200);
+    }
     const result = await completion;
     if (signal?.aborted) throw new Error('Verification interrupted.');
     if (timedOut) throw new Error(`Verification command timed out (${command}).`);
     if (result.code !== 0) throw new Error(`Verification command failed (${command}, exit ${result.code}).`);
-    return stdout.trim();
+  } catch (error) {
+    failure = error;
   } finally {
     signal?.removeEventListener('abort', stop);
     clearTimeout(deadline);
+    clearInterval(scanTimer);
+    await scanning;
+    failure ??= trackingFailure;
     if (killTimer) clearTimeout(killTimer);
-    if (record.identity) await stopOwnedProcess(record, { allowMissingLeader: true });
-    if (manifest) { manifest.processes = manifest.processes.filter((item) => item.pid !== record.pid); await saveManifest(manifest); }
+    try {
+      for (const subgroup of [...subgroups.values()].reverse()) await stopOwnedProcess(subgroup, { allowMissingLeader: true });
+      if (record.identity) await stopOwnedProcess(record, { allowMissingLeader: true });
+      if (manifest) {
+        manifest.processes = manifest.processes.filter((item) => item.pid !== record.pid && !subgroups.has(item.pid));
+        await saveManifest(manifest);
+      }
+    } catch (cleanupError) {
+      if (failure) console.error('Child cleanup failed; retaining its manifest record without replacing the command failure.');
+      failure ??= cleanupError;
+    }
   }
+  if (failure) throw failure;
+  return stdout.trim();
 }

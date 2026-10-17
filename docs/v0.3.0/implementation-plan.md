@@ -2,8 +2,8 @@
 
 ## Status
 
-Approved for sequential execution. Phases 0-1 are complete as of October 17, 2026; Phases 2-21 are not
-started. Implementation is in progress; release verification remains pending. Merge, tag, publication,
+Approved for sequential execution. Phases 0-2 are complete as of October 17, 2026; Phases 3-21 are
+not started. Implementation is in progress; release verification remains pending. Merge, tag, publication,
 and Pages deployment remain separate user-controlled actions.
 
 ## Purpose
@@ -80,7 +80,7 @@ integration boundaries.
 | --- | --- | --- |
 | 0 | Baseline, inventories, and decision closure | Complete |
 | 1 | Disposable verification resources and destructive-operation guards | Complete |
-| 2 | Owned browser/full verification, CI, and test-code gates | Not started |
+| 2 | Owned browser/full verification, CI, and test-code gates | Complete |
 | 3 | Compatible toolchain remediation and bounded advisory gate | Not started |
 | 4 | Typed persistence executors and explicit transaction capabilities | Not started |
 | 5 | Batched work hydration, query ownership, and page/export evidence | Not started |
@@ -541,7 +541,46 @@ Verification: full baseline owned run, parallel/signal/port-collision scenarios,
 lint/test-code typechecks, and CI configuration review. Remote CI success is separate evidence from the
 local runner passing.
 
-Status: Not started.
+Status: Complete (October 17, 2026).
+
+### Completion Evidence
+
+- `npm run verify` now defaults to full verification; API/E2E/preview/editor/site modes and root
+  application/browser UI commands use the same owner without recursive invocation. UI completion
+  is explicitly interactive, not a passing automated test result.
+- Runs snapshot source, config, documentation fixtures, and package links into private workspaces.
+  Builds, caches, editor compilation, native browser profiles, and compiled previews do not share
+  writable checkout outputs. Ports are selected before migration/seed and propagated with one
+  absolute storage root. The generated proxy targets the owned API; copied Angular configuration
+  disables persistent caching/prebundling without modifying developer configuration.
+- Playwright consumes validated context and starts no servers itself. Readiness checks the child
+  fingerprint and run-specific HTTP identity. Missing/mismatched API ports or host cannot fall back
+  to port 3000. Explicit occupied ports fail without killing occupants; automatic handoff conflicts
+  have bounded startup retries, never test retries.
+- Browser teardown restoration was removed. Fixture resets still validate live database ownership;
+  fresh stores are initialized before reset and seed. Normal, failed, partial, signal, and explicit
+  abandoned cleanup retain the Phase 1 guards. Detached browser groups observed under an owned child
+  are recorded and stopped; secondary cleanup failures preserve the original test/startup failure.
+- Added scoped lint/typecheck gates for API tests/support/config, browser/config TypeScript, runner
+  support, and the real editor benchmark Window contract. Fixed the newly covered unused import and
+  masking cleanup throw without weakening production strictness. Karma/Jasmine retain their suite
+  and use Playwright's installed Chromium through a small launcher with private profile/port.
+- Final full Docker verification passed 25 resource tests, 601 API tests (51 files), 54 contracts
+  tests (12 files), 652 Angular tests, 5 editor browser tests, 34 application E2E tests, and 1 compiled
+  preview test. Audit/lint/typechecks/build/site gates passed; production audit found zero findings,
+  initial production output was 386.62 kB, and unchanged production budgets emitted no warnings.
+- All 10 real lifecycle checks passed on the final code with no skipped cases. Two simultaneous
+  nondefault-port app runs rendered successfully; interrupting one removed only its resources while
+  the other reloaded, retained its SQL/file sentinels, and passed its focused browser regression.
+  Editor interruption proved database/Docker independence and exit of real Chromium descendants.
+- CI now installs dependencies/browser runtime and invokes owned full service-mode verification,
+  preserving visible gates and failure artifacts. A local full service-mode baseline also passed
+  against an owned Docker administrator; remote CI was not dispatched. README and
+  [verification notes](verification-notes.md) record commands, counts, diagnostics, and limits.
+- Earlier setup failures, a fixture request-environment leak, and concurrent transient HTTP/render
+  failures remain separate diagnostic evidence. They were not accepted via retries or timeout
+  increases. All accepted runs cleaned their owned resources; no working database/storage or
+  unrelated server was reset or stopped. Versions, dependencies, and lockfile remain unchanged.
 
 ## Phase 3: Compatible Toolchain Remediation
 

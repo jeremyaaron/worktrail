@@ -11,7 +11,7 @@ jobs:
     name: Verify
     runs-on: ubuntu-latest
     env:
-      DATABASE_URL: postgres://worktrail:worktrail@localhost:5432/worktrail
+      WORKTRAIL_VERIFY_ADMIN_DATABASE_URL: postgres://worktrail:worktrail@localhost:5432/worktrail
 
     services:
       postgres:
@@ -41,43 +41,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Audit production dependencies
-        run: npm audit --omit=dev --audit-level=low
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Prepare database
-        run: npm run db:reset && npm run db:migrate && npm run db:seed
-
-      - name: Test
-        run: npm test
-
-      - name: Build
-        run: npm run build
-
       - name: Install browser test runtime
         run: npx playwright install --with-deps chromium
 
-      - name: Test authored-content editor
-        run: npm run test:editor
-
-      - name: Test application browser workflows
-        env:
-          WORKTRAIL_ATTACHMENT_STORAGE_PATH: ${{ runner.temp }}/worktrail-original-attachments
-          WORKTRAIL_E2E_ATTACHMENT_STORAGE_PATH: ${{ runner.temp }}/worktrail-e2e-attachments
-          WORKTRAIL_E2E_WEB_PORT: 4315
-          API_PORT: 3000
-        run: npm run test:e2e
-
-      - name: Test compiled production preview
-        env:
-          WORKTRAIL_ATTACHMENT_STORAGE_PATH: ${{ runner.temp }}/worktrail-original-attachments
-          API_PORT: 4319
-        run: npx playwright test --config playwright.production.config.ts
+      - name: Verify owned full workflow
+        run: npm run verify -- --database=service
 
       - name: Upload browser failure evidence
         if: failure()

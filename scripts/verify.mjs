@@ -2,16 +2,18 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { parseArguments } from './verification/arguments.mjs';
-import {
-  assertOwnedDatabase, childEnvironment, createManifest, readCleanupManifest, repositoryRoot, saveManifest
-} from './verification/ownership.mjs';
+import { runBrowser } from './verification/browser.mjs';
+import { childEnvironment, createManifest, readCleanupManifest, saveManifest } from './verification/ownership.mjs';
 import { processIdentity, runCommand } from './verification/processes.mjs';
+import { planBrowserPorts, selectPort } from './verification/ports.mjs';
 import { cleanupRun, prepareApiDatabase, provisionDatabase } from './verification/resources.mjs';
+import { checkSite } from './verification/site.mjs';
+import { prepareWorkspace } from './verification/workspace.mjs';
 
 async function main() {
   const options = parseArguments(process.argv.slice(2));
   if (options.help) {
-    console.log('Phase 1: npm run verify -- --mode=api [--database=docker|service]\nService provisioning requires WORKTRAIL_VERIFY_ADMIN_DATABASE_URL.\nAbandoned run: npm run verify -- --cleanup /absolute/run/manifest.json\nOther verification modes arrive in Phase 2.');
+    console.log('npm run verify [--mode=full|api|e2e|preview|editor|site] [--database=docker|service]\nDefault: full with disposable Docker PostgreSQL 16. Editor/site need no database.\nService provisioning requires WORKTRAIL_VERIFY_ADMIN_DATABASE_URL.\nBrowser options: --api-port=N --web-port=N --preview-port=N --editor-port=N\nFocused browser selection: --grep=expression. Interactive application tests: --mode=e2e --ui\nAbandoned run: npm run verify -- --cleanup /absolute/run/manifest.json');
     return;
   }
   if (options.cleanup) {
@@ -21,7 +23,6 @@ async function main() {
     console.log('Owned abandoned verification resources removed.');
     return;
   }
-
   const controller = new AbortController();
   let interrupted = null;
   const interrupt = (signal) => { interrupted ??= signal; controller.abort(); };
@@ -32,23 +33,70 @@ async function main() {
   let manifest;
   let failure;
   let cleaned = false;
+  const gates = [];
+  const gate = async (name, operation) => {
+    console.log(`\n=== ${name} ===`);
+    const start = Date.now();
+    const record = { name, passed: false, durationMs: 0 };
+    gates.push(record);
+    try { await operation(); record.passed = options.ui && name.startsWith('browser:') ? null : true; }
+    finally { record.durationMs = Date.now() - start; }
+  };
   try {
-    manifest = await createManifest(options.database);
+    const database = ['editor', 'site'].includes(options.mode) ? 'none' : options.database;
+    manifest = await createManifest(database);
     const identity = await processIdentity(process.pid);
     if (!identity) throw new Error('Could not record verification owner identity.');
     manifest.owner = { pid: process.pid, identity };
     await saveManifest(manifest);
     console.log(`Verification run ${manifest.runId}\nOwnership manifest: ${join(manifest.root, 'manifest.json')}`);
-    await provisionDatabase(manifest, { signal: controller.signal });
-    await assertOwnedDatabase(childEnvironment(manifest));
-    await prepareApiDatabase(manifest, { signal: controller.signal });
-    const env = childEnvironment(manifest);
-    await runCommand('npm', ['run', 'test:verification'], {
-      manifest, env, cwd: repositoryRoot, inherit: true, signal: controller.signal
+    manifest.ports = await planBrowserPorts(options.mode, options.ports);
+    await saveManifest(manifest);
+    const checkout = await prepareWorkspace(manifest);
+    const npm = (args, env = childEnvironment(manifest), timeoutMs = 600_000) => runCommand('npm', args, {
+      manifest, env, cwd: checkout, inherit: true, signal: controller.signal, timeoutMs, trackDescendants: true
     });
-    await runCommand('npm', ['run', 'test', '--workspace', '@worktrail/api'], {
-      manifest, env, cwd: repositoryRoot, inherit: true, signal: controller.signal
-    });
+    const npmGate = (name, args, env) => gate(name, () => npm(args, env));
+    if (options.mode === 'full') {
+      await npmGate('audit:production', ['audit', '--omit=dev', '--audit-level=low']);
+      await npmGate('lint', ['run', 'lint']);
+      await npmGate('typecheck', ['run', 'typecheck']);
+    }
+    if (database !== 'none') {
+      await gate('database:provision', () => provisionDatabase(manifest, { signal: controller.signal }));
+      await gate('database:migrate', () => prepareApiDatabase(manifest, { signal: controller.signal, cwd: checkout }));
+    }
+    if (['api', 'full'].includes(options.mode)) {
+      await npmGate('test:resources', ['run', 'test:verification']);
+      await npmGate('test:api', ['run', 'test', '--workspace', '@worktrail/api']);
+    }
+    if (options.mode === 'full') {
+      await npmGate('test:contracts', ['run', 'test', '--workspace', '@worktrail/contracts']);
+      const karmaPort = await selectPort();
+      manifest.ports = { ...manifest.ports, karma: karmaPort };
+      await saveManifest(manifest);
+      await gate('test:web', () => npm(['run', 'ng', '--workspace', '@worktrail/web', '--', 'test', '--watch=false', '--karma-config', join(checkout, 'scripts/verification/karma.config.cjs')], {
+        ...childEnvironment(manifest), WORKTRAIL_VERIFY_KARMA_PORT: String(karmaPort)
+      }));
+    }
+    if (['full', 'preview'].includes(options.mode)) await npmGate('build:production', ['run', 'build']);
+    const browser = async (kind) => {
+      if (kind !== 'editor') {
+        const env = { ...childEnvironment(manifest), API_PORT: String(kind === 'preview' ? manifest.ports.preview : manifest.ports.api) };
+        if (options.mode === 'full') await npmGate(`database:${kind}:reset`, ['run', 'db:reset'], env);
+        if (options.mode === 'full') await npmGate(`database:${kind}:migrate`, ['run', 'db:migrate'], env);
+        await gate(`storage:${kind}:initialize`, () => runCommand(process.execPath, ['--import', 'tsx', 'scripts/verification/prepare-storage.mjs'], {
+          manifest, env, cwd: checkout, inherit: true, signal: controller.signal
+        }));
+        await npmGate(`storage:${kind}:reset`, ['run', 'storage:reset'], env);
+        await npmGate(`database:${kind}:seed`, ['run', 'db:seed'], env);
+      }
+      await runBrowser(manifest, checkout, kind, options, { signal: controller.signal, gate });
+    };
+    if (options.mode === 'full' || options.mode === 'editor') await browser('editor');
+    if (options.mode === 'full' || options.mode === 'e2e') await browser('e2e');
+    if (options.mode === 'full' || options.mode === 'preview') await browser('preview');
+    if (options.mode === 'full' || options.mode === 'site') await gate('site:assets-links', () => checkSite(checkout));
   } catch (error) { failure = error; }
   finally {
     if (manifest) {
@@ -58,22 +106,21 @@ async function main() {
         failure ??= error;
       }
       try {
-        const output = join(repositoryRoot, 'test-results', 'verification', manifest.runId);
-        await mkdir(output, { recursive: true });
-        await writeFile(join(output, 'summary.json'), JSON.stringify({
-          runId: manifest.runId, mode: options.mode, database: options.database,
-          passed: !failure && !interrupted, cleaned, interrupted
+        await mkdir(manifest.resultsRoot, { recursive: true });
+        await writeFile(join(manifest.resultsRoot, 'summary.json'), JSON.stringify({
+          runId: manifest.runId, mode: options.mode, database: manifest.databaseMode,
+          passed: failure || interrupted ? false : options.ui ? null : true,
+          interactive: options.ui, cleaned, interrupted, gates
         }, null, 2) + '\n');
-      } catch {
-        failure ??= new Error('Could not write verification summary.');
-      }
+      } catch { failure ??= new Error('Could not write verification summary.'); }
     }
     process.removeListener('SIGINT', sigint);
     process.removeListener('SIGTERM', sigterm);
   }
   if (interrupted) { process.exitCode = interrupted === 'SIGINT' ? 130 : 143; return; }
   if (failure) throw failure;
-  console.log('API verification passed; owned resources removed.');
+  console.log(options.ui ? 'Interactive E2E session closed; owned resources removed.' :
+    `${options.mode === 'api' ? 'API' : options.mode} verification passed; owned resources removed.`);
 }
 
 main().catch((error) => { console.error(error.message); process.exitCode = 1; });

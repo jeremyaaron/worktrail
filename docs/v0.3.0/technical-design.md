@@ -6,7 +6,7 @@ Implementation baseline, confirmed during Phase 0 on October 17, 2026. This desi
 direction in the [PRD](prd.md), informed by the
 [UX audit](ux-audit.md), [technical debt audit](tech-debt-audit.md), and
 [public site audit](site-audit.md). The [implementation plan](implementation-plan.md) records Phase 0
-inventories, closed choices, sequencing, and acceptance. Phase 1 verification safety is complete;
+inventories, closed choices, sequencing, and acceptance. Phases 1-2 verification foundations are complete;
 implementation is in progress.
 
 ## Summary

@@ -551,21 +551,38 @@ Delivery health is derived at read time from milestones, cycles, work item statu
 
 ## Verification
 
-The v0.3.0 verification foundation currently provides safe API verification (Phase 1):
+The verification runner owns disposable resources for the full workflow and focused checks:
 
 ```sh
+npm run verify
 npm run verify -- --mode=api
-npm run test:verification
-npm run test:verification:integration
-npm run test --workspace @worktrail/api -- --project=unit
+npm run test:e2e
+npm run test:preview
+npm run test:editor
+npm run test:site
 ```
 
-API verification creates its own PostgreSQL 16 Docker container/database and private temporary
-attachment root, applies migrations, runs resource-owner and API tests, and removes only its owned
-resources. Process ownership currently uses macOS/Linux `ps` and POSIX process groups. Start Docker
-Desktop first. `npm run verify` currently defaults to API mode; the complete
-browser/editor/site orchestration arrives in Phase 2. The lifecycle integration command also owns
-its disposable Docker database; the resource unit and API unit commands do not need PostgreSQL.
+Run `npm ci` first. Full/E2E/preview/editor modes also need `npx playwright install chromium`
+(Linux may need `npx playwright install --with-deps chromium`). Start Docker Desktop for
+full/API/E2E/preview modes, or explicitly select service provisioning below.
+Process ownership uses macOS/Linux `ps` and POSIX process groups. Editor and site modes never
+provision or connect to PostgreSQL; site mode does not need a browser runtime.
+
+`npm run verify` defaults to full verification: strict production dependency audit, lint, scoped
+test/config typechecks, workspace typechecks, resource/API/contracts/Angular tests, production build,
+standalone editor, application E2E, compiled preview, and current site assets/local fragments. Karma/Jasmine
+still execute the Angular suite; their verification launcher uses Playwright's installed Chromium.
+The runner does not install dependencies or browser binaries itself.
+
+Each run snapshots source, configuration, and documentation into a private temporary workspace.
+Build outputs and Angular caches cannot overwrite the working checkout or another run's preview.
+Installed dependencies are shared read-only; compiled contracts resolve inside the private workspace.
+Changes made after startup require a new invocation, including in interactive UI mode.
+
+By default, database-using modes create their own PostgreSQL 16 Docker container/database and absolute temporary
+attachment root. The runner migrates, seeds matching attachment objects before browser startup,
+and generates an absolute Angular proxy for its selected API port. It never reuses an unrelated
+server, resets working data, or restores the developer's demo database after tests.
 
 To provision a separate test database on an explicitly selected service, set
 `WORKTRAIL_VERIFY_ADMIN_DATABASE_URL` to its administrative PostgreSQL connection, then run:
@@ -574,10 +591,11 @@ To provision a separate test database on an explicitly selected service, set
 npm run verify -- --mode=api --database=service
 ```
 
-This requires CREATE DATABASE privileges and never resets the administrative database. Do not put
-credentials in committed files or verification reports. Every test mutation requires matching private
+This requires CREATE DATABASE privileges and never resets the administrative database. Omit
+`--mode=api` for the full workflow. Do not put credentials in committed files or verification reports.
+Every test mutation requires matching private
 run/database/storage ownership; a local hostname, test-looking name, `CI=true`, or skip flag is not proof.
-Direct database-backed package tests without that context now refuse to run. The existing API unit
+Direct database-backed package tests without that context refuse to run. The existing API unit
 project remains database-independent, and unknown new test files default to guarded integration.
 
 SIGINT/SIGTERM and failure cleanup preserve the primary outcome. If a crash or ownership mismatch
@@ -588,47 +606,42 @@ npm run verify -- --cleanup /absolute/run/manifest.json
 ```
 
 Cleanup refuses active owners or mismatched identities; it is not permission to remove arbitrary
-databases/directories/processes. Sanitized summaries remain under `test-results/verification/`.
+databases/directories/processes. Sanitized gate summaries, browser JSON reports, traces, and screenshots
+remain under `test-results/verification/<runId>/`. Browser acceptance uses zero retries.
 See the [v0.3.0 verification evidence](docs/v0.3.0/verification-notes.md).
 
-The remaining baseline gates are:
+Ports are selected automatically. To request ports or select a focused browser regression:
 
 ```sh
-npm run lint
-npm run typecheck
-npm run build
-npm run test:editor
-npm audit --omit=dev --audit-level=low
+npm run test:e2e -- --api-port=44031 --web-port=44032 '--grep=workspace filters'
+npm run test:preview -- --preview-port=44033
+npm run test:e2e:ui
 ```
 
-CI runs install, production dependency audit, lint, typecheck, package tests, production build,
-standalone editor tests, application browser regressions, and compiled production preview on pull
-requests and pushes to `main`. It provisions disposable PostgreSQL 16 and temporary attachment roots,
-and uploads browser evidence on failure. Development-inclusive audit findings remain a separate
-toolchain backlog; a clean production-only audit does not mean every development dependency is clean.
-CI runner integration is Phase 2 work: the old direct package-test/database preparation sequence must
-be migrated to the new owned context before CI verification can pass on this intermediate phase.
+An explicitly occupied port fails without stopping its occupant. Automatic bind handoff collisions
+retry server allocation at most three times, not the tests. Legacy `API_PORT`,
+`WORKTRAIL_E2E_WEB_PORT`, `WORKTRAIL_PREVIEW_PORT`, and `WORKTRAIL_EDITOR_TEST_PORT` requests are also
+honored; the runner supplies the corresponding base URLs, storage, and proxy configuration.
+UI mode is interactive, not automated acceptance; closing it does not mark its tests as passed.
 
-`npm run test:e2e` starts the local API and Angular dev server through Playwright. By default it runs:
+Database-independent checks and resource lifecycle regressions are also available:
 
 ```sh
-npm run db:reset
-npm run db:migrate
-npm run db:seed
+npm run test:verification
+npm run test:verification:integration
+npm run test --workspace @worktrail/api -- --project=unit
+npm run lint:verification
+npm run typecheck:verification
 ```
 
-The baseline Playwright scripts reset/migrate/seed and can restore demo data afterward. Their setup,
-teardown, and per-test reset now require validated ownership before either mutation or a skip-flag
-return. Do not use the old direct application-browser invocation until Phase 2 connects its servers,
-proxy, storage, and reset behavior to the owned runner. Its legacy restoration behavior is not a
-recommended working-data workflow.
+The lifecycle command requires Docker and proves service provisioning, rejection, interruption,
+concurrent browser isolation, and cleanup. Direct Playwright invocations are internal and require
+the matching owned stage; use the root commands instead. Skip flags grant no ownership authority.
 
-The standalone editor suite does not use PostgreSQL. The existing compiled-preview configuration
-expects built artifacts and already prepared disposable data, and the legacy Angular proxy still
-targets API 3000. Phase 2 will provide owned browser/preview orchestration with matching nondefault
-ports; manually changing `API_PORT` alone is not sufficient. The
-[v0.2.9 verification notes](docs/v0.2.9/verification-notes.md) describe the prior release's historical
-setup, not an ownership bypass for the new guarded test commands.
+CI installs dependencies/browser runtime, then invokes the full runner with `--database=service`
+against its disposable PostgreSQL 16 administrator. Gate output remains visible, and failure artifacts
+are uploaded from `test-results/`. Development-inclusive advisory remediation remains Phase 3 work;
+a clean production-only audit does not establish that every development dependency is clean.
 
 ## Public Site
 

@@ -1,10 +1,11 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
-import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+
+import { readBrowserContext } from './verification/browser-context.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const webRequire = createRequire(join(root, 'apps/web/package.json'));
@@ -12,8 +13,10 @@ const compilerPackage = webRequire.resolve('@angular/compiler-cli/package.json')
 const compiler = JSON.parse(readFileSync(compilerPackage, 'utf8'));
 const buildRequire = createRequire(webRequire.resolve('@angular/build/package.json'));
 const { build } = await import(pathToFileURL(buildRequire.resolve('esbuild')).href);
-const temporary = mkdtempSync(join(tmpdir(), 'worktrail-editor-harness-'));
-const port = Number.parseInt(process.env.WORKTRAIL_EDITOR_TEST_PORT ?? '4317', 10);
+const context = await readBrowserContext('editor');
+const temporary = join(dirname(context.checkout), 'editor-harness');
+mkdirSync(temporary);
+const port = context.port;
 const cleanup = () => rmSync(temporary, { recursive: true, force: true });
 process.on('exit', cleanup);
 let server;
@@ -61,7 +64,10 @@ try {
     'utf8'
   );
   server = createServer((request, response) => {
-    if (request.url === '/main.js') {
+    if (request.url === '/__worktrail_verification') {
+      response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      response.end(JSON.stringify({ runId: context.runId, token: context.token }));
+    } else if (request.url === '/main.js') {
       response.writeHead(200, {
         'Content-Type': 'text/javascript',
         'Cache-Control': 'no-store'

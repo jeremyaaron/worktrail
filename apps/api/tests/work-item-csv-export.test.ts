@@ -1,9 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import type {
-  WorkItemListItemDto,
-  WorkspaceWorkItemListItemDto
-} from '@worktrail/contracts';
+import type { WorkItemListItemDto } from '@worktrail/contracts';
 import request from 'supertest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 

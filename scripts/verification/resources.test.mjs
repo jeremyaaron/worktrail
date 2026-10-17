@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
-import { lstat, rm } from 'node:fs/promises';
+import { lstat, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { pathToFileURL } from 'node:url';
 
 import { createManifest, databaseMarker, saveManifest } from './ownership.mjs';
-import { processIdentity, runCommand } from './processes.mjs';
+import { processIdentity, runCommand, stopOwnedProcess } from './processes.mjs';
 import { cleanupRun, provisionDatabase, removeServiceDatabase } from './resources.mjs';
 
 async function fixture(t, mode = 'service') {
@@ -94,4 +94,46 @@ test('captured stderr is drained instead of blocking a child on a full pipe', as
 
 test('command deadlines stop an owned child instead of hanging cleanup', async () => {
   await assert.rejects(runCommand(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { timeoutMs: 100 }), /timed out/);
+});
+
+test('child cleanup failure does not replace the original command failure', async (t) => {
+  const manifest = await fixture(t, 'none');
+  const root = manifest.root;
+  try {
+    await assert.rejects(runCommand(process.execPath, ['-e', 'setTimeout(()=>process.exit(42),50)'], {
+      manifest,
+      onStarted: () => { manifest.root = join(root, 'unavailable'); }
+    }), /exit 42/);
+  } finally { manifest.root = root; }
+});
+
+test('interruption stops a recorded detached descendant even when it ignores TERM', async (t) => {
+  const manifest = await fixture(t, 'none');
+  const path = join(manifest.root, 'detached-child');
+  const script = `const {spawn}=require('node:child_process');
+    const child=spawn(process.execPath,['-e',"process.on('SIGTERM',()=>{});setInterval(()=>{},1000)"],{detached:true,stdio:'ignore'});
+    require('node:fs').writeFileSync(${JSON.stringify(path)},String(child.pid)); child.unref();setInterval(()=>{},1000);`;
+  const controller = new AbortController();
+  const execution = runCommand(process.execPath, ['-e', script], { manifest, trackDescendants: true, signal: controller.signal });
+  execution.catch(() => undefined);
+  let child;
+  try {
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const pid = Number(await readFile(path, 'utf8').catch(() => '0'));
+      if (pid && !child) child = { pid, identity: await processIdentity(pid) };
+      const saved = JSON.parse(await readFile(join(manifest.root, 'manifest.json'), 'utf8'));
+      if (child && saved.processes.some((record) => record.pid === child.pid)) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    assert.ok(child?.identity, 'Detached descendant was observed while its parent was owned');
+    const saved = JSON.parse(await readFile(join(manifest.root, 'manifest.json'), 'utf8'));
+    assert.ok(saved.processes.some((record) => record.pid === child.pid), 'Detached group was persisted before interruption');
+    controller.abort();
+    await assert.rejects(execution, /interrupted/);
+    assert.equal(await processIdentity(child.pid), null);
+  } finally {
+    controller.abort();
+    await execution.catch(() => undefined);
+    if (child?.identity) await stopOwnedProcess(child);
+  }
 });

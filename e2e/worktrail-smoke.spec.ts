@@ -1539,6 +1539,7 @@ test('completes the v0.2.5 work breakdown workflow', async ({ page, request }, t
   const readyChildTitle = 'Prepare concise launch guidance for teams adopting child work';
   const createdChildTitle = `E2E hierarchy child ${Date.now()}`;
   const parentPath = `/work-items/${hierarchyParentId}`;
+  let workflowFailure: unknown;
 
   try {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -1710,7 +1711,10 @@ test('completes the v0.2.5 work breakdown workflow', async ({ page, request }, t
     await page.goto(parentPath);
     await expect(page.getByRole('heading', { level: 1, name: parentTitle })).toBeVisible();
     await expectNoPageOverflow(page);
-  } finally {
+  } catch (error) {
+    workflowFailure = error;
+  }
+  try {
     const restoreResponse = await request.put(
       `${apiBaseURL()}/api/work-items/${hierarchyReadyChildId}/parent`,
       { data: { parentWorkItemId: hierarchyParentId } }
@@ -1721,7 +1725,10 @@ test('completes the v0.2.5 work breakdown workflow', async ({ page, request }, t
         `Failed to restore seeded hierarchy parent: ${restoreResponse.status()} ${await restoreResponse.text()}`
       );
     }
+  } catch (error) {
+    workflowFailure ??= error;
   }
+  if (workflowFailure !== undefined) throw workflowFailure;
 });
 
 test('keeps core pages usable at common desktop widths', async ({ page }) => {

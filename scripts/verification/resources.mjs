@@ -119,7 +119,7 @@ export async function cleanupRun(manifest, { allowOwner = false, run = runComman
     manifest.processes = [];
     await saveManifest(manifest);
     if (manifest.databaseMode === 'service') await removeServiceDatabase(manifest);
-    else if (manifest.containerName) {
+    else if (manifest.databaseMode === 'docker' && manifest.containerName) {
       const existing = await run('docker', ['container', 'ls', '--all', '--filter', `name=^/${manifest.containerName}$`, '--format', '{{.Names}}']);
       if (existing) {
         const labels = JSON.parse(await run('docker', ['inspect', '--format', '{{json .Config.Labels}}', manifest.containerName]));
@@ -134,9 +134,9 @@ export async function cleanupRun(manifest, { allowOwner = false, run = runComman
   }
 }
 
-export async function prepareApiDatabase(manifest, { signal } = {}) {
+export async function prepareApiDatabase(manifest, { signal, cwd = new URL('../../', import.meta.url) } = {}) {
   const env = childEnvironment(manifest);
-  await runCommand('npm', ['run', 'db:migrate'], { manifest, env, cwd: new URL('../../', import.meta.url), inherit: true, signal });
+  await runCommand('npm', ['run', 'db:migrate'], { manifest, env, cwd, inherit: true, signal });
   manifest.prepared = true;
   await saveManifest(manifest);
 }

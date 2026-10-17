@@ -11,6 +11,7 @@ const { Pool } = require('pg');
 export const repositoryRoot = fileURLToPath(new URL('../../', import.meta.url));
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const markerFile = '.worktrail-verification';
+const pendingSaves = new Map();
 
 export function databaseMarker(manifest) {
   return `worktrail-verification:v1:${manifest.runId}:${manifest.nonce}`;
@@ -47,9 +48,15 @@ async function readPrivateJson(path) {
 }
 
 export async function saveManifest(manifest) {
-  const temporary = join(manifest.root, `manifest-${randomUUID()}.tmp`);
-  await writeFile(temporary, JSON.stringify(manifest, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
-  await rename(temporary, join(manifest.root, 'manifest.json'));
+  const previous = pendingSaves.get(manifest.root) ?? Promise.resolve();
+  const operation = previous.catch(() => undefined).then(async () => {
+    const temporary = join(manifest.root, `manifest-${randomUUID()}.tmp`);
+    await writeFile(temporary, JSON.stringify(manifest, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
+    await rename(temporary, join(manifest.root, 'manifest.json'));
+  });
+  pendingSaves.set(manifest.root, operation);
+  try { await operation; }
+  finally { if (pendingSaves.get(manifest.root) === operation) pendingSaves.delete(manifest.root); }
 }
 
 export async function createManifest(databaseMode) {
@@ -60,7 +67,8 @@ export async function createManifest(databaseMode) {
     version: 1, runId, nonce: randomBytes(32).toString('hex'), root,
     databaseMode, databaseName: `worktrail_verify_${runId.replaceAll('-', '')}`,
     databaseUrl: null, adminUrl: null, databaseState: 'none', containerName: null,
-    processes: [], owner: null, prepared: false,
+    processes: [], owner: null, prepared: false, browser: null, ports: {},
+    resultsRoot: join(repositoryRoot, 'test-results', 'verification', runId),
     storageRoot: join(root, 'attachments')
   };
   try {
@@ -87,12 +95,14 @@ export async function readManifest(path, nonce) {
     if (manifest.version !== 1 || !uuidPattern.test(manifest.runId) || !/^[0-9a-f]{64}$/.test(manifest.nonce)) throw new Error();
     if (manifest.nonce !== nonce || manifest.root !== root || manifest.storageRoot !== join(root, 'attachments')) throw new Error();
     if (manifest.databaseName !== `worktrail_verify_${manifest.runId.replaceAll('-', '')}`) throw new Error();
-    if (!['docker', 'service'].includes(manifest.databaseMode) || !['none', 'pending', 'owned', 'removed'].includes(manifest.databaseState)) throw new Error();
+    if (!['docker', 'service', 'none'].includes(manifest.databaseMode) || !['none', 'pending', 'owned', 'removed'].includes(manifest.databaseState)) throw new Error();
+    if (manifest.databaseMode === 'none' && (manifest.databaseState !== 'none' || manifest.databaseUrl || manifest.adminUrl || manifest.containerName)) throw new Error();
     if (manifest.containerName !== null && manifest.containerName !== `worktrail-verify-${manifest.runId}`) throw new Error();
     const validProcess = (item) => item && Number.isSafeInteger(item.pid) && item.pid > 1 && /^[0-9a-f]{64}$/.test(item.identity);
     if (!Array.isArray(manifest.processes) || manifest.processes.some((item) => !validProcess(item))) throw new Error();
     if (manifest.owner !== null && !validProcess(manifest.owner)) throw new Error();
     if (typeof manifest.prepared !== 'boolean') throw new Error();
+    if (manifest.ports && Object.values(manifest.ports).some((port) => !Number.isInteger(port) || port < 1 || port > 65535)) throw new Error();
     const marker = await open(join(root, markerFile), constants.O_RDONLY | constants.O_NOFOLLOW);
     try {
       if (await marker.readFile('utf8') !== databaseMarker(manifest)) throw new Error();
@@ -136,12 +146,30 @@ export async function assertOwnedDatabase(env = process.env, queryable) {
 }
 
 export function childEnvironment(manifest) {
-  return {
+  const env = {
     ...process.env, NODE_ENV: 'test', DATABASE_URL: manifest.databaseUrl,
     WORKTRAIL_VERIFY_MANIFEST: join(manifest.root, 'manifest.json'),
     WORKTRAIL_VERIFY_NONCE: manifest.nonce,
     WORKTRAIL_ATTACHMENT_STORAGE_PATH: manifest.storageRoot
   };
+  if (!manifest.databaseUrl) delete env.DATABASE_URL;
+  // Only provisioning consumes the administrator URL; test/runtime children never need it.
+  delete env.WORKTRAIL_VERIFY_ADMIN_DATABASE_URL;
+  delete env.WORKTRAIL_E2E_RESTORE_ATTACHMENT_STORAGE_PATH;
+  delete env.WORKTRAIL_E2E_SKIP_DB_RESET;
+  delete env.WORKTRAIL_E2E_SKIP_DB_RESTORE;
+  delete env.NO_COLOR;
+  delete env.FORCE_COLOR;
+  const ports = manifest.ports ?? {};
+  if (ports.api || ports.preview) env.API_PORT = String(ports.api ?? ports.preview);
+  if (ports.web) {
+    env.WORKTRAIL_E2E_HOST = '127.0.0.1';
+    env.WORKTRAIL_E2E_WEB_PORT = String(ports.web);
+    env.WORKTRAIL_E2E_BASE_URL = `http://127.0.0.1:${ports.web}`;
+  }
+  if (ports.editor) env.WORKTRAIL_EDITOR_TEST_PORT = String(ports.editor);
+  if (ports.preview) env.WORKTRAIL_PREVIEW_PORT = String(ports.preview);
+  return env;
 }
 
 export async function removeRunDirectory(manifest) {
