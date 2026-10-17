@@ -197,7 +197,16 @@ const priorityLabels: Record<WorkItemPriority, string> = {
           <div class="form-actions">
             <a [routerLink]="['/projects', projectId(), 'cycles', cycleId()]">Cancel</a>
             <button type="submit" [disabled]="isSubmitting()">
-              {{ isSubmitting() ? 'Closing...' : 'Close cycle' }}
+              <span
+                class="submit-label"
+                [class.is-hidden]="isSubmitting()"
+                [attr.aria-hidden]="isSubmitting() ? 'true' : null"
+              >Close cycle</span>
+              <span
+                class="submit-label"
+                [class.is-hidden]="!isSubmitting()"
+                [attr.aria-hidden]="isSubmitting() ? null : 'true'"
+              >Closing...</span>
             </button>
           </div>
         </form>
@@ -250,7 +259,9 @@ const priorityLabels: Record<WorkItemPriority, string> = {
     .conflict button { border: 1px solid #d97706; background: #fff; color: #92400e; white-space: nowrap; }
     .submit-error { margin: 14px 0 0; color: #b42318; font-size: .86rem; font-weight: 700; }
     .form-actions { align-items: center; justify-content: flex-end; margin-top: 20px; }
-    .form-actions button { min-width: 112px; border: 1px solid #1d4ed8; background: #1d4ed8; color: #fff; }
+    .form-actions button { display: inline-grid; place-items: center; min-width: 112px; border: 1px solid #1d4ed8; background: #1d4ed8; color: #fff; }
+    .submit-label { grid-area: 1 / 1; white-space: nowrap; }
+    .submit-label.is-hidden { visibility: hidden; }
     .form-actions button:disabled, fieldset:disabled { opacity: .62; cursor: wait; }
     @media (max-width: 900px) {
       .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }

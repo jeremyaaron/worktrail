@@ -229,6 +229,46 @@ describe('ProjectCycleCloseoutPageComponent', () => {
     expect(navigate).toHaveBeenCalledWith(['/projects', projectId, 'cycles', cycleId]);
   });
 
+  it('keeps the submit button sized for both labels with wider font metrics and after failure', () => {
+    const fixture = TestBed.createComponent(ProjectCycleCloseoutPageComponent);
+    fixture.detectChanges();
+    http.expectOne(`/api/projects/${projectId}/cycles/${cycleId}/closeout-preview`).flush(
+      closeoutPreview()
+    );
+    fixture.detectChanges();
+
+    const button = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+      '.form-actions button'
+    )!;
+    button.style.fontFamily = 'monospace';
+    button.style.fontSize = '24px';
+    const resting = button.getBoundingClientRect();
+    expect(resting.width).toBeGreaterThan(112);
+
+    fixture.componentInstance.submit();
+    fixture.detectChanges();
+    expect(button.disabled).toBeTrue();
+    expect(button.getBoundingClientRect().width).toBeCloseTo(resting.width, 0);
+    expect(button.getBoundingClientRect().height).toBeCloseTo(resting.height, 0);
+    expect(button.querySelector('[aria-hidden="true"]')?.textContent?.trim()).toBe('Close cycle');
+    expect(button.querySelector('span:not([aria-hidden])')?.textContent?.trim()).toBe('Closing...');
+    expect(getComputedStyle(button.querySelector<HTMLElement>('[aria-hidden="true"]')!).visibility)
+      .toBe('hidden');
+
+    http.expectOne(`/api/projects/${projectId}/cycles/${cycleId}/closeout`).flush(
+      { error: { message: 'Please retry.' } },
+      { status: 500, statusText: 'Internal Server Error' }
+    );
+    fixture.detectChanges();
+    expect(button.disabled).toBeFalse();
+    expect(button.getBoundingClientRect().width).toBeCloseTo(resting.width, 0);
+    expect(button.getBoundingClientRect().height).toBeCloseTo(resting.height, 0);
+    expect(button.querySelector('[aria-hidden="true"]')?.textContent?.trim()).toBe('Closing...');
+    expect(button.querySelector('span:not([aria-hidden])')?.textContent?.trim()).toBe('Close cycle');
+    expect(getComputedStyle(button.querySelector<HTMLElement>('span:not([aria-hidden])')!).visibility)
+      .toBe('visible');
+  });
+
   it('disables destination selection when no unfinished work exists', () => {
     const fixture = TestBed.createComponent(ProjectCycleCloseoutPageComponent);
     fixture.detectChanges();
