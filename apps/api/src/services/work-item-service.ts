@@ -56,12 +56,11 @@ import type {
 import {
   toActivityEventDto,
   toCommentDto,
-  toWorkItemDetailDto,
-  toWorkItemListItemDto,
-  toWorkspaceWorkItemListItemDto
+  toWorkItemDetailDto
 } from './dto.js';
 import { createWorkItemCycleChangedActivity } from './work-item-cycle-activity.js';
-import { resolveWorkItemPage } from './work-item-page.js';
+import { WorkItemHydrator } from './work-item-hydrator.js';
+import { WorkItemQueryService } from './work-item-query-service.js';
 import { NotificationService } from './notification-service.js';
 import { WorkItemRelationshipService } from './work-item-relationship-service.js';
 
@@ -84,11 +83,6 @@ interface WorkItemBundle {
   labels: Label[];
   milestone: Milestone | null;
   cycle: ProjectCycle | null;
-}
-
-interface WorkItemDependencyCounts {
-  openBlockerCount: number;
-  openBlockedWorkCount: number;
 }
 
 interface WorkItemHierarchyContext {
@@ -120,36 +114,13 @@ export class WorkItemService {
     projectId: string,
     filters: WorkItemListFilters = {}
   ): Promise<WorkItemListItemDto[]> {
-    return this.context.persistence.readConsistent((scope) =>
-      new WorkItemService({ ...this.context, ...scope }).listWorkItemsInScope(projectId, filters)
-    );
-  }
-
-  private async listWorkItemsInScope(
-    projectId: string,
-    filters: WorkItemListFilters = {}
-  ): Promise<WorkItemListItemDto[]> {
-    await this.requireProject(projectId);
-    const workItems = await this.context.repositories.workItems.listByProject(projectId, filters);
-    return this.toListDtos(workItems, this.context.repositories);
+    return new WorkItemQueryService(this.context).listWorkItems(projectId, filters);
   }
 
   async listWorkspaceWorkItems(
     filters: WorkItemQuery = {}
   ): Promise<WorkspaceWorkItemListItemDto[]> {
-    return this.context.persistence.readConsistent((scope) =>
-      new WorkItemService({ ...this.context, ...scope }).listWorkspaceWorkItemsInScope(filters)
-    );
-  }
-
-  private async listWorkspaceWorkItemsInScope(
-    filters: WorkItemQuery = {}
-  ): Promise<WorkspaceWorkItemListItemDto[]> {
-    const records = await this.context.repositories.workItems.listByWorkspace(
-      this.context.actor.workspaceId,
-      filters
-    );
-    return this.toWorkspaceListDtos(records, this.context.repositories);
+    return new WorkItemQueryService(this.context).listWorkspaceWorkItems(filters);
   }
 
   async listWorkItemPage(
@@ -157,91 +128,18 @@ export class WorkItemService {
     filters: WorkItemListFilters = {},
     pageQuery: ResolvedWorkItemPageQuery = { page: 1, pageSize: 25 }
   ): Promise<WorkItemListPageDto> {
-    return this.context.persistence.readConsistent((scope) =>
-      new WorkItemService({ ...this.context, ...scope }).listWorkItemPageInScope(projectId, filters, pageQuery)
-    );
-  }
-
-  private async listWorkItemPageInScope(
-    projectId: string,
-    filters: WorkItemListFilters = {},
-    pageQuery: ResolvedWorkItemPageQuery = { page: 1, pageSize: 25 }
-  ): Promise<WorkItemListPageDto> {
-    return this.withReadRepositories(async (repositories) => {
-      await this.requireProjectFromRepositories(projectId, repositories);
-      const totalCount = await repositories.workItems.countByProjectQuery(projectId, filters);
-      const resolution = resolveWorkItemPage(pageQuery, totalCount);
-      const workItems = await repositories.workItems.listPageByProject(projectId, filters, {
-        limit: resolution.metadata.pageSize,
-        offset: resolution.offset
-      });
-
-      return {
-        items: await this.toListDtos(workItems, repositories),
-        ...resolution.metadata
-      };
-    });
+    return new WorkItemQueryService(this.context).listWorkItemPage(projectId, filters, pageQuery);
   }
 
   async listWorkspaceWorkItemPage(
     filters: WorkItemQuery = {},
     pageQuery: ResolvedWorkItemPageQuery = { page: 1, pageSize: 25 }
   ): Promise<WorkspaceWorkItemListPageDto> {
-    return this.context.persistence.readConsistent((scope) =>
-      new WorkItemService({ ...this.context, ...scope }).listWorkspaceWorkItemPageInScope(filters, pageQuery)
-    );
-  }
-
-  private async listWorkspaceWorkItemPageInScope(
-    filters: WorkItemQuery = {},
-    pageQuery: ResolvedWorkItemPageQuery = { page: 1, pageSize: 25 }
-  ): Promise<WorkspaceWorkItemListPageDto> {
-    return this.withReadRepositories(async (repositories) => {
-      const workspaceId = this.context.actor.workspaceId;
-      const totalCount = await repositories.workItems.countByWorkspaceQuery(workspaceId, filters);
-      const resolution = resolveWorkItemPage(pageQuery, totalCount);
-      const records = await repositories.workItems.listPageByWorkspace(
-        workspaceId,
-        filters,
-        {
-          limit: resolution.metadata.pageSize,
-          offset: resolution.offset
-        }
-      );
-
-      return {
-        items: await this.toWorkspaceListDtos(records, repositories),
-        ...resolution.metadata
-      };
-    });
+    return new WorkItemQueryService(this.context).listWorkspaceWorkItemPage(filters, pageQuery);
   }
 
   async listProjectBoardWorkItems(projectId: string): Promise<WorkItemListItemDto[]> {
-    return this.context.persistence.readConsistent((scope) =>
-      new WorkItemService({ ...this.context, ...scope }).listProjectBoardWorkItemsInScope(projectId)
-    );
-  }
-
-  private async listProjectBoardWorkItemsInScope(projectId: string): Promise<WorkItemListItemDto[]> {
-    return this.withReadRepositories(async (repositories) => {
-      await this.requireProjectFromRepositories(projectId, repositories);
-      const workItems = await repositories.workItems.listByProjectForBoard(projectId);
-      return this.toListDtos(workItems, repositories);
-    });
-  }
-
-  async enrichWorkItemListWithRepositories(
-    workItems: WorkItem[],
-    repositories: Repositories
-  ): Promise<WorkItemListItemDto[]> {
-    return this.toListDtos(workItems, repositories);
-  }
-
-  async enrichWorkspaceWorkItemListWithRepositories(
-    records: Awaited<ReturnType<Repositories['workItems']['listByWorkspaceForExport']>>,
-    repositories: Repositories
-  ): Promise<WorkspaceWorkItemListItemDto[]> {
-    return this.toWorkspaceListDtos(records, repositories);
+    return new WorkItemQueryService(this.context).listProjectBoardWorkItems(projectId);
   }
 
   async createWorkItem(projectId: string, input: CreateWorkItemRequest): Promise<WorkItemDetailDto> {
@@ -908,12 +806,6 @@ export class WorkItemService {
     return this.context.persistence.write(({ repositories }) => callback(repositories));
   }
 
-  private async withReadRepositories<T>(
-    callback: (repositories: Repositories) => Promise<T>
-  ): Promise<T> {
-    return this.context.persistence.readConsistent(({ repositories }) => callback(repositories));
-  }
-
   private notificationService(repositories: Repositories): NotificationService {
     return new NotificationService({
       persistence: this.context.persistence,
@@ -1498,68 +1390,7 @@ export class WorkItemService {
     workItems: WorkItem[],
     repositories: Repositories
   ): Promise<WorkItemListItemDto[]> {
-    const labelsByWorkItem = new Map<string, Label[]>();
-
-    for (const item of await repositories.labels.listByWorkItems(workItems.map((workItem) => workItem.id))) {
-      labelsByWorkItem.set(item.workItemId, [...(labelsByWorkItem.get(item.workItemId) ?? []), item.label]);
-    }
-
-    const dtos: WorkItemListItemDto[] = [];
-    const dependencyCountsById = await repositories.workItemRelationships.listDependencyCounts(
-      workItems.map((workItem) => workItem.id)
-    );
-    const hierarchy = await this.loadHierarchyContext(workItems, repositories);
-
-    for (const workItem of workItems) {
-      const bundle = await this.toBundle(workItem, repositories, labelsByWorkItem.get(workItem.id) ?? []);
-      dtos.push(toWorkItemListItemDto({
-        ...bundle,
-        parent: hierarchy.parentsByChildId.get(workItem.id) ?? null,
-        childSummary: hierarchy.childSummariesByParentId.get(workItem.id) ?? null,
-        dependencyCounts: this.toDependencyCounts(dependencyCountsById.get(workItem.id))
-      }));
-    }
-
-    return dtos;
-  }
-
-  private async toWorkspaceListDtos(
-    records: Awaited<ReturnType<Repositories['workItems']['listByWorkspace']>>,
-    repositories: Repositories
-  ): Promise<WorkspaceWorkItemListItemDto[]> {
-    const labelsByWorkItem = new Map<string, Label[]>();
-
-    for (const item of await repositories.labels.listByWorkItems(
-      records.map((record) => record.workItem.id)
-    )) {
-      labelsByWorkItem.set(item.workItemId, [...(labelsByWorkItem.get(item.workItemId) ?? []), item.label]);
-    }
-
-    const dtos: WorkspaceWorkItemListItemDto[] = [];
-    const dependencyCountsById = await repositories.workItemRelationships.listDependencyCounts(
-      records.map((record) => record.workItem.id)
-    );
-    const hierarchy = await this.loadHierarchyContext(
-      records.map((record) => record.workItem),
-      repositories
-    );
-
-    for (const record of records) {
-      const bundle = await this.toBundle(
-        record.workItem,
-        repositories,
-        labelsByWorkItem.get(record.workItem.id) ?? []
-      );
-      dtos.push(toWorkspaceWorkItemListItemDto({
-        ...bundle,
-        project: record.project,
-        parent: hierarchy.parentsByChildId.get(record.workItem.id) ?? null,
-        childSummary: hierarchy.childSummariesByParentId.get(record.workItem.id) ?? null,
-        dependencyCounts: this.toDependencyCounts(dependencyCountsById.get(record.workItem.id))
-      }));
-    }
-
-    return dtos;
+    return new WorkItemHydrator(repositories).list(workItems);
   }
 
   private async toDetailDto(
@@ -1610,7 +1441,7 @@ export class WorkItemService {
     };
   }
 
-  private toParentDto(workItem: WorkItem): WorkItemParentDto {
+  private toParentDto(workItem: Pick<WorkItem, 'id' | 'projectId' | 'displayKey' | 'title' | 'type' | 'status'>): WorkItemParentDto {
     return {
       id: workItem.id,
       projectId: workItem.projectId,
@@ -1618,20 +1449,6 @@ export class WorkItemService {
       title: workItem.title,
       type: workItem.type,
       status: workItem.status
-    };
-  }
-
-  private toDependencyCounts(
-    counts:
-      | {
-          openBlockerCount: number;
-          openBlockedWorkCount: number;
-        }
-      | undefined
-  ): WorkItemDependencyCounts {
-    return {
-      openBlockerCount: counts?.openBlockerCount ?? 0,
-      openBlockedWorkCount: counts?.openBlockedWorkCount ?? 0
     };
   }
 

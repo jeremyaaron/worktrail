@@ -54,7 +54,7 @@ export function buildWorkspaceWorkItemConditions(
   workspaceId: string,
   filters: WorkItemQuery = {}
 ): SQL[] {
-  const conditions = [eq(workItems.workspaceId, workspaceId)];
+  const conditions = [eq(workItems.workspaceId, workspaceId), eq(projects.workspaceId, workspaceId)];
 
   if (filters.projectId !== undefined) {
     conditions.push(eq(workItems.projectId, filters.projectId));

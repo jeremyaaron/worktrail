@@ -39,6 +39,7 @@ export type NewMilestone = InferInsertModel<typeof milestones>;
 export type SavedWorkView = InferSelectModel<typeof savedWorkViews>;
 export type NewSavedWorkView = InferInsertModel<typeof savedWorkViews>;
 export type WorkItem = InferSelectModel<typeof workItems>;
+export type WorkItemSummary = Omit<WorkItem, 'description' | 'descriptionFormat'>;
 export type NewWorkItem = InferInsertModel<typeof workItems>;
 export type WorkItemAttachment = InferSelectModel<typeof workItemAttachments>;
 export type NewWorkItemAttachment = InferInsertModel<typeof workItemAttachments>;

@@ -8,7 +8,7 @@ const unitTests = [
   'persistence', 'project-cycle-closeout-snapshot', 'quick-find-endpoint', 'quick-find-query',
   'quick-find-service', 'repository-read-transaction', 'request-logging', 'runtime-config',
   'server', 'status-report-markdown-renderer', 'storage-reset', 'work-item-csv-export',
-  'work-item-page', 'work-item-page-query', 'work-item-query', 'work-item-query-builder',
+  'work-item-hydrator', 'work-item-page', 'work-item-page-query', 'work-item-query', 'work-item-query-builder',
   'work-risk-sections'
 ].map((name) => `tests/${name}.test.ts`);
 

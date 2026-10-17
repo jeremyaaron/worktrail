@@ -6,6 +6,7 @@ import {
   count,
   desc,
   eq,
+  getTableColumns,
   ilike,
   inArray,
   isNull,
@@ -24,7 +25,7 @@ import {
   buildWorkspaceWorkItemOrderBy,
   type ProjectWorkItemQuery
 } from './work-item-query-builder.js';
-import type { NewWorkItem, Project, WorkItem } from './types.js';
+import type { NewWorkItem, Project, WorkItem, WorkItemSummary } from './types.js';
 
 export type WorkItemFilters = ProjectWorkItemQuery;
 
@@ -55,6 +56,13 @@ export interface WorkspaceWorkItemRecord {
   workItem: WorkItem;
   project: Pick<Project, 'id' | 'key' | 'name' | 'status'>;
 }
+
+export interface WorkspaceWorkItemSummaryRecord {
+  workItem: WorkItemSummary;
+  project: WorkspaceWorkItemRecord['project'];
+}
+
+const { description: _description, descriptionFormat: _descriptionFormat, ...summaryColumns } = getTableColumns(workItems);
 
 export interface EligibleParentCandidateInput {
   workItem: WorkItem;
@@ -211,7 +219,15 @@ export function createWorkItemRepository(db: RepositoryExecutor) {
       return db
         .select({
           childWorkItemId: workItems.id,
-          parent: parentWorkItems
+          parent: {
+            id: parentWorkItems.id,
+            workspaceId: parentWorkItems.workspaceId,
+            projectId: parentWorkItems.projectId,
+            displayKey: parentWorkItems.displayKey,
+            title: parentWorkItems.title,
+            type: parentWorkItems.type,
+            status: parentWorkItems.status
+          }
         })
         .from(workItems)
         .innerJoin(parentWorkItems, eq(parentWorkItems.id, workItems.parentWorkItemId))
@@ -316,7 +332,7 @@ export function createWorkItemRepository(db: RepositoryExecutor) {
       const orderBy = buildProjectWorkItemOrderBy(filters.sort);
 
       return db
-        .select()
+        .select(summaryColumns)
         .from(workItems)
         .where(and(...conditions))
         .orderBy(...orderBy)
@@ -328,7 +344,7 @@ export function createWorkItemRepository(db: RepositoryExecutor) {
       const conditions = buildProjectWorkItemConditions(projectId);
 
       return db
-        .select()
+        .select(summaryColumns)
         .from(workItems)
         .where(and(...conditions))
         .orderBy(...buildProjectWorkItemOrderBy('board_order'));
@@ -344,7 +360,7 @@ export function createWorkItemRepository(db: RepositoryExecutor) {
       const orderBy = buildProjectWorkItemOrderBy(filters.sort);
 
       return db
-        .select()
+        .select(summaryColumns)
         .from(workItems)
         .where(and(...conditions))
         .orderBy(...orderBy)
@@ -399,14 +415,14 @@ export function createWorkItemRepository(db: RepositoryExecutor) {
       workspaceId: string,
       filters: WorkItemQuery,
       window: WorkItemPageWindow
-    ): Promise<WorkspaceWorkItemRecord[]> {
+    ): Promise<WorkspaceWorkItemSummaryRecord[]> {
       assertPageWindow(window);
       const conditions = buildWorkspaceWorkItemConditions(workspaceId, filters);
       const orderBy = buildWorkspaceWorkItemOrderBy(filters.sort);
 
       return db
         .select({
-          workItem: workItems,
+          workItem: summaryColumns,
           project: {
             id: projects.id,
             key: projects.key,
@@ -426,14 +442,14 @@ export function createWorkItemRepository(db: RepositoryExecutor) {
       workspaceId: string,
       filters: WorkItemQuery,
       limit: number
-    ): Promise<WorkspaceWorkItemRecord[]> {
+    ): Promise<WorkspaceWorkItemSummaryRecord[]> {
       assertFinitePositiveLimit(limit);
       const conditions = buildWorkspaceWorkItemConditions(workspaceId, filters);
       const orderBy = buildWorkspaceWorkItemOrderBy(filters.sort);
 
       return db
         .select({
-          workItem: workItems,
+          workItem: summaryColumns,
           project: {
             id: projects.id,
             key: projects.key,

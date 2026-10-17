@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 
 import type { RepositoryExecutor } from '../db/client.js';
 import { milestones } from '../db/schema.js';
@@ -29,6 +29,11 @@ export function createMilestoneRepository(db: RepositoryExecutor) {
     async findById(id: string) {
       const [milestone] = await db.select().from(milestones).where(eq(milestones.id, id)).limit(1);
       return milestone ?? null;
+    },
+
+    async listByIds(ids: string[]) {
+      if (ids.length === 0) return [];
+      return db.select().from(milestones).where(inArray(milestones.id, [...new Set(ids)]));
     },
 
     async findActiveByProjectName(projectId: string, name: string) {

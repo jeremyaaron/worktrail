@@ -1,5 +1,6 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
+import type { Logger } from 'drizzle-orm/logger';
 
 import * as schema from './schema.js';
 
@@ -13,8 +14,8 @@ export function createPool(connectionString = getDatabaseUrl()): pg.Pool {
   return new Pool({ connectionString });
 }
 
-export function createDb(pool: pg.Pool) {
-  return drizzle(pool, { schema });
+export function createDb(pool: pg.Pool, options: { logger?: Logger } = {}) {
+  return drizzle(pool, { schema, ...options });
 }
 
 export type WorktrailDb = ReturnType<typeof createDb>;

@@ -6,8 +6,8 @@ Implementation baseline, confirmed during Phase 0 on October 17, 2026. This desi
 direction in the [PRD](prd.md), informed by the
 [UX audit](ux-audit.md), [technical debt audit](tech-debt-audit.md), and
 [public site audit](site-audit.md). The [implementation plan](implementation-plan.md) records Phase 0
-inventories, closed choices, sequencing, and acceptance. Phases 1-4 verification, toolchain, and
-explicit persistence foundations are complete; implementation is in progress.
+inventories, closed choices, sequencing, and acceptance. Phases 1-5 verification, toolchain,
+persistence, and batched query foundations are complete; implementation is in progress.
 
 ## Summary
 
@@ -698,6 +698,18 @@ keeps the 10,000-row cap plus overflow rejection. Preserve the existing 19 summa
 do not add description source/format columns as part of hydration work.
 Use bounded ID chunks if needed for export-sized batches; the page budget does not promise one
 unbounded `IN` statement or a constant query count for arbitrarily large exports.
+
+Phase 5 implementation: `WorkItemQueryService` owns the list/page/board read boundary with actor and
+persistence only; the existing work service forwards callers. `WorkItemHydrator` receives scoped
+repositories, deduplicates the member union and milestone/cycle IDs, and maps these plus related-row
+batches into DTOs. Workspace projects reuse the existing single joined selection. Hydration chunks
+contain at most 500 selected rows; large exports share one snapshot across chunks. `WorkItemSummary`
+and page/board/export/parent projections omit description source/format without changing summary
+contracts or authored search. Historical/null/missing reference behavior and tenant ownership are
+covered. Complete 100-row service/HTTP paths use 12/13 statements for project and 11/12 for workspace,
+including transaction control and actor lookup, with the same counts at 10/25 rows and repeated/
+distinct reference modes. [Measured evidence](hydration-evidence.md) records baseline, bytes, timings,
+and the limits of this phase; dashboard evaluation narrowing remains Phase 10.
 
 ### Aggregate Reads
 

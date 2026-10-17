@@ -12,6 +12,7 @@ export interface VerificationManifest {
   databaseState: 'none' | 'pending' | 'owned' | 'removed';
   containerName: string | null;
   storageRoot: string;
+  resultsRoot: string;
   prepared: boolean;
 }
 export function assertOwnedDatabase(env?: NodeJS.ProcessEnv, queryable?: pg.Pool | pg.PoolClient): Promise<VerificationManifest>;

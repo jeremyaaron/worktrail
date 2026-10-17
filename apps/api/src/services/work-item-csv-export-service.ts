@@ -5,7 +5,8 @@ import type { ActorContext } from '../domain/actor.js';
 import { ExportLimitExceededError, NotFoundError } from '../errors/app-error.js';
 import type { Repositories } from '../repositories/index.js';
 import { stringifyCsvRecords, type CsvStringifyRecord } from './csv/stringify-csv-records.js';
-import { type WorkItemListFilters, WorkItemService } from './work-item-service.js';
+import type { ProjectWorkItemQuery } from '../repositories/work-item-query-builder.js';
+import { WorkItemHydrator } from './work-item-hydrator.js';
 
 const exportColumns = [
   { key: 'projectKey', header: 'project_key' },
@@ -50,7 +51,7 @@ export class WorkItemCsvExportService {
 
   async exportProjectWorkItems(
     projectId: string,
-    filters: WorkItemListFilters = {}
+    filters: ProjectWorkItemQuery = {}
   ): Promise<WorkItemCsvExportResult> {
     return this.context.persistence.readConsistent((scope) =>
       new WorkItemCsvExportService({ ...this.context, ...scope }).exportProjectWorkItemsInScope(projectId, filters)
@@ -59,7 +60,7 @@ export class WorkItemCsvExportService {
 
   private async exportProjectWorkItemsInScope(
     projectId: string,
-    filters: WorkItemListFilters = {}
+    filters: ProjectWorkItemQuery = {}
   ): Promise<WorkItemCsvExportResult> {
     const exportData = await this.withReadRepositories(async (repositories) => {
       const project = await repositories.projects.findById(projectId);
@@ -74,15 +75,9 @@ export class WorkItemCsvExportService {
         synchronousExportReadLimit
       );
       this.assertWithinExportLimit(rawWorkItems.length);
-      const service = new WorkItemService({
-        persistence: this.context.persistence,
-        actor: this.context.actor,
-        repositories
-      });
-
       return {
         projectKey: project.key,
-        workItems: await service.enrichWorkItemListWithRepositories(rawWorkItems, repositories)
+        workItems: await new WorkItemHydrator(repositories).list(rawWorkItems)
       };
     });
 
@@ -109,13 +104,7 @@ export class WorkItemCsvExportService {
         synchronousExportReadLimit
       );
       this.assertWithinExportLimit(records.length);
-      const service = new WorkItemService({
-        persistence: this.context.persistence,
-        actor: this.context.actor,
-        repositories
-      });
-
-      return service.enrichWorkspaceWorkItemListWithRepositories(records, repositories);
+      return new WorkItemHydrator(repositories).workspace(records);
     });
 
     return {

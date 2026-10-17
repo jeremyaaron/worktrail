@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, isNull, lte, ne, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, lte, ne, or, sql } from 'drizzle-orm';
 
 import type { RepositoryExecutor } from '../db/client.js';
 import { projectCycles } from '../db/schema.js';
@@ -45,6 +45,11 @@ export function createProjectCycleRepository(db: RepositoryExecutor) {
         .limit(1)
         .for('update');
       return cycle ?? null;
+    },
+
+    async listByIds(ids: string[]) {
+      if (ids.length === 0) return [];
+      return db.select().from(projectCycles).where(inArray(projectCycles.id, [...new Set(ids)]));
     },
 
     async findActiveByProject(projectId: string) {

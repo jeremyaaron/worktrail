@@ -2,7 +2,7 @@
 
 ## Status
 
-Approved for sequential execution. Phases 0-4 are complete as of October 17, 2026; Phases 5-21 are
+Approved for sequential execution. Phases 0-5 are complete as of October 17, 2026; Phases 6-21 are
 not started. Implementation is in progress; release verification remains pending. Merge, tag, publication,
 and Pages deployment remain separate user-controlled actions.
 
@@ -752,7 +752,39 @@ Acceptance:
 Verification: project/workspace service and HTTP page tests, export boundary/parity tests, consistent-read
 tests, deterministic query budgets, API/contracts checks, and recorded before/after endpoint evidence.
 
-Status: Not started.
+Status: Complete (October 17, 2026).
+
+Completion evidence:
+
+- Extracted `WorkItemQueryService` and `WorkItemHydrator`. Query composition receives actor/persistence
+  only, keeping authorization, count/window, hydration, and projection in one consistent-read callback.
+  Existing service callers forward to this owner; child/bulk summaries and exports use the same
+  hydrator. Superseded list loops, enrichment entry points, and the unused workspace DTO wrapper
+  were removed rather than retained as duplicate implementations.
+- Reporter/assignee IDs are deduplicated into one member batch, with new milestone/cycle ID batches
+  and existing label/dependency/parent/child-summary queries. Workspace project summaries reuse the
+  joined selection. Map-based projection preserves input order, valid inactive/archived references,
+  mandatory/missing and optional/null behavior. Foreign reference data is not exposed; workspace
+  queries scope joined project summaries as well as work rows to the authorized workspace.
+- `WorkItemSummary` and narrow page/board/export/parent selections omit unused authored source/format.
+  Detail remains authored, and canonical search predicates are unchanged. CSV retains all 19 columns,
+  full-filter ordering, pagination independence, and 10,000-row overflow rejection. Sequential
+  500-row hydration chunks bound selected/reference IDs while retaining one enclosing snapshot.
+- Import-safe 10/25/100-row fixtures and complete service/HTTP SQL instrumentation assert <=20
+  statements, including transaction control and actor resolution. Populated project pages use 12
+  service/13 HTTP statements, workspace pages 11/12, across all measured sizes and repeated/distinct
+  references. Before batching, 100-row costs were 409/410 and 408/409 respectively. Payload bytes,
+  rows, and diagnostic timing are retained in [hydration evidence](hydration-evidence.md) and owned
+  run artifacts; no latency threshold or microbenchmark substitutes for the complete-path budget.
+- Final owned API run `6b5ea786-1d24-4275-9ee9-458210e1adf6` passed 657 tests across 57 files plus
+  41 resource tests, then cleaned its resources. Contracts typecheck and 54 tests, API/verification
+  typechecks/lint, API build, and whitespace checks passed. New coverage includes snapshot changes
+  across another real connection, a real 501-row export, project/workspace CSV parity and exact caps,
+  historical/null/missing/foreign references, distinct ID mapping, and source-free projections.
+- Updated the current developer guide and design/status documents. Versions, dependencies, budgets,
+  schema/migrations, working data, and public-site capability claims remain unchanged. Command/lifecycle
+  extraction and dashboard narrowing remain later phases. Diagnostic runs and local-only acceptance
+  limits are recorded in [verification notes](verification-notes.md).
 
 ## Phase 6: Concurrent Project And Cycle Lifecycle
 

@@ -1,7 +1,7 @@
 # Worktrail Developer Ownership And Invariants
 
-This is the current implementation guide, not a release archive. As of v0.3.0 Phase 4, persistence
-ownership is implemented; command extraction, batching, and lifecycle coordination remain assigned
+This is the current implementation guide, not a release archive. As of v0.3.0 Phase 5, persistence
+ownership and batched list/query hydration are implemented; command extraction and lifecycle coordination remain assigned
 to later phases in the [implementation plan](v0.3.0/implementation-plan.md).
 
 ## Composition And Persistence
@@ -70,8 +70,53 @@ entire upload/download operation in a database scope or hold locks during object
 
 Health, Quick Find, and activity-feed reads retain their existing focused read owners. Attachment
 list/download preflight reads also retain their existing behavior. Required capability injection does
-not imply these paths now have a cross-statement snapshot. Read/hydration extraction and measurable
-query budgets are Phase 5 work; dashboard narrowing is Phase 10 work.
+not imply these paths now have a cross-statement snapshot. Batched work-list ownership and measured
+query budgets are described below; dashboard narrowing remains Phase 10 work.
+
+## Work Queries And Batched Hydration
+
+`services/work-item-query-service.ts` owns project/workspace list, page, and board reads. It receives
+only actor identity and persistence, not root repositories. Authorization, count/window resolution,
+reference reads, and DTO projection occur inside one `readConsistent` callback. `WorkItemService`
+retains forwarding methods for existing endpoint/dashboard callers; command and detail ownership
+remain there until their later extraction. Do not copy list orchestration back into that facade.
+
+`services/work-item-hydrator.ts` receives the enclosing repositories and selected summary rows.
+It deduplicates the reporter/assignee union and milestone/cycle IDs, then loads members, milestones,
+cycles, labels, dependency counts, parents, and child summaries sequentially into maps. No selected
+row triggers another mandatory-reference lookup. Workspace project summaries already arrive in one
+joined window/export query and are reused without per-project reads. Input order is retained.
+
+Existing historical assignments remain readable: inactive members and archived milestone/cycle/label
+references are not filtered away simply because new assignment would be disallowed. Missing mandatory
+reporter or referenced milestone/cycle records still fail; absent optional assignees remain null.
+References must match the row's workspace/project ownership. Foreign mandatory references fail and
+foreign optional member/parent/label data is not exposed. Workspace row and joined project predicates
+both use the authorized workspace.
+
+`WorkItemSummary` excludes description source/format. Interactive project/workspace page, board,
+export, and parent-reference projections do not retrieve those unused bytes. Detail and existing
+internal full-domain evaluation reads retain their necessary types; this is not the Phase 10 dashboard
+projection/narrowing work. Search predicates can still search authored source without selecting it.
+
+The same hydrator serves CSV exports, child lists, and bulk response summaries. Export selection
+applies the canonical predicates/order, not page windows; the 19-column summary shape and 10,000-row
+cap/overflow rejection remain unchanged. Hydration chunks contain at most 500 selected rows, keeping
+member batches at at most 1,000 distinct IDs and other reference/related-row batches at at most 500.
+All chunks share the caller's snapshot. This bounds each statement, not the total export query count
+or output memory; synchronous exports still materialize their capped results.
+
+`tests/support/hydration-fixture.ts` is import-safe and builds named 10/25/100-row-per-project datasets
+only when called against owned test resources. Complete service and HTTP page tests count SQL through
+the Drizzle logger, including transaction control and HTTP actor resolution. The 100-row budget is
+20 statements: current populated project pages use 12 service/13 HTTP; workspace pages use 11/12.
+Repeated, mixed, and distinct reference datasets use the same counts. Empty/null-reference pages can
+use fewer statements. No timing threshold substitutes for these deterministic assertions.
+
+Owned API runs retain `hydration-evidence.json` next to their sanitized summary under
+`test-results/verification/<runId>/`. It contains only fixture mode, scope/transport, statement count,
+rows, payload bytes, and diagnostic elapsed time, not SQL parameters or application data. See
+[the Phase 5 evidence](v0.3.0/hydration-evidence.md) for the measured baseline and accepted results.
 
 ## Lock Ownership And Participation
 

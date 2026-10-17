@@ -438,3 +438,74 @@ membership, graph, hierarchy, or stale status decisions. Typed advisory helpers 
 tested; application project-gate participation and authoritative row ordering/revalidation remain
 Phases 6-7. Query/hydration extraction and deterministic SQL budgets remain Phase 5, dashboard read
 narrowing Phase 10, and final release acceptance Phases 20-21.
+
+## Phase 5 Batched Query Ownership
+
+Evidence collected October 17, 2026 on the Phase 3 Node 24/npm 11 toolchain and owned PostgreSQL 16.
+`WorkItemQueryService` now owns list/page/board orchestration, and scoped `WorkItemHydrator` batches
+all selected references. Existing endpoint/dashboard callers retain forwarding facade methods; CSV,
+child lists, and bulk response summaries use the same hydrator. Page/board/export/parent selections
+omit discarded authored source/format; detail and source-search behavior remain intact.
+
+The [hydration evidence report](hydration-evidence.md) records complete before/after service and HTTP
+statements, rows, response bytes, fixture modes, and diagnostic local timings. At 100 rows, project
+service/HTTP costs fell from 409/410 to 12/13 statements; workspace costs from 408/409 to 11/12.
+Counts include transaction control, authorization/count/window, all enrichment, and HTTP actor lookup.
+After counts stay constant at 10/25/100 rows and for repeated/distinct references, below the unchanged
+20-statement complete-path budget. Mixed-fixture JSON bytes are identical before/after; timings are
+not acceptance thresholds. Final run artifacts retain all twenty measurements in `hydration-evidence.json`.
+
+### Phase 5 Commands And Results
+
+| Check | Result |
+| --- | --- |
+| Final `npm run verify -- --mode=api` | 657 API tests across 57 files and 41 resource tests passed; owned resources removed |
+| API and verification typechecks | Passed `npm run typecheck:verification` |
+| API and verification lint | Passed with zero warnings |
+| Contracts typecheck/tests | Passed; 54 tests across 12 files |
+| API build | Passed |
+| Local documentation links and `git diff --check` | Passed |
+
+Accepted run: `6b5ea786-1d24-4275-9ee9-458210e1adf6`; its sanitized summary records `passed: true`,
+`cleaned: true`, and four successful gates. The 657 count includes 265 unit and 392 integration cases,
+not additional suites to sum again. No test retry, skip, timeout increase, warning suppression,
+dependency change, schema migration, or release-version bump was used.
+
+The 27 new cases comprise thirteen hydrator unit cases, one additional workspace exact-cap CSV case,
+one joined-project ownership predicate unit case, five complete-path budget cases, and seven real
+consistency/projection/export cases. They cover repeated/distinct and differing reporter/assignee IDs,
+database result reordering, historical/null/missing/foreign references, empty results, chunk bounds,
+project/workspace full-filter CSV parity, 19 columns, actual source-free selected rows, and a real
+501-row ordered export spanning two hydration chunks in one read transaction. Separate connections
+commit member/milestone/cycle/label/parent/dependency changes while enclosing project/workspace reads
+retain their snapshots; subsequent reads see the commit. Existing paging/filter/sort/search/hierarchy/
+dependency and count/window concurrent-commit tests also remain passing.
+
+### Phase 5 Diagnostic Runs
+
+- `071df0d4-694f-4c87-8f97-b789c811bb7e` was intentionally interrupted during resource checks after
+  TypeScript exposed missing required fixture timestamps. Exit 130 and owned cleanup were retained;
+  no domain measurements from that superseded fixture are claimed.
+- Baseline `316a9eec-666d-48b1-b48c-0f9e2dddd7a7` passed all 630 prior tests and failed only the three
+  newly added budget cases as intended. It measured the old per-row fan-out, then cleaned resources.
+- During migration, a standalone unit run and owned run `08346689-f2d0-426e-921e-7515ec4e326c` exposed
+  one multiline CSV spy still targeting the removed enrichment owner. The owned run passed 632/633
+  cases and cleaned resources. The test now spies on the actual hydrator; production behavior was not
+  changed to accommodate a stale spy.
+- Subsequent owned runs `c88b4bda-be9c-4f5d-8ace-5551de5960d6` and
+  `edb55f32-2c10-46b3-949b-963ea82195bb` passed 653 and 657 cases as coverage was expanded. Final
+  acceptance followed after strengthening the distinct workspace fixture and cardinality assertions.
+
+### Phase 5 Limits And Cleanup
+
+The ordinary configured database/store were never verification resources. Final inspection found no
+verification-labeled containers or owned application/test servers. Generated measurements remain in
+ignored run artifacts, with accepted values preserved in the committed report. No commit/push/tag/
+deployment or public-site feature claim is part of this backend refactor.
+
+The full Angular/browser/preview workflow, remote Linux CI, and release UAT were not rerun here. This
+is focused local API/contracts acceptance. Internal dashboard evaluation can still read broad domain
+rows and hydrate more than its preview; that is Phase 10 work. Capped CSV output remains materialized
+in memory, and total export queries can grow by 500-row chunk. Exact count/index cost is not constant
+in dataset size. Project/cycle/hierarchy/graph lifecycle coordination and command extraction remain
+Phases 6-7; batching and snapshot coherence do not establish those race guarantees.
