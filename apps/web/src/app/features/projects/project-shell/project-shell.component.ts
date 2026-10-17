@@ -1,13 +1,9 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import {
-  ActivatedRoute,
-  RouterLink,
-  RouterLinkActive,
-  RouterOutlet
-} from '@angular/router';
+import { PageContext } from '../../../core/navigation/page-context';
+import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import type { DeliveryHealthState, ProjectSummaryDto } from '@worktrail/contracts';
 
-import { WorktrailApiService } from '../../../core/worktrail-api.service';
+import { ProjectsApi } from '../../../core/api/projects-api';
 import {
   deliveryHealthLabel,
   deliveryHealthTone
@@ -323,13 +319,13 @@ interface ProjectSectionLink {
   `
 })
 export class ProjectShellComponent implements OnInit {
-  private readonly api = inject(WorktrailApiService);
-  private readonly route = inject(ActivatedRoute);
+  private readonly context = new PageContext();
+  private readonly projectsApi = inject(ProjectsApi);
 
   readonly summary = signal<ProjectSummaryDto | null>(null);
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
-  readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
+  readonly projectId = computed(() => this.context.param('projectId'));
   readonly sections = computed<ProjectSectionLink[]>(() => [
     { label: 'Overview', commands: ['/projects', this.projectId()], exact: true },
     { label: 'Work', commands: ['/projects', this.projectId(), 'work-items'], exact: false },
@@ -340,14 +336,20 @@ export class ProjectShellComponent implements OnInit {
   ]);
 
   ngOnInit(): void {
-    this.loadProjectSummary();
+    this.context.start(() => {
+      this.summary.set(null);
+      this.isLoading.set(false);
+      this.error.set(null);
+
+      this.loadProjectSummary();
+    });
   }
 
   loadProjectSummary(): void {
     this.isLoading.set(true);
     this.error.set(null);
 
-    this.api.getProjectSummary(this.projectId()).subscribe({
+    this.projectsApi.getProjectSummary(this.projectId()).pipe(this.context.guard()).subscribe({
       next: (summary) => {
         this.summary.set(summary);
         this.isLoading.set(false);

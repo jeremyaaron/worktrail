@@ -1,7 +1,7 @@
 import { snapshotCountLabel } from '@worktrail/contracts';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import type {
   CycleReviewRiskSectionDto,
   CycleReviewScopeBreakdownDto,
@@ -13,8 +13,8 @@ import type {
   WorkItemQuery,
   WorkItemStatus
 } from '@worktrail/contracts';
-import { Subscription } from 'rxjs';
 
+import { PageContext } from '../../core/navigation/page-context';
 import { CyclesApi } from '../../core/api/cycles-api';
 import { CurrentUserService } from '../../core/current-user.service';
 import {
@@ -909,15 +909,14 @@ interface BreakdownMetric {
     }
   `
 })
-export class ProjectCycleReviewPageComponent implements OnInit, OnDestroy {
+export class ProjectCycleReviewPageComponent implements OnInit {
+  private readonly context = new PageContext();
   readonly riskCountLabel = snapshotCountLabel;
-  private readonly route = inject(ActivatedRoute);
   private readonly cyclesApi = inject(CyclesApi);
   private readonly currentUser = inject(CurrentUserService);
-  private routeSubscription: Subscription | null = null;
 
-  readonly projectId = signal('');
-  readonly cycleId = signal('');
+  readonly projectId = computed(() => this.context.param('projectId'));
+  readonly cycleId = computed(() => this.context.param('cycleId'));
   readonly review = signal<ProjectCycleReviewDto | null>(null);
   readonly isLoading = signal(true);
   readonly error = signal<string | null>(null);
@@ -934,16 +933,17 @@ export class ProjectCycleReviewPageComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
-    this.routeSubscription = this.route.paramMap.subscribe((params) => {
-      this.projectId.set(params.get('projectId') ?? '');
-      this.cycleId.set(params.get('cycleId') ?? '');
+    this.context.start(() => {
+      this.review.set(null);
+      this.isLoading.set(true);
+      this.error.set(null);
+      this.errorTitle.set('Cycle review unavailable');
+
       this.loadReview();
     });
   }
 
-  ngOnDestroy(): void {
-    this.routeSubscription?.unsubscribe();
-  }
+
 
   loadReview(): void {
     const projectId = this.projectId();
@@ -960,7 +960,7 @@ export class ProjectCycleReviewPageComponent implements OnInit, OnDestroy {
     this.error.set(null);
     this.errorTitle.set('Cycle review unavailable');
 
-    this.cyclesApi.getCycleReview(projectId, cycleId).subscribe({
+    this.cyclesApi.getCycleReview(projectId, cycleId).pipe(this.context.guard()).subscribe({
       next: (review) => {
         this.review.set(review);
         this.isLoading.set(false);

@@ -168,6 +168,13 @@ Apply this to project shell/home, Planning, milestone/cycle/report routes, both 
 and their auxiliary saved-view/member/reference requests. Real router tests must change inherited
 project IDs as well as leaf record IDs; replacing a fake snapshot alone is insufficient evidence.
 
+Phase 11 implementation details and router/request regression evidence are recorded in
+[reactive context evidence](reactive-context-evidence.md). Owners use component-local `PageContext`,
+synchronous committed-actor events, cancelling read guards and non-cancelling submitted-write guards.
+Clipboard/file promises additionally check captured ownership before completion/finalization effects.
+Child creation retains entered fields when only its parent query changes; report evidence refresh
+does not initialize an existing narrative a second time. Departure decisions remain Phase 12 work.
+
 ### Draft Participants
 
 Add a small `DraftDepartureCoordinator` under `core/navigation`. Page owners register participants

@@ -1,6 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { PageContext } from '../../core/navigation/page-context';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import type {
   ProjectDto,
   WorkItemCsvImportApplyDto,
@@ -9,7 +10,8 @@ import type {
   WorkItemCsvImportWarningDto
 } from '@worktrail/contracts';
 
-import { WorktrailApiService } from '../../core/worktrail-api.service';
+import { ProjectsApi } from '../../core/api/projects-api';
+import { WorkItemsApi } from '../../core/api/work-items-api';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
 
@@ -500,10 +502,11 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
   `
 })
 export class WorkItemImportPageComponent implements OnInit {
-  private readonly api = inject(WorktrailApiService);
-  private readonly route = inject(ActivatedRoute);
+  private readonly context = new PageContext();
+  private readonly projectsApi = inject(ProjectsApi);
+  private readonly workItemsApi = inject(WorkItemsApi);
 
-  readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
+  readonly projectId = computed(() => this.context.param('projectId'));
   readonly project = signal<ProjectDto | null>(null);
   readonly isProjectLoading = signal(false);
   readonly projectError = signal<string | null>(null);
@@ -530,14 +533,28 @@ export class WorkItemImportPageComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.loadProject();
+    this.context.start(() => {
+      this.project.set(null);
+      this.isProjectLoading.set(false);
+      this.projectError.set(null);
+      this.selectedFileName.set('');
+      this.csvText.set('');
+      this.preview.set(null);
+      this.previewError.set(null);
+      this.isPreviewLoading.set(false);
+      this.applyResult.set(null);
+      this.applyError.set(null);
+      this.isApplyLoading.set(false);
+
+      this.loadProject();
+    });
   }
 
   loadProject(): void {
     this.isProjectLoading.set(true);
     this.projectError.set(null);
 
-    this.api.getProject(this.projectId()).subscribe({
+    this.projectsApi.getProject(this.projectId()).pipe(this.context.guard()).subscribe({
       next: (project) => {
         this.project.set(project);
         this.isProjectLoading.set(false);
@@ -562,6 +579,7 @@ export class WorkItemImportPageComponent implements OnInit {
   }
 
   async previewFile(file: File): Promise<void> {
+    const isCurrent = this.context.capture();
     this.selectedFileName.set(file.name);
     this.applyResult.set(null);
     this.applyError.set(null);
@@ -570,9 +588,11 @@ export class WorkItemImportPageComponent implements OnInit {
 
     try {
       const csv = await file.text();
+      if (!isCurrent()) return;
       this.csvText.set(csv);
       this.previewImport();
     } catch {
+      if (!isCurrent()) return;
       this.csvText.set('');
       this.previewError.set('CSV file could not be read.');
     }
@@ -587,7 +607,7 @@ export class WorkItemImportPageComponent implements OnInit {
     this.previewError.set(null);
     this.applyError.set(null);
 
-    this.api.previewWorkItemCsvImport(this.projectId(), this.csvText()).subscribe({
+    this.workItemsApi.previewWorkItemCsvImport(this.projectId(), this.csvText()).pipe(this.context.guard()).subscribe({
       next: (preview) => {
         this.preview.set(preview);
         this.isPreviewLoading.set(false);
@@ -608,7 +628,7 @@ export class WorkItemImportPageComponent implements OnInit {
     this.isApplyLoading.set(true);
     this.applyError.set(null);
 
-    this.api.applyWorkItemCsvImport(this.projectId(), this.csvText()).subscribe({
+    this.workItemsApi.applyWorkItemCsvImport(this.projectId(), this.csvText()).pipe(this.context.guardMutation()).subscribe({
       next: (result) => {
         this.applyResult.set(result);
         this.isApplyLoading.set(false);

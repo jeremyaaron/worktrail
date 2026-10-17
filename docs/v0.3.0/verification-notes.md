@@ -1002,3 +1002,97 @@ All nine run summaries record `cleaned: true`; private roots, processes, Chromiu
 verification containers were removed. Documentation links/YAML references/whitespace were checked after
 status updates. Phase 10 is complete; Phase 11 is not started. No commit/push/tag/version bump/deployment
 was performed, and working data were untouched.
+
+## Phase 11: Reactive Route And Actor Context
+
+Completed October 17, 2026 with supported Node 24.16.0/npm 11.13.0 via explicit PATH. Package identity
+remains 0.2.9. [Context evidence](reactive-context-evidence.md) describes ownership, production adoption,
+router reuse, preserved behavior and the Phase 12 departure-protection boundary.
+
+### Acceptance And Impact Selection
+
+| Check | Result |
+| --- | --- |
+| Broad Angular/context acceptance | 729/729 passed in owned run `93a07427-618c-4147-abac-e64f410274fb` |
+| Frontend lint and development template/typecheck | Passed in that run |
+| Final shared query deduplication | 286/286 affected Angular cases plus lint/production build/graph passed in `34ea745f-ef42-42f0-b351-961f89c6a93c` |
+| Last pagination-reset race refinement | 113/113 context/project-list/workspace-list cases passed in `76824250-b8c2-488f-bcf9-fef796c8ec58` |
+| Production build | Warning-free; initial 390.62 kB / estimated transfer 107.60 kB; budgets unchanged |
+| Initial static import graph | 151 inputs; no heavy detail/Planning/report/creation/Markdown/CodeMirror/Lezer inputs; 20 lazy page entry points |
+| Selected Playwright | 5/5 passed, one worker, zero retries; run `024bb504-9548-49cf-a2e8-ab5739fc04a1` |
+| Whitespace/local documentation links | Passed after final documentation updates |
+| Omitted as not applicable | API/domain/contract/resource suites, dependency audit, editor/site-only and release-wide full verification |
+
+Counts overlap and must not be added. Shared route/current-user ownership affects many frontend
+consumers, so a broad Angular run was justified here. The final query-only change then reran affected
+page owners, not the unchanged application-wide suite. The last two-list pagination refinement used
+the context and both work-list specs only. The earlier production graph/build remains valid evidence
+for unchanged initial imports/budgets; the last refinement changes lazy list logic, and its Angular
+compilation/tests passed. No claim is made that the entire final tree received release-wide verification.
+
+The owned frontend acceptance commands used existing manifest/private-checkout/port/process/Karma/
+cleanup helpers, with no database or application server:
+
+```sh
+npm run lint --workspace @worktrail/web
+npm run typecheck --workspace @worktrail/web
+npm run ng --workspace @worktrail/web -- test --watch=false --karma-config <owned-checkout>/scripts/verification/karma.config.cjs
+npm run build --workspace @worktrail/web -- --stats-json
+```
+
+The esbuild stats check traversed non-dynamic imports from `src/main.ts`, rejected heavy feature/editor
+inputs in that graph, and counted lazy page entry points. Sanitized build/graph/gate summaries are in
+the corresponding ignored `test-results/verification/<runId>/summary.json` files.
+
+The 286-case run added these CLI selections:
+
+```text
+--include=src/app/core/navigation/page-context.spec.ts
+--include=src/app/features/projects/**/*.spec.ts
+--include=src/app/features/work-items/*spec.ts
+```
+
+The final 113-case selection used the context spec plus `work-items-page.component.spec.ts` and
+`workspace-work-item-list-page.component.spec.ts`. Focused helper runs clean their private roots and
+print counts/run IDs; unlike the standard runner, they do not create a machine-readable gate summary.
+
+Browser command:
+
+```sh
+npm run verify -- --mode=e2e '--grep=authors descriptions across creation paths|downloads seeded files exactly|opens and saves v0.1.4 project saved views|reviews v0.2.1 cycle planning|publishes and reads v0.1.8 project status reports'
+```
+
+It provisioned PostgreSQL 16, migrated/seeded owned data/storage, started owned API/Angular servers,
+and passed creation/description/detail reuse, attachment reuse, owner/contributor saved views, cycle
+Planning and report publication/read flows. Browser execution took 46.9 seconds, not a latency promise.
+
+### Diagnostics
+
+- `4089ed61-8ac0-4d45-898c-66c2845e21e0` stopped at lint for an obsolete RxJS import, then cleaned up.
+- `54cb95d2-23e6-47f6-b48a-b0931e2fb32c` passed lint/typecheck but 23 of 708 Angular cases failed:
+  minimal route doubles lacked snapshots and some old tests attempted to flush now-cancelled reads.
+  Initial observable state supports those doubles; obsolete reads now assert cancellation, while late
+  submitted-write success/error tests continue delivering responses and checking guarded effects.
+- `c92b7141-1e11-41ad-9e98-a6d5cd8e1bef` stopped at test compilation for three union-type Jasmine
+  identity assertions. They were corrected without relaxing behavior assertions.
+- `8e18ce77-2428-47a3-911d-a55609c730bf` passed 274/278 cases and exposed pagination reset and
+  parent-only child-form preservation regressions. Both established behaviors were restored.
+- `e26e0fb1-a635-4244-b4c3-279315706405` passed all 278 affected cases; `f8bb4e40-47d6-4bc2-b20b-7017214d8308`
+  then passed 24 focused context/report cases. Their coverage is included in later acceptance.
+- First browser attempt `daa86b43-15b1-43af-b68e-66a9508d184e` stopped at provisioning with
+  `Disposable PostgreSQL has no owned loopback port`, before any browser test. Its summary records
+  `cleaned: true`. A separate owned provisioning diagnostic succeeded and removed its resources;
+  the subsequent five-flow browser run passed without runner/deadline/retry changes. The exact cause
+  of the first missing Docker port is not established.
+
+### Closure And Limits
+
+Owned private checkouts/builds, Karma/Chromium profiles/processes, API/Angular servers, PostgreSQL
+containers and attachment roots were removed. Working PostgreSQL on 5432 and ordinary attachment
+storage were not verification targets. No timeout/retry/worker/budget increase, dependency/version
+change, commit/push/tag/publication or deployment was performed.
+
+Real-router owner tests override presentation to isolate identity/lifetime behavior; existing page
+tests and the five browser flows cover actual templates. Remote CI, complete browser/UAT and release
+acceptance are not claimed. Navigation cancellation/error preserves drafts, but prompting before an
+accepted departure and blocking pending writes remain Phase 12. Phase 11 is complete.

@@ -1,16 +1,7 @@
 import { workItemFilterChips, type WorkItemFilterChip } from './query/work-item-filter-labels';
 import type { WorkspaceWorkItemFilterFormValue } from './query/work-item-filter-state';
 import { HttpErrorResponse } from '@angular/common/http';
-import {
-  Component,
-  OnDestroy,
-  OnInit,
-  ViewChild,
-  computed,
-  effect,
-  inject,
-  signal
-} from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type {
@@ -36,8 +27,11 @@ import type {
 } from '@worktrail/contracts';
 import { Subscription } from 'rxjs';
 
+import { PageContext } from '../../core/navigation/page-context';
 import { CurrentUserService } from '../../core/current-user.service';
-import { WorktrailApiService } from '../../core/worktrail-api.service';
+import { ProjectsApi } from '../../core/api/projects-api';
+import { SavedViewsApi } from '../../core/api/saved-views-api';
+import { WorkItemsApi } from '../../core/api/work-items-api';
 import { ClipboardService } from '../../shared/clipboard.service';
 import { CyclesApi } from '../../core/api/cycles-api';
 import { downloadBlob, fileNameFromContentDisposition } from '../../shared/download-file';
@@ -863,9 +857,12 @@ type WorkspaceFilterFormValue = WorkspaceWorkItemFilterFormValue;
   `
 })
 export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
+  private readonly context = new PageContext();
   @ViewChild(WorkItemResultListComponent) private resultList?: WorkItemResultListComponent;
 
-  private readonly api = inject(WorktrailApiService);
+  private readonly projectsApi = inject(ProjectsApi);
+  private readonly savedViewsApi = inject(SavedViewsApi);
+  private readonly workItemsApi = inject(WorkItemsApi);
   private readonly cyclesApi = inject(CyclesApi);
   private readonly clipboard = inject(ClipboardService);
   private readonly currentUser = inject(CurrentUserService);
@@ -873,46 +870,16 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly subscriptions = new Subscription();
+  private projectOptionsSubscription = new Subscription();
   private readonly queryState = WorkListQueryStore.workspace();
   private workItemsSubscription: Subscription | null = null;
-  private selectedActorId = this.currentUser.selectedMemberId();
-  private hasInitialized = false;
+  private pendingContextPageReset = false;
   private loadedProjectFilterId: string | null = null;
   private focusAfterLoadPageKey: string | null = null;
   private focusResultTimer: ReturnType<typeof setTimeout> | null = null;
   private copyLinkStatusTimer: ReturnType<typeof setTimeout> | null = null;
 
-  private readonly actorChangeEffect = effect(() => {
-    const actorId = this.currentUser.selectedMemberId();
 
-    if (actorId === this.selectedActorId) {
-      return;
-    }
-
-    this.selectedActorId = actorId;
-    if (!this.hasInitialized) {
-      return;
-    }
-
-    this.workItemsSubscription?.unsubscribe();
-    this.clearResultFocusRequest();
-    this.activePageQuery.set({ ...defaultWorkItemPageQuery });
-    this.workItems.set([]);
-    this.pageMetadata.set(emptyPageMetadata());
-    this.error.set(null);
-    this.isLoading.set(false);
-    this.reloadActorContext();
-    void this.router
-      .navigate([], {
-        relativeTo: this.route,
-        queryParams: this.queryState.routerQueryParamsForResolvedPage(defaultWorkItemPageQuery)
-      })
-      .then((navigated) => {
-        if (!navigated) {
-          this.loadWorkItems();
-        }
-      });
-  });
 
   readonly statuses = statuses;
   readonly workStates = workStates;
@@ -1008,17 +975,57 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   });
 
   ngOnInit(): void {
-    this.hasInitialized = true;
     if (this.currentUser.members().length === 0) {
       this.currentUser.loadMembers();
     }
 
-    this.loadProjectSummaries();
-    this.loadSavedViews();
+    let initialized = false;
+    this.context.start(() => {
+      this.pendingContextPageReset = false;
+      this.workItemsSubscription?.unsubscribe();
+      this.clearResultFocusRequest();
+      this.clearCopyLinkStatusTimer();
+      this.projectSummaries.set([]);
+      this.savedViews.set([]);
+      this.savedViewDraftNames.set({});
+      this.labels.set([]);
+      this.milestones.set([]);
+      this.cycles.set([]);
+      this.workItems.set([]);
+      this.pageMetadata.set(emptyPageMetadata());
+      this.isLoading.set(false);
+      this.error.set(null);
+      this.isCopyingViewLink.set(false);
+      this.copyLinkStatus.set(null);
+      this.isExporting.set(false);
+      this.exportError.set(null);
+      this.isSavedViewLoading.set(false);
+      this.savedViewLoadError.set(null);
+      this.isSavingView.set(false);
+      this.savedViewMutationError.set(null);
+      this.activePageQuery.set({ ...defaultWorkItemPageQuery });
+      this.reloadActorContext();
+      if (initialized && (this.context.query('page') !== '' || this.context.query('pageSize') !== '')) {
+        this.pendingContextPageReset = true;
+        const isCurrent = this.context.capture();
+        void this.router.navigate([], {
+          relativeTo: this.route,
+          queryParams: this.queryState.routerQueryParamsForResolvedPage(defaultWorkItemPageQuery)
+        }).then((navigated) => {
+          if (isCurrent() && !navigated) {
+            this.pendingContextPageReset = false;
+            this.loadWorkItems();
+          }
+        });
+      }
+      initialized = true;
+    });
     this.watchFilterChanges();
 
     this.subscriptions.add(
-      this.route.queryParamMap.subscribe((params) => {
+      this.context.queryParamMap$.subscribe((params) => {
+        if (this.pendingContextPageReset && (params.get('page') !== null || params.get('pageSize') !== null)) return;
+        this.pendingContextPageReset = false;
         const previousFilters = this.appliedFilterValues();
         const pendingFilterDraft = this.filterForm.getRawValue();
         const nextFilters = this.queryState.applyRouteQueryParams(params);
@@ -1054,9 +1061,9 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   ngOnDestroy(): void {
-    this.hasInitialized = false;
     this.workItemsSubscription?.unsubscribe();
     this.subscriptions.unsubscribe();
+    this.projectOptionsSubscription.unsubscribe();
     this.clearResultFocusTimer();
     this.clearCopyLinkStatusTimer();
   }
@@ -1083,8 +1090,8 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     this.workItems.set([]);
     this.pageMetadata.set(emptyPageMetadata(requestedPage));
 
-    this.workItemsSubscription = this.api
-      .listWorkspaceWorkItems(this.appliedQuery(), requestedPage)
+    this.workItemsSubscription = this.workItemsApi
+      .listWorkspaceWorkItems(this.appliedQuery(), requestedPage).pipe(this.context.guard())
       .subscribe({
       next: (response) => {
         if (response.page !== requestedPage.page || response.pageSize !== requestedPage.pageSize) {
@@ -1132,11 +1139,12 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       page: targetPage,
       pageSize: this.activePageQuery().pageSize
     });
+    const isCurrent = this.context.capture();
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: this.queryState.routerQueryParamsForPage(targetPage)
     }).then((navigated) => {
-      if (!navigated) {
+      if (isCurrent() && !navigated) {
         this.clearResultFocusRequest();
       }
     });
@@ -1151,11 +1159,12 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     }
 
     this.requestResultHeadingFocus({ page: 1, pageSize });
+    const isCurrent = this.context.capture();
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: this.queryState.routerQueryParamsForPageSize(pageSize)
     }).then((navigated) => {
-      if (!navigated) {
+      if (isCurrent() && !navigated) {
         this.clearResultFocusRequest();
       }
     });
@@ -1166,11 +1175,12 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       return Promise.resolve();
     }
 
+    const isCurrent = this.context.capture();
     this.isExporting.set(true);
     this.exportError.set(null);
 
     return new Promise((resolve) => {
-      this.api.exportWorkspaceWorkItems(this.appliedQuery()).subscribe({
+      this.workItemsApi.exportWorkspaceWorkItems(this.appliedQuery()).pipe(this.context.guard()).subscribe({
         next: (response) => {
           const fileName = fileNameFromContentDisposition(
             response.headers.get('content-disposition'),
@@ -1189,10 +1199,11 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
           this.exportError.set(fallback);
           this.isExporting.set(false);
           void apiErrorMessageFromBody(error.error, fallback).then((message) => {
-            this.exportError.set(message);
+            if (isCurrent()) this.exportError.set(message);
             resolve();
           });
-        }
+        },
+        complete: () => resolve()
       });
     });
   }
@@ -1202,6 +1213,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       return;
     }
 
+    const isCurrent = this.context.capture();
     this.clearCopyLinkStatusTimer();
     this.isCopyingViewLink.set(true);
     this.copyLinkStatus.set(null);
@@ -1209,19 +1221,20 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     this.clipboard
       .copyText(this.currentFilteredViewUrl())
       .then(() => {
-        this.copyLinkStatus.set('Link copied');
+        if (isCurrent()) this.copyLinkStatus.set('Link copied');
       })
       .catch(() => {
-        this.copyLinkStatus.set('Link could not be copied');
+        if (isCurrent()) this.copyLinkStatus.set('Link could not be copied');
       })
       .finally(() => {
+        if (!isCurrent()) return;
         this.isCopyingViewLink.set(false);
         this.scheduleCopyLinkStatusReset();
       });
   }
 
   loadProjectSummaries(): void {
-    this.api.listProjectNavigationSummaries().subscribe({
+    this.projectsApi.listProjectNavigationSummaries().pipe(this.context.guard()).subscribe({
       next: (summaries) => {
         this.projectSummaries.set(summaries);
       },
@@ -1235,7 +1248,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     this.isSavedViewLoading.set(true);
     this.savedViewLoadError.set(null);
 
-    this.api.listSavedWorkViews({ scope: 'workspace' }).subscribe({
+    this.savedViewsApi.listSavedWorkViews({ scope: 'workspace' }).pipe(this.context.guard()).subscribe({
       next: (savedViews) => {
         this.savedViews.set(this.sortSavedViews(savedViews));
         this.syncSavedViewDraftNames(this.savedViews());
@@ -1308,13 +1321,13 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     this.isSavingView.set(true);
     this.savedViewMutationError.set(null);
 
-    this.api
+    this.savedViewsApi
       .createSavedWorkView({
         name,
         scope: 'workspace',
         query: this.appliedQuery(),
         ...(visibility === 'workspace' ? { visibility } : {})
-      })
+      }).pipe(this.context.guardMutation())
       .subscribe({
         next: (savedView) => {
           this.savedViews.set(this.sortSavedViews([...this.savedViews(), savedView]));
@@ -1363,7 +1376,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
 
     this.savedViewMutationError.set(null);
 
-    this.api.updateSavedWorkView(savedView.id, { name }).subscribe({
+    this.savedViewsApi.updateSavedWorkView(savedView.id, { name }).pipe(this.context.guardMutation()).subscribe({
       next: (updated) => {
         this.replaceSavedView(updated);
       },
@@ -1382,7 +1395,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
 
     this.savedViewMutationError.set(null);
 
-    this.api.updateSavedWorkView(savedView.id, { query: this.appliedQuery() }).subscribe({
+    this.savedViewsApi.updateSavedWorkView(savedView.id, { query: this.appliedQuery() }).pipe(this.context.guardMutation()).subscribe({
       next: (updated) => {
         this.replaceSavedView(updated);
       },
@@ -1401,7 +1414,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
 
     this.savedViewMutationError.set(null);
 
-    this.api.updateSavedWorkView(savedView.id, { isPinned }).subscribe({
+    this.savedViewsApi.updateSavedWorkView(savedView.id, { isPinned }).pipe(this.context.guardMutation()).subscribe({
       next: (updated) => {
         this.replaceSavedView(updated);
       },
@@ -1420,7 +1433,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
 
     this.savedViewMutationError.set(null);
 
-    this.api.deleteSavedWorkView(savedView.id).subscribe({
+    this.savedViewsApi.deleteSavedWorkView(savedView.id).pipe(this.context.guardMutation()).subscribe({
       next: () => {
         this.savedViews.set(this.savedViews().filter((view) => view.id !== savedView.id));
         const { [savedView.id]: _removed, ...remainingDraftNames } = this.savedViewDraftNames();
@@ -1488,6 +1501,8 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   private reloadActorContext(): void {
     this.loadProjectSummaries();
     this.loadSavedViews();
+    this.projectOptionsSubscription.unsubscribe();
+    this.projectOptionsSubscription = new Subscription();
     this.loadedProjectFilterId = null;
     this.loadProjectScopedFilters(this.appliedFilterValues().projectId);
   }
@@ -1536,6 +1551,13 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   private loadProjectScopedFilters(projectId: string): void {
+    if (projectId !== this.loadedProjectFilterId) {
+      this.projectOptionsSubscription.unsubscribe();
+      this.projectOptionsSubscription = new Subscription();
+      this.labels.set([]);
+      this.milestones.set([]);
+      this.cycles.set([]);
+    }
     if (projectId === '') {
       this.loadedProjectFilterId = null;
       this.labels.set([]);
@@ -1550,32 +1572,32 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
 
     this.loadedProjectFilterId = projectId;
 
-    this.api.listProjectLabels(projectId, { includeArchived: true }).subscribe({
+    this.projectOptionsSubscription.add(this.projectsApi.listProjectLabels(projectId, { includeArchived: true }).pipe(this.context.guard()).subscribe({
       next: (labels) => {
         this.labels.set(this.sortLabels(labels));
       },
       error: () => {
         this.labels.set([]);
       }
-    });
+    }));
 
-    this.api.listProjectMilestones(projectId, { includeArchived: true }).subscribe({
+    this.projectOptionsSubscription.add(this.projectsApi.listProjectMilestones(projectId, { includeArchived: true }).pipe(this.context.guard()).subscribe({
       next: (milestones) => {
         this.milestones.set(this.sortMilestones(milestones));
       },
       error: () => {
         this.milestones.set([]);
       }
-    });
+    }));
 
-    this.cyclesApi.listCycles(projectId, { includeArchived: true }).subscribe({
+    this.projectOptionsSubscription.add(this.cyclesApi.listCycles(projectId, { includeArchived: true }).pipe(this.context.guard()).subscribe({
       next: (cycles) => {
         this.cycles.set(this.sortCycles(cycles));
       },
       error: () => {
         this.cycles.set([]);
       }
-    });
+    }));
   }
 
   private getActiveFilterLabels(): string[] { return this.activeFilterChips().map(chip => chip.label); }

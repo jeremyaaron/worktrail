@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import type {
   DeliveryHealthReasonDto,
   ProjectCycleCloseoutItemSnapshotDto,
@@ -11,6 +11,7 @@ import type {
 } from '@worktrail/contracts';
 import { Subscription } from 'rxjs';
 
+import { PageContext } from '../../../core/navigation/page-context';
 import { CyclesApi } from '../../../core/api/cycles-api';
 import { extractApiErrorMessage } from '../../../core/api/api-error';
 import { cycleDateRangeLabel } from '../../../shared/cycles/cycle-display';
@@ -282,7 +283,7 @@ const priorityLabels: Record<WorkItemPriority, string> = {
   `
 })
 export class ProjectCycleCloseoutPageComponent implements OnInit, OnDestroy {
-  private readonly route = inject(ActivatedRoute);
+  private readonly context = new PageContext();
   private readonly router = inject(Router);
   private readonly cyclesApi = inject(CyclesApi);
   private readonly formBuilder = inject(FormBuilder);
@@ -290,8 +291,8 @@ export class ProjectCycleCloseoutPageComponent implements OnInit, OnDestroy {
   private previewSubscription: Subscription | null = null;
   private closeSubscription: Subscription | null = null;
 
-  readonly projectId = signal('');
-  readonly cycleId = signal('');
+  readonly projectId = computed(() => this.context.param('projectId'));
+  readonly cycleId = computed(() => this.context.param('cycleId'));
   readonly preview = signal<ProjectCycleCloseoutPreviewDto | null>(null);
   readonly isLoading = signal(true);
   readonly isSubmitting = signal(false);
@@ -303,13 +304,16 @@ export class ProjectCycleCloseoutPageComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
-    this.subscriptions.add(
-      this.route.paramMap.subscribe((params) => {
-        this.projectId.set(params.get('projectId') ?? '');
-        this.cycleId.set(params.get('cycleId') ?? '');
-        this.loadPreview();
-      })
-    );
+    this.context.start(() => {
+      this.preview.set(null);
+      this.isLoading.set(true);
+      this.isSubmitting.set(false);
+      this.loadError.set(null);
+      this.submitError.set(null);
+      this.conflictError.set(null);
+      this.form.reset(undefined, { emitEvent: false });
+      this.loadPreview();
+    });
   }
 
   ngOnDestroy(): void {
@@ -338,7 +342,7 @@ export class ProjectCycleCloseoutPageComponent implements OnInit, OnDestroy {
     }
 
     this.isLoading.set(true);
-    this.previewSubscription = this.cyclesApi.getCloseoutPreview(projectId, cycleId).subscribe({
+    this.previewSubscription = this.cyclesApi.getCloseoutPreview(projectId, cycleId).pipe(this.context.guard()).subscribe({
       next: (preview) => {
         this.preview.set(preview);
         const defaultDestination =
@@ -381,7 +385,7 @@ export class ProjectCycleCloseoutPageComponent implements OnInit, OnDestroy {
         : this.form.getRawValue().destinationCycleId;
 
     this.closeSubscription = this.cyclesApi
-      .closeCycle(this.projectId(), this.cycleId(), { destinationCycleId })
+      .closeCycle(this.projectId(), this.cycleId(), { destinationCycleId }).pipe(this.context.guard())
       .subscribe({
         next: () => {
           void this.router.navigate([

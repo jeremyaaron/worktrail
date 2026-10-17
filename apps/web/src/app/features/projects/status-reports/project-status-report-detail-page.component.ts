@@ -1,6 +1,7 @@
 import { snapshotRiskCountLabel } from '@worktrail/contracts';
+import { PageContext } from '../../../core/navigation/page-context';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import type {
   HealthReasonReadDto as DeliveryHealthReasonDto,
   DeliveryHealthState,
@@ -9,7 +10,7 @@ import type {
   ProjectStatusReportRiskSnapshotDto
 } from '@worktrail/contracts';
 
-import { WorktrailApiService } from '../../../core/worktrail-api.service';
+import { ProjectsApi } from '../../../core/api/projects-api';
 import {
   deliveryHealthLabel,
   deliveryHealthReasonLabel,
@@ -867,10 +868,10 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
   `
 })
 export class ProjectStatusReportDetailPageComponent implements OnInit {
+  private readonly context = new PageContext();
   readonly riskCountLabel = snapshotRiskCountLabel;
-  private readonly api = inject(WorktrailApiService);
+  private readonly projectsApi = inject(ProjectsApi);
   private readonly clipboard = inject(ClipboardService);
-  private readonly route = inject(ActivatedRoute);
 
   readonly report = signal<ProjectStatusReportDetailDto | null>(null);
   readonly isLoading = signal(false);
@@ -878,18 +879,27 @@ export class ProjectStatusReportDetailPageComponent implements OnInit {
   readonly isCopyingMarkdown = signal(false);
   readonly isDownloadingMarkdown = signal(false);
   readonly shareStatus = signal<{ tone: 'error' | 'success'; message: string } | null>(null);
-  readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
-  readonly reportId = computed(() => this.route.snapshot.paramMap.get('reportId') ?? '');
+  readonly projectId = computed(() => this.context.param('projectId'));
+  readonly reportId = computed(() => this.context.param('reportId'));
 
   ngOnInit(): void {
-    this.loadReport();
+    this.context.start(() => {
+      this.report.set(null);
+      this.isLoading.set(false);
+      this.error.set(null);
+      this.isCopyingMarkdown.set(false);
+      this.isDownloadingMarkdown.set(false);
+      this.shareStatus.set(null);
+
+      this.loadReport();
+    });
   }
 
   loadReport(): void {
     this.isLoading.set(true);
     this.error.set(null);
 
-    this.api.getProjectStatusReport(this.projectId(), this.reportId()).subscribe({
+    this.projectsApi.getProjectStatusReport(this.projectId(), this.reportId()).pipe(this.context.guard()).subscribe({
       next: (report) => {
         this.report.set(report);
         this.isLoading.set(false);
@@ -908,24 +918,25 @@ export class ProjectStatusReportDetailPageComponent implements OnInit {
       return;
     }
 
+    const isCurrent = this.context.capture();
     this.isCopyingMarkdown.set(true);
     this.shareStatus.set(null);
 
-    this.api.exportProjectStatusReportMarkdown(this.projectId(), this.reportId()).subscribe({
+    this.projectsApi.exportProjectStatusReportMarkdown(this.projectId(), this.reportId()).pipe(this.context.guard()).subscribe({
       next: (response) => {
         const blob = response.body ?? new Blob([''], { type: 'text/markdown' });
 
         blob
           .text()
-          .then((markdown) => this.clipboard.copyText(markdown))
+          .then((markdown) => isCurrent() ? this.clipboard.copyText(markdown) : undefined)
           .then(() => {
-            this.shareStatus.set({ tone: 'success', message: 'Markdown copied.' });
+            if (isCurrent()) this.shareStatus.set({ tone: 'success', message: 'Markdown copied.' });
           })
           .catch(() => {
-            this.shareStatus.set({ tone: 'error', message: 'Markdown could not be copied.' });
+            if (isCurrent()) this.shareStatus.set({ tone: 'error', message: 'Markdown could not be copied.' });
           })
           .finally(() => {
-            this.isCopyingMarkdown.set(false);
+            if (isCurrent()) this.isCopyingMarkdown.set(false);
           });
       },
       error: () => {
@@ -943,7 +954,7 @@ export class ProjectStatusReportDetailPageComponent implements OnInit {
     this.isDownloadingMarkdown.set(true);
     this.shareStatus.set(null);
 
-    this.api.exportProjectStatusReportMarkdown(this.projectId(), this.reportId()).subscribe({
+    this.projectsApi.exportProjectStatusReportMarkdown(this.projectId(), this.reportId()).pipe(this.context.guard()).subscribe({
       next: (response) => {
         const fileName = fileNameFromContentDisposition(
           response.headers.get('content-disposition'),

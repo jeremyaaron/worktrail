@@ -1,5 +1,5 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import type {
   DeliveryHealthState,
   ProjectStatusReportSummaryDto,
@@ -7,8 +7,9 @@ import type {
 } from '@worktrail/contracts';
 import { forkJoin } from 'rxjs';
 
+import { PageContext } from '../../../core/navigation/page-context';
 import { CurrentUserService } from '../../../core/current-user.service';
-import { WorktrailApiService } from '../../../core/worktrail-api.service';
+import { ProjectsApi } from '../../../core/api/projects-api';
 import {
   deliveryHealthLabel,
   deliveryHealthTone
@@ -383,15 +384,15 @@ import { LoadingIndicatorComponent } from '../../../shared/ui/loading-indicator.
   `
 })
 export class ProjectStatusReportListPageComponent implements OnInit {
-  private readonly api = inject(WorktrailApiService);
+  private readonly context = new PageContext();
+  private readonly projectsApi = inject(ProjectsApi);
   private readonly currentUser = inject(CurrentUserService);
-  private readonly route = inject(ActivatedRoute);
 
   readonly summary = signal<ProjectSummaryDto | null>(null);
   readonly reports = signal<ProjectStatusReportSummaryDto[]>([]);
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
-  readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
+  readonly projectId = computed(() => this.context.param('projectId'));
   readonly latestReport = computed(() => this.reports()[0] ?? null);
   readonly previousReports = computed(() => this.reports().slice(1));
   readonly canCreateReport = computed(() => {
@@ -404,7 +405,14 @@ export class ProjectStatusReportListPageComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.loadStatusReports();
+    this.context.start(() => {
+      this.summary.set(null);
+      this.reports.set([]);
+      this.isLoading.set(false);
+      this.error.set(null);
+
+      this.loadStatusReports();
+    });
   }
 
   loadStatusReports(): void {
@@ -412,9 +420,9 @@ export class ProjectStatusReportListPageComponent implements OnInit {
     this.error.set(null);
 
     forkJoin({
-      summary: this.api.getProjectSummary(this.projectId()),
-      reports: this.api.listProjectStatusReports(this.projectId())
-    }).subscribe({
+      summary: this.projectsApi.getProjectSummary(this.projectId()),
+      reports: this.projectsApi.listProjectStatusReports(this.projectId())
+    }).pipe(this.context.guard()).subscribe({
       next: ({ summary, reports }) => {
         this.summary.set(summary);
         this.reports.set(reports);

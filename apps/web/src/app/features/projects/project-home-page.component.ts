@@ -1,5 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { PageContext } from '../../core/navigation/page-context';
+import { RouterLink } from '@angular/router';
 import type {
   DeliveryHealthReasonDto,
   DeliveryHealthState,
@@ -7,7 +8,7 @@ import type {
   WorkItemStatus
 } from '@worktrail/contracts';
 
-import { WorktrailApiService } from '../../core/worktrail-api.service';
+import { ProjectsApi } from '../../core/api/projects-api';
 import {
   deliveryHealthLabel,
   deliveryHealthReasonLabel,
@@ -643,23 +644,29 @@ const statusLabels: Record<WorkItemStatus, string> = {
   `
 })
 export class ProjectHomePageComponent implements OnInit {
-  private readonly api = inject(WorktrailApiService);
-  private readonly route = inject(ActivatedRoute);
+  private readonly context = new PageContext();
+  private readonly projectsApi = inject(ProjectsApi);
 
   readonly summary = signal<ProjectSummaryDto | null>(null);
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
-  readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
+  readonly projectId = computed(() => this.context.param('projectId'));
 
   ngOnInit(): void {
-    this.loadSummary();
+    this.context.start(() => {
+      this.summary.set(null);
+      this.isLoading.set(false);
+      this.error.set(null);
+
+      this.loadSummary();
+    });
   }
 
   loadSummary(): void {
     this.isLoading.set(true);
     this.error.set(null);
 
-    this.api.getProjectSummary(this.projectId()).subscribe({
+    this.projectsApi.getProjectSummary(this.projectId()).pipe(this.context.guard()).subscribe({
       next: (summary) => {
         this.summary.set(summary);
         this.isLoading.set(false);

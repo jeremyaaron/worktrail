@@ -1,6 +1,6 @@
 import { snapshotCountLabel } from '@worktrail/contracts';
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import type {
   DeliveryHealthReasonDto,
   DeliveryHealthState,
@@ -12,9 +12,9 @@ import type {
   WorkItemQuery,
   WorkItemStatus
 } from '@worktrail/contracts';
-import { Subscription } from 'rxjs';
 
-import { WorktrailApiService } from '../../core/worktrail-api.service';
+import { PageContext } from '../../core/navigation/page-context';
+import { PlanningApi } from '../../core/api/planning-api';
 import {
   deliveryHealthLabel,
   deliveryHealthReasonLabel,
@@ -777,32 +777,33 @@ interface BreakdownMetric {
     }
   `
 })
-export class ProjectMilestoneReviewPageComponent implements OnInit, OnDestroy {
+export class ProjectMilestoneReviewPageComponent implements OnInit {
+  private readonly context = new PageContext();
   readonly riskCountLabel = snapshotCountLabel;
-  private readonly route = inject(ActivatedRoute);
-  private readonly api = inject(WorktrailApiService);
-  private routeSubscription: Subscription | null = null;
+  private readonly planningApi = inject(PlanningApi);
 
   readonly review = signal<MilestoneReviewDto | null>(null);
   readonly isLoading = signal(true);
   readonly error = signal<string | null>(null);
 
-  readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
-  readonly milestoneId = computed(() => this.route.snapshot.paramMap.get('milestoneId') ?? '');
+  readonly projectId = computed(() => this.context.param('projectId'));
+  readonly milestoneId = computed(() => this.context.param('milestoneId'));
   readonly scopedWorkQueryParams = computed(() => {
     const query = this.review()?.scopedWorkQuery ?? {};
     return this.queryParamsFromQuery(query);
   });
 
   ngOnInit(): void {
-    this.routeSubscription = this.route.paramMap.subscribe(() => {
+    this.context.start(() => {
+      this.review.set(null);
+      this.isLoading.set(true);
+      this.error.set(null);
+
       this.loadReview();
     });
   }
 
-  ngOnDestroy(): void {
-    this.routeSubscription?.unsubscribe();
-  }
+
 
   loadReview(): void {
     const projectId = this.projectId();
@@ -817,7 +818,7 @@ export class ProjectMilestoneReviewPageComponent implements OnInit, OnDestroy {
     this.isLoading.set(true);
     this.error.set(null);
 
-    this.api.getMilestoneReview(projectId, milestoneId).subscribe({
+    this.planningApi.getMilestoneReview(projectId, milestoneId).pipe(this.context.guard()).subscribe({
       next: (review) => {
         this.review.set(review);
         this.isLoading.set(false);

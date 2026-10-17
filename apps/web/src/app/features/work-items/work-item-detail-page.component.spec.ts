@@ -886,9 +886,9 @@ describe('WorkItemDetailPageComponent', () => {
           author: contributor
         };
         const newDetail = { ...detail, id: blockedWorkItemId, comments: [newComment] };
-        // The pre-actor load is intentionally late; only the current context may initialize.
-        loads[0].flush(newDetail);
-        if (loads.length > 1) loads[1].flush(newDetail);
+        // The pre-actor read is cancelled; only the current authorized read may initialize.
+        expect(loads.some((load) => load.cancelled)).toBeTrue();
+        for (const load of loads) if (!load.cancelled) load.flush(newDetail);
         http.expectOne(`/api/work-items/${blockedWorkItemId}/watchers`).flush(unwatchedState);
         http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
         http.expectOne(`/api/projects/${projectId}/labels`).flush([]);
@@ -977,9 +977,8 @@ describe('WorkItemDetailPageComponent', () => {
         format: 'markdown_v1'
       });
       component.addMentionMember(contributor.id);
-      if (outcome === 'success') oldRefresh.flush({ ...detail, comments: [] });
-      else oldRefresh.flush({}, { status: 500, statusText: 'Failure' });
-      intermediate.flush({ ...detail, id: blockedWorkItemId });
+      expect(oldRefresh.cancelled).toBeTrue();
+      expect(intermediate.cancelled).toBeTrue();
       expect(component.workItem()?.comments.length).toBe(1);
       expect(component.discussionRefreshError()).toBeNull();
       expect(component.commentForm.controls.bodyContent.value.source).toBe('Fresh route draft');
@@ -1337,7 +1336,7 @@ describe('WorkItemDetailPageComponent', () => {
       routeParamMap.next(convertToParamMap({ workItemId }));
       fixture.detectChanges();
       finishReload(fixture, http);
-      intermediate.flush({ ...detail, id: blockedWorkItemId });
+      expect(intermediate.cancelled).toBeTrue();
       component.detailForm.controls.descriptionContent.setValue({
         source: 'New draft',
         format: 'plain_text'
@@ -1383,7 +1382,7 @@ describe('WorkItemDetailPageComponent', () => {
     const oldSave = http.expectOne(`/api/work-items/${workItemId}`);
     TestBed.inject(CurrentUserService).selectMember(contributor.id);
     oldSave.flush({ ...detail, description: 'Owner draft', descriptionFormat: 'markdown_v1' });
-    expect(component.workItem()?.description).toBe(detail.description);
+    expect(component.workItem()).toBeNull();
     fixture.detectChanges();
     expect(component.workItem()).toBeNull();
     expect(component.isUpdating()).toBeFalse();

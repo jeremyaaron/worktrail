@@ -1,11 +1,12 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { PageContext } from '../../core/navigation/page-context';
 import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+
 import type { ActivityEventDto, LabelDto, ProjectDto } from '@worktrail/contracts';
 
 import { CurrentUserService } from '../../core/current-user.service';
-import { WorktrailApiService } from '../../core/worktrail-api.service';
+import { ProjectsApi } from '../../core/api/projects-api';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
 
@@ -627,10 +628,10 @@ const projectActivityEventLabels: Partial<Record<ActivityEventDto['eventType'], 
   `
 })
 export class ProjectSettingsPageComponent implements OnInit {
-  private readonly api = inject(WorktrailApiService);
+  private readonly context = new PageContext();
+  private readonly projectsApi = inject(ProjectsApi);
   private readonly currentUser = inject(CurrentUserService);
   private readonly formBuilder = inject(FormBuilder);
-  private readonly route = inject(ActivatedRoute);
 
   readonly project = signal<ProjectDto | null>(null);
   readonly isLoading = signal(false);
@@ -650,7 +651,7 @@ export class ProjectSettingsPageComponent implements OnInit {
   readonly saveSuccess = signal(false);
   readonly activity = signal<ActivityEventDto[]>([]);
   readonly activityLoadError = signal<string | null>(null);
-  readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
+  readonly projectId = computed(() => this.context.param('projectId'));
   readonly canManageProjectLifecycle = computed(() => {
     const actor = this.currentUser.selectedMember();
     return actor?.role === 'owner' || actor?.role === 'maintainer';
@@ -679,17 +680,36 @@ export class ProjectSettingsPageComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    if (this.currentUser.members().length === 0) {
-      this.currentUser.loadMembers();
-    }
-
-    this.loadProject();
+    if (this.currentUser.members().length === 0) this.currentUser.loadMembers();
+    this.context.start(() => {
+      this.project.set(null);
+      this.isLoading.set(false);
+      this.isSaving.set(false);
+      this.isCommandRunning.set(false);
+      this.hasSubmittedSave.set(false);
+      this.loadError.set(null);
+      this.saveError.set(null);
+      this.commandError.set(null);
+      this.labels.set([]);
+      this.isLoadingLabels.set(false);
+      this.isLabelMutating.set(false);
+      this.hasSubmittedLabel.set(false);
+      this.labelLoadError.set(null);
+      this.labelMutationError.set(null);
+      this.labelSuccess.set(null);
+      this.saveSuccess.set(false);
+      this.activity.set([]);
+      this.activityLoadError.set(null);
+      this.settingsForm.reset(undefined, { emitEvent: false });
+      this.labelForm.reset(undefined, { emitEvent: false });
+      this.loadProject();
+    });
   }
 
   loadProject(): void {
     this.isLoading.set(true);
     this.loadError.set(null);
-    this.api.getProject(this.projectId()).subscribe({
+    this.projectsApi.getProject(this.projectId()).pipe(this.context.guard()).subscribe({
       next: (project) => {
         this.applyProject(project);
         this.loadLabels();
@@ -706,7 +726,7 @@ export class ProjectSettingsPageComponent implements OnInit {
   loadLabels(): void {
     this.isLoadingLabels.set(true);
     this.labelLoadError.set(null);
-    this.api.listProjectLabels(this.projectId(), { includeArchived: true }).subscribe({
+    this.projectsApi.listProjectLabels(this.projectId(), { includeArchived: true }).pipe(this.context.guard()).subscribe({
       next: (labels) => {
         this.labels.set(this.sortLabels(labels));
         this.isLoadingLabels.set(false);
@@ -720,7 +740,7 @@ export class ProjectSettingsPageComponent implements OnInit {
 
   loadActivity(): void {
     this.activityLoadError.set(null);
-    this.api.listProjectActivity(this.projectId()).subscribe({
+    this.projectsApi.listProjectActivity(this.projectId()).pipe(this.context.guard()).subscribe({
       next: (activity) => {
         this.activity.set(activity);
       },
@@ -751,12 +771,12 @@ export class ProjectSettingsPageComponent implements OnInit {
 
     const formValue = this.settingsForm.getRawValue();
     this.isSaving.set(true);
-    this.api
+    this.projectsApi
       .updateProject(this.projectId(), {
         key: formValue.key.trim().toUpperCase(),
         name: formValue.name.trim(),
         description: formValue.description.trim()
-      })
+      }).pipe(this.context.guardMutation())
       .subscribe({
         next: (project) => {
           this.applyProject(project);
@@ -781,7 +801,7 @@ export class ProjectSettingsPageComponent implements OnInit {
     }
 
     this.isCommandRunning.set(true);
-    this.api.archiveProject(this.projectId()).subscribe({
+    this.projectsApi.archiveProject(this.projectId()).pipe(this.context.guardMutation()).subscribe({
       next: (project) => {
         this.applyProject(project);
         this.loadActivity();
@@ -803,7 +823,7 @@ export class ProjectSettingsPageComponent implements OnInit {
     }
 
     this.isCommandRunning.set(true);
-    this.api.reactivateProject(this.projectId()).subscribe({
+    this.projectsApi.reactivateProject(this.projectId()).pipe(this.context.guardMutation()).subscribe({
       next: (project) => {
         this.applyProject(project);
         this.loadActivity();
@@ -837,11 +857,11 @@ export class ProjectSettingsPageComponent implements OnInit {
 
     const formValue = this.labelForm.getRawValue();
     this.isLabelMutating.set(true);
-    this.api
+    this.projectsApi
       .createLabel(this.projectId(), {
         name: formValue.name.trim(),
         color: formValue.color
-      })
+      }).pipe(this.context.guardMutation())
       .subscribe({
         next: (label) => {
           this.upsertLabel(label);
@@ -879,11 +899,11 @@ export class ProjectSettingsPageComponent implements OnInit {
     }
 
     this.isLabelMutating.set(true);
-    this.api
+    this.projectsApi
       .updateLabel(label.id, {
         name: nextName,
         color
-      })
+      }).pipe(this.context.guardMutation())
       .subscribe({
         next: (updated) => {
           this.upsertLabel(updated);
@@ -912,7 +932,7 @@ export class ProjectSettingsPageComponent implements OnInit {
     }
 
     this.isLabelMutating.set(true);
-    this.api.archiveLabel(label.id).subscribe({
+    this.projectsApi.archiveLabel(label.id).pipe(this.context.guardMutation()).subscribe({
       next: (updated) => {
         this.upsertLabel(updated);
         this.loadActivity();
@@ -940,7 +960,7 @@ export class ProjectSettingsPageComponent implements OnInit {
     }
 
     this.isLabelMutating.set(true);
-    this.api.reactivateLabel(label.id).subscribe({
+    this.projectsApi.reactivateLabel(label.id).pipe(this.context.guardMutation()).subscribe({
       next: (updated) => {
         this.upsertLabel(updated);
         this.loadActivity();

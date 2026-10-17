@@ -322,6 +322,23 @@ describe('ProjectStatusReportDraftPageComponent', () => {
     http.expectNone(`/api/projects/${projectId}/status-reports`);
   });
 
+  it('refreshes evidence without resetting an edited narrative in the same context', () => {
+    createComponent();
+    flushDraft();
+    const component = fixture.componentInstance;
+    component.draftForm.patchValue({
+      title: 'My report title', summary: 'My edited summary',
+      highlights: 'Keep highlights', risks: 'Keep risks', nextSteps: 'Keep next steps'
+    });
+    const narrative = component.draftForm.getRawValue();
+    component.loadDraft();
+    const refreshed = draft();
+    refreshed.snapshot.generatedAt = '2026-07-11T12:00:00.000Z';
+    flushDraft(refreshed);
+    expect(component.draftForm.getRawValue()).toEqual(narrative);
+    expect(component.draft()?.snapshot.generatedAt).toBe('2026-07-11T12:00:00.000Z');
+  });
+
   it('publishes the edited narrative with the reviewed snapshot and navigates to detail', () => {
     spyOn(router, 'navigate').and.resolveTo(true);
     createComponent();

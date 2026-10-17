@@ -21,9 +21,11 @@ import type {
   WorkItemStatus
 } from '@worktrail/contracts';
 
+import { PageContext } from '../../core/navigation/page-context';
 import { CyclesApi } from '../../core/api/cycles-api';
 import { CurrentUserService } from '../../core/current-user.service';
-import { WorktrailApiService } from '../../core/worktrail-api.service';
+import { PlanningApi } from '../../core/api/planning-api';
+import { ProjectsApi } from '../../core/api/projects-api';
 import {
   deliveryHealthLabel,
   deliveryHealthReasonLabel,
@@ -1385,7 +1387,9 @@ interface PlanningReviewSection {
   `
 })
 export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
-  private readonly api = inject(WorktrailApiService);
+  private readonly context = new PageContext();
+  private readonly planningApi = inject(PlanningApi);
+  private readonly projectsApi = inject(ProjectsApi);
   private readonly cyclesApi = inject(CyclesApi);
   private readonly currentUser = inject(CurrentUserService);
   private readonly formBuilder = inject(FormBuilder);
@@ -1422,7 +1426,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
   readonly cycleMutationError = signal<string | null>(null);
   readonly successMessage = signal<string | null>(null);
   readonly cycleSuccessMessage = signal<string | null>(null);
-  readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
+  readonly projectId = computed(() => this.context.param('projectId'));
   readonly isArchivedProject = computed(() => this.project()?.status === 'archived');
   readonly canManageMilestones = computed(() => {
     const member = this.currentUser.selectedMember();
@@ -1556,8 +1560,38 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
   });
 
   ngOnInit(): void {
+    this.context.start(() => {
+      this.selectedPlanningView.set('review');
+      this.project.set(null);
+      this.milestones.set([]);
+      this.cycles.set([]);
+      this.planningSummary.set(null);
+      this.isLoadingProject.set(false);
+      this.isLoadingMilestones.set(false);
+      this.isLoadingCycles.set(false);
+      this.isLoadingSummary.set(false);
+      this.isCreatingMilestone.set(false);
+      this.isCreatingCycle.set(false);
+      this.mutatingMilestoneId.set(null);
+      this.mutatingCycleId.set(null);
+      this.hasSubmittedCreate.set(false);
+      this.hasSubmittedCycleCreate.set(false);
+      this.projectLoadError.set(null);
+      this.milestoneLoadError.set(null);
+      this.cycleLoadError.set(null);
+      this.planningSummaryLoadError.set(null);
+      this.createError.set(null);
+      this.cycleCreateError.set(null);
+      this.milestoneMutationError.set(null);
+      this.cycleMutationError.set(null);
+      this.successMessage.set(null);
+      this.cycleSuccessMessage.set(null);
+      this.milestoneForm.reset(undefined, { emitEvent: false });
+      this.cycleForm.reset(undefined, { emitEvent: false });
+      this.loadProject();
+    });
     this.subscriptions.add(
-      this.route.queryParamMap.subscribe((params) => {
+      this.context.queryParamMap$.subscribe((params) => {
         const requestedView = params.get('view');
         const nextView = this.toPlanningView(requestedView);
         this.selectedPlanningView.set(nextView);
@@ -1567,7 +1601,6 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
         }
       })
     );
-    this.loadProject();
   }
 
   ngOnDestroy(): void {
@@ -1591,7 +1624,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
   loadProject(): void {
     this.isLoadingProject.set(true);
     this.projectLoadError.set(null);
-    this.api.getProject(this.projectId()).subscribe({
+    this.projectsApi.getProject(this.projectId()).pipe(this.context.guard()).subscribe({
       next: (project) => {
         this.project.set(project);
         this.isLoadingProject.set(false);
@@ -1609,7 +1642,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
   loadPlanningSummary(): void {
     this.isLoadingSummary.set(true);
     this.planningSummaryLoadError.set(null);
-    this.api.getProjectPlanningSummary(this.projectId()).subscribe({
+    this.planningApi.getProjectPlanningSummary(this.projectId()).pipe(this.context.guard()).subscribe({
       next: (summary) => {
         this.planningSummary.set(summary);
         this.isLoadingSummary.set(false);
@@ -1624,7 +1657,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
   loadMilestones(): void {
     this.isLoadingMilestones.set(true);
     this.milestoneLoadError.set(null);
-    this.api.listProjectMilestones(this.projectId(), { includeArchived: true }).subscribe({
+    this.projectsApi.listProjectMilestones(this.projectId(), { includeArchived: true }).pipe(this.context.guard()).subscribe({
       next: (milestones) => {
         this.milestones.set(this.sortMilestones(milestones));
         this.isLoadingMilestones.set(false);
@@ -1639,7 +1672,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
   loadCycles(): void {
     this.isLoadingCycles.set(true);
     this.cycleLoadError.set(null);
-    this.cyclesApi.listCycles(this.projectId(), { includeArchived: true }).subscribe({
+    this.cyclesApi.listCycles(this.projectId(), { includeArchived: true }).pipe(this.context.guard()).subscribe({
       next: (cycles) => {
         this.cycles.set(this.sortCycles(cycles));
         this.isLoadingCycles.set(false);
@@ -1669,13 +1702,13 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
 
     const formValue = this.milestoneForm.getRawValue();
     this.isCreatingMilestone.set(true);
-    this.api
+    this.projectsApi
       .createMilestone(this.projectId(), {
         name: formValue.name.trim(),
         description: formValue.description.trim(),
         status: formValue.status,
         targetDate: formValue.targetDate === '' ? null : formValue.targetDate
-      })
+      }).pipe(this.context.guardMutation())
       .subscribe({
         next: (milestone) => {
           this.upsertMilestone(milestone);
@@ -1724,7 +1757,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
     const request: CreateProjectCycleRequest = { ...fields, status: formValue.status };
 
     this.isCreatingCycle.set(true);
-    this.cyclesApi.createCycle(this.projectId(), request).subscribe({
+    this.cyclesApi.createCycle(this.projectId(), request).pipe(this.context.guardMutation()).subscribe({
       next: (cycle) => {
         this.upsertCycle(cycle);
         this.cycleForm.reset({
@@ -1771,13 +1804,13 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
     }
 
     this.mutatingMilestoneId.set(milestone.id);
-    this.api
+    this.projectsApi
       .updateMilestone(milestone.id, {
         name: nextName,
         description: description.trim(),
         status: status as MilestoneStatus,
         targetDate: targetDate === '' ? null : targetDate
-      })
+      }).pipe(this.context.guardMutation())
       .subscribe({
         next: (updated) => {
           this.upsertMilestone(updated);
@@ -1837,7 +1870,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
     };
 
     this.mutatingCycleId.set(cycle.id);
-    this.cyclesApi.updateCycle(this.projectId(), cycle.id, request).subscribe({
+    this.cyclesApi.updateCycle(this.projectId(), cycle.id, request).pipe(this.context.guardMutation()).subscribe({
       next: (updated) => {
         this.upsertCycle(updated);
         this.mutatingCycleId.set(null);
@@ -1868,7 +1901,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
       milestone,
       'Milestone archived.',
       'Milestone could not be archived.',
-      () => this.api.archiveMilestone(milestone.id)
+      () => this.projectsApi.archiveMilestone(milestone.id)
     );
   }
 
@@ -1877,7 +1910,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
       milestone,
       'Milestone reactivated.',
       'Milestone could not be reactivated.',
-      () => this.api.reactivateMilestone(milestone.id)
+      () => this.projectsApi.reactivateMilestone(milestone.id)
     );
   }
 
@@ -2023,7 +2056,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
     milestone: MilestoneDto,
     successMessage: string,
     fallbackError: string,
-    command: () => ReturnType<WorktrailApiService['archiveMilestone']>
+    command: () => ReturnType<ProjectsApi['archiveMilestone']>
   ): void {
     this.createError.set(null);
     this.milestoneMutationError.set(null);
@@ -2035,7 +2068,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
     }
 
     this.mutatingMilestoneId.set(milestone.id);
-    command().subscribe({
+    command().pipe(this.context.guardMutation()).subscribe({
       next: (updated) => {
         this.upsertMilestone(updated);
         this.mutatingMilestoneId.set(null);
@@ -2065,7 +2098,7 @@ export class ProjectPlanningPageComponent implements OnDestroy, OnInit {
     }
 
     this.mutatingCycleId.set(cycle.id);
-    command().subscribe({
+    command().pipe(this.context.guardMutation()).subscribe({
       next: (updated) => {
         this.upsertCycle(updated);
         this.mutatingCycleId.set(null);

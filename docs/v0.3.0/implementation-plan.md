@@ -2,8 +2,8 @@
 
 ## Status
 
-Approved for sequential execution. Phases 0-10 are complete as of October 17, 2026;
-Phases 11-21 are not started. Release verification remains pending. Merge, tag, publication,
+Approved for sequential execution. Phases 0-11 are complete as of October 17, 2026;
+Phases 12-21 are not started. Release verification remains pending. Merge, tag, publication,
 and Pages deployment remain separate user-controlled actions.
 
 ## Purpose
@@ -97,7 +97,7 @@ integration boundaries.
 | 8 | Import transport budgets and structured parser errors | Complete |
 | 9 | Live-query/risk policy, estimate state, and versioned snapshots | Complete |
 | 10 | Narrow aggregate reads and bounded preview enrichment | Complete |
-| 11 | Reactive route/actor context and stale-operation ownership | Not started |
+| 11 | Reactive route/actor context and stale-operation ownership | Complete |
 | 12 | Shared draft departure protection in production editors | Not started |
 | 13 | Read-first detail and focused editing/collaboration owners | Not started |
 | 14 | Bounded return navigation and relevant section targeting | Not started |
@@ -1116,7 +1116,30 @@ Acceptance:
 Verification: real router integration tests, delayed primary/auxiliary/mutation tests, actor/read-only
 regressions, Angular typecheck/build, and initial/lazy graph inspection.
 
-Status: Not started.
+Status: Complete (October 17, 2026).
+
+Completion evidence:
+
+- Component-local `PageContext` buffers inherited params/query/fragment until `NavigationEnd`, owns
+  workspace/member/route generations, cancels obsolete reads and rejects obsolete submitted-write
+  success/error effects. Synchronous committed-actor events cover A -> B -> A without effect turns.
+- All 16 touched page owners use focused API clients and clear authorized content/options/messages/
+  selection before reloading. Creation project/filter options also cancel on in-form project changes.
+  Parent-only child-creation changes preserve entered fields; report evidence refresh preserves narrative.
+- Real lazy router reuse covers shell/home, milestone/cycle/report, draft/closeout and detail routes.
+  Delayed reads/options/views/mutations and clipboard finalization cannot update a later context.
+  Fragment-only navigation preserves work-list query/selection; pagination reset races are covered.
+- Broad frontend acceptance passed 729 Angular cases, lint, development typechecking and production
+  build. After query deduplication, 286 affected cases and production graph/build passed; the final
+  pagination-only refinement passed 113 targeted cases. Counts overlap, not additive. Five selected
+  real browser workflows passed using disposable PostgreSQL/storage/servers. Unchanged-code evidence
+  was reused rather than rerunning the full suite after the final narrow refinement.
+- Production initial size is 390.62 kB (107.60 kB estimated transfer), warning-free under unchanged
+  budgets. Static initial graph has no heavy detail/Planning/report/creation/Markdown/editor inputs;
+  all 20 page entry points remain lazy. [Context evidence](reactive-context-evidence.md) and
+  [verification notes](verification-notes.md) record commands, diagnostics and limits.
+- Owned resources were removed; working data, dependencies, package identity and release actions
+  are unchanged. Departure decisions, native unload warning and pending-write blocking remain Phase 12.
 
 ## Phase 12: Draft Departure Protection
 

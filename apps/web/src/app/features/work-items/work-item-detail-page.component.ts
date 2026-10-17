@@ -1,16 +1,7 @@
-import {
-  Component,
-  DestroyRef,
-  OnInit,
-  computed,
-  effect,
-  inject,
-  signal,
-  untracked
-} from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import type {
   CommentDto,
   CreateCommentRequest,
@@ -29,22 +20,13 @@ import type {
   WorkItemWatchStateDto,
   WorkspaceWorkItemListItemDto
 } from '@worktrail/contracts';
-import {
-  EMPTY,
-  catchError,
-  combineLatest,
-  distinctUntilChanged,
-  filter,
-  map,
-  pipe,
-  throwError,
-  type MonoTypeOperatorFunction,
-  type Subscription
-} from 'rxjs';
+import type { MonoTypeOperatorFunction, Subscription } from 'rxjs';
 
+import { PageContext } from '../../core/navigation/page-context';
 import { CurrentUserService } from '../../core/current-user.service';
 import { CyclesApi } from '../../core/api/cycles-api';
-import { WorktrailApiService } from '../../core/worktrail-api.service';
+import { ProjectsApi } from '../../core/api/projects-api';
+import { WorkItemsApi } from '../../core/api/work-items-api';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
@@ -1333,17 +1315,16 @@ type RelationshipKind = 'blocked_by' | 'blocks' | 'related';
   `
 })
 export class WorkItemDetailPageComponent implements OnInit {
-  private readonly api = inject(WorktrailApiService);
+  private readonly context = new PageContext();
+  private readonly projectsApi = inject(ProjectsApi);
+  private readonly workItemsApi = inject(WorkItemsApi);
   private readonly cyclesApi = inject(CyclesApi);
   private readonly currentUser = inject(CurrentUserService);
   private readonly destroyRef = inject(DestroyRef);
   private attachmentActivitySubscription: Subscription | null = null;
   private attachmentActivityGeneration = 0;
   private nextFilesTargetGeneration = 0;
-  private hasInitializedRoute = false;
-  private contextGeneration = 0;
   private loadGeneration = 0;
-  private actorKey = '';
   private descriptionBaseline: AuthoredContentValue | null = null;
   readonly descriptionEditorIdentity = signal(0);
   private commentCreateGeneration = 0;
@@ -1352,7 +1333,6 @@ export class WorkItemDetailPageComponent implements OnInit {
   readonly newCommentIdentity = signal(0);
   readonly editCommentIdentity = signal(0);
   private readonly formBuilder = inject(FormBuilder);
-  private readonly route = inject(ActivatedRoute);
 
   readonly statuses = statuses;
   readonly types = types;
@@ -1376,7 +1356,7 @@ export class WorkItemDetailPageComponent implements OnInit {
       return left.name.localeCompare(right.name);
     });
   });
-  readonly workItemId = signal(this.route.snapshot.paramMap.get('workItemId') ?? '');
+  readonly workItemId = computed(() => this.context.param('workItemId'));
   readonly filesTargetGeneration = signal<number | null>(null);
 
   readonly project = signal<ProjectDto | null>(null);
@@ -1481,7 +1461,7 @@ export class WorkItemDetailPageComponent implements OnInit {
     const item = this.workItem();
     const fallbackPath = item === null ? '/work-items' : `/projects/${item.projectId}/work-items`;
     const parsedReturnUrl = this.parseSafeReturnUrl(
-      this.route.snapshot.queryParamMap.get('returnUrl')
+      this.context.query('returnUrl') || null
     );
 
     if (parsedReturnUrl !== null) {
@@ -1537,50 +1517,21 @@ export class WorkItemDetailPageComponent implements OnInit {
 
   constructor() {
     effect(() => {
-      const actorKey = this.currentActorKey();
-      untracked(() => {
-        if (this.hasInitializedRoute && actorKey !== this.actorKey) {
-          this.actorKey = actorKey;
-          this.resetNavigationState();
-          this.loadWorkItem();
-        }
-      });
-    });
-    effect(() => {
       this.isStatusTransitionReadOnly();
       this.syncReadOnlyState();
     });
   }
 
   ngOnInit(): void {
-    this.actorKey = this.currentActorKey();
-    if (this.currentUser.members().length === 0) {
-      this.currentUser.loadMembers();
-    }
-
-    combineLatest([
-      this.route.paramMap.pipe(map((paramMap) => paramMap.get('workItemId') ?? '')),
-      this.route.fragment
-    ])
-      .pipe(
-        distinctUntilChanged(
-          ([previousWorkItemId, previousFragment], [workItemId, fragment]) =>
-            previousWorkItemId === workItemId && previousFragment === fragment
-        ),
-        takeUntilDestroyed(this.destroyRef)
-      )
-      .subscribe(([workItemId, fragment]) => {
-        const workItemChanged = !this.hasInitializedRoute || workItemId !== this.workItemId();
-
-        this.hasInitializedRoute = true;
-        this.workItemId.set(workItemId);
-        this.syncFilesTarget(fragment, workItemChanged);
-
-        if (workItemChanged) {
-          this.resetNavigationState();
-          this.loadWorkItem();
-        }
-      });
+    if (this.currentUser.members().length === 0) this.currentUser.loadMembers();
+    this.context.start(() => {
+      this.resetNavigationState();
+      this.syncFilesTarget(this.context.fragment(), true);
+      this.loadWorkItem();
+    });
+    this.context.routeState$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(({ fragment }) => this.syncFilesTarget(fragment, false));
   }
 
   loadWorkItem(): void {
@@ -1589,9 +1540,9 @@ export class WorkItemDetailPageComponent implements OnInit {
     this.isLoading.set(true);
     this.loadError.set(null);
 
-    this.api
+    this.workItemsApi
       .getWorkItem(workItemId)
-      .pipe(this.guardContext())
+      .pipe(this.context.guard())
       .subscribe({
         next: (workItem) => {
           if (generation !== this.loadGeneration) {
@@ -1635,7 +1586,7 @@ export class WorkItemDetailPageComponent implements OnInit {
 
     this.isUpdating.set(true);
     this.syncReadOnlyState();
-    this.api
+    this.workItemsApi
       .updateWorkItem(this.workItemId(), this.toUpdateRequest())
       .pipe(this.guardContext())
       .subscribe({
@@ -1682,9 +1633,9 @@ export class WorkItemDetailPageComponent implements OnInit {
     this.attachmentActivitySubscription?.unsubscribe();
     this.attachmentActivityError.set(null);
 
-    this.attachmentActivitySubscription = this.api
+    this.attachmentActivitySubscription = this.workItemsApi
       .listWorkItemActivity(workItemId)
-      .pipe(this.guardContext())
+      .pipe(this.context.guard())
       .subscribe({
         next: (activity) => {
           if (
@@ -1727,7 +1678,7 @@ export class WorkItemDetailPageComponent implements OnInit {
     this.statusError.set(null);
     this.isTransitioning.set(true);
 
-    this.api
+    this.workItemsApi
       .transitionWorkItem(this.workItemId(), { status })
       .pipe(this.guardContext())
       .subscribe({
@@ -1772,7 +1723,7 @@ export class WorkItemDetailPageComponent implements OnInit {
     const generation = ++this.commentCreateGeneration;
     this.discussionRefreshGeneration += 1;
     this.syncReadOnlyState();
-    this.api
+    this.workItemsApi
       .createComment(this.workItemId(), this.toCreateCommentRequest())
       .pipe(this.guardContext(() => generation === this.commentCreateGeneration))
       .subscribe({
@@ -1796,9 +1747,9 @@ export class WorkItemDetailPageComponent implements OnInit {
     this.isWatchLoading.set(true);
     this.watchError.set(null);
 
-    this.api
+    this.workItemsApi
       .getWorkItemWatchState(workItemId)
-      .pipe(this.guardContext())
+      .pipe(this.context.guard())
       .subscribe({
         next: (watchState) => {
           if (workItemId !== this.workItemId()) {
@@ -1827,8 +1778,8 @@ export class WorkItemDetailPageComponent implements OnInit {
 
     const isWatched = this.watchState()?.isWatchedByCurrentActor ?? false;
     const request = isWatched
-      ? this.api.unwatchWorkItem(this.workItemId())
-      : this.api.watchWorkItem(this.workItemId());
+      ? this.workItemsApi.unwatchWorkItem(this.workItemId())
+      : this.workItemsApi.watchWorkItem(this.workItemId());
 
     this.isWatchUpdating.set(true);
     this.watchError.set(null);
@@ -1897,7 +1848,7 @@ export class WorkItemDetailPageComponent implements OnInit {
     const bodyContent = this.editCommentForm.getRawValue().bodyContent;
     this.discussionRefreshGeneration += 1;
     this.syncReadOnlyState();
-    this.api
+    this.workItemsApi
       .updateComment(comment.id, { body: bodyContent.source, bodyFormat: bodyContent.format })
       .pipe(this.guardContext(() =>
         identity === this.editCommentIdentity() && this.editingCommentId() === comment.id
@@ -1947,7 +1898,7 @@ export class WorkItemDetailPageComponent implements OnInit {
     this.deletingCommentId.set(comment.id);
     const generation = this.commentDeleteGeneration;
     this.discussionRefreshGeneration += 1;
-    this.api
+    this.workItemsApi
       .deleteComment(comment.id)
       .pipe(this.guardContext(() =>
         generation === this.commentDeleteGeneration && this.confirmingDeleteCommentId() === comment.id
@@ -1983,7 +1934,7 @@ export class WorkItemDetailPageComponent implements OnInit {
     const search = this.relationshipForm.getRawValue().search.trim();
     this.isSearchingCandidates.set(true);
 
-    this.api
+    this.workItemsApi
       .listWorkspaceWorkItems(
         {
           search,
@@ -1992,7 +1943,7 @@ export class WorkItemDetailPageComponent implements OnInit {
         },
         { page: 1, pageSize: 25 }
       )
-      .pipe(this.guardContext())
+      .pipe(this.context.guard())
       .subscribe({
         next: (response) => {
           this.relationshipCandidates.set(
@@ -2046,7 +1997,7 @@ export class WorkItemDetailPageComponent implements OnInit {
     const relationshipType: WorkItemRelationshipType = kind === 'related' ? 'relates_to' : 'blocks';
 
     this.isAddingRelationship.set(true);
-    this.api
+    this.workItemsApi
       .createWorkItemRelationship(sourceWorkItemId, {
         relationshipType,
         targetWorkItemId: relationshipTargetWorkItemId
@@ -2074,7 +2025,7 @@ export class WorkItemDetailPageComponent implements OnInit {
     }
 
     this.removingRelationshipId.set(relationship.id);
-    this.api
+    this.workItemsApi
       .deleteWorkItemRelationship(this.workItemId(), relationship.id)
       .pipe(this.guardContext())
       .subscribe({
@@ -2174,9 +2125,9 @@ export class WorkItemDetailPageComponent implements OnInit {
   loadProjectLabels(projectId: string): void {
     this.labelLoadError.set(null);
 
-    this.api
+    this.projectsApi
       .listProjectLabels(projectId)
-      .pipe(this.guardContext())
+      .pipe(this.context.guard())
       .subscribe({
         next: (labels) => {
           if (this.workItem()?.projectId !== projectId) {
@@ -2198,9 +2149,9 @@ export class WorkItemDetailPageComponent implements OnInit {
   loadProjectMilestones(projectId: string): void {
     this.milestoneLoadError.set(null);
 
-    this.api
+    this.projectsApi
       .listProjectMilestones(projectId, { includeArchived: true })
-      .pipe(this.guardContext())
+      .pipe(this.context.guard())
       .subscribe({
         next: (milestones) => {
           if (this.workItem()?.projectId !== projectId) {
@@ -2224,7 +2175,7 @@ export class WorkItemDetailPageComponent implements OnInit {
 
     this.cyclesApi
       .listCycles(projectId, { includeArchived: true })
-      .pipe(this.guardContext())
+      .pipe(this.context.guard())
       .subscribe({
         next: (cycles) => {
           if (this.workItem()?.projectId !== projectId) {
@@ -2244,9 +2195,9 @@ export class WorkItemDetailPageComponent implements OnInit {
   }
 
   loadProject(projectId: string): void {
-    this.api
+    this.projectsApi
       .getProject(projectId)
-      .pipe(this.guardContext())
+      .pipe(this.context.guard())
       .subscribe({
         next: (project) => {
           if (this.workItem()?.projectId !== projectId) {
@@ -2341,7 +2292,7 @@ export class WorkItemDetailPageComponent implements OnInit {
     const editIdentity = this.editCommentIdentity();
     const deleteGeneration = this.commentDeleteGeneration;
     this.discussionRefreshError.set(null);
-    this.api
+    this.workItemsApi
       .getWorkItem(this.workItemId())
       .pipe(this.guardContext(() =>
         generation === this.discussionRefreshGeneration &&
@@ -2349,7 +2300,7 @@ export class WorkItemDetailPageComponent implements OnInit {
         editIdentity === this.editCommentIdentity() &&
         deleteGeneration === this.commentDeleteGeneration
       ))
-      .subscribe({
+      .pipe(this.context.guard()).subscribe({
         next: (workItem) => {
           this.applyDiscussionRefresh(workItem);
         },
@@ -2385,9 +2336,9 @@ export class WorkItemDetailPageComponent implements OnInit {
   }
 
   private refreshAfterRelationshipMutation(afterRefresh: () => void): void {
-    this.api
+    this.workItemsApi
       .getWorkItem(this.workItemId())
-      .pipe(this.guardContext())
+      .pipe(this.context.guard())
       .subscribe({
         next: (workItem) => {
           this.workItem.update((current) =>
@@ -2457,7 +2408,6 @@ export class WorkItemDetailPageComponent implements OnInit {
   }
 
   private resetNavigationState(): void {
-    this.contextGeneration += 1;
     this.discussionRefreshGeneration += 1;
     this.descriptionBaseline = null;
     this.descriptionEditorIdentity.update((identity) => identity + 1);
@@ -2668,27 +2618,10 @@ export class WorkItemDetailPageComponent implements OnInit {
     }
   }
 
-  private currentActorKey(): string {
-    const actor = this.currentUser.selectedMember();
-    return actor === null ? '' : `${actor.workspaceId}:${actor.id}`;
-  }
 
-  // Gate successes and failures: matching only item ids misses A -> B -> A and actor reuse.
+
   private guardContext<T>(isOperationCurrent: () => boolean = () => true): MonoTypeOperatorFunction<T> {
-    const generation = this.contextGeneration;
-    const workItemId = this.workItemId();
-    const actorKey = this.currentActorKey();
-    const isCurrent = () =>
-      !this.destroyRef.destroyed &&
-      generation === this.contextGeneration &&
-      workItemId === this.workItemId() &&
-      actorKey === this.currentActorKey() &&
-      isOperationCurrent();
-    return pipe(
-      filter(isCurrent),
-      catchError((error: unknown) => (isCurrent() ? throwError(() => error) : EMPTY)),
-      takeUntilDestroyed(this.destroyRef)
-    );
+    return this.context.guardMutation(isOperationCurrent);
   }
 
   private parseSafeReturnUrl(rawReturnUrl: string | null): {

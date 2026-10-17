@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import type { MemberDto } from '@worktrail/contracts';
+import { Subject } from 'rxjs';
 
 import { environment } from '../../environments/environment';
 
@@ -9,6 +10,8 @@ const selectedMemberStorageKey = 'worktrail.selectedMemberId';
 @Injectable({ providedIn: 'root' })
 export class CurrentUserService {
   private readonly http = inject(HttpClient);
+  private readonly actorChanges = new Subject<void>();
+  readonly committedActorChanges$ = this.actorChanges.asObservable();
 
   readonly members = signal<MemberDto[]>([]);
   readonly activeMembers = computed<MemberDto[]>(() => this.members().filter((member) => member.isActive));
@@ -65,6 +68,7 @@ export class CurrentUserService {
 
     this.selectedMemberId.set(member.id);
     localStorage.setItem(selectedMemberStorageKey, member.id);
+    this.actorChanges.next();
   }
 
   actorHeaders(): Record<string, string> {
@@ -87,5 +91,6 @@ export class CurrentUserService {
   private clearSelectedMember(): void {
     this.selectedMemberId.set(null);
     localStorage.removeItem(selectedMemberStorageKey);
+    this.actorChanges.next();
   }
 }

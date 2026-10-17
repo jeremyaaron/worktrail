@@ -1,7 +1,7 @@
 import { workItemFilterChips, type WorkItemFilterChip } from './query/work-item-filter-labels';
 import { defaultProjectWorkItemFilterValues, type ProjectWorkItemFilterFormValue } from './query/work-item-filter-state';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit, ViewChild, computed, effect, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type {
@@ -28,8 +28,11 @@ import type {
 } from '@worktrail/contracts';
 import { Subscription, distinctUntilChanged } from 'rxjs';
 
+import { PageContext } from '../../core/navigation/page-context';
 import { CurrentUserService } from '../../core/current-user.service';
-import { WorktrailApiService } from '../../core/worktrail-api.service';
+import { ProjectsApi } from '../../core/api/projects-api';
+import { SavedViewsApi } from '../../core/api/saved-views-api';
+import { WorkItemsApi } from '../../core/api/work-items-api';
 import { ClipboardService } from '../../shared/clipboard.service';
 import { CyclesApi } from '../../core/api/cycles-api';
 import { downloadBlob, fileNameFromContentDisposition } from '../../shared/download-file';
@@ -1250,9 +1253,12 @@ const defaultBulkActionFormValue: BulkActionFormValue = {
   `
 })
 export class WorkItemListPageComponent implements OnDestroy, OnInit {
+  private readonly context = new PageContext();
   @ViewChild(WorkItemResultListComponent) private resultList?: WorkItemResultListComponent;
 
-  private readonly api = inject(WorktrailApiService);
+  private readonly projectsApi = inject(ProjectsApi);
+  private readonly savedViewsApi = inject(SavedViewsApi);
+  private readonly workItemsApi = inject(WorkItemsApi);
   private readonly cyclesApi = inject(CyclesApi);
   private readonly clipboard = inject(ClipboardService);
   private readonly currentUser = inject(CurrentUserService);
@@ -1264,41 +1270,13 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   private readonly bulkTriage = new ProjectBulkTriageStore();
   private workItemsSubscription: Subscription | null = null;
   private bulkUpdateSubscription: Subscription | null = null;
-  private selectedActorId = this.currentUser.selectedMemberId();
-  private hasInitialized = false;
+  private pendingContextPageReset = false;
   private focusAfterLoadPageKey: string | null = null;
   private focusResultTimer: ReturnType<typeof setTimeout> | null = null;
   private preserveBulkStateOnNextRoute = false;
   private copyLinkStatusTimer: ReturnType<typeof setTimeout> | null = null;
 
-  private readonly actorChangeEffect = effect(() => {
-    const actorId = this.currentUser.selectedMemberId();
 
-    if (actorId === this.selectedActorId) {
-      return;
-    }
-
-    this.selectedActorId = actorId;
-    if (!this.hasInitialized) {
-      return;
-    }
-
-    this.cancelBulkUpdate();
-    this.clearSelection();
-    this.clearResultFocusRequest();
-    this.activePageQuery.set({ ...defaultWorkItemPageQuery });
-    this.reloadProjectContext();
-    void this.router
-      .navigate([], {
-        relativeTo: this.route,
-        queryParams: this.queryState.routerQueryParamsForResolvedPage(defaultWorkItemPageQuery)
-      })
-      .then((navigated) => {
-        if (!navigated) {
-          this.loadWorkItems();
-        }
-      });
-  });
 
   readonly statuses = statuses;
   readonly types = types;
@@ -1308,7 +1286,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   readonly hierarchyOptions = workItemHierarchyOptions;
   readonly sorts = sorts;
   readonly bulkActionOptions = bulkActionOptions;
-  readonly projectId = signal(this.route.snapshot.paramMap.get('projectId') ?? '');
+  readonly projectId = signal(this.context.param('projectId'));
   readonly members = computed<MemberDto[]>(() => this.currentUser.members());
   readonly activeMembers = computed<MemberDto[]>(() => this.currentUser.activeMembers());
   readonly assigneeFilterMembers = computed<MemberDto[]>(() =>
@@ -1423,26 +1401,60 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   });
 
   ngOnInit(): void {
-    this.hasInitialized = true;
     if (this.currentUser.members().length === 0) {
       this.currentUser.loadMembers();
     }
 
-    this.reloadProjectContext();
+    let initialized = false;
+    this.context.start(() => {
+      this.pendingContextPageReset = false;
+      this.cancelBulkUpdate();
+      this.exitBulkEdit();
+      this.clearResultFocusRequest();
+      this.clearCopyLinkStatusTimer();
+      this.projectId.set(this.context.param('projectId'));
+      this.project.set(null);
+      this.workItems.set([]);
+      this.pageMetadata.set(emptyPageMetadata());
+      this.labels.set([]);
+      this.milestones.set([]);
+      this.cycles.set([]);
+      this.isLoading.set(false);
+      this.error.set(null);
+      this.isCopyingViewLink.set(false);
+      this.copyLinkStatus.set(null);
+      this.isExporting.set(false);
+      this.exportError.set(null);
+      this.savedViews.set([]);
+      this.savedViewDraftNames.set({});
+      this.isSavedViewLoading.set(false);
+      this.savedViewLoadError.set(null);
+      this.isSavingView.set(false);
+      this.savedViewMutationError.set(null);
+      this.selectedBulkLabelIds.set([]);
+      this.activePageQuery.set({ ...defaultWorkItemPageQuery });
+      this.reloadProjectContext();
+      if (initialized && (this.context.query('page') !== '' || this.context.query('pageSize') !== '')) {
+        this.pendingContextPageReset = true;
+        const isCurrent = this.context.capture();
+        void this.router.navigate([], {
+          relativeTo: this.route,
+          queryParams: this.queryState.routerQueryParamsForResolvedPage(defaultWorkItemPageQuery)
+        }).then((navigated) => {
+          if (isCurrent() && !navigated) {
+            this.pendingContextPageReset = false;
+            this.loadWorkItems();
+          }
+        });
+      }
+      initialized = true;
+    });
     this.watchFilterChanges();
 
     this.subscriptions.add(
-      this.route.paramMap.subscribe((params) => {
-        const nextProjectId = params.get('projectId') ?? '';
-
-        if (nextProjectId !== this.projectId()) {
-          this.handleProjectChange(nextProjectId);
-        }
-      })
-    );
-
-    this.subscriptions.add(
-      this.route.queryParamMap.subscribe((params) => {
+      this.context.queryParamMap$.subscribe((params) => {
+        if (this.pendingContextPageReset && (params.get('page') !== null || params.get('pageSize') !== null)) return;
+        this.pendingContextPageReset = false;
         const previousFilters = this.appliedFilterValues();
         const pendingFilterDraft = this.filterForm.getRawValue();
         const nextFilters = this.queryState.applyRouteQueryParams(params);
@@ -1480,7 +1492,6 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   ngOnDestroy(): void {
-    this.hasInitialized = false;
     this.workItemsSubscription?.unsubscribe();
     this.bulkUpdateSubscription?.unsubscribe();
     this.subscriptions.unsubscribe();
@@ -1513,8 +1524,8 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     this.workItems.set([]);
     this.pageMetadata.set(emptyPageMetadata(requestedPage));
 
-    this.workItemsSubscription = this.api
-      .listWorkItems(this.projectId(), this.appliedQuery(), requestedPage)
+    this.workItemsSubscription = this.workItemsApi
+      .listWorkItems(this.projectId(), this.appliedQuery(), requestedPage).pipe(this.context.guard())
       .subscribe({
       next: (response) => {
         if (response.page !== requestedPage.page || response.pageSize !== requestedPage.pageSize) {
@@ -1570,11 +1581,12 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
       page: targetPage,
       pageSize: this.activePageQuery().pageSize
     });
+    const isCurrent = this.context.capture();
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: this.queryState.routerQueryParamsForPage(targetPage)
     }).then((navigated) => {
-      if (!navigated) {
+      if (isCurrent() && !navigated) {
         this.clearResultFocusRequest();
       }
     });
@@ -1591,11 +1603,12 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
 
     this.clearSelection();
     this.requestResultHeadingFocus({ page: 1, pageSize });
+    const isCurrent = this.context.capture();
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: this.queryState.routerQueryParamsForPageSize(pageSize)
     }).then((navigated) => {
-      if (!navigated) {
+      if (isCurrent() && !navigated) {
         this.clearResultFocusRequest();
       }
     });
@@ -1606,11 +1619,12 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
       return Promise.resolve();
     }
 
+    const isCurrent = this.context.capture();
     this.isExporting.set(true);
     this.exportError.set(null);
 
     return new Promise((resolve) => {
-      this.api.exportProjectWorkItems(this.projectId(), this.appliedQuery()).subscribe({
+      this.workItemsApi.exportProjectWorkItems(this.projectId(), this.appliedQuery()).pipe(this.context.guard()).subscribe({
         next: (response) => {
           const fileName = fileNameFromContentDisposition(
             response.headers.get('content-disposition'),
@@ -1629,10 +1643,11 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
           this.exportError.set(fallback);
           this.isExporting.set(false);
           void apiErrorMessageFromBody(error.error, fallback).then((message) => {
-            this.exportError.set(message);
+            if (isCurrent()) this.exportError.set(message);
             resolve();
           });
-        }
+        },
+        complete: () => resolve()
       });
     });
   }
@@ -1642,6 +1657,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
       return;
     }
 
+    const isCurrent = this.context.capture();
     this.clearCopyLinkStatusTimer();
     this.isCopyingViewLink.set(true);
     this.copyLinkStatus.set(null);
@@ -1649,19 +1665,20 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     this.clipboard
       .copyText(this.currentFilteredViewUrl())
       .then(() => {
-        this.copyLinkStatus.set('Link copied');
+        if (isCurrent()) this.copyLinkStatus.set('Link copied');
       })
       .catch(() => {
-        this.copyLinkStatus.set('Link could not be copied');
+        if (isCurrent()) this.copyLinkStatus.set('Link could not be copied');
       })
       .finally(() => {
+        if (!isCurrent()) return;
         this.isCopyingViewLink.set(false);
         this.scheduleCopyLinkStatusReset();
       });
   }
 
   loadProject(): void {
-    this.api.getProject(this.projectId()).subscribe({
+    this.projectsApi.getProject(this.projectId()).pipe(this.context.guard()).subscribe({
       next: (project) => {
         this.project.set(project);
         if (project.status === 'archived') {
@@ -1675,7 +1692,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   loadMilestones(): void {
-    this.api.listProjectMilestones(this.projectId(), { includeArchived: true }).subscribe({
+    this.projectsApi.listProjectMilestones(this.projectId(), { includeArchived: true }).pipe(this.context.guard()).subscribe({
       next: (milestones) => {
         this.milestones.set(this.sortMilestones(milestones));
       },
@@ -1686,7 +1703,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   loadCycles(): void {
-    this.cyclesApi.listCycles(this.projectId(), { includeArchived: true }).subscribe({
+    this.cyclesApi.listCycles(this.projectId(), { includeArchived: true }).pipe(this.context.guard()).subscribe({
       next: (cycles) => {
         this.cycles.set(this.sortCycles(cycles));
       },
@@ -1700,7 +1717,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     this.isSavedViewLoading.set(true);
     this.savedViewLoadError.set(null);
 
-    this.api.listSavedWorkViews({ scope: 'project', projectId: this.projectId() }).subscribe({
+    this.savedViewsApi.listSavedWorkViews({ scope: 'project', projectId: this.projectId() }).pipe(this.context.guard()).subscribe({
       next: (savedViews) => {
         this.savedViews.set(this.sortSavedViews(savedViews));
         this.syncSavedViewDraftNames(this.savedViews());
@@ -1843,7 +1860,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     this.bulkTriage.beginApply();
 
     this.bulkUpdateSubscription?.unsubscribe();
-    this.bulkUpdateSubscription = this.api.bulkUpdateProjectWorkItems(this.projectId(), request).subscribe({
+    this.bulkUpdateSubscription = this.workItemsApi.bulkUpdateProjectWorkItems(this.projectId(), request).pipe(this.context.guardMutation()).subscribe({
       next: (result) => {
         this.bulkUpdateSubscription = null;
         this.bulkTriage.applySucceeded(result);
@@ -1876,7 +1893,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
 
     this.savedViewMutationError.set(null);
 
-    this.api.updateSavedWorkView(savedView.id, { name }).subscribe({
+    this.savedViewsApi.updateSavedWorkView(savedView.id, { name }).pipe(this.context.guardMutation()).subscribe({
       next: (updated) => {
         this.replaceSavedView(updated);
       },
@@ -1895,7 +1912,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
 
     this.savedViewMutationError.set(null);
 
-    this.api.updateSavedWorkView(savedView.id, { query: this.appliedQuery() }).subscribe({
+    this.savedViewsApi.updateSavedWorkView(savedView.id, { query: this.appliedQuery() }).pipe(this.context.guardMutation()).subscribe({
       next: (updated) => {
         this.replaceSavedView(updated);
       },
@@ -1914,7 +1931,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
 
     this.savedViewMutationError.set(null);
 
-    this.api.updateSavedWorkView(savedView.id, { isPinned }).subscribe({
+    this.savedViewsApi.updateSavedWorkView(savedView.id, { isPinned }).pipe(this.context.guardMutation()).subscribe({
       next: (updated) => {
         this.replaceSavedView(updated);
       },
@@ -1933,7 +1950,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
 
     this.savedViewMutationError.set(null);
 
-    this.api.deleteSavedWorkView(savedView.id).subscribe({
+    this.savedViewsApi.deleteSavedWorkView(savedView.id).pipe(this.context.guardMutation()).subscribe({
       next: () => {
         this.savedViews.set(this.savedViews().filter((view) => view.id !== savedView.id));
         const { [savedView.id]: _removed, ...remainingDraftNames } = this.savedViewDraftNames();
@@ -1973,33 +1990,7 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     return member.isActive ? member.name : `${member.name} (inactive)`;
   }
 
-  private handleProjectChange(projectId: string): void {
-    this.projectId.set(projectId);
-    this.workItemsSubscription?.unsubscribe();
-    this.cancelBulkUpdate();
-    this.exitBulkEdit();
-    this.clearResultFocusRequest();
-    this.activePageQuery.set({ ...defaultWorkItemPageQuery });
-    this.project.set(null);
-    this.workItems.set([]);
-    this.pageMetadata.set(emptyPageMetadata());
-    this.labels.set([]);
-    this.milestones.set([]);
-    this.cycles.set([]);
-    this.savedViews.set([]);
-    this.reloadProjectContext();
 
-    void this.router
-      .navigate([], {
-        relativeTo: this.route,
-        queryParams: this.queryState.routerQueryParamsForResolvedPage(defaultWorkItemPageQuery)
-      })
-      .then((navigated) => {
-        if (!navigated) {
-          this.loadWorkItems();
-        }
-      });
-  }
 
   private reloadProjectContext(): void {
     this.loadProject();
@@ -2063,14 +2054,14 @@ export class WorkItemListPageComponent implements OnDestroy, OnInit {
     this.isSavingView.set(true);
     this.savedViewMutationError.set(null);
 
-    this.api
+    this.savedViewsApi
       .createSavedWorkView({
         name: trimmedName,
         scope: 'project',
         projectId: this.projectId(),
         query: this.appliedQuery(),
         ...(visibility === 'workspace' ? { visibility } : {})
-      })
+      }).pipe(this.context.guardMutation())
       .subscribe({
         next: (savedView) => {
           this.savedViews.set(this.sortSavedViews([...this.savedViews(), savedView]));

@@ -1,9 +1,42 @@
 # Worktrail Developer Ownership And Invariants
 
-This is the current implementation guide, not a release archive. As of v0.3.0 Phase 10, persistence
+This is the current implementation guide, not a release archive. As of v0.3.0 Phase 11, persistence
 ownership, batched queries, lifecycle coordination, authoritative work/relationship commands, and
-bounded HTTP parsing, versioned risk/query policy and aggregate narrowing are implemented. Reactive
-frontend consolidation remains later work in the [implementation plan](v0.3.0/implementation-plan.md).
+bounded HTTP parsing, versioned risk/query policy, aggregate narrowing and committed frontend context
+are implemented. Draft departure protection and presentation consolidation remain later work in the
+[implementation plan](v0.3.0/implementation-plan.md).
+
+## Committed Frontend Context
+
+`core/navigation/page-context.ts` owns a component's inherited route parameters, committed query/
+fragment state, and workspace/member identity. Construct it in the component injection context and
+register a reset/load callback with `start()` during initialization. Use `param()`/`query()` inside
+computed values instead of snapshot-only computed IDs. Mounted owners buffer parameter emissions
+until `NavigationEnd`; initial activation can initialize immediately. Cancellation/error is not an
+accepted context change. Fragment-only navigation does not reapply work-list queries.
+
+`CurrentUserService.selectMember()` publishes a synchronous committed-actor event after changing
+selection/storage. This prevents an A -> B -> A sequence from escaping generation ownership between
+Angular effect turns. A signal effect also handles bootstrap member reconciliation. Effective identity
+includes workspace/member and inherited route IDs; page kind/lifetime is the component-local owner.
+
+On context change, `PageContext` invalidates old reads before calling the owner's explicit state reset
+and new loads. Pipe reads/options through `guard()` and submitted commands through `guardMutation()`.
+The latter rejects obsolete success/error callbacks without asserting that a submitted server write
+was cancelled. Both dispose on component destruction. Keep the existing per-operation generations
+where an editor can start a newer operation in the same context. Capture `context.capture()` before
+async clipboard/file/error-body work and check it in success, error and finalization callbacks.
+
+Creation project options and workspace project-filter options also dispose their own subscriptions
+when the in-form project changes. Parent-query changes replace the parent request without discarding
+the child title/description. Accepted actor/project changes clear authored defaults, options, results,
+messages and selection before reloading. A report's evidence refresh preserves its existing narrative;
+only its first successful load in a new context initializes narrative fields.
+
+Touched pages use focused API clients directly; `WorktrailApiService` is compatibility-only for
+untouched consumers. The context owner imports no feature/editor/Planning modules. Regression evidence
+is in [reactive context evidence](v0.3.0/reactive-context-evidence.md). Phase 11 does not add Stay/Discard,
+native unload warnings, pending-write departure blocking or new navigation guards; those are Phase 12.
 
 ## Composition And Persistence
 
