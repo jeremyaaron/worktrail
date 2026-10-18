@@ -509,6 +509,10 @@ one worker on separate runners/services/marked databases. Do not increase worker
 fixtures. All jobs must pass the existing required `Verify` aggregate status; matrix fail-fast is off,
 browser retries are zero, and success/failure evidence is retained independently.
 
+Comprehensive CI runs on pull requests only, not again after a merge or direct push to `main`.
+Use PRs with required checks against the current base branch; direct pushes bypass this verification.
+The separate Pages workflow still validates and deploys the public site on pushes to `main`.
+
 Synchronize tests on meaningful state or deliberately controlled request/navigation ordering, not
 fixed sleeps. A deadline bounds a stalled test; it is not the prerequisite for its next action.
 Diagnose local/CI differences from traces and reproduce the relevant ordering before changing product

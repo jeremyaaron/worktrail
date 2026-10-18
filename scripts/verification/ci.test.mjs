@@ -9,6 +9,13 @@ const { load } = require('js-yaml');
 const workflow = load(await readFile(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8'));
 const action = load(await readFile(new URL('../../.github/actions/verify/action.yml', import.meta.url), 'utf8'));
 
+test('comprehensive CI runs only for pull requests while Pages retains main deployment', async () => {
+  assert.deepEqual(workflow.on, { pull_request: null });
+  const pages = load(await readFile(new URL('../../.github/workflows/pages.yml', import.meta.url), 'utf8'));
+  assert.deepEqual(pages.on.push.branches, ['main']);
+  assert.ok(Object.hasOwn(pages.on, 'workflow_dispatch'));
+});
+
 test('CI retains every verification scope with isolated serial browser shards and no matrix fail-fast', async () => {
   const { jobs } = workflow;
   const input = name => jobs[name].steps.find(step => step.uses === './.github/actions/verify').with;

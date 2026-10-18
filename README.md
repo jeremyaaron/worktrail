@@ -760,6 +760,10 @@ retries remain zero, so failures do not suppress later tests or other shards. Th
 status requires every job to succeed, including rejecting skipped or canceled jobs. Superseded runs
 on the same PR/ref are canceled; this does not truncate the current commit's failure reporting.
 
+Comprehensive CI runs on pull requests only; merges into `main` do not repeat it. Direct pushes to
+`main` are not verified, so use PRs with required checks against the current base branch. The separate
+Pages workflow still validates and deploys the public site on pushes to `main`.
+
 Sanitized summaries and browser evidence are uploaded for every job, not just failures. This shortens
 the serial critical path at the cost of additional runner setup; actual GitHub timing must be measured
 after publication. Local `npm run verify` still runs the complete serial release workflow.
