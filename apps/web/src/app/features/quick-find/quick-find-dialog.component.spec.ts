@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { Dialog } from '@angular/cdk/dialog';
 import { OverlayContainer } from '@angular/cdk/overlay';
 import { ApplicationRef, Component, Injector, signal } from '@angular/core';
@@ -21,10 +23,10 @@ describe('Quick Find dialog launcher and navigation mode', () => {
   let overlayContainer: OverlayContainer;
   let router: Router;
   let openRef: QuickFindDialogRef | null;
+  let trigger: HTMLButtonElement | undefined;
 
   beforeEach(() => {
-    const quickFindApi = jasmine.createSpyObj<QuickFindApi>('QuickFindApi', ['search']);
-    quickFindApi.search.and.returnValue(NEVER);
+    const quickFindApi = { search: vi.fn<QuickFindApi['search']>().mockReturnValue(NEVER) };
 
     TestBed.configureTestingModule({
       providers: [
@@ -50,12 +52,18 @@ describe('Quick Find dialog launcher and navigation mode', () => {
   });
 
   afterEach(() => {
-    openRef?.close();
-    TestBed.inject(Dialog).closeAll();
+    try {
+      openRef?.close();
+      TestBed.inject(Dialog).closeAll();
+    } finally {
+      vi.restoreAllMocks();
+      trigger?.remove();
+      trigger = undefined;
+    }
   });
 
   it('opens one accessible, blocking, focus-restoring dialog without changing history', async () => {
-    const trigger = document.createElement('button');
+    trigger = document.createElement('button');
     trigger.textContent = 'Trigger';
     document.body.append(trigger);
     trigger.focus();
@@ -66,11 +74,11 @@ describe('Quick Find dialog launcher and navigation mode', () => {
     await applicationRef.whenStable();
 
     expect(openRef.config.ariaLabelledBy).toBe('quick-find-heading');
-    expect(openRef.config.ariaModal).toBeTrue();
-    expect(openRef.config.closeOnNavigation).toBeFalse();
-    expect(openRef.config.disableClose).toBeFalse();
-    expect(openRef.config.hasBackdrop).toBeTrue();
-    expect(openRef.config.restoreFocus).toBeTrue();
+    expect(openRef.config.ariaModal).toBe(true);
+    expect(openRef.config.closeOnNavigation).toBe(false);
+    expect(openRef.config.disableClose).toBe(false);
+    expect(openRef.config.hasBackdrop).toBe(true);
+    expect(openRef.config.restoreFocus).toBe(true);
     expect(openRef.config.panelClass).toBe('quick-find-overlay');
     expect(router.url).toBe(initialUrl);
 
@@ -164,11 +172,11 @@ describe('Quick Find dialog launcher and navigation mode', () => {
     openRef.componentRef?.changeDetectorRef.detectChanges();
     const callOrder: string[] = [];
     const originalClose = openRef.close.bind(openRef);
-    const close = spyOn(openRef, 'close').and.callFake(() => {
+    const close = vi.spyOn(openRef, 'close').mockImplementation(() => {
       callOrder.push('close');
       originalClose();
     });
-    const navigate = spyOn(router, 'navigate').and.callFake(async () => {
+    const navigate = vi.spyOn(router, 'navigate').mockImplementation(async () => {
       callOrder.push('navigate');
       return true;
     });
@@ -179,8 +187,8 @@ describe('Quick Find dialog launcher and navigation mode', () => {
     expect(close).not.toHaveBeenCalled();
     await applicationRef.whenStable();
 
-    expect(close).toHaveBeenCalledOnceWith();
-    expect(navigate).toHaveBeenCalledOnceWith(['/projects', projectId, 'board'], {});
+    expect(close).toHaveBeenCalledExactlyOnceWith();
+    expect(navigate).toHaveBeenCalledExactlyOnceWith(['/projects', projectId, 'board'], {});
     expect(callOrder).toEqual(['navigate', 'close']);
     openRef = null;
   });

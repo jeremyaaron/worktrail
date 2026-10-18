@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
@@ -60,12 +62,12 @@ describe('InboxStateService', () => {
     const request = http.expectOne('/api/notifications/unread-count');
     expect(request.request.method).toBe('GET');
     expect(request.request.headers.get('x-worktrail-member-id')).toBe(owner.id);
-    expect(state.isLoadingUnreadCount()).toBeTrue();
+    expect(state.isLoadingUnreadCount()).toBe(true);
 
     request.flush({ unreadCount: 3 });
 
     expect(state.unreadCount()).toBe(3);
-    expect(state.isLoadingUnreadCount()).toBeFalse();
+    expect(state.isLoadingUnreadCount()).toBe(false);
     expect(state.unreadCountError()).toBeNull();
   });
 
@@ -111,7 +113,7 @@ describe('InboxStateService', () => {
     const request = http.expectOne('/api/notifications/unread-count');
     request.flush({ error: { code: 'INTERNAL_ERROR', message: 'Failed.' } }, { status: 500, statusText: 'Server Error' });
 
-    expect(state.isLoadingUnreadCount()).toBeFalse();
+    expect(state.isLoadingUnreadCount()).toBe(false);
     expect(state.unreadCountError()).toBe('Unread notification count could not be loaded.');
   });
 });

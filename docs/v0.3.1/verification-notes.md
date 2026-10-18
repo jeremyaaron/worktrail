@@ -166,3 +166,68 @@ API/database tests, application E2E, the separate native-editor harness, preview
 Those inputs and dependencies are unchanged. Phase 5 retains final single-runner/editor/lifecycle
 acceptance; Phases 3-4 retain their unconverted groups. No data, SQL history, advisory deadline, CI
 trigger, production scheduling provider, release version or remote workflow was changed.
+
+## Phase 3: Discovery And Workspace Conversion
+
+Completed October 18, 2026, on branch `v0.3.1`, starting from clean commit
+`741146031efdc66deaec0b2e1d6dc87e972fafc5`. Release identity remains `0.3.0`.
+[Structured evidence](phase-3-evidence.json) contains the per-file coverage map, before/current/executed
+hashes, exact focused selection, browser results, unchanged clock advances, and negative probes.
+
+| Converted Group | Files | Retained Cases |
+| --- | --- | --- |
+| Query serialization/parity/filter labels and query/saved-view/bulk stores | 7 | 113 |
+| Filter chips/panel, pinned/saved views, pagination and result controls | 6 | 44 |
+| Project/workspace work pages and board | 3 | 108 |
+| Quick Find search/dialog/navigation/session | 4 | 26 |
+| Inbox, My Work, Portfolio, projects/shell/navigation and workspace settings | 9 | 54 |
+| Total Phase 3 group | 29 | 345 |
+
+| Check / Selection | Outcome |
+| --- | --- |
+| Shared owned web runner, explicit 33-file selection | 391 passing Chromium cases: all 345 converted cases plus 46 affected consumer cases; no skips/retries; cleanup passes |
+| Affected consumers | App shell (11), PageContext real reused routes/actor ownership (23), draft departure (11), toolchain/debounce/icon/focus (1); their sources are unchanged |
+| `tsc -p apps/web/tsconfig.vitest.json --noEmit` | Pass; no Jasmine ambient types or Zone clock-test imports in converted specs |
+| `tsc -p apps/web/tsconfig.spec.json --noEmit` | Pass for the complementary remaining Jasmine scope |
+| ESLint, 29 changed specs and native formatter follow-up | Pass with zero warnings |
+| `node --test scripts/verification/web.test.mjs` | Seven passing discovery/type-scope/runtime-identity/selection/failure/ownership checks |
+| Coverage/partition reconciliation | Definitions, registration loops, assertion counts, HTTP mock responses and clock advances unchanged; 54 Vitest / 17 Karma files, complete/disjoint |
+| Pending/applied state mutation | Selected regression fails when pending form state incorrectly supplies `activeQuery` |
+| Quick Find clock mutation | Selected regression fails when search has not run at its 220 ms logical debounce boundary |
+
+The passing selection uses `runWebTests`, the same owned implementation called by ordinary `npm test`
+and `verify`. Reproduce it with `npm test --workspace @worktrail/web -- --runner=vitest` and one
+`--include=<path>` argument for each path recorded in the evidence. A private driver retains the
+structured report before normal cleanup; its results do not rely on parsing console text.
+
+Clock conversion preserves exact behavioral checkpoints, not machine-speed assumptions. Quick Find
+uses 219 + 1 ms to prove the debounce boundary; zero-time advancement drains focus/navigation/promise
+work. Work-list copy feedback retains its real product expiry, and pending search still does not
+apply after the former debounce interval. These are controlled clocks, not real sleeps, polling
+extensions or startup SLAs. My Work freezes only `Date`; Inbox's two `TestBed.tick()` calls are retained
+as Angular effect synchronization. HTTP mock `flush` calls and their response payloads are unchanged.
+
+Explicit teardown restores mocks/descriptors, destroys clock-owning fixtures before returning to real
+timers, clears actor selection, and removes the Quick Find trigger/Files nodes even after an assertion
+fails. The actual native formatter is still used: an explicit constructor delegate preserves Intl's
+internal slots and records its UTC-versus-timestamp options. No generic browser shim is introduced.
+
+Typing initially rejected remaining Jasmine `toHaveSize` calls and a missing explicit `vi` import.
+The first behavioral selection then passed 390/391 cases but exposed Vitest's default native Intl
+constructor-spy mismatch (`format` was not callable). Explicit native-constructor delegation fixes
+that cause; the final 33-file selection passes all 391 with unchanged deadlines and assertions.
+After acceptance, only two surplus EOF blank lines are removed from the launcher spec; both executed
+and current hashes are retained. No functional source changes follow the passing run.
+
+The two negative probes mutate only disposable production-source copies and each fail one selected
+case for the intended behavior. Other cases are filtered out in those probes, not disabled in the
+suite. All positive and negative snapshots, endpoints and recorded child processes are removed.
+Sanitized evidence remains in this sprint directory; no working data is accessed.
+
+Only the changed group and four affected consumers were executed. The other previously converted
+Vitest files, 17 remaining Karma specs, app builds, install/audit refresh, API/database tests, application
+E2E, native-editor harness, preview/setup/site suites, and Linux lifecycle reruns were deliberately
+omitted. Their sources, dependency graph and execution infrastructure are unchanged. Earlier-phase
+evidence is not relabeled as a fresh run. Phase 4 owns the remaining conversion; Phase 5 owns final
+single-runner/editor/lifecycle acceptance. Production scheduling, budgets, dependency/security policy,
+SQL history, release version and CI triggers remain unchanged.

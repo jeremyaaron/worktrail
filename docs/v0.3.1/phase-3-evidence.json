@@ -1,0 +1,1815 @@
+{
+  "schemaVersion": 1,
+  "phase": 3,
+  "recordedOn": "2026-10-18T22:13:13.215Z",
+  "baselineCommit": "741146031efdc66deaec0b2e1d6dc87e972fafc5",
+  "branch": "v0.3.1",
+  "releaseVersion": "0.3.0",
+  "node": "v24.16.0",
+  "lockSha256": "57208d70478309a22961f487ef64122b23e30e9358dc9a0c5eb92a8f7d22f0c7",
+  "changedSpecs": 29,
+  "retainedPhase3Cases": 345,
+  "coverage": "Original test definitions, registration loops, assertion-site counts, HTTP mock response arguments, logical-clock advancements, and Angular effect flushes match the phase-entry revision. No tests added, removed, merged, skipped or focused.",
+  "files": [
+    {
+      "file": "apps/web/src/app/features/inbox/inbox-page.component.spec.ts",
+      "beforeSha256": "e4e961af8586e4490b9f17b680cf22a3cc95f9921faae4c6ce8857b72f999c6b",
+      "sha256": "e30992336f931ad0f5fae95fabc682ebe338ab325de37b195abb2b4b314dafa6",
+      "executedSha256": "e30992336f931ad0f5fae95fabc682ebe338ab325de37b195abb2b4b314dafa6",
+      "passedCases": 5,
+      "testDefinitions": [
+        {
+          "name": "'loads unread notifications and renders work item links'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'switches between unread and all notifications'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'marks a single unread notification read and removes it from the unread view'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'marks a read notification unread from the all view'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'marks all unread notifications read'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 21,
+      "unchangedHttpResponses": 11,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/inbox/inbox-state.service.spec.ts",
+      "beforeSha256": "32ea85bf77b4f2f1a7bc04cc7b5255d80490cfff5eda965cd271673c886b4f24",
+      "sha256": "7baa03f78b900749875d174257ecced5fbe2780f1ad9a3e2ab433115933259c7",
+      "executedSha256": "7baa03f78b900749875d174257ecced5fbe2780f1ad9a3e2ab433115933259c7",
+      "passedCases": 4,
+      "testDefinitions": [
+        {
+          "name": "'refreshes unread count for the selected actor'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'refreshes unread count when the selected actor changes'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'supports local unread count updates after list and read mutations'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'reports unread count load failures'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 16,
+      "unchangedHttpResponses": 4,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 2
+    },
+    {
+      "file": "apps/web/src/app/features/my-work/my-work-page.component.spec.ts",
+      "beforeSha256": "90bf0fefdf73b818e979b83c086f22b5cef9a208725e18df09ed171a19e6e257",
+      "sha256": "4105bc99f39a26507ce3d2b6ac750ba951e77123014447d145047a6810913a6e",
+      "executedSha256": "4105bc99f39a26507ce3d2b6ac750ba951e77123014447d145047a6810913a6e",
+      "passedCases": 5,
+      "testDefinitions": [
+        {
+          "name": "'renders a deduped attention queue and secondary reported work'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'uses summary cards as queue filters with full-list links'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders compact empty states for low-signal sections'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'refreshes dashboard data when the selected actor changes'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows an error state and retries the request'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 40,
+      "unchangedHttpResponses": 9,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/portfolio/portfolio-display.spec.ts",
+      "beforeSha256": "e532758ba4c6ac86a2dc1802a7028e9ad6c10add8d28a4ded21abe95e69c91ef",
+      "sha256": "191df46805ea7464318c65d4e8bf918a22cd536fbee45421c663da7dd2e59343",
+      "executedSha256": "191df46805ea7464318c65d4e8bf918a22cd536fbee45421c663da7dd2e59343",
+      "passedCases": 1,
+      "testDefinitions": [
+        {
+          "name": "'formats calendar dates in UTC without changing timestamp presentation'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 3,
+      "unchangedHttpResponses": 0,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/portfolio/portfolio-page.component.spec.ts",
+      "beforeSha256": "23de8d7b5c490ef7c43385b67adb767ccbd37537d3eebe9fb07523f7ffe14adf",
+      "sha256": "60192663366f459ba85af7315508e14874f29d6a859a948f50ed1773f8f387dc",
+      "executedSha256": "60192663366f459ba85af7315508e14874f29d6a859a948f50ed1773f8f387dc",
+      "passedCases": 9,
+      "testDefinitions": [
+        {
+          "name": "'requests the workspace portfolio for the active actor'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows a loading state while the portfolio request is pending'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows an empty state when there are no active project rows'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows an error state and can retry loading'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders summary counts and bounded attention sections'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders project comparison context and all expected action links'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'converts portfolio work queries into router query params'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'refines the complete fifteen-row comparison independently of bounded attention and summary totals'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'cancels an earlier actor read and loads the newly committed workspace portfolio'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 53,
+      "unchangedHttpResponses": 10,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/projects/project-shell/project-navigation.spec.ts",
+      "beforeSha256": "c354b4cd82428b3078a962facd21da0f0de62b4354aaaef2c4cb6a19bc65d736",
+      "sha256": "e5d8dfe6b0a05847994e90fabd3f43da0a5fb43778aedd33a1f13cec8ef8be8e",
+      "executedSha256": "e5d8dfe6b0a05847994e90fabd3f43da0a5fb43778aedd33a1f13cec8ef8be8e",
+      "passedCases": 5,
+      "testDefinitions": [
+        {
+          "name": "'assigns Planning to ' + path + ' without changing its lazy route'",
+          "registrationLoops": [
+            "['planning', 'milestones/:milestoneId', 'cycles/:cycleId', 'cycles/:cycleId/closeout']"
+          ]
+        },
+        {
+          "name": "'preserves editor metadata alongside section ownership'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 5,
+      "unchangedHttpResponses": 0,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/projects/project-shell/project-shell.component.spec.ts",
+      "beforeSha256": "8eaac34f523b0f33bffd0a0c0200c644e4e960ec38ed8fa28f66ef5b2c579463",
+      "sha256": "da7fd10d6f913bc2acf6d68f679b60ab3e4bfed0d899d075154bd11fc8f3949c",
+      "executedSha256": "da7fd10d6f913bc2acf6d68f679b60ab3e4bfed0d899d075154bd11fc8f3949c",
+      "passedCases": 3,
+      "testDefinitions": [
+        {
+          "name": "'carries the current safe project subview into creation'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders project identity, health, actions, and section navigation'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows archived read-only notice and hides create action for archived projects'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 11,
+      "unchangedHttpResponses": 3,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/projects/projects-page.component.spec.ts",
+      "beforeSha256": "db1a761441a954ce819f7df1b1b7b839f5fc9347af93042bca220941517807eb",
+      "sha256": "9938b44a044cdfe3b2e0c40dcfa0f0ac60b38e46d08f3979a7a79535a97ccb28",
+      "executedSha256": "9938b44a044cdfe3b2e0c40dcfa0f0ac60b38e46d08f3979a7a79535a97ccb28",
+      "passedCases": 16,
+      "testDefinitions": [
+        {
+          "name": "'renders project navigation summaries and filters archived projects'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'searches projects by name or key'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'puts the searchable directory before a closed creation disclosure and preserves a failed pending draft'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows project creation validation before posting'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'creates a project and adds it to the active list'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'submits explicit project keys uppercased'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows explicit key validation before posting'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'omits project creation for contributors and still rejects programmatic submission'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows backend project creation errors inline'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders project summary counts and recent work items'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders archived project state without the create action'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'loads project settings and saves metadata changes'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders shared project saved-view activity with a readable event label'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'archives and reactivates projects without a page refresh'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'manages project labels from settings'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders contributor project settings access as read-only'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 92,
+      "unchangedHttpResponses": 37,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/quick-find/quick-find-dialog-search.spec.ts",
+      "beforeSha256": "b94b3994b6e71d84d9e6040a19500009849bbbeb6a3d83759c74af40fe55cb3e",
+      "sha256": "1aa0440571b663cc786712029b2c483ddd1121e31d11c433a5ce8c4fb91287ef",
+      "executedSha256": "1aa0440571b663cc786712029b2c483ddd1121e31d11c433a5ce8c4fb91287ef",
+      "passedCases": 14,
+      "testDefinitions": [
+        {
+          "name": "'retains query and preview filters on reopening but refreshes results and resets selection'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'erases state and rejects an earlier response when workspace changes without a different member ID'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'debounces normalized queries and cancels stale success and error outcomes'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders non-empty groups in product order with readable context and plain text'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows honest truncation and only creates overflow state for work items'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'preserves the query on safe error, retries immediately, and clears to navigation'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'invalidates pending search state and closes when the selected actor changes'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps focus in the combobox while moving through bounded navigation options'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps the query and active result when navigation is rejected'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'synchronizes active-descendant state across loading, results, hover, and clear'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'routes every result and overflow through canonical navigation destinations before closing'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'gives pointer and keyboard activation the same destination'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'focuses Files after close when Angular would skip the same attachment URL'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'leaves a changed record Files target to its readiness owner instead of focusing a stale node'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 97,
+      "unchangedHttpResponses": 0,
+      "unchangedClockAdvancements": [
+        "220",
+        "220",
+        "220",
+        "219",
+        "1",
+        "220",
+        "220",
+        "220",
+        "220",
+        "0",
+        "220",
+        "0",
+        "0",
+        "0",
+        "220",
+        "0",
+        "0",
+        "220",
+        "0",
+        "220",
+        "0",
+        "220",
+        "0",
+        "0"
+      ],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/quick-find/quick-find-dialog.component.spec.ts",
+      "beforeSha256": "acb6b37a9f8a418b721adc58a21e14945e4f28045972322b0fac0fcec6f19612",
+      "sha256": "602cf3b47f236210074a6f2d2c3dcb6ea774a76cc13aac05977b127fb4a1ac16",
+      "executedSha256": "7b0c2b9aad0593354d0914cb85cea1cb2b6f2376ed83c15dc43c601bd3439eec",
+      "passedCases": 3,
+      "testDefinitions": [
+        {
+          "name": "'opens one accessible, blocking, focus-restoring dialog without changing history'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders global entries and project entries only when project context exists'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps navigation visible for short queries and closes only after routing an entry succeeds'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 23,
+      "unchangedHttpResponses": 0,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/quick-find/quick-find-navigation.spec.ts",
+      "beforeSha256": "27ce0b85b81db2b9472394f3507d5ec70ffa06c000b11418915b759a134ac80f",
+      "sha256": "d4735608f1e044fc01223f488515633602402582a8137f1b78756edd60c2924f",
+      "executedSha256": "d4735608f1e044fc01223f488515633602402582a8137f1b78756edd60c2924f",
+      "passedCases": 8,
+      "testDefinitions": [
+        {
+          "name": "'maps every result kind to its canonical destination'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'maps attachments to the owning work item Files fragment only'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'derives stable option ids from kind and entity identity'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'provides fixed global navigation entries in product order'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'provides project destinations only when project context exists'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'serializes work-item overflow through the canonical workspace query contract'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'carries a selected preview project into the real canonical Work Items continuation'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'defines selectable navigation, result, and work-item overflow models'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 20,
+      "unchangedHttpResponses": 0,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/quick-find/quick-find-session.service.spec.ts",
+      "beforeSha256": "77af85660cfa017a4c6cffe33148a038b59b59275a1adac54139b555032d7721",
+      "sha256": "26bba3da0ffc95ed373f6705d25514a404dcba6ae8ffb606ef66429c12589e57",
+      "executedSha256": "26bba3da0ffc95ed373f6705d25514a404dcba6ae8ffb606ef66429c12589e57",
+      "passedCases": 1,
+      "testDefinitions": [
+        {
+          "name": "'retains only query/refinement in memory and erases it on every committed identity change'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 4,
+      "unchangedHttpResponses": 0,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/work-items/components/active-filter-chips.component.spec.ts",
+      "beforeSha256": "65ccb8c2d0735f6c44e510c1901167ab9ea02a5dcd87c3126e1a0abb99f42f01",
+      "sha256": "0addb9bdba3fc8292dae2a1d991642d5785a14ab6a4474fb7b507e15dbc524e0",
+      "executedSha256": "0addb9bdba3fc8292dae2a1d991642d5785a14ab6a4474fb7b507e15dbc524e0",
+      "passedCases": 1,
+      "testDefinitions": [
+        {
+          "name": "'renders active labels and emits removals without changing label text'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 2,
+      "unchangedHttpResponses": 0,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/work-items/components/pinned-saved-views.component.spec.ts",
+      "beforeSha256": "5178647cf87ae4bf16e1f452e005c10f950ec35d845fc4a92f872059859b0f5b",
+      "sha256": "87b777e37ec9d5b6ee4cc6bef746f07797d032de9cb37051b0fea25039b1068c",
+      "executedSha256": "87b777e37ec9d5b6ee4cc6bef746f07797d032de9cb37051b0fea25039b1068c",
+      "passedCases": 5,
+      "testDefinitions": [
+        {
+          "name": "'hides itself when there are no pinned views'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders shared shortcuts before personal shortcuts and sorts each group by name'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'emits open with the selected saved view'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'sets accessible names that distinguish shared and personal shortcuts'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'allows heading copy to be customized without route context'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 8,
+      "unchangedHttpResponses": 0,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/work-items/components/saved-views-toolbar.component.spec.ts",
+      "beforeSha256": "f837a31ee3546c11fd9bf3ccd4e64b33bb21064e6e7bf2ee4fed3eb6dd3e439d",
+      "sha256": "ae1491e2a7edbc0630f416462daf1004b7b7ec80c76d645df4de27c0f78f179e",
+      "executedSha256": "ae1491e2a7edbc0630f416462daf1004b7b7ec80c76d645df4de27c0f78f179e",
+      "passedCases": 18,
+      "testDefinitions": [
+        {
+          "name": "'resets local chooser and name state on context change and follows the explicit opened identity'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'retains a failed save name until a successful create is accepted'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'uses per-view permissions and disables management inputs while pending'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'exposes a named retry command instead of empty-state copy on a load failure'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders compact open select groups with query summaries'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'disables compact open action until a saved view is selected'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'provides accessible select help and named management actions'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'opens a shared saved view from the compact opener'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'opens a personal saved view from the compact opener'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps management compact and emits personal save/open actions after selection'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'separates shared views above personal views and emits shared saves for managers'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'lets contributors open shared views from a read-only selected panel'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'summarizes saved view queries without default-only filter noise'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders project-specific empty and helper copy without route context'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'counts project saved-view query fields with project semantics'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps personal view management available when shared management is read-only'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'emits personal pin and unpin actions for mutable personal views'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'does not render pin controls when all saved views are read-only'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 80,
+      "unchangedHttpResponses": 0,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/work-items/components/work-item-filter-panel.component.spec.ts",
+      "beforeSha256": "3a5788dc4854d392730bec9de7562d88178a6613efec76ef6d4c042ce3034bee",
+      "sha256": "938a40f8632d8f08963f0a1a1e5dcf4f57142b48e2b151c828c6da5fb0e234f5",
+      "executedSha256": "938a40f8632d8f08963f0a1a1e5dcf4f57142b48e2b151c828c6da5fb0e234f5",
+      "passedCases": 2,
+      "testDefinitions": [
+        {
+          "name": "'toggles the compact filter body for narrow layouts'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'emits apply and collapses after submission'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 6,
+      "unchangedHttpResponses": 0,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/work-items/components/work-item-pagination.component.spec.ts",
+      "beforeSha256": "3673e705ce2486e010d6dff529112edfa3c5918f0009f8324f663decc26486ba",
+      "sha256": "0f8eb9c30f8a6bafc657a8d7fcc55c6bc27a1bb9a49ce1b3b078c4755fe58992",
+      "executedSha256": "0f8eb9c30f8a6bafc657a8d7fcc55c6bc27a1bb9a49ce1b3b078c4755fe58992",
+      "passedCases": 10,
+      "testDefinitions": [
+        {
+          "name": "'keeps page size synchronized when a result pager mounts, remounts, or changes size'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders a bounded start window with one gap'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'provides compact range and size controls even for empty results without a second page chooser'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders neighbors and both gaps in the middle of the range'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders a bounded end window with one gap'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'emits previous, direct, next, and changed page-size requests'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'uses native disabled states at boundaries and while loading'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders no controls or false page text for an empty result'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'provides navigation, current-page, and visible page-size labels'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'marks numeric neighbors and status text for the compact mobile contract'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 35,
+      "unchangedHttpResponses": 0,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/work-items/components/work-item-result-list.component.spec.ts",
+      "beforeSha256": "8299b0ebfe08d8429d6dfe52f7bbb54681c4ef06f13a28e7ee35fd1cde8e78c8",
+      "sha256": "ca9f61f4bdf00bea7e87e358831c15c01ec0e4e255333ef62f2ab20c044cd2c0",
+      "executedSha256": "ca9f61f4bdf00bea7e87e358831c15c01ec0e4e255333ef62f2ab20c044cd2c0",
+      "passedCases": 8,
+      "testDefinitions": [
+        {
+          "name": "'renders mobile cards with the fields needed to scan work items'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'provides table cell/header semantics, selected rows and mobile visible-page selection'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders the visible range from server page metadata'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'exposes a programmatically focusable result heading'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps detail links wired with the return URL on table rows and mobile cards'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows child and parent progress context without adding noise to leaf items'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'disables both desktop and mobile selection while a bulk command is pending'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders selection controls and emits item and visible-toggle events'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 38,
+      "unchangedHttpResponses": 0,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/work-items/query/work-item-filter-labels.spec.ts",
+      "beforeSha256": "b45147922c1befdcf5348cd6df26e68dca79a4a7c6def7d0dea36b1d9c80c5bf",
+      "sha256": "fafc54747632eadb59a728f112b2ead950e32585efd0c68dfdeec65ae4d987a8",
+      "executedSha256": "fafc54747632eadb59a728f112b2ead950e32585efd0c68dfdeec65ae4d987a8",
+      "passedCases": 2,
+      "testDefinitions": [
+        {
+          "name": "'formats project work item filter labels with lookup names'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'formats workspace-only filter labels'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 2,
+      "unchangedHttpResponses": 0,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/work-items/query/work-item-page-query-serialization.spec.ts",
+      "beforeSha256": "e0489f9e79e1e95335fb09d660c38187dc20d4547715f2487033e6800c1168d5",
+      "sha256": "fa878263a6291b0e727e65c4686d46ccd686bd687522d6ced6ecec5b5e5048e0",
+      "executedSha256": "fa878263a6291b0e727e65c4686d46ccd686bd687522d6ced6ecec5b5e5048e0",
+      "passedCases": 8,
+      "testDefinitions": [
+        {
+          "name": "'uses defaults and omits them from canonical router params'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'parses and serializes non-default page state'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'normalizes invalid page values to page 1'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'normalizes invalid page sizes while accepting every supported size'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'merges page params with durable filters without mutating the source'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'retains a non-default page size when page 1 is canonicalized'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'changes page while preserving the current page size'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'resets to page 1 when page size changes'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 13,
+      "unchangedHttpResponses": 0,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/work-items/query/work-item-query-serialization.spec.ts",
+      "beforeSha256": "8820535cb65af9b238d1db4141ce9fdd9df05eeebec0aa92eb687a8747fad56e",
+      "sha256": "2a685272d8c4ce45e0ab5bf52af55aa34a464a3dc2f1c1708b5be0792db571c0",
+      "executedSha256": "2a685272d8c4ce45e0ab5bf52af55aa34a464a3dc2f1c1708b5be0792db571c0",
+      "passedCases": 16,
+      "testDefinitions": [
+        {
+          "name": "'converts project list form values into compact canonical queries'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'omits default project query params while preserving non-default values'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'round-trips project form values through canonical query and route params'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'builds project form values from saved view queries'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'strips workspace-only fields from project router params'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'converts workspace list form values into compact canonical queries'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'round-trips workspace form values through canonical query and route params'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'serializes workspace route params from canonical query state'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'preserves explicit blocked false and non-default workspace defaults in link params'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'builds workspace form values from saved view queries and route query params'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'returns null router link params for empty or default-only queries'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'builds return URLs from applied query state'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'counts meaningful query fields without default noise'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'round-trips canonical exact-parent state while preserving unrelated edits'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'lets a visible hierarchy mode replace exact-parent state permanently'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'normalizes supported hierarchy state and discards malformed route or saved-view values'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 31,
+      "unchangedHttpResponses": 0,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/work-items/query/work-query-parity.spec.ts",
+      "beforeSha256": "4ce3d42417bab0a3fa6c25087d2e07ba1c1bbbcdf08b18cf632a054e2835efac",
+      "sha256": "7567346e10f0f7dc7377d568243a958c8449f217a490cc548eaef3f529852413",
+      "executedSha256": "7567346e10f0f7dc7377d568243a958c8449f217a490cc548eaef3f529852413",
+      "passedCases": 55,
+      "testDefinitions": [
+        {
+          "name": "`${scope}: preserves ${fixture.name} through form, URL, HTTP, copy/return, saved and pinned state`",
+          "registrationLoops": [
+            "['project', 'workspace'] as const",
+            "queryParityFixtures"
+          ]
+        },
+        {
+          "name": "'keeps pending estimate changes out of applied queries and chips until Apply'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 16,
+      "unchangedHttpResponses": 0,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/work-items/state/project-bulk-triage.store.spec.ts",
+      "beforeSha256": "69a2ef3106467e688b8e9afd500a9f10b67edce572e9e56cedca40cd56629247",
+      "sha256": "5ad701968afcd05a9c502619c68303939acaade0f6b2848762cceefaa22176d5",
+      "executedSha256": "5ad701968afcd05a9c502619c68303939acaade0f6b2848762cceefaa22176d5",
+      "passedCases": 5,
+      "testDefinitions": [
+        {
+          "name": "'ignores selection until bulk mode is active'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'toggles all visible rows and prunes hidden selections'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps failed rows selected after partial success'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'prunes failed selection to visible rows without clearing result feedback'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'exits mode and clears selection, apply state, errors, and result summaries'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 19,
+      "unchangedHttpResponses": 0,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/work-items/state/saved-views.store.spec.ts",
+      "beforeSha256": "350e838d4245017e11804e60f3f9faf4aa3a5333e4dffe06ee20d1197ab2ac29",
+      "sha256": "200ae00f3b4e4fad2f131db5be69a2f02ba7e6b66925ee7e9c99002309296e38",
+      "executedSha256": "200ae00f3b4e4fad2f131db5be69a2f02ba7e6b66925ee7e9c99002309296e38",
+      "passedCases": 18,
+      "testDefinitions": [
+        {
+          "name": "'denies writes by default and excludes foreign personal, workspace and project views'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps explicit identity and canonical Named/Modified/Custom state separate from pending forms and paging'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'guards late ' + operation + ' completion through reset, A/B/A and destruction'",
+          "registrationLoops": [
+            "['create', 'rename', 'query', 'pin', 'delete'] as const"
+          ]
+        },
+        {
+          "name": "'cancels superseded reads and prevents an older load from replacing a successful mutation'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'serializes pending actions, retains failed rename drafts and preserves unrelated rename drafts'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'clears inaccessible selection on reload and stops exposing data when actor permission is lost'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'invalidates project changes and denied late shared writes without replacing current state'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'preserves a rename draft through pin/query changes while accepting fresh unedited names'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'loads sorted workspace views and derives pinned shortcuts by visibility'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'creates project saved views with scope and current query'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'preserves hierarchy queries across personal, shared, and pinned saved views'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'blocks shared mutations when the current member cannot manage shared views'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'updates draft names and removes deleted views'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'reports load failure and clears stale saved views'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 59,
+      "unchangedHttpResponses": 0,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/work-items/state/work-list-query.store.spec.ts",
+      "beforeSha256": "5379a08c915fe0f9c84603af69371ac93aa9ba7e8be0f4c611a3caf0532c05f7",
+      "sha256": "da4838c06bd44d5f3feccdc9dec395628b2ae2c814036fa905540139a4572241",
+      "executedSha256": "da4838c06bd44d5f3feccdc9dec395628b2ae2c814036fa905540139a4572241",
+      "passedCases": 9,
+      "testDefinitions": [
+        {
+          "name": "scope + ': announces only accepted latest query results and ignores pending form changes'",
+          "registrationLoops": [
+            "['project', 'workspace'] as const"
+          ]
+        },
+        {
+          "name": "'derives project active and pending query state from route params'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps pending filter edits separate from the active query until navigation applies them'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'creates canonical workspace return URLs with default query values omitted'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'resets pending project filters to default values'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps page state separate from durable filters and canonicalizes browser parameters'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'normalizes invalid page parameters and resets paging for applied queries'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps exact-parent edits pending until applied and replaces them with visible hierarchy'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 30,
+      "unchangedHttpResponses": 0,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/work-items/work-item-board-page.component.spec.ts",
+      "beforeSha256": "4af454bdceef3bc98d7eec3d3e31013d581e5c5a88a68b91d965cf8c9240b92e",
+      "sha256": "44e865544558eb526a4245d488e5b00fc1fb90d9974fdd748c3a8bea026d74dd",
+      "executedSha256": "44e865544558eb526a4245d488e5b00fc1fb90d9974fdd748c3a8bea026d74dd",
+      "passedCases": 11,
+      "testDefinitions": [
+        {
+          "name": "'renders all board columns and groups cards by status'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps complete boards beyond interactive list page sizes'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows hierarchy context without changing child card movement'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'moves a card through the status menu and refreshes board state'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'moves a card through drag and drop with neighbor hints and refreshes board state'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'reorders cards within the same column with neighbor hints'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'ignores same-index same-column drops without calling the move API'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows a clear error and resets the select when a status menu move is rejected'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'rolls back optimistic drag moves when the board move is rejected'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders archived projects as read-only and skips transition requests'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'prevents contributors from reopening terminal work from the board'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 41,
+      "unchangedHttpResponses": 32,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/work-items/work-items-page.component.spec.ts",
+      "beforeSha256": "3cad21e4b82d3dd7851190ee9729a1d252204d227cc437b7f07fa34ae2a4b511",
+      "sha256": "5e7fdffd95e5c181677ada9da64c59919dc270d7e545ef9ccc1b3513bdc1fa84",
+      "executedSha256": "5e7fdffd95e5c181677ada9da64c59919dc270d7e545ef9ccc1b3513bdc1fa84",
+      "passedCases": 65,
+      "testDefinitions": [
+        {
+          "name": "'uses the shared owner and keeps opened identity through paging, pending fields and accepted results'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'preserves deep-link paging when the initial actor resolves after the page mounts'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'loads work items with query parameter filters and renders dense rows'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'restores first, middle, and final project pages from route state without stealing focus'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps draft filters independent and focuses results after user paging'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'retains a paging focus request through an error and retry'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'lets owners select visible project work items locally'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'hides selection for contributors and archived projects'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'prunes selection to visible rows after a project work reload'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'clears selection when opening a saved project view'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'resets paging and bulk state when the active project changes'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'resets paging and bulk state when the active actor changes'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps bulk apply disabled until the selected action has required values'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'gives bulk label controls explicit accessible names'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'serializes each supported project bulk action and reloads after success'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'confirms multi-item status transitions before submitting'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps successful bulk result feedback visible after clearing successful selection'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'clears bulk feedback when applying filters'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps failed bulk rows selected and reports failed rows after reload'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'blocks paging during bulk apply and retains visible failures after stale-page recovery'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'creates personal project saved views from the applied query and opens canonical params'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'lets owners create and manage shared project saved views'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps shared project saved views read-only for contributors'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders pinned project shortcuts and opens them through canonical query params'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows project pin mutation errors without corrupting saved-view state'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders archived project saved views as open-only and blocks mutations'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'exports CSV with applied filters instead of pending draft form values'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows project export failures inline'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows the project export limit message from a structured error blob'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'copies the applied project filtered view link'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows copy link failures inline'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'resolves inactive member names from filter state without making them default choices'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps applied filters in route query parameters'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'preserves hidden work risk filters through visible filter changes and chip removal'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'preserves hidden parent state until a visible work-breakdown filter replaces it'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'uses hidden work risk filters for project export and copied links'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'does not show active filter pills for unapplied pending form values'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps dropdown filters pending until Apply'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps search pending until Apply'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'loads project context and starts with apply disabled'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'previews a selected CSV file and enables apply when valid'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders validation errors and keeps apply disabled'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'applies a valid preview and renders created item links'",
+          "registrationLoops": []
+        },
+        {
+          "name": "`shows ${format} metadata and expandable escaped source without active markup`",
+          "registrationLoops": [
+            "['plain_text', 'markdown_v1'] as const"
+          ]
+        },
+        {
+          "name": "'omits the source disclosure for an empty description'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows archived project state and blocks preview/apply'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows required title validation before posting'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'starts with empty Markdown and restores that default for another work item'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'protects a new draft entered after creation before Create another resets it'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'rejects an oversized new description before sending a request'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'submits an explicitly selected plain-text pair without trimming or normalizing it'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'creates a work item and renders success actions'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'excludes inactive members from the create assignee control'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'handles the native number control null value when an estimate is cleared'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'normalizes numeric estimate values before posting'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows archived project notice and prevents create requests'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'loads active projects only and requires project selection'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'loads project-dependent fields after selection and creates work'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'preserves entered values when create fails'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows create permission copy and disables submission'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'validates route parent context and creates a child without inheriting planning fields'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'reloads changed parent route state without clearing entered form values'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'preserves the complete child form when parent validation conflicts at create time'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'blocks submission for mismatched or unavailable parent context and preserves form state'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 328,
+      "unchangedHttpResponses": 176,
+      "unchangedClockAdvancements": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "2500",
+        "0",
+        "2500",
+        "0",
+        "2500",
+        "399",
+        "1"
+      ],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/work-items/workspace-work-item-list-page.component.spec.ts",
+      "beforeSha256": "ff543d566e001df8e8b56bb38cd23e9cd5c588edc09867e01d572979654f50e5",
+      "sha256": "596a23c3c2d8d4e3258e90982409d273b8a4003c055bf0b864feeb07ea0032e6",
+      "executedSha256": "596a23c3c2d8d4e3258e90982409d273b8a4003c055bf0b864feeb07ea0032e6",
+      "passedCases": 32,
+      "testDefinitions": [
+        {
+          "name": "'uses the shared owner for applied view identity and announces only accepted loads'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'preserves deep-link paging when the initial actor resolves after the page mounts'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'loads workspace work from URL query state and renders result links'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'loads a non-default workspace page and exposes server totals to the pager'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'restores first, final, and empty workspace pages from route state'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'preserves pending search input and focuses results after user paging'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'retains workspace paging focus through an error and retry'",
+          "registrationLoops": []
+        },
+        {
+          "name": "`preserves ${scenario.label} archive mode in workspace requests and results`",
+          "registrationLoops": [
+            "[\n    { label: 'active projects', query: 'exclude', requestValue: null, item: workItem },\n    { label: 'active and archived projects', query: 'include', requestValue: 'include', item: workItem },\n    {\n      label: 'archived projects only',\n      query: 'only',\n      requestValue: 'only',\n      item: {\n        ...workItem,\n        projectId: archivedProjectId,\n        displayKey: 'LEG-1',\n        project: {\n          id: archivedProjectId,\n          key: 'LEG',\n          name: 'Legacy Migration',\n          status: 'archived' as const\n        }\n      }\n    }\n  ]"
+          ]
+        },
+        {
+          "name": "'replaces a stale page URL without rendering rows under the stale route'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'cancels the previous workspace page request when route state changes'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'resets workspace paging and reloads actor-sensitive context when the actor changes'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'resets paging when project, archive mode, or sort filters apply'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'exports workspace CSV with applied filters instead of pending draft form values'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'copies the applied workspace filtered view link'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows workspace export failures inline'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows the workspace export limit message from a structured error blob'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps dropdown filters pending until Apply without showing pending pills'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'preserves exact-parent state and replaces it only after hierarchy navigation applies'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps search pending until Apply'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'resets all filters with a single URL update'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'saves, opens, renames, updates, and deletes personal saved views'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps workspace saved-view payloads paging-free and opens them at defaults'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'separates shared and personal views and manages shared views for owners'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders pinned workspace shortcuts and opens them through canonical query params'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'updates workspace saved-view pinned state for mutable saved views'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows pin mutation errors without corrupting saved-view state'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'excludes project-scoped saved views from workspace saved view groups'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'lets contributors open shared views without sending shared mutation requests'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows saved view validation and duplicate-name errors inline'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'opens stale saved views without breaking empty results'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 197,
+      "unchangedHttpResponses": 69,
+      "unchangedClockAdvancements": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "2500",
+        "399",
+        "1"
+      ],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/workspace/workspace-settings-page.component.spec.ts",
+      "beforeSha256": "d93c580d7e75b63c6a3a022c773126e63974a6210e6083bbabdc0a3f64ae95c0",
+      "sha256": "0efd71899875d4bb7f83c93c752b679129d8e22f88e13421e0eafd7af472352d",
+      "executedSha256": "0efd71899875d4bb7f83c93c752b679129d8e22f88e13421e0eafd7af472352d",
+      "passedCases": 6,
+      "testDefinitions": [
+        {
+          "name": "'renders workspace settings, role summary, members, and activity'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders shared saved-view activity with a readable event label'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'saves workspace name changes for owners'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders non-owner restrictions without member management controls'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows member creation validation before posting'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'creates, updates, deactivates, and reactivates members'",
+          "registrationLoops": []
+        }
+      ],
+      "unchangedAssertionSites": 26,
+      "unchangedHttpResponses": 14,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    }
+  ],
+  "partitions": [
+    {
+      "runner": "karma",
+      "files": [
+        "src/app/features/projects/cycle-closeout/cycle-closeout-result.component.spec.ts",
+        "src/app/features/projects/cycle-closeout/project-cycle-closeout-page.component.spec.ts",
+        "src/app/features/projects/planning/cycle-manager.component.spec.ts",
+        "src/app/features/projects/planning/cycle-options.spec.ts",
+        "src/app/features/projects/planning/cycle-summary-panel.component.spec.ts",
+        "src/app/features/projects/planning/planning-mutation-state.spec.ts",
+        "src/app/features/projects/project-cycle-review-page.component.spec.ts",
+        "src/app/features/projects/project-milestone-review-page.component.spec.ts",
+        "src/app/features/projects/project-planning-page.component.spec.ts",
+        "src/app/features/projects/status-reports/project-status-report-detail-page.component.spec.ts",
+        "src/app/features/projects/status-reports/project-status-report-draft-page.component.spec.ts",
+        "src/app/features/projects/status-reports/project-status-report-list-page.component.spec.ts",
+        "src/app/features/work-items/components/work-item-attachments.component.spec.ts",
+        "src/app/features/work-items/components/work-item-child-work.component.spec.ts",
+        "src/app/features/work-items/components/work-item-parent-components.spec.ts",
+        "src/app/features/work-items/work-item-detail-page.component.spec.ts",
+        "src/app/features/work-items/work-item-detail-unavailable.spec.ts"
+      ]
+    },
+    {
+      "runner": "vitest",
+      "files": [
+        "src/app/app.routes.spec.ts",
+        "src/app/app.spec.ts",
+        "src/app/core/api/api-error.spec.ts",
+        "src/app/core/api/attachments-api.spec.ts",
+        "src/app/core/api/cycles-api.spec.ts",
+        "src/app/core/api/quick-find-api.spec.ts",
+        "src/app/core/navigation/authorized-project-context.spec.ts",
+        "src/app/core/navigation/draft-departure-coordinator.spec.ts",
+        "src/app/core/navigation/page-context.spec.ts",
+        "src/app/core/worktrail-api.service.spec.ts",
+        "src/app/features/inbox/inbox-page.component.spec.ts",
+        "src/app/features/inbox/inbox-state.service.spec.ts",
+        "src/app/features/my-work/my-work-page.component.spec.ts",
+        "src/app/features/portfolio/portfolio-display.spec.ts",
+        "src/app/features/portfolio/portfolio-page.component.spec.ts",
+        "src/app/features/projects/project-shell/project-navigation.spec.ts",
+        "src/app/features/projects/project-shell/project-shell.component.spec.ts",
+        "src/app/features/projects/projects-page.component.spec.ts",
+        "src/app/features/quick-find/quick-find-dialog-search.spec.ts",
+        "src/app/features/quick-find/quick-find-dialog.component.spec.ts",
+        "src/app/features/quick-find/quick-find-navigation.spec.ts",
+        "src/app/features/quick-find/quick-find-session.service.spec.ts",
+        "src/app/features/work-items/components/active-filter-chips.component.spec.ts",
+        "src/app/features/work-items/components/pinned-saved-views.component.spec.ts",
+        "src/app/features/work-items/components/saved-views-toolbar.component.spec.ts",
+        "src/app/features/work-items/components/work-item-filter-panel.component.spec.ts",
+        "src/app/features/work-items/components/work-item-pagination.component.spec.ts",
+        "src/app/features/work-items/components/work-item-result-list.component.spec.ts",
+        "src/app/features/work-items/query/work-item-filter-labels.spec.ts",
+        "src/app/features/work-items/query/work-item-page-query-serialization.spec.ts",
+        "src/app/features/work-items/query/work-item-query-serialization.spec.ts",
+        "src/app/features/work-items/query/work-query-parity.spec.ts",
+        "src/app/features/work-items/state/project-bulk-triage.store.spec.ts",
+        "src/app/features/work-items/state/saved-views.store.spec.ts",
+        "src/app/features/work-items/state/work-list-query.store.spec.ts",
+        "src/app/features/work-items/work-item-board-page.component.spec.ts",
+        "src/app/features/work-items/work-items-page.component.spec.ts",
+        "src/app/features/work-items/workspace-work-item-list-page.component.spec.ts",
+        "src/app/features/workspace/workspace-settings-page.component.spec.ts",
+        "src/app/shared/authored-content/authored-content-edit-commands.spec.ts",
+        "src/app/shared/authored-content/authored-content-editor.component.spec.ts",
+        "src/app/shared/authored-content/authored-content-link.spec.ts",
+        "src/app/shared/authored-content/authored-content-parser.spec.ts",
+        "src/app/shared/authored-content/authored-content-validation.spec.ts",
+        "src/app/shared/authored-content/authored-content-viewer.component.spec.ts",
+        "src/app/shared/clipboard.service.spec.ts",
+        "src/app/shared/cycles/cycle-display.spec.ts",
+        "src/app/shared/delivery-health/delivery-health-display.spec.ts",
+        "src/app/shared/display/display-format.spec.ts",
+        "src/app/shared/download-file.spec.ts",
+        "src/app/shared/http-error-message.spec.ts",
+        "src/app/shared/navigation/section-target.spec.ts",
+        "src/app/shared/navigation/work-navigation.spec.ts",
+        "src/testing/web-toolchain.spec.ts"
+      ]
+    }
+  ],
+  "configHashes": {
+    "test-migration.json": "8fed488d0b19d33deb9f91072762d873b02fe41fc201703b347fe19b96b83833",
+    "tsconfig.spec.json": "9889785a438e95930a26a265684fe234af7dc3932f9f8ba6dd3a7204c8565e54",
+    "tsconfig.vitest.json": "a5da952036b9ff7bb39722c29048ec3b4238eb7daf1fbf04ac66a9d1fe75f8ed"
+  },
+  "acceptance": {
+    "entry": "Shared owned runWebTests implementation used by npm test and verify.",
+    "runId": "b606a4ca-db83-41ef-a5b5-79bc63386bf3",
+    "reproduction": "npm test --workspace @worktrail/web -- --runner=vitest followed by one --include= argument for each listed path.",
+    "options": {
+      "runner": "vitest",
+      "include": [
+        "src/app/features/inbox/inbox-page.component.spec.ts",
+        "src/app/features/inbox/inbox-state.service.spec.ts",
+        "src/app/features/my-work/my-work-page.component.spec.ts",
+        "src/app/features/portfolio/portfolio-display.spec.ts",
+        "src/app/features/portfolio/portfolio-page.component.spec.ts",
+        "src/app/features/projects/project-shell/project-navigation.spec.ts",
+        "src/app/features/projects/project-shell/project-shell.component.spec.ts",
+        "src/app/features/projects/projects-page.component.spec.ts",
+        "src/app/features/quick-find/quick-find-dialog-search.spec.ts",
+        "src/app/features/quick-find/quick-find-dialog.component.spec.ts",
+        "src/app/features/quick-find/quick-find-navigation.spec.ts",
+        "src/app/features/quick-find/quick-find-session.service.spec.ts",
+        "src/app/features/work-items/components/active-filter-chips.component.spec.ts",
+        "src/app/features/work-items/components/pinned-saved-views.component.spec.ts",
+        "src/app/features/work-items/components/saved-views-toolbar.component.spec.ts",
+        "src/app/features/work-items/components/work-item-filter-panel.component.spec.ts",
+        "src/app/features/work-items/components/work-item-pagination.component.spec.ts",
+        "src/app/features/work-items/components/work-item-result-list.component.spec.ts",
+        "src/app/features/work-items/query/work-item-filter-labels.spec.ts",
+        "src/app/features/work-items/query/work-item-page-query-serialization.spec.ts",
+        "src/app/features/work-items/query/work-item-query-serialization.spec.ts",
+        "src/app/features/work-items/query/work-query-parity.spec.ts",
+        "src/app/features/work-items/state/project-bulk-triage.store.spec.ts",
+        "src/app/features/work-items/state/saved-views.store.spec.ts",
+        "src/app/features/work-items/state/work-list-query.store.spec.ts",
+        "src/app/features/work-items/work-item-board-page.component.spec.ts",
+        "src/app/features/work-items/work-items-page.component.spec.ts",
+        "src/app/features/work-items/workspace-work-item-list-page.component.spec.ts",
+        "src/app/features/workspace/workspace-settings-page.component.spec.ts",
+        "src/app/app.spec.ts",
+        "src/app/core/navigation/page-context.spec.ts",
+        "src/app/core/navigation/draft-departure-coordinator.spec.ts",
+        "src/testing/web-toolchain.spec.ts"
+      ]
+    },
+    "tests": {
+      "passed": 391,
+      "failed": 0,
+      "skipped": 0,
+      "total": 391
+    },
+    "gates": [
+      {
+        "name": "test:web:vitest",
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "cleaned": true,
+    "affectedConsumers": [
+      {
+        "file": "src/app/app.spec.ts",
+        "passedCases": 11
+      },
+      {
+        "file": "src/testing/web-toolchain.spec.ts",
+        "passedCases": 1
+      },
+      {
+        "file": "src/app/core/navigation/draft-departure-coordinator.spec.ts",
+        "passedCases": 11
+      },
+      {
+        "file": "src/app/core/navigation/page-context.spec.ts",
+        "passedCases": 23
+      }
+    ],
+    "afterRunChange": "Remove two blank EOF lines from the launcher spec only; executed/current hashes are retained separately. No functional change after passing acceptance."
+  },
+  "checks": {
+    "vitestTypes": {
+      "command": "npm exec -- tsc -p apps/web/tsconfig.vitest.json --noEmit",
+      "passed": true
+    },
+    "jasmineTypes": {
+      "command": "npm exec -- tsc -p apps/web/tsconfig.spec.json --noEmit",
+      "passed": true
+    },
+    "lint": {
+      "selection": "29 Phase 3 specs; native formatter follow-up lint",
+      "passed": true
+    },
+    "partition": {
+      "command": "node --test scripts/verification/web.test.mjs",
+      "passed": true,
+      "tests": 7
+    }
+  },
+  "negativeProbes": [
+    {
+      "name": "Pending filters must not become applied filters",
+      "rejected": true,
+      "cleaned": true,
+      "failedTest": "WorkListQueryStore keeps pending filter edits separate from the active query until navigation applies them",
+      "failedTests": 1,
+      "mutation": {
+        "file": "src/app/features/work-items/state/work-list-query.store.ts",
+        "before": "this.activeQuery = computed(() => this.config.queryFromFormValue(this.activeFilterValues()));",
+        "after": "this.activeQuery = computed(() => this.config.queryFromFormValue(this.pendingFilterValues()));"
+      }
+    },
+    {
+      "name": "Quick Find must honor its controlled 220 ms debounce",
+      "rejected": true,
+      "cleaned": true,
+      "failedTest": "QuickFindDialogComponent search mode debounces normalized queries and cancels stale success and error outcomes",
+      "failedTests": 1,
+      "mutation": {
+        "file": "src/app/features/quick-find/quick-find-dialog.component.ts",
+        "before": "timer(debounce ? 220 : 0)",
+        "after": "timer(debounce ? 221 : 0)"
+      }
+    }
+  ],
+  "diagnostics": [
+    "Typechecks rejected remaining Jasmine size matchers and a missing explicit vi import; corrected before browser acceptance.",
+    "First behavior run: 390 passed / 1 native Intl constructor-spy failure. Explicit delegation to the saved native constructor preserves internal slots; final selection passes all 391 without changed deadlines or assertions."
+  ],
+  "unchanged": [
+    "production application/API/contracts sources",
+    "framework/runner versions and lockfile",
+    "test runner implementation",
+    "Zone scheduling providers",
+    "17 later-phase specs",
+    "earlier converted specs",
+    "SQL history",
+    "advisory policy/deadlines",
+    "CI triggers",
+    "release identity"
+  ],
+  "omitted": [
+    "full legacy Karma suite",
+    "all previously converted Vitest files",
+    "app builds",
+    "clean install/audit refresh",
+    "API/database suites",
+    "application E2E",
+    "native-editor browser harness",
+    "preview/setup/site suites",
+    "Linux lifecycle rerun"
+  ],
+  "cleanup": {
+    "acceptanceSnapshotRemoved": true,
+    "negativeSnapshotsRemoved": true,
+    "workingDataTouched": false
+  }
+}

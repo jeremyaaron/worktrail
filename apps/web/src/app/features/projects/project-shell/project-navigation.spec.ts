@@ -1,3 +1,5 @@
+import { describe, expect, it } from 'vitest';
+
 import type { ActivatedRouteSnapshot } from '@angular/router';
 import { routes } from '../../../app.routes';
 import { projectSectionFromSnapshot } from './project-navigation';

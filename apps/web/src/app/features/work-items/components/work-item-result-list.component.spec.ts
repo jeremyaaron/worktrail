@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import type { MemberDto, MilestoneDto, WorkspaceWorkItemListItemDto } from '@worktrail/contracts';
@@ -108,7 +110,7 @@ describe('WorkItemResultListComponent', () => {
     fixture.componentInstance.selectionEnabled = true;
     fixture.componentInstance.selectedItemIds = [workspaceWorkItem.id];
     fixture.componentInstance.allVisibleSelected = true;
-    const toggled = jasmine.createSpy('toggleAll');
+    const toggled = vi.fn<(value: void) => void>().mockName('toggleAll');
     fixture.componentInstance.toggleAllVisibleSelection.subscribe(toggled);
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
@@ -228,12 +230,12 @@ describe('WorkItemResultListComponent', () => {
     fixture.detectChanges();
     const controls = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLInputElement>('input[type="checkbox"]'));
     expect(controls.length).toBe(4);
-    expect(controls.every(control => control.disabled)).toBeTrue();
+    expect(controls.every(control => control.disabled)).toBe(true);
   });
 
   it('renders selection controls and emits item and visible-toggle events', () => {
-    const toggleSelection = spyOn(fixture.componentInstance.toggleSelection, 'emit');
-    const toggleAllVisibleSelection = spyOn(fixture.componentInstance.toggleAllVisibleSelection, 'emit');
+    const toggleSelection = vi.spyOn(fixture.componentInstance.toggleSelection, 'emit').mockImplementation(() => undefined);
+    const toggleAllVisibleSelection = vi.spyOn(fixture.componentInstance.toggleAllVisibleSelection, 'emit').mockImplementation(() => undefined);
     fixture.componentInstance.selectionEnabled = true;
     fixture.componentInstance.selectedItemIds = [workspaceWorkItem.id];
     fixture.componentInstance.allVisibleSelected = true;
@@ -246,8 +248,8 @@ describe('WorkItemResultListComponent', () => {
       'input[aria-label="Select WT-42"]'
     ) as HTMLInputElement | null;
 
-    expect(selectAll?.checked).toBeTrue();
-    expect(rowSelection?.checked).toBeTrue();
+    expect(selectAll?.checked).toBe(true);
+    expect(rowSelection?.checked).toBe(true);
 
     selectAll?.dispatchEvent(new Event('change'));
     rowSelection?.dispatchEvent(new Event('change'));
@@ -256,3 +258,6 @@ describe('WorkItemResultListComponent', () => {
     expect(toggleSelection).toHaveBeenCalledWith(workspaceWorkItem.id);
   });
 });
+
+
+afterEach(() => vi.restoreAllMocks());

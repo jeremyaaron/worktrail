@@ -1,12 +1,8 @@
+import { afterEach, beforeEach, describe, expect, it, vi, type Mocked } from 'vitest';
+
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { signal, type WritableSignal } from '@angular/core';
-import {
-  ComponentFixture,
-  TestBed,
-  fakeAsync,
-  flushMicrotasks,
-  tick
-} from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import type {
   QuickFindProjectContextDto,
@@ -18,6 +14,8 @@ import { Subject } from 'rxjs';
 import { QuickFindApi } from '../../core/api/quick-find-api';
 import { CurrentUserService } from '../../core/current-user.service';
 import { QuickFindDialogComponent } from './quick-find-dialog.component';
+
+const sectionTargets: HTMLElement[] = [];
 
 describe('QuickFindDialogComponent search mode', () => {
   const project: QuickFindProjectContextDto = {
@@ -36,20 +34,19 @@ describe('QuickFindDialogComponent search mode', () => {
 
   let fixture: ComponentFixture<QuickFindDialogComponent>;
   let component: QuickFindDialogComponent;
-  let api: jasmine.SpyObj<QuickFindApi>;
-  let dialogRef: jasmine.SpyObj<DialogRef<void, QuickFindDialogComponent>>;
+  let api: Mocked<Pick<QuickFindApi, 'search'>>;
+  let dialogRef: Mocked<Pick<DialogRef<void, QuickFindDialogComponent>, 'close' | 'closed'>>;
   let dialogClosed: Subject<void>;
   let selectedMember: WritableSignal<{ id: string; workspaceId?: string } | null>;
   let router: Router;
 
   beforeEach(async () => {
-    api = jasmine.createSpyObj<QuickFindApi>('QuickFindApi', ['search']);
+    api = { search: vi.fn<QuickFindApi['search']>() };
     dialogClosed = new Subject<void>();
-    dialogRef = jasmine.createSpyObj<DialogRef<void, QuickFindDialogComponent>>(
-      'DialogRef',
-      ['close'],
-      { closed: dialogClosed.asObservable() }
-    );
+    dialogRef = {
+      close: vi.fn<DialogRef<void, QuickFindDialogComponent>['close']>(),
+      closed: dialogClosed.asObservable()
+    };
     selectedMember = signal<{ id: string; workspaceId?: string } | null>({ id: 'member-1' });
 
     await TestBed.configureTestingModule({
@@ -74,12 +71,13 @@ describe('QuickFindDialogComponent search mode', () => {
     fixture.detectChanges();
   });
 
-  it('retains query and preview filters on reopening but refreshes results and resets selection', fakeAsync(() => {
+  it('retains query and preview filters on reopening but refreshes results and resets selection', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     const first = new Subject<QuickFindResponseDto>();
     const second = new Subject<QuickFindResponseDto>();
-    api.search.and.returnValues(first, second);
+    api.search.mockReturnValueOnce(first).mockReturnValueOnce(second);
     component.queryControl.setValue('release');
-    tick(220);
+    await vi.advanceTimersByTimeAsync(220);
     first.next(fullResponse());
     first.complete();
     component.resultType.set('cycles');
@@ -95,7 +93,7 @@ describe('QuickFindDialogComponent search mode', () => {
     expect(component.projectFilter()).toBe(project.id);
     expect(component.response()).toBeNull();
     expect(component.activeOptionId()).toBeNull();
-    tick(220);
+    await vi.advanceTimersByTimeAsync(220);
     expect(api.search).toHaveBeenCalledTimes(2);
     const fresh = fullResponse();
     fresh.groups.cycles.items[0]!.cycle.name = 'Fresh cycle name';
@@ -108,13 +106,14 @@ describe('QuickFindDialogComponent search mode', () => {
     fixture.detectChanges();
     expect(component.resultType()).toBe('all');
     expect(component.projectFilter()).toBe('');
-  }));
+  });
 
-  it('erases state and rejects an earlier response when workspace changes without a different member ID', fakeAsync(() => {
+  it('erases state and rejects an earlier response when workspace changes without a different member ID', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     const pending = new Subject<QuickFindResponseDto>();
-    api.search.and.returnValue(pending);
+    api.search.mockReturnValue(pending);
     component.queryControl.setValue('release');
-    tick(220);
+    await vi.advanceTimersByTimeAsync(220);
     selectedMember.set({ id: 'member-1', workspaceId: 'different-workspace' });
     pending.next(fullResponse());
     fixture.detectChanges();
@@ -125,30 +124,31 @@ describe('QuickFindDialogComponent search mode', () => {
     component = fixture.componentInstance;
     fixture.detectChanges();
     expect(component.queryControl.value).toBe('');
-  }));
-  it('debounces normalized queries and cancels stale success and error outcomes', fakeAsync(() => {
+  });
+  it('debounces normalized queries and cancels stale success and error outcomes', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     const first = new Subject<QuickFindResponseDto>();
     const second = new Subject<QuickFindResponseDto>();
-    api.search.and.returnValues(first, second);
+    api.search.mockReturnValueOnce(first).mockReturnValueOnce(second);
 
     component.queryControl.setValue('  release   evidence ');
     fixture.detectChanges();
 
     expect(component.normalizedQuery()).toBe('release evidence');
-    expect(component.isLoading()).toBeTrue();
+    expect(component.isLoading()).toBe(true);
     expect(api.search).not.toHaveBeenCalled();
 
-    tick(219);
+    await vi.advanceTimersByTimeAsync(219);
     expect(api.search).not.toHaveBeenCalled();
 
-    tick(1);
-    expect(api.search).toHaveBeenCalledOnceWith({ query: 'release evidence' });
+    await vi.advanceTimersByTimeAsync(1);
+    expect(api.search).toHaveBeenCalledExactlyOnceWith({ query: 'release evidence' });
 
     component.queryControl.setValue('release notes');
     fixture.detectChanges();
 
     expect(component.response()).toBeNull();
-    expect(first.observed).toBeFalse();
+    expect(first.observed).toBe(false);
 
     first.next(responseWithWorkItem('release evidence', 'Stale success'));
     first.error(new Error('Stale error'));
@@ -156,9 +156,9 @@ describe('QuickFindDialogComponent search mode', () => {
     expect(component.response()).toBeNull();
     expect(component.error()).toBeNull();
 
-    tick(220);
+    await vi.advanceTimersByTimeAsync(220);
     expect(api.search).toHaveBeenCalledTimes(2);
-    expect(api.search.calls.mostRecent().args).toEqual([{ query: 'release notes' }]);
+    expect(api.search.mock.lastCall!).toEqual([{ query: 'release notes' }]);
 
     second.next(responseWithWorkItem('release notes', 'Current success'));
     second.complete();
@@ -166,15 +166,16 @@ describe('QuickFindDialogComponent search mode', () => {
 
     expect(fixture.nativeElement.textContent).toContain('Current success');
     expect(fixture.nativeElement.textContent).not.toContain('Stale success');
-    expect(component.isLoading()).toBeFalse();
-  }));
+    expect(component.isLoading()).toBe(false);
+  });
 
-  it('renders non-empty groups in product order with readable context and plain text', fakeAsync(() => {
+  it('renders non-empty groups in product order with readable context and plain text', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     const result = new Subject<QuickFindResponseDto>();
-    api.search.and.returnValue(result);
+    api.search.mockReturnValue(result);
 
     component.queryControl.setValue('release');
-    tick(220);
+    await vi.advanceTimersByTimeAsync(220);
     result.next(fullResponse());
     result.complete();
     fixture.detectChanges();
@@ -200,14 +201,15 @@ describe('QuickFindDialogComponent search mode', () => {
     expect(fixture.nativeElement.textContent).toContain('<img src=x onerror=alert(1)>');
     expect(fixture.nativeElement.querySelector('.quick-find__excerpt img')).toBeNull();
     expect(fixture.nativeElement.querySelector('[innerHTML]')).toBeNull();
-  }));
+  });
 
-  it('shows honest truncation and only creates overflow state for work items', fakeAsync(() => {
+  it('shows honest truncation and only creates overflow state for work items', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     const result = new Subject<QuickFindResponseDto>();
-    api.search.and.returnValue(result);
+    api.search.mockReturnValue(result);
 
     component.queryControl.setValue('release');
-    tick(220);
+    await vi.advanceTimersByTimeAsync(220);
     result.next(fullResponse());
     result.complete();
     fixture.detectChanges();
@@ -220,15 +222,16 @@ describe('QuickFindDialogComponent search mode', () => {
     ).toBe(1);
     expect(component.resultOptions().filter((option) => option.type === 'work_item_overflow'))
       .toEqual([{ type: 'work_item_overflow', query: 'release' }]);
-  }));
+  });
 
-  it('preserves the query on safe error, retries immediately, and clears to navigation', fakeAsync(() => {
+  it('preserves the query on safe error, retries immediately, and clears to navigation', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     const failed = new Subject<QuickFindResponseDto>();
     const retried = new Subject<QuickFindResponseDto>();
-    api.search.and.returnValues(failed, retried);
+    api.search.mockReturnValueOnce(failed).mockReturnValueOnce(retried);
 
     component.queryControl.setValue('release');
-    tick(220);
+    await vi.advanceTimersByTimeAsync(220);
     failed.error(new Error('database details release'));
     fixture.detectChanges();
 
@@ -239,10 +242,10 @@ describe('QuickFindDialogComponent search mode', () => {
     expect(fixture.nativeElement.textContent).not.toContain('database details');
 
     component.retrySearch();
-    expect(component.isLoading()).toBeTrue();
-    tick(0);
+    expect(component.isLoading()).toBe(true);
+    await vi.advanceTimersByTimeAsync(0);
     expect(api.search).toHaveBeenCalledTimes(2);
-    expect(api.search.calls.mostRecent().args).toEqual([{ query: 'release' }]);
+    expect(api.search.mock.lastCall!).toEqual([{ query: 'release' }]);
 
     retried.next(emptyResponse('release'));
     retried.complete();
@@ -252,31 +255,33 @@ describe('QuickFindDialogComponent search mode', () => {
     component.clearSearch();
     fixture.detectChanges();
     expect(component.queryControl.value).toBe('');
-    expect(component.isNavigationMode()).toBeTrue();
+    expect(component.isNavigationMode()).toBe(true);
     expect(fixture.nativeElement.textContent).toContain('Global');
-  }));
+  });
 
-  it('invalidates pending search state and closes when the selected actor changes', fakeAsync(() => {
+  it('invalidates pending search state and closes when the selected actor changes', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     const pending = new Subject<QuickFindResponseDto>();
-    api.search.and.returnValue(pending);
+    api.search.mockReturnValue(pending);
 
     component.queryControl.setValue('release');
-    tick(220);
+    await vi.advanceTimersByTimeAsync(220);
     expect(api.search).toHaveBeenCalledTimes(1);
 
     selectedMember.set({ id: 'member-2' });
     fixture.detectChanges();
 
-    expect(dialogRef.close).toHaveBeenCalledOnceWith();
+    expect(dialogRef.close).toHaveBeenCalledExactlyOnceWith();
 
     pending.next(responseWithWorkItem('release', 'Wrong actor result'));
     pending.complete();
     fixture.detectChanges();
     expect(component.response()).toBeNull();
     expect(fixture.nativeElement.textContent).not.toContain('Wrong actor result');
-  }));
+  });
 
-  it('keeps focus in the combobox while moving through bounded navigation options', fakeAsync(() => {
+  it('keeps focus in the combobox while moving through bounded navigation options', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     document.body.append(fixture.nativeElement);
     const input = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
       '#quick-find-query'
@@ -294,7 +299,7 @@ describe('QuickFindDialogComponent search mode', () => {
     expect(component.activeOptionId()).toBe('quick-find-navigation-global-my-work');
 
     dispatchKey(input, 'End');
-    tick(0);
+    await vi.advanceTimersByTimeAsync(0);
     fixture.detectChanges();
     expect(component.activeOptionId()).toBe('quick-find-navigation-project-settings');
     expect(document.activeElement).toBe(input);
@@ -303,48 +308,50 @@ describe('QuickFindDialogComponent search mode', () => {
     expect(component.activeOptionId()).toBe('quick-find-navigation-project-settings');
 
     dispatchKey(input, 'Home');
-    tick(0);
+    await vi.advanceTimersByTimeAsync(0);
     fixture.detectChanges();
     expect(component.activeOptionId()).toBe('quick-find-navigation-global-my-work');
 
-    expect(dispatchKey(input, 'Tab').defaultPrevented).toBeFalse();
-    expect(dispatchKey(input, 'Escape').defaultPrevented).toBeFalse();
+    expect(dispatchKey(input, 'Tab').defaultPrevented).toBe(false);
+    expect(dispatchKey(input, 'Escape').defaultPrevented).toBe(false);
     expect(dialogRef.close).not.toHaveBeenCalled();
 
     const callOrder: string[] = [];
-    dialogRef.close.and.callFake(() => {
+    dialogRef.close.mockImplementation(() => {
       callOrder.push('close');
     });
-    spyOn(router, 'navigate').and.callFake(async () => {
+    vi.spyOn(router, 'navigate').mockImplementation(async () => {
       callOrder.push('navigate');
       return true;
     });
     dispatchKey(input, 'Enter');
-    tick(0);
+    await vi.advanceTimersByTimeAsync(0);
 
-    expect(dialogRef.close).toHaveBeenCalledOnceWith();
-    expect(router.navigate).toHaveBeenCalledOnceWith(['/my-work'], {});
+    expect(dialogRef.close).toHaveBeenCalledExactlyOnceWith();
+    expect(router.navigate).toHaveBeenCalledExactlyOnceWith(['/my-work'], {});
     expect(callOrder).toEqual(['navigate', 'close']);
-  }));
+  });
 
-  it('keeps the query and active result when navigation is rejected', fakeAsync(() => {
-    spyOn(router, 'navigate').and.resolveTo(false);
+  it('keeps the query and active result when navigation is rejected', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
+    vi.spyOn(router, 'navigate').mockResolvedValue(false);
     component.queryControl.setValue('xy');
-    tick(220);
+    await vi.advanceTimersByTimeAsync(220);
     component.queryControl.setValue('');
-    tick(0);
+    await vi.advanceTimersByTimeAsync(0);
     const option = component.selectableOptions()[0];
     const active = component.activeOptionId();
     component.activateOption(option);
-    tick(0);
+    await vi.advanceTimersByTimeAsync(0);
     expect(dialogRef.close).not.toHaveBeenCalled();
     expect(component.queryControl.value).toBe('');
     expect(component.activeOptionId()).toBe(active);
-  }));
+  });
 
-  it('synchronizes active-descendant state across loading, results, hover, and clear', fakeAsync(() => {
+  it('synchronizes active-descendant state across loading, results, hover, and clear', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     const result = new Subject<QuickFindResponseDto>();
-    api.search.and.returnValue(result);
+    api.search.mockReturnValue(result);
     const input = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
       '#quick-find-query'
     )!;
@@ -354,9 +361,9 @@ describe('QuickFindDialogComponent search mode', () => {
 
     expect(component.activeOptionId()).toBeNull();
     expect(input.getAttribute('aria-expanded')).toBe('false');
-    expect(input.hasAttribute('aria-activedescendant')).toBeFalse();
+    expect(input.hasAttribute('aria-activedescendant')).toBe(false);
 
-    tick(220);
+    await vi.advanceTimersByTimeAsync(220);
     result.next(fullResponse());
     result.complete();
     fixture.detectChanges();
@@ -377,7 +384,7 @@ describe('QuickFindDialogComponent search mode', () => {
       '#quick-find-report-report-1'
     )!;
     report.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }));
-    tick(0);
+    await vi.advanceTimersByTimeAsync(0);
     fixture.detectChanges();
     expect(component.activeOptionId()).toBe('quick-find-report-report-1');
     expect(report.getAttribute('aria-selected')).toBe('true');
@@ -388,32 +395,33 @@ describe('QuickFindDialogComponent search mode', () => {
     expect(input.getAttribute('aria-activedescendant')).toBe(
       'quick-find-navigation-global-my-work'
     );
-  }));
+  });
 
-  it('routes every result and overflow through canonical navigation destinations before closing', fakeAsync(() => {
+  it('routes every result and overflow through canonical navigation destinations before closing', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     const result = new Subject<QuickFindResponseDto>();
-    api.search.and.returnValue(result);
+    api.search.mockReturnValue(result);
     const callOrder: string[] = [];
-    dialogRef.close.and.callFake(() => {
+    dialogRef.close.mockImplementation(() => {
       callOrder.push('close');
     });
-    const navigate = spyOn(router, 'navigate').and.callFake(async () => {
+    const navigate = vi.spyOn(router, 'navigate').mockImplementation(async () => {
       callOrder.push('navigate');
       return true;
     });
 
     component.queryControl.setValue('release');
-    tick(220);
+    await vi.advanceTimersByTimeAsync(220);
     result.next(fullResponse());
     result.complete();
     fixture.detectChanges();
 
     for (const option of component.resultOptions()) {
       component.activateOption(option);
-      tick(0);
+      await vi.advanceTimersByTimeAsync(0);
     }
 
-    expect(navigate.calls.allArgs()).toEqual([
+    expect(navigate.mock.calls).toEqual([
       [['/work-items', 'work-item-1'], { queryParams: { returnUrl: '/projects/project-1/work-items' } }],
       [
         ['/work-items'],
@@ -439,77 +447,82 @@ describe('QuickFindDialogComponent search mode', () => {
       'navigate', 'close',
       'navigate', 'close'
     ]);
-  }));
+  });
 
-  it('gives pointer and keyboard activation the same destination', fakeAsync(() => {
+  it('gives pointer and keyboard activation the same destination', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     const first = new Subject<QuickFindResponseDto>();
-    api.search.and.returnValue(first);
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    api.search.mockReturnValue(first);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     const input = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
       '#quick-find-query'
     )!;
 
     component.queryControl.setValue('release');
-    tick(220);
+    await vi.advanceTimersByTimeAsync(220);
     first.next(responseWithWorkItem('release', 'Release evidence'));
     first.complete();
     fixture.detectChanges();
 
     dispatchKey(input, 'Enter');
-    const keyboardDestination = navigate.calls.mostRecent().args;
+    const keyboardDestination = navigate.mock.lastCall!;
 
     (fixture.nativeElement as HTMLElement)
       .querySelector<HTMLElement>('#quick-find-work-item-work-item-1')!
       .click();
-    const pointerDestination = navigate.calls.mostRecent().args;
+    const pointerDestination = navigate.mock.lastCall!;
 
     expect(pointerDestination).toEqual(keyboardDestination);
     expect(pointerDestination).toEqual([['/work-items', 'work-item-1'], { queryParams: { returnUrl: '/projects/project-1/work-items' } }]);
-  }));
+  });
 
-  it('focuses Files after close when Angular would skip the same attachment URL', fakeAsync(() => {
+  it('focuses Files after close when Angular would skip the same attachment URL', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     const target = document.createElement('section');
     target.id = 'files';
     target.tabIndex = -1;
+    sectionTargets.push(target);
     document.body.append(target);
-    const focus = spyOn(target, 'focus');
-    const scrollIntoView = spyOn(target, 'scrollIntoView');
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
-    spyOnProperty(router, 'url', 'get').and.returnValue('/work-items/work-item-1?returnUrl=%2Fwork-items#files');
-    dialogRef.close.and.callFake(() => {
+    const focus = vi.spyOn(target, 'focus').mockImplementation(() => undefined);
+    const scrollIntoView = vi.spyOn(target, 'scrollIntoView').mockImplementation(() => undefined);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    vi.spyOn(router, 'url', 'get').mockReturnValue('/work-items/work-item-1?returnUrl=%2Fwork-items#files');
+    dialogRef.close.mockImplementation(() => {
       dialogClosed.next();
       dialogClosed.complete();
     });
     const attachmentResult = fullResponse().groups.attachments.items[0];
 
     component.activateOption({ type: 'result', result: attachmentResult });
-    flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(0);
 
-    expect(dialogRef.close).toHaveBeenCalledOnceWith();
+    expect(dialogRef.close).toHaveBeenCalledExactlyOnceWith();
     expect(navigate).not.toHaveBeenCalled();
-    expect(focus).toHaveBeenCalledOnceWith({ preventScroll: true });
-    expect(scrollIntoView).toHaveBeenCalledOnceWith({ block: 'start' });
+    expect(focus).toHaveBeenCalledExactlyOnceWith({ preventScroll: true });
+    expect(scrollIntoView).toHaveBeenCalledExactlyOnceWith({ block: 'start' });
     target.remove();
-  }));
+  });
 
-  it('leaves a changed record Files target to its readiness owner instead of focusing a stale node', fakeAsync(() => {
+  it('leaves a changed record Files target to its readiness owner instead of focusing a stale node', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     const target = document.createElement('section');
     target.id = 'files';
+    sectionTargets.push(target);
     document.body.append(target);
-    const focus = spyOn(target, 'focus');
+    const focus = vi.spyOn(target, 'focus').mockImplementation(() => undefined);
     let url = '/work-items/previous?returnUrl=%2Fmy-work#files';
-    spyOnProperty(router, 'url', 'get').and.callFake(() => url);
-    spyOn(router, 'navigate').and.callFake(async (commands, extras) => {
+    vi.spyOn(router, 'url', 'get').mockImplementation(() => url);
+    vi.spyOn(router, 'navigate').mockImplementation(async (commands, extras) => {
       url = router.serializeUrl(router.createUrlTree(commands, extras));
       return true;
     });
-    dialogRef.close.and.callFake(() => { dialogClosed.next(); dialogClosed.complete(); });
+    dialogRef.close.mockImplementation(() => { dialogClosed.next(); dialogClosed.complete(); });
     component.activateOption({ type: 'result', result: fullResponse().groups.attachments.items[0] });
-    flushMicrotasks();
-    expect(dialogRef.close).toHaveBeenCalledOnceWith();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(dialogRef.close).toHaveBeenCalledExactlyOnceWith();
     expect(focus).not.toHaveBeenCalled();
     target.remove();
-  }));
+  });
 
   function fullResponse(): QuickFindResponseDto {
     return {
@@ -659,5 +672,18 @@ describe('QuickFindDialogComponent search mode', () => {
     input.dispatchEvent(event);
     fixture.detectChanges();
     return event;
+  }
+});
+
+
+afterEach(() => {
+  try {
+    TestBed.resetTestingModule();
+  } finally {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    for (const target of sectionTargets) target.remove();
+    sectionTargets.length = 0;
+    localStorage.removeItem('worktrail.selectedMemberId');
   }
 });

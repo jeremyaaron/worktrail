@@ -2,9 +2,9 @@
 
 ## Status
 
-Implementation baseline: October 18, 2026. Phases 0-2 are complete; required implementation phases 3-8 and 10-11 have not started. Conditional Phase 9 is deferred by the Phase 0 scope decision.
+Implementation baseline: October 18, 2026. Phases 0-3 are complete; required implementation phases 4-8 and 10-11 have not started. Conditional Phase 9 is deferred by the Phase 0 scope decision.
 
-This plan implements the [PRD](prd.md) and [technical design](technical-design.md). The [dependency disposition](dependency-remediation.md), [verification notes](verification-notes.md), and [Phase 0 evidence](phase-0-evidence.json) record the selected versions, proofs, and inventories. [Phase 1 evidence](phase-1-evidence.json) records the implemented Angular foundation; [Phase 2 evidence](phase-2-evidence.json) maps the shared/core conversion and retained coverage. SQL history and release identity remain unchanged.
+This plan implements the [PRD](prd.md) and [technical design](technical-design.md). The [dependency disposition](dependency-remediation.md), [verification notes](verification-notes.md), and [Phase 0 evidence](phase-0-evidence.json) record the selected versions, proofs, and inventories. [Phase 1 evidence](phase-1-evidence.json) records the implemented Angular foundation; [Phase 2 evidence](phase-2-evidence.json) maps the shared/core conversion and retained coverage. [Phase 3 evidence](phase-3-evidence.json) records discovery/workspace conversion, focused acceptance, and controlled negative probes. SQL history and release identity remain unchanged.
 
 The separately requested PR-only CI change is already in the working tree. Preserve it and its focused regression test; it is not unfinished feature scope to reimplement. Package/release identity remains `0.3.0` until closeout.
 
@@ -35,7 +35,7 @@ Angular conversion is split into infrastructure, three spec groups, and final cu
 | 0 | Baseline, private feasibility proofs, and decision closure | Complete |
 | 1 | Angular 21 foundation and staged Chromium test execution | Complete |
 | 2 | Shared utilities, core clients, and navigation spec conversion | Complete |
-| 3 | Work discovery, saved views, and workspace spec conversion | Not started |
+| 3 | Work discovery, saved views, and workspace spec conversion | Complete |
 | 4 | Work detail, Planning, and historical workflow spec conversion | Not started |
 | 5 | Single-runner cutover, owned lifecycle, and Angular acceptance | Not started |
 | 6 | Proven Drizzle adoption and historical metadata conversion | Not started |
@@ -209,6 +209,20 @@ Acceptance:
 - The partition remains complete and disjoint.
 
 Verification: converted files plus affected shared consumers and lint/type checks. Run an affected application browser journey only where a production/configuration behavior changed or unit evidence cannot establish parity; do not automatically rerun every E2E shard for assertion-syntax changes.
+
+Status: Complete (October 18, 2026).
+
+### Completion Evidence
+
+- Convert all 29 assigned discovery/workspace specs to explicit Vitest imports, typed gateway/clipboard/dialog doubles, equivalent matchers, and explicit mock restoration. Preserve all 345 existing cases, their registration loops, assertion sites, HTTP response arguments, and logical-clock advancement sequence; no cases are added, dropped, merged, focused, or disabled.
+- Preserve applied versus pending filters and chips, query/URL/HTTP/copy/saved/pinned parity, per-view permissions and identity, visible-only bulk selection, archived/read-only access, complete boards and optimistic movement/rollback, actor/project changes, notification state, Portfolio/My Work data, and native Quick Find keyboard/focus/navigation behavior.
+- Replace Zone `fakeAsync`/clock helpers in Quick Find and both work-list specs with native async tests and controlled Vitest clock advancement. Preserve the actual 220 ms debounce boundary, 400 ms pending-search proof, zero-time focus/promise checkpoints, and 2,500 ms copy-feedback expiry. My Work freezes `Date` only. Retain `TestBed.tick()` in Inbox: it flushes Angular effects, not elapsed fake time.
+- Destroy fixtures before restoring clocks, restore property/prototype/native spies, and remove test-owned section/trigger DOM nodes on failures as well as success. Delegate the native Intl constructor spy explicitly so real formatting retains its internal slots; do not stub formatting or weaken the UTC assertions.
+- Update the manifest and isolated editor/compiler scopes to 54 Vitest / 17 Karma files, covering all 71 discovered specs once. Earlier converted specs and all 17 Phase 4 specs remain unchanged.
+- Pass the focused 33-file Chromium selection through the shared owned runner: 345 Phase 3 cases plus 46 affected shell, page-context, draft-departure and toolchain cases, 391 passed with no skipped tests or retries. The evidence lists reproducible literal file selections and input hashes. Only two surplus EOF blank lines change after acceptance; no functional edit requires a rerun.
+- Pass both Vitest/Jasmine spec typechecks, affected-spec ESLint with zero warnings, seven runner/discovery/type-scope/ownership checks, and whitespace validation.
+- In separate owned snapshots, deliberately expose pending query values as applied state and change Quick Find's debounce to 221 ms. Each selected regression fails at the intended behavioral assertion, and both snapshots/process sets are removed. These are expected negative proofs, not acceptance failures or working production edits.
+- Keep verification proportional: do not rerun every previous Vitest spec, the remaining Karma suite, API/database/E2E/editor/site/setup/preview checks, app builds, or dependency audits/installation for test-only changes. Native component coverage establishes parity here; final single-runner/lifecycle acceptance remains Phase 5. No production source, dependency, Zone provider, budget, SQL, advisory deadline, release identity or CI trigger changes.
 
 ## Phase 4: Detail And Planning Spec Conversion
 

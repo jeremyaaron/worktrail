@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import type { MemberDto, SavedWorkViewDto } from '@worktrail/contracts';
 
@@ -117,17 +119,17 @@ describe('SavedViewsToolbarComponent', () => {
     fixture.componentInstance.manageableViewIds = new Set([savedView.id]);
     fixture.detectChanges();
     const compiled = selectManagedView(sharedView.id);
-    expect(managementButtons(compiled)).toHaveSize(1);
+    expect(managementButtons(compiled)).toHaveLength(1);
     selectManagedView(savedView.id);
     fixture.componentRef.setInput('isSaving', true);
     fixture.detectChanges();
-    expect(managementButtons(compiled).every(button => button.disabled)).toBeTrue();
-    expect(compiled.querySelector<HTMLInputElement>('.saved-view-management-rename input')?.disabled).toBeTrue();
+    expect(managementButtons(compiled).every(button => button.disabled)).toBe(true);
+    expect(compiled.querySelector<HTMLInputElement>('.saved-view-management-rename input')?.disabled).toBe(true);
     expect(compiled.textContent).toContain('Updating saved views...');
   });
 
   it('exposes a named retry command instead of empty-state copy on a load failure', () => {
-    const retried = spyOn(fixture.componentInstance.retryLoad, 'emit');
+    const retried = vi.spyOn(fixture.componentInstance.retryLoad, 'emit').mockImplementation(() => undefined);
     fixture.componentInstance.personalViews = [];
     fixture.componentInstance.loadError = 'Saved views could not be loaded.';
     fixture.detectChanges();
@@ -166,7 +168,7 @@ describe('SavedViewsToolbarComponent', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     const button = compiled.querySelector<HTMLButtonElement>('.saved-view-open button');
 
-    expect(button?.disabled).toBeTrue();
+    expect(button?.disabled).toBe(true);
   });
 
   it('provides accessible select help and named management actions', () => {
@@ -260,8 +262,8 @@ describe('SavedViewsToolbarComponent', () => {
     expect(
       compiled.querySelector<HTMLOptGroupElement>('.saved-view-manage optgroup')?.label
     ).toBe('Personal views');
-    expect(compiled.querySelector<HTMLDetailsElement>('.saved-view-save')?.open).toBeFalse();
-    expect(compiled.querySelector<HTMLDetailsElement>('.saved-view-manager')?.open).toBeFalse();
+    expect(compiled.querySelector<HTMLDetailsElement>('.saved-view-save')?.open).toBe(false);
+    expect(compiled.querySelector<HTMLDetailsElement>('.saved-view-manager')?.open).toBe(false);
 
     fixture.componentInstance.newViewName = 'Blocked risks';
     fixture.componentInstance.saveRequested('personal');
@@ -347,8 +349,8 @@ describe('SavedViewsToolbarComponent', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Owners and maintainers manage shared saved views.');
     expect(compiled.textContent).not.toContain('Save shared view');
-    expect(compiled.querySelector<HTMLDetailsElement>('.saved-view-save')?.open).toBeFalse();
-    expect(compiled.querySelector<HTMLDetailsElement>('.saved-view-manager')?.open).toBeFalse();
+    expect(compiled.querySelector<HTMLDetailsElement>('.saved-view-save')?.open).toBe(false);
+    expect(compiled.querySelector<HTMLDetailsElement>('.saved-view-manager')?.open).toBe(false);
 
     selectManagedView(sharedView.id);
     const buttons = managementButtons(compiled);
@@ -545,3 +547,6 @@ describe('SavedViewsToolbarComponent', () => {
     expect(compiled.textContent).not.toContain('Unpin');
   });
 });
+
+
+afterEach(() => vi.restoreAllMocks());

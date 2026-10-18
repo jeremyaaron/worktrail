@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -359,16 +361,16 @@ describe('ProjectListPageComponent', () => {
     const directory = root.querySelector('.list-panel')!;
     const creation = root.querySelector<HTMLDetailsElement>('.create-panel')!;
     expect(directory.compareDocumentPosition(creation) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(creation.open).toBeFalse();
+    expect(creation.open).toBe(false);
     fixture.componentInstance.createProjectForm.setValue({ key: 'NEW', name: 'New project draft', description: 'Keep this draft' });
     fixture.componentInstance.createProject();
     fixture.componentInstance.createProject();
     const pending = http.expectOne('/api/projects');
-    expect(fixture.componentInstance.createProjectForm.disabled).toBeTrue();
+    expect(fixture.componentInstance.createProjectForm.disabled).toBe(true);
     pending.flush({ error: { message: 'Try again.' } }, { status: 503, statusText: 'Unavailable' });
     expect(fixture.componentInstance.createProjectForm.getRawValue().description).toBe('Keep this draft');
-    expect(fixture.componentInstance.createProjectForm.enabled).toBeTrue();
-    expect(fixture.componentInstance.isCreating()).toBeFalse();
+    expect(fixture.componentInstance.createProjectForm.enabled).toBe(true);
+    expect(fixture.componentInstance.isCreating()).toBe(false);
   });
   it('shows project creation validation before posting', () => {
     const { fixture, http } = setupProjectList();
@@ -574,9 +576,9 @@ describe('ProjectHomePageComponent', () => {
 
     const reasonLinks = Array.from(compiled.querySelectorAll<HTMLAnchorElement>('.reason-row'));
     const reasonHrefs = reasonLinks.map((link) => link.getAttribute('href') ?? '');
-    expect(reasonHrefs.some((href) => href.includes('/projects/' + projectId + '/work-items'))).toBeTrue();
-    expect(reasonHrefs.some((href) => href.includes('status=blocked'))).toBeTrue();
-    expect(reasonHrefs.some((href) => href.includes('dependency=dependency_blocked'))).toBeTrue();
+    expect(reasonHrefs.some((href) => href.includes('/projects/' + projectId + '/work-items'))).toBe(true);
+    expect(reasonHrefs.some((href) => href.includes('status=blocked'))).toBe(true);
+    expect(reasonHrefs.some((href) => href.includes('dependency=dependency_blocked'))).toBe(true);
     expect(compiled.querySelector<HTMLAnchorElement>('a[href="/projects/10000000-0000-4000-8000-000000000201/planning"]')).not.toBeNull();
     expect(compiled.querySelector('.project-actions')).toBeNull();
   });
@@ -723,7 +725,7 @@ describe('ProjectSettingsPageComponent', () => {
     const labelNameInputs = Array.from(
       compiled.querySelectorAll<HTMLInputElement>('.label-row input[type="text"]')
     ).map((input) => input.value);
-    expect(labelNameInputs).toEqual(jasmine.arrayContaining(['backend', 'legacy']));
+    expect(labelNameInputs).toEqual(expect.arrayContaining(['backend', 'legacy']));
     expect(compiled.textContent).toContain('Archived');
 
     fixture.componentInstance.labelForm.setValue({ name: 'frontend', color: '#2563eb' });
@@ -783,8 +785,8 @@ describe('ProjectSettingsPageComponent', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Only owners and maintainers can update project settings.');
     expect(compiled.textContent).toContain('Only owners and maintainers can manage labels.');
-    expect(compiled.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBeTrue();
-    expect(compiled.querySelector<HTMLInputElement>('#label-color')?.disabled).toBeTrue();
+    expect(compiled.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(true);
+    expect(compiled.querySelector<HTMLInputElement>('#label-color')?.disabled).toBe(true);
 
     fixture.componentInstance.saveSettings();
     fixture.componentInstance.createLabel();

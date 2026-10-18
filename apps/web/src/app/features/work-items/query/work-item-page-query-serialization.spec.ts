@@ -1,3 +1,5 @@
+import { describe, expect, it } from 'vitest';
+
 import type { ResolvedWorkItemPageQuery } from '@worktrail/contracts';
 
 import {

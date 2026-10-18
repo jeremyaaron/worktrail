@@ -1,3 +1,5 @@
+import { describe, expect, it } from 'vitest';
+
 import type { WorkItemQuery } from '@worktrail/contracts';
 
 import { unassignedAssigneeValue } from './work-item-filter-options';
@@ -349,7 +351,7 @@ describe('work item query serialization', () => {
     );
 
     expect(routeForm).toEqual(
-      jasmine.objectContaining({ parentKey: 'WT-42', hierarchy: '', status: 'ready' })
+      expect.objectContaining({ parentKey: 'WT-42', hierarchy: '', status: 'ready' })
     );
     expect(projectQueryFromFormValue({ ...routeForm, priority: 'high' })).toEqual({
       status: 'ready',
@@ -375,7 +377,7 @@ describe('work item query serialization', () => {
     expect(hierarchyQuery).toEqual({ projectId: 'project-1', hierarchy: 'children' });
     const hierarchyForm = workspaceFormValueFromQuery(hierarchyQuery);
     expect(hierarchyForm).toEqual(
-      jasmine.objectContaining({ hierarchy: 'children', parentKey: '' })
+      expect.objectContaining({ hierarchy: 'children', parentKey: '' })
     );
     expect(workspaceQueryFromFormValue({ ...hierarchyForm, hierarchy: '' })).toEqual({
       projectId: 'project-1'
@@ -387,13 +389,13 @@ describe('work item query serialization', () => {
       projectFormValueFromQueryParams(
         new URLSearchParams({ hierarchy: 'recursive', parentKey: 'not a key' })
       )
-    ).toEqual(jasmine.objectContaining({ hierarchy: '', parentKey: '' }));
+    ).toEqual(expect.objectContaining({ hierarchy: '', parentKey: '' }));
     expect(
       projectFormValueFromQuery({
         hierarchy: 'parents',
         parentKey: 'WT-42'
       })
-    ).toEqual(jasmine.objectContaining({ hierarchy: 'parents', parentKey: '' }));
+    ).toEqual(expect.objectContaining({ hierarchy: 'parents', parentKey: '' }));
     expect(
       meaningfulWorkItemQueryFieldCount({ hierarchy: 'parents', parentKey: 'WT-42' }, 'workspace')
     ).toBe(1);

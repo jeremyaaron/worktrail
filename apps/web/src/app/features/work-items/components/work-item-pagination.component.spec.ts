@@ -1,3 +1,5 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import type { WorkItemPageMetadataDto } from '@worktrail/contracts';
 
@@ -32,7 +34,7 @@ describe('WorkItemPaginationComponent', () => {
     render(metadata({ page: 1, totalPages: 12, hasNextPage: true }));
 
     expect(renderedPages()).toEqual([1, 2, 3, 12]);
-    expect(compiled().querySelectorAll('.pagination__ellipsis')).toHaveSize(1);
+    expect(compiled().querySelectorAll('.pagination__ellipsis')).toHaveLength(1);
   });
 
   it('provides compact range and size controls even for empty results without a second page chooser', () => {
@@ -51,7 +53,7 @@ describe('WorkItemPaginationComponent', () => {
     );
 
     expect(renderedPages()).toEqual([1, 5, 6, 7, 12]);
-    expect(compiled().querySelectorAll('.pagination__ellipsis')).toHaveSize(2);
+    expect(compiled().querySelectorAll('.pagination__ellipsis')).toHaveLength(2);
     expect(
       compiled().querySelector<HTMLButtonElement>('[aria-current="page"]')?.textContent?.trim()
     ).toBe('6');
@@ -61,7 +63,7 @@ describe('WorkItemPaginationComponent', () => {
     render(metadata({ page: 12, totalPages: 12, hasPreviousPage: true }));
 
     expect(renderedPages()).toEqual([1, 10, 11, 12]);
-    expect(compiled().querySelectorAll('.pagination__ellipsis')).toHaveSize(1);
+    expect(compiled().querySelectorAll('.pagination__ellipsis')).toHaveLength(1);
   });
 
   it('emits previous, direct, next, and changed page-size requests', () => {
@@ -91,8 +93,8 @@ describe('WorkItemPaginationComponent', () => {
   it('uses native disabled states at boundaries and while loading', () => {
     render(metadata({ page: 1, totalPages: 3, hasNextPage: true }));
 
-    expect(directionButton('Previous').disabled).toBeTrue();
-    expect(directionButton('Next').disabled).toBeFalse();
+    expect(directionButton('Previous').disabled).toBe(true);
+    expect(directionButton('Next').disabled).toBe(false);
 
     fixture.componentInstance.disabled = true;
     fixture.detectChanges();
@@ -101,8 +103,8 @@ describe('WorkItemPaginationComponent', () => {
       Array.from(compiled().querySelectorAll<HTMLButtonElement>('button')).every(
         (button) => button.disabled
       )
-    ).toBeTrue();
-    expect(compiled().querySelector<HTMLSelectElement>('select')?.disabled).toBeTrue();
+    ).toBe(true);
+    expect(compiled().querySelector<HTMLSelectElement>('select')?.disabled).toBe(true);
 
     fixture.componentInstance.disabled = false;
     fixture.componentInstance.metadata = metadata({
@@ -112,8 +114,8 @@ describe('WorkItemPaginationComponent', () => {
     });
     fixture.detectChanges();
 
-    expect(directionButton('Previous').disabled).toBeFalse();
-    expect(directionButton('Next').disabled).toBeTrue();
+    expect(directionButton('Previous').disabled).toBe(false);
+    expect(directionButton('Next').disabled).toBe(true);
   });
 
   it('renders no controls or false page text for an empty result', () => {
@@ -157,8 +159,8 @@ describe('WorkItemPaginationComponent', () => {
     );
     expect(
       compiled().querySelectorAll('.pagination__page:not(.pagination__page--current)')
-    ).toHaveSize(4);
-    expect(compiled().querySelectorAll('.pagination__page--current')).toHaveSize(1);
+    ).toHaveLength(4);
+    expect(compiled().querySelectorAll('.pagination__page--current')).toHaveLength(1);
   });
 
   function render(value: WorkItemPageMetadataDto): void {

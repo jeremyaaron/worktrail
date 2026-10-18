@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -415,7 +417,7 @@ describe('PortfolioPageComponent', () => {
     fixture.detectChanges();
     expect(root.querySelectorAll('.project-row').length).toBe(15);
     expect(root.querySelectorAll('details.secondary-details[open]').length).toBe(0);
-    expect(root.querySelector('.attention-disclosure')?.hasAttribute('open')).toBeFalse();
+    expect(root.querySelector('.attention-disclosure')?.hasAttribute('open')).toBe(false);
     expect(root.querySelector('.preview-note')?.textContent).toContain('Bounded project previews');
     http.expectNone('/api/portfolio');
   });
@@ -428,7 +430,7 @@ describe('PortfolioPageComponent', () => {
     actor.members.set([owner, next]);
     actor.selectMember(next.id);
     fixture.detectChanges();
-    expect(pending.cancelled).toBeTrue();
+    expect(pending.cancelled).toBe(true);
     const current = http.expectOne('/api/portfolio');
     expect(current.request.headers.get('x-worktrail-workspace-id')).toBe(next.workspaceId);
     current.flush(portfolioFixture({ projects: [] }));
