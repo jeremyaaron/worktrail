@@ -303,3 +303,108 @@ compiled preview and Linux lifecycle reruns were deliberately omitted. Their inp
 Phase 5 owns full single-runner integration and removal of the legacy target/dependencies. No
 production code, Zone provider, budget, SQL history, advisory deadline, release identity or CI trigger
 changes are part of this phase.
+
+## Phase 5: Single Runner And Angular Acceptance
+
+Completed October 18, 2026, starting from clean commit
+`dcece57f1a803fe6b10aecf335e571a1fd3d53ec` on `v0.3.1`. Release identity remains `0.3.0`.
+[Structured evidence](phase-5-evidence.json) retains input/lock hashes, all 71 file/count mappings,
+audit reports, run identities, selected integration results, lifecycle proofs and diagnostic limits.
+
+### Implemented Boundary
+
+The standard Angular `test` target now uses only Vitest/Chromium. The temporary `test-vitest` target,
+partition executor/manifest, extra compiler scope, Karma launcher and Karma/Jasmine dependencies/types
+are removed. All 71 specs and 888 cases are byte-for-byte unchanged from Phase 4. Broad source includes
+pick up new specs automatically; discovery must match the no-ambient-globals editor/compiler scope.
+
+Root `npm run test:web`, workspace `npm test --workspace @worktrail/web` and owned verification share
+one implementation. Literal file selection and regex name filters remain; invalid/empty selection,
+omitted files and skipped/incomplete non-filtered acceptance fail from the actual JSON report. Root
+selection arguments are not forwarded through a second npm parser. Explicit `--watch [--headed]`
+uses live source, disables the shared Angular local disk cache and owns its endpoint, private compiler
+config and descendants. Interactive summaries are `passed: null`, never release acceptance.
+
+Reports persist under `test-results/verification/<run-id>/web/`. Real screenshot capture runs within
+the private checkout's Vite filesystem boundary, then images are copied to retained results before
+cleanup. The original assertion failure remains the command failure. No filesystem allowlist widening,
+disabled safety check or browser retry is used. Source context and assigned ports are validated before
+the test server starts; SIGINT/SIGTERM and abandoned-run cleanup retain the existing ownership model.
+
+### Verification
+
+| Check / Selection | Outcome |
+| --- | --- |
+| Normal clean `npm ci` and installed peer graph | Pass; 101 packages removed, no packages added or retained versions upgraded |
+| Production audit / full audit gate | Zero production; four moderate records, solely the unchanged Drizzle advisory; exact policy gate passes |
+| Complete host web profile | Lint, development compilation, 71 files/888 Chromium cases, production build pass; no skipped tests/retries |
+| Ordinary full unit execution | 71 files/888 cases pass through the shared implementation; the alias diagnostic and its later focused forwarding proof are separately recorded |
+| Fresh Linux installation and full unit execution | Node 24.17.0/npm 11.13.0, Playwright 1.61.1 Noble ARM64; all 888 cases pass |
+| Final output/context follow-ups | Latest toolchain case and all four lifecycle checks pass on host/Linux, including real screenshot preservation |
+| Native editor | All five typing undo/redo, link, composition, containment and parser-policy cases pass |
+| Compiled preview | Both deep-link/seeded-file and compiled asset/formatted-content cases pass; built contracts/API/web used |
+| Selected application journeys | Eight of nine pass initially; unchanged Quick Find case passes a separate ordinary follow-up; initial failed aggregate is not relabeled |
+| Cheap runner/audit/CI/ownership checks | 31 pass; PR-only comprehensive workflow, independent aggregate failure reporting and Pages trigger preserved |
+| Spec / verification typing and changed-tooling ESLint | Pass, zero lint warnings |
+| Read-only site/link check | Pass: 43 references, 17 repository links, 13 IDs, existing 0.3.0 identity |
+| Production bundle and budgets | 410.31 kB initial; original 550 kB/1 MB and 8 kB/12 kB thresholds retained |
+
+The complete host profiles and Linux 888-case run precede the final screenshot-export/context
+refinement. That refinement does not change application/spec behavior, dependency versions, production
+build inputs or test compilation. Its real failure screenshot, ownership, focused toolchain and
+watch/interruption paths are verified on both hosts; typing/lint and cheap runner checks cover the
+final implementation. Do not duplicate unchanged full suites and builds after this output-only change.
+
+`npm run test:verification:web-lifecycle` is an explicit opt-in check, not a new comprehensive CI job.
+Its four cases prove actual failure propagation/artifact retention, a live source edit followed by
+SIGINT (130), SIGTERM (143), and SIGKILL followed by explicit idempotent abandoned cleanup. Recorded
+Chromium descendants exit, endpoints close and a separate loopback service remains usable. Watch
+report observation uses filesystem events and process identities, not elapsed startup sleeps.
+Its assertion-control fixture intentionally fails inside Chromium; the enclosing lifecycle check
+passes only if that failure and its screenshot are preserved and resources are removed.
+
+### Quick Find Observation
+
+The original nine-journey run remains **failed**: eight cases pass, while the launcher/keyboard/focus
+case misses the accessible Quick Find dialog at its existing five-second assertion deadline. The
+screenshot shows the dialog, and the trace records successful lazy-module requests and a dialog DOM
+at the end. This does not establish a specific CDK, application or Playwright bug.
+
+Investigated the trace/network, installed CDK/Playwright behavior and a passing minimal native
+popover/modal control. One private instrumented case and eight separate fresh-page diagnostic
+repetitions pass. A final **unmodified ordinary E2E** invocation of that exact case also passes.
+No application/test selector, assertion, sleep, retry or timeout was changed for this observation.
+Concurrent local builds and Linux work were present originally, but resource contention remains a
+hypothesis, not a proven root cause or fix. Preserve the original run
+`9b151fee-e837-44ee-a29c-b5ffe39f6c1b` and its trace/screenshot under ignored verification results;
+the evidence records the successful follow-up separately. Treat recurrence as requiring new live
+accessibility diagnostics, not an automatic deadline increase or dismissal as harmless flakiness.
+
+### Diagnostics And Scope
+
+Early orchestration mistakenly launched cheap checks while `npm ci` or exception retirement was
+still running; missing-module/stale-policy failures are not acceptance evidence. After prerequisites
+complete, all 31 checks pass. Invalid-port mutation tests now restore the deliberately invalid
+manifest before cleanup; the single retained diagnostic directory was explicitly restored/removed.
+Angular's builder requires a workspace-relative private tsconfig argument; the initial absolute
+path was rejected before test execution. The root npm alias also initially consumed `--include`,
+so the command now enters the Node wrapper directly and has a focused forwarding regression.
+The context declaration was updated before passing verification typing. A misspelled filter executes
+no cases and is correctly rejected even when Vitest itself returns success.
+
+A stronger real-DOM failure control exposed screenshot access errors for an outside-workspace path.
+It now captures in the private checkout and exports the image before cleanup; host/Linux controls
+retain the original assertion and image without the secondary access error. Vite filesystem
+restrictions remain at their defaults. These diagnostic failures are distinct from final acceptance.
+
+The actual graph retires the Karma/braces advisory alongside the three Angular-related records
+retired in Phase 1. Only the unchanged Drizzle exception remains, with its original expiry/review
+boundary and exact four paths. API/Drizzle declarations, SQL history, application source/providers,
+budgets, CI triggers/shards, public-site assets and release identity are unchanged. No full
+API/contracts/schema/upgrade suite, unselected application journeys, rendered-site suite or fresh
+setup proof was run for this boundary. Phases 6-7 own the Drizzle/data work.
+
+Every final verification summary reports cleanup. All host/Linux source snapshots, owned database
+and diagnostic containers, registered browser/process groups and endpoints were removed; retained
+reports remain under ignored `test-results/verification`. No normal database, user storage, unrelated
+development server or remote GitHub state was changed. Nothing was committed, tagged or pushed.

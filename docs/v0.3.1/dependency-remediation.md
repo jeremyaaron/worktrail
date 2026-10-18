@@ -2,7 +2,7 @@
 
 ## Status
 
-Updated through Phase 1, October 18, 2026. The Angular foundation is implemented in the working checkout; the Drizzle and runner-cutover candidates below remain Phase 0 feasibility evidence. Release identity remains `0.3.0`. Three resolved advisory exceptions are retired; two remain under their original deadlines.
+Updated through the Phase 5 Angular cutover, October 18, 2026. Angular/Vitest adoption and legacy-runner removal are implemented; the Drizzle candidate below remains Phase 0 feasibility evidence. Release identity remains `0.3.0`. All four Angular-related advisory exceptions are retired; the Drizzle exception remains under its original deadline.
 
 See [structured evidence](phase-0-evidence.json), [verification notes](verification-notes.md), and the [technical design](technical-design.md).
 
@@ -12,6 +12,7 @@ See [structured evidence](phase-0-evidence.json), [verification notes](verificat
 | --- | --- | --- | --- |
 | Working v0.3.0 baseline | Valid | 0 | 13, associated with five advisory IDs |
 | Working Phase 1, Angular 21 with staged runners and unchanged Drizzle | Valid; clean `npm ci` | 0 | 10: 6 high Karma records, 4 moderate Drizzle records |
+| Working Phase 5, sole Vitest/Chromium runner and unchanged Drizzle | Valid; clean `npm ci` | 0 | 4 moderate Drizzle records, one advisory ID |
 | Private staged Angular 21/Drizzle RC candidate, Karma retained | Valid after explicit peer bindings | 0 | 6 high, from the retained Karma/braces owner graph |
 | Private cutover candidate, Karma/Jasmine removed | Valid; clean `npm ci` | 0 | 0 |
 
@@ -28,6 +29,16 @@ Keep `GHSA-67mh-4wv8-2f99` until Phase 6; API/Drizzle declarations and SQL histo
 Neither expiry nor the `0.3.1` review boundary is extended. The [working policy](../security/development-audit-exceptions.json)
 and [Phase 1 evidence](phase-1-evidence.json) distinguish this intermediate accounted graph from a clean release graph.
 
+### Phase 5 Disposition
+
+Remove Karma/Jasmine only after all 71 intended specs have migrated. The reviewed lock update removes
+101 packages without adding packages or changing retained versions. The actual clean installation
+and production/full audits establish that the Karma/braces graph and all carried Vitest 3/Tinypool 1
+graphs are gone. Retire `GHSA-vfj7-8cjw-p6xm`; all four Angular-related advisory IDs are now resolved.
+The full graph still has four moderate records associated solely with `GHSA-67mh-4wv8-2f99`.
+Its exact paths, mitigations, expiry and review boundary are unchanged, as are Drizzle declarations,
+API behavior and historical SQL. This is Angular-boundary acceptance, not a clean final release graph.
+
 ## Selected Versions
 
 | Owner | Selection |
@@ -39,7 +50,7 @@ and [Phase 1 evidence](phase-1-evidence.json) distinguish this intermediate acco
 | TypeScript | `5.9.3`, explicitly constrained at root as well as workspaces |
 | Vitest/browser provider | `4.1.12` together |
 | Playwright | `1.61.1` |
-| Root optional watcher peer | Chokidar `5.0.0`; Sass/Karma retain their own compatible watcher dependencies while needed |
+| Root optional watcher peer | Chokidar `5.0.0`; Sass retains its compatible watcher dependency |
 | Drizzle Kit/ORM | Exact `1.0.0-rc.4` pair |
 
 Retain the current compatible Zone.js/RxJS lines and explicit production Zone-based change detection. No TypeScript 6/7, Angular 22, or DOM-emulation migration is required. No forced resolution, dependency override, npm audit-fix downgrade, or exception renewal was used.

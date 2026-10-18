@@ -15,6 +15,7 @@
     "audit:dependencies": "node scripts/audit-dependencies.mjs",
     "test:verification": "node --test scripts/verification/*.test.mjs",
     "test:verification:integration": "node --test scripts/verification/lifecycle.check.mjs",
+    "test:verification:web-lifecycle": "node --test scripts/verification/web-lifecycle.check.mjs",
     "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
     "dev:api": "npm run dev --workspace @worktrail/api",
     "dev:web": "npm run start --workspace @worktrail/web",
@@ -46,7 +47,8 @@
     "db:performance-evidence": "npm run db:performance-evidence --workspace @worktrail/api",
     "db:quick-find-performance-evidence": "npm run db:quick-find-performance-evidence --workspace @worktrail/api",
     "db:cycle-diagnostics": "npm run db:cycle-diagnostics --workspace @worktrail/api --",
-    "storage:reset": "npm run storage:reset --workspace @worktrail/api"
+    "storage:reset": "npm run storage:reset --workspace @worktrail/api",
+    "test:web": "node scripts/test-web.mjs"
   },
   "devDependencies": {
     "@angular/common": "21.2.25",

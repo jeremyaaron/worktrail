@@ -2,9 +2,9 @@
 
 ## Status
 
-Implementation baseline: October 18, 2026. Phases 0-4 are complete; required implementation phases 5-8 and 10-11 have not started. Conditional Phase 9 is deferred by the Phase 0 scope decision.
+Implementation baseline: October 18, 2026. Phases 0-5 are complete; required implementation phases 6-8 and 10-11 have not started. Conditional Phase 9 is deferred by the Phase 0 scope decision.
 
-This plan implements the [PRD](prd.md) and [technical design](technical-design.md). The [dependency disposition](dependency-remediation.md), [verification notes](verification-notes.md), and [Phase 0 evidence](phase-0-evidence.json) record the selected versions, proofs, and inventories. [Phase 1 evidence](phase-1-evidence.json) records the implemented Angular foundation; [Phase 2 evidence](phase-2-evidence.json) maps the shared/core conversion and retained coverage. [Phase 3 evidence](phase-3-evidence.json) records discovery/workspace conversion, focused acceptance, and controlled negative probes. [Phase 4 evidence](phase-4-evidence.json) completes detail/Planning/history conversion and the full inventory reconciliation. SQL history and release identity remain unchanged.
+This plan implements the [PRD](prd.md) and [technical design](technical-design.md). The [dependency disposition](dependency-remediation.md), [verification notes](verification-notes.md), and [Phase 0 evidence](phase-0-evidence.json) record the selected versions, proofs, and inventories. [Phase 1 evidence](phase-1-evidence.json) records the implemented Angular foundation; [Phase 2 evidence](phase-2-evidence.json) maps the shared/core conversion and retained coverage. [Phase 3 evidence](phase-3-evidence.json) records discovery/workspace conversion, focused acceptance, and controlled negative probes. [Phase 4 evidence](phase-4-evidence.json) completes detail/Planning/history conversion and the full inventory reconciliation. [Phase 5 evidence](phase-5-evidence.json) records single-runner cutover, advisory retirement, host/Linux lifecycle and integration results, and one unreproduced Quick Find observation. SQL history and release identity remain unchanged.
 
 The separately requested PR-only CI change is already in the working tree. Preserve it and its focused regression test; it is not unfinished feature scope to reimplement. Package/release identity remains `0.3.0` until closeout.
 
@@ -37,7 +37,7 @@ Angular conversion is split into infrastructure, three spec groups, and final cu
 | 2 | Shared utilities, core clients, and navigation spec conversion | Complete |
 | 3 | Work discovery, saved views, and workspace spec conversion | Complete |
 | 4 | Work detail, Planning, and historical workflow spec conversion | Complete |
-| 5 | Single-runner cutover, owned lifecycle, and Angular acceptance | Not started |
+| 5 | Single-runner cutover, owned lifecycle, and Angular acceptance | Complete |
 | 6 | Proven Drizzle adoption and historical metadata conversion | Not started |
 | 7 | Upgrade preservation, transactions, and API compatibility | Not started |
 | 8 | Combined clean dependency graph and audit-gate acceptance | Not started |
@@ -275,6 +275,18 @@ Acceptance:
 - All four carried Angular-related advisories are retired from the actual graph. Remaining Drizzle risk, if present, is reported separately and remains within its original policy.
 
 Verification: clean graph/audit checks, focused runner/ownership/CI tests, complete web profile, native-editor harness, relevant E2E journeys, compiled preview, and browser lifecycle checks on the host/Linux model. Reuse Phase 4 evidence only where the executable setup is unchanged; do not rerun the entire API suite for this Angular-only boundary.
+
+### Completion Evidence
+
+- Make Angular's standard `test` target solely `@angular/build:unit-test` with Vitest/Chromium. Remove the Karma target/launcher, Jasmine/Karma packages/types, partition executor/manifest and extra TypeScript scope. Automatic discovery and `tsconfig.spec.json` cover all 71 intended files; all 888 existing cases and spec sources remain unchanged.
+- Route root `test:web`, workspace `test` and owned verification through the same implementation. Retain literal repeated file selections and regex name filtering; reject missing/empty selections and incomplete/skipped full acceptance reports. Root arguments enter the Node wrapper directly rather than being consumed by a nested npm invocation.
+- Add explicit live-source `--watch` and optional `--headed` debugging, with interactive `passed: null` summaries, assigned loopback endpoints, private compiler selection and cache/output ownership. Automated runs still require a private snapshot. Production/TestBed scheduling, lazy application routes and build/style budgets are unchanged.
+- Validate owned source context, assigned ports and actual report coverage. Retain JSON reports after cleanup. A real DOM failure control catches Vite denial for outside-workspace screenshots: capture within the private checkout and copy images to retained results without relaxing filesystem access or replacing the original failure.
+- Clean `npm ci`, installed graph and production/full audit checks pass. Remove 101 lockfile packages with no added packages or retained-version upgrades. Retire the Karma/braces exception: all four Angular-related advisory IDs are now resolved. Only the unchanged four moderate Drizzle records/one advisory remain for Phase 6; no expiry/review boundary is extended.
+- Pass the complete host web profile (lint, development compilation, all 888 Chromium cases, production build at 410.31 kB initial) and ordinary complete discovery/execution. Pass a fresh Linux Node 24/npm 11 installation and all 888 cases. Pass the five native-editor cases and two compiled-preview cases, including built API/web assets and deep links.
+- Pass 31 focused runner/audit/CI/ownership checks, spec and verification typechecks, changed-tooling ESLint, read-only site/link checks and whitespace validation. Verify real failure exit, live edits, SIGINT/SIGTERM, marker-protected abandoned SIGKILL cleanup, repeat cleanup and unrelated-service preservation on host/Linux. The final artifact/context refinement uses focused real-browser/lifecycle follow-ups, not another unchanged full-suite/build run.
+- The initial nine-journey selection passes eight cases but fails Quick Find's role lookup despite a rendered dialog. Preserve that failed result and its trace. One instrumented case, eight fresh-page diagnostic repetitions and an unmodified ordinary Quick Find follow-up pass with the original assertions/deadlines and zero retries. Exact cause remains unestablished; local resource contention is only a hypothesis. Record this residual observation rather than labeling it fixed or relabeling the failed aggregate as clean acceptance.
+- Remove all owned host/Linux snapshots, database/proof containers, endpoints and browser descendants. Preserve PR-only comprehensive CI, independent job failures and Pages deployment unchanged. Do not rerun backend/API/schema/upgrade suites, unselected E2E/site/setup journeys or version/tag operations for this Angular boundary. Phase 6 owns Drizzle adoption; release identity remains `0.3.0`.
 
 ## Phase 6: Drizzle Adoption And Metadata
 

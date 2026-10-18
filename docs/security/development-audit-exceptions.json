@@ -7,63 +7,6 @@
   "maxExpiresOn": "2026-11-16",
   "exceptions": [
     {
-      "advisory": "GHSA-vfj7-8cjw-p6xm",
-      "owner": "jeremyaaron",
-      "expiresOn": "2026-11-16",
-      "commands": [
-        "npm run verify (test:web)",
-        "npm test --workspace @worktrail/web"
-      ],
-      "dependencyPaths": [
-        "@worktrail/web > karma@6.4.4 > braces@3.0.3",
-        "@worktrail/web > karma@6.4.4 > chokidar@3.6.0 > braces@3.0.3",
-        "@worktrail/web > karma-jasmine-html-reporter@2.1.0 > karma-jasmine@5.1.0 > karma@6.4.4",
-        "@worktrail/web > @angular/build@21.2.27 > optional peer karma@6.4.4"
-      ],
-      "trustBoundary": "Development test configuration and filesystem glob patterns; not a production dependency.",
-      "preconditions": "A deeply nested attacker-controlled brace pattern must reach braces compilation/expansion. Karma consumes repository test configuration/globs; application request values are not passed to it. No patched braces release is available in the inspected owner range.",
-      "mitigation": "Use reviewed repository glob patterns, never user-supplied patterns. Owned verification runs Karma on loopback with retries disabled. Do not expose standalone Karma or run untrusted repository/test code with credentials.",
-      "followUp": "Complete the staged Angular spec conversion and retire Karma in v0.3.1 Phase 5, before the original expiry; do not downgrade Karma or renew this exception.",
-      "affected": [
-        {
-          "package": "@angular/build",
-          "path": "node_modules/@angular/build",
-          "version": "21.2.27",
-          "severity": "high"
-        },
-        {
-          "package": "braces",
-          "path": "node_modules/braces",
-          "version": "3.0.3",
-          "severity": "high"
-        },
-        {
-          "package": "chokidar",
-          "path": "node_modules/karma/node_modules/chokidar",
-          "version": "3.6.0",
-          "severity": "high"
-        },
-        {
-          "package": "karma-jasmine-html-reporter",
-          "path": "node_modules/karma-jasmine-html-reporter",
-          "version": "2.1.0",
-          "severity": "high"
-        },
-        {
-          "package": "karma-jasmine",
-          "path": "node_modules/karma-jasmine",
-          "version": "5.1.0",
-          "severity": "high"
-        },
-        {
-          "package": "karma",
-          "path": "node_modules/karma",
-          "version": "6.4.4",
-          "severity": "high"
-        }
-      ]
-    },
-    {
       "advisory": "GHSA-67mh-4wv8-2f99",
       "owner": "jeremyaaron",
       "expiresOn": "2026-11-16",

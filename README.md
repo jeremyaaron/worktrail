@@ -650,25 +650,29 @@ site mode additionally renders the real Pages subpath with keyboard/reflow/motio
 audits, lint, scoped test/config typechecks, workspace typechecks, scratch schema generation,
 resource/API/contracts/Angular tests, production build,
 standalone editor, application E2E, compiled preview, and static/rendered site checks including local
-assets/fragments, repository documentation paths and release metadata. During the Angular 21
-test migration, web tests run the complementary Karma/Jasmine and Vitest 4 partitions serially
-in Chromium. Both partitions report independently; either failure fails the command.
+assets/fragments, repository documentation paths and release metadata. Angular unit tests use
+Vitest 4 in real Chromium through the standard Angular `test` target. There is no legacy runner
+partition. Independent CI jobs retain their own failure reports.
 Standard runner modes do not install dependencies or browser binaries themselves.
 
 For focused frontend checks without a database or application server:
 
 ```sh
 npm test --workspace @worktrail/web
-npm test --workspace @worktrail/web -- --runner=vitest
+npm run test:web
 npm test --workspace @worktrail/web -- --include=src/app/core/api/attachments-api.spec.ts
-npm test --workspace @worktrail/web -- --runner=vitest '--filter=display helpers'
+npm run test:web -- '--filter=display helpers'
+npm run test:web -- --watch --include=src/app/core/api/attachments-api.spec.ts
+npm run test:web -- --watch --headed --include=src/testing/web-toolchain.spec.ts
 ```
 
 The default covers every discovered spec. Repeat `--include` for multiple literal paths; no globs.
-An empty, missing, or cross-runner selection fails. Each invocation owns its source snapshot,
-loopback ports and build/cache outputs, then removes them. These staged commands are non-watch;
-live watch/debug integration belongs to the final single-runner cutover. See
-[the migration manifest](apps/web/test-migration.json) and [developer guidance](docs/development.md#testing-and-verification).
+An empty or missing selection fails. Automated runs own their source snapshot, loopback ports and
+build/cache outputs, then remove them. Explicit `--watch` reads live working source; `--headed`
+opens Chromium for interactive debugging and requires watch mode. Interactive sessions are not
+acceptance evidence. Stop them with Ctrl+C. Reports and failure screenshots remain under
+`test-results/verification/<run-id>/web/`. See
+[developer guidance](docs/development.md#testing-and-verification).
 
 Fresh installation checks are separate, deliberately slower commands:
 

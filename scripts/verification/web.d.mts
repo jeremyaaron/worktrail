@@ -2,4 +2,5 @@ export function readWebTestContext(env?: Record<string, string | undefined>): Pr
   port: number;
   cacheDir: string;
   reportPath: string;
+  screenshotDirectory: string;
 }>;

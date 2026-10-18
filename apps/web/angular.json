@@ -77,36 +77,17 @@
         "extract-i18n": {
           "builder": "@angular/build:extract-i18n"
         },
-        "test-vitest": {
+        "test": {
           "builder": "@angular/build:unit-test",
           "options": {
             "runner": "vitest",
             "buildTarget": "worktrail-web:build:development",
-            "tsConfig": "tsconfig.vitest.json",
-            "browsers": ["ChromiumHeadless"],
+            "tsConfig": "tsconfig.spec.json",
+            "browsers": [
+              "ChromiumHeadless"
+            ],
             "runnerConfig": "vitest.config.ts",
             "providersFile": "src/testing/providers.ts"
-          }
-        },
-        "test": {
-          "builder": "@angular/build:karma",
-          "options": {
-            "polyfills": [
-              "zone.js",
-              "zone.js/testing"
-            ],
-            "tsConfig": "tsconfig.spec.json",
-            "inlineStyleLanguage": "scss",
-            "assets": [
-              {
-                "glob": "**/*",
-                "input": "public"
-              }
-            ],
-            "styles": [
-              "@angular/cdk/overlay-prebuilt.css",
-              "src/styles.scss"
-            ]
           }
         }
       }

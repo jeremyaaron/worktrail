@@ -175,7 +175,7 @@ test('committed policy covers the lock graph, not production nodes, and is wired
   assert.match(runner, /npmGate\('audit:dependencies', \['run', 'audit:dependencies'\]\)/);
 });
 
-test('supported runtime retains staged Karma/Vitest builders without the vulnerable Vitest 3 graph', async () => {
+test('supported runtime uses one Vitest builder without retired Angular test graphs', async () => {
   const json = async (path) => JSON.parse(await readFile(new URL(path, import.meta.url), 'utf8'));
   const root = await json('../../package.json');
   const actualLock = await json('../../package-lock.json');
@@ -185,14 +185,16 @@ test('supported runtime retains staged Karma/Vitest builders without the vulnera
   assert.equal(root.engines.npm, '^11.0.0');
   assert.equal((await readFile(new URL('../../.nvmrc', import.meta.url), 'utf8')).trim(), '24');
   assert.match(await readFile(new URL('../../.github/actions/verify/action.yml', import.meta.url), 'utf8'), /node-version: 24/);
-  assert.equal(web.projects['worktrail-web'].architect.test.builder, '@angular/build:karma');
-  assert.equal(web.projects['worktrail-web'].architect['test-vitest'].builder, '@angular/build:unit-test');
+  assert.equal(web.projects['worktrail-web'].architect.test.builder, '@angular/build:unit-test');
+  assert.equal(web.projects['worktrail-web'].architect.test.options.runner, 'vitest');
+  assert.equal(web.projects['worktrail-web'].architect['test-vitest'], undefined);
   assert.equal(root.devDependencies.typescript, '5.9.3');
   const runners = Object.entries(actualLock.packages).filter(([path]) => /node_modules\/vitest$/.test(path));
   assert.ok(runners.length);
   for (const [, pkg] of runners) assert.match(pkg.version, /^4\./);
   for (const [path, pkg] of Object.entries(actualLock.packages)) {
     if (/node_modules\/tinypool$/.test(path)) assert.doesNotMatch(pkg.version, /^1\./);
+    assert.doesNotMatch(path, /node_modules\/(?:karma(?:-[^/]+)?|jasmine-core|@types\/jasmine)$/);
   }
 });
 

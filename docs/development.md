@@ -388,8 +388,8 @@ ordering before snapshot validation. Full board/history/closeout arrays are not 
 `tests/support/aggregate-fixture.ts` and the aggregate tests own 1/15-project evidence, complete HTTP SQL
 counts, evaluated/enriched rows, response bytes, diagnostic timings and external-commit consistency.
 See [aggregate evidence and remaining costs](v0.3.0/aggregate-evidence.md). Focused Angular verification
-can use the CLI's `--include=src/app/features/projects/project-planning-page.component.spec.ts` inside
-the existing owned manifest/private-workspace/Karma launcher; it is not a new public runner flag.
+can use `npm run test:web -- --include=src/app/features/projects/project-planning-page.component.spec.ts`
+through the same owned Vitest/Chromium runner as full frontend verification.
 
 ## Lock Ownership And Participation
 
@@ -508,22 +508,32 @@ TypeScript `5.9.3` and Vitest/browser provider `4.1.12`; keep Node 24/npm 11. Pr
 both retain Zone-based scheduling. Root Angular peer bindings keep the application and icon package
 on one physical runtime; do not replace them with overrides or forced peer installation.
 
-`npm test --workspace @worktrail/web` runs all discovered files in an owned, database-free snapshot.
-During conversion, [test-migration.json](../apps/web/test-migration.json) assigns converted files to
-Vitest; every other spec belongs to Karma. Keep `tsconfig.spec.json` (Jasmine) and
-`tsconfig.vitest.json` (explicit Vitest imports, no ambient globals) synchronized with the manifest.
-The runner validates complete, disjoint discovery and editor type scopes before execution.
-New specs must appear in exactly one matching type scope. Never add an exclusion just to pass discovery.
+`npm test --workspace @worktrail/web` and `npm run test:web` run all discovered files in an owned,
+database-free snapshot using the sole Angular `test` target (Vitest/Chromium). Specs import Vitest
+explicitly; `tsconfig.spec.json` includes all source specs with no ambient test globals. Discovery and
+editor/compiler scope must agree exactly. New specs are picked up automatically; never add an
+exclusion just to pass discovery. Karma/Jasmine and the temporary migration manifest/partition are gone.
 
-Use `--runner=vitest` or `--runner=karma` after npm's `--` to select one partition. Repeat literal
-`--include=src/...spec.ts` for a focused selection; `--runner=vitest '--filter=display helpers'`
-selects test names. Invalid/empty selections fail. Both normal and owned commands use the same serial
-runner and preserve independent partition failures. Summaries are under
-`test-results/verification/<run-id>/web-summary.json` or the owned profile's `summary.json`.
-Install Chromium via `npx playwright install chromium` first; both runners use Playwright's binary.
-Do not run Angular test targets directly: they require the assigned, validated run context.
-The staged wrapper is intentionally non-watch; live-source watch/debug support is Phase 5 cutover work,
-not a watcher over an immutable verification snapshot. Do not overlap runs in the same snapshot/cache.
+Repeat literal `--include=src/...spec.ts` arguments after npm's `--` to focus files; `--filter=expression`
+selects test names. Globs, unknown flags, missing files and zero passing cases fail. Non-filtered
+acceptance also rejects omitted files, empty files and skipped/incomplete cases in the actual report.
+Normal and owned commands use the same runner with zero retries. Summaries are under
+`test-results/verification/<run-id>/web-summary.json` or the owned profile's `summary.json`; structured
+browser results and failure screenshots remain in its `web/` directory after private-resource cleanup.
+Install Chromium via `npx playwright install chromium` first. Do not run Angular test targets directly:
+they require the assigned, validated run context.
+
+`npm run test:web -- --watch --include=src/testing/web-toolchain.spec.ts` watches live working source,
+not a copied snapshot. Add `--headed` to inspect Chromium interactively. The session owns its private
+compiler selection, loopback endpoint and browser processes; Angular's shared local disk cache is
+disabled for watch. Ctrl+C/SIGTERM stops the owned descendants and removes private resources. Watch
+summaries have `passed: null`, never acceptance success. Browser/dependency changes require restarting
+the session; a literal focused file list is fixed at startup. Do not overlap runs in one snapshot/cache.
+
+`npm run test:verification:web-lifecycle` is an opt-in, database-free real-browser lifecycle check.
+It verifies failure propagation, live source reruns, SIGINT/SIGTERM, abandoned SIGKILL cleanup and
+preservation of an unrelated loopback service. It observes reports/process identities rather than
+using startup sleeps; it is separate from cheap runner unit tests and ordinary feature verification.
 
 The `checks` profile owns audits, verification/backend/contracts lint/types, schema generation,
 resource/API/contracts tests and contracts/API builds. It complements `web` without another Angular
