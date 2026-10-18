@@ -103,7 +103,7 @@ integration boundaries.
 | 14 | Bounded return navigation and relevant section targeting | Complete |
 | 15 | Shared saved views, applied-query feedback, and work-list ergonomics | Complete |
 | 16 | Execution-first Planning and disclosed management | Complete |
-| 17 | Complete historical outcome and deliberate closeout destinations | Not started |
+| 17 | Complete historical outcome and deliberate closeout destinations | Complete |
 | 18 | Portfolio, project navigation, and Quick Find ergonomics | Not started |
 | 19 | Public site, current developer guidance, and independent local setup | Not started |
 | 20 | Cross-surface acceptance, accessibility, and UAT handoff | Not started |
@@ -1462,7 +1462,28 @@ Acceptance:
 Verification: 12-record browser walkthrough, v1/v2 presentation/export tests, changed/unavailable current
 record cases, destination/no-destination/conflict/replay tests, and return/focus/accessibility checks.
 
-Status: Not started.
+Status: Complete.
+
+Completion evidence:
+
+- Frozen identity/actor/time, health, all counts and full stored groups lead completed reviews.
+  Independent ten-row pagination/Show all replaces the eight-row truncation; current facts mount
+  only inside the closed-by-default Current context disclosure.
+- Explicit unfinished-scope selection distinguishes the UI sentinel from null/Unplanned, rejects
+  unknown destinations and duplicate/pending refresh, preserves ordinary failure choices, and
+  requires refreshed decisions after conflicts. Empty scope retains null/none; server rules are unchanged.
+- Current records/destinations have bounded outcome returns, including missing-record recovery.
+  Markdown exports all authorized stored evidence; print expands full groups and omits live/chrome
+  before restoring screen pages. V1/v2 history is not migrated or reconstructed from current lists.
+- Named twelve-unfinished v1/v2 product walkthroughs are separate from deterministic parser/component
+  and real-command browser fixtures, including later current title/status/estimate/assignment changes.
+- Passed 29 selected Angular cases, 25 API cases, three distinct browser journeys across clean runs,
+  lint/typechecks, and a warning-free production build/initial-graph check. CSS-only print cleanup
+  reused unchanged functional evidence rather than rerunning unrelated suites. All resources are owned.
+  See [historical outcome evidence](historical-closeout-evidence.md) and
+  [verification notes](verification-notes.md#phase-17-historical-outcome-and-deliberate-closeout).
+
+Versions remain 0.2.9. Phase 18, public-site/setup work, broad acceptance and release verification remain pending.
 
 ## Phase 18: Portfolio And Navigation Ergonomics
 

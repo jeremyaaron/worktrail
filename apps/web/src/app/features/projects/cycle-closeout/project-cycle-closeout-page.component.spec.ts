@@ -144,7 +144,7 @@ describe('ProjectCycleCloseoutPageComponent', () => {
     http.verify();
   });
 
-  it('renders metrics and unfinished scope and defaults to the earliest destination', () => {
+  it('renders metrics and unfinished scope without silently selecting a destination', () => {
     const fixture = TestBed.createComponent(ProjectCycleCloseoutPageComponent);
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
@@ -164,7 +164,10 @@ describe('ProjectCycleCloseoutPageComponent', () => {
     expect(text).toContain('Resolve closeout dependency');
     expect(text).toContain('Dependency blocked');
     expect(text).toContain('1 open work item is dependency blocked.');
-    expect(fixture.componentInstance.form.controls.destinationCycleId.value).toBe(destinationId);
+    expect(fixture.componentInstance.form.controls.destinationCycleId.value).toBe('');
+    expect((fixture.nativeElement as HTMLElement).querySelectorAll('input:checked').length).toBe(0);
+    fixture.componentInstance.submit();
+    http.expectNone(`/api/projects/${projectId}/cycles/${cycleId}/closeout`);
     expect(
       (fixture.nativeElement as HTMLElement)
         .querySelector<HTMLAnchorElement>(`.work-row__identity a`)
@@ -217,6 +220,10 @@ describe('ProjectCycleCloseoutPageComponent', () => {
       .flush(closeoutPreview({ eligibleDestinations: [] }));
     fixture.detectChanges();
 
+    expect(fixture.componentInstance.form.controls.destinationCycleId.value).toBe('');
+    fixture.componentInstance.submit();
+    http.expectNone(`/api/projects/${projectId}/cycles/${cycleId}/closeout`);
+    (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('input[type=radio]')!.click();
     expect(fixture.componentInstance.form.controls.destinationCycleId.value).toBeNull();
     fixture.componentInstance.submit();
     fixture.componentInstance.submit();
@@ -227,7 +234,7 @@ describe('ProjectCycleCloseoutPageComponent', () => {
     expect(Object.keys(closeout.request.body)).toEqual(['destinationCycleId']);
     closeout.flush({});
 
-    expect(navigate).toHaveBeenCalledWith(['/projects', projectId, 'cycles', cycleId]);
+    expect(navigate).toHaveBeenCalledWith(['/projects', projectId, 'cycles', cycleId], { fragment: 'cycle-result-heading' });
   });
 
   it('keeps the submit button sized for both labels with wider font metrics and after failure', () => {
@@ -243,6 +250,7 @@ describe('ProjectCycleCloseoutPageComponent', () => {
     )!;
     button.style.fontFamily = 'monospace';
     button.style.fontSize = '24px';
+    fixture.componentInstance.form.controls.destinationCycleId.setValue(destinationId);
     const resting = button.getBoundingClientRect();
     expect(resting.width).toBeGreaterThan(112);
 
@@ -311,6 +319,7 @@ describe('ProjectCycleCloseoutPageComponent', () => {
     http
       .expectOne(`/api/projects/${projectId}/cycles/${cycleId}/closeout-preview`)
       .flush(closeoutPreview());
+    fixture.componentInstance.form.controls.destinationCycleId.setValue(destinationId);
     fixture.componentInstance.submit();
     http
       .expectOne(`/api/projects/${projectId}/cycles/${cycleId}/closeout`)
@@ -325,12 +334,51 @@ describe('ProjectCycleCloseoutPageComponent', () => {
       'Destination cycle must be planned and not archived.'
     );
 
+    fixture.componentInstance.submit();
+    http.expectNone(`/api/projects/${projectId}/cycles/${cycleId}/closeout`);
     (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.conflict button')?.click();
     http
       .expectOne(`/api/projects/${projectId}/cycles/${cycleId}/closeout-preview`)
       .flush(closeoutPreview({ eligibleDestinations: [] }));
     fixture.detectChanges();
-    expect(fixture.componentInstance.form.controls.destinationCycleId.value).toBeNull();
+    expect(fixture.componentInstance.form.controls.destinationCycleId.value).toBe('');
+    expect((fixture.nativeElement as HTMLElement).querySelectorAll('input:checked').length).toBe(0);
     expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Closeout scope changed');
   });
+  it('rejects an unknown destination, preserves choices after ordinary failures, and cannot refresh away a pending write', () => {
+    const fixture = TestBed.createComponent(ProjectCycleCloseoutPageComponent);
+    fixture.detectChanges();
+    http.expectOne(`/api/projects/${projectId}/cycles/${cycleId}/closeout-preview`).flush(closeoutPreview());
+    fixture.componentInstance.form.controls.destinationCycleId.setValue(itemId);
+    fixture.componentInstance.submit();
+    http.expectNone(`/api/projects/${projectId}/cycles/${cycleId}/closeout`);
+    fixture.componentInstance.form.controls.destinationCycleId.setValue(laterDestinationId);
+    fixture.componentInstance.submit();
+    const request = http.expectOne(`/api/projects/${projectId}/cycles/${cycleId}/closeout`);
+    expect(request.request.body).toEqual({ destinationCycleId: laterDestinationId });
+    fixture.componentInstance.loadPreview();
+    expect(request.cancelled).toBeFalse();
+    http.expectNone(`/api/projects/${projectId}/cycles/${cycleId}/closeout-preview`);
+    request.flush({ error: { message: 'Retry later.' } }, { status: 503, statusText: 'Unavailable' });
+    expect(fixture.componentInstance.form.controls.destinationCycleId.value).toBe(laterDestinationId);
+    expect(fixture.componentInstance.isSubmitting()).toBeFalse();
+  });
+
+  it('ignores an old closeout response after the route identity changes', () => {
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const fixture = TestBed.createComponent(ProjectCycleCloseoutPageComponent);
+    fixture.detectChanges();
+    http.expectOne(`/api/projects/${projectId}/cycles/${cycleId}/closeout-preview`).flush(closeoutPreview());
+    fixture.componentInstance.form.controls.destinationCycleId.setValue(destinationId);
+    fixture.componentInstance.submit();
+    const pending = http.expectOne(`/api/projects/${projectId}/cycles/${cycleId}/closeout`);
+    params.next(convertToParamMap({ projectId, cycleId: laterDestinationId }));
+    http.expectOne(`/api/projects/${projectId}/cycles/${laterDestinationId}/closeout-preview`).flush(closeoutPreview());
+    expect(pending.cancelled).toBeFalse();
+    pending.flush({});
+    expect(navigate).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.form.controls.destinationCycleId.value).toBe('');
+    expect(fixture.componentInstance.isSubmitting()).toBeFalse();
+  });
+
 });

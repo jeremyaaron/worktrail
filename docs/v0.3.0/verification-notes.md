@@ -1617,3 +1617,108 @@ Final read-only inspection confirmed all eight Phase 16 run summaries marked cle
 roots absent and no matching process/container remaining. Structured Markdown parsing validated
 99 local links/anchors across six changed documents. Final frontend/test-code lint, verification
 TypeScript and `git diff --check` passed; documentation-only closure did not rerun the test suites.
+
+## Phase 17: Historical Outcome And Deliberate Closeout
+
+Implemented on October 17, 2026 using Node 24.16.0/npm 11.13.0, owned PostgreSQL 16 and Playwright
+Chromium. This is working-branch acceptance, not release verification. See
+[historical outcome evidence](historical-closeout-evidence.md) for behavior, fixtures and limitations.
+
+### Scope And Selection
+
+Affected boundaries are cycle review/result/closeout, a bounded destination return, the missing-current
+detail return, client-side frozen Markdown/print, project-shell print chrome, and isolated historical
+demo seeding. No contracts, snapshot-version semantics, migrations, command authorization/locks,
+dependencies, budgets, deadlines, retries or workers changed. Live aggregate SQL remains in the
+existing authorized review read; only live component mounting is deferred until disclosure.
+
+Commands used the established private-checkout ownership lifecycle and explicit Node 24 PATH:
+
+```sh
+npm run verify -- --mode=api --api-tests=project-cycle-closeout,project-cycle-closeout-snapshot,closeout-demo-seed
+npm run ng --workspace @worktrail/web -- test --watch=false --karma-config <owned-checkout>/scripts/verification/karma.config.cjs --include=src/app/features/projects/cycle-closeout/*.spec.ts --include=src/app/features/projects/project-cycle-review-page.component.spec.ts --include=src/app/features/work-items/work-item-detail-unavailable.spec.ts
+npm run verify -- --mode=e2e --grep='historical closeout|v0.2.4 cycle closeout'
+npm run verify -- --mode=e2e --grep='historical closeout|versioned evidence shows units'
+npm run build --workspace @worktrail/web -- --stats-json
+npm run lint:verification
+npx tsc -p tsconfig.verification.json --noEmit
+git diff --check
+```
+
+API mode includes backend/test lint and backend typechecking. Frontend acceptance runs frontend lint,
+selected Angular files on a random owned Karma port, production build and static initial-graph checks.
+An additional final build/lint/graph run covers print-only CSS/label cleanup without repeating all
+functional tests. Unrelated API/Angular/editor/site suites were omitted, not passed; the shared-shell
+print change explicitly included the existing report read/Markdown/print journey. Full verification
+remains required at release closeout/CI.
+
+### Clean Acceptance
+
+- `b4366f97-3897-4880-b7c6-31d476330ab9`: 25 API cases across three files passed, plus 42 verification
+  infrastructure tests. Command tests retain locked eligibility, permissions, atomicity, matching
+  replay and incompatible-repeat conflicts. Parser tests preserve complete twelve-row v1/v2 arrays;
+  the demo integration test verifies both versions, changed current records and insert-only reseeding.
+- `bbfe273f-f5f3-4fae-b325-60e2af05f39c`: 29 selected Angular cases passed. Coverage includes explicit
+  no-default choices with/without eligible destinations, zero-scope null, pending/failure/conflict
+  refresh, obsolete mutation responses, frozen closing-member identity, per-group paging/Show all,
+  complete v1/v2 print/Markdown, literal authored content/fences, stale copy feedback, current-only
+  legacy reviews and safe/unsafe same-project destination returns. A focused missing-current-record
+  case verifies the bounded historical return while the detail page displays a controlled error.
+- `6b8192a9-8c8d-4249-a82b-542bd784b174`: both the existing mixed-scope closeout journey and the new
+  twelve-item journey passed. The old journey retains radio keyboard focus, widened-font pending
+  button geometry, destination review, carried-item assignment/activity and outcome return focus.
+- `a8c586b3-1812-49ee-940e-953aca0b9f5f`: final twelve-item journey and existing versioned report
+  evidence journey passed after print cleanup. This overlaps the previous historical journey:
+  there are three distinct passing browser journeys, not four independent journeys.
+- `ef897212-9b4c-4099-8626-33e56b834cf5`: final frontend lint, production build and initial-graph
+  checks passed without warnings. Initial size 397.84 kB (109.93 kB estimated transfer), 155 inputs
+  and 20 lazy page entries; no heavy detail/Planning/editor/Markdown/CDK input entered the initial graph.
+
+The new browser fixture creates its own active cycle with twelve ready commitments plus Done and
+Canceled rows, deliberately chooses the destination and closes through the real UI/API. It changes
+current title, estimate, cycle assignment, status, project/cycle/destination names through authorized
+APIs, verifies both pages and Show all, exports while only two rows are visible, compares copy/download
+and exact JSON evidence, and checks complete print followed by restored screen pages. Current and
+unavailable-record inspection both return/focus Outcome at close; the destination round trip also
+preserves that bounded origin. Persisted v2 evidence is unchanged after edits and presentation checks.
+
+The browser legacy input is an explicit v1 read-boundary fixture, not a newly produced v1 command.
+The unavailable-current case intercepts a 404, not a real database deletion. Separate parser tests
+and demo insertion exercise actual stored v1/v2 parsing. Product walkthrough data is not used as
+the deterministic twelve-item fixture. Browser failures are not retried; unchanged deadlines and one
+worker remain. Desktop/compact/mobile screenshots at 1440/1024/390px show no page overflow; final
+print excludes current project chrome, live context, pagination/share controls and Current suffixes.
+Screenshot inspection found no overlapping text/controls. This is not a full assistive-device audit.
+
+### Diagnostics And Reuse
+
+- `4a5f0bc2-de47-4571-9c73-c646f40cee72` stopped at typecheck: the new seed test omitted required
+  project status. The fixture now explicitly creates an active project; no database was provisioned.
+- `bd1d217f-fea3-4845-9830-1b2931c14392` passed the old journey but failed the new fixture's prohibited
+  Ready-to-Done transition. The fixture now follows Ready -> In Progress -> Done. Workflow rules
+  were not changed to accommodate the test.
+- `c0aed623-540a-4e2c-929e-f45557d34a7b` passed 28 of 29 selected cases; the new unavailable-record
+  fixture had not resolved the owner's member-list request. It now explicitly flushes that request.
+- Earlier `70ad911a-d86b-4b9c-aa0c-f7ab0785a140` passed 23 then-selected Angular cases/build before
+  the expanded return/missing-record checks. It is superseded, not added to the final 29-case count.
+- Screenshot inspection after the first clean browser run found current project chrome preceding
+  frozen evidence in print. A narrow project-shell print rule and hidden Current suffix address it;
+  the final historical/report browser selection plus build rechecks those presentation changes.
+
+### Closure
+
+All runs used private source/build/browser profiles, random ports and (when needed) labeled disposable
+PostgreSQL plus owned attachment storage. Success/failure cleanup removed their resources; ignored
+summaries/screenshots remain under `test-results/verification`. Ordinary PostgreSQL on 5432, working
+data/storage and unrelated processes were not used or stopped. README, developer guidance, plan and
+historical outcome notes reflect the implemented behavior. Documentation-only completion reuses the
+selected acceptance evidence instead of rerunning suites. Versions remain 0.2.9. No commit, push,
+merge, tag, publication or deployment was performed. Phase 17 is complete; Phase 18 and later broad
+acceptance/release gates remain pending.
+
+Final read-only inspection confirmed all nine Phase 17 run summaries marked cleaned, their owned
+roots absent and no matching process/container remaining. Structured Markdown parsing validated
+86 local links/anchors across five changed documents. Final focused browser-test lint, verification
+TypeScript and `git diff --check` passed. A final singular/plural correction to the unselected-choice
+prompt and an explanatory sentinel comment reuse unchanged decision/validation evidence; suites
+were not repeated for those copy-only changes or documentation closure.

@@ -102,6 +102,10 @@ interface ProjectSectionLink {
     </section>
   `,
   styles: `
+    @media print {
+      .project-shell__header, .project-shell__nav { display: none !important; }
+      .project-shell { gap: 0; }
+    }
     .project-shell {
       display: grid;
       gap: 18px;

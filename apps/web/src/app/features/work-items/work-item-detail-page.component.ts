@@ -30,6 +30,7 @@ import { WorkItemWatchHistoryStore } from './work-item-watch-history.store';
   template: `    @if (state.isLoading()) {
       <app-loading-indicator label="Loading work item" />
     } @else if (state.loadError()) {
+      <p><a [routerLink]="state.returnTarget().path" [queryParams]="state.returnTarget().queryParams" [fragment]="state.returnTarget().fragment ?? undefined">{{ state.returnTarget().label }}</a></p>
       <app-error-panel [message]="state.loadError() ?? ''" (retry)="state.loadWorkItem()" />
     } @else if (state.workItem(); as item) {
       <section class="detail-header">

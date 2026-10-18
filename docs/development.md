@@ -540,3 +540,28 @@ An IPv6 wildcard socket and an unrelated IPv4 service can share a port on macOS;
 IPv4 URL can otherwise reach the wrong process. The sentinel regression uses two test-owned servers
 to prove isolation, without stopping or querying unrelated services. Do not replace it with retries
 or a working server URL.
+
+## Historical Cycle Outcomes
+
+Completed reviews with closeout evidence lead with the stored v1/v2 identity, actor/time, counts,
+health, destination and complete item groups. Group pagination is local (ten rows, independent pages,
+Show all); it never queries current work to reconstruct history. Current links use bounded outcome
+returns. Destination-cycle returns accept only a different same-project cycle outcome, not recursive
+navigation metadata. Unavailable current work retains a safe return without deleting its frozen row.
+
+Live review components mount only when Current context opens. The existing authorized review response
+still contains live aggregates; this phase does not add a second endpoint or promise deferred SQL.
+Markdown sharing serializes the authorized stored snapshot, including a literal full-evidence JSON
+block. Print expands every stored group synchronously before printing, hides live context/actions,
+and restores screen pagination afterward. Neither path mutates snapshots or live assignments.
+
+Unfinished scope starts with an empty-string UI sentinel, distinct from explicit null/Unplanned.
+Submission requires null or an ID in the current eligible destinations. Zero unfinished items omit
+the choices and submit null for the existing none result. Conflicts require preview refresh and a new
+deliberate selection; ordinary failures preserve the choice. Server coordination, eligibility, replay
+and authorization remain authoritative. A submitted old-context write may commit, but its callback
+cannot navigate/update a new context.
+
+`closeout-demo-seed.ts` supplies named twelve-unfinished v1/v2 historical walkthroughs with changed
+current records and a renamed destination. It is not a deterministic test fixture; Angular/parser
+and browser acceptance construct separate inputs. See [historical outcome evidence](v0.3.0/historical-closeout-evidence.md).

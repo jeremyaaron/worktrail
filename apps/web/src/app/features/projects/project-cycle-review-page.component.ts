@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
@@ -14,7 +15,7 @@ import type {
 } from '@worktrail/contracts';
 import { snapshotCountLabel } from '@worktrail/contracts';
 import { NavigationSectionTargetDirective } from '../../shared/navigation/section-target';
-import { recordOriginParams } from '../../shared/navigation/work-navigation';
+import { parseWorkNavigationTarget, recordOriginParams } from '../../shared/navigation/work-navigation';
 
 import { CyclesApi } from '../../core/api/cycles-api';
 import { CurrentUserService } from '../../core/current-user.service';
@@ -70,6 +71,7 @@ interface BreakdownMetric {
 @Component({
   selector: 'app-project-cycle-review-page',
   imports: [
+    NgTemplateOutlet,
     NavigationSectionTargetDirective,
     CycleCloseoutResultComponent,
     EmptyStateComponent,
@@ -82,6 +84,9 @@ interface BreakdownMetric {
     <section [appNavigationSectionTarget]="navigationFragment()" [navigationIdentity]="navigationIdentity()" [navigationReady]="review()">
 
     <section class="cycle-review-page">
+      @if (outcomeReturn(); as target) {
+        <a class="planning-return outcome-return" [routerLink]="target.path" [fragment]="target.fragment ?? undefined">Back to outcome at close</a>
+      }
       @if (isLoading()) {
         <app-loading-indicator label="Loading cycle review" />
       } @else if (error()) {
@@ -91,12 +96,37 @@ interface BreakdownMetric {
           (retry)="loadReview()"
         />
       } @else if (review(); as review) {
+
+        @if (review.closeout; as closeout) {
+          <header class="review-header frozen-header">
+            <div>
+              <p class="eyebrow">Completed cycle · Frozen identity</p>
+              <h1>{{ closeout.snapshot.cycle.name }}</h1>
+              <p class="review-copy">{{ closeout.snapshot.project.key }} · {{ closeout.snapshot.project.name }} · {{ dateRange(closeout.snapshot.cycle) }}</p>
+              <p class="review-copy">{{ closeout.snapshot.cycle.goal || 'No cycle goal provided.' }}</p>
+            </div>
+            <a class="planning-return" [routerLink]="['/projects', projectId(), 'planning']">Back to Planning</a>
+          </header>
+          <app-cycle-closeout-result [closeout]="closeout" />
+          <details class="current-context" [open]="currentContextOpen()" (toggle)="currentContextOpen.set($any($event.target).open)">
+            <summary id="current-cycle-state-heading">Current context</summary>
+            @if (currentContextOpen()) {
+              <div class="current-context-body">
+              <p>Current assignments and risks are not the frozen carryover set.</p>
+              <ng-container [ngTemplateOutlet]="currentReview" />
+              </div>
+            }
+          </details>
+        } @else {
+          <ng-container [ngTemplateOutlet]="currentReview" />
+        }
+        <ng-template #currentReview>
         <section class="review-header">
           <div>
             <p class="eyebrow">
-              {{ review.closeout === null ? 'Cycle review · Live view' : 'Cycle result · Snapshot' }}
+              {{ review.closeout === null ? 'Cycle review · Live view' : 'Current cycle · Live view' }}
             </p>
-            <h1>{{ review.cycle.name }}</h1>
+            @if (review.closeout === null) { <h1>{{ review.cycle.name }}</h1> } @else { <h2>{{ review.cycle.name }}</h2> }
             <div class="review-meta">
               <span>{{ review.project.key }}</span>
               <span>{{ review.project.name }}</span>
@@ -110,12 +140,14 @@ interface BreakdownMetric {
           </div>
 
           <div class="review-actions">
-            <a [routerLink]="['/projects', projectId(), 'planning']">Back to Planning</a>
+            @if (review.closeout === null) {
+              <a [routerLink]="['/projects', projectId(), 'planning']">Back to Planning</a>
+            }
             <a
               [routerLink]="['/projects', projectId(), 'work-items']"
               [queryParams]="scopedWorkQueryParams(review.scopedWorkQuery)"
             >
-              Open cycle work
+              {{ review.closeout === null ? 'Open cycle work' : 'Current cycle assignments' }}
             </a>
             @if (canCloseCycle()) {
               <a
@@ -135,20 +167,12 @@ interface BreakdownMetric {
           </section>
         }
 
-        @if (review.closeout !== null) {
-          <app-cycle-closeout-result [closeout]="review.closeout" />
-          <section class="current-context" aria-labelledby="current-cycle-state-heading">
-            <p class="eyebrow">Current state · Live view</p>
-            <h2 id="current-cycle-state-heading">Current cycle context</h2>
-            <p>Links and risk details below reflect current work item data, not the closeout snapshot.</p>
-          </section>
-        } @else if (review.cycle.status === 'completed') {
+        @if (review.closeout === null && review.cycle.status === 'completed') {
           <section class="legacy-notice" aria-label="Legacy completed cycle">
             <strong>Completed before closeout history was available</strong>
             <p>This page shows current linked work because no immutable closeout snapshot exists.</p>
           </section>
         }
-
         <section class="summary-grid" aria-label="Cycle progress summary">
           <article>
             <span>Complete</span>
@@ -416,6 +440,7 @@ interface BreakdownMetric {
             </div>
           }
         </section>
+        </ng-template>
       } @else {
         <app-empty-state
           title="Cycle review unavailable"
@@ -427,6 +452,13 @@ interface BreakdownMetric {
     </section>
   `,
   styles: `
+    .current-context > summary { cursor: pointer; font-weight: 800; padding: 12px 0; }
+    .current-context-body { display: grid; gap: 20px; }
+    .current-context-body > p { color: #52637a; }
+    .planning-return { color: #1d4ed8; font-size: .875rem; font-weight: 700; }
+    @media print {
+      .current-context, .planning-return { display: none !important; }
+    }
     .cycle-review-page {
       display: grid;
       gap: 20px;
@@ -438,6 +470,7 @@ interface BreakdownMetric {
       justify-content: space-between;
       gap: 24px;
     }
+    .review-header > div { min-width: 0; }
 
     .eyebrow {
       margin: 0 0 8px;
@@ -459,8 +492,9 @@ interface BreakdownMetric {
 
     h1 {
       color: #111827;
-      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      font-size: 2rem;
       line-height: 1.05;
+      overflow-wrap: anywhere;
     }
 
     h2 {
@@ -927,7 +961,14 @@ export class ProjectCycleReviewPageComponent implements OnInit {
 
   readonly projectId = computed(() => this.context.param('projectId'));
   readonly cycleId = computed(() => this.context.param('cycleId'));
+  readonly outcomeReturn = computed(() => {
+    const target = parseWorkNavigationTarget(this.context.query('returnUrl'));
+    const source = '/projects/' + this.projectId() + '/cycles/';
+    return target?.kind === 'cycle' && target.fragment === 'cycle-result-heading' &&
+      target.path.startsWith(source) && target.path !== source + this.cycleId() ? target : null;
+  });
   readonly review = signal<ProjectCycleReviewDto | null>(null);
+  readonly currentContextOpen = signal(false);
   readonly isLoading = signal(true);
   readonly error = signal<string | null>(null);
   readonly errorTitle = signal('Cycle review unavailable');
@@ -944,6 +985,7 @@ export class ProjectCycleReviewPageComponent implements OnInit {
 
   ngOnInit(): void {
     this.context.start(() => {
+      this.currentContextOpen.set(false);
       this.review.set(null);
       this.isLoading.set(true);
       this.error.set(null);
@@ -1005,6 +1047,10 @@ export class ProjectCycleReviewPageComponent implements OnInit {
 
   statusLabel(status: ProjectCycleReviewDto['cycle']['status']): string {
     return cycleStatusLabel(status);
+  }
+
+  dateRange(cycle: { startDate: string; endDate: string }): string {
+    return cycleDateRangeLabel(cycle);
   }
 
   dateRangeLabel(review: ProjectCycleReviewDto): string {

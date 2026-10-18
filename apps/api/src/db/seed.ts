@@ -5,6 +5,7 @@ import { and, count, eq, inArray, sql } from 'drizzle-orm';
 import { createDb, createPool } from './client.js';
 import { assertVerificationTarget } from './verification-target.js';
 import { seedDeterministicAttachments } from './attachment-seed.js';
+import { seedHistoricalCloseoutDemo } from './closeout-demo-seed.js';
 import {
   activityEvents,
   commentMentions,
@@ -335,7 +336,7 @@ try {
           id: ids.projects.closeoutLab,
           workspaceId: ids.workspace,
           key: 'LAB',
-          nextWorkItemNumber: 6,
+          nextWorkItemNumber: 18,
           name: 'Closeout Lab',
           description: 'Isolated cycle closeout scenario for product walkthroughs and browser verification.',
           status: 'active',
@@ -2236,6 +2237,11 @@ try {
           updatedAt: now
         }
       });
+  });
+
+  await seedHistoricalCloseoutDemo({
+    db, workspaceId: ids.workspace, projectId: ids.projects.closeoutLab,
+    maintainerId: ids.members.maintainer, contributorId: ids.members.contributor
   });
 
   await seedDeterministicAttachments({

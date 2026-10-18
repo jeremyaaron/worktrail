@@ -469,16 +469,20 @@ Cycles are intentionally compact in v0.2.1. Velocity charts, ceremony management
 
 v0.2.4 completes the cycle lifecycle with a guided closeout workflow. Owners and maintainers can preview an active cycle's closing scope, choose one planned destination for all unfinished work or return it to unplanned work, and apply completion plus carryover as one transactional command.
 
+The v0.3.0 working branch refines this flow with complete historical groups, deliberate destination selection, collapsed current context, and frozen-outcome sharing.
+
 Closeout behavior includes:
 
 - a read-only preview with cycle identity, health, scope counts, estimate totals, unfinished work, and dependency signals;
-- planned same-project destination choices plus an explicit unplanned option that clears cycle assignment without changing workflow status;
+- initially unselected planned same-project destinations and an explicit Unplanned choice; unfinished scope requires a deliberate decision even when no planned destination exists;
 - atomic cycle completion, immutable closeout evidence, unfinished-work reassignment, and activity creation;
 - naturally idempotent retries for the same destination and conflicts for incompatible repeated decisions;
 - completed and canceled work retained on the source cycle;
 - carried work preserving status, milestone, assignee, labels, estimate, priority, and due date;
-- completed Cycle Review results with closing actor/time, target and estimate outcomes, retained/moved counts, destination links, and bounded snapshot item groups;
-- clear `Snapshot` framing for closeout evidence and `Live view` framing for links and current work state;
+- completed Cycle Review leads with frozen project/cycle identity, closing actor/time, health, counts, estimate outcomes, and destination;
+- complete Done, Canceled and Unfinished at close groups with independent ten-row pagination and Show all, not a truncated historical preview;
+- Current record/destination links with bounded outcome returns, plus a separate collapsed Current context for live assignments and risks;
+- Markdown copy/download and print over the complete authorized frozen evidence, independent of the visible page and later record edits;
 - compact recent-closeout results and role-aware close actions in Planning;
 - honest legacy messaging for completed cycles created before closeout history existed.
 
@@ -775,9 +779,10 @@ Suggested walkthrough:
 1. Create a work item in the active cycle, then update or clear cycle assignment from the detail page.
 1. Use project bulk edit to set or clear cycle assignment for selected visible work.
 1. Open Closeout Lab, switch to Morgan Maintainer, and review the active `Closeout Demonstration` cycle.
-1. Choose `Close cycle`, verify the mixed completed, canceled, estimated, unestimated, and dependency-blocked scope, and keep `Follow-up Validation` selected.
-1. Confirm closeout, review the immutable snapshot result, and distinguish it from the current live context below.
+1. Choose `Close cycle`, verify the mixed completed, canceled, estimated, unestimated, and dependency-blocked scope, and explicitly select `Follow-up Validation` (nothing is selected initially).
+1. Confirm closeout, review the immutable outcome, and open Current context only when inspecting live assignments/risks.
 1. Follow the destination-cycle link, then open a carried snapshot item and verify its current cycle assignment and cycle-change activity.
+1. In Closeout Lab's Cycles view, open either `Historical carryover: 12 unfinished` versioned scenario. Page through all twelve original commitments or choose Show all; compare a Current record's revised title, status, estimate and assignment with its unchanged historical row. Copy/download Markdown or print while on a partial page and confirm all twelve records are included. See [historical outcome evidence](docs/v0.3.0/historical-closeout-evidence.md) for direct scenario routes and limitations.
 1. Open a milestone review page, inspect progress, health, risk, and recent movement, then follow a risk link into filtered project work.
 1. Review dependency-blocked and blocking-open-work planning sections, then follow a dependency list link into filtered project work.
 1. Open Project Status, review the seeded weekly report with cycle context, copy it as Markdown, download the Markdown export, print the page, and follow one milestone, cycle, or risk link into current project data.
