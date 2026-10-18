@@ -568,3 +568,77 @@ remaining documentation; Phase 11 owns release identity/closeout. The strict dep
 and the unchanged Angular/site suites are not rerun for this data/runtime proof. A cheap static
 site/link check and whitespace validation pass for documentation completion. No app/SQL/dependency
 change, timeout ratchet, sleep, retry, CI workflow change, version bump, commit, tag or push was made.
+
+## Phase 8: Combined Graph And Audit Gate
+
+Completed October 18, 2026, from clean commit `3550abd032709f9db33ec63e0f54e7ec3d89614a`
+on `v0.3.1`. Release identity remains `0.3.0`. [Structured evidence](phase-8-evidence.json)
+records the independent installation, actual audit reports, installed owner versions, original
+policy metadata and focused gate controls. Dependency declarations and lockfile are unchanged.
+
+| Boundary / Command | Outcome |
+| --- | --- |
+| Private snapshot with dependency mirroring disabled | Actual current source/config/lock installed into its own checkout and `node_modules` |
+| `npm ci --no-audit --no-fund` | Pass on Node `24.16.0` / npm `11.13.0`; no forced peers/overrides or lock rewrite |
+| Installed dependency owner | Resolves to the private checkout, not the working installation |
+| Full workspace `npm ls --all --json` with dev/optional/peer inclusion | Pass with valid installed peers |
+| Strict production audit collector | 0 findings; no exceptions permitted |
+| Strict full audit collector | 0 findings across all severities; development, optional and peer dependencies included |
+| Strict evaluator / original policy comparison | Pass with zero exceptions; original creation/release/expiry dates and review boundary exactly unchanged |
+| Focused audit/CI/ownership/resource checks | 40 passing checks in the independent installation |
+| Final audit/CI assertion refinements | 23 affected checks pass locally; a later structured-call refinement passes the five CI checks, with no install/audit/resource/application repeat |
+| Changed-test ESLint | Pass in the private installation and after final refinements |
+
+The private proof runs the same installed-owner validator, peer-graph validator, structured
+production/full collectors and policy evaluator used by `npm run audit:dependencies`, in a tracked
+child process. It saves their actual JSON reports; it does not interpret a failed/empty audit as clean
+or use a different advisory scope to lower the count. The ordinary CLI is additionally exercised
+with controlled responses in the focused tests below, avoiding duplicate network audits solely to
+test its wrapper. The full v0.3.0 baseline remains 13 findings/five advisory IDs; the adopted graph
+has zero. This is a point-in-time registry result, not a claim about undisclosed vulnerabilities.
+
+### Final Invariants And Failure Controls
+
+Replace the staged exact TypeScript patch and Vitest-major checks with actual owner peer ranges,
+root/web compiler-version agreement, coherent Vitest/browser/provider versions and required physical
+Angular runtime identity for the root/app/icon consumers. Drizzle must retain an exact reviewed
+Kit/ORM pair without the legacy loader. Frozen regressions scan every lock path against the five
+carried advisory ranges rather than depending on one transitive hoist or banning patched packages
+by name. The live full audit remains authoritative for new or changed vulnerabilities.
+
+Preserve invalid-peer/pruning, new finding/path/version/severity, stale/duplicate, production,
+date/version-boundary, malformed/incomplete/transport and snapshot/installation-lock mismatch
+negative checks. The empty original policy accepts a clean next-release tree even after the old
+exception deadline; it does not accept new findings or require a renewed deadline. Transport cases
+explicitly include DNS, connection reset and timeout errors; collector inclusion and zero retry
+arguments remain asserted.
+
+Six actual audit-CLI invocations use controlled npm responses: clean graph/audits pass; production
+findings, unknown findings with an empty policy, malformed JSON, transport-error JSON and a bad peer
+graph each retain exit 1. These synthetic responses are isolated test controls, not the retained live
+registry results. AST inspection verifies the strict gate remains in both full and checks profiles.
+The actual CI shell, invoked with a controlled failing npm child, forwards the literal checks/service
+arguments and retains exit 42. The existing Verify aggregate still rejects failed/skipped/canceled
+jobs. PR-only comprehensive CI, independent Pages deployment, shards and zero browser retries are
+unchanged; no extra main-push run or verification wrapper is introduced.
+
+After private acceptance, assertion-only refinements require no repeat installation or audit:
+allow separate compatible physical TypeScript copies while requiring matching versions, and assert
+the remaining collector inclusion/transport cases. The final 23 affected tests and ESLint pass.
+The final CI check inspects conditions, awaited calls and literal arguments structurally, not by
+statement-text matching; its five affected cases pass. Unchanged resource controls are reused from
+the 40-check run. Expected cleanup-failure diagnostics
+inside resource negative tests do not indicate an unsuccessful private-run cleanup.
+
+Actual artifacts are retained under
+`test-results/verification/1f75b500-9bff-4260-9019-f3018b41818f/`: `graph.json`, `production.json`,
+`full.json`, `audit-result.json` and `summary.json`. The summary reports successful cleanup. All
+owned private installations, nested test fixtures and recorded process groups are removed; no
+database, attachment store or application server was provisioned. The working installation/data,
+policy dates, lockfile, app/SQL source, CI workflow and public-site assets are untouched.
+
+Reuse the completed Phase 5 Angular and Phases 6-7 generation/data/API/runtime evidence. No Angular,
+API/contracts, schema-generation, database-upgrade, browser, rendered-site, build or timing suite was
+rerun for this gate-only phase. A cheap static site/link check and whitespace validation cover the
+documentation completion. Conditional Phase 9 remains deferred; fresh setup/documentation and the
+actual versioned release boundary remain in Phases 10-11. Nothing was committed, tagged or pushed.

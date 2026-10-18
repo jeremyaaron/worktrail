@@ -2,7 +2,7 @@
 
 ## Status
 
-Updated through Phase 7, October 18, 2026. Angular/Vitest cutover, Drizzle adoption and broader data/API acceptance are implemented. The unchanged Phase 6 installed graph is valid and production/full audits report zero findings; all five carried advisory exceptions are retired without extending the original dates or review boundary. Release identity remains `0.3.0`. The independent combined audit gate and release acceptance remain in Phases 8 and 11.
+Updated through Phase 8, October 18, 2026. Angular/Vitest cutover, Drizzle adoption, data/API acceptance and the independent combined graph/audit gate are complete. A fresh private installation of the actual adopted lock validates physical peers and reports zero production/full audit findings. All five carried exceptions are retired without extending original dates or review boundaries. Release identity remains `0.3.0`; setup/documentation and release acceptance remain in Phases 10-11. Conditional Phase 9 stays deferred.
 
 See [structured evidence](phase-0-evidence.json), [verification notes](verification-notes.md), and the [technical design](technical-design.md).
 
@@ -14,10 +14,13 @@ See [structured evidence](phase-0-evidence.json), [verification notes](verificat
 | Working Phase 1, Angular 21 with staged runners and unchanged Drizzle | Valid; clean `npm ci` | 0 | 10: 6 high Karma records, 4 moderate Drizzle records |
 | Working Phase 5, sole Vitest/Chromium runner and unchanged Drizzle | Valid; clean `npm ci` | 0 | 4 moderate Drizzle records, one advisory ID |
 | Working Phase 6, exact Drizzle RC pair and converted metadata | Valid; clean `npm ci` | 0 | 0 |
+| Independent Phase 8 adopted snapshot/lock | Valid physical peers; clean private `npm ci` | 0 | 0 |
 | Private staged Angular 21/Drizzle RC candidate, Karma retained | Valid after explicit peer bindings | 0 | 6 high, from the retained Karma/braces owner graph |
 | Private cutover candidate, Karma/Jasmine removed | Valid; clean `npm ci` | 0 | 0 |
 
-Counts include inherited parent findings. The private cutover proof establishes a viable combined path, not a release verdict for unconverted application tests. Phases 1-8 must implement and revalidate it; Phase 11 checks the actual `0.3.1` tree.
+Counts include inherited parent findings. The original private cutover proof established feasibility;
+Phases 1-8 have now implemented and revalidated the combined tree. This is not final release acceptance:
+Phase 11 checks the actual `0.3.1` identity and remaining handoff requirements.
 
 ### Phase 1 Disposition
 
@@ -57,6 +60,30 @@ then adds names and unknown (`null`) historical application times. No history is
 Worktrail, no statements are marked applied by hand, and no redundant domain migration is adopted.
 Selected runtime/transaction tests pass; broader populated/attachment preservation and the full API
 suite remain in Phase 7. The working/user database is untouched.
+
+### Phase 8 Disposition
+
+The independently installed adopted lock passes the real full-workspace peer graph and strict
+production/full collectors/evaluator, with zero findings in either audit and zero active exceptions.
+All five original advisory IDs and their vulnerable package/path/version combinations are retired.
+Original policy dates (`2026-10-17`, `2026-10-18`, `2026-11-16`) and the `0.3.1` review boundary are
+unchanged. No audit-fix downgrade, override, forced relationship, exception renewal or dependency
+update was needed. [Phase 8 evidence](phase-8-evidence.json) retains the actual before/after counts,
+structured reports, resolved owner versions and installed-graph identity.
+
+Final-toolchain tests use actual owner peer requirements and installed package resolution rather
+than an intermediate TypeScript patch pin or Vitest-major assertion. They preserve Angular identity,
+coherent browser-provider versions, the explicitly reviewed Drizzle pair and absence of the retired
+loader. Frozen regressions check all physical lock paths against the five carried advisory ranges;
+they do not assume a particular hoist or forbid a future patched transitive dependency. The live
+full audit remains authoritative for new/changed advisories.
+
+The actual audit CLI rejects controlled unsafe/error reports with nonzero exits, and the actual
+CI shell preserves its child's exit 42. Existing local/full/CI gate wiring and independent failure
+reporting stay intact. Forty focused checks pass in the fresh installation; final assertion-only
+refinements pass their affected checks without repeating unchanged application/resource suites.
+Application/runtime and SQL preservation evidence from Phases 5-7 is reused, not re-created or
+reclassified as release acceptance. The v0.3.0 audit record remains historical.
 
 ## Selected Versions
 

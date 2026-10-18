@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementation baseline: October 18, 2026. Phases 0-7 are complete; required implementation phases 8 and 10-11 have not started. Conditional Phase 9 is deferred by the Phase 0 scope decision.
+Implementation baseline: October 18, 2026. Phases 0-8 are complete; required implementation phases 10-11 have not started. Conditional Phase 9 remains deferred by the Phase 0 scope decision.
 
 This plan implements the [PRD](prd.md) and [technical design](technical-design.md). The [dependency disposition](dependency-remediation.md), [verification notes](verification-notes.md), and [Phase 0 evidence](phase-0-evidence.json) record the selected versions, proofs, and inventories. [Phase 1 evidence](phase-1-evidence.json) records the implemented Angular foundation; [Phase 2 evidence](phase-2-evidence.json) maps the shared/core conversion and retained coverage. [Phase 3 evidence](phase-3-evidence.json) records discovery/workspace conversion, focused acceptance, and controlled negative probes. [Phase 4 evidence](phase-4-evidence.json) completes detail/Planning/history conversion and the full inventory reconciliation. [Phase 5 evidence](phase-5-evidence.json) records single-runner cutover, advisory retirement, host/Linux lifecycle and integration results, and one unreproduced Quick Find observation. SQL history and release identity remain unchanged.
 
@@ -10,6 +10,8 @@ This plan implements the [PRD](prd.md) and [technical design](technical-design.m
 the reviewed metadata conversion, focused runtime/upgrade checks, and retirement of the final exception.
 [Phase 7 evidence](phase-7-evidence.json) records reproducible prior-release/fresh verification,
 populated data/files/history preservation, full API/contracts acceptance and compiled runtime checks.
+[Phase 8 evidence](phase-8-evidence.json) records independent combined-install peer/audit acceptance,
+retirement of all five carried advisories, final-toolchain invariants and fail-closed gate controls.
 
 The separately requested PR-only CI change is already in the working tree. Preserve it and its focused regression test; it is not unfinished feature scope to reimplement. Package/release identity remains `0.3.0` until closeout.
 
@@ -45,7 +47,7 @@ Angular conversion is split into infrastructure, three spec groups, and final cu
 | 5 | Single-runner cutover, owned lifecycle, and Angular acceptance | Complete |
 | 6 | Proven Drizzle adoption and historical metadata conversion | Complete |
 | 7 | Upgrade preservation, transactions, and API compatibility | Complete |
-| 8 | Combined clean dependency graph and audit-gate acceptance | Not started |
+| 8 | Combined clean dependency graph and audit-gate acceptance | Complete |
 | 9 | Measured E2E shard balancing, if capacity permits | Deferred in Phase 0 |
 | 10 | Developer guidance, setup acceptance, and release documentation | Not started |
 | 11 | Version identity, final verification, and closeout | Not started |
@@ -368,6 +370,10 @@ Completed work:
 
 ## Phase 8: Combined Graph And Audit Gate
 
+Status: Complete, October 18, 2026. [Evidence](phase-8-evidence.json) and
+[verification notes](verification-notes.md#phase-8-combined-graph-and-audit-gate) record the
+private installation, actual structured audits, preserved policy metadata and gate checks.
+
 Goal: establish the final dependency disposition without weakening security verification.
 
 Scope:
@@ -385,6 +391,16 @@ Acceptance:
 - Gate tests accept the clean case and reject the unsafe/error cases. No dependency force/override or exception renewal was used.
 
 Verification: private install/graph/audits and focused audit/CI/resource tests. Reuse unchanged Angular/database acceptance evidence; no complete application run solely because exception documentation changed.
+
+Completed work:
+
+- Independently install the actual adopted snapshot/lock with `npm ci` in a private owned checkout, not a dependency mirror. Validate its physical workspace peer graph and collect real production/full audits through the same strict gate modules: both have zero findings, with no exceptions.
+- Confirm all five carried advisory ranges are absent from every relevant lock entry. Preserve the original policy dates and release boundary exactly; keep v0.3.0's 13-finding record historical. No dependency declaration/lockfile, override, forced peer or expiry extension changed.
+- Replace staged exact-patch/major-only assertions with owner-peer compatibility, coherent Vitest/browser versions, required Angular runtime identity and exact reviewed Drizzle-pair invariants. Frozen advisory-range regressions allow patched transitive layouts rather than requiring vulnerable package names/paths to disappear wholesale.
+- Retain unknown/stale/duplicate, production, expiry/version, malformed/transport, invalid-peer and snapshot-lock negative checks. Exercise the actual audit CLI with controlled clean, production/unknown-finding, malformed/transport and bad-graph responses; unsafe/error cases retain exit 1.
+- Verify full/local and CI checks still invoke the strict gate; the actual CI shell preserves a child exit 42 and literal arguments. PR-only comprehensive CI, Pages deployment, independent failures, zero retries and job/shard scopes are unchanged.
+- Pass 40 focused audit/CI/ownership/resource checks and changed-test ESLint in the fresh installation. Final test-only refinements pass the affected audit/CI checks without repeating the private install, audits or unchanged resource cases.
+- Retain sanitized graph/audit/evidence files and remove private installations/processes/fixtures. Reuse completed Angular/database/API acceptance; no application suite, schema/build, browser, new timing run or working-data mutation occurred. Conditional Phase 9 remains deferred; setup/documentation and release identity remain in Phases 10-11.
 
 ## Phase 9: Conditional CI Efficiency
 

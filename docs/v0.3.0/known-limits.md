@@ -24,7 +24,7 @@ have scaling/consistency limits. CSV export is synchronous and capped at 10,000 
 This section records the v0.3.0 baseline. For the current v0.3.1 working tree, see
 [dependency disposition](../v0.3.1/dependency-remediation.md): Phases 1/5/6 retire all five carried
 advisories; the working exception list is empty and both audits report zero findings. The
-combined-audit, setup and release gates remain; Phase 7's broader preservation proof has passed.
+setup and release gates remain; Phases 7-8's broader preservation and combined-audit proofs have passed.
 The machine policy is authoritative.
 
 Production auditing must have zero findings. The v0.3.0 full graph was not clean: its disposition

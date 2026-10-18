@@ -1,0 +1,405 @@
+{
+  "schemaVersion": 1,
+  "phase": 8,
+  "recordedOn": "2026-10-18T23:54:08.865Z",
+  "releaseIdentity": "0.3.0",
+  "baseline": {
+    "commit": "3550abd032709f9db33ec63e0f54e7ec3d89614a",
+    "branch": "v0.3.1",
+    "worktree": "clean"
+  },
+  "environment": {
+    "node": "v24.16.0",
+    "npm": "11.13.0",
+    "platform": "darwin",
+    "architecture": "arm64"
+  },
+  "lockSha256": "5b43fb1f87ae625a7f7858f359fa6a3a593c8ae219165d25579b08f1c7b97257",
+  "sources": {
+    "package.json": "8ccf6b3a5d347de927f1e3a8726be7b53dd6d3390ab654e23e50db491c5a03bb",
+    "apps/api/package.json": "5f0372b843568571ab3b03f49df0dbf1383740b81b33e4c8face173eb0c63b22",
+    "apps/web/package.json": "3115bf6e8490a648967fd0fe361636416dd304ce28abc1c33bd3fd1fe21005be",
+    "scripts/audit-dependencies.mjs": "868246fcec48eeff5020ec663926ca8b9a8c6987df715df20715879ef79d7dce",
+    "scripts/verification/audit.mjs": "d034af56f4477bbda1006ece76260dc19522014c9c02d83af9435e5cea49988f",
+    "scripts/verification/audit.test.mjs": "09ad40c9c98698c3110d1e692f7b5783d51e90128f7fb31f0d4f777a7b70fa77",
+    "scripts/verification/ci.test.mjs": "6f6ce699e571bdf05e1047737f1bd2f1c1980c50dbfb5afec92b86255bc91e8c",
+    "scripts/verify.mjs": "9bc1f2ec8582c27a98fa0eec603addff679c84ce75fb1103573694a12f1689dc",
+    ".github/workflows/ci.yml": "62ea6cd9ff61167158f856e1e0fd5c4777a2f0cb720630858d6b3695613ab444",
+    ".github/workflows/pages.yml": "6425542beaa5266346e380b3089372b2c403b12722b022f018e111feb0231421",
+    ".github/actions/verify/action.yml": "ecdf84645f1761e9770ea4b6189cedb3d1fc7bd7a5cce2275e763135d839e914",
+    "docs/security/development-audit-exceptions.json": "7825ac5a6fda8735b132b5414b40884d1094c540b567b0f3dd9b197dee29a6f4"
+  },
+  "unchangedPhase7ApplicationInventories": {
+    "apps/api/src": "d188189a880e7e997b3fc3526b9c8257544c5188b843f9f3705a1ce6cd0d75be",
+    "apps/api/tests": "d761a48cef41dbcb81614c946ba6877c40dc90e4c45431ea6756f685f476996e",
+    "packages/contracts/src": "09b487628bf3413a7e9c56b71a00209430fa2f23b1a9a2faf50fa41ee9ba684c",
+    "apps/api/drizzle": "14c6bc577ccfae43d85cc041a6307027450aeb38654a6be2927c8ffcfda482ce"
+  },
+  "installation": {
+    "independent": true,
+    "cleanInstall": true,
+    "dependencyMirror": false,
+    "actualOwnerIsPrivateCheckout": true,
+    "noForceOverridesOrDependencyChanges": true,
+    "packages": [
+      {
+        "name": "typescript",
+        "version": "5.9.3",
+        "path": "node_modules/typescript"
+      },
+      {
+        "name": "@angular/core",
+        "version": "21.2.25",
+        "path": "node_modules/@angular/core"
+      },
+      {
+        "name": "@angular/build",
+        "version": "21.2.27",
+        "path": "node_modules/@angular/build"
+      },
+      {
+        "name": "@angular/compiler-cli",
+        "version": "21.2.25",
+        "path": "node_modules/@angular/compiler-cli"
+      },
+      {
+        "name": "typescript",
+        "version": "5.9.3",
+        "path": "node_modules/typescript"
+      },
+      {
+        "name": "vitest",
+        "version": "4.1.12",
+        "path": "node_modules/vitest"
+      },
+      {
+        "name": "@vitest/browser",
+        "version": "4.1.12",
+        "path": "node_modules/@vitest/browser"
+      },
+      {
+        "name": "@vitest/browser-playwright",
+        "version": "4.1.12",
+        "path": "node_modules/@vitest/browser-playwright"
+      },
+      {
+        "name": "drizzle-kit",
+        "version": "1.0.0-rc.4",
+        "path": "node_modules/drizzle-kit"
+      },
+      {
+        "name": "drizzle-orm",
+        "version": "1.0.0-rc.4",
+        "path": "node_modules/drizzle-orm"
+      },
+      {
+        "name": "pg",
+        "version": "8.22.0",
+        "path": "node_modules/pg"
+      }
+    ]
+  },
+  "graph": {
+    "valid": true,
+    "problems": [],
+    "sha256": "cc5cdb9f0b3db9422bbc9d31058eaad620779af8b3d82763128f7cb1e0709fcc"
+  },
+  "audits": {
+    "before": {
+      "production": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "full": {
+        "info": 0,
+        "low": 0,
+        "moderate": 5,
+        "high": 6,
+        "critical": 2,
+        "total": 13
+      }
+    },
+    "production": {
+      "auditReportVersion": 2,
+      "vulnerabilities": {},
+      "metadata": {
+        "vulnerabilities": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 0,
+          "critical": 0,
+          "total": 0
+        },
+        "dependencies": {
+          "prod": 120,
+          "dev": 690,
+          "optional": 153,
+          "peer": 3,
+          "peerOptional": 0,
+          "total": 810
+        }
+      }
+    },
+    "full": {
+      "auditReportVersion": 2,
+      "vulnerabilities": {},
+      "metadata": {
+        "vulnerabilities": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 0,
+          "critical": 0,
+          "total": 0
+        },
+        "dependencies": {
+          "prod": 120,
+          "dev": 690,
+          "optional": 153,
+          "peer": 3,
+          "peerOptional": 0,
+          "total": 810
+        }
+      }
+    },
+    "gateResult": {
+      "production": 0,
+      "full": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "advisories": 0,
+      "accountedPaths": 0
+    },
+    "actualCommands": [
+      {
+        "command": "npm",
+        "args": [
+          "ls",
+          "--all",
+          "--json",
+          "--workspaces",
+          "--include-workspace-root",
+          "--include=dev",
+          "--include=optional",
+          "--include=peer"
+        ],
+        "code": 0
+      },
+      {
+        "command": "npm",
+        "args": [
+          "audit",
+          "--json",
+          "--audit-level=info",
+          "--fetch-retries=0",
+          "--fetch-timeout=30000",
+          "--workspaces",
+          "--include-workspace-root",
+          "--include=optional",
+          "--include=peer",
+          "--omit=dev"
+        ],
+        "code": 0
+      },
+      {
+        "command": "npm",
+        "args": [
+          "audit",
+          "--json",
+          "--audit-level=info",
+          "--fetch-retries=0",
+          "--fetch-timeout=30000",
+          "--workspaces",
+          "--include-workspace-root",
+          "--include=optional",
+          "--include=peer",
+          "--include=dev"
+        ],
+        "code": 0
+      }
+    ],
+    "retired": [
+      {
+        "advisory": "GHSA-vfj7-8cjw-p6xm",
+        "originalAffectedRecords": 6,
+        "currentAffectedRecords": 0
+      },
+      {
+        "advisory": "GHSA-67mh-4wv8-2f99",
+        "originalAffectedRecords": 4,
+        "currentAffectedRecords": 0
+      },
+      {
+        "advisory": "GHSA-82fw-gwwq-j7x9",
+        "originalAffectedRecords": 3,
+        "currentAffectedRecords": 0
+      },
+      {
+        "advisory": "GHSA-5gmw-xhrv-c9v3",
+        "originalAffectedRecords": 3,
+        "currentAffectedRecords": 0
+      },
+      {
+        "advisory": "GHSA-85c8-ppgw-ccpr",
+        "originalAffectedRecords": 3,
+        "currentAffectedRecords": 0
+      }
+    ]
+  },
+  "policy": {
+    "schemaVersion": 1,
+    "createdOn": "2026-10-17",
+    "releaseVersion": "0.3.0",
+    "reviewBeforeVersion": "0.3.1",
+    "releaseDate": "2026-10-18",
+    "maxExpiresOn": "2026-11-16",
+    "exceptions": [],
+    "originalDatesAndBoundaryPreserved": true
+  },
+  "gates": [
+    {
+      "name": "clean-install",
+      "command": "npm",
+      "args": [
+        "ci",
+        "--no-audit",
+        "--no-fund"
+      ],
+      "passed": true,
+      "durationMs": 7914
+    },
+    {
+      "name": "real-graph-and-both-audits",
+      "command": "/Users/jeremyaaron/.nvm/versions/node/v24.16.0/bin/node",
+      "args": [
+        "/tmp/worktrail-phase8-ig7UMc/collect.mjs",
+        "/private/var/folders/xy/qddyrj19649dglvkkkbn1r6c0000gn/T/worktrail-verify-eZkSba/checkout",
+        "/Users/jeremyaaron/Projects/worktrail/test-results/verification/1f75b500-9bff-4260-9019-f3018b41818f"
+      ],
+      "passed": true,
+      "durationMs": 1735
+    },
+    {
+      "name": "focused-audit-ci-resource-tests",
+      "command": "/Users/jeremyaaron/.nvm/versions/node/v24.16.0/bin/node",
+      "args": [
+        "--test",
+        "scripts/verification/audit.test.mjs",
+        "scripts/verification/ci.test.mjs",
+        "scripts/verification/ownership.test.mjs",
+        "scripts/verification/resources.test.mjs"
+      ],
+      "passed": true,
+      "durationMs": 6697
+    },
+    {
+      "name": "changed-test-eslint",
+      "command": "npm",
+      "args": [
+        "exec",
+        "--",
+        "eslint",
+        "scripts/verification/audit.test.mjs",
+        "scripts/verification/ci.test.mjs",
+        "--max-warnings=0"
+      ],
+      "passed": true,
+      "durationMs": 1650
+    }
+  ],
+  "selectedTests": {
+    "command": "node --test scripts/verification/audit.test.mjs scripts/verification/ci.test.mjs scripts/verification/ownership.test.mjs scripts/verification/resources.test.mjs",
+    "privateInstallationPassed": 40,
+    "privateInstallationFailed": 0,
+    "finalAssertionFollowup": {
+      "command": "node --test scripts/verification/audit.test.mjs scripts/verification/ci.test.mjs",
+      "passed": 23,
+      "changes": [
+        "Compiler version agreement without unnecessary physical-copy restriction",
+        "Explicit peer/root inclusion, zero retries and DNS/reset/timeout assertions"
+      ],
+      "noDuplicateInstallAuditOrUnchangedResourceRun": true
+    },
+    "finalCiAstFollowup": {
+      "command": "node --test scripts/verification/ci.test.mjs",
+      "passed": 5,
+      "change": "Inspect mode conditions, awaited audit calls and command arguments structurally rather than matching statement text."
+    },
+    "changedTestEslint": true
+  },
+  "controls": {
+    "actualAuditCli": {
+      "scenarios": 6,
+      "cleanExit": 0,
+      "unsafeAndErrorExits": 1,
+      "rejected": [
+        "production finding",
+        "unknown finding with empty policy",
+        "malformed JSON",
+        "transport error JSON",
+        "invalid peer graph"
+      ],
+      "responsesAreSyntheticAndSeparateFromLiveAudits": true
+    },
+    "actualCiShell": {
+      "failingChildExitPreserved": 42,
+      "literalChecksServiceArguments": true
+    },
+    "retainedNegativeCases": [
+      "new advisory/path/version/severity",
+      "stale/duplicate exception",
+      "production finding",
+      "expiry/release boundary",
+      "invalid graph/pruning",
+      "malformed/incomplete/error report",
+      "DNS/reset/timeout failure",
+      "snapshot/installation lock mismatch",
+      "owned resource marker/identity mismatch",
+      "command failure/interruption/descendant cleanup"
+    ],
+    "positiveInvariants": [
+      "actual owner peer compatibility",
+      "coherent Vitest/browser/provider versions",
+      "Angular physical runtime identity",
+      "reviewed exact Drizzle pair",
+      "all lock entries outside carried advisory ranges",
+      "empty unrenewed policy",
+      "full/checks gate wiring"
+    ],
+    "noCiTriggerShardRetryOrFailureMaskingChange": true
+  },
+  "scope": {
+    "angularApiContractsDatabaseBrowserBuildSuitesRerun": false,
+    "workingInstallationOrDataTouched": false,
+    "dependenciesLockSqlAppSourcesChanged": false,
+    "versionBumpCommitTagOrPush": false,
+    "reuse": [
+      "Phase 5 Angular acceptance",
+      "Phase 6 schema generation/history adoption",
+      "Phase 7 full backend/data/runtime acceptance"
+    ],
+    "phase9Deferred": true,
+    "remaining": [
+      "Phase 10 setup/documentation",
+      "Phase 11 versioned release acceptance"
+    ],
+    "liveAuditIsPointInTimeNotUndisclosedVulnerabilityGuarantee": true
+  },
+  "results": "test-results/verification/1f75b500-9bff-4260-9019-f3018b41818f/summary.json",
+  "cleanup": {
+    "runId": "1f75b500-9bff-4260-9019-f3018b41818f",
+    "removed": true,
+    "databaseProvisioned": false,
+    "applicationServerStarted": false
+  }
+}

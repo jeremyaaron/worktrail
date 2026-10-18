@@ -804,8 +804,8 @@ Reviewed development exceptions are exact advisory/
 package/path/version/severity records with an owner, exposure limits, mitigation, follow-up, and expiry;
 unknown findings, stale records, transport failures, or expired exceptions fail the gate.
 See the [current dependency disposition](docs/v0.3.1/dependency-remediation.md) and
-[exception data](docs/security/development-audit-exceptions.json). The v0.3.1 Phase 6 working graph
-reports zero production/full audit findings and has no active exceptions. This is a point-in-time
+[exception data](docs/security/development-audit-exceptions.json). The independent v0.3.1 Phase 8 installation
+reports zero production/full audit findings, valid workspace peers and no active exceptions. This is a point-in-time
 audit result, not a guarantee against undisclosed vulnerabilities; release acceptance is still pending.
 
 ## Public Site
