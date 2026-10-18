@@ -890,7 +890,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       this.currentUser.loadMembers();
     }
 
-    let initialized = false;
+    let initializedWithActor = false;
     this.context.start(() => {
       this.savedViewsState.reset(); this.viewOpenGeneration++; this.queryState.clearResults();
       this.pendingContextPageReset = false;
@@ -911,7 +911,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       this.exportError.set(null);
       this.activePageQuery.set({ ...defaultWorkItemPageQuery });
       this.reloadActorContext();
-      if (initialized && (this.context.query('page') !== '' || this.context.query('pageSize') !== '')) {
+      if (initializedWithActor && (this.context.query('page') !== '' || this.context.query('pageSize') !== '')) {
         this.pendingContextPageReset = true;
         const isCurrent = this.context.capture();
         void this.router.navigate([], {
@@ -924,7 +924,8 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
           }
         });
       }
-      initialized = true;
+      // Initial member bootstrap must retain a deep link's paging, unlike a later actor switch.
+      initializedWithActor = this.currentUser.selectedMember() !== null;
     });
     this.watchFilterChanges();
 

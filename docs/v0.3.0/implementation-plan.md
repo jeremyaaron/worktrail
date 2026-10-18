@@ -2,9 +2,9 @@
 
 ## Status
 
-Approved for sequential execution. Phases 0-16 are complete as of October 17, 2026;
-Phases 17-21 are not started. Release verification remains pending. Merge, tag, publication,
-and Pages deployment remain separate user-controlled actions.
+All phases 0-21 are complete as of October 18, 2026. Final versioned-tree full verification and
+supplemental lifecycle/graph checks pass. Merge, tag, remote CI, publication and Pages deployment
+remain separate user-controlled actions. Manual assistive-device limits are recorded, not certified.
 
 ## Purpose
 
@@ -107,7 +107,7 @@ integration boundaries.
 | 18 | Portfolio, project navigation, and Quick Find ergonomics | Complete |
 | 19 | Public site, current developer guidance, and independent local setup | Complete |
 | 20 | Cross-surface acceptance, accessibility, and UAT handoff | Complete |
-| 21 | Release identity, documentation closeout, and final verification | Not started |
+| 21 | Release identity, documentation closeout, and final verification | Complete |
 
 Each phase depends on completion of the preceding phases. Additional architectural dependencies are
 called out below. Fixture extraction is incremental in the phase that needs the scenario; it is not
@@ -1702,7 +1702,30 @@ Acceptance:
 Verification: final owned full verification, supplemental concurrency/query/parallel-run evidence,
 documentation/local-link/version checks, git diff/whitespace/status review, and explicit cleanup inventory.
 
-Status: Not started.
+Status: Complete on October 18, 2026. User approval permits local finalization; screen-reader and
+real-device checks remain explicitly unperformed, not inferred from that approval. Intended release
+date is recorded without implying a published tag.
+
+Final versioned-tree full run `446becc4-a861-4f47-aef8-5e03957ea7e6` passes all 26 gates with automatic
+cleanup: 56 resource, 880 API, 88 contracts, 887 Angular, five editor, 60 application, two compiled
+preview and two site cases. The first full run exposed an initial-actor pagination reset; both list
+owners are repaired with failing-before/passing-after unit and delayed-network browser regressions.
+All ten supplemental lifecycle scenarios pass, including service-mode API, interruption and two real
+parallel browser runs. Owned graph run `c77e4da9-21b7-4f08-8481-499ed75239a7` confirms 401.95 kB
+initial/112.10 kB estimated transfer, 157 initial inputs and 20 lazy page entries; heavy features,
+editor/Markdown, CDK/dialog and icon runtime inputs remain outside the initial graph. Budgets are unchanged.
+
+Release notes, destination-neutral pattern notes, limits/advisory policy, acceptance disposition,
+README/current guidance and staged site release links are aligned. All release identities are `0.3.0`;
+historical evidence and the existing CSV example remain intact. Documentation/local-link/version/diff
+checks pass. Cleanup audit covers ten generated summaries and five observed main/diagnostic/graph roots:
+no phase-owned root, matching process path or labeled container remains. The pre-existing October 17
+temporary directory, ordinary PostgreSQL/working storage and unrelated servers are untouched.
+
+The [final verification record](verification-notes.md#phase-21-final-release-verification) retains
+failures, repair, exact commands/counts and cleanup. The [publication checklist](known-limits.md#user-controlled-publication-checklist)
+leaves remote CI/tag/link/Pages/share validation to the user. No commit, push, merge, tag, publication
+or deployment was performed. This is local reference-release readiness, not production certification.
 
 ## Acceptance Journey Matrix
 

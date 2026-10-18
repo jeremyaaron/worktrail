@@ -1,12 +1,13 @@
 # Worktrail Developer Ownership And Invariants
 
-This is the current implementation guide, not a release archive. As of v0.3.0 Phase 19, persistence
+This is the current implementation guide, not a release archive. In v0.3.0, persistence
 ownership, batched queries, lifecycle coordination, authoritative work/relationship commands,
 bounded HTTP parsing, versioned risk/query policy, aggregate narrowing, committed frontend context,
 shared draft departure protection, read-first detail composition, bounded inspection navigation,
 shared saved-view/list state, execution-first Planning, complete historical outcomes and repeated
-discovery are implemented. Broad acceptance and release finalization remain in the
-[implementation plan](v0.3.0/implementation-plan.md). Start with the
+discovery are implemented. The [implementation plan](v0.3.0/implementation-plan.md),
+[release verification](v0.3.0/verification-notes.md#phase-21-final-release-verification), and
+[known limits](v0.3.0/known-limits.md) record acceptance and release boundaries. Start with the
 [README setup paths](../README.md#local-setup) and [current operating guide](operations.md).
 
 ## Production Owner Map

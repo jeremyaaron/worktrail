@@ -4,8 +4,8 @@
 
 Phases 1-2 establish disposable API/browser verification and destructive-operation guards. Evidence below
 was collected on October 17, 2026 on macOS, using Node 20.19.1, npm 10.8.2, Docker 27.3.1,
-PostgreSQL 16 containers, and the unchanged v0.2.9 dependency graph. Release acceptance remains
-scheduled for later phases in the [implementation plan](implementation-plan.md).
+PostgreSQL 16 containers, and the unchanged v0.2.9 dependency graph. That is historical phase context,
+not the final release toolchain; see [final verification](#phase-21-final-release-verification).
 
 Phase 3 uses the updated dependency graph and Node 24/npm 11; its evidence and diagnostics are
 recorded separately below. Earlier phase results retain their original toolchain context.
@@ -2087,3 +2087,117 @@ links/anchors and diff checks pass. Documentation-only completion edits reuse un
 evidence. Phase 20 automated acceptance and UAT handoff are complete; actual user/assistive-device
 signoff remains explicitly pending before Phase 21 release closure. Versions remain 0.2.9. No commit,
 push, merge, tag, publication or deployment was performed.
+
+## Phase 21: Final Release Verification
+
+Completed on October 18, 2026. The final local tree identifies `0.3.0` in root/workspace manifests,
+the API contracts dependency, lockfile and OpenAPI/test. Site release links are staged for the future
+matching tag only after release artifacts exist. They do not establish public availability.
+
+User "LGTM" approval to finalize is recorded in the [acceptance handoff](acceptance-handoff.md).
+Detailed human walkthrough, screen-reader, real OS input and cross-browser/device observations are
+not attested; these remain precise [local-readiness limits](known-limits.md), not passed tests.
+
+The machine exception policy uses the intended release date `2026-10-18`; all five exceptions retain
+their original November 16 UTC/v0.3.1/30-day boundary. No expiry was extended. Recheck the actual date
+before tagging.
+
+### Diagnostic And Repair
+
+Initial final-tree run `bc07ebcd-d5c5-453a-b549-a4a065d25782` passed audit/lint/type/schema,
+56 resource checks, 880 API/88 contracts/885 Angular cases, warning-free production build and five
+editor checks. Application acceptance passed 57/58; the pagination journey lost `page=2&pageSize=10`
+on reload. Preview/site gates were not reached. The failed run is retained, not reported as a pass.
+
+The trace identified a member-bootstrap race: both list pages marked themselves initialized while
+the actor was still unresolved, then interpreted initial actor resolution as a later actor switch
+and reset paging. Deterministic regressions for both owners failed against the original code in
+`6fb7147b-db4d-484e-b65f-b266425ffe24` (95/97 pass). Initialization now distinguishes unresolved
+bootstrap from a previously resolved actor. All 97 affected-file cases pass after repair in
+`f2c0ae35-70b3-43d3-a833-a8da2728c3e8`, including existing deliberate actor/project reset coverage.
+Both diagnostic runs cleaned their owned resources. Two browser checks now hold the real members
+response until page-two results render, then require the URL/query/results to survive bootstrap.
+No timeout, retry, budget or fixture-count relaxation was used.
+
+### Final Versioned-Tree Gates
+
+Run `446becc4-a861-4f47-aef8-5e03957ea7e6` passes all 26 gates with `passed: true`,
+`cleaned: true`, no interruption, and zero automatic browser retries. The command is `npm run verify`
+with Node 24.16.0/npm 11.13.0 on macOS 26.5.1, Docker 27.3.1, disposable PostgreSQL 16 and bundled
+Chromium 149.0.7827.55. The source baseline is commit `e6aa4117ad16539244489b4b2f94b11e90958d0c`
+plus the Phase 21 release-identity/docs/bootstrap changes, not a published tag.
+
+| Gate | Result |
+| --- | --- |
+| Clean `npm ci` | Passed; 804 installed packages, valid workspace/peer graph; retained tooling deprecations recorded as limits |
+| Audits | Production zero; full 13 (5 moderate/6 high/2 critical), five bounded advisories/19 exact records; intended-date/expiry policy passes |
+| Lint and typechecks | All source, tests, verification tooling and workspace checks passed |
+| Schema/migrations | Generation byte-identical to committed SQL/journal/snapshots; owned migrations passed, no new migration |
+| Resource checks | 56 passed, including fail-closed audits, target/marker protections and detached-group cleanup regression |
+| API | 880 across 68 files passed, including real concurrent schedules, rollback/context, transport boundaries, preservation and query evidence |
+| Contracts | 88 across 13 files passed before production contracts build in a snapshot without inherited `dist` |
+| Angular | 887 passed, including delayed initial actor bootstrap and deliberate actor/project reset behavior |
+| Production build | Contracts, API and Angular passed without budget warnings; unchanged thresholds |
+| Native editor | Five passed, including undo/redo, selection, keyboard/link actions, security, reflow and synthetic composition |
+| Application browser | All 60 passed; delayed project/workspace bootstrap plus the original reload/navigation regression included |
+| Compiled preview | Both passed, including exact seeded downloads, compiled deep links and authored read/preview behavior |
+| Site | Both passed; 43 references, 17 repository links, 13 IDs, matching release identity and actual Pages subpath |
+
+The full run repeats 20 hydration cases (11-13 statements at 10/25/100 rows). At 100 rows, complete
+project HTTP reads use 13 statements and workspace reads use 12 for mixed/repeated/distinct reference
+fixtures, below the unchanged ceiling of 20. Twenty cold/warm aggregate cases also pass. At 15
+projects/900 work records, cold My Work enriches 32 rows with 13 statements/111,622 bytes; Portfolio
+enriches none with nine/75,242 bytes; project Planning evaluates 60/enriches 22 with eleven/50,131
+bytes. Raw evidence is retained in this run's `hydration-evidence.json` and `aggregate-evidence.json`.
+These are local fixture measurements, not production latency or workspace-scale guarantees.
+
+Native zoom again reports 2, outer width 1440 unchanged, CSS viewport 1440 -> 720, DPR 1 -> 2 and
+CSS zoom 1 unchanged. Six uncropped viewport captures and metrics are retained as report attachments.
+Inspected the new full Quick Find and Portfolio frames; close access and contained controls are
+visible. The viewport/font matrix and historical sharing/print journeys also pass. The Phase 19
+independent fresh development/preview setup evidence remains applicable to unchanged startup/storage
+adapters; final clean install, setup-proof browser journey and compiled preview add current-tree
+evidence without claiming both standalone fresh-install commands were repeated here.
+
+### Supplemental Gates And Closure
+
+The final serial lifecycle command uses the existing Node test entry point with spec and JUnit
+reporters: `node --test scripts/verification/lifecycle.check.mjs`. All ten scenarios pass;
+the retained report is `test-results/verification/phase21-lifecycle-2026-10-18.xml`. This covers real
+Docker and service provisioning, marker/target rejection, migration/repeated-seed/reset preservation,
+partial Docker creation, explicit abandoned cleanup, injected API-stage failure, migration-time
+SIGINT/SIGTERM, complete service-mode API, simultaneous real browsers with one interrupted, and
+editor SIGTERM without database/Docker provisioning. No deadline or retry was changed.
+
+Service API run `3deae0c4-85ba-44f6-a545-31c89e8c9c51` passes and cleans. Editor run
+`8964e4f5-8d74-40e5-bdf1-96bd0391db79` correctly reports interrupted exit 143 and `cleaned: true`;
+the lifecycle test checks all observed real browser descendants and the unchanged external sentinel.
+Other injected failure/signal summaries retain their failure status; successful lifecycle assertions
+do not relabel those commands as passing verification runs.
+
+Owned production statistics run `c77e4da9-21b7-4f08-8481-499ed75239a7` passes and cleans. It uses the
+existing ownership/snapshot/command/cleanup APIs and `npm run build --workspace @worktrail/web -- --stats-json`,
+then walks only static imports from the main entry. Initial size is 401.95 kB/112.10 kB estimated
+transfer; 157 initial inputs and 20 lazy page entries remain. No Lucide runtime, CDK/dialog, heavy
+detail/Planning/report/create, editor or Markdown input entered that graph. Builds are warning-free
+with unchanged budgets; no application package, framework or extraction destination was added.
+
+Structured identity checks verify all four manifests, lockfile entries/API contracts dependency,
+OpenAPI and intended-date policy. Structural comparison with HEAD confirms lockfile changes are
+identity-only and exception records/deadlines are unchanged. Current Markdown links/anchors and
+site release/assets/base-path validation pass, as do final whitespace/diff reviews. Archived releases,
+the v1 golden evidence and the valid v0.2.9 CSV example are preserved.
+
+Read-only cleanup audit `test-results/verification/phase21-cleanup-audit-2026-10-18.json` covers ten
+generated summaries and five captured main/diagnostic/graph roots. Every summary reports cleanup;
+no phase-created temporary root, matching process path or labeled container remains. The pre-existing
+October 17 `worktrail-verify-WqjQsa` directory remains untouched, along with ordinary PostgreSQL on
+5432, working data/storage and unrelated servers. Lifecycle fixtures independently assert cleanup
+of their additional marked databases, stores, containers and browser groups.
+
+Documentation-only completion reuses the unchanged functional passes and reruns local-link/site/
+version/diff checks, not API or Angular suites. User approval and remaining manual/device/advisory
+limits are explicit in [acceptance](acceptance-handoff.md) and [known limits](known-limits.md).
+Phase 21 and the sprint are locally complete. Remote CI, fixed-tag resolution, deployed Pages and
+external share/device validation remain [publication checks](known-limits.md#user-controlled-publication-checklist).
+No commit, push, merge, tag, publication or deployment was performed.

@@ -3,10 +3,9 @@
 ## Status
 
 Approved implementation scope. Phase 0 planning and decision closure completed on October 17, 2026.
-Phases 1-8 verification, toolchain, persistence, batched queries, project/cycle coordination,
-authoritative work/relationship commands, and import transport safety are complete; implementation
-is in progress and release
-verification remains pending. See the
+All phases 0-21 are complete on October 18, 2026. Final versioned-tree full verification and
+supplemental lifecycle/graph checks pass. User approval to finalize is recorded; manual
+assistive-technology/device checks and remote publication remain separate limits. See the
 [implementation plan](implementation-plan.md).
 
 ## Summary

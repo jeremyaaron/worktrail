@@ -1,6 +1,6 @@
 # Worktrail
 
-Worktrail is a project management reference app. The v0.2.9 baseline is a local-first Angular +
+Worktrail is a project management reference app. The v0.3.0 baseline is a local-first Angular +
 TypeScript API + Postgres application focused on readable descriptions and discussion, fast workspace
 navigation and bounded multi-entity search, files in work-item context, scalable work discovery, daily team workflow, two-level work
 breakdown, workspace portfolio review, collaboration updates, reliable filtered work views, pinned
@@ -44,7 +44,7 @@ docs/
   v0.2.7/  Files in Context PRD, technical design, implementation plan, release notes, and pattern notes
   v0.2.8/  Quick Find PRD, technical design, implementation plan, release notes, and pattern notes
   v0.2.9/  Readable Work PRD, design, plan, release/pattern notes, CSV example, and verification evidence
-  v0.3.0/  Current consolidation plan, audits, and implementation evidence
+  v0.3.0/  Connected Work PRD, design, plan, audits, release/pattern notes, limits, and verification evidence
   development.md Current implementation owners and invariants
   operations.md Current local operation, upgrade, and backup guidance
   api/     OpenAPI reference
@@ -188,19 +188,19 @@ format selector, and preview. New descriptions and comments in the Angular app d
 existing edits preserve their stored format. Choose Plain text to retain literal punctuation, or
 deliberately convert to Markdown. Preview never saves a draft, and cancel/reset restores its context.
 
-The v0.3.0 working branch protects unsaved work-item fields, new/edited comments and recipients,
+v0.3.0 protects unsaved work-item fields, new/edited comments and recipients,
 creation forms, and report narratives with a shared Stay/Discard decision. It also protects reused
 record routes, actor/project changes, and Quick Find navigation. Pending writes block departure rather
 than offer cancellation. A conditional browser unload warning protects reload/close where supported;
 drafts are not autosaved or stored for recovery after a crash. Report evidence refresh preserves edits.
 
-The working branch also makes work-item detail read-first: project and planning facts, description,
+Work-item detail is read-first: project and planning facts, description,
 independent status/watch actions and discussion precede administrative forms. Edit opens fields,
 including setting/clearing estimate and due date. Parent management, children, dependency management,
 watchers and history are expandable. Closed child work includes Done and Canceled; parent estimates
 remain independent of child totals. Field saves/cancellation preserve unrelated discussion and files.
 
-Inspection links on the working branch retain a validated origin and at most one immediate work item.
+Inspection links retain a validated origin and at most one immediate work item.
 Parent/child and dependency links, create success, reviews/reports, and Quick Find can return to the
 original filtered list and page, including after reload, without growing a nested URL stack. Return
 links describe their destination. Discussion, Files, Dependencies, History, and identifiable Inbox
@@ -243,8 +243,9 @@ API compatibility and input rules:
 
 Existing installations should run `npm run db:migrate` to apply additive migration
 `0019_nosy_junta.sql`; it backfills existing records as plain text without rewriting their source.
-Do not reset or reseed working data to upgrade. See the [release notes](docs/v0.2.9/release-notes.md)
-and [verification evidence](docs/v0.2.9/verification-notes.md) for compatibility and residual limits.
+Do not reset or reseed working data to upgrade. See the [current release notes](docs/v0.3.0/release-notes.md),
+[verification evidence](docs/v0.3.0/verification-notes.md#phase-21-final-release-verification), and
+[known limits](docs/v0.3.0/known-limits.md) for compatibility and residual risk.
 
 ## Quick Find
 
@@ -497,7 +498,7 @@ Cycles are intentionally compact in v0.2.1. Velocity charts, ceremony management
 
 v0.2.4 completes the cycle lifecycle with a guided closeout workflow. Owners and maintainers can preview an active cycle's closing scope, choose one planned destination for all unfinished work or return it to unplanned work, and apply completion plus carryover as one transactional command.
 
-The v0.3.0 working branch refines this flow with complete historical groups, deliberate destination selection, collapsed current context, and frozen-outcome sharing.
+v0.3.0 refines this flow with complete historical groups, deliberate destination selection, collapsed current context, and frozen-outcome sharing.
 
 Closeout behavior includes:
 

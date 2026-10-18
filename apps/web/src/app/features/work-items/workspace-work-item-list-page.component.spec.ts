@@ -394,6 +394,32 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     TestBed.inject(HttpTestingController).verify();
   });
 
+  it('preserves deep-link paging when the initial actor resolves after the page mounts', () => {
+    route.setQuery({ status: 'ready', page: '2', pageSize: '10' });
+    const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    const fixture = TestBed.createComponent(WorkspaceWorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    const initialRequests = http.match(() => true);
+    initialRequests.find(request => request.request.url === '/api/members')!.flush([owner, contributor]);
+    fixture.detectChanges();
+
+    expect(navigate).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.activePageQuery()).toEqual({ page: 2, pageSize: 10 });
+    flushProjectSummaries(http);
+    flushSavedViews(http);
+    const request = http.expectOne(candidate => candidate.url === '/api/work-items');
+    expect(request.request.params.get('page')).toBe('2');
+    expect(request.request.params.get('pageSize')).toBe('10');
+    expect(request.request.params.get('status')).toBe('ready');
+    request.flush(workItemPage([workItem], {
+      page: 2, pageSize: 10, totalCount: 11, totalPages: 2, hasPreviousPage: true
+    }));
+    fixture.detectChanges();
+    expect(fixture.componentInstance.workItems()).toEqual([workItem]);
+  });
+
   it('loads workspace work from URL query state and renders result links', () => {
     const { fixture, http } = setup({
       projectId,

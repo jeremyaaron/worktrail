@@ -487,6 +487,34 @@ describe('WorkItemListPageComponent', () => {
     http.verify();
   });
 
+  it('preserves deep-link paging when the initial actor resolves after the page mounts', () => {
+    const currentUser = TestBed.inject(CurrentUserService);
+    currentUser.members.set([]);
+    currentUser.selectedMemberId.set(null);
+    projectRoute.setQuery({ status: 'ready', page: '2', pageSize: '10' });
+    const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    const initialRequests = http.match(() => true);
+    initialRequests.find(request => request.request.url === '/api/members')!.flush([ownerMember, member]);
+    fixture.detectChanges();
+
+    expect(navigate).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.activePageQuery()).toEqual({ page: 2, pageSize: 10 });
+    flushProjectWorkContext(http);
+    const request = http.expectOne(candidate => candidate.url === `/api/projects/${projectId}/work-items`);
+    expect(request.request.params.get('page')).toBe('2');
+    expect(request.request.params.get('pageSize')).toBe('10');
+    expect(request.request.params.get('status')).toBe('ready');
+    request.flush(projectWorkItemPage([readyWorkItem], {
+      page: 2, pageSize: 10, totalCount: 11, totalPages: 2, hasPreviousPage: true
+    }));
+    fixture.detectChanges();
+    expect(fixture.componentInstance.workItems()).toEqual([readyWorkItem]);
+  });
+
   it('loads work items with query parameter filters and renders dense rows', () => {
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);

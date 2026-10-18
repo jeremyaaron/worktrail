@@ -6,9 +6,9 @@ Implementation baseline, confirmed during Phase 0 on October 17, 2026. This desi
 direction in the [PRD](prd.md), informed by the
 [UX audit](ux-audit.md), [technical debt audit](tech-debt-audit.md), and
 [public site audit](site-audit.md). The [implementation plan](implementation-plan.md) records Phase 0
-inventories, closed choices, sequencing, and acceptance. Phases 1-8 verification, toolchain,
-persistence, batched queries, project/cycle coordination, authoritative work/relationship commands,
-and import transport safety are complete; implementation is in progress.
+inventories, closed choices, sequencing, and acceptance. All phases 0-21 are complete on October 18,
+2026, with final versioned-tree full verification and supplemental lifecycle/graph checks passing.
+Remote publication and manual assistive-device validation are not implied by local readiness.
 
 ## Summary
 

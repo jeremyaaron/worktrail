@@ -1,9 +1,11 @@
 # Worktrail v0.3.0 Acceptance Handoff
 
-Phase 20 verifies the consolidated application and prepares user acceptance. This is a working-branch
-handoff, not a released, deployed, or accessibility-certified product. Package identity remains
-`0.2.9` until Phase 21. Detailed commands, counts, diagnostic failures, and cleanup evidence belong in
+Phase 20 verifies the consolidated application and prepares user acceptance. Phase 21 aligns the local
+release tree to `0.3.0`; merge, tag and deployment remain separate actions. This is not an
+accessibility-certified product. Detailed commands, counts, diagnostic failures, and cleanup evidence belong in
 the [Phase 20 verification record](verification-notes.md#phase-20-integrated-acceptance-and-uat-handoff).
+Final versioned-tree results and the bootstrap repair are recorded separately under
+[Phase 21 verification](verification-notes.md#phase-21-final-release-verification).
 
 ## Acceptance Coverage
 
@@ -88,13 +90,15 @@ For exact named history IDs and frozen/current differences, see the
 
 ## Manual Signoff
 
-| Item | Current Status | Required Disposition Before Phase 21 Closure |
+| Item | Current Status | Disposition |
 | --- | --- | --- |
-| User UAT | Pending; no v0.3.0 user observations or approval recorded | Record actual walkthrough observations and approval, or an explicit decision about any remaining items |
-| Screen-reader walkthrough | Not performed in this environment | Check view identity/results announcements, active navigation, detail targets, departure dialog, Quick Find and closeout with a named reader/browser; record defects or explicitly accept the gap |
-| Native OS input | Real OS IME, OS clipboard and cross-browser device behavior not attested | Synthetic composition and browser paste/undo checks are narrower evidence; record real-device observations or explicitly accept that limit |
+| User UAT | User approved advancement with "LGTM" on October 18, 2026 | Handoff approval recorded; no detailed walkthrough, actor, device or browser observations were supplied, so those steps are not marked passed |
+| Screen-reader walkthrough | Not performed in this environment | Carried as an explicit local-readiness limit; view/results announcements, active navigation, targets and dialogs need a named reader/browser walkthrough before claiming assistive-technology validation |
+| Native OS input | Real OS IME, OS clipboard and cross-browser device behavior not attested | Carried as an explicit local-readiness limit; synthetic composition and browser paste/undo checks are narrower evidence, not real-device certification |
 | Remote validation | Local verification only | CI, published Pages and any deployment remain user-controlled post-publication checks, not local passes |
 
 Record date, actor, browser/OS/input conditions, observed outcome and follow-up for manual checks.
 Do not replace Pending with Passed based on automated test counts. No human UAT, screen-reader or
-real-device signoff is implied by completing the Phase 20 automated acceptance and handoff work.
+real-device signoff is implied by completing automated acceptance or the release handoff. These precise
+limits are carried into local reference-release finalization, not represented as completed tests;
+see [known limits and publication checks](known-limits.md).
