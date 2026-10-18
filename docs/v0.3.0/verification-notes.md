@@ -1911,3 +1911,179 @@ No unrelated process was stopped and no working data or storage was changed.
 Phase 19 is complete. Versions and fixed published-release links remain 0.2.9. No commit, push,
 merge, tag, publication or deployment was performed. Phase 20 integrated acceptance, actual zoom/
 assistive-device/manual UAT and Phase 21 release verification remain pending.
+
+## Phase 20 Integrated Acceptance And UAT Handoff
+
+### Scope And Commands
+
+This is the planned broad integrated acceptance gate, not the per-phase testing default. New browser
+checks cover populated My Work, workspace Work Items, Planning, Portfolio and long-title detail at
+320/390/768/1024/1440/1920px and 568x320 short landscape, followed by larger control fonts. Native
+Chromium tab zoom is measured independently of CSS zoom and viewport emulation. The complete existing
+journey matrix, native editor, compiled preview, site, backend integrity and performance suites are
+included. Role restrictions, archived behavior and nontrivial history/discovery fixtures remain real
+journeys rather than empty-state smoke checks.
+
+```sh
+npm run verify
+npm run verify -- --mode=api --api-tests=labels,local-http
+npm run verify -- --mode=e2e '--grep=cross-surface acceptance'
+npm run verify -- --mode=e2e '--grep=execution-first planning discloses|pages project and workspace work|surfaces v0.0.9 delivery health'
+npm run verify -- --mode=preview
+npm run verify -- --mode=site
+npm run test:verification:integration
+npm run test:verification
+npx tsc -p tsconfig.verification.json --noEmit
+git diff --check
+```
+
+Commands use explicit Node 24.16.0/npm 11.13 and owned disposable resources. Browser workers, retries,
+deadlines and build budgets remain unchanged. A separate owned production build requests statistics
+for graph inspection without repeating Angular tests. Structured Markdown checks cover the handoff's
+local links/anchors. Phase 19's two unchanged fresh-install paths are reused, not installed twice again.
+
+### Integration Corrections And Diagnostics
+
+- `86d7faa2-f73b-4c88-a671-1168077579b5`: first full run stopped at an isolated `socket hang up`
+  in the archived-label assignment HTTP test; 879/880 API cases passed. The cause is not established.
+  `77f9d692-267b-46cb-ab89-9aed91a0e761` passed all eight selected labels/local-HTTP cases plus 55
+  resource cases. Inspection did not justify a production change or a speculative keepalive fix.
+- `81b04bcf-094e-402c-b5f3-c2c7229f1d36`: initial native-zoom fixture inherited the Desktop Chrome
+  scale override while selecting a null viewport. It failed at context creation, not in the product.
+  Explicitly removing that override enables a real window/tab-zoom test.
+- `f7b688d7-8485-4809-8bf7-8cd462b4c17e`: four of six supplemental journeys passed. My Work overflowed
+  by 286px at 768px because secondary rows retained six fixed-minimum tracks above the old 760px
+  viewport breakpoint. Its existing owner now uses wrapping, zero-minimum tracks and actual-container
+  transitions. The other failure was the new fixture looking for the project table's accessible
+  name on the workspace route; it now asserts `Workspace work items` and its column headers.
+- `a4b55a9a-43ed-48c8-a980-ec76ac1a1e61`: all six supplemental journeys passed after those corrections.
+  Final checks additionally wait for populated Planning/Portfolio/detail content and capture the My
+  Work secondary rows. Playwright's ordinary screenshot cropped the zoomed native surface, so native
+  captures now use CDP without a viewport clip and separately assert the full dialog bounds.
+- `eb1d15d5-af96-45f9-a7a1-bec534af3ec5`: all 880 API and 88 contracts cases passed; Angular stopped
+  at one stale route-reuse assertion (884/885 passed). It expected null/Unplanned after a project/
+  cycle change. Phase 17 intentionally resets to the empty-string no-choice sentinel; the assertion
+  now enforces that distinction rather than undoing the deliberate-destination behavior.
+- `985ce90a-13ca-4b58-9fb8-852fc59522e5`: the full command passed dependency/lint/type/schema,
+  55 resource, 880 API, 88 contracts, 885 Angular, production build and five native editor checks.
+  The app suite passed 55/58 journeys. Three legacy assertions were stale after integration:
+  Planning's generic archived label matched both shell and page notices; workspace pagination still
+  expected 26 records rather than the new 38-record fixture; Planning review groups were treated as
+  permanent headings, including an empty Upcoming group. They now target the named archived region,
+  compare exact pagination/range/record IDs with the authorized fixture API, and verify/open each
+  populated review disclosure while checking that empty groups are omitted.
+- `00484479-2c28-4235-a562-bbb6dc85ba35`: all three corrected journeys passed. Since these last changes
+  affect test assertions only, the preceding API/Angular/editor/build and other 55 app passes remain
+  applicable. The failed full-run summary is retained as failed, not relabeled green. Preview/site
+  were not reached by that command and are checked in their separate owned modes. Final versioned-tree
+  full acceptance remains Phase 21; no fourth unchanged API/Angular pass is required for these selectors.
+
+Failures above remain failures; selected passes and later complete runs are not automatic test retries
+or additional distinct product journeys. No application API, schema, dependency, parser or server
+behavior changed. The verification command cleanup repair below is separate from application behavior.
+
+### Lifecycle Corrections
+
+The initial ten-case lifecycle execution passed eight cases. The failure-injection fixture exited
+at the newly earlier API lint stage, before provisioning, so its expected database-owned manifest
+could not be captured. It now forwards real npm commands and injects exit 42 only at the API-test
+stage; assertions require completed migration and that stage before checking failure/cleanup.
+
+Editor SIGTERM diagnostics reproduced retained roots/live workers. The three retained-run summaries
+remain honestly `cleaned: false`: `80dfa0c7-683e-4ac2-8fef-7d9455f61e14`,
+`378785fa-cecd-4573-95b4-a27b9b863e11` and `1aac4b8c-f688-442d-9488-55fcd22270fb`.
+Harness abandoned-run cleanup removed those resources; a later diagnostic-only editor execution
+passed but did not establish a repair. Investigation found that a detached-group stop failure
+skipped the remaining groups, including parent workers. A deterministic regression reproduced that
+defect before the implementation change.
+
+`runCommand()` now attempts every verified group, removes only successfully stopped records, retains
+unresolved ownership and preserves the original command error/interruption. Its cleanup diagnostic
+uses the existing credential redactor. The regression covers a surviving in-group worker, injected
+detached-group failure, retained ownership and secret redaction. No process-identity, marker, nonce,
+database or unrelated-server protection was weakened, and stop deadlines are unchanged.
+
+An initial regression-fixture mock-restoration error was corrected; its two fixture-owned Node
+children were verified by their test-specific environment/command and current start identity, then
+explicitly stopped. Subsequent regression runs clean their own children in `finally`. This diagnostic
+failure is not omitted from the resource-safety account.
+
+### Integrated Results
+
+Every required automated scope has passing evidence. This is combined full/focused/mode evidence,
+not a claim that the failed full-command summary became successful. The final versioned-tree full
+run remains a Phase 21 gate.
+
+| Scope | Passing Evidence |
+| --- | --- |
+| Dependency, lint, type, schema and production build | `985ce90a-13ca-4b58-9fb8-852fc59522e5`; final changed browser/verification source lint and verification TypeScript also pass |
+| API and contracts | 880 API cases across 68 files and 88 contracts cases across 13 files; complete service-mode API suite repeated after cleanup repair |
+| Angular | All 885 cases in the full run; no application source changed afterward |
+| Native editor | Five full-run checks for undo/selection, keyboard formatting/link cancellation, reflow, parser/projection policy and synthetic composition |
+| App journeys | 55 full-run passes plus all three corrected journeys in `00484479-2c28-4235-a562-bbb6dc85ba35`: all 58 distinct journeys covered, zero automatic retries |
+| Compiled preview | `0e254b7a-338d-4b21-bb04-7b174dd39d5e`: both checks passed, including exact seeded bytes and compiled deep links |
+| Public site | `518bb358-abe3-4d94-84b8-f447a12f270c`: static validation and both browser checks passed; 43 references, 17 repository links and 13 IDs |
+| Resource checks | All 56 cases pass after adding the deterministic cleanup regression |
+| Lifecycle | Fresh final execution passed all ten scenarios, including migration/seed/reset preservation, Docker interruption, protected abandoned cleanup, injected API failure, both migration-time signals, complete service API, two simultaneous browser runs and editor SIGTERM |
+
+The final lifecycle execution is retained as
+`test-results/verification/phase20-lifecycle-final-2026-10-18.xml`; earlier failed reports are preserved.
+Its complete service API run `4ecf1af4-9800-4de2-a1bd-92ac92cc1e83` passes and reports cleanup.
+Editor run `41c45bdf-9c8a-4a85-b0dd-64b009fa25b2` correctly reports an interrupted verification
+with successful automatic cleanup. The lifecycle assertion verifies exit 143, all observed real
+browser descendants gone, an unchanged external storage sentinel and no database provisioning.
+Repeating the lifecycle set was warranted by a shared process-owner change; it did not repeat Angular.
+
+Production audit remains zero findings. The full development graph retains 13 findings covered by
+five bounded advisories/19 exact records, unchanged from Phase 3. This is not a clean full dependency
+tree; expiry/version/release-date conditions still apply at Phase 21.
+
+### Measured And Visual Evidence
+
+The full run repeats 20 hydration cases: 11-13 statements across 10/25/100-row service/HTTP paths.
+At 100 rows the HTTP project path uses 13 statements and workspace uses 12, for mixed/repeated/
+distinct references, below the unchanged 20-statement ceiling. Twenty cold/warm aggregate cases
+also pass. At 15 projects/900 records, cold My Work evaluates 900 rows, enriches 32 and uses 13
+statements/111,622 payload bytes; Portfolio enriches none and uses nine/75,242 bytes. These are local
+fixture measurements, not production latency guarantees. Raw JSON is in the full run's ignored
+`hydration-evidence.json` and `aggregate-evidence.json`.
+
+Owned statistics build `abb19257-b61b-4979-ae88-a67b36680056` passes without warnings: 401.95 kB
+initial, 112.13 kB estimated transfer, 157 initial inputs and 20 lazy page entries. Lucide runtime,
+CDK/dialog, heavy detail/Planning/report/create/editor/Markdown inputs remain outside the initial
+graph. No budget or deadline was raised.
+
+Native zoom reports 2, CSS viewport 1440 -> 720, DPR 1 -> 2, outer width unchanged at 1440 and
+CSS zoom unchanged at 1. Six uncropped 1440x873 native surface captures accompany the metric
+attachment. Inspected the Quick Find full frame, native Portfolio, long-title/larger-font detail,
+workspace controls, repaired My Work secondary rows at 768/1440 and complete historical print.
+No overlapping controls or page-level clipping was observed in those captures. Existing focused
+fifteen-project evidence covers deliberately constrained containers and disclosed row actions;
+the integrated run repeats that journey rather than substituting an empty Portfolio.
+
+### Manual Handoff
+
+The [acceptance handoff](acceptance-handoff.md) maps the journey evidence and supplies eight concise
+user walkthrough steps on disposable data. User UAT is pending. A screen-reader walkthrough and real
+OS IME/clipboard/device behavior have not been attested; synthetic composition, browser editor checks
+and screenshot inspection do not establish those results. The in-app browser connector returned no
+available browser, so repository-owned Chromium supplies automated browser evidence. Actual tab zoom
+is automated native Chromium evidence, not a claim of human cross-browser zoom approval.
+
+Required manual observations or an explicit disposition of these gaps must be recorded before Phase
+21 release closure. No remote CI, deployed Pages or cloud-readiness result is inferred from local work.
+
+### Closure
+
+Final read-only resource audit covers eleven main/focused/build runs and fourteen lifecycle CLI
+children. All phase-created temporary roots, labeled containers and matching process paths are
+absent. The three original retained summaries are not rewritten; harness cleanup and the final
+audit establish their eventual removal. A pre-existing October 17 verification directory is left
+untouched, as are ordinary PostgreSQL on 5432, working data/storage and unrelated servers.
+The audit is retained as `test-results/verification/phase20-cleanup-audit-2026-10-18.json`.
+
+Final changed-source lint, verification TypeScript, 56 resource cases, 117 current-document local
+links/anchors and diff checks pass. Documentation-only completion edits reuse unchanged functional
+evidence. Phase 20 automated acceptance and UAT handoff are complete; actual user/assistive-device
+signoff remains explicitly pending before Phase 21 release closure. Versions remain 0.2.9. No commit,
+push, merge, tag, publication or deployment was performed.

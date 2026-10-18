@@ -183,6 +183,6 @@ test('execution-first planning discloses management, retains independent drafts 
   const archived = await request.post(`${apiBase()}/projects/${project.id}/archive`, { headers });
   expect(archived.ok()).toBe(true);
   await page.reload();
-  await expect(page.getByLabel('Archived project', { exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Archived project', exact: true })).toBeVisible();
   await expect(page.locator('app-cycle-manager form, app-cycle-manager .record-edit')).toHaveCount(0);
 });

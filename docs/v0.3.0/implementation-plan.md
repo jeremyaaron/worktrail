@@ -106,7 +106,7 @@ integration boundaries.
 | 17 | Complete historical outcome and deliberate closeout destinations | Complete |
 | 18 | Portfolio, project navigation, and Quick Find ergonomics | Complete |
 | 19 | Public site, current developer guidance, and independent local setup | Complete |
-| 20 | Cross-surface acceptance, accessibility, and UAT handoff | Not started |
+| 20 | Cross-surface acceptance, accessibility, and UAT handoff | Complete |
 | 21 | Release identity, documentation closeout, and final verification | Not started |
 
 Each phase depends on completion of the preceding phases. Additional architectural dependencies are
@@ -1644,7 +1644,26 @@ Acceptance:
 Verification: owned full run plus focused race/performance/runner scenarios, app/editor/preview/site
 browser checks, actual manual observations, and trace/screenshot/evidence review.
 
-Status: Not started.
+Status: Complete (automated acceptance and UAT handoff; manual signoff remains pending).
+
+Completion notes:
+
+- Integrated backend/contracts/Angular/editor/browser gates have passing evidence. Three stale app
+  assertions were corrected and rerun without repeating unchanged API/Angular suites. Preview/site
+  were verified separately; failed full-command summaries remain failed. Final versioned-tree full
+  verification remains Phase 21.
+- Added populated cross-surface viewport/font and genuine 200% tab-zoom coverage. Fixed My Work's
+  secondary-row tablet overflow and inspected uncropped native/print and constrained-row captures.
+- Repaired command cleanup so one failed detached group cannot skip other verified groups/parent
+  workers. Its deterministic regression, all 56 resource cases and a fresh ten-case lifecycle set pass,
+  including synchronized parallel browser isolation and real editor interruption cleanup.
+- Production budgets remain warning-free with heavy features lazy. Dependency, parser/migration,
+  synchronized PostgreSQL, hydration and aggregate evidence is current; protections/deadlines are unchanged.
+- The [acceptance handoff](acceptance-handoff.md) supplies the user walkthrough and precise UAT,
+  screen-reader and native OS-input gaps. These need actual observations or an explicit disposition
+  before Phase 21 closure, not inferred approval. The [verification record](verification-notes.md#phase-20-integrated-acceptance-and-uat-handoff)
+  retains diagnostics, selected reruns and final phase-owned cleanup evidence. Versions stay 0.2.9;
+  no commit, push, merge, tag, publication or deployment was performed.
 
 ## Phase 21: Release Finalization
 

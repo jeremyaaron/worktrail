@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { after, before, test } from 'node:test';
 
 import {
@@ -43,7 +43,15 @@ async function runCli({ signal, failNpm = false } = {}) {
   if (failNpm) {
     const bin = join(host.root, 'failing-npm');
     await mkdir(bin, { recursive: true });
-    await writeFile(join(bin, 'npm'), '#!/bin/sh\nexit 42\n', { mode: 0o700 });
+    env.WORKTRAIL_LIFECYCLE_NPM = join(dirname(process.execPath), 'npm');
+    await writeFile(join(bin, 'npm'), [
+      '#!/bin/sh',
+      'if [ "$1" = run ] && [ "$2" = test ] && [ "$3" = --workspace ] && [ "$4" = @worktrail/api ]; then',
+      '  exit 42',
+      'fi',
+      'exec "$WORKTRAIL_LIFECYCLE_NPM" "$@"',
+      ''
+    ].join('\n'), { mode: 0o700 });
     env.PATH = `${bin}:${env.PATH}`;
   }
   const child = spawn(process.execPath, ['scripts/verify.mjs', '--mode=api', '--database=service'], {
@@ -178,6 +186,8 @@ test('explicit cleanup CLI removes a marker-validated abandoned service run', as
 test('API command failure preserves failure exit and cleans service resources', async () => {
   const result = await runCli({ failNpm: true });
   assert.equal(result.code, 1);
+  assert.match(result.output, /Database migrations applied\./);
+  assert.match(result.output, /=== test:api ===/);
   assert.match(result.output, /exit 42/);
 });
 
@@ -345,9 +355,15 @@ test('editor CLI needs no database or Docker and stops its real browser descenda
     assert.equal(signaled, true);
     assert.equal(code, 143);
     assert.ok(descendants.some((record) => /chrome-headless-shell|headless_shell|Chromium|Chrome/.test(record.command)), 'Captured a real owned Chromium descendant');
-    for (const record of descendants) assert.notEqual(await processIdentity(record.pid), record.identity, `Owned child ${record.pid} has exited`);
+    for (const record of descendants) {
+      const identity = await processIdentity(record.pid);
+      const status = identity === record.identity ? await runCommand('ps', ['-p', String(record.pid), '-o', 'stat=,pgid=,command='])
+        .catch(() => 'Process exited while collecting diagnostics.') : '';
+      assert.notEqual(identity, record.identity,
+        `Owned child ${record.pid} (${record.command}) has exited\n${status}\n${output.slice(-8000)}`);
+    }
     assert.equal(await readFile(sentinel, 'utf8'), 'keep');
-    assert.equal(await stat(path).then(() => true, () => false), false);
+    assert.equal(await stat(path).then(() => true, () => false), false, output.slice(-8000));
     assert.ok(!output.includes('database:provision'));
   } finally {
     clearTimeout(timeout);

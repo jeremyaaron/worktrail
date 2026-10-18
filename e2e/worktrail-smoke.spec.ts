@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 import { expect, test } from '@playwright/test';
 import type { APIRequestContext, Download, Locator, Page } from '@playwright/test';
-import type { PortfolioDto } from '@worktrail/contracts';
+import type { PortfolioDto, ProjectPlanningSummaryDto, WorkspaceWorkItemListPageDto } from '@worktrail/contracts';
 import { stringify } from 'csv-stringify/sync';
 
 const demoProjectId = '10000000-0000-4000-8000-000000000201';
@@ -314,13 +314,20 @@ test('pages project and workspace work without losing navigation context', async
   await expect(projectPager.getByRole('button', { name: 'Page 1' })).toBeHidden();
 
   await page.setViewportSize({ width: 1440, height: 900 });
+  const workspaceResponse = await request.get(`${apiBaseURL()}/api/work-items?page=3&pageSize=10`);
+  expect(workspaceResponse.ok()).toBe(true);
+  const workspacePage = await workspaceResponse.json() as WorkspaceWorkItemListPageDto;
+  expect(workspacePage.page).toBe(3);
+  expect(workspacePage.totalCount).toBeGreaterThan(20);
   await page.goto('/work-items?pageSize=10');
   const workspaceResults = page.getByRole('region', { name: 'Workspace work item results' });
   const workspacePager = workspaceResults.getByRole('navigation', { name: 'Work item pages' });
-  await expect(workspaceResults.getByRole('heading', { name: '1-10 of 26 work items' })).toBeVisible();
+  await expect(workspaceResults.getByRole('heading', { name: `1-10 of ${workspacePage.totalCount} work items` })).toBeVisible();
   await workspacePager.getByRole('button', { name: 'Page 3' }).click();
-  await expect(workspaceResults.getByRole('heading', { name: '21-26 of 26 work items' })).toBeVisible();
-  await expect(workspaceResults.locator('.project-cell')).toHaveCount(6);
+  await expect(workspaceResults.getByRole('heading', { name: `21-${Math.min(30, workspacePage.totalCount)} of ${workspacePage.totalCount} work items` })).toBeVisible();
+  await expect(workspaceResults.locator('.project-cell')).toHaveCount(workspacePage.items.length);
+  expect(await workspaceResults.locator('.work-item-title-link').evaluateAll(links => links.map(link => new URL((link as HTMLAnchorElement).href).pathname.split('/').at(-1))))
+    .toEqual(workspacePage.items.map(item => item.id));
   await expect(workspaceResults.locator('.project-cell').first()).not.toHaveText('');
   await expectNoPageOverflow(page);
 
@@ -1038,7 +1045,7 @@ test('validates the v0.0.8 dependency workflow', async ({ page, request }) => {
   await expect(page.getByText('No work items match these filters')).toBeVisible();
 });
 
-test('surfaces v0.0.9 delivery health on project overview and planning', async ({ page }) => {
+test('surfaces v0.0.9 delivery health on project overview and planning', async ({ page, request }) => {
   test.setTimeout(60_000);
 
   await page.goto(`/projects/${demoProjectId}`);
@@ -1057,9 +1064,24 @@ test('surfaces v0.0.9 delivery health on project overview and planning', async (
   await expect(
     page.locator('.progress-list').getByRole('link', { name: 'v0.0.3 Planning', exact: true })
   ).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Needs attention' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Upcoming' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Recently changed' })).toBeVisible();
+  const planningResponse = await request.get(`${apiBaseURL()}/api/projects/${demoProjectId}/planning-summary`);
+  expect(planningResponse.ok()).toBe(true);
+  const { planningReview } = await planningResponse.json() as ProjectPlanningSummaryDto;
+  for (const [title, items] of [
+    ['Needs attention', planningReview.needsAttention],
+    ['Upcoming', planningReview.upcoming],
+    ['Recently changed', planningReview.recentlyChanged]
+  ] as const) {
+    const disclosure = page.locator('.review-disclosure').filter({ has: page.locator('summary').filter({ hasText: new RegExp(`^${title} ·`) }) });
+    if (items.length === 0) {
+      await expect(disclosure).toHaveCount(0);
+    } else {
+      await expect(disclosure).not.toHaveAttribute('open', '');
+      await expect(disclosure.locator('summary')).toHaveText(`${title} · ${items.length} items`);
+      await disclosure.locator('summary').click();
+      await expect(disclosure).toHaveAttribute('open', '');
+    }
+  }
   await expect(
     page.getByRole('link', { name: /WT-4 .*Choose status transition copy/ }).first()
   ).toBeVisible();

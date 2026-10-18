@@ -476,6 +476,17 @@ PostgreSQL/storage; never point rollback or concurrency tests at the working app
 See the [README verification guide](../README.md#verification) and
 [current evidence](v0.3.0/verification-notes.md).
 
+The [v0.3.0 acceptance handoff](v0.3.0/acceptance-handoff.md) maps integrated journeys and records
+manual signoff gaps. Cross-surface browser checks wait for populated content before checking reflow.
+My Work secondary rows and Portfolio comparisons respond to their actual container widths. The
+native-zoom check uses an owned Chromium profile/extension and the real tab zoom API, not CSS zoom
+or a resized viewport; its native captures and metric attachment distinguish the two. It never
+uses a personal browser profile. Automated evidence does not establish screen-reader or user UAT approval.
+
+Owned command shutdown attempts every verified process group even if one stop fails. Successful
+records are removed; unresolved ownership remains available for protected abandoned-run cleanup.
+Cleanup diagnostics are redacted and cannot replace the original command failure or interruption.
+
 Choose checks from changed code, affected consumers, and risk. API mode includes backend source/test
 lint, backend typechecks, resource checks, and API tests without Angular/build/browser/site execution.
 For narrow changes, `--api-tests=server,work-item-csv-http` selects existing API test basenames; path,

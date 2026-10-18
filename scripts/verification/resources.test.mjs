@@ -107,6 +107,69 @@ test('child cleanup failure does not replace the original command failure', asyn
   } finally { manifest.root = root; }
 });
 
+test('cleanup continues to the parent group after a detached group fails, retaining only unresolved ownership', async (t) => {
+  const manifest = await fixture(t, 'none');
+  const path = join(manifest.root, 'children');
+  const ready = join(manifest.root, 'worker-ready');
+  const workerScript = `let signals=0;process.on('SIGTERM',()=>{if(++signals===2)process.exit(0)});
+    require('node:fs').writeFileSync(${JSON.stringify(ready)},'ready');setInterval(()=>{},1000);`;
+  const script = `const {spawn}=require('node:child_process');
+    const worker=spawn(process.execPath,['-e',${JSON.stringify(workerScript)}],{stdio:'ignore'});
+    const detached=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{detached:true,stdio:'ignore'});
+    require('node:fs').writeFileSync(${JSON.stringify(path)},JSON.stringify({worker:worker.pid,detached:detached.pid}));
+    worker.unref();detached.unref();setInterval(()=>{},1000);`;
+  const controller = new AbortController();
+  const execution = runCommand(process.execPath, ['-e', script], {
+    manifest, trackDescendants: true, signal: controller.signal,
+    env: { ...process.env, DATABASE_URL: 'postgres://user:cleanup-secret@localhost/db' }
+  });
+  execution.catch(() => undefined);
+  let worker;
+  let detached;
+  let parent;
+  let killMock;
+  let logMock;
+  const logs = [];
+  try {
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const ids = await readFile(path, 'utf8').then(JSON.parse, () => null);
+      if (ids && !worker) {
+        worker = { pid: ids.worker, identity: await processIdentity(ids.worker) };
+        detached = { pid: ids.detached, identity: await processIdentity(ids.detached) };
+      }
+      const saved = JSON.parse(await readFile(join(manifest.root, 'manifest.json'), 'utf8'));
+      parent = saved.processes.find(record => record.pid !== detached?.pid);
+      if (worker?.identity && detached?.identity && saved.processes.some(record => record.pid === detached.pid) &&
+          await readFile(ready, 'utf8').catch(() => '') === 'ready') break;
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    assert.ok(parent?.identity && worker?.identity && detached?.identity, 'Owned groups were captured');
+    const captured = JSON.parse(await readFile(join(manifest.root, 'manifest.json'), 'utf8'));
+    assert.ok(captured.processes.some(record => record.pid === detached.pid), 'Detached ownership was persisted');
+    assert.equal(await readFile(ready, 'utf8'), 'ready');
+    const kill = process.kill.bind(process);
+    killMock = t.mock.method(process, 'kill', (pid, signal) => {
+      if (pid === -detached.pid && signal === 'SIGTERM') throw new Error('Expected cleanup-secret refusal');
+      return kill(pid, signal);
+    });
+    logMock = t.mock.method(console, 'error', message => logs.push(message));
+    controller.abort();
+    await assert.rejects(execution, /interrupted/);
+    assert.equal(await processIdentity(worker.pid), null, 'The parent group was stopped despite the detached failure');
+    const saved = JSON.parse(await readFile(join(manifest.root, 'manifest.json'), 'utf8'));
+    assert.deepEqual(saved.processes.map(record => record.pid), [detached.pid]);
+    assert.ok(logs.some(message => message.includes('[redacted]')));
+    assert.ok(logs.every(message => !message.includes('cleanup-secret')));
+  } finally {
+    killMock?.mock.restore();
+    logMock?.mock.restore();
+    controller.abort();
+    await execution.catch(() => undefined);
+    if (parent?.identity) await stopOwnedProcess(parent, { allowMissingLeader: true });
+    if (detached?.identity) await stopOwnedProcess(detached, { allowMissingLeader: true });
+  }
+});
+
 test('interruption stops a recorded detached descendant even when it ignores TERM', async (t) => {
   const manifest = await fixture(t, 'none');
   const path = join(manifest.root, 'detached-child');

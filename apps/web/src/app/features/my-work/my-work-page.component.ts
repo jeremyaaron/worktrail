@@ -331,6 +331,8 @@ const priorityOrder = new Map([
 
     .work-panel {
       display: grid;
+      min-width: 0;
+      container-type: inline-size;
       gap: 14px;
       border: 1px solid #e5e7eb;
       border-radius: 8px;
@@ -364,7 +366,8 @@ const priorityOrder = new Map([
 
     .work-row {
       display: grid;
-      grid-template-columns: minmax(260px, 2fr) minmax(120px, 0.8fr) minmax(110px, 0.7fr) minmax(160px, 1fr) minmax(150px, 1fr) minmax(110px, 0.7fr);
+      grid-template-columns: minmax(0, 1fr);
+      min-width: 0;
       gap: 12px;
       align-items: center;
       border: 1px solid #eef2f7;
@@ -373,6 +376,32 @@ const priorityOrder = new Map([
       color: #334155;
       font-size: 0.875rem;
       text-decoration: none;
+    }
+
+    .work-row > span {
+      min-width: 0;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+    }
+
+    @container (min-width: 600px) {
+      .work-row {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .work-row__title {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @container (min-width: 1000px) {
+      .work-row {
+        grid-template-columns: minmax(0, 2fr) minmax(0, 0.8fr) minmax(0, 0.7fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr);
+      }
+
+      .work-row__title {
+        grid-column: auto;
+      }
     }
 
     .work-row:hover {
@@ -551,9 +580,6 @@ const priorityOrder = new Map([
         width: fit-content;
       }
 
-      .work-row {
-        grid-template-columns: 1fr;
-      }
     }
   `
 })

@@ -263,7 +263,7 @@ describe('Page context with real reused Worktrail routes', () => {
     expect(page.projectId()).toBe('b');
     expect(page.cycleId()).toBe('two');
     expect(old.cancelled).toBeTrue();
-    expect(page.form.controls.destinationCycleId.value).toBeNull();
+    expect(page.form.controls.destinationCycleId.value).toBe('');
     http.match('/api/projects/b/summary');
     http.expectOne('/api/projects/b/cycles/two/closeout-preview');
   });

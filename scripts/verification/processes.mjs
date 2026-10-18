@@ -136,16 +136,27 @@ export async function runCommand(command, args, options = {}) {
     await scanning;
     failure ??= trackingFailure;
     if (killTimer) clearTimeout(killTimer);
+    let cleanupFailure;
     try {
-      for (const subgroup of [...subgroups.values()].reverse()) await stopOwnedProcess(subgroup, { allowMissingLeader: true });
-      if (record.identity) await stopOwnedProcess(record, { allowMissingLeader: true });
-      if (manifest) {
-        manifest.processes = manifest.processes.filter((item) => item.pid !== record.pid && !subgroups.has(item.pid));
-        await saveManifest(manifest);
+      const stopped = new Set();
+      const owned = [...subgroups.values()].reverse();
+      if (record.identity) owned.push(record);
+      // A failed group must not prevent stopping the other verified groups or their parent workers.
+      for (const processRecord of owned) {
+        try {
+          await stopOwnedProcess(processRecord, { allowMissingLeader: true });
+          stopped.add(processRecord.pid);
+        } catch (error) { cleanupFailure ??= error; }
       }
-    } catch (cleanupError) {
-      if (failure) console.error('Child cleanup failed; retaining its manifest record without replacing the command failure.');
-      failure ??= cleanupError;
+      if (manifest) {
+        manifest.processes = manifest.processes.filter((item) => !stopped.has(item.pid));
+        try { await saveManifest(manifest); }
+        catch (error) { cleanupFailure ??= error; }
+      }
+    } catch (error) { cleanupFailure ??= error; }
+    if (cleanupFailure) {
+      if (failure) console.error(`Child cleanup failed; retaining its manifest record without replacing the command failure. ${redact(cleanupFailure.message)}`);
+      failure ??= cleanupFailure;
     }
   }
   if (failure) throw failure;
