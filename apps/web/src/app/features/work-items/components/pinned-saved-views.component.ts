@@ -17,6 +17,7 @@ import type { SavedWorkViewDto } from '@worktrail/contracts';
               type="button"
               class="pinned-view"
               [attr.aria-label]="'Open pinned shared view ' + view.name"
+              [attr.aria-pressed]="openedViewId === view.id"
               (click)="open.emit(view)"
             >
               <span class="pinned-view__name">{{ view.name }}</span>
@@ -29,6 +30,7 @@ import type { SavedWorkViewDto } from '@worktrail/contracts';
               type="button"
               class="pinned-view"
               [attr.aria-label]="'Open pinned personal view ' + view.name"
+              [attr.aria-pressed]="openedViewId === view.id"
               (click)="open.emit(view)"
             >
               <span class="pinned-view__name">{{ view.name }}</span>
@@ -134,6 +136,7 @@ import type { SavedWorkViewDto } from '@worktrail/contracts';
 })
 export class PinnedSavedViewsComponent {
   @Input() heading = 'Pinned views';
+  @Input() openedViewId: string | null = null;
   @Input() sharedViews: SavedWorkViewDto[] = [];
   @Input() personalViews: SavedWorkViewDto[] = [];
 

@@ -310,7 +310,10 @@ Key behavior:
 - Archived projects still show existing pinned project shortcuts, but archived project saved views cannot be pinned or unpinned.
 - Personal and shared saved views open through canonical URL parameters, so copy links and CSV exports stay aligned with the applied query.
 - Saved views can be opened from a compact selector without expanding management controls.
-- Opening a saved view shows local confirmation that the results below were updated.
+- Both Work lists show `Named`, `Modified`, or `Custom` state for the explicitly opened view.
+  Only applied filters and sort affect that state; pending form edits and pagination do not.
+- `Update query` explicitly replaces a saved definition. Applying filters never silently rewrites it.
+- Results confirmation appears only after the matching latest request succeeds, not immediately on Open.
 - `Manage views` edits one selected saved view at a time instead of rendering rename and mutation controls for every saved view.
 - Read-only shared and archived-project saved views keep an uncluttered open-only management path.
 - Saved-view summaries count meaningful filters only; default sort and default archived-project mode stay quiet.
@@ -330,6 +333,8 @@ v0.2.6 bounds the project Work and workspace Work Items reads with server-backed
 preserving the existing applied-query contract.
 
 - Interactive lists default to 25 rows and support page sizes of 10, 25, 50, and 100.
+- Range, page-size, and previous/next controls sit above results, with synchronized numbered pagination
+  below. Desktop rows expose table headers/cells; mobile cards retain visible-page bulk selection.
 - The server returns the exact matching count, normalized page, total pages, and previous/next state;
   each response enriches only the visible rows.
 - Page and non-default page-size values are URL-backed, survive reload and work-item detail return
@@ -338,7 +343,7 @@ preserving the existing applied-query contract.
 - Saved views store durable filters and sort only. Opening a saved or pinned view starts at page 1 with
   the default page size rather than restoring an obsolete result position.
 - Project batch triage selects explicit IDs from the visible page only. Navigating or changing the
-  applied query clears selection.
+  applied query clears selection with a status notice. Selection controls are disabled during a bulk write.
 - Project and workspace CSV export ignores paging and exports the complete applied result set up to
   10,000 matching rows. Larger exports fail with actionable guidance and no partial file.
 - Separate page requests reflect current data rather than a frozen snapshot, so edits can move rows

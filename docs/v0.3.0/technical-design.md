@@ -515,6 +515,8 @@ Both locations share one owner. Clear visible-ID selection on page/query/context
 state change apparent; no all-matches selection is introduced. Repair table header/cell semantics and
 selected/active announcements in touched controls.
 
+Phase 15 adoption and focused verification are recorded in [shared work-list evidence](shared-work-list-evidence.md).
+
 ### Portfolio And Shell
 
 Portfolio uses the actual content container to choose dense rows versus stacked layouts, not viewport

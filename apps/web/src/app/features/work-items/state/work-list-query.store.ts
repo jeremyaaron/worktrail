@@ -1,10 +1,11 @@
-import { defaultProjectWorkItemFilterValues, defaultWorkspaceWorkItemFilterValues } from '../query/work-item-filter-state';
 import { computed, signal, type Signal, type WritableSignal } from '@angular/core';
 import type {
   ResolvedWorkItemPageQuery,
+  WorkItemPageMetadataDto,
   WorkItemPageSize,
   WorkItemQuery
 } from '@worktrail/contracts';
+import { defaultProjectWorkItemFilterValues, defaultWorkspaceWorkItemFilterValues } from '../query/work-item-filter-state';
 
 import type {
   ProjectWorkItemFilterFormValue,
@@ -24,12 +25,12 @@ import {
   projectFormValueFromQueryParams,
   projectQueryFromFormValue,
   projectRouterQueryParamsFromQuery,
-  type RouterQueryParams,
   workspaceFormValueFromQuery,
   workspaceFormValueFromQueryParams,
   workspaceQueryFromFormValue,
   workspaceRouterQueryParamsFromQuery,
   type QueryParamReader,
+  type RouterQueryParams,
   type WorkItemQueryScope
 } from '../query/work-item-query-serialization';
 
@@ -47,6 +48,9 @@ interface WorkListQueryStoreConfig<TFormValue extends WorkListFilterFormValue> {
 }
 
 export class WorkListQueryStore<TFormValue extends WorkListFilterFormValue> {
+  readonly resultsSummary = signal<string | null>(null);
+  private resultsGeneration = 0;
+  private requestedResultsKey = '';
   readonly activeFilterValues: WritableSignal<TFormValue>;
   readonly pendingFilterValues: WritableSignal<TFormValue>;
   readonly activeQuery: Signal<WorkItemQuery>;
@@ -91,6 +95,7 @@ export class WorkListQueryStore<TFormValue extends WorkListFilterFormValue> {
   }
 
   applyRouteQueryParams(params: QueryParamReader): TFormValue {
+    this.clearResults();
     const nextFilterValues = this.config.formValueFromQueryParams(params);
     this.activeFilterValues.set(nextFilterValues);
     this.pendingFilterValues.set(nextFilterValues);
@@ -99,6 +104,7 @@ export class WorkListQueryStore<TFormValue extends WorkListFilterFormValue> {
   }
 
   applyQuery(query: WorkItemQuery): TFormValue {
+    this.clearResults();
     const nextFilterValues = this.config.formValueFromQuery(query);
     this.activeFilterValues.set(nextFilterValues);
     this.pendingFilterValues.set(nextFilterValues);
@@ -181,5 +187,19 @@ export class WorkListQueryStore<TFormValue extends WorkListFilterFormValue> {
 
   meaningfulFieldCount(query: WorkItemQuery): number {
     return meaningfulWorkItemQueryFieldCount(query, this.config.scope);
+  }
+
+  clearResults(): void { this.resultsGeneration++; this.resultsSummary.set(null); }
+
+  beginResultsLoad(): number {
+    this.clearResults();
+    this.requestedResultsKey = this.returnUrl('/work-items');
+    return this.resultsGeneration;
+  }
+
+  acceptResults(generation: number, metadata: WorkItemPageMetadataDto, count: number): void {
+    if (generation !== this.resultsGeneration || this.requestedResultsKey !== this.returnUrl('/work-items')) return;
+    const start = metadata.totalCount === 0 ? 0 : (metadata.page - 1) * metadata.pageSize + 1;
+    this.resultsSummary.set(`Results updated: ${start}-${start === 0 ? 0 : start + count - 1} of ${metadata.totalCount} work items.`);
   }
 }

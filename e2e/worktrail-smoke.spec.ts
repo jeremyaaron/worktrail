@@ -160,7 +160,8 @@ async function openSavedViewFromCompactControl(page: Page, savedViewName: string
 
   await selectSavedViewOptionByName(savedViews.getByLabel('Open saved view'), savedViewName);
   await savedViews.getByRole('button', { name: 'Open selected saved view' }).click();
-  await expect(savedViews.getByText(`Opened "${savedViewName}". Results updated below.`)).toBeVisible();
+  await expect(savedViews.getByLabel('Current view', { exact: true })).toHaveText(`Named: ${savedViewName}`);
+  await expect(page.getByRole('status', { name: 'Work item results status', exact: true })).toContainText('Results updated:');
 }
 
 async function selectManagedSavedView(page: Page, savedViewName: string): Promise<Locator> {
@@ -281,7 +282,7 @@ test('pages project and workspace work without losing navigation context', async
   await expect(projectResults.getByRole('heading', { name: '11-18 of 18 work items' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Bulk edit' }).click();
-  await projectResults.getByLabel('Select all visible work items').check();
+  await projectResults.getByRole('table').getByRole('checkbox', { name: 'Select all visible work items' }).check();
   await expect(page.getByLabel('Bulk work item actions')).toContainText('8 selected on this page');
   await projectPager.getByRole('button', { name: 'Previous' }).click();
   await expect(projectResults.locator('input[type="checkbox"]:checked')).toHaveCount(0);

@@ -82,6 +82,61 @@ describe('SavedViewsToolbarComponent', () => {
     ];
   }
 
+  it('resets local chooser and name state on context change and follows the explicit opened identity', () => {
+    fixture.componentRef.setInput('contextKey', 'actor-a');
+    fixture.detectChanges();
+    fixture.componentInstance.newViewName = 'Private draft';
+    fixture.componentInstance.selectedManageViewId = savedView.id;
+    fixture.componentRef.setInput('openedViewId', savedView.id);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.selectedOpenViewId).toBe(savedView.id);
+    fixture.componentRef.setInput('contextKey', 'actor-b');
+    fixture.componentRef.setInput('openedViewId', null);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.selectedOpenViewId).toBe('');
+    expect(fixture.componentInstance.selectedManageViewId).toBe('');
+    expect(fixture.componentInstance.newViewName).toBe('');
+  });
+
+  it('retains a failed save name until a successful create is accepted', () => {
+    fixture.componentRef.setInput('createdRevision', 0);
+    fixture.detectChanges();
+    fixture.componentInstance.newViewName = 'Keep this name';
+    fixture.componentInstance.saveRequested('personal');
+    fixture.componentRef.setInput('mutationError', 'Save rejected');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.newViewName).toBe('Keep this name');
+    fixture.componentRef.setInput('createdRevision', 1);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.newViewName).toBe('');
+  });
+
+  it('uses per-view permissions and disables management inputs while pending', () => {
+    fixture.componentInstance.sharedViews = [sharedView];
+    fixture.componentInstance.canManageSharedViews = true;
+    fixture.componentInstance.manageableViewIds = new Set([savedView.id]);
+    fixture.detectChanges();
+    const compiled = selectManagedView(sharedView.id);
+    expect(managementButtons(compiled)).toHaveSize(1);
+    selectManagedView(savedView.id);
+    fixture.componentRef.setInput('isSaving', true);
+    fixture.detectChanges();
+    expect(managementButtons(compiled).every(button => button.disabled)).toBeTrue();
+    expect(compiled.querySelector<HTMLInputElement>('.saved-view-management-rename input')?.disabled).toBeTrue();
+    expect(compiled.textContent).toContain('Updating saved views...');
+  });
+
+  it('exposes a named retry command instead of empty-state copy on a load failure', () => {
+    const retried = spyOn(fixture.componentInstance.retryLoad, 'emit');
+    fixture.componentInstance.personalViews = [];
+    fixture.componentInstance.loadError = 'Saved views could not be loaded.';
+    fixture.detectChanges();
+    const retry = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('[aria-label="Retry saved views"]');
+    retry?.click();
+    expect(retried).toHaveBeenCalled();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.saved-view-empty')).toBeNull();
+  });
+
   it('renders compact open select groups with query summaries', () => {
     fixture.componentInstance.sharedViews = [sharedView];
     fixture.detectChanges();
@@ -168,8 +223,8 @@ describe('SavedViewsToolbarComponent', () => {
     fixture.detectChanges();
 
     expect(opened).toEqual([sharedView]);
-    expect(compiled.querySelector('.saved-view-opened')?.getAttribute('aria-live')).toBe('polite');
-    expect(compiled.textContent).toContain('Opened "Dependency risks". Results updated below.');
+    expect(compiled.querySelector('.saved-view-opened')).toBeNull();
+    expect(compiled.textContent).not.toContain('Results updated');
   });
 
   it('opens a personal saved view from the compact opener', () => {

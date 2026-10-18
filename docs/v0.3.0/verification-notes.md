@@ -1414,3 +1414,101 @@ release-wide verification remain separate work. Documentation-only closure reuse
 Final read-only cleanup inspection confirmed all 14 owned run summaries marked cleaned, their roots
 absent, and no matching owned Docker container or process remaining. Structured Markdown parsing
 validated 90 local links/anchors across the six current documents; `git diff --check` passed.
+
+## Phase 15: Shared Saved Views And Work Lists
+
+Completed October 17, 2026. [Shared work-list evidence](shared-work-list-evidence.md) identifies actual
+production adoption and behavior. This is not a release or deployment claim.
+
+### Impact And Commands
+
+Changed production code is confined to frontend project/workspace work lists, their page-local
+saved-view/query/bulk state and shared toolbar/pins/pager/result components. API, contracts, schema,
+editor/Planning workflows and the public site are unchanged. Backend regression and unrelated frontend
+suites were intentionally omitted, not counted as passed. Migration/seeding/API compilation in browser
+provisioning are prerequisites, not new backend regression evidence. Full release verification is deferred.
+
+Commands used Node 24.16.0/npm 11.13.0 explicitly. Owned acceptance followed the existing
+`createManifest('none')`/`prepareWorkspace`/`runCommand`/random-port Karma/`cleanupRun` pattern:
+
+```sh
+npm run lint --workspace @worktrail/web
+npm run ng --workspace @worktrail/web -- test --watch=false --karma-config <owned-checkout>/scripts/verification/karma.config.cjs --include=<affected-specs>
+npm run build --workspace @worktrail/web -- --stats-json
+npm run verify -- --mode=e2e --grep='<selected-title-pattern>'
+npx eslint e2e/shared-saved-view-state.spec.ts e2e/worktrail-smoke.spec.ts --max-warnings=0
+npx tsc -p tsconfig.verification.json --noEmit
+git diff --check
+```
+
+### Focused Acceptance
+
+`b55d2e62-ffce-42e3-a71d-327298a7495d` passed 250 affected Angular cases, frontend lint, production
+build and static initial-graph checks. Selection covers work-item state/query specs, saved-view toolbar/
+pins, result-list/pagination/chips and both real production list pages. Cases cover ownership/default
+denial/shared roles/archived projects, explicit Named/Modified/Custom identity, create/rename/query/pin/
+delete after context reset/destruction, superseded loads, failed writes/drafts, applied-vs-pending state,
+all-field canonical view/pin/chip round trips, latest response feedback, table/mobile semantics and
+pending bulk selection. Page-size mount/remount/accepted-size synchronization has a direct regression.
+The preceding 244-case run (`3d44fb36-d931-4df3-967e-f80bc74c7e9a`) passed but is not added to the
+250-case count. Later Angular spec changes are whitespace only; production source is unchanged.
+
+Initial production size is 397.75 kB (109.92 kB estimated transfer), 155 initial inputs, 20 lazy page
+entries and no budget warnings. No CDK/dialog/detail/Planning/Markdown/editor input entered the initial
+static graph. No dependencies, thresholds, retries, workers or deadlines were raised.
+
+Five distinct selected browser journeys completed successfully across the following runs. Diagnostic
+multi-test runs are not represented as clean overall passes:
+
+- `b2070129-6860-4425-b0b2-35b0f7a798b8`: workspace saved-view state and all three existing journeys
+  (project/workspace paging/return/copy/export/board, workspace shared owner/contributor views, and
+  project personal/shared owner/contributor views) passed. The new project case stopped on an incorrect
+  test table name, described below.
+- `0beb926e-4b19-4fc0-b036-2437c4126ab1`: clean single-journey pass for the corrected project case.
+
+New scope-specific fixtures each create 105 ready, unestimated work items in the owned database. They
+exercise delayed opening with no premature result confirmation, pending filters preserving Named,
+applied changes becoming Modified without a saved-definition write, explicit Update returning Named,
+pin/rename/same-URL reopen, top/bottom 100-row synchronization, paging without definition changes,
+load failure clearing confirmation, Retry into zero results and deletion returning Custom. Project
+coverage also selects exactly 100 visible IDs, verifies clearing on page change and selects the five
+remaining items from mobile controls. Existing owner/contributor flows prove real API permissions.
+
+Screenshot inspection covers both scopes at 1280px and 320px, with no overlapping controls or page
+overflow. The existing workspace table retains internal horizontal scrolling at narrower desktop widths;
+phone results use cards. This is not a full screen-reader/device audit. Browser tests use one worker,
+zero retries and unchanged deadlines. Test-code ESLint and verification TypeScript passed.
+
+### Diagnostics
+
+- `e2e29aba-2112-4467-97c8-3563bf27f0bc`: 226 cases with six obsolete pager/empty/Open-message and
+  request-body expectations failing. Bottom selectors now distinguish top navigation; empty results
+  retain the compact top control; no premature Open confirmation remains. Workspace create omits an
+  absent project ID rather than supplying an undefined property.
+- `5511e723-7b19-44e1-89c1-49281e619d8f`: new query-store test did not typecheck because the scoped
+  pending-value union omitted workspace fields; the fixture was corrected.
+- `a4e67688-e587-4f41-b074-b7a60254dcf5`: 240 cases with one remaining old empty-pager selector;
+  it now asserts the intended bottom absence and top zero range.
+- `26588a2d-651e-4df5-bbe0-33380acaa3b3`: interrupted after an exact wrapped-label selector stalled
+  the new opener flow. Explicit accessible select labels resolve the ambiguity. Its summary records
+  SIGINT and successful cleanup; it is not an acceptance pass.
+- `f2e697c1-96eb-4148-b1d8-0d856a852ecf`: both new browser cases found a real pager select-mount bug:
+  bottom size displayed 10 while accepted size was 100. Option-level selected bindings now reflect
+  metadata across mounting/remounting; Angular and subsequent workspace/project browser checks pass.
+  The three existing journeys passed in this diagnostic run too, without being counted twice.
+- `b2070129...`: the new project test requested a table named `Project work items`, but the existing
+  accessible name is `Work items`. Only that locator changed; the focused rerun passed seven header
+  cells, visible-ID selection, clearing, mobile controls and the remaining mutation/failure checks.
+
+### Closure
+
+All runs used private checkouts/builds/browser profiles and owned random-port servers. Browser runs
+used labeled disposable PostgreSQL containers and owned attachment storage. Ordinary PostgreSQL on
+5432, the configured working database/storage and unrelated processes were not used or stopped.
+Owned resources were removed on success, failure and interruption; ignored reports/screenshots remain
+under `test-results/verification`. Documentation-only closure reuses the focused checks above.
+Package versions remain 0.2.9. No commit, push, merge, tag, publication or deployment was performed.
+Phase 15 is complete; Phase 16 and release-wide verification remain pending.
+Final read-only inspection confirmed all nine Phase 15 run summaries marked cleaned, their owned roots
+absent and no matching process/container remaining. Structured Markdown parsing validated 94 local
+links/anchors across the six changed documents; final test-code ESLint and `git diff --check` passed.

@@ -1,9 +1,11 @@
-import { workItemQueryEntries } from '@worktrail/contracts';
+import { workItemQueryEntries, type MemberDto, type SavedWorkViewDto } from '@worktrail/contracts';
+import { of } from 'rxjs';
 import { queryParityFixtures } from '../../../../../../../packages/contracts/src/fixtures/work-query-fixtures';
 import { workItemQueryToHttpParams } from '../../../shared/work-items/work-item-query-params';
+import { SavedViewsStore, type SavedViewsGateway } from '../state/saved-views.store';
 import { WorkListQueryStore } from '../state/work-list-query.store';
 import { workItemFilterChips } from './work-item-filter-labels';
-import { projectFormValueFromQuery, projectQueryFromFormValue, workspaceFormValueFromQuery, workspaceQueryFromFormValue, routerLinkQueryParamsFromWorkItemQuery, returnUrlFromWorkItemQuery } from './work-item-query-serialization';
+import { projectFormValueFromQuery, projectQueryFromFormValue, returnUrlFromWorkItemQuery, routerLinkQueryParamsFromWorkItemQuery, workspaceFormValueFromQuery, workspaceQueryFromFormValue } from './work-item-query-serialization';
 
 describe('complete live-query round trips', () => {
   for (const fixture of queryParityFixtures) {
@@ -30,6 +32,33 @@ describe('complete live-query round trips', () => {
         expect(Object.fromEntries(returned.searchParams)).toEqual(expected);
         const chips = workItemFilterChips(store.activeQuery(), scope, { members: [], labels: [], milestones: [], cycles: [], projectSummaries: [] });
         expect(chips.map(chip => String(chip.key)).sort()).toEqual(Object.keys(expected).sort());
+        for (const chip of chips) {
+          const removed = { ...store.activeQuery() };
+          delete removed[chip.key];
+          expect(routerLinkQueryParamsFromWorkItemQuery(removed, scope)?.[chip.key]).toBeUndefined();
+        }
+        const owner: MemberDto = {
+          id: 'owner', workspaceId: 'workspace', name: 'Owner', email: 'owner@example.com', role: 'owner',
+          isActive: true, deactivatedAt: null, createdAt: '2026-10-17T00:00:00Z', updatedAt: '2026-10-17T00:00:00Z'
+        };
+        const view: SavedWorkViewDto = {
+          id: 'view', workspaceId: 'workspace', projectId: scope === 'project' ? 'project' : null,
+          scope, visibility: 'personal', owner, name: 'All fields', query: store.activeQuery(), isPinned: false,
+          createdAt: owner.createdAt, updatedAt: owner.updatedAt
+        };
+        const gateway = jasmine.createSpyObj<SavedViewsGateway>('views', ['listSavedWorkViews', 'createSavedWorkView', 'updateSavedWorkView', 'deleteSavedWorkView']);
+        gateway.listSavedWorkViews.and.returnValue(of([view]));
+        gateway.updateSavedWorkView.and.callFake((_id, input) => of({ ...view, ...input }));
+        const views = new SavedViewsStore(gateway, {
+          scope, actor: () => owner, projectId: () => 'project',
+          appliedQuery: () => store.activeQuery(), canManagePersonalViews: () => true
+        });
+        views.load();
+        views.open(view);
+        views.setPinned(view, true);
+        expect(views.viewState().kind).toBe('named');
+        expect(Object.fromEntries(workItemQueryEntries(views.pinnedPersonalViews()[0].query, scope))).toEqual(expected);
+        views.destroy();
       });
     }
   }

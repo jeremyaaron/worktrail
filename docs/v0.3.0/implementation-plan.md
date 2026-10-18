@@ -2,8 +2,8 @@
 
 ## Status
 
-Approved for sequential execution. Phases 0-14 are complete as of October 17, 2026;
-Phases 15-21 are not started. Release verification remains pending. Merge, tag, publication,
+Approved for sequential execution. Phases 0-15 are complete as of October 17, 2026;
+Phases 16-21 are not started. Release verification remains pending. Merge, tag, publication,
 and Pages deployment remain separate user-controlled actions.
 
 ## Purpose
@@ -101,7 +101,7 @@ integration boundaries.
 | 12 | Shared draft departure protection in production editors | Complete |
 | 13 | Read-first detail and focused editing/collaboration owners | Complete |
 | 14 | Bounded return navigation and relevant section targeting | Complete |
-| 15 | Shared saved views, applied-query feedback, and work-list ergonomics | Not started |
+| 15 | Shared saved views, applied-query feedback, and work-list ergonomics | Complete |
 | 16 | Execution-first Planning and disclosed management | Not started |
 | 17 | Complete historical outcome and deliberate closeout destinations | Not started |
 | 18 | Portfolio, project navigation, and Quick Find ergonomics | Not started |
@@ -1347,7 +1347,29 @@ Acceptance:
 Verification: shared store plus both production-page integration tests, delayed mutation/load failures,
 every-field chip/view round trips, pagination/bulk/semantics browser checks, and build budgets.
 
-Status: Not started.
+Status: Complete (October 17, 2026).
+
+Completion notes:
+
+- Both production Work lists use the hardened page-local saved-view owner for collection, permissions,
+  CRUD/query/pin operations, errors and explicit opened identity; duplicate subscriptions/helpers are gone.
+  Cancelled loads, generation/context guards, pending serialization and destruction are covered.
+- Named/Modified/Custom compares accepted canonical definitions with applied filters/sort. Pending edits
+  and paging do not modify identity; query Update remains explicit. Rename/pin/delete and actor/project/
+  role/archive rules are coherent, and failed/unrelated writes retain appropriate name drafts.
+- Stable keyed chips cover every applicable query field. Latest successful corresponding loads own
+  results confirmation, rather than the Open click. Top range/page-size/direction controls and bottom
+  numbered pagination share metadata; a discovered pager mount/size display bug has regression coverage.
+- Visible-ID bulk clearing has a status notice. Desktop/mobile selection is disabled during bulk
+  writes; non-visible IDs are rejected. Table headers/cells/selection and pinned active state are exposed.
+- 250 affected Angular cases, frontend/test-code lint, verification TypeScript, production build and
+  initial graph checks passed. Five distinct browser journeys passed across documented focused runs,
+  including both-scope 105-row fixtures, latest feedback/errors, explicit Update, pins/rename/delete,
+  owner/contributor rules, top/bottom 100-row navigation, bulk clearing and mobile selection.
+- [Shared work-list evidence](shared-work-list-evidence.md) and [verification notes](verification-notes.md)
+  record adoption, diagnostics, screenshots, cleanup and intentionally omitted unrelated suites.
+  Initial size is 397.75 kB with 20 lazy page entries and no budget warnings. Versions remain 0.2.9;
+  ordinary data/storage, dependency thresholds and release actions are unchanged. Phase 16 is not started.
 
 ## Phase 16: Execution-First Planning
 

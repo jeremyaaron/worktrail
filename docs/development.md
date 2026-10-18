@@ -1,9 +1,10 @@
 # Worktrail Developer Ownership And Invariants
 
-This is the current implementation guide, not a release archive. As of v0.3.0 Phase 14, persistence
+This is the current implementation guide, not a release archive. As of v0.3.0 Phase 15, persistence
 ownership, batched queries, lifecycle coordination, authoritative work/relationship commands,
 bounded HTTP parsing, versioned risk/query policy, aggregate narrowing, committed frontend context,
-shared draft departure protection, read-first detail composition and bounded inspection navigation are implemented. Remaining presentation
+shared draft departure protection, read-first detail composition, bounded inspection navigation,
+and shared saved-view/list state are implemented. Remaining presentation
 consolidation follows the [implementation plan](v0.3.0/implementation-plan.md).
 
 ## Committed Frontend Context
@@ -37,6 +38,34 @@ Touched pages use focused API clients directly; `WorktrailApiService` is compati
 untouched consumers. The context owner imports no feature/editor/Planning modules. Regression evidence
 is in [reactive context evidence](v0.3.0/reactive-context-evidence.md). The following departure layer
 was added in Phase 12; it is separate from committed route/request ownership.
+
+## Work List And Saved View Ownership
+
+Both project Work and workspace Work Items instantiate `SavedViewsStore` locally. The pages provide
+the committed actor/context, applied query, scope/project, and active-project mutation capabilities;
+the store also checks actual personal ownership, workspace/scope identity and shared-view roles.
+Missing capability callbacks deny mutations. Reset it on committed actor/project change and destroy
+it with the page. Cancel superseded loads and reject old-context success/error callbacks for every
+mutation; unsubscribing does not guarantee cancellation of an already submitted server transaction.
+
+Only explicit opening selects a view ID and its accepted canonical query signature. The store derives
+Named/Modified/Custom against the applied query, ignoring page position and unapplied form values.
+Rename and pin preserve that baseline; explicit Update query replaces it. Delete, an inaccessible
+view or context reset clears it. Do not infer selection from another view with an equal definition.
+The compact opener and pinned shortcuts call the same page navigation path, which accepts identity
+only after committed navigation (or an already-current URL). Rename drafts survive unrelated writes
+and failed saves; accepted creation alone clears the toolbar's new-view name.
+
+`WorkListQueryStore` owns applied query/page state and a generation-bound successful-result summary.
+Starting a read clears old feedback; only the latest matching query/page response can announce its
+accepted range. The toolbar must not announce results merely because Open was clicked. Both pagers
+use the page's same metadata/commands. Keyed chip descriptors, not English display-label parsing,
+own removal for every applicable field, including work risk and estimate state.
+
+Project bulk selection remains explicit visible IDs. Page/query/context changes announce clearing;
+submitted bulk writes disable desktop/mobile selection. Table headers/cells and selected rows retain
+semantics, and mobile cards expose select-all without depending on hidden desktop controls.
+See [shared work-list evidence](v0.3.0/shared-work-list-evidence.md).
 
 ## Draft Departure Ownership
 

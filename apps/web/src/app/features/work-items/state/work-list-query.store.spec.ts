@@ -1,6 +1,26 @@
 import { WorkListQueryStore } from './work-list-query.store';
 
 describe('WorkListQueryStore', () => {
+  for (const scope of ['project', 'workspace'] as const) {
+    it(scope + ': announces only accepted latest query results and ignores pending form changes', () => {
+      const store = scope === 'project' ? WorkListQueryStore.project() : WorkListQueryStore.workspace();
+      const metadata = { page: 1, pageSize: 25 as const, totalCount: 2, totalPages: 1, hasPreviousPage: false, hasNextPage: false };
+      store.applyQuery({ status: 'ready' });
+      const old = store.beginResultsLoad();
+      store.applyQuery({ status: 'blocked' });
+      const current = store.beginResultsLoad();
+      store.acceptResults(old, metadata, 2);
+      expect(store.resultsSummary()).toBeNull();
+      store.acceptResults(current, metadata, 2);
+      expect(store.resultsSummary()).toBe('Results updated: 1-2 of 2 work items.');
+      store.setPendingFilterValues({ ...store.pendingFilterValues(), projectId: '', archivedProjects: 'exclude', search: 'Unapplied' });
+      expect(store.resultsSummary()).toBe('Results updated: 1-2 of 2 work items.');
+      store.applyRouteQueryParams(new URLSearchParams({ status: 'blocked', page: '2' }));
+      expect(store.resultsSummary()).toBeNull();
+      store.acceptResults(current, metadata, 2);
+      expect(store.resultsSummary()).toBeNull();
+    });
+  }
   it('derives project active and pending query state from route params', () => {
     const store = WorkListQueryStore.project();
     const params = new URLSearchParams({

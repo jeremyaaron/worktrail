@@ -7,10 +7,8 @@ import type {
   ProjectNavigationSummaryDto
 } from '@worktrail/contracts';
 
-import {
-  projectWorkItemFilterLabels,
-  workspaceWorkItemFilterLabels
-} from './work-item-filter-labels';
+import { workItemFilterChips } from './work-item-filter-labels';
+import { projectQueryFromFormValue, workspaceQueryFromFormValue } from './work-item-query-serialization';
 
 describe('work item filter labels', () => {
   const activeMember: MemberDto = {
@@ -85,35 +83,32 @@ describe('work item filter labels', () => {
 
   it('formats project work item filter labels with lookup names', () => {
     expect(
-      projectWorkItemFilterLabels(
-        {
-          search: 'api',
-          workState: '',
-          assigneeState: '',
-          blocked: '',
-          estimateState: '',
-          status: 'in_progress',
-          assigneeId: inactiveMember.id,
-          reporterId: activeMember.id,
-          type: 'story',
-          labelId: label.id,
-          milestoneId: milestone.id,
-          cycleId: cycle.id,
-          priority: 'high',
-          dueDateState: 'due_soon',
-          dependency: 'blocking_open_work',
-          workRisk: 'stale_in_progress',
-          hierarchy: 'parents',
-          parentKey: '',
-          sort: 'priority_desc'
-        },
-        {
-          members: [activeMember, inactiveMember],
-          labels: [label],
-          milestones: [milestone],
-          cycles: [cycle]
-        }
-      )
+      workItemFilterChips(projectQueryFromFormValue({
+        search: 'api',
+        workState: '',
+        assigneeState: '',
+        blocked: '',
+        estimateState: '',
+        status: 'in_progress',
+        assigneeId: inactiveMember.id,
+        reporterId: activeMember.id,
+        type: 'story',
+        labelId: label.id,
+        milestoneId: milestone.id,
+        cycleId: cycle.id,
+        priority: 'high',
+        dueDateState: 'due_soon',
+        dependency: 'blocking_open_work',
+        workRisk: 'stale_in_progress',
+        hierarchy: 'parents',
+        parentKey: '',
+        sort: 'priority_desc'
+      }), "project", {
+        members: [activeMember, inactiveMember],
+        labels: [label],
+        milestones: [milestone],
+        cycles: [cycle]
+      }).map(chip => chip.label)
     ).toEqual([
       'Search: api',
       'Status: In progress',
@@ -134,38 +129,35 @@ describe('work item filter labels', () => {
 
   it('formats workspace-only filter labels', () => {
     expect(
-      workspaceWorkItemFilterLabels(
-        {
-          search: '',
-          assigneeState: '',
-          estimateState: '',
-          projectId: project.id,
-          status: '',
-          workState: 'open',
-          assigneeId: '',
-          reporterId: '',
-          type: '',
-          labelId: '',
-          milestoneId: '',
-          cycleId: '',
-          priority: '',
-          dueDateState: '',
-          blocked: 'true',
-          dependency: '',
-          workRisk: '',
-          hierarchy: '',
-          parentKey: 'WT-42',
-          archivedProjects: 'only',
-          sort: 'updated_desc'
-        },
-        {
-          members: [],
-          labels: [],
-          milestones: [],
-          cycles: [],
-          projectSummaries: [projectSummary]
-        }
-      )
+      workItemFilterChips(workspaceQueryFromFormValue({
+        search: '',
+        assigneeState: '',
+        estimateState: '',
+        projectId: project.id,
+        status: '',
+        workState: 'open',
+        assigneeId: '',
+        reporterId: '',
+        type: '',
+        labelId: '',
+        milestoneId: '',
+        cycleId: '',
+        priority: '',
+        dueDateState: '',
+        blocked: 'true',
+        dependency: '',
+        workRisk: '',
+        hierarchy: '',
+        parentKey: 'WT-42',
+        archivedProjects: 'only',
+        sort: 'updated_desc'
+      }), "workspace", {
+        members: [],
+        labels: [],
+        milestones: [],
+        cycles: [],
+        projectSummaries: [projectSummary]
+      }).map(chip => chip.label)
     ).toEqual([
       'Project: WT · Worktrail',
       'State: Open',

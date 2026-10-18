@@ -339,6 +339,33 @@ function managementButtons(compiled: HTMLElement): HTMLButtonElement[] {
 }
 
 describe('WorkspaceWorkItemListPageComponent', () => {
+
+  it('uses the shared owner for applied view identity and announces only accepted loads', async () => {
+    const { fixture, http } = setup();
+    flushProjectSummaries(http); flushSavedViews(http, [savedView]);
+    http.expectOne(candidate => candidate.url === '/api/work-items').flush(workItemPage([workItem]));
+    const page = fixture.componentInstance;
+    expect(page.savedViews).toBe(page.savedViewsState.views);
+    const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    page.openSavedView(savedView);
+    route.setQuery({ assigneeId: owner.id, workState: 'open', sort: 'priority_desc' });
+    fixture.detectChanges(); await fixture.whenStable();
+    expect(navigate).toHaveBeenCalled();
+    expect(page.savedViewState().kind).toBe('named');
+    expect(page.resultsMessage()).toBeNull();
+    http.expectOne(candidate => candidate.url === '/api/work-items').flush(workItemPage([workItem]));
+    fixture.detectChanges();
+    expect(page.resultsMessage()).toContain('Named: Open owner work. Results updated:');
+    page.filterForm.controls.search.setValue('Unapplied');
+    expect(page.savedViewState().kind).toBe('named');
+    route.setQuery({ assigneeId: owner.id, workState: 'open', sort: 'priority_desc', estimateState: 'unestimated' });
+    expect(page.savedViewState().kind).toBe('modified');
+    expect(page.resultsMessage()).toBeNull();
+    http.expectOne(candidate => candidate.url === '/api/work-items').flush({}, { status: 500, statusText: 'Expected' });
+    expect(page.resultsMessage()).toBeNull();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('[aria-label="Current view"]')?.textContent).toContain('Modified:');
+  });
   beforeEach(async () => {
     localStorage.clear();
     route = new ActivatedRouteStub();
@@ -483,7 +510,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('.list-heading')?.textContent).toContain('11-11 of 21 work items');
-    expect(compiled.querySelector('.pagination__status')?.textContent).toContain('Page 2 of 3');
+    expect(compiled.querySelector('nav[aria-label="Work item pages"] .pagination__status')?.textContent).toContain('Page 2 of 3');
     expect(compiled.querySelector<HTMLSelectElement>('.pagination__size select')?.value).toBe('10');
   });
 
@@ -504,7 +531,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     let compiled = fixture.nativeElement as HTMLElement;
     const initialHeading = compiled.querySelector<HTMLHeadingElement>('.list-heading h2');
     expect(initialHeading?.textContent?.trim()).toBe('1-10 of 21 work items');
-    expect(compiled.querySelector('.pagination__status')?.textContent?.trim()).toBe('Page 1 of 3');
+    expect(compiled.querySelector('nav[aria-label="Work item pages"] .pagination__status')?.textContent?.trim()).toBe('Page 1 of 3');
     expect(document.activeElement).not.toBe(initialHeading);
 
     route.setQuery({ page: '3', pageSize: '10' });
@@ -527,7 +554,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect(compiled.querySelector('.list-heading h2')?.textContent?.trim()).toBe(
       '21-21 of 21 work items'
     );
-    expect(compiled.querySelector('.pagination__status')?.textContent?.trim()).toBe('Page 3 of 3');
+    expect(compiled.querySelector('nav[aria-label="Work item pages"] .pagination__status')?.textContent?.trim()).toBe('Page 3 of 3');
     expect(document.activeElement).not.toBe(compiled.querySelector('.list-heading h2'));
 
     route.setQuery({ search: 'no matches', pageSize: '10' });
@@ -544,7 +571,8 @@ describe('WorkspaceWorkItemListPageComponent', () => {
 
     compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('.list-heading h2')?.textContent?.trim()).toBe('0 work items');
-    expect(compiled.querySelector('app-work-item-pagination nav')).toBeNull();
+    expect(compiled.querySelector('nav[aria-label="Work item pages"]')).toBeNull();
+    expect(compiled.querySelector('nav[aria-label="Work item result navigation"]')?.textContent).toContain('0-0 of 0 work items');
     expect(compiled.textContent).toContain('No work items match these filters');
   });
 
@@ -1227,7 +1255,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
         })
       })
     );
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain(
       'Opened "Open owner work". Results updated below.'
     );
 

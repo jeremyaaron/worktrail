@@ -1,10 +1,8 @@
-import { workItemQueryEntries, workItemQueryFieldPolicy, type WorkItemQuery, type WorkItemQueryScope, type LabelDto, type MemberDto, type MilestoneDto, type ProjectCycleDto, type ProjectNavigationSummaryDto } from '@worktrail/contracts';
+import { workItemQueryEntries, workItemQueryFieldPolicy, type LabelDto, type MemberDto, type MilestoneDto, type ProjectCycleDto, type ProjectNavigationSummaryDto, type WorkItemQuery, type WorkItemQueryScope } from '@worktrail/contracts';
 import { memberDisplayName } from '../../../shared/display/member-display';
 import { formatToken } from '../../../shared/display/token-format';
 import { projectTitle, workItemPriorityLabel, workItemStatusLabel } from '../../../shared/work-items/work-item-display';
 import { archivedProjectModeOptions, blockedFilterOptions, dependencyFilterOptions, dueDateStateOptions, workItemHierarchyOptions, workItemSortOptions, workItemStateOptions } from './work-item-filter-options';
-import type { ProjectWorkItemFilterFormValue, WorkspaceWorkItemFilterFormValue } from './work-item-filter-state';
-import { projectQueryFromFormValue, workspaceQueryFromFormValue } from './work-item-query-serialization';
 
 export interface ProjectFilterLabelLookups { members: MemberDto[]; labels: LabelDto[]; milestones: MilestoneDto[]; cycles: ProjectCycleDto[]; }
 export interface WorkspaceFilterLabelLookups extends ProjectFilterLabelLookups { projectSummaries: ProjectNavigationSummaryDto[]; }
@@ -40,12 +38,6 @@ export function workItemFilterChips(query: WorkItemQuery, scope: WorkItemQuerySc
     }
     return { key, label: `${title}: ${text}` };
   });
-}
-export function projectWorkItemFilterLabels(form: ProjectWorkItemFilterFormValue, lookups: ProjectFilterLabelLookups): string[] {
-  return workItemFilterChips(projectQueryFromFormValue(form), 'project', lookups).map(chip => chip.label);
-}
-export function workspaceWorkItemFilterLabels(form: WorkspaceWorkItemFilterFormValue, lookups: WorkspaceFilterLabelLookups): string[] {
-  return workItemFilterChips(workspaceQueryFromFormValue(form), 'workspace', lookups).map(chip => chip.label);
 }
 function optionLabel(options: ReadonlyArray<{ label: string; value: string }>, value: string): string {
   return options.find(option => option.value === value)?.label ?? value;

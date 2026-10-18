@@ -14,11 +14,35 @@ describe('WorkItemPaginationComponent', () => {
     fixture = TestBed.createComponent(WorkItemPaginationComponent);
   });
 
+  it('keeps page size synchronized when a result pager mounts, remounts, or changes size', () => {
+    render(metadata({ pageSize: 100 }));
+    expect(compiled().querySelector<HTMLSelectElement>('select')?.value).toBe('100');
+    render(metadata({ pageSize: 50 }));
+    expect(compiled().querySelector<HTMLSelectElement>('select')?.value).toBe('50');
+    render(metadata({ totalCount: 0, totalPages: 0 }));
+    expect(compiled().querySelector('select')).toBeNull();
+    render(metadata({ pageSize: 100 }));
+    expect(compiled().querySelector<HTMLSelectElement>('select')?.value).toBe('100');
+    fixture.componentInstance.compact = true;
+    render(metadata({ totalCount: 0, totalPages: 0, pageSize: 25 }));
+    expect(compiled().querySelector<HTMLSelectElement>('select')?.value).toBe('25');
+  });
+
   it('renders a bounded start window with one gap', () => {
     render(metadata({ page: 1, totalPages: 12, hasNextPage: true }));
 
     expect(renderedPages()).toEqual([1, 2, 3, 12]);
     expect(compiled().querySelectorAll('.pagination__ellipsis')).toHaveSize(1);
+  });
+
+  it('provides compact range and size controls even for empty results without a second page chooser', () => {
+    fixture.componentInstance.compact = true;
+    render(metadata({ page: 2, pageSize: 100, totalCount: 105, totalPages: 2, hasPreviousPage: true }));
+    expect(compiled().querySelector('nav')?.getAttribute('aria-label')).toBe('Work item result navigation');
+    expect(compiled().textContent).toContain('101-105 of 105 work items');
+    expect(compiled().querySelector('.pagination__pages')).toBeNull();
+    render(metadata({ page: 1, totalCount: 0, totalPages: 0 }));
+    expect(compiled().textContent).toContain('0-0 of 0 work items');
   });
 
   it('renders neighbors and both gaps in the middle of the range', () => {
