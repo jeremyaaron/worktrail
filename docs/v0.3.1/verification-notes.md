@@ -476,3 +476,95 @@ Broader populated/attachment preservation, full API/concurrency/performance acce
 combined installation and release checks remain in Phases 7/8/11. No Angular, application browser,
 editor, preview or rendered-site suite was run for this backend-only boundary; earlier evidence is
 unchanged. No version bump, git commit, tag, push or remote workflow change was made.
+
+## Phase 7: Data And Transaction Preservation
+
+Completed October 18, 2026, from clean commit `ef4657b` on `v0.3.1`. Release identity remains
+`0.3.0`; the Phase 6 dependency declarations, lockfile, application code and SQL are unchanged.
+[Structured evidence](phase-7-evidence.json) records the source/lock identities, preserved row/file
+inventories, ledger mapping, test coverage/results, runtime operations and cleanup controls.
+
+### Reproducible Upgrade Proof
+
+`npm run verify:upgrade` archives the actual `v0.3.0` release commit
+`42166d991017b96f46bad22998832c29c0c84750`, rather than imitating an old ledger or using current
+code with an old package installed. Its private checkout installs the original lock independently
+with ORM `0.45.2`; the current private snapshot independently installs the Phase 6 lock with ORM
+`1.0.0-rc.4`. Physical module resolution must remain inside each checkout. There are no dependency
+mirrors, forced peers or mutations of the working checkout/install/data.
+
+The archived baseline deliberately retains its old development dependencies and their deprecation
+warnings only inside the disposable prior-version installation. No old frontend tests, Studio or
+esbuild serve API runs, and those packages are not reintroduced into the current dependency graph.
+
+Both databases are separately owned/marked inside a labeled disposable PostgreSQL 16 server.
+The old release migrates/seeds the upgrade target before a repeatable-read, read-only capture on
+one checked-out connection. After capture, neither seed nor reset runs. The fresh target is never
+seeded and is also the API suite's database; suite fixtures cannot alter the preserved baseline.
+
+| Boundary | Outcome |
+| --- | --- |
+| Original release/current clean installs | Pass on Node `24.16.0` / npm `11.13.0`; independent locks and physical ORM installations |
+| History | All 20 SQL byte hashes/order match the released files |
+| Populated rows | All 154 rows across all 19 public tables unchanged, including saved queries/pins, relationships, inactive/archived state, authored source/formats, notifications and references |
+| Immutable history | Both stored reports and both stored closeouts unchanged; closeouts include versions 1 and 2 |
+| Attachments | Both referenced objects match their stored length/checksum; all three inventoried files (two objects and the store marker) unchanged |
+| Schema | Fresh, prior and upgraded columns/defaults/generated expressions, indexes, constraints and extension catalogs match; `pg_trgm` `1.6` retained |
+| Ledger | Original 20 IDs/hashes/millisecond timestamps preserved; only expected owner-mapped names and unknown historical application times added |
+| Reapplication | Fresh and upgrade repeat migration preserve complete row/schema/storage/ledger snapshots |
+| API/contracts source/test lint, typechecks, builds | Pass; compiled artifacts are built in the private current checkout |
+| Full API suite | 68 files / 881 passing cases; zero skipped/failed cases |
+| Contracts suite | 13 files / 88 passing cases; zero skipped/failed cases |
+| Upgrade/schema/ownership/resource helpers | 32 passing cases in the integrated run |
+| Compiled runtime | 15 actual HTTP requests pass against the upgraded populated database, with production mode and static serving disabled |
+| Post-runtime preservation | Stored reports/closeouts, file inventory and migration ledger remain unchanged after intentional runtime writes |
+
+The full API run retains existing project/cycle and current-row coordination, stale queued-command
+rereads, advisory modes/lifetime, lock ordering, hierarchy/dependency races, attachment compensation,
+rollback, read-only repeatable-read hydration, escaped scope invalidation, snapshot parsers and
+query-count/performance bounds. Assertions, limits, deadlines and retry policy are unchanged. The
+actual API test duration was about 33 seconds here; that is evidence for this run, not a runtime SLA.
+
+Compiled acceptance imports and starts the built API, not a TypeScript test-only composition. It
+checks database readiness, original source/format reads, saved views, byte-exact downloads, stored
+report/closeout retrieval, work creation/PATCH/reread, authored comments and CSV export. Only after
+the baseline comparisons do these intentional writes begin. The process is stopped and its pool
+closed before cleanup. No Angular build/browser or bundled SPA is needed for backend acceptance.
+
+### Focused Follow-Ups
+
+After the successful integrated run, add report/source-inventory validation so an empty, skipped,
+missing, duplicated or inconsistent report cannot masquerade as full acceptance. Both retained
+real reports pass exact file/case reconciliation. The eight updated helper checks pass, including
+the new negative cases; no unchanged full API/contracts rerun is needed. Also ensure a failed pool
+connection still closes the capture pool, and give a missing local baseline tag an actionable error.
+These are verifier refinements, not changed application or SQL behavior. The original integrated
+summary does not claim to have executed a gate added afterward; separate report-validation evidence
+records that follow-up.
+
+`npm run test:verification:upgrade-lifecycle` passes three deliberate negative controls: the candidate
+installer exits 42 after database provisioning (CLI returns 1), SIGINT returns 130 and SIGTERM returns
+143. Signals are sent at the observed installation gate, not after a sleep. The failure control checks
+all three private roots and absence of its labeled PostgreSQL container; signal controls stop before
+database provisioning. Each unsuccessful run records an unsuccessful durable summary and removes
+its private resources; those failures are expected controls, not failed product
+acceptance or retries. Changed verifier ESLint also passes.
+
+The main result is retained under
+`test-results/verification/f228c86f-1868-4ff7-9e83-3c97f916ac95/`, including `summary.json`,
+`before.json`, `after.json`, full API/contracts reports, `compiled-runtime.json` and the later
+`report-validation.json`. Negative control summaries are referenced in the structured evidence.
+All three main-run owned roots/installations, fresh/upgrade databases, attachment stores, compiled
+server and labeled PostgreSQL container are removed. Lifecycle controls also clean their owned
+resources; unrelated resources/working storage remain untouched.
+
+The current [operations guide](../operations.md#v031-toolchain-boundary) documents the supported
+boundary and coordinated backup/restore posture. It does not promise a general downgrade, automatic
+down-migration, restoration of post-backup writes or enterprise-hosting readiness. The original
+Phase 0 old-migrator observation remains bounded to unchanged domain history.
+
+Phase 8 still owns combined clean-install peer/audit-gate acceptance; Phase 10 owns fresh setup and
+remaining documentation; Phase 11 owns release identity/closeout. The strict dependency audit gate
+and the unchanged Angular/site suites are not rerun for this data/runtime proof. A cheap static
+site/link check and whitespace validation pass for documentation completion. No app/SQL/dependency
+change, timeout ratchet, sleep, retry, CI workflow change, version bump, commit, tag or push was made.

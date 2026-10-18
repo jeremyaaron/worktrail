@@ -1,0 +1,1155 @@
+{
+  "schemaVersion": 1,
+  "phase": 7,
+  "recordedOn": "2026-10-18T23:36:56.443Z",
+  "releaseIdentity": "0.3.0",
+  "baseline": {
+    "commit": "ef4657b2520e578507056897078db10e3e8d5e45",
+    "branch": "v0.3.1",
+    "worktree": "clean"
+  },
+  "environment": {
+    "node": "v24.16.0",
+    "npm": "11.13.0",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "databaseImage": "postgres:16-alpine"
+  },
+  "lockSha256": "5b43fb1f87ae625a7f7858f359fa6a3a593c8ae219165d25579b08f1c7b97257",
+  "dependenciesAndProductionSourcesUnchanged": true,
+  "sourceHashes": {
+    "package.json": "8ccf6b3a5d347de927f1e3a8726be7b53dd6d3390ab654e23e50db491c5a03bb",
+    "scripts/verify-upgrade.mjs": "5f23477e16e0a1498b5bd192bedc2f269a1262377762a8201b9a994ad948f1bf",
+    "scripts/verification/upgrade.mjs": "c0f88c0dcbb11c5cd1a5257694cec5bb2b6084f3cba61b1394b0339b188119c8",
+    "scripts/verification/upgrade-runtime.mjs": "d42ddbd5f8d6badbc38f529e096401d5c2c44a74e4e6a7e3c391ede264474202",
+    "scripts/verification/upgrade.test.mjs": "f221d53aa1b58d1d7f417d0d708c6a372899fde9556c9530fa29197981979a83",
+    "scripts/verification/upgrade.check.mjs": "ef8b1673c6cba913373b5a90744a6211eeb62de4f25839ecab24ecb1c4018db7"
+  },
+  "applicationInventories": {
+    "apps/api/src": "d188189a880e7e997b3fc3526b9c8257544c5188b843f9f3705a1ce6cd0d75be",
+    "apps/api/tests": "d761a48cef41dbcb81614c946ba6877c40dc90e4c45431ea6756f685f476996e",
+    "packages/contracts/src": "09b487628bf3413a7e9c56b71a00209430fa2f23b1a9a2faf50fa41ee9ba684c",
+    "apps/api/drizzle": "14c6bc577ccfae43d85cc041a6307027450aeb38654a6be2927c8ffcfda482ce"
+  },
+  "command": "npm run verify:upgrade",
+  "resultPath": "test-results/verification/f228c86f-1868-4ff7-9e83-3c97f916ac95/summary.json",
+  "passed": true,
+  "gates": [
+    {
+      "name": "baseline:archive-v0.3.0",
+      "passed": true,
+      "durationMs": 451
+    },
+    {
+      "name": "baseline:independent-install",
+      "passed": true,
+      "durationMs": 6182
+    },
+    {
+      "name": "database:disposable-postgres",
+      "passed": true,
+      "durationMs": 3628
+    },
+    {
+      "name": "database:separate-upgrade-target",
+      "passed": true,
+      "durationMs": 43
+    },
+    {
+      "name": "candidate:independent-install",
+      "passed": true,
+      "durationMs": 6026
+    },
+    {
+      "name": "history:sql-bytes-and-order",
+      "passed": true,
+      "durationMs": 3
+    },
+    {
+      "name": "baseline:migrate",
+      "passed": true,
+      "durationMs": 1899
+    },
+    {
+      "name": "baseline:seed-before-capture",
+      "passed": true,
+      "durationMs": 1165
+    },
+    {
+      "name": "preservation:capture-populated-baseline",
+      "passed": true,
+      "durationMs": 75
+    },
+    {
+      "name": "upgrade:ordinary-migrate",
+      "passed": true,
+      "durationMs": 1692
+    },
+    {
+      "name": "preservation:data-schema-storage-ledger",
+      "passed": true,
+      "durationMs": 2
+    },
+    {
+      "name": "upgrade:repeat-migrate",
+      "passed": true,
+      "durationMs": 884
+    },
+    {
+      "name": "preservation:upgrade-no-op",
+      "passed": true,
+      "durationMs": 1
+    },
+    {
+      "name": "fresh:migrate",
+      "passed": true,
+      "durationMs": 1192
+    },
+    {
+      "name": "preservation:fresh-schema",
+      "passed": true,
+      "durationMs": 1
+    },
+    {
+      "name": "fresh:repeat-migrate",
+      "passed": true,
+      "durationMs": 857
+    },
+    {
+      "name": "preservation:fresh-no-op",
+      "passed": true,
+      "durationMs": 60
+    },
+    {
+      "name": "lint:contracts",
+      "passed": true,
+      "durationMs": 1603
+    },
+    {
+      "name": "typecheck:contracts",
+      "passed": true,
+      "durationMs": 1058
+    },
+    {
+      "name": "build:contracts",
+      "passed": true,
+      "durationMs": 596
+    },
+    {
+      "name": "lint:api",
+      "passed": true,
+      "durationMs": 1514
+    },
+    {
+      "name": "typecheck:api",
+      "passed": true,
+      "durationMs": 4894
+    },
+    {
+      "name": "build:api",
+      "passed": true,
+      "durationMs": 3405
+    },
+    {
+      "name": "lint:upgrade-and-api-tests",
+      "passed": true,
+      "durationMs": 1975
+    },
+    {
+      "name": "test:upgrade-schema-resource-helpers",
+      "passed": true,
+      "durationMs": 6598
+    },
+    {
+      "name": "test:contracts",
+      "passed": true,
+      "durationMs": 1266
+    },
+    {
+      "name": "test:full-api",
+      "passed": true,
+      "durationMs": 33637
+    },
+    {
+      "name": "runtime:compiled-api",
+      "passed": true,
+      "durationMs": 922
+    },
+    {
+      "name": "preservation:history-and-files-after-runtime",
+      "passed": true,
+      "durationMs": 1
+    }
+  ],
+  "installations": {
+    "prior": {
+      "commit": "42166d991017b96f46bad22998832c29c0c84750",
+      "orm": "0.45.2",
+      "lockSha256": "d4c0e399e23981da4df5cf3fab93fa138a146dd7aa5727be6f5f06407df6f2da"
+    },
+    "current": {
+      "orm": "1.0.0-rc.4",
+      "lockSha256": "5b43fb1f87ae625a7f7858f359fa6a3a593c8ae219165d25579b08f1c7b97257"
+    }
+  },
+  "migrationCount": 20,
+  "rows": {
+    "activity_events": 13,
+    "comment_mentions": 2,
+    "comments": 5,
+    "labels": 5,
+    "members": 4,
+    "milestones": 7,
+    "notifications": 4,
+    "project_cycle_closeouts": 2,
+    "project_cycles": 8,
+    "project_status_reports": 2,
+    "projects": 5,
+    "saved_work_views": 27,
+    "work_item_attachments": 2,
+    "work_item_labels": 11,
+    "work_item_relationships": 6,
+    "work_item_watchers": 6,
+    "work_items": 39,
+    "workspace_activity_events": 5,
+    "workspaces": 1
+  },
+  "dataSha256": "c7289ad996161741348289cdbfa159203bec433d6333c3db1f2d85b5a4652f40",
+  "schemaSha256": "551041d2c4c118deb6ab09a8b3397b28c1ba42d37e6f72cb4a12b27bedba9dc8",
+  "storage": [
+    {
+      "path": ".worktrail-attachment-store",
+      "bytes": 36,
+      "sha256": "0572df65577fe19589207928e54684bd076546d1f7af7048e651be67b140cc21"
+    },
+    {
+      "path": "objects/cb/cbaa571330519f499fa776893b21ec9a0f33c93c3daef9bbcdcbd371ce17d705",
+      "bytes": 81,
+      "sha256": "cbaa571330519f499fa776893b21ec9a0f33c93c3daef9bbcdcbd371ce17d705"
+    },
+    {
+      "path": "objects/ee/ee2931bcba3b3056a251ab57260532c29002fe80e53728800af5639c838d2fd7",
+      "bytes": 103,
+      "sha256": "ee2931bcba3b3056a251ab57260532c29002fe80e53728800af5639c838d2fd7"
+    }
+  ],
+  "extensions": [
+    {
+      "extname": "pg_trgm",
+      "extversion": "1.6",
+      "schema": "public"
+    },
+    {
+      "extname": "plpgsql",
+      "extversion": "1.0",
+      "schema": "pg_catalog"
+    }
+  ],
+  "ledgers": {
+    "before": [
+      {
+        "id": 1,
+        "hash": "ace5b1aa1c880376d0c997d5dfb19b021b35bbc21a97c3d7ac3065ecf4e7622c",
+        "created_at": "1783115439679"
+      },
+      {
+        "id": 2,
+        "hash": "e9d9c596c1df20f3cb2a47cd9819cc427a1d66fb5bf601bed23f1d7de4d09ed8",
+        "created_at": "1783129808675"
+      },
+      {
+        "id": 3,
+        "hash": "0fb99df7a0cd0da896a2f874a5dfca9195fcd87bd7fbd43bfe4749c3953904cd",
+        "created_at": "1783180739472"
+      },
+      {
+        "id": 4,
+        "hash": "380b18a2504a8662e16f7b9ddd81f52ef64672aeffb7353c7c6b94592e35df7b",
+        "created_at": "1783193362168"
+      },
+      {
+        "id": 5,
+        "hash": "e61c6bf215111e93866867a66408444b4f66984fd90681516d3c5247378910b6",
+        "created_at": "1783200768507"
+      },
+      {
+        "id": 6,
+        "hash": "9bfce0aafbd08281b1c866ebb5f565163e7a39a4ff903c98343a25efaab3aff6",
+        "created_at": "1783220766995"
+      },
+      {
+        "id": 7,
+        "hash": "b342f7e1b43899cf766e6baf94ea675ed0afb8e54793512c025d2a54a8ff22e1",
+        "created_at": "1783288022190"
+      },
+      {
+        "id": 8,
+        "hash": "d305bc7aa042ee72107e56e0c26d78385993030be6374c4ef0833c2795d9ab9a",
+        "created_at": "1783303027541"
+      },
+      {
+        "id": 9,
+        "hash": "580631b9d1c70d4286fd82b26b5544e96c905d1eaaca1d8a000758b6a831e176",
+        "created_at": "1783307679945"
+      },
+      {
+        "id": 10,
+        "hash": "4d5369e2445848687b10325c630a2fb1ac07038fdb0eaf0044087a7b55a0fdcd",
+        "created_at": "1783380599272"
+      },
+      {
+        "id": 11,
+        "hash": "e05ce26eb0750c479038fcfdf8784a189394edcf038580d864f235de431f585a",
+        "created_at": "1783381168612"
+      },
+      {
+        "id": 12,
+        "hash": "d1171bdefe2a2da1bdbe6f15e23bb81eae6b5f98c6f4f73b7f9dc0a4296ff7a0",
+        "created_at": "1783391852692"
+      },
+      {
+        "id": 13,
+        "hash": "f0e3408d089a35026b79e7bef07affcf272aafa82e74f966bb56391abcfef8d6",
+        "created_at": "1783428382363"
+      },
+      {
+        "id": 14,
+        "hash": "c3d28e74b73c3285a1b41a9a44db99df19a6cfaefea061498453e39c456ef80e",
+        "created_at": "1783637476626"
+      },
+      {
+        "id": 15,
+        "hash": "28ecce7bd5164e4bc034950b7d4768a6a205c665c0fd8918651fba8c81e6e639",
+        "created_at": "1783792561762"
+      },
+      {
+        "id": 16,
+        "hash": "30a88e81f510a299546af441d9055a92b26011f80488409144b3bf39bf4ab54f",
+        "created_at": "1784085671500"
+      },
+      {
+        "id": 17,
+        "hash": "fec0e1c895b437604dc6910b81d21f391d38e0a720ae1563e0fe37fe49b9f714",
+        "created_at": "1784484444707"
+      },
+      {
+        "id": 18,
+        "hash": "0288a71ada18f91a104da0ec8be1d046235d58e6871a3a1d9beb985dd9edd6b2",
+        "created_at": "1784510361560"
+      },
+      {
+        "id": 19,
+        "hash": "51bc79ce8c87cd235daf191adf7dc4e41425924e34ff58ea9588b1306c00519b",
+        "created_at": "1784777429705"
+      },
+      {
+        "id": 20,
+        "hash": "295cd60f134a89e06694e2353e5dd085754945d91bbc07ab7706131cd2bc4f95",
+        "created_at": "1791775775513"
+      }
+    ],
+    "after": [
+      {
+        "id": 1,
+        "hash": "ace5b1aa1c880376d0c997d5dfb19b021b35bbc21a97c3d7ac3065ecf4e7622c",
+        "created_at": "1783115439679",
+        "name": "20260703215039_aberrant_centennial",
+        "applied_at": null
+      },
+      {
+        "id": 2,
+        "hash": "e9d9c596c1df20f3cb2a47cd9819cc427a1d66fb5bf601bed23f1d7de4d09ed8",
+        "created_at": "1783129808675",
+        "name": "20260704015008_easy_blade",
+        "applied_at": null
+      },
+      {
+        "id": 3,
+        "hash": "0fb99df7a0cd0da896a2f874a5dfca9195fcd87bd7fbd43bfe4749c3953904cd",
+        "created_at": "1783180739472",
+        "name": "20260704155859_wide_nicolaos",
+        "applied_at": null
+      },
+      {
+        "id": 4,
+        "hash": "380b18a2504a8662e16f7b9ddd81f52ef64672aeffb7353c7c6b94592e35df7b",
+        "created_at": "1783193362168",
+        "name": "20260704192922_overrated_hercules",
+        "applied_at": null
+      },
+      {
+        "id": 5,
+        "hash": "e61c6bf215111e93866867a66408444b4f66984fd90681516d3c5247378910b6",
+        "created_at": "1783200768507",
+        "name": "20260704213248_modern_jane_foster",
+        "applied_at": null
+      },
+      {
+        "id": 6,
+        "hash": "9bfce0aafbd08281b1c866ebb5f565163e7a39a4ff903c98343a25efaab3aff6",
+        "created_at": "1783220766995",
+        "name": "20260705030606_hot_post",
+        "applied_at": null
+      },
+      {
+        "id": 7,
+        "hash": "b342f7e1b43899cf766e6baf94ea675ed0afb8e54793512c025d2a54a8ff22e1",
+        "created_at": "1783288022190",
+        "name": "20260705214702_odd_valeria_richards",
+        "applied_at": null
+      },
+      {
+        "id": 8,
+        "hash": "d305bc7aa042ee72107e56e0c26d78385993030be6374c4ef0833c2795d9ab9a",
+        "created_at": "1783303027541",
+        "name": "20260706015707_panoramic_chimera",
+        "applied_at": null
+      },
+      {
+        "id": 9,
+        "hash": "580631b9d1c70d4286fd82b26b5544e96c905d1eaaca1d8a000758b6a831e176",
+        "created_at": "1783307679945",
+        "name": "20260706031439_careless_silver_fox",
+        "applied_at": null
+      },
+      {
+        "id": 10,
+        "hash": "4d5369e2445848687b10325c630a2fb1ac07038fdb0eaf0044087a7b55a0fdcd",
+        "created_at": "1783380599272",
+        "name": "20260706232959_smart_tana_nile",
+        "applied_at": null
+      },
+      {
+        "id": 11,
+        "hash": "e05ce26eb0750c479038fcfdf8784a189394edcf038580d864f235de431f585a",
+        "created_at": "1783381168612",
+        "name": "20260706233928_free_quasar",
+        "applied_at": null
+      },
+      {
+        "id": 12,
+        "hash": "d1171bdefe2a2da1bdbe6f15e23bb81eae6b5f98c6f4f73b7f9dc0a4296ff7a0",
+        "created_at": "1783391852692",
+        "name": "20260707023732_bouncy_zaladane",
+        "applied_at": null
+      },
+      {
+        "id": 13,
+        "hash": "f0e3408d089a35026b79e7bef07affcf272aafa82e74f966bb56391abcfef8d6",
+        "created_at": "1783428382363",
+        "name": "20260707124622_oval_deathstrike",
+        "applied_at": null
+      },
+      {
+        "id": 14,
+        "hash": "c3d28e74b73c3285a1b41a9a44db99df19a6cfaefea061498453e39c456ef80e",
+        "created_at": "1783637476626",
+        "name": "20260709225116_cuddly_dreadnoughts",
+        "applied_at": null
+      },
+      {
+        "id": 15,
+        "hash": "28ecce7bd5164e4bc034950b7d4768a6a205c665c0fd8918651fba8c81e6e639",
+        "created_at": "1783792561762",
+        "name": "20260711175601_dapper_hellfire_club",
+        "applied_at": null
+      },
+      {
+        "id": 16,
+        "hash": "30a88e81f510a299546af441d9055a92b26011f80488409144b3bf39bf4ab54f",
+        "created_at": "1784085671500",
+        "name": "20260715032111_silky_tyger_tiger",
+        "applied_at": null
+      },
+      {
+        "id": 17,
+        "hash": "fec0e1c895b437604dc6910b81d21f391d38e0a720ae1563e0fe37fe49b9f714",
+        "created_at": "1784484444707",
+        "name": "20260719180724_scalable_search",
+        "applied_at": null
+      },
+      {
+        "id": 18,
+        "hash": "0288a71ada18f91a104da0ec8be1d046235d58e6871a3a1d9beb985dd9edd6b2",
+        "created_at": "1784510361560",
+        "name": "20260720011921_safe_pandemic",
+        "applied_at": null
+      },
+      {
+        "id": 19,
+        "hash": "51bc79ce8c87cd235daf191adf7dc4e41425924e34ff58ea9588b1306c00519b",
+        "created_at": "1784777429705",
+        "name": "20260723033029_sweet_apocalypse",
+        "applied_at": null
+      },
+      {
+        "id": 20,
+        "hash": "295cd60f134a89e06694e2353e5dd085754945d91bbc07ab7706131cd2bc4f95",
+        "created_at": "1791775775513",
+        "name": "20261012032935_nosy_junta",
+        "applied_at": null
+      }
+    ]
+  },
+  "preserved": {
+    "rows": true,
+    "schema": true,
+    "extensions": true,
+    "historicalJson": true,
+    "attachmentBytes": true,
+    "originalLedger": true,
+    "repeatedUpgradeNoOp": true,
+    "freshSchemaEquivalent": true,
+    "freshRepeatNoOp": true
+  },
+  "runtime": {
+    "passed": true,
+    "checks": [
+      {
+        "method": "GET",
+        "path": "/health/ready",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/work-items/10000000-0000-4000-8000-000000000401",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/saved-work-views",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/attachments/10000000-0000-4000-8000-000000001001/content",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/attachments/10000000-0000-4000-8000-000000001002/content",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/projects/10000000-0000-4000-8000-000000000201/status-reports/10000000-0000-4000-8000-000000000651",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/projects/10000000-0000-4000-8000-000000000204/status-reports/10000000-0000-4000-8000-000000000652",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/projects/10000000-0000-4000-8000-000000000205/cycles/10000000-0000-4000-8000-000000000376/review",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/projects/10000000-0000-4000-8000-000000000205/cycles/10000000-0000-4000-8000-000000000377/review",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/projects/10000000-0000-4000-8000-000000000201/work-items",
+        "status": 201
+      },
+      {
+        "method": "PATCH",
+        "path": "/work-items/1f5696c5-a0dd-4f70-9475-7a0159740de7",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/work-items/1f5696c5-a0dd-4f70-9475-7a0159740de7",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/work-items/1f5696c5-a0dd-4f70-9475-7a0159740de7/comments",
+        "status": 201
+      },
+      {
+        "method": "GET",
+        "path": "/work-items/1f5696c5-a0dd-4f70-9475-7a0159740de7/comments",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/projects/10000000-0000-4000-8000-000000000201/work-items/export",
+        "status": 200
+      }
+    ]
+  },
+  "preservedRows": 154,
+  "tableCount": 19,
+  "authoredFormats": {
+    "descriptions": [
+      "markdown_v1",
+      "plain_text"
+    ],
+    "comments": [
+      "plain_text",
+      "markdown_v1"
+    ]
+  },
+  "historicalVersions": {
+    "reports": [
+      2,
+      2
+    ],
+    "closeouts": [
+      1,
+      2
+    ]
+  },
+  "reports": {
+    "api": {
+      "files": 68,
+      "tests": 881,
+      "passed": 881,
+      "failed": 0,
+      "fileResults": [
+        {
+          "file": "apps/api/tests/app-error.test.ts",
+          "tests": 5,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/attachment-object-store.test.ts",
+          "tests": 11,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/attachment-policy.test.ts",
+          "tests": 20,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/authored-content-policy.test.ts",
+          "tests": 42,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/csv.test.ts",
+          "tests": 8,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/cycle-review-model.test.ts",
+          "tests": 1,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/delivery-health-service.test.ts",
+          "tests": 8,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/domain.test.ts",
+          "tests": 12,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/http-body-boundary.test.ts",
+          "tests": 13,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/local-http.test.ts",
+          "tests": 2,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/main.test.ts",
+          "tests": 3,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/openapi.test.ts",
+          "tests": 7,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/persistence-conflict.test.ts",
+          "tests": 10,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/persistence.test.ts",
+          "tests": 12,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/project-cycle-closeout-snapshot.test.ts",
+          "tests": 13,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/query-parity.test.ts",
+          "tests": 28,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/quick-find-endpoint.test.ts",
+          "tests": 4,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/quick-find-query.test.ts",
+          "tests": 6,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/quick-find-service.test.ts",
+          "tests": 2,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/repository-read-transaction.test.ts",
+          "tests": 1,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/request-logging.test.ts",
+          "tests": 2,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/runtime-config.test.ts",
+          "tests": 6,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/server.test.ts",
+          "tests": 23,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/status-report-markdown-renderer.test.ts",
+          "tests": 10,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/storage-reset.test.ts",
+          "tests": 5,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/versioned-snapshots.test.ts",
+          "tests": 14,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/work-item-csv-export.test.ts",
+          "tests": 8,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/work-item-hydrator.test.ts",
+          "tests": 13,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/work-item-page-query.test.ts",
+          "tests": 16,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/work-item-page.test.ts",
+          "tests": 5,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/work-item-query-builder.test.ts",
+          "tests": 15,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/work-item-query.test.ts",
+          "tests": 12,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/work-risk-sections.test.ts",
+          "tests": 2,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/aggregate-performance.test.ts",
+          "tests": 2,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/aggregate-reads.test.ts",
+          "tests": 10,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/attachment-concurrency.test.ts",
+          "tests": 2,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/attachment-endpoint.test.ts",
+          "tests": 7,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/attachment-seed.test.ts",
+          "tests": 2,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/attachment-service.test.ts",
+          "tests": 19,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/authored-content-migration.test.ts",
+          "tests": 2,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/closeout-demo-seed.test.ts",
+          "tests": 1,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/comments-activity.test.ts",
+          "tests": 42,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/estimate-query-snapshots.test.ts",
+          "tests": 8,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/labels.test.ts",
+          "tests": 6,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/milestones.test.ts",
+          "tests": 5,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/my-work.test.ts",
+          "tests": 3,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/notifications-watchers.test.ts",
+          "tests": 3,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/persistence-integration.test.ts",
+          "tests": 17,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/planning.test.ts",
+          "tests": 9,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/portfolio.test.ts",
+          "tests": 4,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/project-coordination.test.ts",
+          "tests": 83,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/project-cycle-closeout.test.ts",
+          "tests": 11,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/project-cycle-service.test.ts",
+          "tests": 11,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/project-cycles.test.ts",
+          "tests": 5,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/projects-members.test.ts",
+          "tests": 26,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/quick-find-repository.test.ts",
+          "tests": 4,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/quick-find-sql.test.ts",
+          "tests": 5,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/repositories.test.ts",
+          "tests": 27,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/saved-work-views.test.ts",
+          "tests": 15,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/status-reports.test.ts",
+          "tests": 12,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/work-command-concurrency.test.ts",
+          "tests": 33,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/work-item-csv-http.test.ts",
+          "tests": 12,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/work-item-csv-import.test.ts",
+          "tests": 28,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/work-item-hydration-consistency.test.ts",
+          "tests": 7,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/work-item-hydration-performance.test.ts",
+          "tests": 5,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/work-item-relationships.test.ts",
+          "tests": 5,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/work-items.test.ts",
+          "tests": 106,
+          "status": "passed"
+        },
+        {
+          "file": "apps/api/tests/workspace.test.ts",
+          "tests": 5,
+          "status": "passed"
+        }
+      ]
+    },
+    "contracts": {
+      "files": 13,
+      "tests": 88,
+      "passed": 88,
+      "failed": 0,
+      "fileResults": [
+        {
+          "file": "packages/contracts/src/attachments.contract.test.ts",
+          "tests": 3,
+          "status": "passed"
+        },
+        {
+          "file": "packages/contracts/src/authored-content.contract.test.ts",
+          "tests": 12,
+          "status": "passed"
+        },
+        {
+          "file": "packages/contracts/src/cycle-closeout.contract.test.ts",
+          "tests": 5,
+          "status": "passed"
+        },
+        {
+          "file": "packages/contracts/src/cycles.contract.test.ts",
+          "tests": 3,
+          "status": "passed"
+        },
+        {
+          "file": "packages/contracts/src/milestone-review.contract.test.ts",
+          "tests": 2,
+          "status": "passed"
+        },
+        {
+          "file": "packages/contracts/src/notifications.contract.test.ts",
+          "tests": 3,
+          "status": "passed"
+        },
+        {
+          "file": "packages/contracts/src/project-status-reports.contract.test.ts",
+          "tests": 3,
+          "status": "passed"
+        },
+        {
+          "file": "packages/contracts/src/quick-find.contract.test.ts",
+          "tests": 4,
+          "status": "passed"
+        },
+        {
+          "file": "packages/contracts/src/work-item-bulk-update.contract.test.ts",
+          "tests": 3,
+          "status": "passed"
+        },
+        {
+          "file": "packages/contracts/src/work-item-hierarchy.contract.test.ts",
+          "tests": 6,
+          "status": "passed"
+        },
+        {
+          "file": "packages/contracts/src/work-item-page.contract.test.ts",
+          "tests": 7,
+          "status": "passed"
+        },
+        {
+          "file": "packages/contracts/src/work-item-query.contract.test.ts",
+          "tests": 3,
+          "status": "passed"
+        },
+        {
+          "file": "packages/contracts/src/work-query-policy.contract.test.ts",
+          "tests": 34,
+          "status": "passed"
+        }
+      ]
+    }
+  },
+  "helperChecks": {
+    "integrated": {
+      "tests": 32,
+      "passed": 32
+    },
+    "finalUpgradeHelpers": {
+      "tests": 8,
+      "passed": 8
+    },
+    "finalHelperFollowupIsNotAdditionalUniqueCoverage": true,
+    "coverage": [
+      "data/source/format/history/schema/index/extension/file drift",
+      "incomplete baseline",
+      "ledger replay/truncation/identity drift",
+      "repeat no-op",
+      "attachment references/checksums/lengths/unsafe keys",
+      "linked inventory entries",
+      "unowned capture refusal",
+      "empty/missing/duplicate/skipped/inconsistent test reports"
+    ]
+  },
+  "focusedFollowups": {
+    "fullReportsMatchSourceInventory": [
+      {
+        "name": "api",
+        "files": 68,
+        "tests": 881,
+        "passed": true
+      },
+      {
+        "name": "contracts",
+        "files": 13,
+        "tests": 88,
+        "passed": true
+      }
+    ],
+    "reportGateAddedAfterIntegratedRun": true,
+    "failedPoolConnectionClosesPool": true,
+    "missingTagDiagnostic": true,
+    "changedVerifierEslint": true,
+    "noUnchangedFullApiContractsRerun": true
+  },
+  "lifecycle": {
+    "command": "npm run test:verification:upgrade-lifecycle",
+    "tests": 3,
+    "passed": 3,
+    "controls": [
+      {
+        "label": "candidate installer exit 42 after database provisioning",
+        "expectedExit": 1,
+        "observedExitVerifiedByTest": true,
+        "summary": "test-results/verification/56e93eb5-5f8a-4ce0-bd2a-e564e3419752/summary.json",
+        "cleanup": [
+          {
+            "runId": "56e93eb5-5f8a-4ce0-bd2a-e564e3419752",
+            "removed": true
+          },
+          {
+            "runId": "cabe7f8d-e95b-4f06-86cc-0a357e0da976",
+            "removed": true
+          },
+          {
+            "runId": "0aa2e30e-aada-4f72-8e6f-bce30ea28de2",
+            "removed": true
+          }
+        ]
+      },
+      {
+        "label": "SIGINT",
+        "expectedExit": 130,
+        "observedExitVerifiedByTest": true,
+        "summary": "test-results/verification/8c723318-1d73-4f3b-a94a-65a9c548ea1e/summary.json",
+        "cleanup": [
+          {
+            "runId": "8c723318-1d73-4f3b-a94a-65a9c548ea1e",
+            "removed": true
+          }
+        ]
+      },
+      {
+        "label": "SIGTERM",
+        "expectedExit": 143,
+        "observedExitVerifiedByTest": true,
+        "summary": "test-results/verification/b8b18f47-6e61-48aa-962d-cfafc2f08fb4/summary.json",
+        "cleanup": [
+          {
+            "runId": "b8b18f47-6e61-48aa-962d-cfafc2f08fb4",
+            "removed": true
+          }
+        ]
+      }
+    ]
+  },
+  "documentation": [
+    "docs/operations.md#v031-toolchain-boundary",
+    "docs/operations.md#rollback-posture",
+    "docs/development.md#persistence-test-discipline",
+    "README.md#verification"
+  ],
+  "scope": {
+    "ordinaryWorkingDatabaseTouched": false,
+    "seedOrResetAfterBaselineCapture": false,
+    "runtimeWritesOnlyAfterPreservationComparison": true,
+    "fullAngularSuiteRun": false,
+    "browserSuitesRun": false,
+    "freshAuditRun": false,
+    "phase8CombinedGateNotClaimed": true,
+    "releaseBumpCommitTagPushOrCiChanges": false,
+    "noTimeoutRatchetOrRetries": true,
+    "linuxNodeOrRemoteCiAcceptanceNotClaimed": true
+  },
+  "cleanup": [
+    {
+      "runId": "f228c86f-1868-4ff7-9e83-3c97f916ac95",
+      "removed": true
+    },
+    {
+      "runId": "e7492e69-7579-4036-919c-5e151ebc9022",
+      "removed": true
+    },
+    {
+      "runId": "78d215f1-c059-4487-8715-64994afc61dd",
+      "removed": true
+    }
+  ]
+}

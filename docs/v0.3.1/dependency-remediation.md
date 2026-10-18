@@ -2,7 +2,7 @@
 
 ## Status
 
-Updated through Phase 6, October 18, 2026. Angular/Vitest cutover and Drizzle adoption are implemented. The actual installed graph is valid and production/full audits report zero findings; all five carried advisory exceptions are retired without extending the original dates or review boundary. Release identity remains `0.3.0`. Broader data/API acceptance, the independent combined-install gate, and release acceptance remain in Phases 7, 8 and 11.
+Updated through Phase 7, October 18, 2026. Angular/Vitest cutover, Drizzle adoption and broader data/API acceptance are implemented. The unchanged Phase 6 installed graph is valid and production/full audits report zero findings; all five carried advisory exceptions are retired without extending the original dates or review boundary. Release identity remains `0.3.0`. The independent combined audit gate and release acceptance remain in Phases 8 and 11.
 
 See [structured evidence](phase-0-evidence.json), [verification notes](verification-notes.md), and the [technical design](technical-design.md).
 
@@ -59,6 +59,11 @@ Selected runtime/transaction tests pass; broader populated/attachment preservati
 suite remain in Phase 7. The working/user database is untouched.
 
 ## Selected Versions
+
+Phase 7 independently installs the original v0.3.0 release and the adopted candidate, proves
+populated data/history/attachment preservation and matching fresh schema, and passes the full API
+and contracts suites plus compiled-runtime reads/writes/downloads. See [Phase 7 evidence](phase-7-evidence.json).
+It does not change dependency declarations/lockfile, rerun Angular or claim Phase 8's combined audit gate.
 
 | Owner | Selection |
 | --- | --- |

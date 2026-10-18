@@ -625,6 +625,12 @@ See the [aggregate read measurements and limits](docs/v0.3.0/aggregate-evidence.
 
 ## Verification
 
+For the Drizzle migration boundary, `npm run verify:upgrade` independently installs v0.3.0 and the
+current snapshot, proves populated-data/attachment preservation, and runs backend/compiled-API
+acceptance in disposable PostgreSQL. It needs Docker and the local `v0.3.0` tag, not Chromium.
+See [upgrade and rollback guidance](docs/operations.md#v031-toolchain-boundary). This explicit
+boundary proof is not an extra default CI job or a per-edit requirement.
+
 The verification runner owns disposable resources for the full workflow and focused checks:
 
 ```sh

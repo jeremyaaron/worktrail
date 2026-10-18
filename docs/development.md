@@ -493,7 +493,7 @@ lint, backend typechecks, resource checks, and API tests without Angular/build/b
 For narrow changes, `--api-tests=server,work-item-csv-http` selects existing API test basenames; path,
 option, empty, and nonexistent selections fail rather than passing an empty suite. Shared HTTP or
 persistence infrastructure warrants the full API suite. `--mode=web` runs frontend lint, development
-typecheck/build, both staged Angular test partitions, and production build/budgets without PostgreSQL
+typecheck/build, the Angular Chromium unit suite, and production build/budgets without PostgreSQL
 or application servers.
 Frontend changes use that profile and affected browser flows; shared contracts include affected consumers.
 Docs-only updates need links and
@@ -604,6 +604,15 @@ failures, no-write rejections, and ordinary/prefix/method isolation. Attachment 
 4 MiB and oversized-upload assertions and cover early metadata rejection logging.
 
 ## Persistence Test Discipline
+
+`npm run verify:upgrade` exercises the specific v0.3.0-to-v0.3.1 Drizzle boundary with independent
+installations and owned PostgreSQL/storage. It preserves all public rows and historical JSON plus
+attachment references/bytes, compares fresh/upgraded schemas separately from ledger augmentation,
+then runs full API/contracts checks and compiled API acceptance. Source/report inventories must
+agree; empty, skipped, missing or duplicated results cannot establish full acceptance. The normal
+API suite uses a separate fresh database, not the preserved seeded target. See
+[upgrade and rollback guidance](operations.md#v031-toolchain-boundary). Do not repeat this expensive
+boundary proof for unrelated frontend or documentation changes.
 
 Repository-only unit tests explicitly choose `tests/support/fake-persistence.ts`. That fake executes
 callbacks and refuses database locks; it does not simulate rollback, MVCC, or lifecycle safety. Real

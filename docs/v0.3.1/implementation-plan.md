@@ -2,12 +2,14 @@
 
 ## Status
 
-Implementation baseline: October 18, 2026. Phases 0-6 are complete; required implementation phases 7-8 and 10-11 have not started. Conditional Phase 9 is deferred by the Phase 0 scope decision.
+Implementation baseline: October 18, 2026. Phases 0-7 are complete; required implementation phases 8 and 10-11 have not started. Conditional Phase 9 is deferred by the Phase 0 scope decision.
 
 This plan implements the [PRD](prd.md) and [technical design](technical-design.md). The [dependency disposition](dependency-remediation.md), [verification notes](verification-notes.md), and [Phase 0 evidence](phase-0-evidence.json) record the selected versions, proofs, and inventories. [Phase 1 evidence](phase-1-evidence.json) records the implemented Angular foundation; [Phase 2 evidence](phase-2-evidence.json) maps the shared/core conversion and retained coverage. [Phase 3 evidence](phase-3-evidence.json) records discovery/workspace conversion, focused acceptance, and controlled negative probes. [Phase 4 evidence](phase-4-evidence.json) completes detail/Planning/history conversion and the full inventory reconciliation. [Phase 5 evidence](phase-5-evidence.json) records single-runner cutover, advisory retirement, host/Linux lifecycle and integration results, and one unreproduced Quick Find observation. SQL history and release identity remain unchanged.
 
 [Phase 6 evidence](phase-6-evidence.json) records Drizzle adoption, unchanged SQL hashes/history,
 the reviewed metadata conversion, focused runtime/upgrade checks, and retirement of the final exception.
+[Phase 7 evidence](phase-7-evidence.json) records reproducible prior-release/fresh verification,
+populated data/files/history preservation, full API/contracts acceptance and compiled runtime checks.
 
 The separately requested PR-only CI change is already in the working tree. Preserve it and its focused regression test; it is not unfinished feature scope to reimplement. Package/release identity remains `0.3.0` until closeout.
 
@@ -42,7 +44,7 @@ Angular conversion is split into infrastructure, three spec groups, and final cu
 | 4 | Work detail, Planning, and historical workflow spec conversion | Complete |
 | 5 | Single-runner cutover, owned lifecycle, and Angular acceptance | Complete |
 | 6 | Proven Drizzle adoption and historical metadata conversion | Complete |
-| 7 | Upgrade preservation, transactions, and API compatibility | Not started |
+| 7 | Upgrade preservation, transactions, and API compatibility | Complete |
 | 8 | Combined clean dependency graph and audit-gate acceptance | Not started |
 | 9 | Measured E2E shard balancing, if capacity permits | Deferred in Phase 0 |
 | 10 | Developer guidance, setup acceptance, and release documentation | Not started |
@@ -331,6 +333,10 @@ Completed work:
 
 ## Phase 7: Data And Transaction Preservation
 
+Status: Complete, October 18, 2026. [Evidence](phase-7-evidence.json) and
+[verification notes](verification-notes.md#phase-7-data-and-transaction-preservation) record
+the independent installations, preserved state, full backend acceptance and cleanup controls.
+
 Goal: establish broader upgrade and persistence compatibility on the implemented toolchain.
 
 Scope:
@@ -349,6 +355,16 @@ Acceptance:
 - Cleanup touches only owned resources and preserves evidence outside their roots.
 
 Verification: API/contracts lint/type/build/tests, fresh/upgrade and attachment-preservation checks, relevant schema/resource lifecycle tests, and the backend/tooling verification profile where applicable. This phase warrants the full API suite if the runtime ORM changed; it does not warrant unchanged Angular/site suites.
+
+Completed work:
+
+- Add explicit `npm run verify:upgrade` for the v0.3.0-to-candidate boundary. Archive the actual local release tag and independently install its original lock and the current snapshot/lock; never install into a dependency mirror or check out/reset the working tree.
+- Provision a labeled disposable PostgreSQL 16 server and separately marked fresh/upgrade databases. Migrate/seed the prior version only before capture. Compare all 154 rows across 19 public tables, source/formats, saved-view queries/pins, relationships, v1/v2 closeouts, reports and both attachment objects plus the store marker.
+- Preserve all 20 SQL hashes/order and original ledger IDs/hashes/millisecond timestamps. Accept only owner-mapped names/unknown historical application times. Compare public columns, constraints, indexes and extensions separately from ledger augmentation; fresh/upgraded schemas match and both repeat migrations are complete no-ops.
+- Pass API/contracts lint/type/build checks, all 881 API cases in 68 files, all 88 contract cases in 13 files, and 32 selected upgrade/schema/ownership/resource cases. Existing concurrency/isolation/rollback/scope-lifetime and query-count/performance assertions remain unchanged.
+- Pass 15 actual HTTP requests through compiled API startup against the preserved upgrade target: source reads, saved views, historical reports/closeouts, exact downloads, work creation/PATCH/reread, comments and CSV. Writes begin only after preservation comparison. Stored history, files and migration ledger remain unchanged afterward.
+- Add complete report/source-inventory validation and its negative cases; validate retained full-suite reports and pass the eight updated helper checks without rerunning unchanged API/contracts suites. Prove actual child failure and SIGINT/SIGTERM return nonzero and remove private resources in three focused lifecycle checks.
+- Document exact upgrade/backup/restore and prerelease limitations in the current operations/developer guides. Retain sanitized summaries, hashes and row/ledger/file inventories. Remove all owned snapshots, installations, server processes, databases, storage and containers. No working data, app source, SQL, dependency graph, browser deadlines/retries, CI trigger, site behavior or release identity changed. Phase 8 remains the combined audit gate; no Angular/browser suite was run.
 
 ## Phase 8: Combined Graph And Audit Gate
 

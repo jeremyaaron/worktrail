@@ -45,6 +45,46 @@ do not adopt a fresh-demo storage path. Migrations are the upgrade mechanism. `d
 and `storage:reset` are not upgrades or repair tools. Seed scripts may replace demo records/reports;
 do not seed a working installation. Review migration/release guidance before accepting production use.
 
+### v0.3.1 Toolchain Boundary
+
+The implemented v0.3.1 candidate pins Drizzle Kit and ORM to `1.0.0-rc.4`. This is an explicit
+prerelease maintenance choice, not a new domain schema migration. Historical SQL is byte-identical;
+the committed migration folders/snapshots use the owner's new layout. Do not run folder conversion
+again, generate replacement historical SQL, or edit migration ledger rows on an installation.
+
+The ordinary `db:migrate` command adopts the prior ledger: it retains IDs, SQL hashes and original
+millisecond timestamps, adds mapped migration names, and leaves historical application times unknown
+(`applied_at = null`). Fresh ledgers use the new folder timestamps at UTC-second precision. Repeated
+migration is a no-op. The populated v0.3.0-to-candidate proof compares all public rows, stored authored
+source/formats, relationships, saved views, historical JSON, application constraints/indexes and
+extensions, plus each referenced attachment's length/checksum and the complete file inventory.
+
+Run the reproducible proof with `npm run verify:upgrade`. It requires the local `v0.3.0` tag, Docker,
+Node 24/npm 11 and registry access/cached packages. It independently installs an archive of that
+release and a snapshot of the current source/lock, provisions separate owned fresh/upgrade databases
+inside a disposable PostgreSQL 16 server, and seeds only the prior-version target before capture.
+It then performs the comparisons, full API/contracts checks, and compiled API read/write/download
+acceptance. Runtime writes occur only after preservation comparison. It does not use the configured
+working database, Compose service, or ordinary attachment directory. Reports remain in
+`test-results/verification/<run-id>/`; owned installations, databases, server processes and storage
+are removed on success, command failure or handled interruption. It is an explicit backend acceptance
+command, not an additional default CI job or a check to repeat after every small edit.
+
+### Rollback Posture
+
+Before upgrading real data, stop all writes and capture a coordinated PostgreSQL/storage backup,
+the prior release/lockfile, and the original runtime configuration. Validate the backup's restore
+procedure before treating it as recovery protection. Keep the backup until the upgraded application
+and representative authorized file downloads have been checked.
+
+There is no supported down-migration or automatic RC-to-stable downgrade. Do not attempt recovery
+by deleting ledger names/columns, reseeding, or checking out old code against an arbitrarily changed
+database. Restore the database and complete attachment root from the same pre-upgrade capture, then
+install/run the matching prior release and configuration. Writes made after that capture require
+separate recovery/reconciliation; this app does not replay them automatically. The Phase 0 observation
+that the old ORM accepted the augmented ledger with unchanged domain history is not a general
+rollback guarantee for future migrations or a replacement for a backup.
+
 ## Coordinated Backup And Restore
 
 Quiesce attachment mutations and other writes, take a PostgreSQL backup, and copy the complete marked
