@@ -1,3 +1,5 @@
+import { describe, expect, it } from 'vitest';
+
 import { createNavigationTarget, navigationContextFromPage, parseWorkNavigationTarget, recordNavigationTarget, recordOriginParams, returnNavigationTarget, workNavigationContext } from './work-navigation';
 
 describe('bounded work navigation', () => {

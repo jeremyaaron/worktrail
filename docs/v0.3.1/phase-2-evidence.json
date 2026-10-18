@@ -1,0 +1,628 @@
+{
+  "schemaVersion": 1,
+  "phase": 2,
+  "recordedOn": "2026-10-18T22:00:17.301Z",
+  "baselineCommit": "4a910b2cc5a7d9f80196b7e4c7c82f6657d72b5f",
+  "branch": "v0.3.1",
+  "releaseVersion": "0.3.0",
+  "node": "v24.16.0",
+  "lockSha256": "57208d70478309a22961f487ef64122b23e30e9358dc9a0c5eb92a8f7d22f0c7",
+  "changedSpecs": 21,
+  "retainedPhase1Specs": 3,
+  "registeredPhase2Cases": 314,
+  "note": "Registration counts are derived from unchanged literal test-definition loops. No tests were added, removed, skipped, focused or merged; the unchanged Phase 1 toolchain spec adds one separately registered case.",
+  "files": [
+    {
+      "file": "apps/web/src/app/app.routes.spec.ts",
+      "migratedThisPhase": true,
+      "beforeSha256": "78dbb2bac8dd0791e30c91ddd5361ef6a4f5e2f2acf3d4221e3f23385d38be15",
+      "sha256": "82626880d1e5b074629e769d0051e90f893ce79fd68826e9c03089c80104b178",
+      "registeredCases": 5,
+      "testDefinitions": [
+        "'uses My Work as the default route'",
+        "'registers workspace-level work item routes before work item detail'",
+        "'registers Inbox as a lazy route'",
+        "'registers Portfolio as a lazy route'",
+        "'nests project routes under the project shell while preserving child URLs'"
+      ],
+      "unchangedAssertionSites": 17,
+      "unchangedRegistrationLoops": 0
+    },
+    {
+      "file": "apps/web/src/app/app.spec.ts",
+      "migratedThisPhase": true,
+      "beforeSha256": "7f1698513585bb142ab5075985b178b9eaecc028ae381daae1d26b2412e48f1a",
+      "sha256": "1e1cce7c134c822e36e15df45dea2ff1aa8c8b9485ce87155394e40365c20fcd",
+      "registeredCases": 11,
+      "testDefinitions": [
+        "'should create the app'",
+        "'should render shell navigation and current user selector'",
+        "'shows only active members in the actor selector'",
+        "'falls back from a stored inactive selection to the active owner'",
+        "'opens one dialog while a lazy launch is already in progress'",
+        "'accepts only exact Command/Ctrl+K shortcuts'",
+        "'closes Quick Find before selecting another actor'",
+        "'derives project context and closes the dialog on route navigation'",
+        "'blocks launching during pending navigation without closing a dialog on cancellation'",
+        "'consumes only authorized context for the currently committed detail record'",
+        "'resets the opening guard when lazy launcher loading fails'"
+      ],
+      "unchangedAssertionSites": 38,
+      "unchangedRegistrationLoops": 1
+    },
+    {
+      "file": "apps/web/src/app/core/api/api-error.spec.ts",
+      "migratedThisPhase": true,
+      "beforeSha256": "1b35d7d8a71a0999ca9d256bf56f86c58b3cb09b914500c82e4b3f617e30fc65",
+      "sha256": "82d37c55815d20f381b1c7f65d7196c1a3583d8d717f97f0596cb4b8c359f2e8",
+      "registeredCases": 3,
+      "testDefinitions": [
+        "'returns nested API error messages when present'",
+        "'returns top-level API body messages when present'",
+        "'falls back when an API message is missing or blank'"
+      ],
+      "unchangedAssertionSites": 4,
+      "unchangedRegistrationLoops": 0
+    },
+    {
+      "file": "apps/web/src/app/core/api/attachments-api.spec.ts",
+      "migratedThisPhase": false,
+      "beforeSha256": "a0167aac1cd0b4d497e36a2f9cb5b0be88245c3b33ecddf28073129d417ebd43",
+      "sha256": "a0167aac1cd0b4d497e36a2f9cb5b0be88245c3b33ecddf28073129d417ebd43",
+      "registeredCases": 4,
+      "testDefinitions": [
+        "'lists work item attachment metadata with actor headers'",
+        "'uploads raw bytes with encoded metadata and progress events'",
+        "'prefers the file media type when the browser provides one'",
+        "'downloads a Blob response and removes attachment metadata'"
+      ],
+      "unchangedAssertionSites": 17,
+      "unchangedRegistrationLoops": 0
+    },
+    {
+      "file": "apps/web/src/app/core/api/cycles-api.spec.ts",
+      "migratedThisPhase": true,
+      "beforeSha256": "8ae7f5c27e5d28c67c397230a3faecff87b16143d88771869cc7df1f00b02657",
+      "sha256": "7430164ca8ca4d9639a7bed69d500c18defae77aacf15bcd9e7515e3e27988b8",
+      "registeredCases": 4,
+      "testDefinitions": [
+        "'lists cycles with optional filters'",
+        "'creates, updates, archives, and reactivates project cycles'",
+        "'loads cycle detail and review endpoints'",
+        "'previews and submits cycle closeout with actor headers and the exact body'"
+      ],
+      "unchangedAssertionSites": 23,
+      "unchangedRegistrationLoops": 0
+    },
+    {
+      "file": "apps/web/src/app/core/api/quick-find-api.spec.ts",
+      "migratedThisPhase": true,
+      "beforeSha256": "b250122bcd96a0f9f4185d8553f4b12f6133e44061ed0c9c90fb21c358d253ba",
+      "sha256": "0ebaed370a468c5c1a5153539433856bceeafcddbffbac8ce396c378e769d562",
+      "registeredCases": 2,
+      "testDefinitions": [
+        "'posts the query body with actor headers and no URL query text'",
+        "'does not memoize or replay a prior search response'"
+      ],
+      "unchangedAssertionSites": 9,
+      "unchangedRegistrationLoops": 0
+    },
+    {
+      "file": "apps/web/src/app/core/navigation/authorized-project-context.spec.ts",
+      "migratedThisPhase": true,
+      "beforeSha256": "18869ee06712ce73688497b0373d21e5243ae0985a625c475e04f6c103e6c3a0",
+      "sha256": "28d7591458f47bbdb64b615803a7e49ceb9c9cf6f1a1027706ef9ca92038eaff",
+      "registeredCases": 1,
+      "testDefinitions": [
+        "'requires the loaded record and actor/workspace identity, and an old owner cannot clear a replacement'"
+      ],
+      "unchangedAssertionSites": 5,
+      "unchangedRegistrationLoops": 0
+    },
+    {
+      "file": "apps/web/src/app/core/navigation/draft-departure-coordinator.spec.ts",
+      "migratedThisPhase": false,
+      "beforeSha256": "c2049355d828fcf776b79419f726197361dc1b5ddbafeeb2ca51e76c433e2d52",
+      "sha256": "c2049355d828fcf776b79419f726197361dc1b5ddbafeeb2ca51e76c433e2d52",
+      "registeredCases": 11,
+      "testDefinitions": [
+        "'uses value equality, not form dirty; reverted, clean and fragment-only drafts do not prompt'",
+        "'preserves drafts and reused identity on Stay and discards only after committed navigation'",
+        "`keeps an approved draft when a later ${failure} prevents navigation`",
+        "'shares one decision between deactivation and activation guards'",
+        "'aborts stale approval if a mounted draft changes during a later asynchronous guard'",
+        "'blocks route, actor/local and explicit discard attempts while a write is unresolved'",
+        "'does not queue another change or accept a stale revision while confirmation is pending'",
+        "'guards browser history without replaying a cancelled departure'",
+        "'attaches native unload protection only for meaningful drafts or pending writes'",
+        "'updates a successful save baseline before programmatic departure, without prompting'"
+      ],
+      "unchangedAssertionSites": 55,
+      "unchangedRegistrationLoops": 1
+    },
+    {
+      "file": "apps/web/src/app/core/navigation/page-context.spec.ts",
+      "migratedThisPhase": true,
+      "beforeSha256": "e8e66d8481d83f69a1b27aa3ef9bd4f05e15141e414baaeffdcc864ae035876e",
+      "sha256": "c49f07423c5d140f2137cebf9404bdfce6c4d4283627591b869b2b38cfdc5576",
+      "registeredCases": 23,
+      "testDefinitions": [
+        "'retains duplicate query values so navigation policy can reject ambiguous return metadata'",
+        "`buffers early param emissions and leaves a draft intact after navigation ${failure}`",
+        "`rejects an old actor ${outcome} even before the actor effect runs`",
+        "'invalidates captured completion/finalization after A to B to A and after destruction'",
+        "`ignores a submitted mutation's late ${outcome} after a rapid actor A to B to A`",
+        "'reuses project shell/home, clears the old summary, and updates inherited links before loading B'",
+        "'cancels pending ancestor loads when a project changes'",
+        "'does not reload a work list or clear its pending read for a fragment-only navigation'",
+        "'reuses a report draft across inherited project changes without retaining the old narrative'",
+        "'reuses closeout across cycle/project changes without a stale destination or submitted command'",
+        "'cancels creation options during project A to B to A without reviving old selections'",
+        "`updates reused ${kind} record and inherited project identities together`",
+        "'reuses a detail editor across item IDs, rejects a cancelled departure, and resets only on commit'",
+        "'clears Planning options and mutation state on actor commit before loading the new authorized context'",
+        "'ignores old report clipboard success and finalization while the new report copy is pending'",
+        "`invalidates delayed ${scope} saved views and resets their mutation state on actor change`",
+        "'keeps pagination reset pending across rapid actor commits while the URL reset is unresolved'"
+      ],
+      "unchangedAssertionSites": 85,
+      "unchangedRegistrationLoops": 7
+    },
+    {
+      "file": "apps/web/src/app/core/worktrail-api.service.spec.ts",
+      "migratedThisPhase": true,
+      "beforeSha256": "d91768c16631ca58cd0f3ce5c24953484723f2f44e8d54c69fdfaed9ee2e9fa9",
+      "sha256": "6125380a4135d7ac8a5904bdf890b7df65b99bae971ccf229a6cc6ae20c04ecb",
+      "registeredCases": 16,
+      "testDefinitions": [
+        "'requests My Work and project navigation summaries'",
+        "'requests the workspace portfolio review'",
+        "'supports project status report requests'",
+        "'sends workspace work item query params and skips blank params'",
+        "'requests paged project work and the complete board projection separately'",
+        "'sends saved work view list scope params and skips blank params'",
+        "'previews and applies work item CSV imports'",
+        "'posts project bulk work item updates'",
+        "'exports project work items with filters as a blob response'",
+        "'exports workspace work items with query params as a blob response'",
+        "'supports work item relationship requests'",
+        "'supports work item hierarchy requests'",
+        "'supports work item watcher requests'",
+        "'supports notification inbox requests'",
+        "'sends comment mention member ids when creating comments'",
+        "'supports saved work view CRUD requests'"
+      ],
+      "unchangedAssertionSites": 102,
+      "unchangedRegistrationLoops": 0
+    },
+    {
+      "file": "apps/web/src/app/shared/authored-content/authored-content-edit-commands.spec.ts",
+      "migratedThisPhase": true,
+      "beforeSha256": "8e24b11c8cdc1c1a79acf98b36eb6a3ec16e14f2fe0a6697051fbe07e3950e9d",
+      "sha256": "a0613cb523c08e787a1d7e61f85b2f29d970164fd6f3cfaab9ad9b9304516321",
+      "registeredCases": 36,
+      "testDefinitions": [
+        "'wraps a selection and selects its text, preserving all surrounding source'",
+        "'inserts selected placeholders for empty selections'",
+        "'keeps boundary whitespace outside emphasis and escapes embedded asterisks/backslashes'",
+        "'handles multiline emphasis separately per nonblank line without changing separators'",
+        "`prefixes selected whole lines for ${name} without including the following line`",
+        "'replaces ATX markers and places a caret inside an old marker after the new one'",
+        "`supports ${name} on an empty line, leaving a typing caret after its prefix`",
+        "`chooses a safe inline-code delimiter and padding for ${JSON.stringify(text)}`",
+        "'uses a longer code fence and explicit boundaries around a partial-line selection'",
+        "'preserves existing CRLF boundaries and a selected final newline in fenced code'",
+        "'escapes link labels and delimits destinations containing parentheses'",
+        "`rejects unsafe link insertion ${url}`",
+        "`keeps surrogate pairs intact for ${name}`",
+        "'snaps collapsed surrogate/CRLF positions forward, and clamps reversed/out-of-range ranges'"
+      ],
+      "unchangedAssertionSites": 36,
+      "unchangedRegistrationLoops": 5
+    },
+    {
+      "file": "apps/web/src/app/shared/authored-content/authored-content-editor.component.spec.ts",
+      "migratedThisPhase": true,
+      "beforeSha256": "15a5cfb43e51f7a3f3a51c9e13f885fad909d9294eb3250c4c7c1b4bcb2bf726",
+      "sha256": "b939dd66959bae713c7092409af6b65dc4f69c9829711ef9d9b70ca1163bb6bf",
+      "registeredCases": 35,
+      "testDefinitions": [
+        "'initializes a compound reactive control and exposes labels/count without a native maxlength'",
+        "'writes exact loaded pairs without inferring format or echoing a change'",
+        "'emits both fields on native source input and measures normalized UTF-16 units'",
+        "'does not overwrite native input value while Angular updates the model'",
+        "'switches only format, preserving exact source and emitting one pair'",
+        "'mounts faithful preview only when requested, without parsing edit keystrokes or changing form state'",
+        "'keeps plain-text preview literal and makes no remote request for embedded HTML/images'",
+        "'marks touched only when focus leaves the entire compound control'",
+        "'applies a selection command, restores focus, updates the form, and never submits it'",
+        "`connects the ${name} toolbar command to the form`",
+        "'captures textarea selection before focusing the URL and inserts an escaped descriptive link'",
+        "'rejects unsafe URLs with associated error feedback without changing the draft'",
+        "`cancels URL insertion via ${cancel}, restoring the original selection`",
+        "'clears captured link selection on source changes so old actions cannot overwrite newer typing'",
+        "'clears preview, URL data, and selection/history identity on same-value parent writes and context resets'",
+        "'suppresses formatting and intermediate input during IME composition, committing only once'",
+        "'ignores stale composition/input events after a context reset'",
+        "'ignores old DOM events even before a parent write has rendered the next textarea'",
+        "'keeps a focused parent reset pristine and untouched'",
+        "'supports deliberate conversion while Preview is open without changing source'",
+        "'protects URL IME composition without disabling the composing input'",
+        "'does not leak temporary URL constraint validation into the parent form'",
+        "'ignores composing Enter/Escape in the URL input'",
+        "'disables all authoring controls, closes pending links, and emits no value on disable/enable'",
+        "'associates external errors and enforces parent validation while leaving oversized legacy source editable'",
+        "`keeps toolbar/link entry and preview contained at ${width}px`"
+      ],
+      "unchangedAssertionSites": 130,
+      "unchangedRegistrationLoops": 8
+    },
+    {
+      "file": "apps/web/src/app/shared/authored-content/authored-content-link.spec.ts",
+      "migratedThisPhase": true,
+      "beforeSha256": "88eb2ece1647cb37a9b0a4702565a5137d6b400cf8e7bffecb725c0eab350e08",
+      "sha256": "da8854b8df33443e546645eb4e7b8b8fe0135f66dcdc85eae85bee14ae009ba8",
+      "registeredCases": 33,
+      "testDefinitions": [
+        "`rejects ${JSON.stringify(value.slice(0, 90))}`",
+        "'serializes explicit HTTP(S), including mixed-case schemes and safe encoded path data'",
+        "'checks both input and serialized URL lengths'",
+        "'compares scheme, host and port for native same-tab versus external navigation'"
+      ],
+      "unchangedAssertionSites": 11,
+      "unchangedRegistrationLoops": 1
+    },
+    {
+      "file": "apps/web/src/app/shared/authored-content/authored-content-parser.spec.ts",
+      "migratedThisPhase": true,
+      "beforeSha256": "4a9077acf22039d8d23fe9e196ddd76302b2e8c8407b635e2789f4d098a2a1fc",
+      "sha256": "4d44cdd587a908059c10eff3ac16c758a47a0931ed281267c483bcd8ca6004fa",
+      "registeredCases": 37,
+      "testDefinitions": [
+        "'never parses plain text, including complete oversized legacy text'",
+        "'keeps unknown formats complete and literal without parsing'",
+        "'normalizes line endings only for parsing, with a fresh reference environment each time'",
+        "'maps ATX/Setext headings below the page headings and clamps deep levels'",
+        "'projects nested emphasis, inline code and both kinds of visible breaks'",
+        "'projects tight/loose nested lists, ordered starts, quotes and literal code'",
+        "'flattens image label formatting to plain alternative text, discarding all destinations'",
+        "'preserves unsupported syntax, raw HTML, incomplete delimiters and unlinked bare URLs as text'",
+        "'preserves formatted labels and parser-normalized entities in safe links'",
+        "`leaves rejected parser destination ${destination} readable and unlinked`",
+        "'validates projected href again and retains a rejected label without an anchor'",
+        "'does not call any HTML renderer'",
+        "'enforces the normalized parse limit, including CRLF and UTF-16 surrogate units'",
+        "'bounds all inspected tokens, including inline children without projected nodes'",
+        "'bounds presentation nodes independently of tokens'",
+        "'bounds tree depth independently of the parser nesting limit'",
+        "'bounds aggregate projected UTF-16 text and URLs'",
+        "'falls back completely for reference expansion that exceeds aggregate data limits'",
+        "`falls back completely on malformed/unsupported ${malformed.map((t) => t.type).join(',')}`",
+        "'falls back completely on parser exceptions without logging source'",
+        "'falls back completely before the block nesting ceiling can discard source'"
+      ],
+      "unchangedAssertionSites": 47,
+      "unchangedRegistrationLoops": 4
+    },
+    {
+      "file": "apps/web/src/app/shared/authored-content/authored-content-validation.spec.ts",
+      "migratedThisPhase": true,
+      "beforeSha256": "563f9e635d7a1474119d7719121ce984ed1cee28e4f95fc8cb01a82b12d35b2d",
+      "sha256": "b2e58c26b2c1e1dbc0b7eb1d98553638d84d1dbf084dfdc6cefaaf549ed5c047",
+      "registeredCases": 12,
+      "testDefinitions": [
+        "'allows empty descriptions but requires non-whitespace comments'",
+        "'measures normalized UTF-16 units, without trimming source'",
+        "'grandfathers unchanged oversized pairs and equivalent historical line endings'",
+        "'allows unchanged legacy blank comments but not changed/conversion blank comments'",
+        "'snapshots its baseline and policy without mutating parent values'",
+        "`rejects an invalid compound value ${JSON.stringify(value)}`",
+        "'compares format and normalized source but not trimmed source'"
+      ],
+      "unchangedAssertionSites": 20,
+      "unchangedRegistrationLoops": 1
+    },
+    {
+      "file": "apps/web/src/app/shared/authored-content/authored-content-viewer.component.spec.ts",
+      "migratedThisPhase": true,
+      "beforeSha256": "0c47e6edb4715e0e2946adb69e0712a77c4ad555544424ef77a09052928cb6cc",
+      "sha256": "1fbeff2dade89134464cd84f088a4faed7f82dc2f1bd1227c540c682414dabc7",
+      "registeredCases": 22,
+      "testDefinitions": [
+        "'renders plain text and fallback completely, with no markup interpretation'",
+        "'renders the supported profile with semantic subordinate headings and valid list paragraphs'",
+        "'does not insert extra spaces around inline formatting or adjacent text'",
+        "`has an allowlisted DOM for adversarial input ${source.slice(0, 70)}`",
+        "'renders images as alt text, not active markup or remote asset references'",
+        "'uses normal href bindings, safe external attributes and native same-origin navigation'",
+        "'computes only when source or format changes and switches safely between formats'",
+        "'renders a parser failure as complete escaped source in the same region'",
+        "'does not lose deeply nested source at the parser ceiling'",
+        "'wraps long text and URLs at narrow widths while containing literal code scrolling'",
+        "'adds no universal empty-state copy'"
+      ],
+      "unchangedAssertionSites": 50,
+      "unchangedRegistrationLoops": 5
+    },
+    {
+      "file": "apps/web/src/app/shared/clipboard.service.spec.ts",
+      "migratedThisPhase": true,
+      "beforeSha256": "3b1f66cafa706e438b4fb0a9127c85c00d508a891fca8b336a33793060426bd4",
+      "sha256": "1d3b4d9c62a500d172c6c8addac25c004f64e9c02bceef25984752a1f1b66463",
+      "registeredCases": 3,
+      "testDefinitions": [
+        "'uses the browser clipboard API when available'",
+        "'falls back to a temporary textarea when clipboard API is unavailable'",
+        "'rejects when no copy mechanism is available'"
+      ],
+      "unchangedAssertionSites": 9,
+      "unchangedRegistrationLoops": 0
+    },
+    {
+      "file": "apps/web/src/app/shared/cycles/cycle-display.spec.ts",
+      "migratedThisPhase": true,
+      "beforeSha256": "9545210eece1b819d2acfa90bd35a2fd61d8f662b964db7b7a2b83679c3319fe",
+      "sha256": "c793397c3341ff21b9118ce97653ca6f9536bee2c6de02dc221fca1dbe5571db",
+      "registeredCases": 2,
+      "testDefinitions": [
+        "'formats cycle statuses and health states for product display'",
+        "'formats cycle date windows'"
+      ],
+      "unchangedAssertionSites": 6,
+      "unchangedRegistrationLoops": 0
+    },
+    {
+      "file": "apps/web/src/app/shared/delivery-health/delivery-health-display.spec.ts",
+      "migratedThisPhase": true,
+      "beforeSha256": "3ae16ae371af4535dc9e3f594e9841c93b1980b65ddb8d1716ef574b460020bf",
+      "sha256": "ddfd55e5e1dfab79f82a2cdf1b0223e0bee100463bcd83625596dcb34b6ced0c",
+      "registeredCases": 6,
+      "testDefinitions": [
+        "'maps delivery health states to product labels and tones'",
+        "'maps delivery health severities to labels and tones'",
+        "'uses server-provided reason messages as display labels'",
+        "'converts reason queries to router query params'",
+        "'uses project-scoped query params by default'",
+        "'can preserve workspace-scoped query params when requested'"
+      ],
+      "unchangedAssertionSites": 22,
+      "unchangedRegistrationLoops": 0
+    },
+    {
+      "file": "apps/web/src/app/shared/display/display-format.spec.ts",
+      "migratedThisPhase": false,
+      "beforeSha256": "3dd7b7c658733f45bec1b0634c271e64613a9598a22538f25a5e8679e92156ca",
+      "sha256": "3dd7b7c658733f45bec1b0634c271e64613a9598a22538f25a5e8679e92156ca",
+      "registeredCases": 2,
+      "testDefinitions": [
+        "'formats inactive member names explicitly'",
+        "'formats enum tokens as compact display text'"
+      ],
+      "unchangedAssertionSites": 4,
+      "unchangedRegistrationLoops": 0
+    },
+    {
+      "file": "apps/web/src/app/shared/download-file.spec.ts",
+      "migratedThisPhase": true,
+      "beforeSha256": "83949df29cd5e60b3c4f03a3296a9b8c0d4e30c697fe4ecec480a0a20af27a67",
+      "sha256": "603cc7cbfc96e9403c55513496d2d772fafb4344360cdd1f493450cc7b8e66f8",
+      "registeredCases": 3,
+      "testDefinitions": [
+        "'extracts filenames from content disposition headers'",
+        "'falls back safely for malformed or unsafe server filenames'",
+        "'downloads blobs through an object URL and revokes it'"
+      ],
+      "unchangedAssertionSites": 13,
+      "unchangedRegistrationLoops": 0
+    },
+    {
+      "file": "apps/web/src/app/shared/http-error-message.spec.ts",
+      "migratedThisPhase": true,
+      "beforeSha256": "6ff77f6820bccd5f0c784b68798c751e6f049726570c0fc59f4e3fb81971a0a8",
+      "sha256": "bd7d44b79a23747998472186efbd696d3eaf678ff9ae244a6223b981f00f6583",
+      "registeredCases": 2,
+      "testDefinitions": [
+        "'reads structured JSON error blobs'",
+        "'uses the fallback for malformed blobs and empty messages'"
+      ],
+      "unchangedAssertionSites": 3,
+      "unchangedRegistrationLoops": 0
+    },
+    {
+      "file": "apps/web/src/app/shared/navigation/section-target.spec.ts",
+      "migratedThisPhase": true,
+      "beforeSha256": "4d0c07faeef6b869e94f0ff49220215ed7c5cb3b59f68484358c0237d827511a",
+      "sha256": "28ec58a5c78d4587171e437b162fbc8a6b3a14ea7d585cc6cee54950afa30d03",
+      "registeredCases": 2,
+      "testDefinitions": [
+        "'waits for the accepted render, opens disclosure, focuses once and permits a new identity'",
+        "'does not target unknown fragments or nodes outside the page owner'"
+      ],
+      "unchangedAssertionSites": 10,
+      "unchangedRegistrationLoops": 0
+    },
+    {
+      "file": "apps/web/src/app/shared/navigation/work-navigation.spec.ts",
+      "migratedThisPhase": true,
+      "beforeSha256": "6041344c819295581bb88dc06f5b822f69c4246958c2d157df01f98ea918f88c",
+      "sha256": "ea26b5487454cabd58e7c0e50291daa677c828af6de820f8d4a6c0affbd09017",
+      "registeredCases": 39,
+      "testDefinitions": [
+        "'preserves applied filters and paging across parent/child/immediate return and reload'",
+        "'replaces rather than nests immediate records through repeated traversal'",
+        "'accepts a bare legacy record origin with a project Work fallback'",
+        "'inherits record context for Quick Find without copying nested navigation parameters'",
+        "'carries list/review and parent context through create success'",
+        "'preserves recognized destinations: ' + url",
+        "'rejects unsafe/unknown context: ' + url",
+        "'rejects the whole invalid pair and self-return loops'",
+        "'bounds decoded targets and constructed navigation and never repeatedly decodes search data'",
+        "'labels validated destinations and does not use URL query author content as a label'"
+      ],
+      "unchangedAssertionSites": 32,
+      "unchangedRegistrationLoops": 2
+    }
+  ],
+  "partitions": [
+    {
+      "runner": "karma",
+      "files": [
+        "src/app/features/inbox/inbox-page.component.spec.ts",
+        "src/app/features/inbox/inbox-state.service.spec.ts",
+        "src/app/features/my-work/my-work-page.component.spec.ts",
+        "src/app/features/portfolio/portfolio-display.spec.ts",
+        "src/app/features/portfolio/portfolio-page.component.spec.ts",
+        "src/app/features/projects/cycle-closeout/cycle-closeout-result.component.spec.ts",
+        "src/app/features/projects/cycle-closeout/project-cycle-closeout-page.component.spec.ts",
+        "src/app/features/projects/planning/cycle-manager.component.spec.ts",
+        "src/app/features/projects/planning/cycle-options.spec.ts",
+        "src/app/features/projects/planning/cycle-summary-panel.component.spec.ts",
+        "src/app/features/projects/planning/planning-mutation-state.spec.ts",
+        "src/app/features/projects/project-cycle-review-page.component.spec.ts",
+        "src/app/features/projects/project-milestone-review-page.component.spec.ts",
+        "src/app/features/projects/project-planning-page.component.spec.ts",
+        "src/app/features/projects/project-shell/project-navigation.spec.ts",
+        "src/app/features/projects/project-shell/project-shell.component.spec.ts",
+        "src/app/features/projects/projects-page.component.spec.ts",
+        "src/app/features/projects/status-reports/project-status-report-detail-page.component.spec.ts",
+        "src/app/features/projects/status-reports/project-status-report-draft-page.component.spec.ts",
+        "src/app/features/projects/status-reports/project-status-report-list-page.component.spec.ts",
+        "src/app/features/quick-find/quick-find-dialog-search.spec.ts",
+        "src/app/features/quick-find/quick-find-dialog.component.spec.ts",
+        "src/app/features/quick-find/quick-find-navigation.spec.ts",
+        "src/app/features/quick-find/quick-find-session.service.spec.ts",
+        "src/app/features/work-items/components/active-filter-chips.component.spec.ts",
+        "src/app/features/work-items/components/pinned-saved-views.component.spec.ts",
+        "src/app/features/work-items/components/saved-views-toolbar.component.spec.ts",
+        "src/app/features/work-items/components/work-item-attachments.component.spec.ts",
+        "src/app/features/work-items/components/work-item-child-work.component.spec.ts",
+        "src/app/features/work-items/components/work-item-filter-panel.component.spec.ts",
+        "src/app/features/work-items/components/work-item-pagination.component.spec.ts",
+        "src/app/features/work-items/components/work-item-parent-components.spec.ts",
+        "src/app/features/work-items/components/work-item-result-list.component.spec.ts",
+        "src/app/features/work-items/query/work-item-filter-labels.spec.ts",
+        "src/app/features/work-items/query/work-item-page-query-serialization.spec.ts",
+        "src/app/features/work-items/query/work-item-query-serialization.spec.ts",
+        "src/app/features/work-items/query/work-query-parity.spec.ts",
+        "src/app/features/work-items/state/project-bulk-triage.store.spec.ts",
+        "src/app/features/work-items/state/saved-views.store.spec.ts",
+        "src/app/features/work-items/state/work-list-query.store.spec.ts",
+        "src/app/features/work-items/work-item-board-page.component.spec.ts",
+        "src/app/features/work-items/work-item-detail-page.component.spec.ts",
+        "src/app/features/work-items/work-item-detail-unavailable.spec.ts",
+        "src/app/features/work-items/work-items-page.component.spec.ts",
+        "src/app/features/work-items/workspace-work-item-list-page.component.spec.ts",
+        "src/app/features/workspace/workspace-settings-page.component.spec.ts"
+      ]
+    },
+    {
+      "runner": "vitest",
+      "files": [
+        "src/app/app.routes.spec.ts",
+        "src/app/app.spec.ts",
+        "src/app/core/api/api-error.spec.ts",
+        "src/app/core/api/attachments-api.spec.ts",
+        "src/app/core/api/cycles-api.spec.ts",
+        "src/app/core/api/quick-find-api.spec.ts",
+        "src/app/core/navigation/authorized-project-context.spec.ts",
+        "src/app/core/navigation/draft-departure-coordinator.spec.ts",
+        "src/app/core/navigation/page-context.spec.ts",
+        "src/app/core/worktrail-api.service.spec.ts",
+        "src/app/shared/authored-content/authored-content-edit-commands.spec.ts",
+        "src/app/shared/authored-content/authored-content-editor.component.spec.ts",
+        "src/app/shared/authored-content/authored-content-link.spec.ts",
+        "src/app/shared/authored-content/authored-content-parser.spec.ts",
+        "src/app/shared/authored-content/authored-content-validation.spec.ts",
+        "src/app/shared/authored-content/authored-content-viewer.component.spec.ts",
+        "src/app/shared/clipboard.service.spec.ts",
+        "src/app/shared/cycles/cycle-display.spec.ts",
+        "src/app/shared/delivery-health/delivery-health-display.spec.ts",
+        "src/app/shared/display/display-format.spec.ts",
+        "src/app/shared/download-file.spec.ts",
+        "src/app/shared/http-error-message.spec.ts",
+        "src/app/shared/navigation/section-target.spec.ts",
+        "src/app/shared/navigation/work-navigation.spec.ts",
+        "src/testing/web-toolchain.spec.ts"
+      ]
+    }
+  ],
+  "configHashes": {
+    "test-migration.json": "5c8af6de7ad04267e33e9ac82eaeef28936dfa64b65c673d4c8430b9da4015df",
+    "tsconfig.spec.json": "2805d1bde6ff4320b76e61303dfa3145bf6b66b455b4f9cac180a81a7df493ea",
+    "tsconfig.vitest.json": "239be9e504012604aae820049b87fcb76e2379f7fd2f4c825a3cfea249cd848e"
+  },
+  "checks": {
+    "chromium": {
+      "command": "npm test --workspace @worktrail/web -- --runner=vitest",
+      "files": 25,
+      "summary": {
+        "passed": true,
+        "cleaned": true,
+        "options": {
+          "runner": "vitest",
+          "include": [],
+          "filter": null,
+          "help": false
+        },
+        "results": [
+          {
+            "name": "test:web:vitest",
+            "passed": true,
+            "durationMs": 13325
+          }
+        ],
+        "interrupted": null
+      }
+    },
+    "vitestTypes": {
+      "command": "npm exec -- tsc -p apps/web/tsconfig.vitest.json --noEmit",
+      "passed": true
+    },
+    "jasmineTypes": {
+      "command": "npm exec -- tsc -p apps/web/tsconfig.spec.json --noEmit",
+      "passed": true
+    },
+    "lint": {
+      "command": "npm exec -- eslint apps/web/src/app/core apps/web/src/app/shared apps/web/src/app/app.spec.ts apps/web/src/app/app.routes.spec.ts --max-warnings=0",
+      "passed": true
+    },
+    "partitionTests": {
+      "command": "node --test scripts/verification/web.test.mjs",
+      "passed": true,
+      "tests": 7
+    },
+    "clipboardRegression": {
+      "change": "Remove the old report clipboard finalization identity guard in a disposable source snapshot only.",
+      "rejected": true,
+      "cleaned": true,
+      "failedTests": 1,
+      "assertion": "Page context with real reused Worktrail routes ignores old report clipboard success and finalization while the new report copy is pending",
+      "failure": "The stale finalizer incorrectly cleared the new report copy pending state (false instead of true)."
+    }
+  },
+  "diagnostic": "An initial Promise.withResolvers helper failed under the existing ES2022 type library. Replaced it with ordinary deferred promises; no production compiler target was changed.",
+  "unchanged": [
+    "production sources",
+    "framework/runner dependencies and lockfile",
+    "runner implementation",
+    "Zone scheduling providers",
+    "advisory policy/deadlines",
+    "CI triggers",
+    "46 later-phase spec hashes",
+    "release identities"
+  ],
+  "omitted": [
+    "full Karma suite",
+    "production/development app builds",
+    "audits and clean install",
+    "API/database suites",
+    "application E2E",
+    "native-editor browser harness",
+    "preview/setup/site suites"
+  ],
+  "cleanup": {
+    "acceptanceSnapshotRemoved": true,
+    "negativeProbeSnapshotRemoved": true,
+    "workingDataTouched": false
+  }
+}

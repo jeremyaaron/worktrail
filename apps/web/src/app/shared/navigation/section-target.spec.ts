@@ -1,3 +1,5 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { NavigationSectionTargetDirective } from './section-target';
@@ -15,6 +17,8 @@ class TargetHost {
 }
 
 describe('NavigationSectionTargetDirective', () => {
+  afterEach(() => vi.restoreAllMocks());
+
   it('waits for the accepted render, opens disclosure, focuses once and permits a new identity', async () => {
     const fixture = TestBed.createComponent(TargetHost);
     fixture.detectChanges();
@@ -26,10 +30,10 @@ describe('NavigationSectionTargetDirective', () => {
     await fixture.whenStable();
     const heading = host.querySelector<HTMLElement>('#cycle-result-heading')!;
     expect(document.activeElement).toBe(heading);
-    expect(heading.closest('details')?.open).toBeTrue();
+    expect(heading.closest('details')?.open).toBe(true);
     expect(heading.tabIndex).toBe(-1);
     expect(heading.style.scrollMarginBlockStart).toBe('88px');
-    const focus = spyOn(heading, 'focus');
+    const focus = vi.spyOn(heading, 'focus').mockImplementation(() => undefined);
     fixture.componentInstance.ready.set({ refreshed: true });
     fixture.detectChanges();
     await fixture.whenStable();
@@ -37,7 +41,7 @@ describe('NavigationSectionTargetDirective', () => {
     fixture.componentInstance.identity.set('cycle-b');
     fixture.detectChanges();
     await fixture.whenStable();
-    expect(focus).toHaveBeenCalledOnceWith({ preventScroll: true });
+    expect(focus).toHaveBeenCalledExactlyOnceWith({ preventScroll: true });
   });
 
   it('does not target unknown fragments or nodes outside the page owner', async () => {
@@ -52,6 +56,6 @@ describe('NavigationSectionTargetDirective', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     expect(document.activeElement).not.toBe(heading);
-    expect(heading.closest('details')?.open).toBeFalse();
+    expect(heading.closest('details')?.open).toBe(false);
   });
 });

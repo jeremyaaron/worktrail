@@ -1,15 +1,17 @@
+import { describe, expect, it } from 'vitest';
+
 import { routes } from './app.routes';
 
 describe('routes', () => {
   it('uses My Work as the default route', () => {
     expect(routes.find((route) => route.path === '')).toEqual(
-      jasmine.objectContaining({
+      expect.objectContaining({
         pathMatch: 'full',
         redirectTo: 'my-work'
       })
     );
     expect(routes.find((route) => route.path === '**')).toEqual(
-      jasmine.objectContaining({
+      expect.objectContaining({
         redirectTo: 'my-work'
       })
     );

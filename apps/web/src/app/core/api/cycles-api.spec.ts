@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
@@ -40,7 +42,8 @@ describe('CyclesApi', () => {
   });
 
   afterEach(() => {
-    http.verify();
+    try { http.verify(); }
+    finally { localStorage.clear(); }
   });
 
   it('lists cycles with optional filters', () => {

@@ -2,9 +2,9 @@
 
 ## Status
 
-Implementation baseline: October 18, 2026. Phases 0-1 are complete; required implementation phases 2-8 and 10-11 have not started. Conditional Phase 9 is deferred by the Phase 0 scope decision.
+Implementation baseline: October 18, 2026. Phases 0-2 are complete; required implementation phases 3-8 and 10-11 have not started. Conditional Phase 9 is deferred by the Phase 0 scope decision.
 
-This plan implements the [PRD](prd.md) and [technical design](technical-design.md). The [dependency disposition](dependency-remediation.md), [verification notes](verification-notes.md), and [Phase 0 evidence](phase-0-evidence.json) record the selected versions, proofs, and inventories. [Phase 1 evidence](phase-1-evidence.json) records the implemented Angular foundation. SQL history and release identity remain unchanged.
+This plan implements the [PRD](prd.md) and [technical design](technical-design.md). The [dependency disposition](dependency-remediation.md), [verification notes](verification-notes.md), and [Phase 0 evidence](phase-0-evidence.json) record the selected versions, proofs, and inventories. [Phase 1 evidence](phase-1-evidence.json) records the implemented Angular foundation; [Phase 2 evidence](phase-2-evidence.json) maps the shared/core conversion and retained coverage. SQL history and release identity remain unchanged.
 
 The separately requested PR-only CI change is already in the working tree. Preserve it and its focused regression test; it is not unfinished feature scope to reimplement. Package/release identity remains `0.3.0` until closeout.
 
@@ -34,7 +34,7 @@ Angular conversion is split into infrastructure, three spec groups, and final cu
 | --- | --- | --- |
 | 0 | Baseline, private feasibility proofs, and decision closure | Complete |
 | 1 | Angular 21 foundation and staged Chromium test execution | Complete |
-| 2 | Shared utilities, core clients, and navigation spec conversion | Not started |
+| 2 | Shared utilities, core clients, and navigation spec conversion | Complete |
 | 3 | Work discovery, saved views, and workspace spec conversion | Not started |
 | 4 | Work detail, Planning, and historical workflow spec conversion | Not started |
 | 5 | Single-runner cutover, owned lifecycle, and Angular acceptance | Not started |
@@ -176,6 +176,19 @@ Acceptance:
 - No spec disappears from discovery and no production refactor is hidden in test conversion.
 
 Verification: converted files, affected shared consumers, applicable lint/spec typing, and partition checks. Run focused native-editor checks only if editor implementation/harness behavior changes; otherwise reserve that unchanged harness for Phase 5. Do not rerun unrelated API, site, or full legacy suites.
+
+Status: Complete (October 18, 2026).
+
+### Completion Evidence
+
+- Convert the 21 remaining assigned files to explicit Vitest imports and typed doubles. Retain the three Phase 1 conversions unchanged. All 24 Phase 2 files now run in Chromium under the existing Zone-based TestBed providers.
+- Preserve all 314 existing registered cases: 80 app/core, 175 authored-content, and 59 other shared/display/navigation cases. Compare test definitions, literal parameterization loops, and assertion-site counts against the phase-entry Git revision; none are added, removed, merged, focused, or disabled. The coverage map records each file and before/after hashes.
+- Preserve real-router cancellation/reuse, actor A-to-B-to-A invalidation, authorized project identity, submitted writes, HTTP headers/bodies/cancellation, draft Stay/Discard/unload protection, clipboard/download behavior, and native editor/viewer selection/focus/IME/security/reflow assertions. Keep HTTP response `flush` unchanged; no Jasmine compatibility layer or DOM emulation is introduced.
+- Restore prototype/property/browser spies explicitly, tear down editor/viewer fixtures, remove the temporary download anchor even after assertion failure, and clear actor storage. A controlled clipboard-start promise plus zero-time fake-clock draining replaces a guessed number of promise turns in the old-report completion regression; timers/mocks are restored in `finally` cleanup.
+- Prove that regression detects a real failure: remove only the clipboard finalization identity guard in an owned disposable source snapshot. The selected case fails because the old report incorrectly clears the new copy's pending state; the working production source remains untouched.
+- Update the manifest and separate TypeScript scopes to 25 Vitest / 46 Karma files, covering all 71 discovered specs exactly once. All 46 later-phase specs retain their Phase 0 hashes; no file is silently excluded.
+- Pass `npm test --workspace @worktrail/web -- --runner=vitest`: the complete converted group plus the unchanged toolchain regression, 315 cases across 25 files. Pass seven focused runner/discovery tests, both Vitest/Jasmine spec typechecks, and affected core/shared/app lint. The passing run removes its owned snapshot/processes.
+- Deliberately omit the full legacy suite, app builds, dependency/audit refresh, API/database/E2E/editor/preview/setup/site suites. Their application/toolchain inputs are unchanged; native-editor harness acceptance remains Phase 5. Dependency/security policy, budgets, production sources, release identity, and CI triggers are unchanged.
 
 ## Phase 3: Discovery And Workspace Spec Conversion
 

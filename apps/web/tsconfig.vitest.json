@@ -7,8 +7,29 @@
   "include": [
     "src/**/*.d.ts",
     "src/testing/*.ts",
+    "src/app/app.routes.spec.ts",
+    "src/app/app.spec.ts",
+    "src/app/core/api/api-error.spec.ts",
     "src/app/core/api/attachments-api.spec.ts",
+    "src/app/core/api/cycles-api.spec.ts",
+    "src/app/core/api/quick-find-api.spec.ts",
+    "src/app/core/navigation/authorized-project-context.spec.ts",
     "src/app/core/navigation/draft-departure-coordinator.spec.ts",
-    "src/app/shared/display/display-format.spec.ts"
+    "src/app/core/navigation/page-context.spec.ts",
+    "src/app/core/worktrail-api.service.spec.ts",
+    "src/app/shared/authored-content/authored-content-edit-commands.spec.ts",
+    "src/app/shared/authored-content/authored-content-editor.component.spec.ts",
+    "src/app/shared/authored-content/authored-content-link.spec.ts",
+    "src/app/shared/authored-content/authored-content-parser.spec.ts",
+    "src/app/shared/authored-content/authored-content-validation.spec.ts",
+    "src/app/shared/authored-content/authored-content-viewer.component.spec.ts",
+    "src/app/shared/clipboard.service.spec.ts",
+    "src/app/shared/cycles/cycle-display.spec.ts",
+    "src/app/shared/delivery-health/delivery-health-display.spec.ts",
+    "src/app/shared/display/display-format.spec.ts",
+    "src/app/shared/download-file.spec.ts",
+    "src/app/shared/http-error-message.spec.ts",
+    "src/app/shared/navigation/section-target.spec.ts",
+    "src/app/shared/navigation/work-navigation.spec.ts"
   ]
 }

@@ -1,3 +1,5 @@
+import { describe, expect, it } from 'vitest';
+
 import { authoredContentLink, isExternalAuthoredContentLink } from './authored-content-link';
 
 describe('authored-content links', () => {
@@ -61,13 +63,13 @@ describe('authored-content links', () => {
   it('compares scheme, host and port for native same-tab versus external navigation', () => {
     expect(
       isExternalAuthoredContentLink('https://example.com/other', 'https://example.com')
-    ).toBeFalse();
-    expect(isExternalAuthoredContentLink('http://example.com/', 'https://example.com')).toBeTrue();
+    ).toBe(false);
+    expect(isExternalAuthoredContentLink('http://example.com/', 'https://example.com')).toBe(true);
     expect(
       isExternalAuthoredContentLink('https://example.com:444/', 'https://example.com')
-    ).toBeTrue();
+    ).toBe(true);
     expect(
       isExternalAuthoredContentLink('https://other.example/', 'https://example.com')
-    ).toBeTrue();
+    ).toBe(true);
   });
 });

@@ -1,3 +1,5 @@
+import { describe, expect, it, vi } from 'vitest';
+
 import { DOCUMENT } from '@angular/common';
 import { TestBed } from '@angular/core/testing';
 
@@ -5,7 +7,7 @@ import { ClipboardService } from './clipboard.service';
 
 describe('ClipboardService', () => {
   it('uses the browser clipboard API when available', async () => {
-    const writeText = jasmine.createSpy('writeText').and.resolveTo();
+    const writeText = vi.fn<Clipboard['writeText']>().mockName('writeText').mockResolvedValue(undefined);
     const documentRef = {
       defaultView: {
         navigator: {
@@ -20,27 +22,27 @@ describe('ClipboardService', () => {
 
     await TestBed.inject(ClipboardService).copyText('https://example.test/work-items');
 
-    expect(writeText).toHaveBeenCalledOnceWith('https://example.test/work-items');
+    expect(writeText).toHaveBeenCalledExactlyOnceWith('https://example.test/work-items');
   });
 
   it('falls back to a temporary textarea when clipboard API is unavailable', async () => {
     const textarea = {
       value: '',
       style: {} as Record<string, string>,
-      setAttribute: jasmine.createSpy('setAttribute'),
-      select: jasmine.createSpy('select')
+      setAttribute: vi.fn<Element['setAttribute']>().mockName('setAttribute'),
+      select: vi.fn<HTMLTextAreaElement['select']>().mockName('select')
     };
     const body = {
-      appendChild: jasmine.createSpy('appendChild'),
-      removeChild: jasmine.createSpy('removeChild')
+      appendChild: vi.fn<(element: typeof textarea) => void>().mockName('appendChild'),
+      removeChild: vi.fn<(element: typeof textarea) => void>().mockName('removeChild')
     };
     const documentRef = {
       body,
-      createElement: jasmine.createSpy('createElement').and.returnValue(textarea),
+      createElement: vi.fn<(tagName: string) => typeof textarea>().mockName('createElement').mockReturnValue(textarea),
       defaultView: {
         navigator: {}
       },
-      execCommand: jasmine.createSpy('execCommand').and.returnValue(true)
+      execCommand: vi.fn<Document['execCommand']>().mockName('execCommand').mockReturnValue(true)
     };
 
     TestBed.configureTestingModule({
@@ -49,13 +51,13 @@ describe('ClipboardService', () => {
 
     await TestBed.inject(ClipboardService).copyText('https://example.test/projects/1/work-items');
 
-    expect(documentRef.createElement).toHaveBeenCalledOnceWith('textarea');
+    expect(documentRef.createElement).toHaveBeenCalledExactlyOnceWith('textarea');
     expect(textarea.value).toBe('https://example.test/projects/1/work-items');
-    expect(textarea.setAttribute).toHaveBeenCalledOnceWith('readonly', '');
-    expect(body.appendChild).toHaveBeenCalledOnceWith(textarea);
+    expect(textarea.setAttribute).toHaveBeenCalledExactlyOnceWith('readonly', '');
+    expect(body.appendChild).toHaveBeenCalledExactlyOnceWith(textarea);
     expect(textarea.select).toHaveBeenCalled();
-    expect(documentRef.execCommand).toHaveBeenCalledOnceWith('copy');
-    expect(body.removeChild).toHaveBeenCalledOnceWith(textarea);
+    expect(documentRef.execCommand).toHaveBeenCalledExactlyOnceWith('copy');
+    expect(body.removeChild).toHaveBeenCalledExactlyOnceWith(textarea);
   });
 
   it('rejects when no copy mechanism is available', async () => {
@@ -73,7 +75,7 @@ describe('ClipboardService', () => {
       ]
     });
 
-    await expectAsync(TestBed.inject(ClipboardService).copyText('copy me')).toBeRejectedWithError(
+    await expect(TestBed.inject(ClipboardService).copyText('copy me')).rejects.toThrowError(
       'Clipboard copy is not available.'
     );
   });

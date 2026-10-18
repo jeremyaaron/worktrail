@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
@@ -37,7 +39,8 @@ describe('WorktrailApiService', () => {
   });
 
   afterEach(() => {
-    http.verify();
+    try { http.verify(); }
+    finally { localStorage.clear(); }
   });
 
   it('requests My Work and project navigation summaries', () => {
@@ -153,7 +156,7 @@ describe('WorktrailApiService', () => {
     expect(request.request.params.get('sort')).toBe('priority_desc');
     expect(request.request.params.get('page')).toBe('3');
     expect(request.request.params.get('pageSize')).toBe('50');
-    expect(request.request.params.has('search')).toBeFalse();
+    expect(request.request.params.has('search')).toBe(false);
 
     request.flush({
       items: [],
@@ -208,7 +211,7 @@ describe('WorktrailApiService', () => {
     const workspaceRequest = http.expectOne((candidate) => candidate.url === '/api/saved-work-views');
     expect(workspaceRequest.request.method).toBe('GET');
     expect(workspaceRequest.request.params.get('scope')).toBe('workspace');
-    expect(workspaceRequest.request.params.has('projectId')).toBeFalse();
+    expect(workspaceRequest.request.params.has('projectId')).toBe(false);
     workspaceRequest.flush([]);
   });
 
@@ -298,7 +301,7 @@ describe('WorktrailApiService', () => {
     expect(request.request.params.get('parentKey')).toBe('WT-42');
     expect(request.request.params.get('labelId')).toBe('10000000-0000-4000-8000-000000000301');
     expect(request.request.params.get('sort')).toBe('priority_desc');
-    expect(request.request.params.has('search')).toBeFalse();
+    expect(request.request.params.has('search')).toBe(false);
     expect(request.request.headers.get('x-worktrail-member-id')).toBe(actor.id);
     request.flush(new Blob(['project_key\n'], { type: 'text/csv' }));
   });
@@ -401,7 +404,7 @@ describe('WorktrailApiService', () => {
     const blankSearch = http.expectOne(
       (candidate) => candidate.url === `/api/work-items/${workItemId}/parent-candidates`
     );
-    expect(blankSearch.request.params.has('search')).toBeFalse();
+    expect(blankSearch.request.params.has('search')).toBe(false);
     blankSearch.flush([]);
 
     api.setWorkItemParent(workItemId, { parentWorkItemId }).subscribe();

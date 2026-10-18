@@ -114,3 +114,55 @@ All private proof snapshots/processes are removed after retaining sanitized resu
 database, API/contracts source, SQL file, public-site asset, CI trigger or release version changed.
 Three resolved Vitest/Tinypool exceptions are removed; Karma and Drizzle remain due in Phases 5/6,
 with no renewed deadline or claim of zero full-audit findings.
+
+## Phase 2: Shared And Core Conversion
+
+Completed October 18, 2026, on branch `v0.3.1`, starting from clean commit
+`4a910b2cc5a7d9f80196b7e4c7c82f6657d72b5f`. Release identity remains `0.3.0`.
+[Structured evidence and coverage map](phase-2-evidence.json) record all 24 assigned files,
+their before/after hashes, unchanged registration/parameterization/assertion counts, partition
+membership, the owned run summary, and the negative regression probe.
+
+| Selection / Boundary | Outcome |
+| --- | --- |
+| Remaining Phase 2 conversion | 21 files converted; three Phase 1 files unchanged |
+| Retained app/core coverage | 80 cases: shell/routes, API/error clients, authorized context, real reused routes, draft departure |
+| Retained authored-content coverage | 175 cases: edit commands, parser, links, validation, native editor/viewer |
+| Retained other shared coverage | 59 cases: clipboard/download/errors, cycle/delivery/display policies, section targets and bounded navigation |
+| `npm test --workspace @worktrail/web -- --runner=vitest` | Pass: all 314 Phase 2 cases plus the unchanged toolchain case; 25 files, owned cleanup confirmed |
+| `node --test scripts/verification/web.test.mjs` | Seven passing discovery/type-scope/runtime-identity/selection/failure/ownership checks |
+| `npm exec -- tsc -p apps/web/tsconfig.vitest.json --noEmit` | Pass; explicit Vitest imports with no shared ambient test globals |
+| `npm exec -- tsc -p apps/web/tsconfig.spec.json --noEmit` | Pass; the complementary legacy Jasmine scope remains valid |
+| Affected core/shared/app ESLint | Pass with zero warnings; frontend source lint also passed during conversion |
+| Controlled clipboard mutation probe | Expected failure in the selected stale-finalization case; one failing assertion detects the incorrect pending-state update |
+| Partition reconciliation | All 71 specs assigned once: 25 Vitest / 46 Karma; all later-phase spec hashes unchanged |
+
+Registration totals are also checked directly from unchanged literal test parameterization; no
+disabled/focused tests or count-reducing substitutions are used. The existing display/attachments/
+draft-departure specs converted in Phase 1 were included in the passing selection, not reconverted.
+HTTP mock responses still use `flush`; none of these files imports Zone clock-test helpers.
+
+Vitest spies deliberately retain call-through where Jasmine requested it and explicit stubs where
+Jasmine suppressed native behavior. Native textarea setter, Markdown parser, fetch, focus, and
+download spies are restored after each test. Angular's existing TestBed teardown remains enabled;
+the principal editor/viewer fixtures and reused-route harness also have explicit teardown. Actor
+storage and the appended download anchor are cleared on failure as well as success.
+
+The late clipboard test now waits for actual copy entry, navigates to the next report, releases the
+old copy, and drains its promise chain with `vi.advanceTimersByTimeAsync(0)`. This does not wait for
+elapsed real time or impose a larger deadline. A private negative probe removed the production
+finalization guard only in its owned snapshot; the test failed at the expected `false` versus `true`
+pending-state assertion. That probe is diagnostic evidence, not a failed acceptance run, and its
+resources were removed. Production source in the working checkout is unchanged.
+
+An initial deferred-promise helper used `Promise.withResolvers`, which the existing ES2022 type
+library does not expose. Both the typecheck and Angular test compilation rejected it. It was replaced
+with ordinary deferred promises before the passing acceptance run; compiler targets and deadlines
+were not changed.
+
+Verification was intentionally limited to the converted group and cheap affected configuration
+checks. The 46 remaining Karma specs were not executed, nor were app builds, audits/installation,
+API/database tests, application E2E, the separate native-editor harness, preview/setup or site suites.
+Those inputs and dependencies are unchanged. Phase 5 retains final single-runner/editor/lifecycle
+acceptance; Phases 3-4 retain their unconverted groups. No data, SQL history, advisory deadline, CI
+trigger, production scheduling provider, release version or remote workflow was changed.

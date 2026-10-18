@@ -1,3 +1,5 @@
+import { describe, expect, it } from 'vitest';
+
 import { FormControl } from '@angular/forms';
 import { authoredContentValidator } from './authored-content-validation';
 import { authoredContentEquals, type AuthoredContentValue } from './authored-content-value';
@@ -75,10 +77,10 @@ describe('authored-content validation', () => {
 
   it('compares format and normalized source but not trimmed source', () => {
     const baseline: AuthoredContentValue = { source: ' x\r\ny ', format: 'plain_text' };
-    expect(authoredContentEquals({ source: ' x\ny ', format: 'plain_text' }, baseline)).toBeTrue();
-    expect(authoredContentEquals({ source: 'x\ny', format: 'plain_text' }, baseline)).toBeFalse();
+    expect(authoredContentEquals({ source: ' x\ny ', format: 'plain_text' }, baseline)).toBe(true);
+    expect(authoredContentEquals({ source: 'x\ny', format: 'plain_text' }, baseline)).toBe(false);
     expect(
       authoredContentEquals({ source: baseline.source, format: 'markdown_v1' }, baseline)
-    ).toBeFalse();
+    ).toBe(false);
   });
 });

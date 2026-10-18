@@ -1,3 +1,5 @@
+import { describe, expect, it } from 'vitest';
+
 import { extractApiErrorMessage } from './api-error';
 
 describe('extractApiErrorMessage', () => {

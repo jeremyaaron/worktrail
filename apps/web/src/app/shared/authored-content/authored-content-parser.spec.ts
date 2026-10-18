@@ -1,3 +1,5 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import MarkdownIt, { type Token } from 'markdown-it';
 import type { AuthoredContentBlock, AuthoredContentDocument } from './authored-content-document';
 import { parseAuthoredContent } from './authored-content-parser';
@@ -33,15 +35,17 @@ function blocks(document: AuthoredContentDocument): readonly AuthoredContentBloc
 }
 
 describe('authored-content parser and projection', () => {
+  afterEach(() => vi.restoreAllMocks());
+
   it('never parses plain text, including complete oversized legacy text', () => {
-    const parse = spyOn(MarkdownIt.prototype, 'parse').and.throwError('must not parse');
+    const parse = vi.spyOn(MarkdownIt.prototype, 'parse').mockImplementation(() => { throw new Error('must not parse'); });
     const source = `  **literal**\r\n${'x'.repeat(20000)}  `;
     expect(parseAuthoredContent(source, 'plain_text')).toEqual({ kind: 'plain_text', source });
     expect(parse).not.toHaveBeenCalled();
   });
 
   it('keeps unknown formats complete and literal without parsing', () => {
-    const parse = spyOn(MarkdownIt.prototype, 'parse').and.throwError('must not parse');
+    const parse = vi.spyOn(MarkdownIt.prototype, 'parse').mockImplementation(() => { throw new Error('must not parse'); });
     const source = '<script>bad()</script>\r\n**source**';
     expect(parseAuthoredContent(source, 'future_format')).toEqual({
       kind: 'plain_text_fallback',
@@ -51,12 +55,12 @@ describe('authored-content parser and projection', () => {
   });
 
   it('normalizes line endings only for parsing, with a fresh reference environment each time', () => {
-    const parse = spyOn(MarkdownIt.prototype, 'parse').and.callThrough();
+    const parse = vi.spyOn(MarkdownIt.prototype, 'parse');
     parseAuthoredContent('one\r\ntwo\rthree', 'markdown_v1');
     parseAuthoredContent('[label][ref]\n\n[ref]: https://example.com', 'markdown_v1');
     const third = parseAuthoredContent('[label][ref]', 'markdown_v1');
-    expect(parse.calls.first().args[0]).toBe('one\ntwo\nthree');
-    expect(parse.calls.argsFor(0)[1]).not.toBe(parse.calls.argsFor(1)[1]);
+    expect(parse.mock.calls[0][0]).toBe('one\ntwo\nthree');
+    expect(parse.mock.calls[0][1]).not.toBe(parse.mock.calls[1][1]);
     expect(JSON.stringify(third)).not.toContain('"kind":"link"');
   });
 
@@ -106,24 +110,24 @@ describe('authored-content parser and projection', () => {
       'code_block'
     ]);
     expect(nodes[0]).toEqual(
-      jasmine.objectContaining({
+      expect.objectContaining({
         items: [
-          jasmine.objectContaining({
+          expect.objectContaining({
             children: [
-              jasmine.objectContaining({ tight: true }),
-              jasmine.objectContaining({ kind: 'unordered_list' })
+              expect.objectContaining({ tight: true }),
+              expect.objectContaining({ kind: 'unordered_list' })
             ]
           }),
-          jasmine.objectContaining({ children: [jasmine.objectContaining({ tight: true })] })
+          expect.objectContaining({ children: [expect.objectContaining({ tight: true })] })
         ]
       })
     );
     expect(nodes[1]).toEqual(
-      jasmine.objectContaining({
+      expect.objectContaining({
         start: 3,
         items: [
-          jasmine.objectContaining({ children: [jasmine.objectContaining({ tight: false })] }),
-          jasmine.objectContaining({ children: [jasmine.objectContaining({ tight: false })] })
+          expect.objectContaining({ children: [expect.objectContaining({ tight: false })] }),
+          expect.objectContaining({ children: [expect.objectContaining({ tight: false })] })
         ]
       })
     );
@@ -166,7 +170,7 @@ describe('authored-content parser and projection', () => {
       '**unfinished',
       'https://example.com'
     ]) {
-      expect(json).withContext(literal).toContain(literal);
+      expect(json, literal).toContain(literal);
     }
     expect(json).not.toContain('"kind":"link"');
   });
@@ -208,7 +212,7 @@ describe('authored-content parser and projection', () => {
   }
 
   it('validates projected href again and retains a rejected label without an anchor', () => {
-    spyOn(MarkdownIt.prototype, 'parse').and.returnValue(
+    vi.spyOn(MarkdownIt.prototype, 'parse').mockReturnValue(
       paragraph([
         token('link_open', 1, '', { href: 'javascript:bad()', onclick: 'bad()' }),
         token('text', 0, 'retained label'),
@@ -223,15 +227,15 @@ describe('authored-content parser and projection', () => {
   });
 
   it('does not call any HTML renderer', () => {
-    const render = spyOn(MarkdownIt.prototype, 'render').and.throwError('forbidden');
-    const renderInline = spyOn(MarkdownIt.prototype, 'renderInline').and.throwError('forbidden');
+    const render = vi.spyOn(MarkdownIt.prototype, 'render').mockImplementation(() => { throw new Error('forbidden'); });
+    const renderInline = vi.spyOn(MarkdownIt.prototype, 'renderInline').mockImplementation(() => { throw new Error('forbidden'); });
     expect(parseAuthoredContent('**safe**', 'markdown_v1').kind).toBe('markdown');
     expect(render).not.toHaveBeenCalled();
     expect(renderInline).not.toHaveBeenCalled();
   });
 
   it('enforces the normalized parse limit, including CRLF and UTF-16 surrogate units', () => {
-    const parse = spyOn(MarkdownIt.prototype, 'parse').and.callThrough();
+    const parse = vi.spyOn(MarkdownIt.prototype, 'parse');
     expect(parseAuthoredContent('\r\n'.repeat(10000), 'markdown_v1').kind).toBe('markdown');
     expect(parseAuthoredContent('\ud83d\ude00'.repeat(5000), 'markdown_v1').kind).toBe('markdown');
     const source = '\ud83d\ude00'.repeat(5000) + 'x';
@@ -239,14 +243,14 @@ describe('authored-content parser and projection', () => {
       kind: 'plain_text_fallback',
       source
     });
-    expect(parse.calls.count()).toBe(2);
+    expect(parse.mock.calls.length).toBe(2);
   });
 
   it('bounds all inspected tokens, including inline children without projected nodes', () => {
-    const parse = spyOn(MarkdownIt.prototype, 'parse');
-    parse.and.returnValue(paragraph(Array.from({ length: 7997 }, () => token('text'))));
+    const parse = vi.spyOn(MarkdownIt.prototype, 'parse');
+    parse.mockReturnValue(paragraph(Array.from({ length: 7997 }, () => token('text'))));
     expect(parseAuthoredContent('source', 'markdown_v1').kind).toBe('markdown');
-    parse.and.returnValue(paragraph(Array.from({ length: 7998 }, () => token('text'))));
+    parse.mockReturnValue(paragraph(Array.from({ length: 7998 }, () => token('text'))));
     expect(parseAuthoredContent('source', 'markdown_v1')).toEqual({
       kind: 'plain_text_fallback',
       source: 'source'
@@ -254,10 +258,10 @@ describe('authored-content parser and projection', () => {
   });
 
   it('bounds presentation nodes independently of tokens', () => {
-    const parse = spyOn(MarkdownIt.prototype, 'parse');
-    parse.and.returnValue(paragraph(Array.from({ length: 3999 }, () => token('text', 0, 'x'))));
+    const parse = vi.spyOn(MarkdownIt.prototype, 'parse');
+    parse.mockReturnValue(paragraph(Array.from({ length: 3999 }, () => token('text', 0, 'x'))));
     expect(parseAuthoredContent('source', 'markdown_v1').kind).toBe('markdown');
-    parse.and.returnValue(paragraph(Array.from({ length: 4000 }, () => token('text', 0, 'x'))));
+    parse.mockReturnValue(paragraph(Array.from({ length: 4000 }, () => token('text', 0, 'x'))));
     expect(parseAuthoredContent('source', 'markdown_v1').kind).toBe('plain_text_fallback');
   });
 
@@ -268,18 +272,18 @@ describe('authored-content parser and projection', () => {
         token('text', 0, 'x'),
         ...Array.from({ length: count }, () => token('em_close', -1))
       ]);
-    const parse = spyOn(MarkdownIt.prototype, 'parse');
-    parse.and.returnValue(nested(30));
+    const parse = vi.spyOn(MarkdownIt.prototype, 'parse');
+    parse.mockReturnValue(nested(30));
     expect(parseAuthoredContent('source', 'markdown_v1').kind).toBe('markdown');
-    parse.and.returnValue(nested(31));
+    parse.mockReturnValue(nested(31));
     expect(parseAuthoredContent('source', 'markdown_v1').kind).toBe('plain_text_fallback');
   });
 
   it('bounds aggregate projected UTF-16 text and URLs', () => {
-    const parse = spyOn(MarkdownIt.prototype, 'parse');
-    parse.and.returnValue(paragraph([token('text', 0, 'x'.repeat(64000))]));
+    const parse = vi.spyOn(MarkdownIt.prototype, 'parse');
+    parse.mockReturnValue(paragraph([token('text', 0, 'x'.repeat(64000))]));
     expect(parseAuthoredContent('source', 'markdown_v1').kind).toBe('markdown');
-    parse.and.returnValue(paragraph([token('text', 0, 'x'.repeat(64001))]));
+    parse.mockReturnValue(paragraph([token('text', 0, 'x'.repeat(64001))]));
     expect(parseAuthoredContent('source', 'markdown_v1').kind).toBe('plain_text_fallback');
   });
 
@@ -315,7 +319,7 @@ describe('authored-content parser and projection', () => {
     ]
   ]) {
     it(`falls back completely on malformed/unsupported ${malformed.map((t) => t.type).join(',')}`, () => {
-      spyOn(MarkdownIt.prototype, 'parse').and.returnValue(malformed);
+      vi.spyOn(MarkdownIt.prototype, 'parse').mockReturnValue(malformed);
       const source = '  complete\r\n<script>source</script>  ';
       expect(parseAuthoredContent(source, 'markdown_v1')).toEqual({
         kind: 'plain_text_fallback',
@@ -325,8 +329,8 @@ describe('authored-content parser and projection', () => {
   }
 
   it('falls back completely on parser exceptions without logging source', () => {
-    spyOn(MarkdownIt.prototype, 'parse').and.throwError('parser error');
-    const log = spyOn(console, 'error');
+    vi.spyOn(MarkdownIt.prototype, 'parse').mockImplementation(() => { throw new Error('parser error'); });
+    const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     expect(parseAuthoredContent('complete\r\nsource', 'markdown_v1')).toEqual({
       kind: 'plain_text_fallback',
       source: 'complete\r\nsource'

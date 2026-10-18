@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { Dialog } from '@angular/cdk/dialog';
 import { OverlayContainer } from '@angular/cdk/overlay';
 import { provideHttpClient } from '@angular/common/http';
@@ -85,8 +87,13 @@ describe('App', () => {
   });
 
   afterEach(() => {
-    TestBed.inject(Dialog).closeAll();
-    http.verify();
+    try {
+      TestBed.inject(Dialog).closeAll();
+      http.verify();
+    } finally {
+      vi.restoreAllMocks();
+      localStorage.clear();
+    }
   });
 
   it('should create the app', () => {
@@ -174,7 +181,7 @@ describe('App', () => {
   it('accepts only exact Command/Ctrl+K shortcuts', () => {
     const fixture = TestBed.createComponent(App);
     const app = fixture.componentInstance;
-    const open = spyOn(app, 'openQuickFind').and.resolveTo();
+    const open = vi.spyOn(app, 'openQuickFind').mockResolvedValue(undefined);
     const acceptedControl = shortcutEvent({ ctrlKey: true });
     const acceptedCommand = shortcutEvent({ metaKey: true });
 
@@ -182,8 +189,8 @@ describe('App', () => {
     app.onGlobalKeydown(acceptedCommand);
 
     expect(open).toHaveBeenCalledTimes(2);
-    expect(acceptedControl.defaultPrevented).toBeTrue();
-    expect(acceptedCommand.defaultPrevented).toBeTrue();
+    expect(acceptedControl.defaultPrevented).toBe(true);
+    expect(acceptedCommand.defaultPrevented).toBe(true);
 
     for (const rejected of [
       shortcutEvent({}),
@@ -194,7 +201,7 @@ describe('App', () => {
       shortcutEvent({ ctrlKey: true, key: '/' })
     ]) {
       app.onGlobalKeydown(rejected);
-      expect(rejected.defaultPrevented).toBeFalse();
+      expect(rejected.defaultPrevented).toBe(false);
     }
 
     expect(open).toHaveBeenCalledTimes(2);
@@ -263,20 +270,20 @@ describe('App', () => {
       return { navigation };
     };
     const first = await navigatePending();
-    expect(fixture.componentInstance.isNavigating()).toBeTrue();
-    expect((fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.quick-find-trigger')?.disabled).toBeTrue();
+    expect(fixture.componentInstance.isNavigating()).toBe(true);
+    expect((fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.quick-find-trigger')?.disabled).toBe(true);
     await fixture.componentInstance.openQuickFind();
     expect(TestBed.inject(Dialog).openDialogs.length).toBe(0);
     resolveGuard(false);
     await first.navigation;
-    expect(fixture.componentInstance.isNavigating()).toBeFalse();
+    expect(fixture.componentInstance.isNavigating()).toBe(false);
     await fixture.componentInstance.openQuickFind();
     const dialog = TestBed.inject(Dialog).openDialogs[0];
     const second = await navigatePending();
     resolveGuard(false);
     await second.navigation;
     expect(TestBed.inject(Dialog).openDialogs[0]).toBe(dialog);
-    expect(fixture.componentInstance.isNavigating()).toBeFalse();
+    expect(fixture.componentInstance.isNavigating()).toBe(false);
   });
 
   it('consumes only authorized context for the currently committed detail record', async () => {
@@ -306,7 +313,7 @@ describe('App', () => {
   it('resets the opening guard when lazy launcher loading fails', async () => {
     const fixture = TestBed.createComponent(App);
     const app = fixture.componentInstance;
-    const launcher = jasmine.createSpy('loadQuickFindLauncher').and.rejectWith(
+    const launcher = vi.fn<() => Promise<never>>().mockName('loadQuickFindLauncher').mockRejectedValue(
       new Error('chunk unavailable')
     );
     (
