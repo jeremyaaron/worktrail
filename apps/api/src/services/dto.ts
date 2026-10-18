@@ -15,7 +15,6 @@ import type {
   WorkItemQuery,
   WorkspaceActivityEventDto,
   WorkspaceDto,
-  WorkspaceWorkItemListItemDto,
   WorkItemDetailDto,
   WorkItemListItemDto,
   WorkItemRelationshipSummaryDto
@@ -30,8 +29,10 @@ import type {
   Project,
   ProjectCycle,
   ProjectStatusReport,
+  ProjectStatusReportSummaryRecord,
   SavedWorkView,
   WorkItem,
+  WorkItemSummary,
   Workspace,
   WorkspaceActivityEvent
 } from '../repositories/types.js';
@@ -93,7 +94,7 @@ export function toProjectDto(project: Project): ProjectDto {
 }
 
 export function toProjectStatusReportSummaryDto(
-  report: ProjectStatusReport,
+  report: ProjectStatusReportSummaryRecord,
   author: Member
 ): ProjectStatusReportSummaryDto {
   return {
@@ -246,7 +247,7 @@ export function toWorkspaceActivityEventDto(
 }
 
 export function toWorkItemListItemDto(input: {
-  workItem: WorkItem;
+  workItem: WorkItemSummary;
   assignee: Member | null;
   reporter: Member;
   labels: Label[];
@@ -286,23 +287,6 @@ export function toWorkItemListItemDto(input: {
     openBlockedWorkCount: dependencyCounts.openBlockedWorkCount,
     createdAt: input.workItem.createdAt.toISOString(),
     updatedAt: input.workItem.updatedAt.toISOString()
-  };
-}
-
-export function toWorkspaceWorkItemListItemDto(input: {
-  workItem: WorkItem;
-  assignee: Member | null;
-  reporter: Member;
-  labels: Label[];
-  milestone?: Milestone | null;
-  project: Pick<Project, 'id' | 'key' | 'name' | 'status'>;
-  dependencyCounts?: DependencyCounts;
-  parent?: WorkItemParentDto | null;
-  childSummary?: WorkItemChildSummaryDto | null;
-}): WorkspaceWorkItemListItemDto {
-  return {
-    ...toWorkItemListItemDto(input),
-    project: input.project
   };
 }
 

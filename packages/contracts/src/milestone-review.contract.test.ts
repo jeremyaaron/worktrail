@@ -101,6 +101,7 @@ describe('milestone review contracts', () => {
       title: 'Blocked work',
       description: 'Work items currently blocked in this milestone.',
       count: 1,
+      countUnit: 'work_items' as const,
       query: {
         milestoneId: milestone.id,
         status: 'blocked',
@@ -129,6 +130,7 @@ describe('milestone review contracts', () => {
             severity: 'warning',
             message: '1 work item is blocked.',
             count: 1,
+            countUnit: 'work_items' as const,
             query: riskSection.query
           }
         ]

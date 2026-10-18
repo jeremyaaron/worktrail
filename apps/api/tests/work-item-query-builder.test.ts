@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import type { WorkItemSort } from '@worktrail/contracts';
 import {
   buildProjectWorkItemOrderBy,
+  buildWorkspaceWorkItemConditions,
   buildWorkspaceWorkItemOrderBy
 } from '../src/repositories/work-item-query-builder.js';
 
@@ -24,6 +25,13 @@ function renderOrderBy(orderBy: ReturnType<typeof buildProjectWorkItemOrderBy>):
 }
 
 describe('work item query ordering', () => {
+  it('scopes both workspace rows and joined project summaries to the authorized workspace', () => {
+    const conditions = buildWorkspaceWorkItemConditions('workspace', { archivedProjects: 'include' });
+    const query = new PgDialect().sqlToQuery(sql`select 1 where ${sql.join(conditions, sql` and `)}`);
+    expect(query.sql).toContain('"work_items"."workspace_id"');
+    expect(query.sql).toContain('"projects"."workspace_id"');
+    expect(query.params).toEqual(['workspace', 'workspace']);
+  });
   it.each(workItemSorts)('ends project %s ordering with the UUID tie-breaker', (sort) => {
     expect(renderOrderBy(buildProjectWorkItemOrderBy(sort))).toMatch(/"work_items"\."id" asc$/);
   });

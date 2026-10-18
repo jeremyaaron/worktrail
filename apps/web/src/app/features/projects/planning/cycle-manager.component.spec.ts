@@ -61,6 +61,9 @@ describe('CycleManagerComponent', () => {
 
     expect(compiled.textContent).toContain('Cycles');
     expect(compiled.textContent).toContain('v0.2.1 Cycle Planning');
+    expect(compiled.querySelector<HTMLDetailsElement>('.record-edit')?.open).toBeFalse();
+    expect(compiled.querySelector<HTMLDetailsElement>('.create-disclosure')?.open).toBeFalse();
+    expect(compiled.querySelector('.cycle-list')!.compareDocumentPosition(compiled.querySelector('.create-disclosure')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(compiled.querySelector<HTMLAnchorElement>('.cycle-row__links a')?.getAttribute('href')).toBe(
       `/projects/${projectId}/cycles/${activeCycle.id}`
     );
@@ -94,6 +97,21 @@ describe('CycleManagerComponent', () => {
       .find((button) => button.textContent?.includes('Archive'));
     archiveButton?.click();
     expect(archiveSpy).toHaveBeenCalledWith(activeCycle);
+  });
+
+  it('offers reactivation rather than an unusable editor for an archived cycle', () => {
+    const fixture = TestBed.createComponent(CycleManagerComponent);
+    fixture.componentInstance.projectId = projectId;
+    fixture.componentInstance.cycleForm = createCycleForm();
+    fixture.componentInstance.cycles = [{...activeCycle,isArchived:true}];
+    fixture.componentInstance.canManageCycles = true;
+    const reactivate = spyOn(fixture.componentInstance.reactivate, 'emit');
+    fixture.detectChanges();
+    const row = (fixture.nativeElement as HTMLElement).querySelector('.cycle-row')!;
+    expect(row.querySelector('.record-edit')).toBeNull();
+    expect(row.querySelector('input')).toBeNull();
+    row.querySelector<HTMLButtonElement>('.cycle-actions button')!.click();
+    expect(reactivate).toHaveBeenCalled();
   });
 
   it('hides mutation controls in read-only mode', () => {

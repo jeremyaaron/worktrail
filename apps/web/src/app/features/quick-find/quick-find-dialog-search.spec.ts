@@ -39,7 +39,7 @@ describe('QuickFindDialogComponent search mode', () => {
   let api: jasmine.SpyObj<QuickFindApi>;
   let dialogRef: jasmine.SpyObj<DialogRef<void, QuickFindDialogComponent>>;
   let dialogClosed: Subject<void>;
-  let selectedMember: WritableSignal<{ id: string } | null>;
+  let selectedMember: WritableSignal<{ id: string; workspaceId?: string } | null>;
   let router: Router;
 
   beforeEach(async () => {
@@ -50,7 +50,7 @@ describe('QuickFindDialogComponent search mode', () => {
       ['close'],
       { closed: dialogClosed.asObservable() }
     );
-    selectedMember = signal<{ id: string } | null>({ id: 'member-1' });
+    selectedMember = signal<{ id: string; workspaceId?: string } | null>({ id: 'member-1' });
 
     await TestBed.configureTestingModule({
       imports: [QuickFindDialogComponent],
@@ -74,6 +74,58 @@ describe('QuickFindDialogComponent search mode', () => {
     fixture.detectChanges();
   });
 
+  it('retains query and preview filters on reopening but refreshes results and resets selection', fakeAsync(() => {
+    const first = new Subject<QuickFindResponseDto>();
+    const second = new Subject<QuickFindResponseDto>();
+    api.search.and.returnValues(first, second);
+    component.queryControl.setValue('release');
+    tick(220);
+    first.next(fullResponse());
+    first.complete();
+    component.resultType.set('cycles');
+    component.projectFilter.set(project.id);
+    fixture.detectChanges();
+    expect(component.resultGroups().length).toBe(1);
+    fixture.destroy();
+    fixture = TestBed.createComponent(QuickFindDialogComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+    expect(component.queryControl.value).toBe('release');
+    expect(component.resultType()).toBe('cycles');
+    expect(component.projectFilter()).toBe(project.id);
+    expect(component.response()).toBeNull();
+    expect(component.activeOptionId()).toBeNull();
+    tick(220);
+    expect(api.search).toHaveBeenCalledTimes(2);
+    const fresh = fullResponse();
+    fresh.groups.cycles.items[0]!.cycle.name = 'Fresh cycle name';
+    second.next(fresh);
+    second.complete();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Fresh cycle name');
+    expect(fixture.nativeElement.querySelectorAll('.quick-find__result').length).toBe(1);
+    component.clearSearch();
+    fixture.detectChanges();
+    expect(component.resultType()).toBe('all');
+    expect(component.projectFilter()).toBe('');
+  }));
+
+  it('erases state and rejects an earlier response when workspace changes without a different member ID', fakeAsync(() => {
+    const pending = new Subject<QuickFindResponseDto>();
+    api.search.and.returnValue(pending);
+    component.queryControl.setValue('release');
+    tick(220);
+    selectedMember.set({ id: 'member-1', workspaceId: 'different-workspace' });
+    pending.next(fullResponse());
+    fixture.detectChanges();
+    expect(component.response()).toBeNull();
+    expect(dialogRef.close).toHaveBeenCalled();
+    fixture.destroy();
+    fixture = TestBed.createComponent(QuickFindDialogComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+    expect(component.queryControl.value).toBe('');
+  }));
   it('debounces normalized queries and cancels stale success and error outcomes', fakeAsync(() => {
     const first = new Subject<QuickFindResponseDto>();
     const second = new Subject<QuickFindResponseDto>();
@@ -131,12 +183,12 @@ describe('QuickFindDialogComponent search mode', () => {
       .map((heading: HTMLElement) => heading.textContent?.trim());
 
     expect(headings).toEqual([
-      'Work items',
-      'Projects',
-      'Milestones',
-      'Cycles',
-      'Reports',
-      'Attachments'
+      'Work items · 1 shown',
+      'Projects · 1 shown',
+      'Milestones · 1 shown',
+      'Cycles · 1 shown',
+      'Reports · 1 shown',
+      'Attachments · 1 shown'
     ]);
     expect(fixture.nativeElement.textContent).toContain('WT-42');
     expect(fixture.nativeElement.textContent).toContain('Worktrail');
@@ -268,10 +320,26 @@ describe('QuickFindDialogComponent search mode', () => {
       return true;
     });
     dispatchKey(input, 'Enter');
+    tick(0);
 
     expect(dialogRef.close).toHaveBeenCalledOnceWith();
     expect(router.navigate).toHaveBeenCalledOnceWith(['/my-work'], {});
-    expect(callOrder).toEqual(['close', 'navigate']);
+    expect(callOrder).toEqual(['navigate', 'close']);
+  }));
+
+  it('keeps the query and active result when navigation is rejected', fakeAsync(() => {
+    spyOn(router, 'navigate').and.resolveTo(false);
+    component.queryControl.setValue('xy');
+    tick(220);
+    component.queryControl.setValue('');
+    tick(0);
+    const option = component.selectableOptions()[0];
+    const active = component.activeOptionId();
+    component.activateOption(option);
+    tick(0);
+    expect(dialogRef.close).not.toHaveBeenCalled();
+    expect(component.queryControl.value).toBe('');
+    expect(component.activeOptionId()).toBe(active);
   }));
 
   it('synchronizes active-descendant state across loading, results, hover, and clear', fakeAsync(() => {
@@ -322,7 +390,7 @@ describe('QuickFindDialogComponent search mode', () => {
     );
   }));
 
-  it('routes every result and overflow through canonical close-first destinations', fakeAsync(() => {
+  it('routes every result and overflow through canonical navigation destinations before closing', fakeAsync(() => {
     const result = new Subject<QuickFindResponseDto>();
     api.search.and.returnValue(result);
     const callOrder: string[] = [];
@@ -342,10 +410,11 @@ describe('QuickFindDialogComponent search mode', () => {
 
     for (const option of component.resultOptions()) {
       component.activateOption(option);
+      tick(0);
     }
 
     expect(navigate.calls.allArgs()).toEqual([
-      [['/work-items', 'work-item-1'], {}],
+      [['/work-items', 'work-item-1'], { queryParams: { returnUrl: '/projects/project-1/work-items' } }],
       [
         ['/work-items'],
         {
@@ -359,16 +428,16 @@ describe('QuickFindDialogComponent search mode', () => {
       [['/projects', 'project-1', 'milestones', 'milestone-1'], {}],
       [['/projects', 'project-1', 'cycles', 'cycle-1'], {}],
       [['/projects', 'project-1', 'status', 'report-1'], {}],
-      [['/work-items', 'work-item-1'], { fragment: 'files' }]
+      [['/work-items', 'work-item-1'], { queryParams: { returnUrl: '/projects/project-1/work-items' }, fragment: 'files' }]
     ]);
     expect(callOrder).toEqual([
-      'close', 'navigate',
-      'close', 'navigate',
-      'close', 'navigate',
-      'close', 'navigate',
-      'close', 'navigate',
-      'close', 'navigate',
-      'close', 'navigate'
+      'navigate', 'close',
+      'navigate', 'close',
+      'navigate', 'close',
+      'navigate', 'close',
+      'navigate', 'close',
+      'navigate', 'close',
+      'navigate', 'close'
     ]);
   }));
 
@@ -395,7 +464,7 @@ describe('QuickFindDialogComponent search mode', () => {
     const pointerDestination = navigate.calls.mostRecent().args;
 
     expect(pointerDestination).toEqual(keyboardDestination);
-    expect(pointerDestination).toEqual([['/work-items', 'work-item-1'], {}]);
+    expect(pointerDestination).toEqual([['/work-items', 'work-item-1'], { queryParams: { returnUrl: '/projects/project-1/work-items' } }]);
   }));
 
   it('focuses Files after close when Angular would skip the same attachment URL', fakeAsync(() => {
@@ -406,7 +475,7 @@ describe('QuickFindDialogComponent search mode', () => {
     const focus = spyOn(target, 'focus');
     const scrollIntoView = spyOn(target, 'scrollIntoView');
     const navigate = spyOn(router, 'navigate').and.resolveTo(true);
-    spyOnProperty(router, 'url', 'get').and.returnValue('/work-items/work-item-1#files');
+    spyOnProperty(router, 'url', 'get').and.returnValue('/work-items/work-item-1?returnUrl=%2Fwork-items#files');
     dialogRef.close.and.callFake(() => {
       dialogClosed.next();
       dialogClosed.complete();
@@ -420,6 +489,25 @@ describe('QuickFindDialogComponent search mode', () => {
     expect(navigate).not.toHaveBeenCalled();
     expect(focus).toHaveBeenCalledOnceWith({ preventScroll: true });
     expect(scrollIntoView).toHaveBeenCalledOnceWith({ block: 'start' });
+    target.remove();
+  }));
+
+  it('leaves a changed record Files target to its readiness owner instead of focusing a stale node', fakeAsync(() => {
+    const target = document.createElement('section');
+    target.id = 'files';
+    document.body.append(target);
+    const focus = spyOn(target, 'focus');
+    let url = '/work-items/previous?returnUrl=%2Fmy-work#files';
+    spyOnProperty(router, 'url', 'get').and.callFake(() => url);
+    spyOn(router, 'navigate').and.callFake(async (commands, extras) => {
+      url = router.serializeUrl(router.createUrlTree(commands, extras));
+      return true;
+    });
+    dialogRef.close.and.callFake(() => { dialogClosed.next(); dialogClosed.complete(); });
+    component.activateOption({ type: 'result', result: fullResponse().groups.attachments.items[0] });
+    flushMicrotasks();
+    expect(dialogRef.close).toHaveBeenCalledOnceWith();
+    expect(focus).not.toHaveBeenCalled();
     target.remove();
   }));
 

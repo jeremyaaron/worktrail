@@ -112,7 +112,7 @@ describe('WorkItemParentContextComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Child of');
     expect(fixture.nativeElement.textContent).toContain('WT-4 Coordinate launch work');
     expect(link.getAttribute('href')).toBe(
-      `/work-items/${parentWorkItemId}?returnUrl=%2Fwork-items%2F${workItemId}`
+      `/work-items/${parentWorkItemId}?returnUrl=%2Fprojects%2F${projectId}%2Fwork-items&returnTo=%2Fwork-items%2F${workItemId}`
     );
   });
 });

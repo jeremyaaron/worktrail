@@ -1,14 +1,13 @@
+import { labelConstraintConflicts, rethrowConstraintConflict } from '../errors/persistence-conflict.js';
+import { coordinateProjects, coordinateReference } from './project-write-coordination.js';
 import type { CreateLabelRequest, LabelDto, UpdateLabelRequest } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
-import type { WorktrailDb } from '../db/client.js';
+import { assertPersistence, type Persistence } from '../repositories/persistence.js';
 import type { ActorContext } from '../domain/actor.js';
 import { canManageProject } from '../domain/permissions.js';
 import { ConflictError, ForbiddenError, NotFoundError } from '../errors/app-error.js';
-import {
-  type Repositories,
-  withRepositoriesTransaction
-} from '../repositories/index.js';
+import type { Repositories } from '../repositories/index.js';
 import type { Label, Project } from '../repositories/types.js';
 import { toLabelDto } from './dto.js';
 
@@ -21,7 +20,7 @@ export interface LabelListOptions {
 export interface LabelServiceContext {
   actor: ActorContext;
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
   clock?: () => Date;
   idGenerator?: () => string;
 }
@@ -31,17 +30,31 @@ export class LabelService {
   private readonly idGenerator: () => string;
 
   constructor(private readonly context: LabelServiceContext) {
+    assertPersistence(context.persistence);
     this.clock = context.clock ?? (() => new Date());
     this.idGenerator = context.idGenerator ?? randomUUID;
   }
 
   async listProjectLabels(projectId: string, options: LabelListOptions = {}): Promise<LabelDto[]> {
+    return this.context.persistence.readConsistent((scope) =>
+      new LabelService({ ...this.context, ...scope }).listProjectLabelsInScope(projectId, options)
+    );
+  }
+
+  private async listProjectLabelsInScope(projectId: string, options: LabelListOptions = {}): Promise<LabelDto[]> {
     await this.requireProject(projectId, this.context.repositories);
     const labels = await this.context.repositories.labels.listByProject(projectId, options);
     return labels.map(toLabelDto);
   }
 
   async createLabel(projectId: string, input: CreateLabelRequest): Promise<LabelDto> {
+    return this.context.persistence.write(async (scope) => {
+      await coordinateProjects(scope, this.context.actor.workspaceId, [projectId], 'exclusive');
+      return new LabelService({ ...this.context, ...scope }).createLabelInScope(projectId, input);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, labelConstraintConflicts));
+  }
+
+  private async createLabelInScope(projectId: string, input: CreateLabelRequest): Promise<LabelDto> {
     return this.withWriteRepositories(async (repositories) => {
       const project = await this.requireProject(projectId, repositories);
       this.assertCanManageLabels();
@@ -80,6 +93,13 @@ export class LabelService {
   }
 
   async updateLabel(labelId: string, input: UpdateLabelRequest): Promise<LabelDto> {
+    return this.context.persistence.write(async (scope) => {
+      await coordinateReference(scope, this.context.actor.workspaceId, 'labels', labelId, 'exclusive');
+      return new LabelService({ ...this.context, ...scope }).updateLabelInScope(labelId, input);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, labelConstraintConflicts));
+  }
+
+  private async updateLabelInScope(labelId: string, input: UpdateLabelRequest): Promise<LabelDto> {
     return this.withWriteRepositories(async (repositories) => {
       const current = await this.requireProjectLabel(labelId, repositories);
       const project = await this.requireProject(current.projectId, repositories);
@@ -107,6 +127,13 @@ export class LabelService {
   }
 
   async archiveLabel(labelId: string): Promise<LabelDto> {
+    return this.context.persistence.write(async (scope) => {
+      await coordinateReference(scope, this.context.actor.workspaceId, 'labels', labelId, 'exclusive');
+      return new LabelService({ ...this.context, ...scope }).archiveLabelInScope(labelId);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, labelConstraintConflicts));
+  }
+
+  private async archiveLabelInScope(labelId: string): Promise<LabelDto> {
     return this.withWriteRepositories(async (repositories) => {
       const current = await this.requireProjectLabel(labelId, repositories);
       const project = await this.requireProject(current.projectId, repositories);
@@ -143,6 +170,13 @@ export class LabelService {
   }
 
   async reactivateLabel(labelId: string): Promise<LabelDto> {
+    return this.context.persistence.write(async (scope) => {
+      await coordinateReference(scope, this.context.actor.workspaceId, 'labels', labelId, 'exclusive');
+      return new LabelService({ ...this.context, ...scope }).reactivateLabelInScope(labelId);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, labelConstraintConflicts));
+  }
+
+  private async reactivateLabelInScope(labelId: string): Promise<LabelDto> {
     return this.withWriteRepositories(async (repositories) => {
       const current = await this.requireProjectLabel(labelId, repositories);
       const project = await this.requireProject(current.projectId, repositories);
@@ -183,11 +217,7 @@ export class LabelService {
   private async withWriteRepositories<T>(
     callback: (repositories: Repositories) => Promise<T>
   ): Promise<T> {
-    if (this.context.db === undefined) {
-      return callback(this.context.repositories);
-    }
-
-    return withRepositoriesTransaction(this.context.db, callback);
+    return this.context.persistence.write(({ repositories }) => callback(repositories));
   }
 
   private async requireProject(projectId: string, repositories: Repositories): Promise<Project> {

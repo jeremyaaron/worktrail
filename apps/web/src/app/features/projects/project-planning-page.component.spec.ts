@@ -1,3 +1,5 @@
+import { By } from '@angular/platform-browser';
+import { PlanningReviewComponent } from './planning/planning-review.component';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
@@ -62,6 +64,7 @@ const blockedDeliveryHealth: ProjectDeliveryHealthDto = {
       severity: 'critical',
       message: '1 blocked work item',
       count: 1,
+      countUnit: 'work_items' as const,
       query: { status: 'blocked', sort: 'priority_desc' }
     },
     {
@@ -69,6 +72,7 @@ const blockedDeliveryHealth: ProjectDeliveryHealthDto = {
       severity: 'critical',
       message: '1 dependency-blocked work item',
       count: 1,
+      countUnit: 'work_items' as const,
       query: { dependency: 'dependency_blocked', sort: 'priority_desc' }
     }
   ]
@@ -309,7 +313,10 @@ const populatedPlanningReview: PlanningReviewDto = {
 
 const defaultPlanningSummary: ProjectPlanningSummaryDto = {
   project: activeProject,
-  deliveryHealth: blockedDeliveryHealth,
+  deliveryHealth: {
+    ...blockedDeliveryHealth, overdueWorkCount: 1, blockingOpenWorkCount: 1,
+    unassignedActiveWorkCount: 1, staleInProgressWorkCount: 1
+  },
   milestoneProgress: [
     {
       milestone: activeMilestone,
@@ -329,6 +336,7 @@ const defaultPlanningSummary: ProjectPlanningSummaryDto = {
           severity: 'critical',
           message: '1 blocked work item',
           count: 1,
+          countUnit: 'work_items' as const,
           query: {
             milestoneId: activeMilestone.id,
             status: 'blocked',
@@ -436,6 +444,127 @@ describe('ProjectPlanningPageComponent', () => {
     TestBed.inject(HttpTestingController).verify();
   });
 
+  it('puts live health, cycle execution and populated risks before milestone targets and recent disclosures', () => {
+    const { fixture } = setupPlanningPage();
+    const compiled = fixture.nativeElement as HTMLElement;
+    const order = Array.from(compiled.querySelectorAll('h2,h3')).map(node => node.textContent?.trim());
+    expect(order.indexOf('Cycle execution')).toBeGreaterThan(order.indexOf('Blocked'));
+    expect(order.indexOf('Project risks')).toBeGreaterThan(order.indexOf('Cycle execution'));
+    expect(order.indexOf('Milestone targets')).toBeGreaterThan(order.indexOf('Project risks'));
+    expect(compiled.querySelectorAll('.review-disclosure:not([open])')).toHaveSize(3);
+    expect(compiled.querySelector('[aria-labelledby="risk-due-soon"]')).toBeNull();
+    expect(compiled.querySelector('[aria-label="Closeout readiness"]')?.textContent).toContain('unfinished work items');
+  });
+
+  it('shows an actionable no-active-cycle state even with upcoming and completed cycles', () => {
+    const { fixture } = setupPlanningPage(activeProject, [], contributor, { ...defaultPlanningSummary, activeCycle: null });
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('No active cycle');
+    expect(compiled.textContent).toContain('Upcoming cycle');
+    const link = compiled.querySelector<HTMLAnchorElement>('.no-active-cycle a');
+    expect(link?.getAttribute('href')).toContain('cycleId=none');
+    expect(link?.getAttribute('href')).toContain('workState=open');
+    expect(compiled.querySelector('form')).toBeNull();
+    expect(compiled.textContent).not.toContain('Manage cycles');
+  });
+
+  it('cancels superseded same-context planning, milestone and cycle reads', () => {
+    const { fixture, http } = setupPlanningPage();
+    const page = fixture.componentInstance;
+    for (const [load, url, response] of [
+      [() => page.loadPlanningSummary(), `/api/projects/${projectId}/planning-summary`, defaultPlanningSummary],
+      [() => page.loadMilestones(), `/api/projects/${projectId}/milestones?includeArchived=true`, [activeMilestone]],
+      [() => page.loadCycles(), `/api/projects/${projectId}/cycles?includeArchived=true`, [activeCycle]]
+    ] as const) {
+      load();
+      const first = http.expectOne(url);
+      load();
+      expect(first.cancelled).toBeTrue();
+      http.expectOne(url).flush(response);
+    }
+    fixture.detectChanges();
+    expect(page.planningSummary()).toEqual(defaultPlanningSummary);
+    expect(page.cycles()).toEqual([activeCycle]);
+    expect(page.milestones()).toEqual([activeMilestone]);
+  });
+
+  it('keeps record errors and drafts local while serializing milestone writes', () => {
+    const { fixture, http } = setupPlanningPage();
+    const page = fixture.componentInstance;
+    page.setPlanningView('milestones');
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+    const rows = Array.from(compiled.querySelectorAll<HTMLElement>('.milestone-row'));
+    const own = rows.find(row => row.querySelector('h3')?.textContent === activeMilestone.name)!;
+    const other = rows.find(row => row.querySelector('h3')?.textContent === archivedMilestone.name)!;
+    own.querySelector<HTMLDetailsElement>('details')!.open = true;
+    other.querySelector<HTMLDetailsElement>('details')!.open = true;
+    const otherName = other.querySelector<HTMLInputElement>('input')!;
+    otherName.value = 'Independent rename draft';
+    otherName.dispatchEvent(new Event('input'));
+    const ownName = own.querySelector<HTMLInputElement>('input')!;
+    ownName.value = 'Edited target';
+    ownName.dispatchEvent(new Event('input'));
+    own.querySelector<HTMLButtonElement>('.milestone-actions button')!.click();
+    const write = http.expectOne(`/api/milestones/${activeMilestone.id}`);
+    fixture.detectChanges();
+    expect(otherName.disabled).toBeTrue();
+    page.loadMilestones();
+    http.expectNone(`/api/projects/${projectId}/milestones?includeArchived=true`);
+    page.archiveMilestone(archivedMilestone);
+    http.expectNone(`/api/milestones/${archivedMilestone.id}/archive`);
+    write.flush({ error: { message: 'Target name conflict' } }, { status: 409, statusText: 'Conflict' });
+    fixture.detectChanges();
+    expect(own.querySelector('[role="alert"]')?.textContent).toContain('Target name conflict');
+    expect(other.querySelector('[role="alert"]')).toBeNull();
+    expect(ownName.value).toBe('Edited target');
+    expect(otherName.value).toBe('Independent rename draft');
+    own.querySelector<HTMLButtonElement>('.milestone-actions button')!.click();
+    http.expectOne(`/api/milestones/${activeMilestone.id}`).flush({ ...activeMilestone, name: 'Edited target' });
+    http.expectOne(`/api/projects/${projectId}/planning-summary`).flush(defaultPlanningSummary);
+    fixture.detectChanges();
+    expect(otherName.value).toBe('Independent rename draft');
+    expect(own.querySelector('[role="status"]')?.textContent).toContain('Milestone saved.');
+  });
+
+  it('accepts native numeric cycle target points, rejects repeat submits and retains failed creation drafts', () => {
+    const { fixture, http } = setupPlanningPage();
+    const page = fixture.componentInstance;
+    page.milestoneForm.controls.name.setValue('Independent milestone draft');
+    page.setPlanningView('cycles');
+    page.cycleForm.patchValue({ name: 'Numeric cycle', startDate: '2026-08-01', endDate: '2026-08-05' });
+    fixture.detectChanges();
+    const points = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('.cycle-form input[type="number"]')!;
+    points.value = '7';
+    points.dispatchEvent(new Event('input'));
+    page.createCycle();
+    const write = http.expectOne(`/api/projects/${projectId}/cycles`);
+    expect(write.request.body.targetPoints).toBe(7);
+    page.createCycle();
+    page.archiveCycle(activeCycle);
+    http.expectNone(request => request.method === 'POST');
+    write.flush({ error: { message: 'Cycle conflict' } }, { status: 409, statusText: 'Conflict' });
+    fixture.detectChanges();
+    expect(page.isCreatingCycle()).toBeFalse();
+    expect(page.cycleForm.controls.name.value).toBe('Numeric cycle');
+    expect(points.value).toBe('7');
+    expect(page.milestoneForm.controls.name.value).toBe('Independent milestone draft');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Cycle conflict');
+  });
+
+  it('retries a failed summary without displaying stale execution evidence', () => {
+    const { fixture, http } = setupPlanningPage();
+    fixture.componentInstance.loadPlanningSummary();
+    http.expectOne(`/api/projects/${projectId}/planning-summary`).flush({}, { status: 500, statusText: 'Failure' });
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('app-planning-review')).toBeNull();
+    compiled.querySelector<HTMLButtonElement>('app-error-panel button')!.click();
+    http.expectOne(`/api/projects/${projectId}/planning-summary`).flush(defaultPlanningSummary);
+    fixture.detectChanges();
+    expect(compiled.querySelector('app-planning-review')).not.toBeNull();
+  });
+
   it('opens planning review without duplicating project shell navigation', () => {
     const { fixture } = setupPlanningPage();
 
@@ -443,15 +572,15 @@ describe('ProjectPlanningPageComponent', () => {
 
     expect(compiled.textContent).toContain('Worktrail App');
     expect(compiled.textContent).toContain('Planning · Live view');
-    expect(compiled.textContent).toContain('Live view to published snapshots');
-    expect(compiled.textContent).toContain('View reports');
+    expect(compiled.querySelector('.planning-report-bridge')).toBeNull();
+    expect(compiled.textContent).toContain('Reports');
     expect(compiled.textContent).toContain('Draft report');
     expect(compiled.textContent).toContain('v0.0.3');
     expect(compiled.textContent).toContain('Planning dashboard');
-    expect(compiled.textContent).toContain('6 risks');
+    expect(compiled.textContent).toContain('6 risk signals');
     expect(compiled.textContent).toContain('Delivery health');
     expect(compiled.textContent).toContain('Child of WT-40');
-    expect(compiled.textContent).toContain('Cycle planning');
+    expect(compiled.textContent).toContain('Cycle execution');
     expect(compiled.textContent).toContain('v0.2.1 Cycle Planning');
     expect(compiled.textContent).toContain('Blocked');
     expect(compiled.querySelector('button[aria-pressed="true"]')?.textContent?.trim()).toBe('Review');
@@ -469,7 +598,8 @@ describe('ProjectPlanningPageComponent', () => {
     expect(compiled.querySelector('button[aria-pressed="true"]')?.textContent?.trim()).toBe(
       'Cycles'
     );
-    expect(compiled.textContent).toContain('Plan timeboxed delivery windows for scoped project work.');
+    expect(compiled.querySelector<HTMLDetailsElement>('.create-disclosure')?.open).toBeFalse();
+    expect(compiled.querySelector<HTMLDetailsElement>('.record-edit')?.open).toBeFalse();
     expect(compiled.textContent).toContain('v0.2.1 Cycle Planning');
     expect(compiled.textContent).toContain('Archived cycle');
     expect(compiled.textContent).toContain('4 total');
@@ -500,7 +630,7 @@ describe('ProjectPlanningPageComponent', () => {
     expect(compiled.querySelector('button[aria-pressed="true"]')?.textContent?.trim()).toBe(
       'Milestones'
     );
-    expect(compiled.textContent).toContain('Plan named delivery targets for this project.');
+    expect(compiled.querySelector<HTMLDetailsElement>('.create-disclosure')?.open).toBeFalse();
     expect(compiled.textContent).toContain('legacy target');
     expect(compiled.textContent).toContain('2 total');
     expect(compiled.querySelector('button[type="submit"]')?.textContent).toContain(
@@ -539,7 +669,7 @@ describe('ProjectPlanningPageComponent', () => {
     expect(compiled.textContent).toContain('Recently completed');
     expect(compiled.textContent).toContain('1 blocked work item');
     expect(compiled.textContent).toContain('1 dependency-blocked work item');
-    expect(compiled.textContent).toContain('Milestone progress');
+    expect(compiled.textContent).toContain('Milestone targets');
     expect(compiled.textContent).toContain('2 of 4 done');
     expect(compiled.textContent).toContain('1 blocked');
     expect(compiled.textContent).toContain('Needs attention');
@@ -601,6 +731,29 @@ describe('ProjectPlanningPageComponent', () => {
     expect(listLinks.some((href) => href.includes('dependency=blocking_open_work'))).toBeTrue();
   });
 
+  it('uses exact counts and continuation links when the API returns only five risk preview rows', () => {
+    const summary: ProjectPlanningSummaryDto = {
+      ...defaultPlanningSummary,
+      deliveryHealth: { ...defaultDeliveryHealth, health: 'blocked', blockedWorkCount: 12 },
+      blockedWork: Array.from({ length: 5 }, (_, index) => ({
+        ...blockedWorkItem,
+        id: 'preview-' + index, displayKey: 'WT-' + (index + 1)
+      }))
+    };
+    const { fixture } = setupPlanningPage(activeProject, [activeMilestone], owner, summary);
+    const component = fixture.debugElement.query(By.directive(PlanningReviewComponent)).componentInstance as PlanningReviewComponent;
+    const section = component.riskSections().find(section => section.title === 'Blocked work')!;
+    expect(component.totalRiskCount(summary)).toBe(12);
+    expect(component.visibleRiskItems(section)).toHaveSize(5);
+    expect(component.hiddenRiskItemCount(section)).toBe(7);
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('[aria-labelledby="risk-blocked-work"]')?.textContent).toContain('12 work items');
+    const blocked = compiled.querySelector('[aria-labelledby="risk-blocked-work"]')!;
+    expect(blocked.querySelectorAll('.risk-row')).toHaveSize(5);
+    expect(blocked.querySelector('.risk-more')?.textContent).toContain('View 7 more');
+    expect(compiled.querySelector('[aria-labelledby="risk-stale-in-progress-work"]')).toBeNull();
+  });
+
   it('renders compact empty dashboard states', () => {
     const emptySummary: ProjectPlanningSummaryDto = {
       project: activeProject,
@@ -622,17 +775,12 @@ describe('ProjectPlanningPageComponent', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('No active milestones');
-    expect(compiled.textContent).toContain('No delivery risks found');
-    expect(compiled.textContent).toContain('Nothing needs attention');
-    expect(compiled.textContent).toContain('No upcoming review items');
-    expect(compiled.textContent).toContain('No recent changes');
-    expect(compiled.textContent).toContain('No blocked work');
-    expect(compiled.textContent).toContain('No overdue work');
-    expect(compiled.textContent).toContain('Nothing due soon');
-    expect(compiled.textContent).toContain('No dependency-blocked work');
-    expect(compiled.textContent).toContain('No work blocking dependencies');
-    expect(compiled.textContent).toContain('No unassigned active work');
-    expect(compiled.textContent).toContain('No stale in-progress work');
+    expect(compiled.textContent).toContain('No project delivery risks found');
+    expect(compiled.textContent).toContain('No project work risks found.');
+    expect(compiled.textContent).toContain('No active cycle');
+    expect(compiled.querySelectorAll('.risk-section-list .dashboard-section')).toHaveSize(0);
+    expect(compiled.querySelectorAll('.review-disclosure')).toHaveSize(0);
+
   });
 
   it('creates, edits, archives, and reactivates milestones', () => {

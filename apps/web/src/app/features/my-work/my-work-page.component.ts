@@ -1,3 +1,4 @@
+import { recordOriginParams } from '../../shared/navigation/work-navigation';
 import { Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type {
@@ -6,6 +7,7 @@ import type {
   WorkspaceWorkItemListItemDto
 } from '@worktrail/contracts';
 import { Subscription } from 'rxjs';
+import { addDays, toDateString } from '@worktrail/contracts';
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { WorktrailApiService } from '../../core/worktrail-api.service';
@@ -329,6 +331,8 @@ const priorityOrder = new Map([
 
     .work-panel {
       display: grid;
+      min-width: 0;
+      container-type: inline-size;
       gap: 14px;
       border: 1px solid #e5e7eb;
       border-radius: 8px;
@@ -362,7 +366,8 @@ const priorityOrder = new Map([
 
     .work-row {
       display: grid;
-      grid-template-columns: minmax(260px, 2fr) minmax(120px, 0.8fr) minmax(110px, 0.7fr) minmax(160px, 1fr) minmax(150px, 1fr) minmax(110px, 0.7fr);
+      grid-template-columns: minmax(0, 1fr);
+      min-width: 0;
       gap: 12px;
       align-items: center;
       border: 1px solid #eef2f7;
@@ -371,6 +376,32 @@ const priorityOrder = new Map([
       color: #334155;
       font-size: 0.875rem;
       text-decoration: none;
+    }
+
+    .work-row > span {
+      min-width: 0;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+    }
+
+    @container (min-width: 600px) {
+      .work-row {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .work-row__title {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @container (min-width: 1000px) {
+      .work-row {
+        grid-template-columns: minmax(0, 2fr) minmax(0, 0.8fr) minmax(0, 0.7fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr);
+      }
+
+      .work-row__title {
+        grid-column: auto;
+      }
     }
 
     .work-row:hover {
@@ -549,13 +580,11 @@ const priorityOrder = new Map([
         width: fit-content;
       }
 
-      .work-row {
-        grid-template-columns: 1fr;
-      }
     }
   `
 })
 export class MyWorkPageComponent implements OnDestroy {
+  private evaluationNow = new Date();
   private readonly api = inject(WorktrailApiService);
   readonly currentUser = inject(CurrentUserService);
   readonly inboxState = inject(InboxStateService);
@@ -680,6 +709,7 @@ export class MyWorkPageComponent implements OnDestroy {
     this.dashboardSubscription = this.api.getMyWork().subscribe({
       next: (dashboard) => {
         this.dashboard.set(dashboard);
+        this.evaluationNow = new Date();
         this.selectedSummaryKey.set(null);
         this.isLoading.set(false);
       },
@@ -711,9 +741,7 @@ export class MyWorkPageComponent implements OnDestroy {
     this.selectedSummaryKey.set(null);
   }
 
-  detailQueryParams(): { returnUrl: string } {
-    return { returnUrl: '/my-work' };
-  }
+  detailQueryParams(): { returnUrl: string } { return recordOriginParams('/my-work'); }
 
   queueHeading(): string {
     const selectedKey = this.selectedSummaryKey();
@@ -855,7 +883,7 @@ export class MyWorkPageComponent implements OnDestroy {
   }
 
   private isOverdue(item: WorkspaceWorkItemListItemDto): boolean {
-    return item.dueDate !== null && item.dueDate < this.dateString(new Date());
+    return item.dueDate !== null && item.dueDate < this.dateString(this.evaluationNow);
   }
 
   private isDueSoon(item: WorkspaceWorkItemListItemDto): boolean {
@@ -863,23 +891,21 @@ export class MyWorkPageComponent implements OnDestroy {
       return false;
     }
 
-    return item.dueDate <= this.dateString(this.addDays(new Date(), dueSoonWindowDays));
+    return item.dueDate <= this.dateString(this.addDays(this.evaluationNow, dueSoonWindowDays));
   }
 
   private isStaleInProgress(item: WorkspaceWorkItemListItemDto): boolean {
     return (
       item.status === 'in_progress' &&
-      new Date(item.updatedAt).getTime() < this.addDays(new Date(), -staleInProgressDays).getTime()
+      new Date(item.updatedAt).getTime() < this.addDays(this.evaluationNow, -staleInProgressDays).getTime()
     );
   }
 
   private addDays(date: Date, days: number): Date {
-    const nextDate = new Date(date.getTime());
-    nextDate.setDate(nextDate.getDate() + days);
-    return nextDate;
+    return addDays(date, days);
   }
 
   private dateString(date: Date): string {
-    return date.toISOString().slice(0, 10);
+    return toDateString(date);
   }
 }

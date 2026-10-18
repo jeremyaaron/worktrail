@@ -1,4 +1,5 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { LucideChevronLeft, LucideChevronRight } from '@lucide/angular';
 import {
   workItemPageSizes,
   type WorkItemPageMetadataDto,
@@ -12,24 +13,27 @@ interface PageToken {
 
 @Component({
   selector: 'app-work-item-pagination',
+  imports: [LucideChevronLeft, LucideChevronRight],
   template: `
-    @if (metadata.totalCount > 0) {
-      <nav class="pagination" aria-label="Work item pages">
-        <p class="pagination__status" aria-live="polite">
-          Page {{ metadata.page }} of {{ metadata.totalPages }}
+    @if (metadata.totalCount > 0 || compact) {
+      <nav class="pagination" [attr.aria-label]="compact ? 'Work item result navigation' : 'Work item pages'">
+        <p class="pagination__status">
+          @if (compact) { {{ disabled ? 'Loading results...' : rangeLabel() }} }
+          @else { Page {{ metadata.page }} of {{ metadata.totalPages }} }
         </p>
 
         <div class="pagination__navigation">
           <button
             type="button"
             class="pagination__direction"
+            aria-label="Previous" title="Previous page"
             [disabled]="disabled || !metadata.hasPreviousPage"
             (click)="requestPage(metadata.page - 1)"
           >
-            Previous
+            <svg lucideChevronLeft aria-hidden="true"></svg>@if (!compact) { Previous }
           </button>
 
-          <div class="pagination__pages" role="group" aria-label="Choose a page">
+          @if (!compact) { <div class="pagination__pages" role="group" aria-label="Choose a page">
             @for (token of pageTokens(); track token.key) {
               @if (token.page === null) {
                 <span class="pagination__ellipsis" aria-hidden="true">&hellip;</span>
@@ -47,27 +51,27 @@ interface PageToken {
                 </button>
               }
             }
-          </div>
+          </div> }
 
           <button
             type="button"
             class="pagination__direction"
+            aria-label="Next" title="Next page"
             [disabled]="disabled || !metadata.hasNextPage"
             (click)="requestPage(metadata.page + 1)"
           >
-            Next
+            @if (!compact) { Next }<svg lucideChevronRight aria-hidden="true"></svg>
           </button>
         </div>
 
         <label class="pagination__size">
           <span>Items per page</span>
           <select
-            [value]="metadata.pageSize"
             [disabled]="disabled"
             (change)="requestPageSize($any($event.target).value)"
           >
             @for (pageSize of pageSizes; track pageSize) {
-              <option [value]="pageSize">{{ pageSize }}</option>
+              <option [value]="pageSize" [selected]="pageSize === metadata.pageSize">{{ pageSize }}</option>
             }
           </select>
         </label>
@@ -115,9 +119,15 @@ interface PageToken {
     }
 
     button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
       padding: 7px 11px;
       cursor: pointer;
     }
+
+    button svg { width: 16px; height: 16px; flex: none; }
 
     button:hover:not(:disabled) {
       border-color: #1f4f99;
@@ -209,10 +219,17 @@ interface PageToken {
 export class WorkItemPaginationComponent {
   @Input({ required: true }) metadata!: WorkItemPageMetadataDto;
   @Input() disabled = false;
+  @Input() compact = false;
   @Output() readonly pageChange = new EventEmitter<number>();
   @Output() readonly pageSizeChange = new EventEmitter<WorkItemPageSize>();
 
   readonly pageSizes = workItemPageSizes;
+
+  rangeLabel(): string {
+    const start = this.metadata.totalCount === 0 ? 0 : (this.metadata.page - 1) * this.metadata.pageSize + 1;
+    const end = Math.min(this.metadata.totalCount, this.metadata.page * this.metadata.pageSize);
+    return `${start}-${end} of ${this.metadata.totalCount} work items`;
+  }
 
   pageTokens(): PageToken[] {
     const { page, totalPages } = this.metadata;

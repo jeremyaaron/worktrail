@@ -5,7 +5,7 @@ import type {
 } from '@worktrail/contracts';
 import { z } from 'zod';
 
-import type { WorktrailDb } from '../db/client.js';
+import type { Persistence } from '../repositories/persistence.js';
 import { milestoneStatuses } from '../domain/constants.js';
 import type { EndpointHandler } from '../http/app-request.js';
 import type { Repositories } from '../repositories/index.js';
@@ -61,14 +61,14 @@ function parseMilestoneListQuery(query: Record<string, string | string[] | undef
 
 export function listProjectMilestonesHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<MilestoneDto[]> {
   return async (request) => {
     const { projectId } = parseWithSchema(projectIdParamSchema, request.params);
     const service = new MilestoneService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
 
     return {
@@ -80,7 +80,7 @@ export function listProjectMilestonesHandler(input: {
 
 export function createMilestoneHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<MilestoneDto> {
   return async (request) => {
     const { projectId } = parseWithSchema(projectIdParamSchema, request.params);
@@ -88,7 +88,7 @@ export function createMilestoneHandler(input: {
     const service = new MilestoneService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
 
     return {
@@ -100,7 +100,7 @@ export function createMilestoneHandler(input: {
 
 export function updateMilestoneHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<MilestoneDto> {
   return async (request) => {
     const { milestoneId } = parseWithSchema(milestoneIdParamSchema, request.params);
@@ -108,7 +108,7 @@ export function updateMilestoneHandler(input: {
     const service = new MilestoneService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
 
     return {
@@ -120,14 +120,14 @@ export function updateMilestoneHandler(input: {
 
 export function archiveMilestoneHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<MilestoneDto> {
   return async (request) => {
     const { milestoneId } = parseWithSchema(milestoneIdParamSchema, request.params);
     const service = new MilestoneService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
 
     return {
@@ -139,14 +139,14 @@ export function archiveMilestoneHandler(input: {
 
 export function reactivateMilestoneHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<MilestoneDto> {
   return async (request) => {
     const { milestoneId } = parseWithSchema(milestoneIdParamSchema, request.params);
     const service = new MilestoneService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
 
     return {

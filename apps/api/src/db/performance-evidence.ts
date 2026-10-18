@@ -3,6 +3,7 @@ import 'dotenv/config';
 import type { PoolClient, QueryResultRow } from 'pg';
 
 import { createPool } from './client.js';
+import { assertVerificationTarget } from './verification-target.js';
 
 const workspaceId = '10000000-0000-4000-8000-000000000001';
 const ownerId = '10000000-0000-4000-8000-000000000101';
@@ -418,18 +419,22 @@ function printEvidence(results: EvidenceResult[]): void {
 }
 
 const pool = createPool();
-const client = await pool.connect();
+let client: PoolClient | undefined;
 
 try {
+  await assertVerificationTarget(pool);
+  client = await pool.connect();
   await client.query('begin');
   await createRepresentativeFixture(client);
   const results = await captureEvidence(client);
   printEvidence(results);
 } finally {
-  await client.query('rollback').catch(() => undefined);
-  await client
-    .query('analyze projects, work_items, work_item_labels, work_item_relationships')
-    .catch(() => undefined);
-  client.release();
+  if (client !== undefined) {
+    await client.query('rollback').catch(() => undefined);
+    await client
+      .query('analyze projects, work_items, work_item_labels, work_item_relationships')
+      .catch(() => undefined);
+    client.release();
+  }
   await pool.end();
 }

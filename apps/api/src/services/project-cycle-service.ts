@@ -1,3 +1,5 @@
+import { cycleConstraintConflicts, rethrowConstraintConflict } from '../errors/persistence-conflict.js';
+import { coordinateProjects } from './project-write-coordination.js';
 import type {
   CreateProjectCycleRequest,
   ProjectCycleDto,
@@ -7,14 +9,11 @@ import type {
 } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
-import type { WorktrailDb } from '../db/client.js';
+import { assertPersistence, type Persistence } from '../repositories/persistence.js';
 import type { ActorContext } from '../domain/actor.js';
 import { canManageProjectCycles } from '../domain/permissions.js';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../errors/app-error.js';
-import {
-  type Repositories,
-  withRepositoriesTransaction
-} from '../repositories/index.js';
+import type { Repositories } from '../repositories/index.js';
 import type { Project, ProjectCycle } from '../repositories/types.js';
 import {
   createProjectCycleSchema,
@@ -26,10 +25,10 @@ import { createCycleEvaluation } from './cycle-review-model.js';
 import { toProjectCycleDto, toProjectDto } from './dto.js';
 import { toProjectCycleCloseoutDto } from './project-cycle-closeout-mapper.js';
 import {
-  createCycleReviewRiskSections,
-  createWorkRiskEvaluationContext,
-  loadPlanningRiskParents,
-  toPlanningRiskItems
+  selectCycleReviewRiskSections,
+  riskContextFromEvaluation,
+  loadRiskReferences,
+  enrichRiskItems
 } from './work-risk-sections.js';
 
 export type ProjectCycleListOptions = ProjectCycleListQuery;
@@ -37,7 +36,7 @@ export type ProjectCycleListOptions = ProjectCycleListQuery;
 export interface ProjectCycleServiceContext {
   actor: ActorContext;
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
   clock?: () => Date;
   idGenerator?: () => string;
 }
@@ -55,11 +54,21 @@ export class ProjectCycleService {
   private readonly idGenerator: () => string;
 
   constructor(private readonly context: ProjectCycleServiceContext) {
+    assertPersistence(context.persistence);
     this.clock = context.clock ?? (() => new Date());
     this.idGenerator = context.idGenerator ?? randomUUID;
   }
 
   async listProjectCycles(
+    projectId: string,
+    options: ProjectCycleListOptions = {}
+  ): Promise<ProjectCycleDto[]> {
+    return this.context.persistence.readConsistent((scope) =>
+      new ProjectCycleService({ ...this.context, ...scope }).listProjectCyclesInScope(projectId, options)
+    );
+  }
+
+  private async listProjectCyclesInScope(
     projectId: string,
     options: ProjectCycleListOptions = {}
   ): Promise<ProjectCycleDto[]> {
@@ -69,55 +78,38 @@ export class ProjectCycleService {
   }
 
   async getProjectCycle(projectId: string, cycleId: string): Promise<ProjectCycleDto> {
+    return this.context.persistence.readConsistent((scope) =>
+      new ProjectCycleService({ ...this.context, ...scope }).getProjectCycleInScope(projectId, cycleId)
+    );
+  }
+
+  private async getProjectCycleInScope(projectId: string, cycleId: string): Promise<ProjectCycleDto> {
     await this.requireProject(projectId, this.context.repositories);
     const cycle = await this.requireProjectCycle(projectId, cycleId, this.context.repositories);
     return toProjectCycleDto(cycle);
   }
 
   async getCycleReview(projectId: string, cycleId: string): Promise<ProjectCycleReviewDto> {
+    return this.context.persistence.readConsistent((scope) =>
+      new ProjectCycleService({ ...this.context, ...scope }).getCycleReviewInScope(projectId, cycleId)
+    );
+  }
+
+  private async getCycleReviewInScope(projectId: string, cycleId: string): Promise<ProjectCycleReviewDto> {
     const project = await this.requireProject(projectId, this.context.repositories);
     const cycle = await this.requireProjectCycle(projectId, cycleId, this.context.repositories);
-    const workItems = await this.context.repositories.workItems.listByProject(projectId, {
-      sort: 'board_order'
-    });
-    const dependencyBlockedWorkItems = await this.context.repositories.workItems.listByProject(
-      projectId,
-      {
-        dependency: 'dependency_blocked',
-        sort: 'priority_desc'
-      }
-    );
-    const blockingOpenWorkItems = await this.context.repositories.workItems.listByProject(
-      projectId,
-      {
-        dependency: 'blocking_open_work',
-        sort: 'priority_desc'
-      }
-    );
-    const milestones = await this.context.repositories.milestones.listByProject(projectId, {
-      includeArchived: true
-    });
-    const members = await this.context.repositories.members.listByWorkspace(
-      this.context.actor.workspaceId
-    );
-    const scopedWorkItems = workItems.filter((workItem) => workItem.cycleId === cycleId);
-    const parentByChildId = await loadPlanningRiskParents(
-      scopedWorkItems,
-      this.context.repositories
-    );
+    const workItems = await this.context.repositories.workItems.listEvaluationByProject(projectId);
+    const scopedWorkItems = workItems.filter(workItem => workItem.cycleId === cycleId);
     const now = this.clock();
-    const evaluationContext = createWorkRiskEvaluationContext({
-      now,
-      dependencyBlockedWorkItems,
-      blockingOpenWorkItems
-    });
-    const memberById = new Map(members.map((member) => [member.id, member]));
-    const milestoneById = new Map(milestones.map((milestone) => [milestone.id, milestone]));
+    const evaluationContext = riskContextFromEvaluation(workItems, now);
     const evaluation = createCycleEvaluation({
       cycle,
       scopedWorkItems,
       context: evaluationContext
     });
+    const sections = selectCycleReviewRiskSections({ cycleId, workItems: scopedWorkItems, context: evaluationContext, isOverTarget: evaluation.isOverTarget });
+    const recent = [...scopedWorkItems].sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime()).slice(0, recentMovementLimit);
+    const references = await loadRiskReferences([...sections.flatMap(section => section.items), ...recent], this.context.repositories);
     const closeoutRecord =
       cycle.status === 'completed'
         ? await this.context.repositories.projectCycleCloseouts.findByCycleId(cycleId)
@@ -145,28 +137,23 @@ export class ProjectCycleService {
         sort: 'priority_desc'
       },
       scopeBreakdown: evaluation.scopeBreakdown,
-      riskSections: createCycleReviewRiskSections({
-        cycleId,
-        workItems: scopedWorkItems,
-        memberById,
-        milestoneById,
-        parentByChildId,
-        context: evaluationContext,
-        isOverTarget: evaluation.isOverTarget
-      }),
-      recentlyChangedWork: toPlanningRiskItems(
-        [...scopedWorkItems]
-          .sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime())
-          .slice(0, recentMovementLimit),
-        memberById,
-        milestoneById,
-        parentByChildId
-      ),
+      riskSections: sections.map(section => ({ ...section, items: enrichRiskItems(section.items, references) })),
+      recentlyChangedWork: enrichRiskItems(recent, references),
       closeout
     };
   }
 
   async createProjectCycle(
+    projectId: string,
+    input: CreateProjectCycleRequest
+  ): Promise<ProjectCycleDto> {
+    return this.context.persistence.write(async (scope) => {
+      await coordinateProjects(scope, this.context.actor.workspaceId, [projectId], 'exclusive');
+      return new ProjectCycleService({ ...this.context, ...scope }).createProjectCycleInScope(projectId, input);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, cycleConstraintConflicts));
+  }
+
+  private async createProjectCycleInScope(
     projectId: string,
     input: CreateProjectCycleRequest
   ): Promise<ProjectCycleDto> {
@@ -216,11 +203,22 @@ export class ProjectCycleService {
     cycleId: string,
     input: UpdateProjectCycleRequest
   ): Promise<ProjectCycleDto> {
+    return this.context.persistence.write(async (scope) => {
+      await coordinateProjects(scope, this.context.actor.workspaceId, [projectId], 'exclusive');
+      return new ProjectCycleService({ ...this.context, ...scope }).updateProjectCycleInScope(projectId, cycleId, input);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, cycleConstraintConflicts));
+  }
+
+  private async updateProjectCycleInScope(
+    projectId: string,
+    cycleId: string,
+    input: UpdateProjectCycleRequest
+  ): Promise<ProjectCycleDto> {
     const body = parseWithSchema(updateProjectCycleSchema, input);
 
     return this.withWriteRepositories(async (repositories) => {
       this.assertCanManageCycles();
-      const current = await this.requireProjectCycle(projectId, cycleId, repositories);
+      const current = await this.requireLockedProjectCycle(projectId, cycleId, repositories);
       const project = await this.requireProject(projectId, repositories);
       this.assertProjectWritable(project);
       this.assertCycleWritable(current);
@@ -257,9 +255,16 @@ export class ProjectCycleService {
   }
 
   async archiveProjectCycle(projectId: string, cycleId: string): Promise<ProjectCycleDto> {
+    return this.context.persistence.write(async (scope) => {
+      await coordinateProjects(scope, this.context.actor.workspaceId, [projectId], 'exclusive');
+      return new ProjectCycleService({ ...this.context, ...scope }).archiveProjectCycleInScope(projectId, cycleId);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, cycleConstraintConflicts));
+  }
+
+  private async archiveProjectCycleInScope(projectId: string, cycleId: string): Promise<ProjectCycleDto> {
     return this.withWriteRepositories(async (repositories) => {
       this.assertCanManageCycles();
-      const current = await this.requireProjectCycle(projectId, cycleId, repositories);
+      const current = await this.requireLockedProjectCycle(projectId, cycleId, repositories);
       const project = await this.requireProject(projectId, repositories);
       this.assertProjectWritable(project);
 
@@ -283,9 +288,16 @@ export class ProjectCycleService {
   }
 
   async reactivateProjectCycle(projectId: string, cycleId: string): Promise<ProjectCycleDto> {
+    return this.context.persistence.write(async (scope) => {
+      await coordinateProjects(scope, this.context.actor.workspaceId, [projectId], 'exclusive');
+      return new ProjectCycleService({ ...this.context, ...scope }).reactivateProjectCycleInScope(projectId, cycleId);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, cycleConstraintConflicts));
+  }
+
+  private async reactivateProjectCycleInScope(projectId: string, cycleId: string): Promise<ProjectCycleDto> {
     return this.withWriteRepositories(async (repositories) => {
       this.assertCanManageCycles();
-      const current = await this.requireProjectCycle(projectId, cycleId, repositories);
+      const current = await this.requireLockedProjectCycle(projectId, cycleId, repositories);
       const project = await this.requireProject(projectId, repositories);
       this.assertProjectWritable(project);
 
@@ -319,6 +331,16 @@ export class ProjectCycleService {
   async validateAssignableCycle(
     projectId: string,
     cycleId: string | null,
+    repositories?: Repositories
+  ): Promise<ProjectCycle | null> {
+    return this.context.persistence.readConsistent((scope) =>
+      new ProjectCycleService({ ...this.context, ...scope }).validateAssignableCycleInScope(projectId, cycleId, repositories ?? scope.repositories)
+    );
+  }
+
+  private async validateAssignableCycleInScope(
+    projectId: string,
+    cycleId: string | null,
     repositories = this.context.repositories
   ): Promise<ProjectCycle | null> {
     if (cycleId === null) {
@@ -335,18 +357,39 @@ export class ProjectCycleService {
   }
 
   async findActiveCycle(projectId: string): Promise<ProjectCycleDto | null> {
+    return this.context.persistence.readConsistent((scope) =>
+      new ProjectCycleService({ ...this.context, ...scope }).findActiveCycleInScope(projectId)
+    );
+  }
+
+  private async findActiveCycleInScope(projectId: string): Promise<ProjectCycleDto | null> {
     await this.requireProject(projectId, this.context.repositories);
     const cycle = await this.context.repositories.projectCycles.findActiveByProject(projectId);
     return cycle === null ? null : toProjectCycleDto(cycle);
   }
 
   async findUpcomingCycle(projectId: string, today: string): Promise<ProjectCycleDto | null> {
+    return this.context.persistence.readConsistent((scope) =>
+      new ProjectCycleService({ ...this.context, ...scope }).findUpcomingCycleInScope(projectId, today)
+    );
+  }
+
+  private async findUpcomingCycleInScope(projectId: string, today: string): Promise<ProjectCycleDto | null> {
     await this.requireProject(projectId, this.context.repositories);
     const cycle = await this.context.repositories.projectCycles.findUpcomingByProject(projectId, today);
     return cycle === null ? null : toProjectCycleDto(cycle);
   }
 
   async findRecentlyCompletedCycle(
+    projectId: string,
+    today: string
+  ): Promise<ProjectCycleDto | null> {
+    return this.context.persistence.readConsistent((scope) =>
+      new ProjectCycleService({ ...this.context, ...scope }).findRecentlyCompletedCycleInScope(projectId, today)
+    );
+  }
+
+  private async findRecentlyCompletedCycleInScope(
     projectId: string,
     today: string
   ): Promise<ProjectCycleDto | null> {
@@ -358,11 +401,7 @@ export class ProjectCycleService {
   private async withWriteRepositories<T>(
     callback: (repositories: Repositories) => Promise<T>
   ): Promise<T> {
-    if (this.context.db === undefined) {
-      return callback(this.context.repositories);
-    }
-
-    return withRepositoriesTransaction(this.context.db, callback);
+    return this.context.persistence.write(({ repositories }) => callback(repositories));
   }
 
   private assertCanManageCycles(): void {
@@ -396,6 +435,14 @@ export class ProjectCycleService {
       throw new NotFoundError('Project cycle not found.');
     }
 
+    return cycle;
+  }
+
+  private async requireLockedProjectCycle(projectId: string, cycleId: string, repositories: Repositories): Promise<ProjectCycle> {
+    const cycle = await repositories.projectCycles.findByIdForUpdate(cycleId);
+    if (cycle === null || cycle.workspaceId !== this.context.actor.workspaceId || cycle.projectId !== projectId) {
+      throw new NotFoundError('Project cycle not found.');
+    }
     return cycle;
   }
 

@@ -4,8 +4,8 @@
 }
 
 .quick-find {
-  display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   max-height: calc(100vh - 32px);
   max-height: calc(100dvh - 32px);
   overflow: hidden;
@@ -17,6 +17,7 @@
 }
 
 .quick-find__header {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -86,6 +87,7 @@
 }
 
 .quick-find__query {
+  flex: none;
   position: relative;
   display: flex;
   align-items: center;
@@ -141,6 +143,8 @@
 
 .quick-find__navigation,
 .quick-find__search-results {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   border-top: 1px solid #e2e8f0;
 }
@@ -381,3 +385,8 @@
     scroll-behavior: auto;
   }
 }
+
+.quick-find__refinement { display: flex; flex: none; flex-wrap: wrap; gap: 8px 12px; padding: 0 16px 12px; }
+.quick-find__refinement label { display: grid; gap: 4px; flex: 1 1 160px; min-width: 0; color: #52637a; font-size: .75rem; }
+.quick-find__refinement select { min-width: 0; width: 100%; max-width: 100%; box-sizing: border-box; min-height: 34px; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px; background: #fff; color: #17202a; font: inherit; }
+.quick-find__refinement > span { flex: 1 0 100%; color: #64748b; font-size: .72rem; }

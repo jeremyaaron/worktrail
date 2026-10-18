@@ -1,14 +1,13 @@
+import { milestoneConstraintConflicts, rethrowConstraintConflict } from '../errors/persistence-conflict.js';
+import { coordinateProjects, coordinateReference } from './project-write-coordination.js';
 import type { CreateMilestoneRequest, MilestoneDto, UpdateMilestoneRequest } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
-import type { WorktrailDb } from '../db/client.js';
+import { assertPersistence, type Persistence } from '../repositories/persistence.js';
 import type { ActorContext } from '../domain/actor.js';
 import { canManageMilestones } from '../domain/permissions.js';
 import { ConflictError, ForbiddenError, NotFoundError } from '../errors/app-error.js';
-import {
-  type Repositories,
-  withRepositoriesTransaction
-} from '../repositories/index.js';
+import type { Repositories } from '../repositories/index.js';
 import type { Milestone, Project } from '../repositories/types.js';
 import { toMilestoneDto } from './dto.js';
 
@@ -20,7 +19,7 @@ export interface MilestoneListOptions {
 export interface MilestoneServiceContext {
   actor: ActorContext;
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
   clock?: () => Date;
   idGenerator?: () => string;
 }
@@ -30,11 +29,21 @@ export class MilestoneService {
   private readonly idGenerator: () => string;
 
   constructor(private readonly context: MilestoneServiceContext) {
+    assertPersistence(context.persistence);
     this.clock = context.clock ?? (() => new Date());
     this.idGenerator = context.idGenerator ?? randomUUID;
   }
 
   async listProjectMilestones(
+    projectId: string,
+    options: MilestoneListOptions = {}
+  ): Promise<MilestoneDto[]> {
+    return this.context.persistence.readConsistent((scope) =>
+      new MilestoneService({ ...this.context, ...scope }).listProjectMilestonesInScope(projectId, options)
+    );
+  }
+
+  private async listProjectMilestonesInScope(
     projectId: string,
     options: MilestoneListOptions = {}
   ): Promise<MilestoneDto[]> {
@@ -44,6 +53,13 @@ export class MilestoneService {
   }
 
   async createMilestone(projectId: string, input: CreateMilestoneRequest): Promise<MilestoneDto> {
+    return this.context.persistence.write(async (scope) => {
+      await coordinateProjects(scope, this.context.actor.workspaceId, [projectId], 'exclusive');
+      return new MilestoneService({ ...this.context, ...scope }).createMilestoneInScope(projectId, input);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, milestoneConstraintConflicts));
+  }
+
+  private async createMilestoneInScope(projectId: string, input: CreateMilestoneRequest): Promise<MilestoneDto> {
     return this.withWriteRepositories(async (repositories) => {
       this.assertCanManageMilestones();
       const project = await this.requireProject(projectId, repositories);
@@ -92,6 +108,16 @@ export class MilestoneService {
     milestoneId: string,
     input: UpdateMilestoneRequest
   ): Promise<MilestoneDto> {
+    return this.context.persistence.write(async (scope) => {
+      await coordinateReference(scope, this.context.actor.workspaceId, 'milestones', milestoneId, 'exclusive');
+      return new MilestoneService({ ...this.context, ...scope }).updateMilestoneInScope(milestoneId, input);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, milestoneConstraintConflicts));
+  }
+
+  private async updateMilestoneInScope(
+    milestoneId: string,
+    input: UpdateMilestoneRequest
+  ): Promise<MilestoneDto> {
     return this.withWriteRepositories(async (repositories) => {
       this.assertCanManageMilestones();
       const current = await this.requireMilestone(milestoneId, repositories);
@@ -125,6 +151,13 @@ export class MilestoneService {
   }
 
   async archiveMilestone(milestoneId: string): Promise<MilestoneDto> {
+    return this.context.persistence.write(async (scope) => {
+      await coordinateReference(scope, this.context.actor.workspaceId, 'milestones', milestoneId, 'exclusive');
+      return new MilestoneService({ ...this.context, ...scope }).archiveMilestoneInScope(milestoneId);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, milestoneConstraintConflicts));
+  }
+
+  private async archiveMilestoneInScope(milestoneId: string): Promise<MilestoneDto> {
     return this.withWriteRepositories(async (repositories) => {
       this.assertCanManageMilestones();
       const current = await this.requireMilestone(milestoneId, repositories);
@@ -165,6 +198,13 @@ export class MilestoneService {
   }
 
   async reactivateMilestone(milestoneId: string): Promise<MilestoneDto> {
+    return this.context.persistence.write(async (scope) => {
+      await coordinateReference(scope, this.context.actor.workspaceId, 'milestones', milestoneId, 'exclusive');
+      return new MilestoneService({ ...this.context, ...scope }).reactivateMilestoneInScope(milestoneId);
+    }).catch((error: unknown) => rethrowConstraintConflict(error, milestoneConstraintConflicts));
+  }
+
+  private async reactivateMilestoneInScope(milestoneId: string): Promise<MilestoneDto> {
     return this.withWriteRepositories(async (repositories) => {
       this.assertCanManageMilestones();
       const current = await this.requireMilestone(milestoneId, repositories);
@@ -205,11 +245,7 @@ export class MilestoneService {
   private async withWriteRepositories<T>(
     callback: (repositories: Repositories) => Promise<T>
   ): Promise<T> {
-    if (this.context.db === undefined) {
-      return callback(this.context.repositories);
-    }
-
-    return withRepositoriesTransaction(this.context.db, callback);
+    return this.context.persistence.write(({ repositories }) => callback(repositories));
   }
 
   private assertCanManageMilestones(): void {

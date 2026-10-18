@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 import { expect, test } from '@playwright/test';
 import type { APIRequestContext, Download, Locator, Page } from '@playwright/test';
-import type { PortfolioDto } from '@worktrail/contracts';
+import type { PortfolioDto, ProjectPlanningSummaryDto, WorkspaceWorkItemListPageDto } from '@worktrail/contracts';
 import { stringify } from 'csv-stringify/sync';
 
 const demoProjectId = '10000000-0000-4000-8000-000000000201';
@@ -90,7 +90,7 @@ async function expectFocused(locator: Locator): Promise<void> {
 }
 
 function projectShellHeading(page: Page, name: string): Locator {
-  return page.locator('.project-shell__header').getByRole('heading', { name });
+  return page.locator('.project-shell__name').filter({ hasText: name });
 }
 
 function workspaceWorkItemsHeading(page: Page): Locator {
@@ -160,7 +160,8 @@ async function openSavedViewFromCompactControl(page: Page, savedViewName: string
 
   await selectSavedViewOptionByName(savedViews.getByLabel('Open saved view'), savedViewName);
   await savedViews.getByRole('button', { name: 'Open selected saved view' }).click();
-  await expect(savedViews.getByText(`Opened "${savedViewName}". Results updated below.`)).toBeVisible();
+  await expect(savedViews.getByLabel('Current view', { exact: true })).toHaveText(`Named: ${savedViewName}`);
+  await expect(page.getByRole('status', { name: 'Work item results status', exact: true })).toContainText('Results updated:');
 }
 
 async function selectManagedSavedView(page: Page, savedViewName: string): Promise<Locator> {
@@ -251,10 +252,11 @@ test('pages project and workspace work without losing navigation context', async
   await expect(projectResults.getByRole('heading', { name: '1-10 of 18 work items' })).toBeVisible();
 
   await projectPager.getByRole('button', { name: 'Page 2' }).click();
-  await page.locator('form.filters').getByLabel('Status').selectOption('ready');
+  await page.locator('form.filters').getByRole('combobox', { name: 'Status', exact: true }).selectOption('ready');
+  await page.locator('form.filters').getByRole('button', { name: 'Apply', exact: true }).click();
   await expect(page).toHaveURL(/status=ready/);
   await expect(page).not.toHaveURL(/page=2/);
-  await expect(page.getByLabel('Active filters')).toContainText('Status: ready');
+  await expect(page.getByLabel('Active filters')).toContainText('Status: Ready');
 
   await page.goto(`/projects/${demoProjectId}/work-items?page=2&pageSize=10`);
   await page.getByRole('button', { name: 'Open pinned shared view Ready for QA' }).click();
@@ -275,12 +277,12 @@ test('pages project and workspace work without losing navigation context', async
   const secondPageTitleText = (await secondPageTitle.textContent())?.trim() ?? '';
   await secondPageTitle.click();
   await expect(page.getByRole('heading', { level: 1, name: secondPageTitleText })).toBeVisible();
-  await page.getByRole('link', { name: 'Back', exact: true }).click();
+  await page.getByRole('link', { name: 'Back to project work', exact: true }).click();
   await expect(page).toHaveURL(/page=2/);
   await expect(projectResults.getByRole('heading', { name: '11-18 of 18 work items' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Bulk edit' }).click();
-  await projectResults.getByLabel('Select all visible work items').check();
+  await projectResults.getByRole('table').getByRole('checkbox', { name: 'Select all visible work items' }).check();
   await expect(page.getByLabel('Bulk work item actions')).toContainText('8 selected on this page');
   await projectPager.getByRole('button', { name: 'Previous' }).click();
   await expect(projectResults.locator('input[type="checkbox"]:checked')).toHaveCount(0);
@@ -312,17 +314,25 @@ test('pages project and workspace work without losing navigation context', async
   await expect(projectPager.getByRole('button', { name: 'Page 1' })).toBeHidden();
 
   await page.setViewportSize({ width: 1440, height: 900 });
+  const workspaceResponse = await request.get(`${apiBaseURL()}/api/work-items?page=3&pageSize=10`);
+  expect(workspaceResponse.ok()).toBe(true);
+  const workspacePage = await workspaceResponse.json() as WorkspaceWorkItemListPageDto;
+  expect(workspacePage.page).toBe(3);
+  expect(workspacePage.totalCount).toBeGreaterThan(20);
   await page.goto('/work-items?pageSize=10');
   const workspaceResults = page.getByRole('region', { name: 'Workspace work item results' });
   const workspacePager = workspaceResults.getByRole('navigation', { name: 'Work item pages' });
-  await expect(workspaceResults.getByRole('heading', { name: '1-10 of 26 work items' })).toBeVisible();
+  await expect(workspaceResults.getByRole('heading', { name: `1-10 of ${workspacePage.totalCount} work items` })).toBeVisible();
   await workspacePager.getByRole('button', { name: 'Page 3' }).click();
-  await expect(workspaceResults.getByRole('heading', { name: '21-26 of 26 work items' })).toBeVisible();
-  await expect(workspaceResults.locator('.project-cell')).toHaveCount(6);
+  await expect(workspaceResults.getByRole('heading', { name: `21-${Math.min(30, workspacePage.totalCount)} of ${workspacePage.totalCount} work items` })).toBeVisible();
+  await expect(workspaceResults.locator('.project-cell')).toHaveCount(workspacePage.items.length);
+  expect(await workspaceResults.locator('.work-item-title-link').evaluateAll(links => links.map(link => new URL((link as HTMLAnchorElement).href).pathname.split('/').at(-1))))
+    .toEqual(workspacePage.items.map(item => item.id));
   await expect(workspaceResults.locator('.project-cell').first()).not.toHaveText('');
   await expectNoPageOverflow(page);
 
   await page.goto('/work-items/10000000-0000-4000-8000-000000000402');
+  await page.locator('#dependencies summary').click();
   await page.getByRole('button', { name: 'Search', exact: true }).click();
   await expect(
     page.getByText('More matches are available. Refine the search to narrow the results.')
@@ -390,7 +400,8 @@ test('completes the v0.0.4 workspace governance workflow', async ({ page }) => {
 
   await page.locator('#current-member').selectOption({ label: `${memberName} · maintainer` });
   await page.goto('/projects');
-  await expect(page.getByRole('heading', { name: 'Project workspace' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Projects', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'New project', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Create project' })).toBeEnabled();
   await expect(page.getByText('Owners and maintainers can create projects.')).toHaveCount(0);
 
@@ -438,7 +449,7 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
   const editedComment = `Edited E2E smoke comment ${runId}`;
 
   await page.goto('/projects');
-  await expect(page.getByRole('heading', { name: 'Project workspace' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Projects', exact: true })).toBeVisible();
 
   await page.getByRole('link', { name: 'Worktrail App' }).click();
   await expect(projectShellHeading(page, 'Worktrail App')).toBeVisible();
@@ -446,7 +457,7 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
   await page.getByLabel('Project sections').getByRole('link', { name: 'Planning' }).click();
   await expect(projectShellHeading(page, 'Worktrail App')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Planning dashboard' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Milestone progress' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Milestone targets' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Blocked work', exact: true })).toBeVisible();
   await expect(
     page.getByRole('link', { name: /WT-4 .*Choose status transition copy/ }).first()
@@ -461,9 +472,10 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
   ).toBeVisible();
 
   await page.getByRole('button', { name: 'Milestones' }).click();
+  await page.locator('app-milestone-manager .create-disclosure > summary').click();
   await page.locator('#milestone-name').fill(milestone);
   await page.locator('#milestone-description').fill('Created by the v0.0.3 Playwright smoke test.');
-  await page.getByRole('button', { name: 'Create milestone' }).click();
+  await page.locator('form.milestone-form').getByRole('button', { name: 'Create milestone' }).click();
   await expect(page.getByText('Milestone created.')).toBeVisible();
   await expect(page.getByRole('heading', { name: milestone })).toBeVisible();
 
@@ -504,13 +516,15 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
   await page.getByRole('link', { name: 'Open work item' }).click();
   await expect(page.getByRole('heading', { name: title })).toBeVisible();
   await expect(page.getByText(/WT-\d+/)).toBeVisible();
-  await expect(page.getByLabel('Metadata').getByText(milestone)).toBeVisible();
-  await expect(page.getByLabel('Work item summary').getByText(label)).toBeVisible();
+  await expect(page.locator('app-work-item-detail-summary').getByText(milestone)).toBeVisible();
+  await expect(page.locator('app-work-item-detail-summary').getByText(label)).toBeVisible();
+  await page.locator('#history summary').click();
   await expect(page.getByText('Work item created.')).toBeVisible();
 
   await page.goto(`/projects/${demoProjectId}/work-items`);
   await page.getByText('Advanced filters').click();
   await page.locator('form.filters').getByLabel('Milestone').selectOption({ label: milestone });
+  await page.locator('form.filters').getByRole('button', { name: 'Apply', exact: true }).click();
   await expect(page.getByText(`Milestone: ${milestone}`)).toBeVisible();
   await expect(page.getByRole('row', { name: new RegExp(title) })).toBeVisible();
 
@@ -546,6 +560,7 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
   await page.getByRole('button', { name: 'Add comment' }).click();
 
   await expect(page.getByText(comment)).toBeVisible();
+  await page.locator('#history summary').click();
   await expect(page.getByText('Comment added.')).toBeVisible();
 
   const commentCard = page.locator('article.comment').filter({ hasText: comment });
@@ -649,6 +664,7 @@ test('completes the v0.0.5 daily workspace workflow', async ({ page }) => {
   await page.goto('/work-items');
   await expect(workspaceWorkItemsHeading(page)).toBeVisible();
   await page.locator('form.filters').getByLabel('Search').fill(title);
+  await page.locator('form.filters').getByRole('button', { name: 'Apply', exact: true }).click();
   await expect(page).toHaveURL(/search=/);
   await expect(page.getByText(`Search: ${title}`)).toBeVisible();
   await expect(page.getByRole('row', { name: new RegExp(title) })).toBeVisible();
@@ -671,10 +687,12 @@ test('persists v0.1.2 workspace filters through URL reloads', async ({ page, req
   await expect(workspaceWorkItemsHeading(page)).toBeVisible();
 
   await page.locator('form.filters').getByLabel('Search').fill(title);
+  await page.locator('form.filters').getByRole('button', { name: 'Apply', exact: true }).click();
   await expect(page).toHaveURL(/search=/);
   await expect(page.getByText(`Search: ${title}`)).toBeVisible();
 
-  await page.locator('form.filters').getByLabel('Status').selectOption('ready');
+  await page.locator('form.filters').getByRole('combobox', { name: 'Status', exact: true }).selectOption('ready');
+  await page.locator('form.filters').getByRole('button', { name: 'Apply', exact: true }).click();
   await expect(page).toHaveURL(/status=ready/);
   await expect(page.getByText('Status: Ready')).toBeVisible();
   await expect(page.getByRole('row', { name: new RegExp(title) })).toBeVisible();
@@ -759,7 +777,7 @@ test('opens and saves v0.1.4 project saved views as owner and contributor', asyn
   await openSavedViewFromCompactControl(page, 'Ready for QA');
   await expect(page).toHaveURL(/\/projects\/10000000-0000-4000-8000-000000000201\/work-items\?/);
   await expect(page).toHaveURL(/status=ready/);
-  await expect(page.getByText('Status: ready')).toBeVisible();
+  await expect(page.getByText('Status: Ready')).toBeVisible();
   await expect(page.getByRole('row', { name: /Add filter controls to work item list/ })).toBeVisible();
 
   await openSaveViewForm(page);
@@ -775,7 +793,7 @@ test('opens and saves v0.1.4 project saved views as owner and contributor', asyn
   await selectManagedSavedView(page, personalViewName);
   await openSavedViewFromCompactControl(page, personalViewName);
   await expect(page).toHaveURL(/status=ready/);
-  await expect(page.getByText('Status: ready')).toBeVisible();
+  await expect(page.getByText('Status: Ready')).toBeVisible();
   await expect(page.getByRole('row', { name: /Add filter controls to work item list/ })).toBeVisible();
 
   await page.locator('#current-member').selectOption({ label: 'Casey Contributor · contributor' });
@@ -795,7 +813,7 @@ test('opens and saves v0.1.4 project saved views as owner and contributor', asyn
 
   await openSavedViewFromCompactControl(page, 'Ready for QA');
   await expect(page).toHaveURL(/status=ready/);
-  await expect(page.getByText('Status: ready')).toBeVisible();
+  await expect(page.getByText('Status: Ready')).toBeVisible();
   await expect(page.getByRole('row', { name: /Add filter controls to work item list/ })).toBeVisible();
 });
 
@@ -836,7 +854,7 @@ test('opens seeded v0.1.5 pinned workspace and project saved views', async ({ pa
   await page.getByRole('button', { name: 'Open pinned shared view Ready for QA' }).click();
   await expect(page).toHaveURL(/\/projects\/10000000-0000-4000-8000-000000000201\/work-items\?/);
   await expect(page).toHaveURL(/status=ready/);
-  await expect(page.getByText('Status: ready')).toBeVisible();
+  await expect(page.getByText('Status: Ready')).toBeVisible();
   await expect(page.getByRole('row', { name: /Add filter controls to work item list/ })).toBeVisible();
 
   await page.locator('#current-member').selectOption({ label: 'Casey Contributor · contributor' });
@@ -914,6 +932,7 @@ test('creates and opens a v0.1.5 pinned personal workspace saved view shortcut',
   await page.locator('#current-member').selectOption({ label: 'Avery Owner · owner' });
   await page.getByText('Advanced filters').click();
   await page.locator('form.filters').getByLabel('Assignee').selectOption({ label: 'Avery Owner' });
+  await page.locator('form.filters').getByRole('button', { name: 'Apply', exact: true }).click();
   await expect(page).toHaveURL(/assigneeId=10000000-0000-4000-8000-000000000101/);
   await expect(page.getByText('Assignee: Avery Owner')).toBeVisible();
 
@@ -969,6 +988,7 @@ test('validates the v0.0.8 dependency workflow', async ({ page, request }) => {
   await expect(page.getByRole('heading', { name: blockedTitle })).toBeVisible();
 
   const relationshipPanel = page.locator('.relationship-panel');
+  await relationshipPanel.locator('summary').click();
   await relationshipPanel.getByLabel('Relationship').selectOption('blocked_by');
   await relationshipPanel.getByLabel('Find work item').fill(blockerTitle);
   await relationshipPanel.getByRole('button', { name: 'Search' }).click();
@@ -1015,6 +1035,7 @@ test('validates the v0.0.8 dependency workflow', async ({ page, request }) => {
   await page.getByLabel('Current status').selectOption('done');
   await page.getByRole('button', { name: 'Update status' }).click();
   await expect(page.getByLabel('Current status')).toHaveValue('done');
+  await page.locator('#history summary').click();
   await expect(page.getByText('Status changed from in_progress to done.')).toBeVisible();
 
   await page.goto(`/work-items?dependency=dependency_blocked&search=${encodeURIComponent(blockedTitle)}`);
@@ -1024,7 +1045,7 @@ test('validates the v0.0.8 dependency workflow', async ({ page, request }) => {
   await expect(page.getByText('No work items match these filters')).toBeVisible();
 });
 
-test('surfaces v0.0.9 delivery health on project overview and planning', async ({ page }) => {
+test('surfaces v0.0.9 delivery health on project overview and planning', async ({ page, request }) => {
   test.setTimeout(60_000);
 
   await page.goto(`/projects/${demoProjectId}`);
@@ -1039,13 +1060,28 @@ test('surfaces v0.0.9 delivery health on project overview and planning', async (
   await expect(page.getByText('Delivery health', { exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Blocked', exact: true })).toBeVisible();
   await expect(page.getByLabel('Delivery health counts')).toContainText('Open work');
-  await expect(page.getByRole('heading', { name: 'Milestone progress' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Milestone targets' })).toBeVisible();
   await expect(
     page.locator('.progress-list').getByRole('link', { name: 'v0.0.3 Planning', exact: true })
   ).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Needs attention' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Upcoming' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Recently changed' })).toBeVisible();
+  const planningResponse = await request.get(`${apiBaseURL()}/api/projects/${demoProjectId}/planning-summary`);
+  expect(planningResponse.ok()).toBe(true);
+  const { planningReview } = await planningResponse.json() as ProjectPlanningSummaryDto;
+  for (const [title, items] of [
+    ['Needs attention', planningReview.needsAttention],
+    ['Upcoming', planningReview.upcoming],
+    ['Recently changed', planningReview.recentlyChanged]
+  ] as const) {
+    const disclosure = page.locator('.review-disclosure').filter({ has: page.locator('summary').filter({ hasText: new RegExp(`^${title} ·`) }) });
+    if (items.length === 0) {
+      await expect(disclosure).toHaveCount(0);
+    } else {
+      await expect(disclosure).not.toHaveAttribute('open', '');
+      await expect(disclosure.locator('summary')).toHaveText(`${title} · ${items.length} items`);
+      await disclosure.locator('summary').click();
+      await expect(disclosure).toHaveAttribute('open', '');
+    }
+  }
   await expect(
     page.getByRole('link', { name: /WT-4 .*Choose status transition copy/ }).first()
   ).toBeVisible();
@@ -1137,6 +1173,7 @@ test('reviews v0.2.1 cycle planning, scoped work, and cycle assignment', async (
   await expect(page.getByRole('heading', { name: 'Planning dashboard' })).toBeVisible();
   await page.getByRole('button', { name: 'Cycles' }).click();
   await expect(page.getByRole('heading', { name: 'Cycles' })).toBeVisible();
+  await page.locator('app-cycle-manager .create-disclosure > summary').click();
   const cycleForm = page.locator('form.cycle-form');
   await expect(cycleForm.getByLabel('Name')).toBeVisible();
   await expect(cycleForm.getByRole('button', { name: 'Create cycle' })).toBeVisible();
@@ -1174,7 +1211,7 @@ test('reviews v0.2.1 cycle planning, scoped work, and cycle assignment', async (
   );
   await page.getByRole('link', { name: 'Open work item' }).click();
   await expect(page.getByRole('heading', { name: workItemTitle })).toBeVisible();
-  await expect(page.getByLabel('Metadata')).toContainText('v0.2.1 Cycle Planning');
+  await expect(page.getByRole('region', { name: 'Work item summary', exact: true })).toContainText('v0.2.1 Cycle Planning');
 });
 
 test('reviews v0.2.3 workspace portfolio and drills into project work', async ({ page }) => {
@@ -1193,6 +1230,7 @@ test('reviews v0.2.3 workspace portfolio and drills into project work', async ({
   await expect(page.getByLabel('Portfolio summary')).toContainText('Active');
   await expect(page.getByLabel('Portfolio summary')).toContainText('On track');
   await expect(page.getByLabel('Portfolio summary')).toContainText('Reports stale or missing');
+  await page.locator('.attention-disclosure > summary').click();
   await expect(page.getByRole('heading', { name: 'Needs attention' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Communication freshness' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Dependency pressure' })).toBeVisible();
@@ -1223,7 +1261,7 @@ test('reviews v0.2.3 workspace portfolio and drills into project work', async ({
   await expect(operationsRow).toContainText('Reference Operations weekly status');
   await expectNoPageOverflow(page);
 
-  await worktrailRow.getByRole('link', { name: 'Dependency-blocked work' }).click();
+  await worktrailRow.locator('.next-action').click();
   await expect(page).toHaveURL(new RegExp(`/projects/${demoProjectId}/work-items\\?`));
   await expect(page).toHaveURL(/dependency=dependency_blocked/);
   await expect(page).toHaveURL(/sort=priority_desc/);
@@ -1233,6 +1271,7 @@ test('reviews v0.2.3 workspace portfolio and drills into project work', async ({
 
   await page.goto('/portfolio');
   await expect(page.getByRole('heading', { name: 'Portfolio review' })).toBeVisible();
+  await page.locator('article.project-row').filter({ hasText: 'Worktrail App' }).locator('summary').click();
   await page
     .locator('article.project-row')
     .filter({ hasText: 'Worktrail App' })
@@ -1392,7 +1431,7 @@ test('completes the v0.1.1 inbox mention workflow', async ({ page }) => {
   await expect(
     page.getByRole('heading', { name: 'Implement transport-neutral API handler contract' })
   ).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Watchers' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Watchers' })).toBeVisible();
   await expect(page.locator('.watch-panel')).toContainText('3 watching');
 
   const watchPanel = page.locator('.watch-panel');
@@ -1409,6 +1448,7 @@ test('completes the v0.1.1 inbox mention workflow', async ({ page }) => {
   const createdComment = page.locator('article.comment').filter({ hasText: comment });
   await expect(createdComment).toBeVisible();
   await expect(createdComment.getByLabel('Mentioned members')).toContainText('@Casey Contributor');
+  await page.locator('#history summary').click();
   await expect(page.getByText('Comment added.')).toBeVisible();
 
   await page.locator('#current-member').selectOption({ label: 'Casey Contributor · contributor' });
@@ -1505,6 +1545,7 @@ test('imports project work items from CSV and exports filtered results', async (
   await page.getByRole('link', { name: 'Project list' }).click();
   await expect(page.getByRole('heading', { name: 'Project work items' })).toBeVisible();
   await page.getByLabel('Search').fill(firstTitle);
+  await page.locator('form.filters').getByRole('button', { name: 'Apply', exact: true }).click();
   await expect(page.getByText(`Search: ${firstTitle}`)).toBeVisible();
   await expect(page.getByRole('row', { name: new RegExp(firstTitle) })).toBeVisible();
 
@@ -1539,22 +1580,23 @@ test('completes the v0.2.5 work breakdown workflow', async ({ page, request }, t
   const readyChildTitle = 'Prepare concise launch guidance for teams adopting child work';
   const createdChildTitle = `E2E hierarchy child ${Date.now()}`;
   const parentPath = `/work-items/${hierarchyParentId}`;
+  let workflowFailure: unknown;
 
   try {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(parentPath);
     await expect(page.getByRole('heading', { level: 1, name: parentTitle })).toBeVisible();
 
+    await page.locator('app-work-item-child-work > details > summary').click();
     const childSummary = page.getByLabel('Direct child work summary');
     await expect(childSummary).toContainText('Total');
     await expect(childSummary).toContainText('5');
     await expect(childSummary).toContainText('Open');
     await expect(childSummary).toContainText('3');
-    await expect(childSummary).toContainText('Done');
-    await expect(childSummary).toContainText('Canceled');
+    await expect(childSummary).toContainText('Closed');
     await expect(childSummary).toContainText('Unestimated');
     await expect(childSummary).toContainText('1');
-    await expect(childSummary).toContainText('Child points');
+    await expect(childSummary).toContainText('Child total');
     await expect(childSummary).toContainText('13');
 
     const seededChildLink = page.getByRole('link', { name: new RegExp(`WT-13.*${readyChildTitle}`) });
@@ -1571,9 +1613,7 @@ test('completes the v0.2.5 work breakdown workflow', async ({ page, request }, t
     await addChildLink.focus();
     await expectFocused(addChildLink);
     await addChildLink.click();
-    await expect(page).toHaveURL(
-      new RegExp(`/projects/${demoProjectId}/work-items/new\\?parentWorkItemId=${hierarchyParentId}`)
-    );
+    await expect(page).toHaveURL(url => url.pathname === `/projects/${demoProjectId}/work-items/new` && url.searchParams.get('parentWorkItemId') === hierarchyParentId && url.searchParams.get('returnTo') === parentPath);
     await expect(page.getByLabel('Child work parent')).toContainText('Child of');
     await expect(page.getByLabel('Child work parent')).toContainText('WT-12');
 
@@ -1589,6 +1629,7 @@ test('completes the v0.2.5 work breakdown workflow', async ({ page, request }, t
     await page.getByLabel('Work item created').getByRole('link', { name: 'Back to WT-12' }).click();
 
     await expect(page.getByRole('heading', { level: 1, name: parentTitle })).toBeVisible();
+    await page.locator('app-work-item-child-work > details > summary').click();
     await expect(page.getByLabel('Direct child work summary')).toContainText('6');
     const createdChildLink = page.getByRole('link', { name: new RegExp(createdChildTitle) });
     await expect(createdChildLink).toBeVisible();
@@ -1606,6 +1647,7 @@ test('completes the v0.2.5 work breakdown workflow', async ({ page, request }, t
 
     await page.goto(`/work-items/${hierarchyReadyChildId}`);
     await expect(page.getByRole('heading', { level: 1, name: readyChildTitle })).toBeVisible();
+    await page.locator('.hierarchy > details > summary').click();
     const parentSearch = page.getByLabel('Find a parent');
     await parentSearch.focus();
     await expectFocused(parentSearch);
@@ -1629,6 +1671,7 @@ test('completes the v0.2.5 work breakdown workflow', async ({ page, request }, t
     await expectFocused(saveParent);
     await saveParent.click();
     await expect(page.getByLabel('Parent work item')).toContainText('WT-18');
+    await page.locator('#history summary').click();
     await expect(page.getByText('Parent changed from WT-12 to WT-18.')).toBeVisible();
     const clearParent = page.getByRole('button', { name: 'Clear parent' });
     await clearParent.focus();
@@ -1645,6 +1688,7 @@ test('completes the v0.2.5 work breakdown workflow', async ({ page, request }, t
     await expect(page.getByText('Parent changed from WT-18 to WT-12.')).toBeVisible();
 
     await page.goto(parentPath);
+    await page.locator('app-work-item-child-work > details > summary').click();
     const viewChildrenLink = page.getByRole('link', { name: 'View all child work' });
     await viewChildrenLink.focus();
     await expectFocused(viewChildrenLink);
@@ -1689,6 +1733,7 @@ test('completes the v0.2.5 work breakdown workflow', async ({ page, request }, t
     await page.goto(parentPath);
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(page.getByRole('heading', { level: 1, name: parentTitle })).toBeVisible();
+    await page.locator('app-work-item-child-work > details > summary').click();
     await expect(page.getByLabel('Direct child work summary')).toBeVisible();
     await expectNoPageOverflow(page);
     await testInfo.attach('work-breakdown-parent-mobile', {
@@ -1710,7 +1755,10 @@ test('completes the v0.2.5 work breakdown workflow', async ({ page, request }, t
     await page.goto(parentPath);
     await expect(page.getByRole('heading', { level: 1, name: parentTitle })).toBeVisible();
     await expectNoPageOverflow(page);
-  } finally {
+  } catch (error) {
+    workflowFailure = error;
+  }
+  try {
     const restoreResponse = await request.put(
       `${apiBaseURL()}/api/work-items/${hierarchyReadyChildId}/parent`,
       { data: { parentWorkItemId: hierarchyParentId } }
@@ -1721,7 +1769,10 @@ test('completes the v0.2.5 work breakdown workflow', async ({ page, request }, t
         `Failed to restore seeded hierarchy parent: ${restoreResponse.status()} ${await restoreResponse.text()}`
       );
     }
+  } catch (error) {
+    workflowFailure ??= error;
   }
+  if (workflowFailure !== undefined) throw workflowFailure;
 });
 
 test('keeps core pages usable at common desktop widths', async ({ page }) => {

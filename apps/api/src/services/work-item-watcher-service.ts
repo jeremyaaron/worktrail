@@ -1,6 +1,8 @@
+import { coordinateWorkItems } from './project-write-coordination.js';
 import type { WorkItemWatchStateDto } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
+import { assertPersistence, type Persistence } from '../repositories/persistence.js';
 import type { ActorContext } from '../domain/actor.js';
 import { ConflictError, NotFoundError } from '../errors/app-error.js';
 import type { Repositories } from '../repositories/index.js';
@@ -10,6 +12,7 @@ import { toMemberDto } from './dto.js';
 export interface WorkItemWatcherServiceContext {
   actor: ActorContext;
   repositories: Repositories;
+  persistence: Persistence;
   clock?: () => Date;
   idGenerator?: () => string;
 }
@@ -19,17 +22,31 @@ export class WorkItemWatcherService {
   private readonly idGenerator: () => string;
 
   constructor(private readonly context: WorkItemWatcherServiceContext) {
+    assertPersistence(context.persistence);
     this.clock = context.clock ?? (() => new Date());
     this.idGenerator = context.idGenerator ?? randomUUID;
   }
 
   async getWatchState(workItemId: string): Promise<WorkItemWatchStateDto> {
+    return this.context.persistence.readConsistent((scope) =>
+      new WorkItemWatcherService({ ...this.context, ...scope }).getWatchStateInScope(workItemId)
+    );
+  }
+
+  private async getWatchStateInScope(workItemId: string): Promise<WorkItemWatchStateDto> {
     const workItem = await this.requireWorkItem(workItemId);
     return this.toWatchStateDto(workItem.id);
   }
 
   async watch(workItemId: string): Promise<WorkItemWatchStateDto> {
-    const workItem = await this.requireWorkItem(workItemId);
+    return this.context.persistence.write(async (scope) => {
+      await coordinateWorkItems(scope, this.context.actor.workspaceId, [workItemId]);
+      return new WorkItemWatcherService({ ...this.context, ...scope }).watchInScope(workItemId);
+    });
+  }
+
+  private async watchInScope(workItemId: string): Promise<WorkItemWatchStateDto> {
+    const workItem = await this.requireLockedWorkItem(workItemId);
     const project = await this.requireProject(workItem.projectId);
     this.assertProjectWritable(project);
     const timestamp = this.clock();
@@ -49,7 +66,14 @@ export class WorkItemWatcherService {
   }
 
   async unwatch(workItemId: string): Promise<WorkItemWatchStateDto> {
-    const workItem = await this.requireWorkItem(workItemId);
+    return this.context.persistence.write(async (scope) => {
+      await coordinateWorkItems(scope, this.context.actor.workspaceId, [workItemId]);
+      return new WorkItemWatcherService({ ...this.context, ...scope }).unwatchInScope(workItemId);
+    });
+  }
+
+  private async unwatchInScope(workItemId: string): Promise<WorkItemWatchStateDto> {
+    const workItem = await this.requireLockedWorkItem(workItemId);
     const project = await this.requireProject(workItem.projectId);
     this.assertProjectWritable(project);
     const timestamp = this.clock();
@@ -96,6 +120,12 @@ export class WorkItemWatcherService {
     }
 
     return workItem;
+  }
+
+  private async requireLockedWorkItem(workItemId: string): Promise<WorkItem> {
+    const [item] = await this.context.repositories.workItems.findManyByIdsForUpdate([workItemId]);
+    if (item === undefined || item.workspaceId !== this.context.actor.workspaceId) throw new NotFoundError('Work item not found.');
+    return item;
   }
 
   private async requireProject(projectId: string): Promise<Project> {

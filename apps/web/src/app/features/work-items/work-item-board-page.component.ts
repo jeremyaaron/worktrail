@@ -1,11 +1,13 @@
+import { recordOriginParams } from '../../shared/navigation/work-navigation';
 import {
   CdkDrag,
   type CdkDragDrop,
   CdkDragHandle,
   CdkDropList
 } from '@angular/cdk/drag-drop';
+import { PageContext } from '../../core/navigation/page-context';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import type {
   MoveWorkItemOnBoardRequest,
   ProjectDto,
@@ -14,7 +16,8 @@ import type {
 } from '@worktrail/contracts';
 
 import { CurrentUserService } from '../../core/current-user.service';
-import { WorktrailApiService } from '../../core/worktrail-api.service';
+import { ProjectsApi } from '../../core/api/projects-api';
+import { WorkItemsApi } from '../../core/api/work-items-api';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
@@ -564,13 +567,14 @@ const terminalStatuses = new Set<WorkItemStatus>(['done', 'canceled']);
   `
 })
 export class WorkItemBoardPageComponent implements OnInit {
-  private readonly api = inject(WorktrailApiService);
+  private readonly context = new PageContext();
+  private readonly projectsApi = inject(ProjectsApi);
+  private readonly workItemsApi = inject(WorkItemsApi);
   private readonly currentUser = inject(CurrentUserService);
-  private readonly route = inject(ActivatedRoute);
 
   readonly statuses = statuses;
   readonly childSummaryLabel = workItemChildSummaryLabel;
-  readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
+  readonly projectId = computed(() => this.context.param('projectId'));
   readonly project = signal<ProjectDto | null>(null);
   readonly workItems = signal<WorkItemListItemDto[]>([]);
   readonly isLoading = signal(false);
@@ -599,12 +603,21 @@ export class WorkItemBoardPageComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.loadProject();
-    this.loadWorkItems();
+    this.context.start(() => {
+      this.project.set(null);
+      this.workItems.set([]);
+      this.isLoading.set(false);
+      this.loadError.set(null);
+      this.transitionError.set(null);
+      this.transitioningWorkItemId.set(null);
+
+      this.loadProject();
+      this.loadWorkItems();
+    });
   }
 
   loadProject(): void {
-    this.api.getProject(this.projectId()).subscribe({
+    this.projectsApi.getProject(this.projectId()).pipe(this.context.guard()).subscribe({
       next: (project) => {
         this.project.set(project);
       },
@@ -618,7 +631,7 @@ export class WorkItemBoardPageComponent implements OnInit {
     this.isLoading.set(true);
     this.loadError.set(null);
 
-    this.api.listProjectBoardWorkItems(this.projectId()).subscribe({
+    this.workItemsApi.listProjectBoardWorkItems(this.projectId()).pipe(this.context.guard()).subscribe({
       next: (workItems) => {
         this.workItems.set(workItems);
         this.isLoading.set(false);
@@ -700,9 +713,7 @@ export class WorkItemBoardPageComponent implements OnInit {
     return value.replaceAll('_', ' ');
   }
 
-  detailQueryParams(): { returnUrl: string } {
-    return { returnUrl: `/projects/${this.projectId()}/board` };
-  }
+  detailQueryParams(): { returnUrl: string } { return recordOriginParams(`/projects/${this.projectId()}/board`); }
 
   memberDisplayName(member: WorkItemListItemDto['assignee']): string {
     if (member === null) {
@@ -737,7 +748,7 @@ export class WorkItemBoardPageComponent implements OnInit {
       this.workItems.set(this.moveWorkItemInMemory(previousWorkItems, item.id, request.status, 0));
     }
 
-    this.api.moveWorkItemOnBoard(item.id, request).subscribe({
+    this.workItemsApi.moveWorkItemOnBoard(item.id, request).pipe(this.context.guardMutation()).subscribe({
       next: () => {
         this.transitioningWorkItemId.set(null);
         this.loadWorkItems();

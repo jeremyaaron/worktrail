@@ -48,6 +48,19 @@
     </p>
   </div>
 
+  @if (!isNavigationMode()) {
+    <div class="quick-find__refinement" aria-label="Preview filters">
+      <label>Result type<select [ngModel]="resultType()" (ngModelChange)="resultType.set($event)">
+        @for (type of resultTypes; track type.value) { <option [value]="type.value">{{ type.label }}</option> }
+      </select></label>
+      <label>Project in preview<select [ngModel]="projectFilter()" (ngModelChange)="projectFilter.set($event)">
+        <option value="">All projects</option>
+        @for (project of projectOptions(); track project.id) { <option [value]="project.id">{{ project.label }}</option> }
+      </select></label>
+      <span>Bounded results · Filenames only for files</span>
+    </div>
+  }
+
   @if (isNavigationMode()) {
     <div
       id="quick-find-options"
@@ -133,7 +146,7 @@
         </div>
       } @else if (hasNoResults()) {
         <div class="quick-find__state">
-          <strong>No results for "{{ normalizedQuery() }}"</strong>
+          <strong>{{ resultType() !== 'all' || projectFilter() ? 'No matches in this preview' : 'No results for "' + normalizedQuery() + '"' }}</strong>
           <span>Try another key, name, title, or filename.</span>
           <button type="button" (click)="clearSearch()">Clear search</button>
         </div>
@@ -144,7 +157,7 @@
             role="group"
             [attr.aria-labelledby]="'quick-find-' + group.key + '-heading'"
           >
-            <h3 [id]="'quick-find-' + group.key + '-heading'">{{ group.label }}</h3>
+            <h3 [id]="'quick-find-' + group.key + '-heading'">{{ group.label }} · {{ group.rows.length }} shown</h3>
             <div class="quick-find__result-list">
               @for (row of group.rows; track row.id) {
                 <div
@@ -183,7 +196,7 @@
             </div>
             @if (group.hasMore) {
               <div class="quick-find__more">
-                <span>More matches exist.</span>
+                <span>More matches outside this preview.</span>
                 @if (group.hasWorkItemOverflow) {
                   <div
                     id="quick-find-work-item-overflow"

@@ -108,6 +108,40 @@ describe('CycleSummaryPanelComponent', () => {
     }).compileComponents();
   });
 
+  it('keeps readiness and exact risk corrections scoped to the active cycle', () => {
+    const fixture = TestBed.createComponent(CycleSummaryPanelComponent);
+    const active = cycleSummary(activeCycle);
+    active.health.reasons = [{
+key: 'unestimated_work', severity: 'warning', count: 1, countUnit: 'work_items',
+      message: '1 open cycle work item unestimated.', query: { cycleId: activeCycle.id, workState: 'open', estimateState: 'unestimated' }
+}];
+    fixture.componentInstance.projectId = projectId;
+    fixture.componentInstance.summary = planningSummary({ activeCycle: active });
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+    const link = compiled.querySelector<HTMLAnchorElement>('.cycle-reasons a')!;
+    expect(link.getAttribute('href')).toContain(`cycleId=${activeCycle.id}`);
+    expect(link.getAttribute('href')).toContain('workState=open');
+    expect(link.getAttribute('href')).toContain('estimateState=unestimated');
+    expect(compiled.querySelector('[aria-label="Closeout readiness"]')?.textContent).toContain('4 unfinished');
+    active.progress.openCount = 0;
+    fixture.detectChanges();
+    expect(compiled.querySelector('[aria-label="Closeout readiness"]')?.textContent).toContain('Ready for closeout.');
+  });
+
+  it('shows no-active-cycle recovery with an upcoming cycle rather than implying it is active', () => {
+    const fixture = TestBed.createComponent(CycleSummaryPanelComponent);
+    fixture.componentInstance.projectId = projectId;
+    fixture.componentInstance.summary = planningSummary({ activeCycle: null, upcomingCycle: cycleSummary({ ...activeCycle, status: 'planned' }) });
+    fixture.componentInstance.canManageCycles = true;
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.no-active-cycle')?.textContent).toContain('No active cycle');
+    expect(compiled.querySelector('.no-active-cycle')?.textContent).toContain('Manage cycles');
+    expect(compiled.querySelector('[aria-label="Closeout readiness"]')).toBeNull();
+    expect(compiled.querySelector('.cycle-summary-card')?.textContent).toContain('Upcoming cycle');
+  });
+
   it('renders cycle summary cards and action links', () => {
     const fixture = TestBed.createComponent(CycleSummaryPanelComponent);
     fixture.componentInstance.projectId = projectId;
@@ -116,7 +150,7 @@ describe('CycleSummaryPanelComponent', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.textContent).toContain('Cycle planning');
+    expect(compiled.textContent).toContain('Cycle execution');
     expect(compiled.textContent).toContain('1 visible');
     expect(compiled.textContent).toContain('v0.2.1 Cycle Planning');
     expect(compiled.textContent).toContain('At risk');
@@ -203,6 +237,6 @@ describe('CycleSummaryPanelComponent', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('0 visible');
-    expect(compiled.textContent).toContain('No active cycle context');
+    expect(compiled.textContent).toContain('No active cycle');
   });
 });

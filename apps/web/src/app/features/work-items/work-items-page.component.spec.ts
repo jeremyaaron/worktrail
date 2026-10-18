@@ -17,6 +17,7 @@ import type {
 import { BehaviorSubject } from 'rxjs';
 
 import { CurrentUserService } from '../../core/current-user.service';
+import { DraftConfirmationService } from '../../core/navigation/draft-confirmation.service';
 import { ClipboardService } from '../../shared/clipboard.service';
 import { WorkItemImportPageComponent } from './work-item-import-page.component';
 import { WorkItemCreatePageComponent } from './work-item-create-page.component';
@@ -419,6 +420,33 @@ function bulkResultCounts(compiled: HTMLElement): string[] {
 describe('WorkItemListPageComponent', () => {
   let projectRoute: ReturnType<typeof routeStub>;
 
+  it('uses the shared owner and keeps opened identity through paging, pending fields and accepted results', async () => {
+    projectRoute.setQuery({});
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController); fixture.detectChanges();
+    http.expectOne('/api/projects/' + projectId).flush(activeProject);
+    http.expectOne('/api/projects/' + projectId + '/milestones?includeArchived=true').flush([]);
+    http.expectOne('/api/projects/' + projectId + '/cycles?includeArchived=true').flush([]);
+    flushProjectSavedViews(http, [sharedProjectSavedView]);
+    http.expectOne(candidate => candidate.url === '/api/projects/' + projectId + '/work-items').flush(projectWorkItemPage([workItem]));
+    const page = fixture.componentInstance;
+    expect(page.savedViews).toBe(page.savedViewsState.views);
+    spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    page.openSavedView(sharedProjectSavedView);
+    projectRoute.setQuery({ status: 'ready', sort: 'board_order' });
+    fixture.detectChanges(); await fixture.whenStable();
+    expect(page.savedViewState().kind).toBe('named'); expect(page.resultsMessage()).toBeNull();
+    http.expectOne(candidate => candidate.url === '/api/projects/' + projectId + '/work-items').flush(projectWorkItemPage([readyWorkItem]));
+    expect(page.resultsMessage()).toContain('Named: Ready for QA. Results updated:');
+    page.filterForm.controls.estimateState.setValue('unestimated');
+    expect(page.savedViewState().kind).toBe('named');
+    projectRoute.setQuery({ status: 'ready', sort: 'board_order', page: '2', pageSize: '10' });
+    expect(page.savedViewState().kind).toBe('named'); expect(page.resultsMessage()).toBeNull();
+    http.expectOne(candidate => candidate.url === '/api/projects/' + projectId + '/work-items').flush(projectWorkItemPage([readyWorkItem], { page: 2, pageSize: 10, totalCount: 11, totalPages: 2, hasPreviousPage: true }));
+    expect(page.resultsMessage()).toContain('11-11 of 11');
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelectorAll('nav.pagination').length).toBe(2);
+  });
   beforeEach(async () => {
     projectRoute = routeStub({
       status: 'in_progress',
@@ -457,6 +485,34 @@ describe('WorkItemListPageComponent', () => {
     const http = TestBed.inject(HttpTestingController);
     flushPendingCycleRequests(http);
     http.verify();
+  });
+
+  it('preserves deep-link paging when the initial actor resolves after the page mounts', () => {
+    const currentUser = TestBed.inject(CurrentUserService);
+    currentUser.members.set([]);
+    currentUser.selectedMemberId.set(null);
+    projectRoute.setQuery({ status: 'ready', page: '2', pageSize: '10' });
+    const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    const fixture = TestBed.createComponent(WorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    const initialRequests = http.match(() => true);
+    initialRequests.find(request => request.request.url === '/api/members')!.flush([ownerMember, member]);
+    fixture.detectChanges();
+
+    expect(navigate).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.activePageQuery()).toEqual({ page: 2, pageSize: 10 });
+    flushProjectWorkContext(http);
+    const request = http.expectOne(candidate => candidate.url === `/api/projects/${projectId}/work-items`);
+    expect(request.request.params.get('page')).toBe('2');
+    expect(request.request.params.get('pageSize')).toBe('10');
+    expect(request.request.params.get('status')).toBe('ready');
+    request.flush(projectWorkItemPage([readyWorkItem], {
+      page: 2, pageSize: 10, totalCount: 11, totalPages: 2, hasPreviousPage: true
+    }));
+    fixture.detectChanges();
+    expect(fixture.componentInstance.workItems()).toEqual([readyWorkItem]);
   });
 
   it('loads work items with query parameter filters and renders dense rows', () => {
@@ -561,7 +617,7 @@ describe('WorkItemListPageComponent', () => {
     let compiled = fixture.nativeElement as HTMLElement;
     const resultHeading = compiled.querySelector<HTMLHeadingElement>('.list-heading h2');
     expect(resultHeading?.textContent?.trim()).toBe('11-20 of 21 work items');
-    expect(compiled.querySelector('.pagination__status')?.textContent?.trim()).toBe('Page 2 of 3');
+    expect(compiled.querySelector('nav[aria-label="Work item pages"] .pagination__status')?.textContent?.trim()).toBe('Page 2 of 3');
     expect(document.activeElement).not.toBe(resultHeading);
 
     fixture.componentInstance.enterBulkEdit();
@@ -596,7 +652,7 @@ describe('WorkItemListPageComponent', () => {
     expect(compiled.querySelector('.list-heading h2')?.textContent?.trim()).toBe(
       '21-21 of 21 work items'
     );
-    expect(compiled.querySelector('.pagination__status')?.textContent?.trim()).toBe('Page 3 of 3');
+    expect(compiled.querySelector('nav[aria-label="Work item pages"] .pagination__status')?.textContent?.trim()).toBe('Page 3 of 3');
     expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([]);
     expect(fixture.componentInstance.bulkActionForm.controls.actionType.value).toBe('');
 
@@ -623,7 +679,7 @@ describe('WorkItemListPageComponent', () => {
     expect(compiled.querySelector('.list-heading h2')?.textContent?.trim()).toBe(
       '1-10 of 21 work items'
     );
-    expect(compiled.querySelector('.pagination__status')?.textContent?.trim()).toBe('Page 1 of 3');
+    expect(compiled.querySelector('nav[aria-label="Work item pages"] .pagination__status')?.textContent?.trim()).toBe('Page 1 of 3');
     expect(fixture.componentInstance.appliedFilterValues().status).toBe('ready');
   });
 
@@ -832,6 +888,14 @@ describe('WorkItemListPageComponent', () => {
     ).not.toBeNull();
     expect(compiled.querySelector('input[aria-label="Select WT-3"]')).not.toBeNull();
     expect(compiled.textContent).toContain('Exit bulk edit');
+
+    fixture.componentInstance.toggleWorkItemSelection('not-on-this-page');
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([]);
+    fixture.componentInstance.isBulkUpdating.set(true);
+    fixture.componentInstance.toggleWorkItemSelection(workItem.id);
+    fixture.componentInstance.toggleAllVisibleSelection();
+    expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([]);
+    fixture.componentInstance.isBulkUpdating.set(false);
 
     fixture.componentInstance.toggleWorkItemSelection(workItem.id);
     expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([workItem.id]);
@@ -1549,7 +1613,7 @@ describe('WorkItemListPageComponent', () => {
         sort: 'board_order'
       })
     });
-    expect(compiled.textContent).toContain('Opened "Ready for QA". Results updated below.');
+    expect(compiled.textContent).not.toContain('Opened "Ready for QA". Results updated below.');
   });
 
   it('lets owners create and manage shared project saved views', () => {
@@ -2107,6 +2171,10 @@ describe('WorkItemListPageComponent', () => {
       relativeTo: TestBed.inject(ActivatedRoute),
       queryParams: {
         search: 'client',
+        workState: null,
+        assigneeState: null,
+        estimateState: null,
+        blocked: null,
         status: 'ready',
         assigneeId: contributorId,
         reporterId: contributorId,
@@ -2159,6 +2227,8 @@ describe('WorkItemListPageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Risk: Stale in progress');
 
     fixture.componentInstance.filterForm.controls.priority.setValue('urgent');
+    expect(navigate).not.toHaveBeenCalled();
+    fixture.componentInstance.applyFilters();
 
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
@@ -2168,7 +2238,7 @@ describe('WorkItemListPageComponent', () => {
       })
     });
 
-    fixture.componentInstance.removeActiveFilter('Risk: Stale in progress');
+    fixture.componentInstance.removeActiveFilter('workRisk');
 
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
@@ -2203,11 +2273,14 @@ describe('WorkItemListPageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Parent: WT-42');
 
     fixture.componentInstance.filterForm.controls.priority.setValue('urgent');
+    expect(navigate).not.toHaveBeenCalled();
+    fixture.componentInstance.applyFilters();
     expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
       jasmine.objectContaining({ priority: 'urgent', parentKey: 'WT-42', hierarchy: null })
     );
 
     fixture.componentInstance.filterForm.controls.hierarchy.setValue('parents');
+    fixture.componentInstance.applyFilters();
     expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
       jasmine.objectContaining({ hierarchy: 'parents', parentKey: null })
     );
@@ -2286,7 +2359,7 @@ describe('WorkItemListPageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Label: backend');
   });
 
-  it('applies dropdown filters immediately', () => {
+  it('keeps dropdown filters pending until Apply', () => {
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
     const router = TestBed.inject(Router);
@@ -2303,6 +2376,8 @@ describe('WorkItemListPageComponent', () => {
       .flush(projectWorkItemPage([workItem]));
 
     fixture.componentInstance.filterForm.controls.priority.setValue('urgent');
+    expect(navigate).not.toHaveBeenCalled();
+    fixture.componentInstance.applyFilters();
 
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
@@ -2312,7 +2387,7 @@ describe('WorkItemListPageComponent', () => {
     });
   });
 
-  it('debounces search before applying filters', fakeAsync(() => {
+  it('keeps search pending until Apply', fakeAsync(() => {
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
     const router = TestBed.inject(Router);
@@ -2338,6 +2413,8 @@ describe('WorkItemListPageComponent', () => {
     );
 
     tick(1);
+    expect(navigate).not.toHaveBeenCalled();
+    fixture.componentInstance.applyFilters();
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
       queryParams: jasmine.objectContaining({
@@ -2678,6 +2755,27 @@ describe('WorkItemCreatePageComponent', () => {
     expect(component.workItemForm.pristine).toBeTrue();
   });
 
+  it('protects a new draft entered after creation before Create another resets it', async () => {
+    const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    flushCreateContext(http);
+    const component = fixture.componentInstance;
+    component.workItemForm.controls.title.setValue('Created work');
+    component.createWorkItem();
+    http.expectOne(`/api/projects/${projectId}/work-items`).flush({
+      ...workItem, description: '', descriptionFormat: 'markdown_v1',
+      relationships: emptyRelationships, comments: [], activity: []
+    });
+    component.workItemForm.controls.title.setValue('Another unsaved title');
+    const confirm = spyOn(TestBed.inject(DraftConfirmationService), 'confirm').and.resolveTo(false);
+    expect(await component.requestCreateAnother()).toBeFalse();
+    expect(component.workItemForm.controls.title.value).toBe('Another unsaved title');
+    confirm.and.resolveTo(true);
+    expect(await component.requestCreateAnother()).toBeTrue();
+    expect(component.workItemForm.controls.title.value).toBe('');
+  });
+
   it('rejects an oversized new description before sending a request', () => {
     const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
     const http = TestBed.inject(HttpTestingController);
@@ -2774,7 +2872,7 @@ describe('WorkItemCreatePageComponent', () => {
     expect(compiled.textContent).toContain('WT-499 created');
     expect(
       compiled.querySelector<HTMLAnchorElement>(
-        'a[href="/work-items/10000000-0000-4000-8000-000000000499"]'
+        'a[href^="/work-items/10000000-0000-4000-8000-000000000499?"]'
       )
     ).not.toBeNull();
     expect(compiled.textContent).toContain('Create another');
@@ -2792,6 +2890,27 @@ describe('WorkItemCreatePageComponent', () => {
     ].map((option: HTMLOptionElement) => option.textContent?.trim());
     expect(assigneeOptions).toContain('Case Contributor');
     expect(assigneeOptions).not.toContain('Riley Former');
+  });
+
+  it('handles the native number control null value when an estimate is cleared', () => {
+    const fixture = TestBed.createComponent(WorkItemCreatePageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    flushCreateContext(http);
+    fixture.componentInstance.workItemForm.controls.title.setValue('Cleared estimate');
+    const input = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('[formControlName="estimatePoints"]')!;
+    input.value = '8';
+    input.dispatchEvent(new Event('input'));
+    input.value = '';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    fixture.componentInstance.createWorkItem();
+    const create = http.expectOne(`/api/projects/${projectId}/work-items`);
+    expect(create.request.body.estimatePoints).toBeNull();
+    create.flush({
+      ...workItem, description: '', descriptionFormat: 'markdown_v1',
+      relationships: emptyRelationships, comments: [], activity: []
+    });
   });
 
   it('normalizes numeric estimate values before posting', () => {
@@ -2962,7 +3081,7 @@ describe('WorkItemCreatePageComponent global route', () => {
     expect(compiled.textContent).toContain('WT-497 created');
     expect(
       compiled.querySelector<HTMLAnchorElement>(
-        'a[href="/work-items/10000000-0000-4000-8000-000000000497"]'
+        'a[href^="/work-items/10000000-0000-4000-8000-000000000497?"]'
       )
     ).not.toBeNull();
 
@@ -3119,7 +3238,7 @@ describe('WorkItemCreatePageComponent child route', () => {
     expect(compiled.textContent).toContain('WT-4 created');
     expect(compiled.textContent).toContain('Back to WT-3');
     expect(
-      compiled.querySelector<HTMLAnchorElement>(`a[href="/work-items/${workItemId}"]`)
+      compiled.querySelector<HTMLAnchorElement>(`a[href^="/work-items/${workItemId}?"]`)
     ).not.toBeNull();
   });
 

@@ -1,7 +1,12 @@
+import { recordNavigationTarget, returnNavigationTarget, workNavigationContext } from '../../shared/navigation/work-navigation';
+import { DestroyRef } from '@angular/core';
+import { normalizeAuthoredContentSource } from '@worktrail/contracts';
+import { DraftTracker } from '../../core/navigation/draft-tracker';
+import { DraftDepartureCoordinator, draftRouteKey } from '../../core/navigation/draft-departure-coordinator';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import type {
   CreateWorkItemRequest,
   LabelDto,
@@ -14,11 +19,14 @@ import type {
   WorkItemType,
   WorkspaceCapabilitiesDto
 } from '@worktrail/contracts';
-import { Subscription, distinctUntilChanged, map } from 'rxjs';
+import { Subscription } from 'rxjs';
 
+import { PageContext } from '../../core/navigation/page-context';
 import { CurrentUserService } from '../../core/current-user.service';
 import { CyclesApi } from '../../core/api/cycles-api';
-import { WorktrailApiService } from '../../core/worktrail-api.service';
+import { ProjectsApi } from '../../core/api/projects-api';
+import { WorkItemsApi } from '../../core/api/work-items-api';
+import { WorkspaceApi } from '../../core/api/workspace-api';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
@@ -32,6 +40,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
 
 @Component({
   selector: 'app-work-item-create-page',
+  host: { '[attr.inert]': 'departure.isDeparting() ? "": null' },
   imports: [
     AuthoredContentEditorComponent,
     EmptyStateComponent,
@@ -55,7 +64,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
         </p>
       </div>
 
-      <a [routerLink]="returnTarget().path" [queryParams]="returnTarget().queryParams">
+      <a [routerLink]="returnTarget().path" [queryParams]="returnTarget().queryParams" [fragment]="returnTarget().fragment ?? undefined">
         {{ returnTarget().label }}
       </a>
     </section>
@@ -98,7 +107,7 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
             (retry)="retryParentLoad()"
           />
         } @else if (parentWorkItem(); as parent) {
-          <app-work-item-parent-context [parent]="parent" />
+          <app-work-item-parent-context [parent]="parent" [navigationContext]="navigationContext()" />
           <p class="parent-preview__note">Milestone and cycle remain independent for this child.</p>
         }
       </section>
@@ -112,11 +121,11 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
         </div>
 
         <div class="success-actions">
-          <a [routerLink]="['/work-items', created.id]">Open work item</a>
-          <button type="button" class="secondary-action" (click)="createAnother()">
+          <a [routerLink]="createdTarget().path" [queryParams]="createdTarget().queryParams" [fragment]="createdTarget().fragment ?? undefined">Open work item</a>
+          <button type="button" class="secondary-action" (click)="requestCreateAnother()">
             Create another
           </button>
-          <a [routerLink]="returnTarget().path" [queryParams]="returnTarget().queryParams">
+          <a [routerLink]="returnTarget().path" [queryParams]="returnTarget().queryParams" [fragment]="returnTarget().fragment ?? undefined">
             {{ returnTarget().label }}
           </a>
         </div>
@@ -582,16 +591,27 @@ const priorities: WorkItemPriority[] = ['low', 'medium', 'high', 'urgent'];
   `
 })
 export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
-  private readonly api = inject(WorktrailApiService);
+  readonly departure = inject(DraftDepartureCoordinator);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly creationDraft = new DraftTracker(() => this.creationDraftValue());
+  private creationDraftToken!: symbol;
+  private lastCycleRouteId = '';
+  private readonly context = new PageContext();
+  private readonly projectsApi = inject(ProjectsApi);
+  private readonly workItemsApi = inject(WorkItemsApi);
+  private readonly workspaceApi = inject(WorkspaceApi);
   private readonly cyclesApi = inject(CyclesApi);
   private readonly currentUser = inject(CurrentUserService);
   private readonly formBuilder = inject(FormBuilder);
-  private readonly route = inject(ActivatedRoute);
   private readonly subscriptions = new Subscription();
-  private readonly routeProjectId = this.route.snapshot.paramMap.get('projectId') ?? '';
-  private readonly routeCycleId = this.route.snapshot.queryParamMap?.get('cycleId') ?? '';
-  private readonly initialParentWorkItemId =
-    this.route.snapshot.queryParamMap?.get('parentWorkItemId') ?? '';
+  private projectOptionsSubscription = new Subscription();
+  private projectSelectionGeneration = 0;
+  private parentSelectionGeneration = 0;
+  private parentSubscription: Subscription | null = null;
+  private loadedParentRouteId: string | null = null;
+  private get routeProjectId(): string { return this.context.param('projectId'); }
+  private get routeCycleId(): string { return this.context.query('cycleId'); }
+  private get initialParentWorkItemId(): string { return this.context.query('parentWorkItemId'); }
 
   readonly types = types;
   readonly priorities = priorities;
@@ -608,7 +628,7 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
   readonly createdWorkItem = signal<WorkItemDetailDto | null>(null);
   readonly parentWorkItem = signal<WorkItemDetailDto | null>(null);
   readonly requestedParentWorkItemId = signal(this.initialParentWorkItemId);
-  readonly routeReturnUrl = signal(this.route.snapshot.queryParamMap?.get('returnUrl') ?? '');
+  readonly routeReturnUrl = computed(() => this.context.query('returnUrl'));
   readonly isCreating = signal(false);
   readonly isParentLoading = signal(false);
   readonly hasSubmitted = signal(false);
@@ -632,25 +652,20 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
       this.isParentLoading() ||
       this.isCreating()
   );
+
+  readonly navigationContext = computed(() => workNavigationContext(
+    this.context.queryValues('returnUrl').length > 1 ? '\0' : this.context.query('returnUrl'),
+    this.context.queryValues('returnTo').length > 1 ? '\0' : this.context.query('returnTo'),
+    this.selectedProjectId() ? '/projects/' + this.selectedProjectId() + '/work-items' : '/work-items'
+  ));
   readonly returnTarget = computed(() => {
-    const parsedReturnUrl = this.parseSafeReturnUrl(this.routeReturnUrl());
-
-    if (parsedReturnUrl !== null) {
-      return {
-        ...parsedReturnUrl,
-        label:
-          this.parentWorkItem() === null ? 'Back' : `Back to ${this.parentWorkItem()!.displayKey}`
-      };
-    }
-
-    return this.isProjectScoped()
-      ? {
-          path: `/projects/${this.routeProjectId}/work-items`,
-          queryParams: null,
-          label: 'Back to list'
-        }
-      : { path: '/my-work', queryParams: null, label: 'Back to My Work' };
+    const target = returnNavigationTarget(this.navigationContext());
+    const parent = this.parentWorkItem();
+    return parent && target.path === '/work-items/' + parent.id
+      ? { ...target, label: 'Back to ' + parent.displayKey } : target;
   });
+  readonly createdTarget = computed(() => recordNavigationTarget(
+    this.createdWorkItem()?.id ?? 'new-record', this.navigationContext()));
 
   readonly workItemForm = this.formBuilder.nonNullable.group({
     projectId: [this.routeProjectId, [Validators.required]],
@@ -669,24 +684,61 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
   });
 
   ngOnInit(): void {
-    if (this.currentUser.members().length === 0) {
-      this.currentUser.loadMembers();
-    }
-
-    this.loadCapabilities();
+    if (this.currentUser.members().length === 0) this.currentUser.loadMembers();
+    this.registerDraft();
     this.watchProjectSelection();
-    this.watchParentRouteState();
-
-    if (this.isProjectScoped()) {
-      this.workItemForm.controls.projectId.setValue(this.routeProjectId, { emitEvent: false });
-      this.loadProjectContext(this.routeProjectId);
-    } else {
-      this.loadProjects();
-    }
+    this.context.start(() => {
+      this.clearProjectOptions();
+      this.selectedProjectId.set(this.routeProjectId);
+      this.project.set(null);
+      this.activeProjects.set([]);
+      this.capabilities.set(null);
+      this.availableLabels.set([]);
+      this.availableMilestones.set([]);
+      this.availableCycles.set([]);
+      this.selectedLabelIds.set([]);
+      this.createdWorkItem.set(null);
+      this.parentWorkItem.set(null);
+      this.requestedParentWorkItemId.set(this.initialParentWorkItemId);
+      this.isCreating.set(false);
+      this.isParentLoading.set(false);
+      this.hasSubmitted.set(false);
+      this.isProjectListLoading.set(false);
+      this.createError.set(null);
+      this.projectListError.set(null);
+      this.projectLoadError.set(null);
+      this.labelLoadError.set(null);
+      this.milestoneLoadError.set(null);
+      this.cycleLoadError.set(null);
+      this.parentLoadError.set(null);
+      this.workItemForm.reset({
+        projectId: this.routeProjectId, title: '',
+        descriptionContent: { source: '', format: 'markdown_v1' },
+        type: 'task', priority: 'medium', assigneeId: '', milestoneId: '',
+        cycleId: this.routeProjectId === '' ? '' : this.routeCycleId,
+        dueDate: '', estimatePoints: ''
+      }, { emitEvent: false });
+      this.creationDraft.accept();
+      this.lastCycleRouteId = this.routeCycleId;
+      this.loadCapabilities();
+      this.applyParentRouteState();
+      if (this.isProjectScoped()) this.loadProjectContext(this.routeProjectId);
+      else this.loadProjects();
+    });
+    this.subscriptions.add(this.context.queryParamMap$.subscribe(() => {
+      if (this.lastCycleRouteId !== this.routeCycleId) {
+        this.lastCycleRouteId = this.routeCycleId;
+        this.workItemForm.controls.cycleId.setValue(this.routeCycleId, { emitEvent: false });
+        this.creationDraft.accept();
+      }
+      if (this.loadedParentRouteId !== this.initialParentWorkItemId) this.applyParentRouteState();
+    }));
   }
 
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
+    this.projectOptionsSubscription.unsubscribe();
+    this.parentSubscription?.unsubscribe();
   }
 
   createWorkItem(): void {
@@ -717,15 +769,24 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
       return;
     }
 
+    const generation = this.projectSelectionGeneration;
+    const parentGeneration = this.parentSelectionGeneration;
+    const submitted = this.creationDraftValue();
     this.isCreating.set(true);
-    this.api.createWorkItem(this.selectedProjectId(), this.toRequest()).subscribe({
+    this.syncReadOnlyState();
+    this.workItemsApi.createWorkItem(this.selectedProjectId(), this.toRequest()).pipe(this.context.guardMutation(() =>
+      generation === this.projectSelectionGeneration && parentGeneration === this.parentSelectionGeneration
+    )).subscribe({
       next: (workItem) => {
         this.createdWorkItem.set(workItem);
+        this.creationDraft.accept(submitted);
         this.isCreating.set(false);
+        this.syncReadOnlyState();
       },
       error: (error: HttpErrorResponse) => {
         this.createError.set(this.toErrorMessage(error, 'The work item could not be created.'));
         this.isCreating.set(false);
+        this.syncReadOnlyState();
       }
     });
   }
@@ -748,6 +809,7 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
     this.hasSubmitted.set(false);
     this.createError.set(null);
     this.createdWorkItem.set(null);
+    this.creationDraft.accept();
   }
 
   showProjectError(): boolean {
@@ -773,7 +835,7 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
     this.isProjectListLoading.set(true);
     this.projectListError.set(null);
 
-    this.api.listProjects().subscribe({
+    this.projectsApi.listProjects().pipe(this.context.guard()).subscribe({
       next: (projects) => {
         this.activeProjects.set(projects.filter((project) => project.status === 'active'));
         this.isProjectListLoading.set(false);
@@ -796,14 +858,14 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
       return;
     }
 
-    this.api.listProjectLabels(projectId).subscribe({
+    this.projectOptionsSubscription.add(this.projectsApi.listProjectLabels(projectId).pipe(this.context.guard()).subscribe({
       next: (labels) => {
         this.availableLabels.set(labels.filter((label) => !label.isArchived));
       },
       error: () => {
         this.labelLoadError.set('Project labels could not be loaded from the API.');
       }
-    });
+    }));
   }
 
   loadProjectMilestones(): void {
@@ -816,14 +878,14 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
       return;
     }
 
-    this.api.listProjectMilestones(projectId).subscribe({
+    this.projectOptionsSubscription.add(this.projectsApi.listProjectMilestones(projectId).pipe(this.context.guard()).subscribe({
       next: (milestones) => {
         this.availableMilestones.set(milestones.filter((milestone) => !milestone.isArchived));
       },
       error: () => {
         this.milestoneLoadError.set('Project milestones could not be loaded from the API.');
       }
-    });
+    }));
   }
 
   loadProjectCycles(): void {
@@ -836,7 +898,7 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
       return;
     }
 
-    this.cyclesApi.listCycles(projectId).subscribe({
+    this.projectOptionsSubscription.add(this.cyclesApi.listCycles(projectId).pipe(this.context.guard()).subscribe({
       next: (cycles) => {
         this.availableCycles.set(
           this.sortCycles(
@@ -850,7 +912,7 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
       error: () => {
         this.cycleLoadError.set('Project cycles could not be loaded from the API.');
       }
-    });
+    }));
   }
 
   retryProjectLoad(): void {
@@ -891,74 +953,45 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
   }
 
   private watchProjectSelection(): void {
-    this.subscriptions.add(
-      this.workItemForm.controls.projectId.valueChanges
-        .pipe(distinctUntilChanged())
-        .subscribe((projectId) => {
-          if (this.isProjectScoped()) {
-            return;
-          }
-
+    this.subscriptions.add(this.workItemForm.controls.projectId.valueChanges
+      .subscribe((projectId) => {
+        if (this.isProjectScoped() || projectId === this.selectedProjectId()) return;
+        this.workItemForm.controls.projectId.setValue(this.selectedProjectId(), { emitEvent: false });
+        void this.departure.change(() => {
+          this.clearProjectOptions();
           this.selectedProjectId.set(projectId);
-          this.selectedLabelIds.set([]);
-          this.workItemForm.controls.milestoneId.setValue('', { emitEvent: false });
-          this.workItemForm.controls.cycleId.setValue('', { emitEvent: false });
-          this.createdWorkItem.set(null);
-
-          if (projectId === '') {
-            this.project.set(null);
-            this.availableLabels.set([]);
-            this.availableMilestones.set([]);
-            this.availableCycles.set([]);
-            this.syncReadOnlyState();
-            return;
-          }
-
-          this.loadProjectContext(projectId);
-        })
-    );
+          this.resetCreationDraft();
+          if (projectId !== '') this.loadProjectContext(projectId);
+          this.syncReadOnlyState();
+        }, [this.creationDraftToken]);
+      }));
   }
 
-  private watchParentRouteState(): void {
-    this.subscriptions.add(
-      this.route.queryParamMap
-        .pipe(
-          map((params) => ({
-            parentWorkItemId: params.get('parentWorkItemId') ?? '',
-            returnUrl: params.get('returnUrl') ?? ''
-          })),
-          distinctUntilChanged(
-            (left, right) =>
-              left.parentWorkItemId === right.parentWorkItemId && left.returnUrl === right.returnUrl
-          )
-        )
-        .subscribe(({ parentWorkItemId, returnUrl }) => {
-          this.routeReturnUrl.set(returnUrl);
-          this.requestedParentWorkItemId.set(parentWorkItemId);
-          this.parentWorkItem.set(null);
-          this.parentLoadError.set(null);
-
-          if (parentWorkItemId === '') {
-            this.isParentLoading.set(false);
-            return;
-          }
-
-          if (!this.isProjectScoped()) {
-            this.parentLoadError.set('Child creation must be opened from a project work item.');
-            this.isParentLoading.set(false);
-            return;
-          }
-
-          this.loadParentContext(parentWorkItemId);
-        })
-    );
+  private applyParentRouteState(): void {
+    const parentWorkItemId = this.initialParentWorkItemId;
+    this.parentSelectionGeneration += 1;
+    this.isCreating.set(false);
+    this.createError.set(null);
+    this.createdWorkItem.set(null);
+    this.parentSubscription?.unsubscribe();
+    this.loadedParentRouteId = parentWorkItemId;
+    this.parentWorkItem.set(null);
+    this.parentLoadError.set(null);
+    this.isParentLoading.set(false);
+    this.requestedParentWorkItemId.set(parentWorkItemId);
+    if (parentWorkItemId === '') return;
+    if (!this.isProjectScoped()) {
+      this.parentLoadError.set('Child creation must be opened from a project work item.');
+      return;
+    }
+    this.loadParentContext(parentWorkItemId);
   }
 
   private loadParentContext(parentWorkItemId: string): void {
     this.isParentLoading.set(true);
     this.parentLoadError.set(null);
 
-    this.api.getWorkItem(parentWorkItemId).subscribe({
+    this.parentSubscription = this.workItemsApi.getWorkItem(parentWorkItemId).pipe(this.context.guard()).subscribe({
       next: (parent) => {
         if (parentWorkItemId !== this.requestedParentWorkItemId()) {
           return;
@@ -990,7 +1023,7 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
   private loadProjectContext(projectId: string): void {
     this.projectLoadError.set(null);
 
-    this.api.getProject(projectId).subscribe({
+    this.projectOptionsSubscription.add(this.projectsApi.getProject(projectId).pipe(this.context.guard()).subscribe({
       next: (project) => {
         this.project.set(project);
         this.syncReadOnlyState();
@@ -1000,7 +1033,7 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
         this.projectLoadError.set('Project could not be loaded from the API.');
         this.syncReadOnlyState();
       }
-    });
+    }));
 
     this.loadProjectLabels();
     this.loadProjectMilestones();
@@ -1008,7 +1041,7 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
   }
 
   private loadCapabilities(): void {
-    this.api.getWorkspaceCapabilities().subscribe({
+    this.workspaceApi.getWorkspaceCapabilities().pipe(this.context.guard()).subscribe({
       next: (capabilities) => {
         this.capabilities.set(capabilities);
         this.syncReadOnlyState();
@@ -1021,7 +1054,7 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
   }
 
   private syncReadOnlyState(): void {
-    if (this.isArchivedProject() || !this.canCreateWorkItems()) {
+    if (this.isCreating() || this.isArchivedProject() || !this.canCreateWorkItems()) {
       this.workItemForm.disable({ emitEvent: false });
     } else {
       this.workItemForm.enable({ emitEvent: false });
@@ -1048,7 +1081,8 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
     };
   }
 
-  private normalizeEstimate(value: string | number): string {
+  private normalizeEstimate(value: string | number | null | undefined): string {
+    if (value === null || value === undefined) return '';
     return typeof value === 'number' ? value.toString() : value.trim();
   }
 
@@ -1068,37 +1102,58 @@ export class WorkItemCreatePageComponent implements OnDestroy, OnInit {
     return typeof message === 'string' ? message : fallback;
   }
 
-  private parseSafeReturnUrl(rawReturnUrl: string): {
-    path: string;
-    queryParams: Record<string, string> | null;
-  } | null {
-    if (
-      rawReturnUrl.trim() === '' ||
-      !rawReturnUrl.startsWith('/') ||
-      rawReturnUrl.startsWith('//') ||
-      /^[a-z][a-z0-9+.-]*:/i.test(rawReturnUrl) ||
-      rawReturnUrl.includes('\\')
-    ) {
-      return null;
-    }
 
-    for (const character of rawReturnUrl) {
-      const code = character.charCodeAt(0);
-      if (code <= 31 || code === 127) {
-        return null;
-      }
-    }
-
-    const [pathAndQuery] = rawReturnUrl.split('#', 1);
-    const [path, queryString = ''] = pathAndQuery.split('?', 2);
-    const queryParams: Record<string, string> = {};
-    new URLSearchParams(queryString).forEach((value, key) => {
-      queryParams[key] = value;
-    });
-
-    return {
-      path,
-      queryParams: Object.keys(queryParams).length === 0 ? null : queryParams
-    };
+  private clearProjectOptions(): void {
+    this.projectSelectionGeneration += 1;
+    this.projectOptionsSubscription.unsubscribe();
+    this.projectOptionsSubscription = new Subscription();
+    this.project.set(null);
+    this.availableLabels.set([]);
+    this.availableMilestones.set([]);
+    this.availableCycles.set([]);
+    this.projectLoadError.set(null);
+    this.labelLoadError.set(null);
+    this.milestoneLoadError.set(null);
+    this.cycleLoadError.set(null);
   }
+
+  private resetCreationDraft(): void {
+    this.workItemForm.reset({
+      projectId: this.selectedProjectId(), title: '',
+      descriptionContent: { source: '', format: 'markdown_v1' },
+      type: 'task', priority: 'medium', assigneeId: '', milestoneId: '',
+      cycleId: this.isProjectScoped() ? this.routeCycleId : '', dueDate: '', estimatePoints: ''
+    }, { emitEvent: false });
+    this.selectedLabelIds.set([]);
+    this.createdWorkItem.set(null);
+    this.createError.set(null);
+    this.hasSubmitted.set(false);
+    this.creationDraft.accept();
+  }
+
+  requestCreateAnother(): Promise<boolean> {
+    return this.departure.change(() => this.createAnother(), [this.creationDraftToken]);
+  }
+
+  private creationDraftValue() {
+    const value = this.workItemForm.getRawValue();
+    const estimate = this.normalizeEstimate(value.estimatePoints);
+    return { ...value, title: value.title.trim(),
+      descriptionContent: { ...value.descriptionContent,
+        source: normalizeAuthoredContentSource(value.descriptionContent.source) },
+      estimatePoints: estimate === '' ? null : /^\d+$/.test(estimate) && Number.isSafeInteger(Number(estimate)) ? Number(estimate) : estimate,
+      labels: [...new Set(this.selectedLabelIds())].sort() };
+  }
+
+  private registerDraft(): void {
+    this.creationDraftToken = this.departure.register({
+      category: 'New work item',
+      context: () => this.context.contextKey() + ':' + this.selectedProjectId(),
+      routeKey: () => draftRouteKey('create', this.routeProjectId, this.initialParentWorkItemId, this.routeCycleId),
+      revision: () => this.creationDraft.revision(), meaningful: () => this.creationDraft.meaningful(),
+      pending: () => this.isCreating(), discard: () => this.resetCreationDraft()
+    }, this.destroyRef);
+    this.subscriptions.add(this.workItemForm.valueChanges.subscribe(() => this.departure.refresh()));
+  }
+
 }

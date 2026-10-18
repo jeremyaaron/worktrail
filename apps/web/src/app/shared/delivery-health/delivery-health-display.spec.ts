@@ -41,6 +41,7 @@ describe('delivery health display helpers', () => {
       severity: 'critical',
       message: '2 dependency-blocked work items',
       count: 2,
+      countUnit: 'work_items' as const,
       query: {
         dependency: 'dependency_blocked',
         sort: 'priority_desc'
@@ -56,6 +57,7 @@ describe('delivery health display helpers', () => {
       severity: 'critical',
       message: '1 blocked work item',
       count: 1,
+      countUnit: 'work_items' as const,
       query: {
         milestoneId: '10000000-0000-4000-8000-000000000351',
         status: 'blocked',
@@ -67,6 +69,7 @@ describe('delivery health display helpers', () => {
     expect(deliveryHealthReasonQueryParams(reason)).toEqual({
       milestoneId: '10000000-0000-4000-8000-000000000351',
       status: 'blocked',
+      blocked: 'true',
       sort: 'priority_desc'
     });
   });
@@ -85,6 +88,7 @@ describe('delivery health display helpers', () => {
 
     expect(workItemQueryToRouterQueryParams(query)).toEqual({
       status: 'blocked',
+      blocked: 'false',
       sort: 'priority_desc'
     });
     expect(workItemQueryToRouterQueryParams(null)).toBeNull();

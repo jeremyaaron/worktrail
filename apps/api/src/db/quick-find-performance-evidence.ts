@@ -6,6 +6,7 @@ import type { PoolClient, QueryResultRow } from 'pg';
 
 import { createQuickFindRepository } from '../repositories/quick-find-repository.js';
 import { createDb, createPool } from './client.js';
+import { assertVerificationTarget } from './verification-target.js';
 
 const workspaceId = '10000000-0000-4000-8000-000000000001';
 const ownerId = '10000000-0000-4000-8000-000000000101';
@@ -660,22 +661,26 @@ function printEvidence(results: EvidenceResult[], warmDurations: number[]): void
 }
 
 const pool = createPool();
-const client = await pool.connect();
+let client: PoolClient | undefined;
 
 try {
+  await assertVerificationTarget(pool);
+  client = await pool.connect();
   await client.query('begin');
   await createRepresentativeFixture(client);
   const results = await captureEvidence(client);
   const warmDurations = await measureAggregate(client);
   printEvidence(results, warmDurations);
 } finally {
-  await client.query('rollback').catch(() => undefined);
-  await client
-    .query(
-      `analyze projects, work_items, milestones, project_cycles,
-        project_status_reports, work_item_attachments`
-    )
-    .catch(() => undefined);
-  client.release();
+  if (client !== undefined) {
+    await client.query('rollback').catch(() => undefined);
+    await client
+      .query(
+        `analyze projects, work_items, milestones, project_cycles,
+          project_status_reports, work_item_attachments`
+      )
+      .catch(() => undefined);
+    client.release();
+  }
   await pool.end();
 }

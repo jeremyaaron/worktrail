@@ -1,6 +1,6 @@
 {
   "name": "@worktrail/contracts",
-  "version": "0.2.9",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -19,6 +19,6 @@
   },
   "devDependencies": {
     "typescript": "~5.9.2",
-    "vitest": "^4.0.14"
+    "vitest": "^4.1.11"
   }
 }

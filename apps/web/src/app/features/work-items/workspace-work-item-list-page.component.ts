@@ -1,14 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import {
-  Component,
-  OnDestroy,
-  OnInit,
-  ViewChild,
-  computed,
-  effect,
-  inject,
-  signal
-} from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import type {
@@ -32,17 +23,23 @@ import type {
   WorkItemType,
   WorkspaceWorkItemListItemDto
 } from '@worktrail/contracts';
-import { Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
+import { Subscription } from 'rxjs';
+import { recordOriginParams } from '../../shared/navigation/work-navigation';
+import { workItemFilterChips, type WorkItemFilterChip } from './query/work-item-filter-labels';
+import type { WorkspaceWorkItemFilterFormValue } from './query/work-item-filter-state';
+import { SavedViewsStore } from './state/saved-views.store';
 
-import { CurrentUserService } from '../../core/current-user.service';
-import { WorktrailApiService } from '../../core/worktrail-api.service';
-import { ClipboardService } from '../../shared/clipboard.service';
 import { CyclesApi } from '../../core/api/cycles-api';
+import { ProjectsApi } from '../../core/api/projects-api';
+import { SavedViewsApi } from '../../core/api/saved-views-api';
+import { WorkItemsApi } from '../../core/api/work-items-api';
+import { CurrentUserService } from '../../core/current-user.service';
+import { PageContext } from '../../core/navigation/page-context';
+import { ClipboardService } from '../../shared/clipboard.service';
 import { downloadBlob, fileNameFromContentDisposition } from '../../shared/download-file';
 import { apiErrorMessageFromBody } from '../../shared/http-error-message';
 import {
   dependencyFilterLabel,
-  filterPillLabel,
   projectBadge,
   projectTitle,
   workItemMetadata,
@@ -103,27 +100,7 @@ const sorts: Array<{ label: string; value: WorkItemSort }> = [
   { label: 'Board order', value: 'board_order' }
 ];
 
-interface WorkspaceFilterFormValue {
-  search: string;
-  projectId: string;
-  status: string;
-  workState: string;
-  assigneeId: string;
-  reporterId: string;
-  type: string;
-  labelId: string;
-  milestoneId: string;
-  cycleId: string;
-  priority: string;
-  dueDateState: string;
-  blocked: string;
-  dependency: string;
-  workRisk: string;
-  hierarchy: string;
-  parentKey: string;
-  archivedProjects: string;
-  sort: string;
-}
+type WorkspaceFilterFormValue = WorkspaceWorkItemFilterFormValue;
 
 @Component({
   selector: 'app-workspace-work-item-list-page',
@@ -160,7 +137,7 @@ interface WorkspaceFilterFormValue {
           >
             {{ isExporting() ? 'Exporting...' : 'Export CSV' }}
           </button>
-          <a class="primary-action" routerLink="/work-items/new">Create work item</a>
+          <a class="primary-action" routerLink="/work-items/new" [queryParams]="createQueryParams()">Create work item</a>
           @if (copyLinkStatus()) {
             <span class="copy-link-status" aria-live="polite">{{ copyLinkStatus() }}</span>
           }
@@ -172,7 +149,7 @@ interface WorkspaceFilterFormValue {
       }
 
       <section class="work-list-views" aria-label="Workspace saved views">
-        <app-pinned-saved-views
+        <app-pinned-saved-views [openedViewId]="savedViewState().id"
           [sharedViews]="pinnedWorkspaceSavedViews()"
           [personalViews]="pinnedPersonalSavedViews()"
           (open)="openSavedView($event)"
@@ -181,11 +158,16 @@ interface WorkspaceFilterFormValue {
         <app-saved-views-toolbar
           [personalViews]="personalSavedViews()"
           [sharedViews]="workspaceSavedViews()"
+          [canManagePersonalViews]="currentActorCanManagePersonal()"
           [canManageSharedViews]="canManageWorkspaceSavedViews()"
+          [openedViewId]="savedViewState().id" [viewState]="savedViewState().label"
+          [contextKey]="savedViewsContextKey()" [manageableViewIds]="savedViewsState.manageableViewIds()"
+          [createdRevision]="savedViewsState.createdRevision()"
           [draftNames]="savedViewDraftNames()"
           [isLoading]="isSavedViewLoading()"
           [isSaving]="isSavingView()"
           [loadError]="savedViewLoadError()"
+          (retryLoad)="loadSavedViews()"
           [mutationError]="savedViewMutationError()"
           querySummaryScope="workspace"
           emptyMessage="Save the current filters to reuse this workspace view."
@@ -202,7 +184,7 @@ interface WorkspaceFilterFormValue {
       </section>
 
       <section class="work-list-filters" aria-label="Workspace work item filters">
-        <app-active-filter-chips [labels]="activeFilterLabels()" (remove)="removeActiveFilter($event)" />
+        <app-active-filter-chips [chips]="activeFilterChips()" (remove)="removeActiveFilter($event)" />
 
         <app-work-item-filter-panel [formGroup]="filterForm" (apply)="applyFilters()">
       <label filterCore class="filters__search">
@@ -364,6 +346,34 @@ interface WorkspaceFilterFormValue {
       </label>
 
       <label filterAdvanced>
+        <span>Assignment</span>
+        <select formControlName="assigneeState">
+          <option value="">Any assignment</option>
+          <option value="assigned">Assigned</option>
+          <option value="unassigned">Unassigned</option>
+        </select>
+      </label>
+
+      <label filterAdvanced>
+        <span>Estimate</span>
+        <select formControlName="estimateState">
+          <option value="">Any estimate</option>
+          <option value="estimated">Estimated</option>
+          <option value="unestimated">Unestimated</option>
+        </select>
+      </label>
+
+      <label filterAdvanced>
+        <span>Risk</span>
+        <select formControlName="workRisk">
+          <option value="">Any risk</option>
+          <option value="unassigned_active">Unassigned active</option>
+          <option value="stale_in_progress">Stale in progress</option>
+        </select>
+      </label>
+      <label filterAdvanced><span>Parent key</span><input formControlName="parentKey" maxlength="80" /></label>
+
+      <label filterAdvanced>
         <span>Sort</span>
         <select formControlName="sort">
           @for (sort of sorts; track sort.value) {
@@ -373,13 +383,18 @@ interface WorkspaceFilterFormValue {
       </label>
 
       <div filterActions class="filter-actions">
+        <button type="submit" class="primary-action">Apply</button>
         <button type="button" class="secondary-action" (click)="resetFilters()">Reset</button>
       </div>
         </app-work-item-filter-panel>
       </section>
 
       <section class="work-list-results" aria-label="Workspace work item results">
-        <app-work-item-result-list
+        <p class="results-status" role="status" aria-label="Work item results status">{{ resultsMessage() }}</p>
+
+      <app-work-item-pagination [metadata]="pageMetadata()" [disabled]="isLoading()" [compact]="true"
+        (pageChange)="goToPage($event)" (pageSizeChange)="changePageSize($event)" />
+      <app-work-item-result-list
           [items]="workItems()"
           [metadata]="pageMetadata()"
           mode="workspace"
@@ -518,73 +533,11 @@ interface WorkspaceFilterFormValue {
       line-height: 1.4;
     }
 
-    .saved-views,
     .filters,
     .list-panel {
       border: 1px solid #e5e7eb;
       border-radius: 8px;
       background: #ffffff;
-    }
-
-    .saved-views {
-      display: grid;
-      gap: 14px;
-      margin-bottom: 18px;
-      padding: 16px;
-    }
-
-    .saved-views__heading {
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      align-items: start;
-    }
-
-    .saved-views__heading p {
-      margin-top: 4px;
-    }
-
-    .saved-view-form {
-      display: grid;
-      grid-template-columns: minmax(220px, 1fr) auto;
-      gap: 12px;
-      align-items: end;
-    }
-
-    .saved-view-list {
-      display: grid;
-      gap: 10px;
-    }
-
-    .saved-view-row {
-      display: grid;
-      grid-template-columns: minmax(180px, 1fr) minmax(180px, 0.8fr) auto;
-      gap: 12px;
-      align-items: end;
-      border-top: 1px solid #eef2f7;
-      padding-top: 12px;
-    }
-
-    .saved-view-row strong {
-      display: block;
-      color: #111827;
-      font-size: 0.875rem;
-      line-height: 1.35;
-    }
-
-    .saved-view-row small {
-      display: block;
-      margin-top: 4px;
-      color: #64748b;
-      font-size: 0.75rem;
-      line-height: 1.4;
-    }
-
-    .saved-view-actions {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-      gap: 8px;
     }
 
     .filters {
@@ -639,24 +592,6 @@ interface WorkspaceFilterFormValue {
       display: flex;
       gap: 8px;
       align-items: end;
-    }
-
-    .active-filters {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-bottom: 14px;
-    }
-
-    .active-filters span {
-      min-height: 24px;
-      border: 1px solid #bfdbfe;
-      border-radius: 999px;
-      padding: 3px 8px;
-      background: #eff6ff;
-      color: #1d4ed8;
-      font-size: 0.75rem;
-      font-weight: 800;
     }
 
     .list-panel {
@@ -806,14 +741,6 @@ interface WorkspaceFilterFormValue {
       .filters {
         grid-template-columns: repeat(3, minmax(0, 1fr));
       }
-
-      .saved-view-row {
-        grid-template-columns: 1fr;
-      }
-
-      .saved-view-actions {
-        justify-content: flex-start;
-      }
     }
 
     @media (max-width: 760px) {
@@ -823,12 +750,6 @@ interface WorkspaceFilterFormValue {
 
       .filters {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .saved-views__heading,
-      .saved-view-form {
-        display: grid;
-        grid-template-columns: 1fr;
       }
 
       .filters__search {
@@ -852,9 +773,12 @@ interface WorkspaceFilterFormValue {
   `
 })
 export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
+  private readonly context = new PageContext();
   @ViewChild(WorkItemResultListComponent) private resultList?: WorkItemResultListComponent;
 
-  private readonly api = inject(WorktrailApiService);
+  private readonly projectsApi = inject(ProjectsApi);
+  private readonly savedViewsApi = inject(SavedViewsApi);
+  private readonly workItemsApi = inject(WorkItemsApi);
   private readonly cyclesApi = inject(CyclesApi);
   private readonly clipboard = inject(ClipboardService);
   private readonly currentUser = inject(CurrentUserService);
@@ -862,46 +786,14 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly subscriptions = new Subscription();
+  private projectOptionsSubscription = new Subscription();
   private readonly queryState = WorkListQueryStore.workspace();
   private workItemsSubscription: Subscription | null = null;
-  private selectedActorId = this.currentUser.selectedMemberId();
-  private hasInitialized = false;
+  private pendingContextPageReset = false;
   private loadedProjectFilterId: string | null = null;
   private focusAfterLoadPageKey: string | null = null;
   private focusResultTimer: ReturnType<typeof setTimeout> | null = null;
   private copyLinkStatusTimer: ReturnType<typeof setTimeout> | null = null;
-
-  private readonly actorChangeEffect = effect(() => {
-    const actorId = this.currentUser.selectedMemberId();
-
-    if (actorId === this.selectedActorId) {
-      return;
-    }
-
-    this.selectedActorId = actorId;
-    if (!this.hasInitialized) {
-      return;
-    }
-
-    this.workItemsSubscription?.unsubscribe();
-    this.clearResultFocusRequest();
-    this.activePageQuery.set({ ...defaultWorkItemPageQuery });
-    this.workItems.set([]);
-    this.pageMetadata.set(emptyPageMetadata());
-    this.error.set(null);
-    this.isLoading.set(false);
-    this.reloadActorContext();
-    void this.router
-      .navigate([], {
-        relativeTo: this.route,
-        queryParams: this.queryState.routerQueryParamsForResolvedPage(defaultWorkItemPageQuery)
-      })
-      .then((navigated) => {
-        if (!navigated) {
-          this.loadWorkItems();
-        }
-      });
-  });
 
   readonly statuses = statuses;
   readonly workStates = workStates;
@@ -924,32 +816,29 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   );
 
   readonly projectSummaries = signal<ProjectNavigationSummaryDto[]>([]);
-  readonly savedViews = signal<SavedWorkViewDto[]>([]);
-  readonly personalSavedViews = computed<SavedWorkViewDto[]>(() =>
-    this.sortSavedViews(
-      this.savedViews().filter(
-        (savedView) => savedView.scope === 'workspace' && savedView.visibility === 'personal'
-      )
-    )
-  );
-  readonly workspaceSavedViews = computed<SavedWorkViewDto[]>(() =>
-    this.sortSavedViews(
-      this.savedViews().filter(
-        (savedView) => savedView.scope === 'workspace' && savedView.visibility === 'workspace'
-      )
-    )
-  );
-  readonly pinnedPersonalSavedViews = computed<SavedWorkViewDto[]>(() =>
-    this.personalSavedViews().filter((savedView) => savedView.isPinned)
-  );
-  readonly pinnedWorkspaceSavedViews = computed<SavedWorkViewDto[]>(() =>
-    this.workspaceSavedViews().filter((savedView) => savedView.isPinned)
-  );
-  readonly canManageWorkspaceSavedViews = computed(() => {
-    const role = this.currentUser.selectedMember()?.role;
-    return role === 'owner' || role === 'maintainer';
+  readonly savedViewsState = new SavedViewsStore(this.savedViewsApi, {
+    scope: 'workspace', actor: () => this.currentUser.selectedMember(),
+
+    contextKey: () => this.context.contextKey(), appliedQuery: () => this.queryState.activeQuery(),
+    canManagePersonalViews: () => this.currentUser.selectedMember()?.isActive === true, canManageSharedViews: () => this.canManageWorkspaceSavedViews(),
+
+    loadErrorMessage: 'Saved views could not be loaded from the API.'
   });
-  readonly savedViewDraftNames = signal<Record<string, string>>({});
+  readonly savedViewState = this.savedViewsState.viewState;
+  readonly savedViewsContextKey = computed(() => this.context.contextKey());
+  readonly resultsMessage = computed(() => this.queryState.resultsSummary() === null ? null :
+    this.savedViewState().label + '. ' + this.queryState.resultsSummary());
+  private viewOpenGeneration = 0;
+  readonly savedViews = this.savedViewsState.views;
+  readonly personalSavedViews = this.savedViewsState.personalViews;
+  readonly workspaceSavedViews = this.savedViewsState.sharedViews;
+  readonly pinnedPersonalSavedViews = this.savedViewsState.pinnedPersonalViews;
+  readonly pinnedWorkspaceSavedViews = this.savedViewsState.pinnedSharedViews;
+  readonly canManageWorkspaceSavedViews = computed(() => {
+    const actor = this.currentUser.selectedMember();
+    return actor?.isActive === true && (actor.role === 'owner' || actor.role === 'maintainer');
+  });
+  readonly savedViewDraftNames = this.savedViewsState.draftNames;
   readonly labels = signal<LabelDto[]>([]);
   readonly milestones = signal<MilestoneDto[]>([]);
   readonly cycles = signal<ProjectCycleDto[]>([]);
@@ -963,12 +852,14 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   readonly copyLinkStatus = signal<string | null>(null);
   readonly isExporting = signal(false);
   readonly exportError = signal<string | null>(null);
-  readonly isSavedViewLoading = signal(false);
-  readonly savedViewLoadError = signal<string | null>(null);
-  readonly isSavingView = signal(false);
-  readonly savedViewMutationError = signal<string | null>(null);
+  readonly isSavedViewLoading = this.savedViewsState.isLoading;
+  readonly savedViewLoadError = this.savedViewsState.loadError;
+  readonly isSavingView = this.savedViewsState.isSaving;
+  readonly savedViewMutationError = this.savedViewsState.mutationError;
 
   readonly filterForm = this.formBuilder.nonNullable.group({
+    assigneeState: [''],
+    estimateState: [''],
     search: [''],
     projectId: [''],
     status: [''],
@@ -995,17 +886,53 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   });
 
   ngOnInit(): void {
-    this.hasInitialized = true;
     if (this.currentUser.members().length === 0) {
       this.currentUser.loadMembers();
     }
 
-    this.loadProjectSummaries();
-    this.loadSavedViews();
+    let initializedWithActor = false;
+    this.context.start(() => {
+      this.savedViewsState.reset(); this.viewOpenGeneration++; this.queryState.clearResults();
+      this.pendingContextPageReset = false;
+      this.workItemsSubscription?.unsubscribe();
+      this.clearResultFocusRequest();
+      this.clearCopyLinkStatusTimer();
+      this.projectSummaries.set([]);
+      this.labels.set([]);
+      this.milestones.set([]);
+      this.cycles.set([]);
+      this.workItems.set([]);
+      this.pageMetadata.set(emptyPageMetadata());
+      this.isLoading.set(false);
+      this.error.set(null);
+      this.isCopyingViewLink.set(false);
+      this.copyLinkStatus.set(null);
+      this.isExporting.set(false);
+      this.exportError.set(null);
+      this.activePageQuery.set({ ...defaultWorkItemPageQuery });
+      this.reloadActorContext();
+      if (initializedWithActor && (this.context.query('page') !== '' || this.context.query('pageSize') !== '')) {
+        this.pendingContextPageReset = true;
+        const isCurrent = this.context.capture();
+        void this.router.navigate([], {
+          relativeTo: this.route,
+          queryParams: this.queryState.routerQueryParamsForResolvedPage(defaultWorkItemPageQuery)
+        }).then((navigated) => {
+          if (isCurrent() && !navigated) {
+            this.pendingContextPageReset = false;
+            this.loadWorkItems();
+          }
+        });
+      }
+      // Initial member bootstrap must retain a deep link's paging, unlike a later actor switch.
+      initializedWithActor = this.currentUser.selectedMember() !== null;
+    });
     this.watchFilterChanges();
 
     this.subscriptions.add(
-      this.route.queryParamMap.subscribe((params) => {
+      this.context.queryParamMap$.subscribe((params) => {
+        if (this.pendingContextPageReset && (params.get('page') !== null || params.get('pageSize') !== null)) return;
+        this.pendingContextPageReset = false;
         const previousFilters = this.appliedFilterValues();
         const pendingFilterDraft = this.filterForm.getRawValue();
         const nextFilters = this.queryState.applyRouteQueryParams(params);
@@ -1041,9 +968,10 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   ngOnDestroy(): void {
-    this.hasInitialized = false;
+    this.savedViewsState.destroy(); this.viewOpenGeneration++;
     this.workItemsSubscription?.unsubscribe();
     this.subscriptions.unsubscribe();
+    this.projectOptionsSubscription.unsubscribe();
     this.clearResultFocusTimer();
     this.clearCopyLinkStatusTimer();
   }
@@ -1065,44 +993,46 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   loadWorkItems(): void {
     this.workItemsSubscription?.unsubscribe();
     const requestedPage = this.activePageQuery();
+    const resultsGeneration = this.queryState.beginResultsLoad();
     this.isLoading.set(true);
     this.error.set(null);
     this.workItems.set([]);
     this.pageMetadata.set(emptyPageMetadata(requestedPage));
 
-    this.workItemsSubscription = this.api
-      .listWorkspaceWorkItems(this.appliedQuery(), requestedPage)
+    this.workItemsSubscription = this.workItemsApi
+      .listWorkspaceWorkItems(this.appliedQuery(), requestedPage).pipe(this.context.guard())
       .subscribe({
-      next: (response) => {
-        if (response.page !== requestedPage.page || response.pageSize !== requestedPage.pageSize) {
-          if (this.focusAfterLoadPageKey === pageKey(requestedPage)) {
-            this.focusAfterLoadPageKey = pageKey(response);
+        next: (response) => {
+          if (response.page !== requestedPage.page || response.pageSize !== requestedPage.pageSize) {
+            if (this.focusAfterLoadPageKey === pageKey(requestedPage)) {
+              this.focusAfterLoadPageKey = pageKey(response);
+            }
+            void this.router.navigate([], {
+              relativeTo: this.route,
+              queryParams: this.queryState.routerQueryParamsForResolvedPage({
+                page: response.page,
+                pageSize: response.pageSize
+              }),
+              replaceUrl: true
+            });
+            return;
           }
-          void this.router.navigate([], {
-            relativeTo: this.route,
-            queryParams: this.queryState.routerQueryParamsForResolvedPage({
-              page: response.page,
-              pageSize: response.pageSize
-            }),
-            replaceUrl: true
-          });
-          return;
-        }
 
-        this.workItems.set(response.items);
-        this.pageMetadata.set(pageMetadataFromResponse(response));
-        this.mergeResultLabels(response.items);
-        this.isLoading.set(false);
-        if (this.focusAfterLoadPageKey === pageKey(response)) {
-          this.focusAfterLoadPageKey = null;
-          this.scheduleResultHeadingFocus();
+          this.workItems.set(response.items);
+          this.pageMetadata.set(pageMetadataFromResponse(response));
+          this.queryState.acceptResults(resultsGeneration, pageMetadataFromResponse(response), response.items.length);
+          this.mergeResultLabels(response.items);
+          this.isLoading.set(false);
+          if (this.focusAfterLoadPageKey === pageKey(response)) {
+            this.focusAfterLoadPageKey = null;
+            this.scheduleResultHeadingFocus();
+          }
+        },
+        error: () => {
+          this.error.set('Workspace work items could not be loaded from the API.');
+          this.isLoading.set(false);
         }
-      },
-      error: () => {
-        this.error.set('Workspace work items could not be loaded from the API.');
-        this.isLoading.set(false);
-      }
-    });
+      });
   }
 
   goToPage(page: number): void {
@@ -1119,11 +1049,12 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       page: targetPage,
       pageSize: this.activePageQuery().pageSize
     });
+    const isCurrent = this.context.capture();
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: this.queryState.routerQueryParamsForPage(targetPage)
     }).then((navigated) => {
-      if (!navigated) {
+      if (isCurrent() && !navigated) {
         this.clearResultFocusRequest();
       }
     });
@@ -1138,11 +1069,12 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     }
 
     this.requestResultHeadingFocus({ page: 1, pageSize });
+    const isCurrent = this.context.capture();
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: this.queryState.routerQueryParamsForPageSize(pageSize)
     }).then((navigated) => {
-      if (!navigated) {
+      if (isCurrent() && !navigated) {
         this.clearResultFocusRequest();
       }
     });
@@ -1153,11 +1085,12 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       return Promise.resolve();
     }
 
+    const isCurrent = this.context.capture();
     this.isExporting.set(true);
     this.exportError.set(null);
 
     return new Promise((resolve) => {
-      this.api.exportWorkspaceWorkItems(this.appliedQuery()).subscribe({
+      this.workItemsApi.exportWorkspaceWorkItems(this.appliedQuery()).pipe(this.context.guard()).subscribe({
         next: (response) => {
           const fileName = fileNameFromContentDisposition(
             response.headers.get('content-disposition'),
@@ -1176,10 +1109,11 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
           this.exportError.set(fallback);
           this.isExporting.set(false);
           void apiErrorMessageFromBody(error.error, fallback).then((message) => {
-            this.exportError.set(message);
+            if (isCurrent()) this.exportError.set(message);
             resolve();
           });
-        }
+        },
+        complete: () => resolve()
       });
     });
   }
@@ -1189,6 +1123,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       return;
     }
 
+    const isCurrent = this.context.capture();
     this.clearCopyLinkStatusTimer();
     this.isCopyingViewLink.set(true);
     this.copyLinkStatus.set(null);
@@ -1196,19 +1131,20 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     this.clipboard
       .copyText(this.currentFilteredViewUrl())
       .then(() => {
-        this.copyLinkStatus.set('Link copied');
+        if (isCurrent()) this.copyLinkStatus.set('Link copied');
       })
       .catch(() => {
-        this.copyLinkStatus.set('Link could not be copied');
+        if (isCurrent()) this.copyLinkStatus.set('Link could not be copied');
       })
       .finally(() => {
+        if (!isCurrent()) return;
         this.isCopyingViewLink.set(false);
         this.scheduleCopyLinkStatusReset();
       });
   }
 
   loadProjectSummaries(): void {
-    this.api.listProjectNavigationSummaries().subscribe({
+    this.projectsApi.listProjectNavigationSummaries().pipe(this.context.guard()).subscribe({
       next: (summaries) => {
         this.projectSummaries.set(summaries);
       },
@@ -1218,80 +1154,27 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     });
   }
 
-  loadSavedViews(): void {
-    this.isSavedViewLoading.set(true);
-    this.savedViewLoadError.set(null);
+  loadSavedViews(): void { this.savedViewsState.load(); }
 
-    this.api.listSavedWorkViews({ scope: 'workspace' }).subscribe({
-      next: (savedViews) => {
-        this.savedViews.set(this.sortSavedViews(savedViews));
-        this.syncSavedViewDraftNames(this.savedViews());
-        this.isSavedViewLoading.set(false);
-      },
-      error: () => {
-        this.savedViews.set([]);
-        this.savedViewDraftNames.set({});
-        this.savedViewLoadError.set('Saved views could not be loaded from the API.');
-        this.isSavedViewLoading.set(false);
-      }
+  activeFilterLabels(): string[] { return this.activeFilterChips().map(chip => chip.label); }
+
+  activeFilterChips(): WorkItemFilterChip[] {
+    return workItemFilterChips(this.queryState.activeQuery(), 'workspace', {
+      members: this.members(), labels: this.labels(), milestones: this.milestones(), cycles: this.cycles(), projectSummaries: this.projectSummaries()
     });
   }
 
-  activeFilterLabels(): string[] {
-    return this.getActiveFilterLabels();
-  }
+  createQueryParams(): { returnUrl: string } { return recordOriginParams(this.detailReturnUrl()); }
 
   detailReturnUrl(): string {
     return this.queryState.returnUrl('/work-items');
   }
 
-  removeActiveFilter(label: string): void {
-    const filterName = label.split(':', 1)[0];
-    const updates: Partial<WorkspaceFilterFormValue> = {};
-
-    if (filterName === 'Search') {
-      updates.search = '';
-    } else if (filterName === 'Project') {
-      updates.projectId = '';
-      updates.labelId = '';
-      updates.milestoneId = '';
-      updates.cycleId = '';
-    } else if (filterName === 'Status') {
-      updates.status = '';
-    } else if (filterName === 'State') {
-      updates.workState = '';
-    } else if (filterName === 'Assignee') {
-      updates.assigneeId = '';
-    } else if (filterName === 'Reporter') {
-      updates.reporterId = '';
-    } else if (filterName === 'Type') {
-      updates.type = '';
-    } else if (filterName === 'Label') {
-      updates.labelId = '';
-    } else if (filterName === 'Milestone') {
-      updates.milestoneId = '';
-    } else if (filterName === 'Cycle') {
-      updates.cycleId = '';
-    } else if (filterName === 'Priority') {
-      updates.priority = '';
-    } else if (filterName === 'Due date') {
-      updates.dueDateState = '';
-    } else if (filterName === 'Blocked') {
-      updates.blocked = '';
-    } else if (filterName === 'Dependency') {
-      updates.dependency = '';
-    } else if (filterName === 'Work breakdown') {
-      updates.hierarchy = '';
-    } else if (filterName === 'Parent') {
-      updates.parentKey = '';
-    } else if (filterName === 'Projects') {
-      updates.archivedProjects = 'exclude';
-    } else if (filterName === 'Sort') {
-      updates.sort = 'updated_desc';
-    }
-
-    this.filterForm.patchValue(updates, { emitEvent: false });
-    this.applyFilters();
+  removeActiveFilter(key: keyof WorkItemQuery): void {
+    const query = { ...this.queryState.activeQuery() };
+    delete query[key];
+    if (key === 'projectId') { delete query.labelId; delete query.milestoneId; delete query.cycleId; }
+    void this.router.navigate([], { relativeTo: this.route, queryParams: this.queryState.routerQueryParamsFromQuery(query) });
   }
 
   projectBadge(project: WorkspaceWorkItemListItemDto['project']): string {
@@ -1317,44 +1200,7 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     this.createSavedView('workspace');
   }
 
-  private createSavedView(visibility: SavedWorkViewDto['visibility']): void {
-    const name = this.savedViewForm.controls.name.value.trim();
-
-    if (name === '') {
-      this.savedViewMutationError.set('Saved view name is required.');
-      return;
-    }
-
-    if (visibility === 'workspace' && !this.canManageWorkspaceSavedViews()) {
-      this.savedViewMutationError.set('Only owners and maintainers can manage shared saved views.');
-      return;
-    }
-
-    this.isSavingView.set(true);
-    this.savedViewMutationError.set(null);
-
-    this.api
-      .createSavedWorkView({
-        name,
-        scope: 'workspace',
-        query: this.appliedQuery(),
-        ...(visibility === 'workspace' ? { visibility } : {})
-      })
-      .subscribe({
-        next: (savedView) => {
-          this.savedViews.set(this.sortSavedViews([...this.savedViews(), savedView]));
-          this.syncSavedViewDraftNames(this.savedViews());
-          this.savedViewForm.reset({ name: '' });
-          this.isSavingView.set(false);
-        },
-        error: (error: HttpErrorResponse) => {
-          this.savedViewMutationError.set(
-            this.toErrorMessage(error, 'Saved view could not be created.')
-          );
-          this.isSavingView.set(false);
-        }
-      });
-  }
+  private createSavedView(visibility: SavedWorkViewDto['visibility']): void { this.savedViewsState.create(this.savedViewForm.controls.name.value, visibility, this.appliedQuery(), () => this.savedViewForm.reset({ name: '' })); }
 
   saveCurrentViewName(name: string): void {
     this.savedViewForm.controls.name.setValue(name);
@@ -1366,126 +1212,34 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
     this.saveWorkspaceView();
   }
 
-  openSavedView(savedView: SavedWorkViewDto): void {
+  openSavedView(view: SavedWorkViewDto): void {
+    if (!this.savedViewsState.canOpen(view)) return;
     this.clearResultFocusRequest();
-    void this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: this.queryState.routerQueryParamsFromQuery(savedView.query)
+
+    const request = ++this.viewOpenGeneration;
+    const current = this.context.capture();
+    const extras = { relativeTo: this.route, queryParams: this.queryState.routerQueryParamsFromQuery(view.query) };
+    const destination = this.router.serializeUrl(this.router.createUrlTree([], extras));
+    void this.router.navigate([], extras).then(accepted => {
+      if (current() && request === this.viewOpenGeneration && (accepted || this.router.url === destination)) this.savedViewsState.open(view);
     });
   }
 
-  renameSavedView(savedView: SavedWorkViewDto): void {
-    if (!this.canMutateSavedView(savedView)) {
-      return;
-    }
+  renameSavedView(view: SavedWorkViewDto): void { this.savedViewsState.rename(view, this.savedViewsState.draftName(view.id)); }
 
-    const name = this.savedViewDraftName(savedView.id).trim();
+  updateSavedViewQuery(view: SavedWorkViewDto): void { this.savedViewsState.updateQuery(view, this.appliedQuery()); }
 
-    if (name === '') {
-      this.savedViewMutationError.set('Saved view name is required.');
-      return;
-    }
+  setSavedViewPinned(view: SavedWorkViewDto, isPinned: boolean): void { this.savedViewsState.setPinned(view, isPinned); }
 
-    this.savedViewMutationError.set(null);
+  deleteSavedView(view: SavedWorkViewDto): void { this.savedViewsState.delete(view); }
 
-    this.api.updateSavedWorkView(savedView.id, { name }).subscribe({
-      next: (updated) => {
-        this.replaceSavedView(updated);
-      },
-      error: (error: HttpErrorResponse) => {
-        this.savedViewMutationError.set(
-          this.toErrorMessage(error, 'Saved view could not be renamed.')
-        );
-      }
-    });
-  }
+  canMutateSavedView(view: SavedWorkViewDto): boolean { return this.savedViewsState.canMutate(view); }
 
-  updateSavedViewQuery(savedView: SavedWorkViewDto): void {
-    if (!this.canMutateSavedView(savedView)) {
-      return;
-    }
+  savedViewDraftName(id: string): string { return this.savedViewsState.draftName(id); }
 
-    this.savedViewMutationError.set(null);
+  setSavedViewDraftName(id: string, name: string): void { this.savedViewsState.setDraftName(id, name); }
 
-    this.api.updateSavedWorkView(savedView.id, { query: this.appliedQuery() }).subscribe({
-      next: (updated) => {
-        this.replaceSavedView(updated);
-      },
-      error: (error: HttpErrorResponse) => {
-        this.savedViewMutationError.set(
-          this.toErrorMessage(error, 'Saved view query could not be updated.')
-        );
-      }
-    });
-  }
-
-  setSavedViewPinned(savedView: SavedWorkViewDto, isPinned: boolean): void {
-    if (!this.canMutateSavedView(savedView)) {
-      return;
-    }
-
-    this.savedViewMutationError.set(null);
-
-    this.api.updateSavedWorkView(savedView.id, { isPinned }).subscribe({
-      next: (updated) => {
-        this.replaceSavedView(updated);
-      },
-      error: (error: HttpErrorResponse) => {
-        this.savedViewMutationError.set(
-          this.toErrorMessage(error, 'Saved view pin state could not be updated.')
-        );
-      }
-    });
-  }
-
-  deleteSavedView(savedView: SavedWorkViewDto): void {
-    if (!this.canMutateSavedView(savedView)) {
-      return;
-    }
-
-    this.savedViewMutationError.set(null);
-
-    this.api.deleteSavedWorkView(savedView.id).subscribe({
-      next: () => {
-        this.savedViews.set(this.savedViews().filter((view) => view.id !== savedView.id));
-        const { [savedView.id]: _removed, ...remainingDraftNames } = this.savedViewDraftNames();
-        this.savedViewDraftNames.set(remainingDraftNames);
-      },
-      error: (error: HttpErrorResponse) => {
-        this.savedViewMutationError.set(
-          this.toErrorMessage(error, 'Saved view could not be deleted.')
-        );
-      }
-    });
-  }
-
-  canMutateSavedView(savedView: SavedWorkViewDto): boolean {
-    if (savedView.visibility === 'personal' || this.canManageWorkspaceSavedViews()) {
-      return true;
-    }
-
-    this.savedViewMutationError.set('Only owners and maintainers can manage shared saved views.');
-    return false;
-  }
-
-  savedViewDraftName(savedViewId: string): string {
-    return this.savedViewDraftNames()[savedViewId] ?? '';
-  }
-
-  setSavedViewDraftName(savedViewId: string, name: string): void {
-    this.savedViewDraftNames.set({
-      ...this.savedViewDraftNames(),
-      [savedViewId]: name
-    });
-  }
-
-  savedViewQueryLabel(savedView: SavedWorkViewDto): string {
-    const count = this.queryState.meaningfulFieldCount(savedView.query);
-
-    return count === 0
-      ? 'Default workspace view'
-      : `${count} applied ${count === 1 ? 'filter' : 'filters'}`;
-  }
+  savedViewQueryLabel(view: SavedWorkViewDto): string { return this.savedViewsState.queryLabel(view); }
 
   formatToken(value: string): string {
     return value.replaceAll('_', ' ');
@@ -1513,6 +1267,8 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   private reloadActorContext(): void {
     this.loadProjectSummaries();
     this.loadSavedViews();
+    this.projectOptionsSubscription.unsubscribe();
+    this.projectOptionsSubscription = new Subscription();
     this.loadedProjectFilterId = null;
     this.loadProjectScopedFilters(this.appliedFilterValues().projectId);
   }
@@ -1547,63 +1303,27 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
   }
 
   private watchFilterChanges(): void {
-    this.subscriptions.add(
-      this.filterForm.controls.search.valueChanges
-        .pipe(debounceTime(400), distinctUntilChanged())
-        .subscribe(() => this.applyFilters())
-    );
-
-    this.subscriptions.add(
-      this.filterForm.controls.projectId.valueChanges.pipe(distinctUntilChanged()).subscribe(() => {
-        this.filterForm.patchValue({ labelId: '', milestoneId: '', cycleId: '' }, { emitEvent: false });
-        this.applyFilters();
-      })
-    );
-
-    this.subscriptions.add(
-      this.filterForm.controls.status.valueChanges.pipe(distinctUntilChanged()).subscribe((status) => {
-        if (status !== '') {
-          this.filterForm.patchValue({ workState: '' }, { emitEvent: false });
-        }
-        this.applyFilters();
-      })
-    );
-
-    this.subscriptions.add(
-      this.filterForm.controls.workState.valueChanges
-        .pipe(distinctUntilChanged())
-        .subscribe((workState) => {
-          if (workState !== '') {
-            this.filterForm.patchValue({ status: '' }, { emitEvent: false });
-          }
-          this.applyFilters();
-        })
-    );
-
-    const controls = [
-      this.filterForm.controls.assigneeId,
-      this.filterForm.controls.reporterId,
-      this.filterForm.controls.type,
-      this.filterForm.controls.labelId,
-      this.filterForm.controls.milestoneId,
-      this.filterForm.controls.cycleId,
-      this.filterForm.controls.priority,
-      this.filterForm.controls.dueDateState,
-      this.filterForm.controls.blocked,
-      this.filterForm.controls.dependency,
-      this.filterForm.controls.hierarchy,
-      this.filterForm.controls.archivedProjects,
-      this.filterForm.controls.sort
-    ];
-
-    for (const control of controls) {
-      this.subscriptions.add(
-        control.valueChanges.pipe(distinctUntilChanged()).subscribe(() => this.applyFilters())
-      );
-    }
+    this.subscriptions.add(this.filterForm.valueChanges.subscribe(() => this.queryState.setPendingFilterValues(this.filterForm.getRawValue())));
+    this.subscriptions.add(this.filterForm.controls.status.valueChanges.subscribe(value => { if (value) this.filterForm.patchValue({ workState: '' }, { emitEvent: false }); }));
+    this.subscriptions.add(this.filterForm.controls.workState.valueChanges.subscribe(value => { if (value) this.filterForm.patchValue({ status: '' }, { emitEvent: false }); }));
+    this.subscriptions.add(this.filterForm.controls.hierarchy.valueChanges.subscribe(value => { if (value) this.filterForm.patchValue({ parentKey: '' }, { emitEvent: false }); }));
+    this.subscriptions.add(this.filterForm.controls.parentKey.valueChanges.subscribe(value => { if (value) this.filterForm.patchValue({ hierarchy: '' }, { emitEvent: false }); }));
+    this.subscriptions.add(this.filterForm.controls.assigneeState.valueChanges.subscribe(value => { if (value === 'unassigned') this.filterForm.patchValue({ assigneeId: '' }, { emitEvent: false }); }));
+    this.subscriptions.add(this.filterForm.controls.assigneeId.valueChanges.subscribe(value => { if (value && value !== '__unassigned' && this.filterForm.controls.assigneeState.value === 'unassigned') this.filterForm.patchValue({ assigneeState: '' }, { emitEvent: false }); }));
+    this.subscriptions.add(this.filterForm.controls.projectId.valueChanges.subscribe(value => {
+      this.filterForm.patchValue({ labelId: '', milestoneId: '', cycleId: '' }, { emitEvent: false });
+      this.loadProjectScopedFilters(value);
+    }));
   }
 
   private loadProjectScopedFilters(projectId: string): void {
+    if (projectId !== this.loadedProjectFilterId) {
+      this.projectOptionsSubscription.unsubscribe();
+      this.projectOptionsSubscription = new Subscription();
+      this.labels.set([]);
+      this.milestones.set([]);
+      this.cycles.set([]);
+    }
     if (projectId === '') {
       this.loadedProjectFilterId = null;
       this.labels.set([]);
@@ -1618,139 +1338,32 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
 
     this.loadedProjectFilterId = projectId;
 
-    this.api.listProjectLabels(projectId, { includeArchived: true }).subscribe({
+    this.projectOptionsSubscription.add(this.projectsApi.listProjectLabels(projectId, { includeArchived: true }).pipe(this.context.guard()).subscribe({
       next: (labels) => {
         this.labels.set(this.sortLabels(labels));
       },
       error: () => {
         this.labels.set([]);
       }
-    });
+    }));
 
-    this.api.listProjectMilestones(projectId, { includeArchived: true }).subscribe({
+    this.projectOptionsSubscription.add(this.projectsApi.listProjectMilestones(projectId, { includeArchived: true }).pipe(this.context.guard()).subscribe({
       next: (milestones) => {
         this.milestones.set(this.sortMilestones(milestones));
       },
       error: () => {
         this.milestones.set([]);
       }
-    });
+    }));
 
-    this.cyclesApi.listCycles(projectId, { includeArchived: true }).subscribe({
+    this.projectOptionsSubscription.add(this.cyclesApi.listCycles(projectId, { includeArchived: true }).pipe(this.context.guard()).subscribe({
       next: (cycles) => {
         this.cycles.set(this.sortCycles(cycles));
       },
       error: () => {
         this.cycles.set([]);
       }
-    });
-  }
-
-  private getActiveFilterLabels(): string[] {
-    const filters = this.appliedFilterValues();
-    const labels: string[] = [];
-
-    this.pushFilterLabel(labels, 'Search', filters.search);
-    this.pushFilterLabel(labels, 'Project', this.projectName(filters.projectId));
-    this.pushFilterLabel(labels, 'Status', filters.status === '' ? '' : workItemStatusLabel(filters.status as WorkItemStatus));
-    this.pushFilterLabel(labels, 'State', this.optionLabel(workStates, filters.workState));
-    this.pushFilterLabel(labels, 'Assignee', this.assigneeLabel(filters.assigneeId));
-    this.pushFilterLabel(labels, 'Reporter', this.memberName(filters.reporterId));
-    this.pushFilterLabel(labels, 'Type', this.formatToken(filters.type));
-    this.pushFilterLabel(labels, 'Label', this.labelName(filters.labelId));
-    this.pushFilterLabel(labels, 'Milestone', this.milestoneName(filters.milestoneId));
-    this.pushFilterLabel(labels, 'Cycle', this.cycleName(filters.cycleId));
-    this.pushFilterLabel(labels, 'Priority', filters.priority === '' ? '' : workItemPriorityLabel(filters.priority as WorkItemPriority));
-    this.pushFilterLabel(labels, 'Due date', this.optionLabel(dueDateStates, filters.dueDateState));
-    this.pushFilterLabel(labels, 'Blocked', this.optionLabel(blockedOptions, filters.blocked));
-    this.pushFilterLabel(
-      labels,
-      'Dependency',
-      this.optionLabel(dependencyOptions, filters.dependency)
-    );
-    this.pushFilterLabel(
-      labels,
-      'Work breakdown',
-      filters.hierarchy === '' ? '' : this.optionLabel(workItemHierarchyOptions, filters.hierarchy)
-    );
-    this.pushFilterLabel(labels, 'Parent', filters.parentKey);
-    this.pushFilterLabel(
-      labels,
-      'Projects',
-      filters.archivedProjects === 'exclude'
-        ? ''
-        : this.optionLabel(archivedProjectModes, filters.archivedProjects)
-    );
-    this.pushFilterLabel(labels, 'Sort', filters.sort === 'updated_desc' ? '' : this.optionLabel(sorts, filters.sort));
-
-    return labels;
-  }
-
-  private pushFilterLabel(labels: string[], label: string, value: string): void {
-    if (value.trim() !== '') {
-      labels.push(filterPillLabel(label, value));
-    }
-  }
-
-  private projectName(projectId: string): string {
-    if (projectId === '') {
-      return '';
-    }
-
-    const summary = this.projectSummaries().find((item) => item.project.id === projectId);
-    return summary === undefined ? projectId : projectTitle(summary.project);
-  }
-
-  private assigneeLabel(value: string): string {
-    if (value === unassignedAssigneeValue) {
-      return 'Unassigned';
-    }
-
-    return this.memberName(value);
-  }
-
-  private memberName(memberId: string): string {
-    if (memberId === '') {
-      return '';
-    }
-
-    const member = this.members().find((item) => item.id === memberId);
-    return member === undefined ? memberId : this.memberDisplayName(member);
-  }
-
-  private labelName(labelId: string): string {
-    if (labelId === '') {
-      return '';
-    }
-
-    return this.labels().find((label) => label.id === labelId)?.name ?? labelId;
-  }
-
-  private milestoneName(milestoneId: string): string {
-    if (milestoneId === '') {
-      return '';
-    }
-
-    return this.milestones().find((milestone) => milestone.id === milestoneId)?.name ?? milestoneId;
-  }
-
-  private cycleName(cycleId: string): string {
-    if (cycleId === '') {
-      return '';
-    }
-
-    return this.cycles().find((cycle) => cycle.id === cycleId)?.name ?? cycleId;
-  }
-
-  private optionLabel<T extends string>(
-    options: Array<{ label: string; value: T | string }>,
-    value: string
-  ): string {
-    if (value === '') {
-      return '';
-    }
-
-    return options.find((option) => option.value === value)?.label ?? value;
+    }));
   }
 
   private membersForFilter(selectedValue: string): MemberDto[] {
@@ -1778,25 +1391,6 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
 
   private sortLabels(labels: LabelDto[]): LabelDto[] {
     return [...labels].sort((left, right) => left.name.localeCompare(right.name));
-  }
-
-  private sortSavedViews(savedViews: SavedWorkViewDto[]): SavedWorkViewDto[] {
-    return [...savedViews].sort((left, right) => left.name.localeCompare(right.name));
-  }
-
-  private replaceSavedView(savedView: SavedWorkViewDto): void {
-    this.savedViews.set(
-      this.sortSavedViews(
-        this.savedViews().map((current) => (current.id === savedView.id ? savedView : current))
-      )
-    );
-    this.syncSavedViewDraftNames(this.savedViews());
-  }
-
-  private syncSavedViewDraftNames(savedViews: SavedWorkViewDto[]): void {
-    this.savedViewDraftNames.set(
-      Object.fromEntries(savedViews.map((savedView) => [savedView.id, savedView.name]))
-    );
   }
 
   private scheduleCopyLinkStatusReset(): void {
@@ -1851,6 +1445,8 @@ export class WorkspaceWorkItemListPageComponent implements OnDestroy, OnInit {
       day: 'numeric'
     }).format(new Date(year, month - 1, day));
   }
+
+  currentActorCanManagePersonal(): boolean { return this.currentUser.selectedMember()?.isActive === true; }
 }
 
 function emptyPageMetadata(

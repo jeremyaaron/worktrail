@@ -1,14 +1,18 @@
+import { NavigationSectionTargetDirective } from '../../../shared/navigation/section-target';
+import { recordOriginParams } from '../../../shared/navigation/work-navigation';
+import { snapshotRiskCountLabel } from '@worktrail/contracts';
+import { PageContext } from '../../../core/navigation/page-context';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import type {
-  DeliveryHealthReasonDto,
+  HealthReasonReadDto as DeliveryHealthReasonDto,
   DeliveryHealthState,
   ProjectStatusReportCycleSnapshotDto,
   ProjectStatusReportDetailDto,
   ProjectStatusReportRiskSnapshotDto
 } from '@worktrail/contracts';
 
-import { WorktrailApiService } from '../../../core/worktrail-api.service';
+import { ProjectsApi } from '../../../core/api/projects-api';
 import {
   deliveryHealthLabel,
   deliveryHealthReasonLabel,
@@ -25,8 +29,10 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
 
 @Component({
   selector: 'app-project-status-report-detail-page',
-  imports: [ErrorPanelComponent, LoadingIndicatorComponent, RouterLink, WorkItemParentPillComponent],
+  imports: [NavigationSectionTargetDirective, ErrorPanelComponent, LoadingIndicatorComponent, RouterLink, WorkItemParentPillComponent],
   template: `
+    <section [appNavigationSectionTarget]="navigationFragment()" [navigationIdentity]="navigationIdentity()" [navigationReady]="report()">
+
     <section class="status-page">
       <div class="status-page__heading">
         <div>
@@ -207,6 +213,10 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
                     @for (reason of cycle.reasons; track reason.key + reason.message) {
                       <span class="reason-chip" [attr.data-tone]="reasonTone(reason)">
                         {{ reasonLabel(reason) }}
+                        @if (report.snapshot.snapshotVersion === 2 && reason.query !== null) {
+                          <a [routerLink]="['/projects', projectId(), 'work-items']" [queryParams]="reasonQueryParams(reason)"
+                            [attr.aria-label]="'Open current work: ' + reason.message">Open current work</a>
+                        }
                       </span>
                     }
                   </div>
@@ -267,7 +277,7 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
                   <article class="risk-section">
                     <div>
                       <h3>{{ risk.title }}</h3>
-                      <p>{{ risk.count }} matching work item{{ risk.count === 1 ? '' : 's' }}</p>
+                      <p>{{ riskCountLabel(risk) }}</p>
                     </div>
                     <a
                       [routerLink]="['/projects', projectId(), 'work-items']"
@@ -355,6 +365,8 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
           </aside>
         </section>
       }
+    </section>
+
     </section>
   `,
   styles: `
@@ -570,6 +582,16 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
       font-size: 0.75rem;
       font-weight: 800;
       white-space: nowrap;
+    }
+
+    .reason-chip {
+      max-width: 100%;
+      min-width: 0;
+      flex: 0 1 auto;
+      flex-wrap: wrap;
+      gap: 4px 8px;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
 
     .health-pill[data-tone='positive'],
@@ -828,6 +850,14 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
         overflow-wrap: anywhere;
       }
 
+      .risk-section > a,
+      .report-links a {
+        display: block;
+        max-width: 100%;
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+
       .milestone-row,
       .work-row,
       .risk-section > a {
@@ -844,9 +874,12 @@ import { downloadBlob, fileNameFromContentDisposition } from '../../../shared/do
   `
 })
 export class ProjectStatusReportDetailPageComponent implements OnInit {
-  private readonly api = inject(WorktrailApiService);
+  private readonly context = new PageContext();
+  readonly navigationFragment = this.context.fragment;
+  readonly navigationIdentity = computed(() => this.context.contextKey());
+  readonly riskCountLabel = snapshotRiskCountLabel;
+  private readonly projectsApi = inject(ProjectsApi);
   private readonly clipboard = inject(ClipboardService);
-  private readonly route = inject(ActivatedRoute);
 
   readonly report = signal<ProjectStatusReportDetailDto | null>(null);
   readonly isLoading = signal(false);
@@ -854,18 +887,27 @@ export class ProjectStatusReportDetailPageComponent implements OnInit {
   readonly isCopyingMarkdown = signal(false);
   readonly isDownloadingMarkdown = signal(false);
   readonly shareStatus = signal<{ tone: 'error' | 'success'; message: string } | null>(null);
-  readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
-  readonly reportId = computed(() => this.route.snapshot.paramMap.get('reportId') ?? '');
+  readonly projectId = computed(() => this.context.param('projectId'));
+  readonly reportId = computed(() => this.context.param('reportId'));
 
   ngOnInit(): void {
-    this.loadReport();
+    this.context.start(() => {
+      this.report.set(null);
+      this.isLoading.set(false);
+      this.error.set(null);
+      this.isCopyingMarkdown.set(false);
+      this.isDownloadingMarkdown.set(false);
+      this.shareStatus.set(null);
+
+      this.loadReport();
+    });
   }
 
   loadReport(): void {
     this.isLoading.set(true);
     this.error.set(null);
 
-    this.api.getProjectStatusReport(this.projectId(), this.reportId()).subscribe({
+    this.projectsApi.getProjectStatusReport(this.projectId(), this.reportId()).pipe(this.context.guard()).subscribe({
       next: (report) => {
         this.report.set(report);
         this.isLoading.set(false);
@@ -884,24 +926,25 @@ export class ProjectStatusReportDetailPageComponent implements OnInit {
       return;
     }
 
+    const isCurrent = this.context.capture();
     this.isCopyingMarkdown.set(true);
     this.shareStatus.set(null);
 
-    this.api.exportProjectStatusReportMarkdown(this.projectId(), this.reportId()).subscribe({
+    this.projectsApi.exportProjectStatusReportMarkdown(this.projectId(), this.reportId()).pipe(this.context.guard()).subscribe({
       next: (response) => {
         const blob = response.body ?? new Blob([''], { type: 'text/markdown' });
 
         blob
           .text()
-          .then((markdown) => this.clipboard.copyText(markdown))
+          .then((markdown) => isCurrent() ? this.clipboard.copyText(markdown) : undefined)
           .then(() => {
-            this.shareStatus.set({ tone: 'success', message: 'Markdown copied.' });
+            if (isCurrent()) this.shareStatus.set({ tone: 'success', message: 'Markdown copied.' });
           })
           .catch(() => {
-            this.shareStatus.set({ tone: 'error', message: 'Markdown could not be copied.' });
+            if (isCurrent()) this.shareStatus.set({ tone: 'error', message: 'Markdown could not be copied.' });
           })
           .finally(() => {
-            this.isCopyingMarkdown.set(false);
+            if (isCurrent()) this.isCopyingMarkdown.set(false);
           });
       },
       error: () => {
@@ -919,7 +962,7 @@ export class ProjectStatusReportDetailPageComponent implements OnInit {
     this.isDownloadingMarkdown.set(true);
     this.shareStatus.set(null);
 
-    this.api.exportProjectStatusReportMarkdown(this.projectId(), this.reportId()).subscribe({
+    this.projectsApi.exportProjectStatusReportMarkdown(this.projectId(), this.reportId()).pipe(this.context.guard()).subscribe({
       next: (response) => {
         const fileName = fileNameFromContentDisposition(
           response.headers.get('content-disposition'),
@@ -955,12 +998,14 @@ export class ProjectStatusReportDetailPageComponent implements OnInit {
     );
   }
 
-  workItemQueryParams(): { returnUrl: string } {
-    return { returnUrl: `/projects/${this.projectId()}/status/${this.reportId()}` };
-  }
+  workItemQueryParams(): { returnUrl: string } { return recordOriginParams(`/projects/${this.projectId()}/status/${this.reportId()}`, this.context.fragment()); }
 
   reasonLabel(reason: DeliveryHealthReasonDto): string {
     return deliveryHealthReasonLabel(reason);
+  }
+
+  reasonQueryParams(reason: DeliveryHealthReasonDto): Record<string, string> | null {
+    return routerLinkQueryParamsFromWorkItemQuery(reason.query, 'project');
   }
 
   reasonTone(reason: DeliveryHealthReasonDto): string {

@@ -131,7 +131,7 @@ test.describe.serial('v0.2.7 attachment lifecycle', () => {
       .getByRole('region', { name: 'Blocks' })
       .getByRole('link', { name: /WT-2 Add filter controls to work item list/ })
       .click();
-    await expect(page).toHaveURL('/work-items/10000000-0000-4000-8000-000000000402');
+    await expect(page).toHaveURL(url => url.pathname === '/work-items/10000000-0000-4000-8000-000000000402' && url.searchParams.get('returnTo') === `/work-items/${inProgressWorkItemId}`);
     await expect(page.getByRole('heading', { name: 'Add filter controls to work item list' })).toBeVisible();
     await expect(attachments.getByRole('heading', { name: 'Attachments 0' })).toBeVisible();
     await expect(attachments.getByText('No attachments')).toBeVisible();
@@ -242,6 +242,7 @@ test.describe.serial('v0.2.7 attachment lifecycle', () => {
     await attachments.getByRole('button', { name: `Remove ${retryFileName}` }).click();
     await attachments.getByRole('button', { name: 'Remove file' }).click();
     await expect(attachments.getByText(`Removed attachment "${retryFileName}".`)).toBeVisible();
+    await page.locator('#history summary').click();
     await expect(page.getByText(`Removed attachment "${retryFileName}".`).last()).toBeVisible();
 
     await page.setViewportSize({ width: 1280, height: 900 });
@@ -249,6 +250,7 @@ test.describe.serial('v0.2.7 attachment lifecycle', () => {
     await attachments.getByRole('button', { name: `Remove ${longFileName}` }).click();
     await attachments.getByRole('button', { name: 'Remove file' }).click();
     await expect(attachments.getByText(longFileName, { exact: true })).toHaveCount(0);
+    await page.locator('#history summary').click();
     await expect(page.getByText(`Removed attachment "${longFileName}".`).last()).toBeVisible();
 
     await setProjectArchived(request, true);

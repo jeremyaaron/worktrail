@@ -1,7 +1,6 @@
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import {
-  Component,
-  ElementRef,
+  Component, DestroyRef, ElementRef,
   computed,
   effect,
   inject,
@@ -10,7 +9,7 @@ import {
   viewChild
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { Router, type NavigationExtras } from '@angular/router';
 import { LucideSearch, LucideX } from '@lucide/angular';
 import type { QuickFindResponseDto } from '@worktrail/contracts';
@@ -19,14 +18,16 @@ import {
   Subject,
   catchError,
   distinctUntilChanged,
-  firstValueFrom,
   map,
   merge,
   of,
   switchMap,
+  take,
   tap,
   timer
 } from 'rxjs';
+import { navigationContextFromPage, recordNavigationTarget } from '../../shared/navigation/work-navigation';
+import { QuickFindSessionService, type QuickFindSession } from './quick-find-session.service';
 
 import { QuickFindApi } from '../../core/api/quick-find-api';
 import { CurrentUserService } from '../../core/current-user.service';
@@ -34,8 +35,8 @@ import {
   focusWorkItemFilesTarget,
   workItemFilesFragment
 } from '../work-items/work-item-files-target';
+import type { QuickFindDialogData } from './open-quick-find-dialog';
 import {
-  quickFindHasResults,
   quickFindResultGroups
 } from './quick-find-display';
 import type {
@@ -50,15 +51,18 @@ import {
   quickFindResultOptionId,
   quickFindWorkItemOverflowDestination
 } from './quick-find-navigation';
-import type { QuickFindDialogData } from './open-quick-find-dialog';
 
 @Component({
   selector: 'app-quick-find-dialog',
-  imports: [LucideSearch, LucideX, ReactiveFormsModule],
+  imports: [LucideSearch, LucideX, ReactiveFormsModule, FormsModule],
   templateUrl: './quick-find-dialog.component.html',
   styleUrl: './quick-find-dialog.component.scss'
 })
 export class QuickFindDialogComponent {
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly session = inject(QuickFindSessionService);
+  private readonly initialSession = this.session.read();
+  private readonly initialIdentity = this.session.identity();
   private readonly data = inject<QuickFindDialogData>(DIALOG_DATA);
   private readonly dialogRef = inject<DialogRef<void, QuickFindDialogComponent>>(DialogRef);
   private readonly router = inject(Router);
@@ -70,24 +74,38 @@ export class QuickFindDialogComponent {
   private readonly initialActorId = this.currentUser.selectedMember()?.id ?? null;
   private requestGeneration = 0;
 
-  readonly queryControl = new FormControl('', { nonNullable: true });
-  readonly visibleQuery = signal('');
-  readonly normalizedQuery = signal('');
+  readonly queryControl = new FormControl(this.initialSession.query, { nonNullable: true });
+  readonly resultType = signal<QuickFindSession['type']>(this.initialSession.type);
+  readonly projectFilter = signal(this.initialSession.projectId);
+  readonly resultTypes = [{ value: 'all', label: 'All types' }, { value: 'workItems', label: 'Work items' }, { value: 'projects', label: 'Projects' }, { value: 'milestones', label: 'Milestones' }, { value: 'cycles', label: 'Cycles' }, { value: 'reports', label: 'Reports' }, { value: 'attachments', label: 'Filenames' }] as const;
+  readonly projectOptions = computed(() => {
+    const projects = new Map<string, string>();
+    for (const group of Object.values(this.response()?.groups ?? {})) {
+      for (const row of group.items) projects.set(row.project.id, row.project.key + ' · ' + row.project.name);
+    }
+    if (this.projectFilter() && !projects.has(this.projectFilter())) projects.set(this.projectFilter(), 'Selected project (outside current preview)');
+    return [...projects].map(([id, label]) => ({ id, label })).sort((a, b) => a.label.localeCompare(b.label));
+  });
+  readonly visibleQuery = signal(this.initialSession.query);
+  readonly normalizedQuery = signal(normalizeForSearch(this.initialSession.query));
   readonly response = signal<QuickFindResponseDto | null>(null);
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
   readonly isNavigationMode = computed(
     () => codePointLength(this.normalizedQuery()) < 2
   );
-  readonly resultGroups = computed(() => quickFindResultGroups(this.response()));
-  readonly hasResults = computed(() => quickFindHasResults(this.response()));
+  readonly resultGroups = computed(() => quickFindResultGroups(this.response())
+    .filter(group => this.resultType() === 'all' || group.key === this.resultType())
+    .map(group => ({ ...group, rows: group.rows.filter(row => !this.projectFilter() || row.result.project.id === this.projectFilter()) }))
+    .filter(group => group.rows.length > 0 || group.hasMore));
+  readonly hasResults = computed(() => this.resultGroups().some(group => group.rows.length > 0));
   readonly hasNoResults = computed(
     () =>
       !this.isNavigationMode() &&
       !this.isLoading() &&
       this.error() === null &&
       this.response() !== null &&
-      !this.hasResults()
+      this.resultGroups().length === 0
   );
   readonly resultOptions = computed<readonly QuickFindSelectableOption[]>(() => {
     const response = this.response();
@@ -195,7 +213,7 @@ export class QuickFindDialogComponent {
       .subscribe((outcome) => {
         if (
           outcome.generation !== this.requestGeneration ||
-          outcome.query !== this.normalizedQuery()
+          outcome.query !== this.normalizedQuery() || this.session.identity() !== this.initialIdentity
         ) {
           return;
         }
@@ -214,8 +232,10 @@ export class QuickFindDialogComponent {
     effect(() => {
       const currentActorId = this.currentUser.selectedMember()?.id ?? null;
 
-      if (currentActorId !== this.initialActorId) {
+      if (currentActorId !== this.initialActorId || this.session.identity() !== this.initialIdentity) {
         this.requestGeneration += 1;
+        this.response.set(null);
+        this.activeOptionId.set(null);
         this.dialogRef.close();
       }
     });
@@ -230,6 +250,12 @@ export class QuickFindDialogComponent {
 
       this.activeOptionId.set(nextId);
     });
+
+    effect(() => {
+      this.session.update({ query: this.visibleQuery(), type: this.resultType(), projectId: this.projectFilter() }, this.initialIdentity);
+    });
+    this.destroyRef.onDestroy(() => this.session.update({ query: this.queryControl.value, type: this.resultType(), projectId: this.projectFilter() }, this.initialIdentity));
+    this.queryControl.setValue(this.initialSession.query);
   }
 
   close(): void {
@@ -241,6 +267,8 @@ export class QuickFindDialogComponent {
   }
 
   clearSearch(): void {
+    this.resultType.set('all');
+    this.projectFilter.set('');
     this.queryControl.setValue('');
     this.focusQueryInput();
   }
@@ -326,7 +354,7 @@ export class QuickFindDialogComponent {
         this.navigate(quickFindResultDestination(option.result));
         return;
       case 'work_item_overflow':
-        this.navigate(quickFindWorkItemOverflowDestination(option.query));
+        this.navigate(quickFindWorkItemOverflowDestination(option.query, this.projectFilter() || undefined));
         return;
       default:
         assertNever(option);
@@ -381,7 +409,21 @@ export class QuickFindDialogComponent {
   }
 
   private navigate(target: QuickFindRouteTarget): void {
+    const context = navigationContextFromPage(this.router.url,
+      this.data.currentProjectId ? '/projects/' + this.data.currentProjectId + '/work-items' : '/work-items');
+    const record = target.commands.length === 2 && target.commands[0] === '/work-items' && target.commands[1] !== 'new'
+      ? recordNavigationTarget(String(target.commands[1]), context, undefined, target.fragment ?? null)
+      : null;
+    if (record) target = { ...target, commands: record.kind === 'record' ? target.commands : [record.path], queryParams: record.queryParams ?? undefined, fragment: record.fragment ?? undefined };
     const extras = this.navigationExtras(target);
+    const repeatFiles = target.fragment === workItemFilesFragment && record?.path === context.immediate?.path;
+    const actorId = this.currentUser.selectedMember()?.id;
+    const closeAndFocus = () => {
+      if (repeatFiles) this.dialogRef.closed.pipe(take(1)).subscribe(() => queueMicrotask(() => {
+        if (this.router.url === destinationUrl && this.currentUser.selectedMember()?.id === actorId) focusWorkItemFilesTarget();
+      }));
+      this.dialogRef.close();
+    };
     const destinationUrl = this.router.serializeUrl(
       this.router.createUrlTree([...target.commands], extras)
     );
@@ -390,16 +432,15 @@ export class QuickFindDialogComponent {
       target.fragment === workItemFilesFragment &&
       destinationUrl === this.router.url
     ) {
-      const closed = firstValueFrom(this.dialogRef.closed);
-      this.dialogRef.close();
-      void closed.then(() => {
-        focusWorkItemFilesTarget();
-      });
+      closeAndFocus();
       return;
     }
 
-    this.dialogRef.close();
-    void this.router.navigate([...target.commands], extras);
+    void this.router.navigate([...target.commands], extras).then((accepted) => {
+      if (accepted && !this.destroyRef.destroyed && this.session.identity() === this.initialIdentity) closeAndFocus();
+    }).catch(() => {
+      if (!this.destroyRef.destroyed && this.session.identity() === this.initialIdentity) this.error.set('The destination could not be opened.');
+    });
   }
 
   private navigationExtras(target: QuickFindRouteTarget): NavigationExtras {
@@ -413,6 +454,7 @@ export class QuickFindDialogComponent {
     this.requestGeneration += 1;
     this.normalizedQuery.set(query);
     this.response.set(null);
+    this.activeOptionId.set(null);
     this.error.set(null);
     this.isLoading.set(codePointLength(query) >= 2);
   }

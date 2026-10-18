@@ -132,8 +132,28 @@ describe('project cycle closeout snapshot validation', () => {
     expect(parseStoredProjectCycleCloseoutSnapshot(validSnapshot)).toEqual(validSnapshot);
   });
 
+  it.each([1, 2] as const)('preserves all twelve unfinished rows and their original values in v%s', version => {
+    const unfinished = Array.from({ length: 12 }, (_, index) => ({
+      ...validSnapshot.items.unfinished[0],
+      id: '00000000-0000-4000-8000-' + String(300 + index).padStart(12, '0'),
+      displayKey: 'HIST-' + (index + 1), title: 'Original commitment ' + (index + 1)
+    }));
+    const snapshot = {
+      ...validSnapshot, snapshotVersion: version, health: { health: 'healthy', reasons: [] },
+      counts: { ...validSnapshot.counts, totalCount: 14, unfinishedCount: 12, movedCount: 12,
+        committedEstimatePoints: 63, unfinishedEstimatePoints: 60, unestimatedUnfinishedCount: 0 },
+      items: { ...validSnapshot.items, unfinished }
+    };
+    const original = structuredClone(snapshot);
+    const parsed = parseStoredProjectCycleCloseoutSnapshot(snapshot);
+    expect(parsed).toEqual(original);
+    expect(parsed.items.unfinished).toHaveLength(12);
+    expect(parsed.items.unfinished[11]?.title).toBe('Original commitment 12');
+    expect(snapshot).toEqual(original);
+  });
+
   it.each([
-    ['unsupported version', { ...validSnapshot, snapshotVersion: 2 }],
+    ['unsupported version', { ...validSnapshot, snapshotVersion: 3 }],
     [
       'invalid project id',
       { ...validSnapshot, project: { ...validSnapshot.project, id: 'not-a-uuid' } }
@@ -193,7 +213,7 @@ describe('project cycle closeout snapshot validation', () => {
 
   it('uses validation errors for requested snapshots', () => {
     expect(() =>
-      parseRequestedProjectCycleCloseoutSnapshot({ ...validSnapshot, snapshotVersion: 2 })
+      parseRequestedProjectCycleCloseoutSnapshot({ ...validSnapshot, snapshotVersion: 3 })
     ).toThrowError(ValidationError);
   });
 

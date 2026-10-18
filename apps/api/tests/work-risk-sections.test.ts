@@ -40,6 +40,19 @@ const milestone = {
 } satisfies Milestone;
 
 describe('work risk sections', () => {
+  it('deduplicates within categories and counts over-target scope once, including zero/null estimates', () => {
+    const nullEstimate = createWorkItem({ id: 'null', title: 'Null estimate', status: 'ready', estimatePoints: null });
+    const zeroEstimate = createWorkItem({ id: 'zero', title: 'Zero estimate', status: 'ready', estimatePoints: 0 });
+    const input = { cycleId: 'cycle-1', workItems: [nullEstimate, nullEstimate, zeroEstimate],
+      memberById: new Map([[member.id, member]]), milestoneById: new Map([[milestone.id, milestone]]),
+      parentByChildId: new Map<string, WorkItemParentDto>(),
+      context: createWorkRiskEvaluationContext({ now: timestamp, dependencyBlockedWorkItems: [], blockingOpenWorkItems: [] }) };
+    const sections = createCycleReviewRiskSections({ ...input, isOverTarget: true });
+    expect(sections.find(section => section.type === 'unestimated')).toMatchObject({ count: 1, countUnit: 'work_items', items: [{ id: 'null' }] });
+    expect(sections.find(section => section.type === 'over_target')).toMatchObject({ count: 1, countUnit: 'scope_conditions' });
+    expect(sections.find(section => section.type === 'over_target')!.items.map(item => item.id)).toEqual(['null', 'zero']);
+    expect(createCycleReviewRiskSections({ ...input, isOverTarget: false }).find(section => section.type === 'over_target')).toMatchObject({ count: 0, items: [] });
+  });
   it('builds aligned milestone-scoped and project-wide risk sections', () => {
     const blocked = createWorkItem({
       id: 'blocked-1',
@@ -189,7 +202,7 @@ function createWorkItem(input: Partial<WorkItem> & Pick<WorkItem, 'id' | 'title'
     parentWorkItemId: input.parentWorkItemId ?? null,
     boardPosition: 0,
     dueDate: input.dueDate ?? null,
-    estimatePoints: null,
+    estimatePoints: input.estimatePoints ?? null,
     createdAt: input.createdAt ?? timestamp,
     updatedAt: input.updatedAt ?? timestamp
   };

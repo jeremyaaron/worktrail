@@ -1,6 +1,6 @@
 # Worktrail
 
-Worktrail is a project management reference app. The v0.2.9 baseline is a local-first Angular +
+Worktrail is a project management reference app. The v0.3.0 baseline is a local-first Angular +
 TypeScript API + Postgres application focused on readable descriptions and discussion, fast workspace
 navigation and bounded multi-entity search, files in work-item context, scalable work discovery, daily team workflow, two-level work
 breakdown, workspace portfolio review, collaboration updates, reliable filtered work views, pinned
@@ -33,8 +33,7 @@ packages/
   contracts/ Shared DTO and API contract types
 docs/
   v0.0.X/  Archived v0.0.1-v0.0.9 sprint docs
-  v0.1.0/  Consolidation PRD, technical design, implementation plan, audits, and extraction notes
-  v0.1.x/  Incremental v0.1 product sprint docs
+  v0.1.X/  Archived v0.1.0-v0.1.9 sprint docs
   v0.2.0/  Consolidated Operating Baseline PRD, technical design, implementation plan, audits, release notes, and pattern notes
   v0.2.1/  Cycle Planning PRD, technical design, implementation plan, release notes, and pattern notes
   v0.2.2/  Saved Views Ergonomics PRD, technical design, implementation plan, release notes, and pattern notes
@@ -45,6 +44,9 @@ docs/
   v0.2.7/  Files in Context PRD, technical design, implementation plan, release notes, and pattern notes
   v0.2.8/  Quick Find PRD, technical design, implementation plan, release notes, and pattern notes
   v0.2.9/  Readable Work PRD, design, plan, release/pattern notes, CSV example, and verification evidence
+  v0.3.0/  Connected Work PRD, design, plan, audits, release/pattern notes, limits, and verification evidence
+  development.md Current implementation owners and invariants
+  operations.md Current local operation, upgrade, and backup guidance
   api/     OpenAPI reference
 site/       Static GitHub Pages product site
 e2e/        Playwright smoke tests
@@ -52,63 +54,50 @@ e2e/        Playwright smoke tests
 
 ## Requirements
 
-- Node.js 20.19 or newer
-- npm 10 or newer
-- Docker, for the local Postgres container
-- Playwright browser dependencies for end-to-end smoke tests
+- Node.js 24 LTS (`nvm use` selects the repository's `.nvmrc`)
+- npm 11
+- Git and Docker with Compose, for the local PostgreSQL 16 container (or a separate existing PostgreSQL database)
+- Playwright Chromium is required only for browser verification, not for using the app
 
 ## Local Setup
 
-Install dependencies:
+This is a fresh demo path. Choose this or the independent compiled-preview path below; do not run
+both against existing working data. The Node commands use nvm; another manager selecting Node 24
+and npm 11 is equivalent. From a fresh clone:
 
 ```sh
-npm install
-```
-
-Install the Playwright Chromium browser used by the e2e smoke test:
-
-```sh
-npx playwright install chromium
-```
-
-Start local Postgres:
-
-```sh
+git clone https://github.com/jeremyaaron/worktrail.git
+cd worktrail
+nvm install
+nvm use
+npm ci
+export NODE_ENV=development
+export API_PORT=3000
+export CORS_ORIGIN=http://localhost:4200
+export WORKTRAIL_SERVE_STATIC=false
+export DATABASE_URL=postgres://worktrail:worktrail@localhost:5432/worktrail
+export WORKTRAIL_ATTACHMENT_STORAGE_DRIVER=local
+export WORKTRAIL_ATTACHMENT_STORAGE_PATH="$PWD/.worktrail/attachments"
 npm run db:start
-```
-
-Apply migrations and seed demo data, including the small attachment fixtures stored under
-`.worktrail/attachments`:
-
-```sh
 npm run db:migrate
 npm run db:seed
-```
-
-For a complete clean local rebuild of both PostgreSQL data and attachment objects, run:
-
-```sh
-npm run storage:reset
-npm run db:reset
-npm run db:migrate
-npm run db:seed
-```
-
-The reset commands are intentionally separate: `db:reset` never removes attachment files, while
-`storage:reset` only removes an initialized Worktrail attachment store with a valid marker.
-
-Start the API and web app together:
-
-```sh
 npm run dev
 ```
 
-Or run them separately:
+Open <http://localhost:4200>. Keep the same absolute attachment root for seed and API runtime.
+Seeding initializes the marked store and writes the sample files; changing the root afterward does
+not move those bytes. No `.env` file is required for these explicit commands. See `.env.example`
+for optional persisted configuration, and do not commit connection credentials.
 
-```sh
-npm run dev:api
-npm run dev:web
-```
+If PostgreSQL already occupies 5432, omit `npm run db:start`. Create a separate `worktrail` demo
+database owned by your local role and export its `DATABASE_URL` before migration/seed. The role needs
+schema creation/migration privileges, not CREATEDB for ordinary app operation. Never seed an existing
+working database to test installation. Port conflicts should be resolved deliberately, not by
+stopping an unrelated service. The default Angular proxy expects the API at port 3000.
+
+The combined process is long-running. Stop it with Ctrl+C; alternatively run `npm run dev:api` and
+`npm run dev:web` in separate terminals with the same configuration. Browser checks additionally
+require `npx playwright install chromium` (Linux CI: `npx playwright install --with-deps chromium`).
 
 Local services:
 
@@ -120,30 +109,46 @@ Local services:
 
 ## Production Preview
 
-Production preview builds contracts, the API, and the Angular app, then runs compiled API code while Express serves the built Angular assets and `/api/*` routes from one origin.
-
-Production mode requires an explicit absolute attachment storage path. Use the same path for seeding
-and runtime so attachment metadata and bytes stay aligned:
+This is an independent fresh demo setup, not commands to append after the development server.
+Requires Git, Node 24/npm 11 and Docker with Compose, or an independently provisioned PostgreSQL 16
+database. Stop a conflicting development API before starting preview on port 3000. From a fresh clone:
 
 ```sh
+git clone https://github.com/jeremyaaron/worktrail.git
+cd worktrail
+nvm install
+nvm use
+npm ci
+export NODE_ENV=production
+export API_PORT=3000
+export CORS_ORIGIN=false
+export WORKTRAIL_SERVE_STATIC=true
 export DATABASE_URL=postgres://worktrail:worktrail@localhost:5432/worktrail
-export WORKTRAIL_ATTACHMENT_STORAGE_PATH=/absolute/path/to/worktrail-preview-attachments
+export WORKTRAIL_ATTACHMENT_STORAGE_DRIVER=local
+export WORKTRAIL_ATTACHMENT_STORAGE_PATH="$PWD/.worktrail/preview-attachments"
+export WORKTRAIL_STATIC_ASSETS_PATH="$PWD/apps/web/dist/worktrail-web/browser"
+npm run db:start
 npm run db:migrate
 npm run db:seed
 npm run preview
 ```
 
-Equivalent explicit sequence:
+Open <http://localhost:3000>. This builds contracts, API and Angular, then runs compiled API code with
+Express serving the built web assets and `/api/*` from one origin. The attachment root is established
+before seeding and reused at runtime. For an existing PostgreSQL server, use the separate-database
+guidance above and omit `db:start`. No development storage fallback is intended.
+
+The final command is equivalent to:
 
 ```sh
 npm run build
 npm run start:prod
 ```
 
-Production preview requires explicit `DATABASE_URL` and `WORKTRAIL_ATTACHMENT_STORAGE_PATH` values.
-It is useful for local operational inspection, but it is not a secure internet-facing deployment and
-does not add production authentication, malware scanning, managed object storage, or multi-instance
-file coordination.
+When switching an existing installation between development and preview, retain its original
+database and absolute attachment root; do not reset or reseed it. Preview is for local inspection,
+not secure internet-facing deployment. It does not add authentication, malware scanning, managed
+object storage or multi-instance coordination.
 
 Preview checks:
 
@@ -154,7 +159,9 @@ curl -I http://localhost:3000/my-work
 curl -I http://localhost:3000/work-items/new
 ```
 
-The detailed operator guide is in [docs/v0.0.X/v0.0.6/operations-runbook.md](docs/v0.0.X/v0.0.6/operations-runbook.md).
+Current operating, upgrade and reset guidance is in [docs/operations.md](docs/operations.md).
+The [older operations runbook](docs/v0.0.X/v0.0.6/operations-runbook.md) is historical context, not the
+current setup authority. The [developer guide](docs/development.md) names actual implementation owners.
 
 ### Attachment Persistence And Backup
 
@@ -180,6 +187,25 @@ v0.2.9 adds structured descriptions and comments with a shared source editor, fo
 format selector, and preview. New descriptions and comments in the Angular app default to Markdown;
 existing edits preserve their stored format. Choose Plain text to retain literal punctuation, or
 deliberately convert to Markdown. Preview never saves a draft, and cancel/reset restores its context.
+
+v0.3.0 protects unsaved work-item fields, new/edited comments and recipients,
+creation forms, and report narratives with a shared Stay/Discard decision. It also protects reused
+record routes, actor/project changes, and Quick Find navigation. Pending writes block departure rather
+than offer cancellation. A conditional browser unload warning protects reload/close where supported;
+drafts are not autosaved or stored for recovery after a crash. Report evidence refresh preserves edits.
+
+Work-item detail is read-first: project and planning facts, description,
+independent status/watch actions and discussion precede administrative forms. Edit opens fields,
+including setting/clearing estimate and due date. Parent management, children, dependency management,
+watchers and history are expandable. Closed child work includes Done and Canceled; parent estimates
+remain independent of child totals. Field saves/cancellation preserve unrelated discussion and files.
+
+Inspection links retain a validated origin and at most one immediate work item.
+Parent/child and dependency links, create success, reviews/reports, and Quick Find can return to the
+original filtered list and page, including after reload, without growing a nested URL stack. Return
+links describe their destination. Discussion, Files, Dependencies, History, and identifiable Inbox
+comments support loaded section focus; missing or deleted comment targets fall back to Discussion.
+Local URL validation does not replace record authorization.
 
 The `markdown_v1` profile supports paragraphs and visible line breaks, headings, ordered/unordered
 lists, emphasis, quotations, inline code, fenced/indented code blocks, and explicit HTTP(S) links.
@@ -217,17 +243,20 @@ API compatibility and input rules:
 
 Existing installations should run `npm run db:migrate` to apply additive migration
 `0019_nosy_junta.sql`; it backfills existing records as plain text without rewriting their source.
-Do not reset or reseed working data to upgrade. See the [release notes](docs/v0.2.9/release-notes.md)
-and [verification evidence](docs/v0.2.9/verification-notes.md) for compatibility and residual limits.
+Do not reset or reseed working data to upgrade. See the [current release notes](docs/v0.3.0/release-notes.md),
+[verification evidence](docs/v0.3.0/verification-notes.md#phase-21-final-release-verification), and
+[known limits](docs/v0.3.0/known-limits.md) for compatibility and residual risk.
 
 ## Quick Find
 
 v0.2.8 adds Quick Find as a bounded workspace navigation and search surface available throughout the
 application. Open it from the search button in the top bar or with `Command+K` on macOS and `Ctrl+K`
-elsewhere. The shortcut is ignored while focus is in an editable control.
+elsewhere. Launch waits for member bootstrap and route navigation to finish; an unresolved draft
+departure or pending write retains its existing protection.
 
 With an empty query, Quick Find offers global destinations and project destinations when the current
-route has project context. Queries are normalized to 2-120 Unicode code points and search:
+route has project context, including a successfully authorized work-item detail. Queries are
+normalized to 2-120 Unicode code points and search:
 
 - work item display keys, titles, and descriptions;
 - project keys, names, and descriptions;
@@ -242,6 +271,16 @@ returns at most five records and a `hasMore` signal rather than an exact total. 
 can continue into the canonical workspace Work Items page; other result groups do not have dedicated
 overflow pages in this release.
 
+Result type and Project in preview narrow the returned bounded groups, not the entire matching
+workspace set. Refine the search text to find records outside a non-work preview. Work-item overflow
+continues into Work Items with the search and selected project applied. Filenames are distinct from
+file contents, and snippets are rendered as text.
+
+Closing Quick Find retains only the query and preview refinements in memory for the current
+actor/workspace, making successive inspections possible without retyping. Reopening performs a
+fresh authorized search and resets selection; results are not cached. Actor/workspace changes and
+page reload clear that session.
+
 Quick Find sends search text in the JSON body of `POST /api/quick-find`, never in the page URL. Normal
 request logs record the route rather than the query or request body, responses are marked
 `private, no-store`, and actor/workspace authorization is applied before results are projected.
@@ -251,6 +290,14 @@ service. It does not search comments, activity, notifications, complete report b
 contents, and it does not provide mutation commands, saved global searches, exact totals, or hosted
 search infrastructure.
 
+## Project Navigation
+
+Projects opens a searchable directory. Owners and maintainers use New project to open creation;
+successful creation returns focus to the new project, while failures preserve the draft. Contributor
+directory access does not expose creation controls. Workspace Settings is the labeled gear utility
+in the top bar and remains readable by contributors. Milestone, cycle and closeout routes identify
+Planning as their active project section, with compact project identity above the page heading.
+
 ## Portfolio Review
 
 v0.2.3 adds a top-level Portfolio review at `/portfolio`. Portfolio is a read-only workspace operating surface that compares active projects without requiring a user to open each project individually.
@@ -258,13 +305,14 @@ v0.2.3 adds a top-level Portfolio review at `/portfolio`. Portfolio is a read-on
 Portfolio support includes:
 
 - active-project summary counts for on-track, at-risk, blocked, overdue, dependency-pressure, and stale-or-missing-report projects;
-- bounded attention sections for delivery risk, communication freshness, current execution, and dependency pressure;
-- project comparison rows with delivery health, health reasons, work counts, report freshness, latest report details, active milestone context, and active cycle context;
+- disclosed attention previews for delivery risk, communication freshness, current execution, and dependency pressure; preview lengths are not workspace totals;
+- container-responsive project comparison rows leading with identity, health/top reason, planning context, report freshness and one next action; Details and links exposes secondary metrics and destinations;
+- immediate name/key, health and report-freshness filters across all returned active-project rows, with visible/total counts; summary totals remain workspace-wide;
 - action links into existing Overview, Work, Planning, Reports, latest report, milestone review, cycle review, and risk-specific filtered Work pages;
 - canonical `WorkItemQuery` conversion for Portfolio drill-down links, using each link's project or workspace query scope;
 - deterministic seed data that shows blocked/risky projects, a healthy comparison project, fresh and missing report states, active planning context, and dependency pressure.
 
-Portfolio is derived at read time from existing projects, work items, delivery health, milestones, cycles, and status reports. It does not add stored portfolio snapshots, new planning hierarchy, charts, custom sorting, exports, portfolio filters, historical portfolio review, or cross-project mutation workflows.
+Portfolio is derived at read time from existing projects, work items, delivery health, milestones, cycles, and status reports. Its local comparison filters are not saved or URL-backed queries. It does not add stored portfolio snapshots, new planning hierarchy, charts, custom sorting, exports, historical portfolio review, or cross-project mutation workflows.
 
 ## Reliable Filtered Views And Saved Work Views
 
@@ -274,7 +322,7 @@ Key behavior:
 
 - Filtered workspace and project work item URLs are shareable and reloadable.
 - Active filter chips describe the applied query, not pending form edits.
-- Dropdown filter changes apply immediately; search updates after a short debounce.
+- Search and filter controls are drafts until Apply; active chips and results describe the accepted query.
 - "Copy link" copies the current applied filtered view with canonical query parameters.
 - Personal saved views store normalized query state and remain private to the selected actor within their scope.
 - Workspace-shared saved views store normalized cross-project discovery queries and are visible to all active workspace members.
@@ -291,7 +339,10 @@ Key behavior:
 - Archived projects still show existing pinned project shortcuts, but archived project saved views cannot be pinned or unpinned.
 - Personal and shared saved views open through canonical URL parameters, so copy links and CSV exports stay aligned with the applied query.
 - Saved views can be opened from a compact selector without expanding management controls.
-- Opening a saved view shows local confirmation that the results below were updated.
+- Both Work lists show `Named`, `Modified`, or `Custom` state for the explicitly opened view.
+  Only applied filters and sort affect that state; pending form edits and pagination do not.
+- `Update query` explicitly replaces a saved definition. Applying filters never silently rewrites it.
+- Results confirmation appears only after the matching latest request succeeds, not immediately on Open.
 - `Manage views` edits one selected saved view at a time instead of rendering rename and mutation controls for every saved view.
 - Read-only shared and archived-project saved views keep an uncluttered open-only management path.
 - Saved-view summaries count meaningful filters only; default sort and default archived-project mode stay quiet.
@@ -311,6 +362,8 @@ v0.2.6 bounds the project Work and workspace Work Items reads with server-backed
 preserving the existing applied-query contract.
 
 - Interactive lists default to 25 rows and support page sizes of 10, 25, 50, and 100.
+- Range, page-size, and previous/next controls sit above results, with synchronized numbered pagination
+  below. Desktop rows expose table headers/cells; mobile cards retain visible-page bulk selection.
 - The server returns the exact matching count, normalized page, total pages, and previous/next state;
   each response enriches only the visible rows.
 - Page and non-default page-size values are URL-backed, survive reload and work-item detail return
@@ -319,7 +372,7 @@ preserving the existing applied-query contract.
 - Saved views store durable filters and sort only. Opening a saved or pinned view starts at page 1 with
   the default page size rather than restoring an obsolete result position.
 - Project batch triage selects explicit IDs from the visible page only. Navigating or changing the
-  applied query clears selection.
+  applied query clears selection with a status notice. Selection controls are disabled during a bulk write.
 - Project and workspace CSV export ignores paging and exports the complete applied result set up to
   10,000 matching rows. Larger exports fail with actionable guidance and no partial file.
 - Separate page requests reflect current data rather than a frozen snapshot, so edits can move rows
@@ -445,16 +498,20 @@ Cycles are intentionally compact in v0.2.1. Velocity charts, ceremony management
 
 v0.2.4 completes the cycle lifecycle with a guided closeout workflow. Owners and maintainers can preview an active cycle's closing scope, choose one planned destination for all unfinished work or return it to unplanned work, and apply completion plus carryover as one transactional command.
 
+v0.3.0 refines this flow with complete historical groups, deliberate destination selection, collapsed current context, and frozen-outcome sharing.
+
 Closeout behavior includes:
 
 - a read-only preview with cycle identity, health, scope counts, estimate totals, unfinished work, and dependency signals;
-- planned same-project destination choices plus an explicit unplanned option that clears cycle assignment without changing workflow status;
+- initially unselected planned same-project destinations and an explicit Unplanned choice; unfinished scope requires a deliberate decision even when no planned destination exists;
 - atomic cycle completion, immutable closeout evidence, unfinished-work reassignment, and activity creation;
 - naturally idempotent retries for the same destination and conflicts for incompatible repeated decisions;
 - completed and canceled work retained on the source cycle;
 - carried work preserving status, milestone, assignee, labels, estimate, priority, and due date;
-- completed Cycle Review results with closing actor/time, target and estimate outcomes, retained/moved counts, destination links, and bounded snapshot item groups;
-- clear `Snapshot` framing for closeout evidence and `Live view` framing for links and current work state;
+- completed Cycle Review leads with frozen project/cycle identity, closing actor/time, health, counts, estimate outcomes, and destination;
+- complete Done, Canceled and Unfinished at close groups with independent ten-row pagination and Show all, not a truncated historical preview;
+- Current record/destination links with bounded outcome returns, plus a separate collapsed Current context for live assignments and risks;
+- Markdown copy/download and print over the complete authorized frozen evidence, independent of the visible page and later record edits;
 - compact recent-closeout results and role-aware close actions in Planning;
 - honest legacy messaging for completed cycles created before closeout history existed.
 
@@ -536,61 +593,195 @@ Delivery-health support includes:
 
 - project-level health states: on track, at risk, blocked, complete, and inactive;
 - compact delivery-health panels on project overview;
-- detailed planning delivery-health summaries with active, on-track, at-risk, blocked, and open-work counts;
+- compact Planning delivery-health summaries with explicitly labeled milestone and open-work counts;
 - live-view framing on Planning, Milestone Review, and Cycle Review pages;
-- cycle summaries for active, upcoming, and recently completed project execution windows;
+- execution-first cycle summaries with active dates, goal, scope, estimate gaps and closeout readiness,
+  followed by upcoming and recently completed windows;
 - cycle review pages with target progress, scope breakdown, risk, and recent-movement detail;
-- a Planning-to-Reports bridge for publishing a shareable snapshot from current state;
+- contextual Reports/Draft report commands without a large report promotion ahead of live evidence;
 - milestone health labels and explainable reason chips;
 - milestone review pages with scoped health, risk, and recent-movement detail;
 - reason links into filtered project work item lists when the current work-item query model supports the reason;
-- planning review sections for needs attention, upcoming work, and recently changed work;
+- populated Planning risk groups with exact counts/continuation, separate milestone targets and
+  disclosed recent-review groups; zero-risk categories collapse to a quiet scoped state;
+- existing cycle/milestone records before disclosed creation and per-record editing, with independent
+  drafts, row-specific mutation feedback and existing contributor/archived-project read-only rules;
 - deterministic seed examples for blocked, at-risk, healthy, complete, inactive, and unmilestoned risk scenarios.
 
 Delivery health is derived at read time from milestones, cycles, work item status, due dates, assignees, stale in-progress work, estimates, and dependency relationships. It is not stored in the database and does not trigger automatic workflow transitions.
 
+Work lists support estimated/unestimated filtering, including saved/pinned views, copy and return links,
+and CSV export. Zero is estimated; only a missing estimate is unestimated. Filters remain drafts until
+Apply; chips describe applied results. Risk sections use explicit units and category sums are risk
+signals, not unique-ticket totals. New report/closeout snapshots use v2 with precise unestimated-work
+links; v1 evidence remains readable, publishable and replayable.
+See the [query, risk and snapshot policy](docs/v0.3.0/query-policy.md).
+
+Aggregate dashboards evaluate narrow work facts and enrich selected previews, not every matching work
+item. Planning risk previews show five rows with exact totals and full-list continuation; Portfolio
+metadata is batched across projects. Complete boards and historical closeout evidence remain complete.
+See the [aggregate read measurements and limits](docs/v0.3.0/aggregate-evidence.md).
+
 ## Verification
 
+The verification runner owns disposable resources for the full workflow and focused checks:
+
 ```sh
-npm run lint
-npm run typecheck
-npm test
-npm run build
+npm run verify
+npm run verify -- --mode=checks
+npm run verify -- --mode=api
+npm run verify -- --mode=api --api-tests=server,work-item-csv-http
+npm run verify -- --mode=web
 npm run test:e2e
+npm run test:preview
 npm run test:editor
-npx playwright test --config playwright.production.config.ts
-npm audit --omit=dev --audit-level=low
+npm run test:site
+npm run check:site
 ```
 
-CI runs install, production dependency audit, lint, typecheck, package tests, production build,
-standalone editor tests, application browser regressions, and compiled production preview on pull
-requests and pushes to `main`. It provisions disposable PostgreSQL 16 and temporary attachment roots,
-and uploads browser evidence on failure. Development-inclusive audit findings remain a separate
-toolchain backlog; a clean production-only audit does not mean every development dependency is clean.
+Run `npm ci` first. Full/web/E2E/preview/editor/site modes also need `npx playwright install chromium`
+(Linux may need `npx playwright install --with-deps chromium`). Start Docker Desktop for
+full/checks/API/E2E/preview modes, or explicitly select service provisioning below.
+Process ownership uses macOS/Linux `ps` and POSIX process groups. Web, editor and site modes never
+provision or connect to PostgreSQL. `npm run check:site` is the browser-free, read-only site check;
+site mode additionally renders the real Pages subpath with keyboard/reflow/motion assertions.
 
-`npm run test:e2e` starts the local API and Angular dev server through Playwright. By default it runs:
+`npm run verify` defaults to full verification: strict production and bounded development dependency
+audits, lint, scoped test/config typechecks, workspace typechecks, scratch schema generation,
+resource/API/contracts/Angular tests, production build,
+standalone editor, application E2E, compiled preview, and static/rendered site checks including local
+assets/fragments, repository documentation paths and release metadata. Karma/Jasmine
+still execute the Angular suite; their verification launcher uses Playwright's installed Chromium.
+Standard runner modes do not install dependencies or browser binaries themselves.
+
+Fresh installation checks are separate, deliberately slower commands:
 
 ```sh
-npm run db:reset
-npm run db:migrate
-npm run db:seed
+npm run verify:setup -- development
+npm run verify:setup -- preview
 ```
 
-The Playwright suite resets, migrates, and seeds before the browser run, then restores deterministic seed data after mutation-heavy tests. That means the local `public` schema for the configured database is dropped and recreated. Attachment bytes use a unique OS-temporary marked store that is removed during global teardown; normal development attachment storage is restored with the final seed. Set `WORKTRAIL_E2E_SKIP_DB_RESET=true` only when you intentionally want to run the smoke test against an already prepared local database. Set `WORKTRAIL_E2E_SKIP_DB_RESTORE=true` only when you intentionally want to inspect post-test database mutations. `WORKTRAIL_E2E_ATTACHMENT_STORAGE_PATH` may override the isolated absolute storage path for deliberate test inspection.
+Each installs the lockfile into a new owned source snapshot, provisions its own PostgreSQL container,
+sets one absolute attachment root before seed/runtime, reloads a deep link and compares both seeded
+downloads byte-for-byte. Runtime startup uses the same source/compiled application with owned
+identity wrappers and random ports instead of ordinary local defaults. These are not remote-clone
+or deployment checks. See [local verification scope](docs/operations.md#isolated-verification).
 
-**Use a disposable database and isolated attachment roots for browser and database-backed package
-tests.** The reset-skip flags do not make mutation-heavy tests safe for working data. Configure both
-the original and e2e storage roots as temporary paths when using per-file/final demo restoration.
-The standalone editor suite does not use PostgreSQL. Compiled-preview checks require built artifacts,
-a migrated/seeded disposable database, an absolute isolated `WORKTRAIL_ATTACHMENT_STORAGE_PATH`, and
-a free `API_PORT` (default 4319); they do not prepare or reset data themselves. The application suite
-defaults to API 3000/web 4200; `WORKTRAIL_E2E_WEB_PORT` can select a free web port, but the checked-in
-Angular proxy still targets API 3000. See the [verification notes](docs/v0.2.9/verification-notes.md)
-for the isolated release setup.
+Use checks proportional to the change, not full verification after every implementation phase.
+API mode includes backend source/test lint, backend typechecking, resource-safety tests, and API tests;
+it does not run Angular, editor, application E2E, production build/preview, or site checks.
+`--api-tests` selects comma-separated filenames from `apps/api/tests` without `.test.ts`; nonexistent
+files and path/option injection are rejected. Omit it for the whole API suite. Database-backed tests
+still require the owned runner, even when selecting a single file. E2E/editor/preview modes support `--grep`.
+API test console output is retained for failing tests only; test results and failure diagnostics remain visible.
+Backend-only edits normally need affected API checks; shared HTTP/persistence infrastructure warrants
+the full API suite. Frontend/shared-contract edits include affected consumers and browser flows;
+documentation-only edits need links/format checks. Full verification remains the release-closeout
+and CI merge gate, and is appropriate for genuinely cross-cutting/toolchain changes. Omitted checks
+are not applicable, not claimed passed. Successful unchanged-code evidence can be reused after
+documentation-only updates. Machine-readable contracts, fixtures, and build inputs are not docs-only.
+
+Each run snapshots source, configuration, and documentation into a private temporary workspace.
+Build outputs and Angular caches cannot overwrite the working checkout or another run's preview.
+Installed dependencies are shared read-only; compiled contracts resolve inside the private workspace.
+Source/configuration changes after startup require a new invocation for affected checks, including
+in interactive UI mode; documentation-only updates do not invalidate unchanged-code evidence.
+
+By default, database-using modes create their own PostgreSQL 16 Docker container/database and absolute temporary
+attachment root. The runner migrates, seeds matching attachment objects before browser startup,
+and generates an absolute Angular proxy for its selected API port. It never reuses an unrelated
+server, resets working data, or restores the developer's demo database after tests.
+
+To provision a separate test database on an explicitly selected service, set
+`WORKTRAIL_VERIFY_ADMIN_DATABASE_URL` to its administrative PostgreSQL connection, then run:
+
+```sh
+npm run verify -- --mode=api --database=service
+```
+
+This requires CREATE DATABASE privileges and never resets the administrative database. Omit
+`--mode=api` for the full workflow. Do not put credentials in committed files or verification reports.
+Every test mutation requires matching private
+run/database/storage ownership; a local hostname, test-looking name, `CI=true`, or skip flag is not proof.
+Direct database-backed package tests without that context refuse to run. The existing API unit
+project remains database-independent, and unknown new test files default to guarded integration.
+
+SIGINT/SIGTERM and failure cleanup preserve the primary outcome. If a crash or ownership mismatch
+leaves resources, retain the private manifest path printed at startup and inspect it locally before:
+
+```sh
+npm run verify -- --cleanup /absolute/run/manifest.json
+```
+
+Cleanup refuses active owners or mismatched identities; it is not permission to remove arbitrary
+databases/directories/processes. Sanitized gate summaries, browser JSON reports, traces, and screenshots
+remain under `test-results/verification/<runId>/`. Browser acceptance uses zero retries.
+See the [v0.3.0 verification evidence](docs/v0.3.0/verification-notes.md).
+The [developer ownership guide](docs/development.md) describes persistence scopes, database effects,
+query sequencing, test fakes, and project lock participation. The
+[cycle diagnostic guide](docs/cycle-diagnostics.md) covers read-only schedule inspection and deliberate
+operator remediation with `npm run db:cycle-diagnostics`.
+
+Ports are selected automatically. To request ports or select a focused browser regression:
+
+```sh
+npm run test:e2e -- --api-port=44031 --web-port=44032 '--grep=workspace filters'
+npm run test:preview -- --preview-port=44033
+npm run test:e2e:ui
+npm run verify -- --mode=e2e --shard=1/3
+```
+
+An explicitly occupied port fails without stopping its occupant. Automatic bind handoff collisions
+retry server allocation at most three times, not the tests. Legacy `API_PORT`,
+`WORKTRAIL_E2E_WEB_PORT`, `WORKTRAIL_PREVIEW_PORT`, and `WORKTRAIL_EDITOR_TEST_PORT` requests are also
+honored; the runner supplies the corresponding base URLs, storage, and proxy configuration.
+UI mode is interactive, not automated acceptance; closing it does not mark its tests as passed.
+
+Database-independent checks and resource lifecycle regressions are also available:
+
+```sh
+npm run test:verification
+npm run test:verification:integration
+npm run audit:dependencies
+npm run test --workspace @worktrail/api -- --project=unit
+npm run lint:verification
+npm run typecheck:verification
+```
+
+The lifecycle command requires Docker and proves service provisioning, rejection, interruption,
+concurrent browser isolation, and cleanup. Direct Playwright invocations are internal and require
+the matching owned stage; use the root commands instead. Skip flags grant no ownership authority.
+
+CI runs the full coverage in independent required jobs: backend/contracts/tooling (`--mode=checks`),
+frontend (`--mode=web`), three application browser shards, compiled preview, editor and site. Each
+application shard runs one worker against its own disposable PostgreSQL 16 service/database/store;
+tests never run concurrently against a shared fixture. Matrix fail-fast is disabled and browser
+retries remain zero, so failures do not suppress later tests or other shards. The existing `Verify`
+status requires every job to succeed, including rejecting skipped or canceled jobs. Superseded runs
+on the same PR/ref are canceled; this does not truncate the current commit's failure reporting.
+
+Sanitized summaries and browser evidence are uploaded for every job, not just failures. This shortens
+the serial critical path at the cost of additional runner setup; actual GitHub timing must be measured
+after publication. Local `npm run verify` still runs the complete serial release workflow.
+`--mode=checks` includes audits, verification/backend/contracts lint and types, schema generation,
+resource/API/contracts tests and contracts/API builds, without repeating frontend checks. Shards
+accept bounded `N/M` selections only in non-interactive E2E mode; omitting `--shard` runs all journeys.
+
+`npm run audit:dependencies` reports production and full audits
+separately and validates the installed workspace peer graph. Production findings always fail.
+Reviewed development exceptions are exact advisory/
+package/path/version/severity records with an owner, exposure limits, mitigation, follow-up, and expiry;
+unknown findings, stale records, transport failures, or expired exceptions fail the gate.
+See the [dependency disposition](docs/v0.3.0/dependency-remediation.md) and
+[exception data](docs/security/development-audit-exceptions.json). The full tree is not vulnerability-free.
 
 ## Public Site
 
-The static GitHub Pages site lives in `site/`. The Pages workflow publishes that directory when changes land on `main`.
+The static product site lives in [site/index.html](site/index.html), with the configured Pages address
+<https://jeremyaaron.github.io/worktrail/>. The main-branch Pages workflow validates local assets,
+fragments, repository documentation paths and release metadata before uploading `site/`.
+`npm run check:site` performs that read-only check; `npm run test:site` adds owned rendered acceptance
+at the actual repository subpath without a database. See [site/setup evidence](docs/v0.3.0/site-setup-evidence.md).
 
 ## Demo Walkthrough
 
@@ -632,12 +823,12 @@ Suggested walkthrough:
 1. Copy the filtered workspace view link, open it in another tab, and confirm the same applied chips and results appear.
 1. Use the global Create work item route, select a project, choose project-dependent labels or milestones, create work, and open the created item.
 1. Open Portfolio and compare Worktrail App, Cloud Readiness, and Reference Operations across delivery health, report freshness, planning context, and dependency pressure.
-1. Follow a Portfolio dependency-pressure link into filtered project Work, then return and open the latest Worktrail App report from Portfolio.
+1. Filter Portfolio by health or report freshness, follow its primary dependency-pressure action into project Work, then return and expand Details and links to open the latest Worktrail App report. Attention previews are a separate disclosure below the comparison.
 1. Open Projects, search by project name or key, and review project summary signals for open, blocked, overdue, status, and last updated state.
-1. Open Workspace Settings and review role summaries, members, and workspace activity.
+1. Open Workspace Settings from the top-bar gear and review role summaries, members, and workspace activity.
 1. As Avery Owner, create a contributor, promote the member to maintainer, deactivate the member, and reactivate the member.
 1. Confirm the actor selector updates when active members are created, changed, deactivated, and reactivated.
-1. Switch to a maintainer and confirm project creation is available, then create a project with an explicit key.
+1. Switch to a maintainer, open Projects and select New project, then create a project with an explicit key and confirm focus returns to its directory link.
 1. Switch to a contributor and confirm member administration is unavailable with clear helper copy.
 1. Open the Worktrail App project.
 1. Open Work, change the page size to 10, move to page 2, open a work item, and use the return link to confirm the page position is preserved.
@@ -652,16 +843,17 @@ Suggested walkthrough:
 1. Create a work item in the active cycle, then update or clear cycle assignment from the detail page.
 1. Use project bulk edit to set or clear cycle assignment for selected visible work.
 1. Open Closeout Lab, switch to Morgan Maintainer, and review the active `Closeout Demonstration` cycle.
-1. Choose `Close cycle`, verify the mixed completed, canceled, estimated, unestimated, and dependency-blocked scope, and keep `Follow-up Validation` selected.
-1. Confirm closeout, review the immutable snapshot result, and distinguish it from the current live context below.
+1. Choose `Close cycle`, verify the mixed completed, canceled, estimated, unestimated, and dependency-blocked scope, and explicitly select `Follow-up Validation` (nothing is selected initially).
+1. Confirm closeout, review the immutable outcome, and open Current context only when inspecting live assignments/risks.
 1. Follow the destination-cycle link, then open a carried snapshot item and verify its current cycle assignment and cycle-change activity.
+1. In Closeout Lab's Cycles view, open either `Historical carryover: 12 unfinished` versioned scenario. Page through all twelve original commitments or choose Show all; compare a Current record's revised title, status, estimate and assignment with its unchanged historical row. Copy/download Markdown or print while on a partial page and confirm all twelve records are included. See [historical outcome evidence](docs/v0.3.0/historical-closeout-evidence.md) for direct scenario routes and limitations.
 1. Open a milestone review page, inspect progress, health, risk, and recent movement, then follow a risk link into filtered project work.
 1. Review dependency-blocked and blocking-open-work planning sections, then follow a dependency list link into filtered project work.
 1. Open Project Status, review the seeded weekly report with cycle context, copy it as Markdown, download the Markdown export, print the page, and follow one milestone, cycle, or risk link into current project data.
 1. As an owner or maintainer, create a new status report, edit the narrative, publish it, and confirm the detail page shows a published snapshot notice.
 1. Switch to a contributor and confirm published reports remain readable and exportable while the create action is unavailable.
 1. Create a milestone, then create a work item assigned to that milestone.
-1. Use the project work item list search and filters. Dropdown filters apply immediately, while search applies after a short debounce.
+1. Edit the project work list search and filters, then select Apply; confirm active chips and results change together.
 1. Filter by dependency state to find dependency-blocked work or work blocking downstream items.
 1. Copy the filtered project work item list link and reload it to confirm the same applied view.
 1. Open a seeded pinned workspace view such as `Dependency risks` directly from the pinned shortcuts area.
@@ -860,7 +1052,7 @@ Suggested walkthrough:
 - Comment mentions are selected through an active-member picker. Free-text `@name` parsing is deferred.
 - Watchers are work-item scoped only. Project-level and workspace-level watching are deferred.
 - Saved views support workspace and project scopes with personal/shared visibility and pinned shortcuts. Custom pinned ordering, saved-view folders, icons, colors, descriptions, ownership transfer, custom permissions, short links, and analytics are deferred.
-- Portfolio review is read-only and active-project focused. Portfolio filters, custom sorting, charts, exports, stored portfolio snapshots, historical portfolio review, and cross-project mutation workflows are deferred.
+- Portfolio review is read-only and active-project focused. Comparison filters are local over the complete returned rows; saved/URL-backed Portfolio queries, custom sorting, charts, exports, stored snapshots, historical review, and cross-project mutation workflows are deferred.
 - Batch triage is project-scoped and works on explicit visible selections only. Cross-project bulk edit, board bulk actions, bulk delete, bulk comments, query-wide durable selection sets, background jobs, and custom bulk permissions are deferred.
 - Copy-link support uses browser clipboard APIs and a textarea fallback. Native share sheets, short links, and permission customization are deferred.
 - CSV import is project-scoped and limited to 1 MiB and 250 data rows per file.

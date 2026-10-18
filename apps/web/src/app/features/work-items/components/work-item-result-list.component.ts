@@ -1,3 +1,4 @@
+import { recordOriginParams } from '../../../shared/navigation/work-navigation';
 import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type {
@@ -45,45 +46,48 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
         <div class="work-item-table" role="table" [attr.aria-label]="ariaLabel">
           <div class="work-item-table__head" role="row">
             @if (selectionEnabled) {
-              <span class="selection-cell">
+              <span class="selection-cell" role="columnheader">
                 <input
                   type="checkbox"
                   class="selection-checkbox"
                   aria-label="Select all visible work items"
+                  [disabled]="selectionDisabled"
                   [checked]="allVisibleSelected"
                   (change)="toggleAllVisibleSelection.emit()"
                 />
               </span>
             }
-            <span>Title</span>
+            <span role="columnheader">Title</span>
             @if (mode === 'workspace') {
-              <span>Project</span>
+              <span role="columnheader">Project</span>
             }
-            <span>Status</span>
-            <span>Assignee</span>
-            <span>Planning</span>
-            <span>Priority</span>
-            <span>Updated</span>
+            <span role="columnheader">Status</span>
+            <span role="columnheader">Assignee</span>
+            <span role="columnheader">Planning</span>
+            <span role="columnheader">Priority</span>
+            <span role="columnheader">Updated</span>
           </div>
 
           @for (item of items; track item.id) {
             <div
               class="work-item-row"
               role="row"
+              [attr.aria-selected]="selectionEnabled ? isSelected(item.id) : null"
               [class.work-item-row--selected]="isSelected(item.id)"
             >
               @if (selectionEnabled) {
-                <span class="selection-cell">
+                <span class="selection-cell" role="cell">
                   <input
                     type="checkbox"
                     class="selection-checkbox"
                     [attr.aria-label]="selectionLabel(item)"
+                    [disabled]="selectionDisabled"
                     [checked]="isSelected(item.id)"
                     (change)="toggleSelection.emit(item.id)"
                   />
                 </span>
               }
-              <span class="work-item-row__title">
+              <span class="work-item-row__title" role="cell">
                 <a
                   class="work-item-title-link"
                   [routerLink]="['/work-items', item.id]"
@@ -127,7 +131,7 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
               </span>
 
               @if (workspaceItem(item); as workspaceItem) {
-                <span class="project-cell">
+                <span class="project-cell" role="cell">
                   <span
                     class="project-pill"
                     [class.project-pill--archived]="workspaceItem.project.status === 'archived'"
@@ -138,19 +142,20 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
                 </span>
               }
 
-              <span class="status-pill" [attr.data-status]="item.status">
+              <span class="status-pill" role="cell" [attr.data-status]="item.status">
                 {{ workItemStatusLabel(item.status) }}
               </span>
 
               <span
                 class="assignee-pill"
+                role="cell"
                 [class.assignee-pill--empty]="item.assignee === null"
                 [class.assignee-pill--inactive]="item.assignee?.isActive === false"
               >
                 {{ item.assignee === null ? 'Unassigned' : memberDisplayName(item.assignee) }}
               </span>
 
-              <span class="planning-cell">
+              <span class="planning-cell" role="cell">
                 <span
                   [class.muted-pill]="item.milestone === null"
                   [class.milestone-pill]="item.milestone !== null"
@@ -166,19 +171,28 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
                 <small>{{ dueDateLabel(item) }}</small>
               </span>
 
-              <span class="priority-pill" [attr.data-priority]="item.priority">
+              <span class="priority-pill" role="cell" [attr.data-priority]="item.priority">
                 {{ workItemPriorityLabel(item.priority) }}
               </span>
 
-              <span>{{ formatDate(item.updatedAt) }}</span>
+              <span role="cell">{{ formatDate(item.updatedAt) }}</span>
             </div>
           }
         </div>
 
         <div class="work-item-cards" [attr.aria-label]="ariaLabel + ' cards'">
+          @if (selectionEnabled) {
+            <label class="mobile-selection">
+              <input type="checkbox" class="selection-checkbox" aria-label="Select all visible work items"
+                [disabled]="selectionDisabled"
+                [checked]="allVisibleSelected" (change)="toggleAllVisibleSelection.emit()" />
+              Select all visible work
+            </label>
+          }
           @for (item of items; track item.id) {
             <article
               class="work-item-card"
+              [attr.aria-label]="item.displayKey + (selectionEnabled && isSelected(item.id) ? ', selected' : '')"
               [class.work-item-card--selected]="isSelected(item.id)"
             >
               <span class="work-item-card__top">
@@ -187,6 +201,7 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
                     type="checkbox"
                     class="selection-checkbox"
                     [attr.aria-label]="selectionLabel(item)"
+                    [disabled]="selectionDisabled"
                     [checked]="isSelected(item.id)"
                     (change)="toggleSelection.emit(item.id)"
                   />
@@ -281,6 +296,7 @@ type ResultItem = WorkItemListItemDto | WorkspaceWorkItemListItemDto;
     </section>
   `,
   styles: `
+    .mobile-selection { display: flex; align-items: center; gap: 8px; font-weight: 700; }
     .list-panel {
       display: grid;
       gap: 14px;
@@ -686,6 +702,7 @@ export class WorkItemResultListComponent {
   @Input() emptyMessage = 'Work items will appear here.';
   @Input() ariaLabel = 'Work items';
   @Input() selectionEnabled = false;
+  @Input() selectionDisabled = false;
   @Input() selectedItemIds: string[] = [];
   @Input() allVisibleSelected = false;
   @Output() readonly retry = new EventEmitter<void>();
@@ -704,7 +721,7 @@ export class WorkItemResultListComponent {
   childSummaryLabel = workItemChildSummaryLabel;
 
   detailQueryParams(): { returnUrl: string } | null {
-    return this.returnUrl === null ? null : { returnUrl: this.returnUrl };
+    return this.returnUrl === null ? null : recordOriginParams(this.returnUrl);
   }
 
   isSelected(itemId: string): boolean {

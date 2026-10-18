@@ -1,13 +1,15 @@
 import { randomUUID } from 'node:crypto';
 
-import request from 'supertest';
+import request from './support/local-http.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { createPersistence } from '../src/repositories/persistence.js';
 import { createExpressApp } from '../src/adapters/express/server.js';
 import { createDb, createPool } from '../src/db/client.js';
 import { attachmentPolicy } from '../src/domain/attachment-policy.js';
 import { createRepositories, type Repositories } from '../src/repositories/index.js';
 import { InMemoryAttachmentObjectStore } from '../src/storage/in-memory-attachment-object-store.js';
+import { cleanupWorkspace as cleanupOwnedWorkspace } from './support/workspace-fixtures.js';
 
 const workspaceIds = new Set<string>();
 let pool: ReturnType<typeof createPool>;
@@ -19,13 +21,7 @@ function now(): Date {
 }
 
 async function cleanupWorkspace(workspaceId: string): Promise<void> {
-  await pool.query('delete from notifications where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from activity_events where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from work_item_attachments where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from work_items where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from projects where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from members where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from workspaces where id = $1', [workspaceId]);
+  await cleanupOwnedWorkspace(pool, workspaceId);
 }
 
 async function cleanupAllWorkspaces(): Promise<void> {
@@ -106,7 +102,7 @@ async function createFixture() {
   const objectStore = new InMemoryAttachmentObjectStore();
   const app = createExpressApp({
     repositories,
-    db,
+    persistence: createPersistence(db),
     attachmentObjectStore: objectStore
   });
   const headers = (memberId: string) => ({
@@ -154,6 +150,23 @@ afterAll(async () => {
 });
 
 describe('attachment HTTP endpoints', () => {
+  it('logs early upload-boundary rejection without file names, actor IDs, queries, or source', async () => {
+    const fixture = await createFixture();
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const put = vi.spyOn(fixture.objectStore, 'put');
+    try {
+      await request(fixture.app).post(`/api/work-items/${fixture.workItemId}/attachments?secret=private-token`)
+        .set(fixture.headers(fixture.uploaderId)).set('X-Worktrail-Filename', 'private-filename.txt')
+        .type('json').send({ source: 'private-source' }).expect(400);
+      expect(log.mock.calls).toEqual([[expect.stringMatching(/^POST \[invalid_attachment_metadata\] 400 \d+ms$/)]]);
+      expect(JSON.stringify(log.mock.calls)).not.toMatch(new RegExp(`private-|${fixture.workItemId}|${fixture.uploaderId}`));
+      expect(put).not.toHaveBeenCalled();
+    } finally {
+      log.mockRestore();
+      put.mockRestore();
+    }
+  });
+
   it('uploads, lists, downloads, and removes one attachment without exposing internal fields', async () => {
     const fixture = await createFixture();
     const bytes = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);

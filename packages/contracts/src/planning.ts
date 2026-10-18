@@ -156,6 +156,7 @@ export interface MilestoneReviewRiskSectionDto {
   title: string;
   description: string;
   count: number;
+  countUnit: 'work_items';
   query: WorkItemQuery;
   items: PlanningRiskItemDto[];
 }

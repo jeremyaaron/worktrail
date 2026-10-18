@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import type {
   DeliveryHealthReasonDto,
   ProjectCycleCloseoutItemSnapshotDto,
@@ -10,9 +10,12 @@ import type {
   WorkItemStatus
 } from '@worktrail/contracts';
 import { Subscription } from 'rxjs';
+import { NavigationSectionTargetDirective } from '../../../shared/navigation/section-target';
+import { recordOriginParams } from '../../../shared/navigation/work-navigation';
 
-import { CyclesApi } from '../../../core/api/cycles-api';
 import { extractApiErrorMessage } from '../../../core/api/api-error';
+import { CyclesApi } from '../../../core/api/cycles-api';
+import { PageContext } from '../../../core/navigation/page-context';
 import { cycleDateRangeLabel } from '../../../shared/cycles/cycle-display';
 import {
   deliveryHealthLabel,
@@ -40,8 +43,10 @@ const priorityLabels: Record<WorkItemPriority, string> = {
 
 @Component({
   selector: 'app-project-cycle-closeout-page',
-  imports: [ErrorPanelComponent, LoadingIndicatorComponent, ReactiveFormsModule, RouterLink],
+  imports: [NavigationSectionTargetDirective, ErrorPanelComponent, LoadingIndicatorComponent, ReactiveFormsModule, RouterLink],
   template: `
+    <section [appNavigationSectionTarget]="navigationFragment()" [navigationIdentity]="navigationIdentity()" [navigationReady]="preview()">
+
     <section class="closeout-page">
       @if (isLoading()) {
         <app-loading-indicator label="Loading cycle closeout preview" />
@@ -117,7 +122,7 @@ const priorityLabels: Record<WorkItemPriority, string> = {
               @for (item of preview.unfinishedItems; track item.id) {
                 <article class="work-row" role="listitem">
                   <div class="work-row__identity">
-                    <a [routerLink]="['/work-items', item.id]">{{ item.displayKey }}</a>
+                    <a [routerLink]="['/work-items', item.id]" [queryParams]="detailQueryParams()">{{ item.displayKey }}</a>
                     <strong>{{ item.title }}</strong>
                   </div>
                   <div class="work-row__metadata">
@@ -174,12 +179,16 @@ const priorityLabels: Record<WorkItemPriority, string> = {
             @if (preview.eligibleDestinations.length === 0) {
               <p class="quiet-copy">No planned destination cycles are currently available.</p>
             }
-            <p class="decision-copy">
+            @if (hasDestinationChoice(preview)) {
+            <p class="decision-copy" aria-live="polite">
               {{ preview.counts.unfinishedCount }} unfinished
               {{ preview.counts.unfinishedCount === 1 ? 'item' : 'items' }} will move to
               <strong>{{ selectedDestinationLabel(preview) }}</strong>. Completed and canceled work
               remains assigned to this cycle.
             </p>
+            } @else {
+              <p class="decision-copy" aria-live="polite">Choose a destination for {{ preview.counts.unfinishedCount }} unfinished {{ preview.counts.unfinishedCount === 1 ? 'item' : 'items' }}.</p>
+            }
           }
 
           @if (conflictError()) {
@@ -196,7 +205,7 @@ const priorityLabels: Record<WorkItemPriority, string> = {
 
           <div class="form-actions">
             <a [routerLink]="['/projects', projectId(), 'cycles', cycleId()]">Cancel</a>
-            <button type="submit" [disabled]="isSubmitting()">
+            <button type="submit" [disabled]="isSubmitting() || !hasDestinationChoice(preview) || !!conflictError()">
               <span
                 class="submit-label"
                 [class.is-hidden]="isSubmitting()"
@@ -212,12 +221,14 @@ const priorityLabels: Record<WorkItemPriority, string> = {
         </form>
       }
     </section>
+
+    </section>
   `,
   styles: `
     :host { display: block; }
     .closeout-page { display: grid; gap: 28px; max-width: 1180px; margin: 0 auto; padding: 8px 0 48px; color: #111827; }
     .page-header, .section-heading, .form-actions, .conflict { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
-    .page-header h1 { margin: 3px 0 8px; font-size: clamp(1.8rem, 3vw, 2.35rem); line-height: 1.12; letter-spacing: 0; }
+    .page-header h1 { margin: 3px 0 8px; font-size: 2rem; line-height: 1.12; letter-spacing: 0; }
     .page-header > a, .form-actions > a { min-height: 38px; display: inline-flex; align-items: center; color: #334155; font-size: .875rem; font-weight: 700; text-decoration: none; }
     .eyebrow { margin: 0; color: #64748b; font-size: .72rem; font-weight: 800; letter-spacing: 0; text-transform: uppercase; }
     .header-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 0; color: #52637a; font-size: .9rem; }
@@ -282,7 +293,9 @@ const priorityLabels: Record<WorkItemPriority, string> = {
   `
 })
 export class ProjectCycleCloseoutPageComponent implements OnInit, OnDestroy {
-  private readonly route = inject(ActivatedRoute);
+  private readonly context = new PageContext();
+  readonly navigationFragment = this.context.fragment;
+  readonly navigationIdentity = computed(() => this.context.contextKey());
   private readonly router = inject(Router);
   private readonly cyclesApi = inject(CyclesApi);
   private readonly formBuilder = inject(FormBuilder);
@@ -290,8 +303,11 @@ export class ProjectCycleCloseoutPageComponent implements OnInit, OnDestroy {
   private previewSubscription: Subscription | null = null;
   private closeSubscription: Subscription | null = null;
 
-  readonly projectId = signal('');
-  readonly cycleId = signal('');
+  detailQueryParams(): { returnUrl: string } {
+    return recordOriginParams('/projects/' + this.projectId() + '/cycles/' + this.cycleId() + '/closeout', 'unfinished-heading');
+  }
+  readonly projectId = computed(() => this.context.param('projectId'));
+  readonly cycleId = computed(() => this.context.param('cycleId'));
   readonly preview = signal<ProjectCycleCloseoutPreviewDto | null>(null);
   readonly isLoading = signal(true);
   readonly isSubmitting = signal(false);
@@ -299,17 +315,21 @@ export class ProjectCycleCloseoutPageComponent implements OnInit, OnDestroy {
   readonly submitError = signal<string | null>(null);
   readonly conflictError = signal<string | null>(null);
   readonly form = this.formBuilder.group({
-    destinationCycleId: this.formBuilder.control<string | null>(null)
+    // Null is a deliberate Unplanned choice, not an unselected control.
+    destinationCycleId: this.formBuilder.control<string | null>('')
   });
 
   ngOnInit(): void {
-    this.subscriptions.add(
-      this.route.paramMap.subscribe((params) => {
-        this.projectId.set(params.get('projectId') ?? '');
-        this.cycleId.set(params.get('cycleId') ?? '');
-        this.loadPreview();
-      })
-    );
+    this.context.start(() => {
+      this.preview.set(null);
+      this.isLoading.set(true);
+      this.isSubmitting.set(false);
+      this.loadError.set(null);
+      this.submitError.set(null);
+      this.conflictError.set(null);
+      this.form.reset({ destinationCycleId: '' }, { emitEvent: false });
+      this.loadPreview();
+    });
   }
 
   ngOnDestroy(): void {
@@ -319,11 +339,10 @@ export class ProjectCycleCloseoutPageComponent implements OnInit, OnDestroy {
   }
 
   loadPreview(): void {
+    if (this.isSubmitting()) return;
     const projectId = this.projectId();
     const cycleId = this.cycleId();
     this.previewSubscription?.unsubscribe();
-    this.closeSubscription?.unsubscribe();
-    this.closeSubscription = null;
     this.isSubmitting.set(false);
     this.form.enable({ emitEvent: false });
     this.preview.set(null);
@@ -338,14 +357,10 @@ export class ProjectCycleCloseoutPageComponent implements OnInit, OnDestroy {
     }
 
     this.isLoading.set(true);
-    this.previewSubscription = this.cyclesApi.getCloseoutPreview(projectId, cycleId).subscribe({
+    this.previewSubscription = this.cyclesApi.getCloseoutPreview(projectId, cycleId).pipe(this.context.guard()).subscribe({
       next: (preview) => {
         this.preview.set(preview);
-        const defaultDestination =
-          preview.counts.unfinishedCount > 0
-            ? (preview.eligibleDestinations[0]?.cycle.id ?? null)
-            : null;
-        this.form.controls.destinationCycleId.setValue(defaultDestination);
+        this.form.controls.destinationCycleId.setValue(preview.counts.unfinishedCount > 0 ? '' : null);
 
         if (preview.counts.unfinishedCount === 0) {
           this.form.controls.destinationCycleId.disable({ emitEvent: false });
@@ -367,7 +382,7 @@ export class ProjectCycleCloseoutPageComponent implements OnInit, OnDestroy {
   submit(): void {
     const preview = this.preview();
 
-    if (preview === null || this.isSubmitting()) {
+    if (preview === null || this.isSubmitting() || this.conflictError() || !this.hasDestinationChoice(preview)) {
       return;
     }
 
@@ -381,7 +396,7 @@ export class ProjectCycleCloseoutPageComponent implements OnInit, OnDestroy {
         : this.form.getRawValue().destinationCycleId;
 
     this.closeSubscription = this.cyclesApi
-      .closeCycle(this.projectId(), this.cycleId(), { destinationCycleId })
+      .closeCycle(this.projectId(), this.cycleId(), { destinationCycleId }).pipe(this.context.guardMutation())
       .subscribe({
         next: () => {
           void this.router.navigate([
@@ -389,7 +404,7 @@ export class ProjectCycleCloseoutPageComponent implements OnInit, OnDestroy {
             this.projectId(),
             'cycles',
             this.cycleId()
-          ]);
+          ], { fragment: 'cycle-result-heading' });
         },
         error: (error: HttpErrorResponse) => {
           const message = extractApiErrorMessage(
@@ -445,6 +460,12 @@ export class ProjectCycleCloseoutPageComponent implements OnInit, OnDestroy {
 
   estimateLabel(item: ProjectCycleCloseoutItemSnapshotDto): string {
     return item.estimatePoints === null ? 'Unestimated' : `${item.estimatePoints} points`;
+  }
+
+  hasDestinationChoice(preview: ProjectCycleCloseoutPreviewDto): boolean {
+    const destinationId = this.form.controls.destinationCycleId.value;
+    return preview.counts.unfinishedCount === 0 || destinationId === null ||
+      preview.eligibleDestinations.some(option => option.cycle.id === destinationId);
   }
 
   selectedDestinationLabel(preview: ProjectCycleCloseoutPreviewDto): string {

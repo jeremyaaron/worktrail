@@ -36,80 +36,14 @@ export interface CycleUpdateRequest {
     RouterLink
   ],
   template: `
-    <section class="panel cycle-panel" aria-labelledby="cycles-heading">
+    <section class="cycle-panel" aria-labelledby="cycles-heading">
       <div class="panel-heading">
         <div>
           <h2 id="cycles-heading">Cycles</h2>
-          <p>Plan timeboxed delivery windows for scoped project work.</p>
+
         </div>
         <span>{{ cycles.length }} total</span>
       </div>
-
-      @if (canManageCycles) {
-        <form class="cycle-form" [formGroup]="cycleForm" (ngSubmit)="create.emit()" novalidate>
-          <label for="cycle-name">Name</label>
-          <input
-            id="cycle-name"
-            type="text"
-            formControlName="name"
-            autocomplete="off"
-            [attr.aria-invalid]="showCycleNameError()"
-            aria-describedby="cycle-name-error"
-          />
-          @if (showCycleNameError()) {
-            <p id="cycle-name-error" class="field-error">Cycle name is required.</p>
-          }
-
-          <label for="cycle-goal">Goal</label>
-          <textarea id="cycle-goal" rows="3" formControlName="goal"></textarea>
-
-          <div class="cycle-form__grid">
-            <label>
-              <span>Status</span>
-              <select formControlName="status">
-                @for (status of creatableCycleStatuses; track status) {
-                  <option [value]="status">{{ cycleStatusLabel(status) }}</option>
-                }
-              </select>
-            </label>
-
-            <label>
-              <span>Start date</span>
-              <input type="date" formControlName="startDate" />
-            </label>
-
-            <label>
-              <span>End date</span>
-              <input type="date" formControlName="endDate" />
-            </label>
-
-            <label>
-              <span>Target points</span>
-              <input type="number" min="1" max="999" step="1" formControlName="targetPoints" />
-            </label>
-          </div>
-
-          @if (cycleSuccessMessage) {
-            <p class="success-message">{{ cycleSuccessMessage }}</p>
-          }
-
-          <button type="submit" [disabled]="isCreatingCycle">
-            {{ isCreatingCycle ? 'Creating...' : 'Create cycle' }}
-          </button>
-        </form>
-      }
-
-      @if (cycleCreateError) {
-        <p class="field-error">{{ cycleCreateError }}</p>
-      }
-
-      @if (cycleMutationError) {
-        <app-error-panel
-          title="Cycle change failed"
-          [message]="cycleMutationError"
-          (retry)="retryLoad.emit()"
-        />
-      }
 
       @if (isLoadingCycles) {
         <app-loading-indicator label="Loading cycles" />
@@ -153,30 +87,30 @@ export interface CycleUpdateRequest {
                 <span>Updated {{ formatDateTime(cycle.updatedAt) }}</span>
               </div>
 
-              @if (canManageCycles) {
-                <div class="cycle-row__fields">
+              @if (canManageCycles && !cycle.isArchived) {
+ <details class="record-edit"><summary>Edit {{ cycle.name }}</summary><div class="cycle-row__fields">
                   <label>
                     <span>Name</span>
-                    <input #cycleName type="text" [value]="cycle.name" [disabled]="isMutatingCycle(cycle)" />
+                    <input #cycleName type="text" [value]="cycle.name" [disabled]="writeBlocked" />
                   </label>
 
                   <label>
                     <span>Goal</span>
-                    <textarea #cycleGoal rows="2" [disabled]="isMutatingCycle(cycle)">{{ cycle.goal }}</textarea>
+                    <textarea #cycleGoal rows="2" [disabled]="writeBlocked">{{ cycle.goal }}</textarea>
                   </label>
 
                   <label>
                     <span>Status</span>
                     <select
                       #cycleStatus
-                      [value]="cycle.status"
-                      [disabled]="isMutatingCycle(cycle) || cycle.status === 'completed'"
+
+                      [disabled]="writeBlocked || cycle.status === 'completed'"
                     >
                       @if (cycle.status === 'completed') {
                         <option value="completed">{{ cycleStatusLabel('completed') }}</option>
                       } @else {
                         @for (status of mutationStatuses(cycle); track status) {
-                          <option [value]="status">{{ cycleStatusLabel(status) }}</option>
+                          <option [value]="status" [selected]="status === cycle.status">{{ cycleStatusLabel(status) }}</option>
                         }
                       }
                     </select>
@@ -188,7 +122,7 @@ export interface CycleUpdateRequest {
                       #cycleStartDate
                       type="date"
                       [value]="cycle.startDate"
-                      [disabled]="isMutatingCycle(cycle)"
+                      [disabled]="writeBlocked"
                     />
                   </label>
 
@@ -198,7 +132,7 @@ export interface CycleUpdateRequest {
                       #cycleEndDate
                       type="date"
                       [value]="cycle.endDate"
-                      [disabled]="isMutatingCycle(cycle)"
+                      [disabled]="writeBlocked"
                     />
                   </label>
 
@@ -211,7 +145,7 @@ export interface CycleUpdateRequest {
                       max="999"
                       step="1"
                       [value]="cycle.targetPoints ?? ''"
-                      [disabled]="isMutatingCycle(cycle)"
+                      [disabled]="writeBlocked"
                     />
                   </label>
                 </div>
@@ -219,7 +153,7 @@ export interface CycleUpdateRequest {
                 <div class="cycle-actions">
                   <button
                     type="button"
-                    [disabled]="isMutatingCycle(cycle)"
+                    [disabled]="writeBlocked"
                     (click)="update.emit({
                       cycle,
                       name: cycleName.value,
@@ -233,40 +167,77 @@ export interface CycleUpdateRequest {
                     {{ isMutatingCycle(cycle) ? 'Saving...' : 'Save' }}
                   </button>
 
-                  @if (cycle.isArchived) {
-                    <button
-                      type="button"
-                      [disabled]="isMutatingCycle(cycle)"
-                      (click)="reactivate.emit(cycle)"
-                    >
-                      Reactivate
-                    </button>
-                  } @else {
-                    <button
-                      type="button"
-                      class="danger-button"
-                      [disabled]="isMutatingCycle(cycle)"
-                      (click)="archive.emit(cycle)"
-                    >
-                      Archive
-                    </button>
-                  }
+                  <button type="button" class="danger-button" [disabled]="writeBlocked" (click)="archive.emit(cycle)">Archive</button>
+                </div></details>
+              } @else if (canManageCycles) {
+                <div class="cycle-actions">
+                  <button type="button" [disabled]="writeBlocked" (click)="reactivate.emit(cycle)">Reactivate</button>
                 </div>
               }
+ @if (mutationErrors[cycle.id]) {<p class="field-error" role="alert">{{ mutationErrors[cycle.id] }}</p>}
+ @if (mutationMessages[cycle.id]) {<p class="success-message" role="status">{{ mutationMessages[cycle.id] }}</p>}
             </article>
           }
         </div>
       }
+      @if (canManageCycles) {
+        <details class="create-disclosure" [open]="hasSubmittedCycleCreate"><summary>Create cycle</summary><form class="cycle-form" [formGroup]="cycleForm" (ngSubmit)="create.emit()" novalidate>
+          <fieldset [disabled]="writeBlocked"><label for="cycle-name">Name</label>
+          <input
+            id="cycle-name"
+            type="text"
+            formControlName="name"
+            autocomplete="off"
+            [attr.aria-invalid]="showCycleNameError()"
+            aria-describedby="cycle-name-error"
+          />
+          @if (showCycleNameError()) {
+            <p id="cycle-name-error" class="field-error">Cycle name is required.</p>
+          }
+
+          <label for="cycle-goal">Goal</label>
+          <textarea id="cycle-goal" rows="3" formControlName="goal"></textarea>
+
+          <div class="cycle-form__grid">
+            <label>
+              <span>Status</span>
+              <select formControlName="status">
+                @for (status of creatableCycleStatuses; track status) {
+                  <option [value]="status">{{ cycleStatusLabel(status) }}</option>
+                }
+              </select>
+            </label>
+
+            <label>
+              <span>Start date</span>
+              <input type="date" formControlName="startDate" />
+            </label>
+
+            <label>
+              <span>End date</span>
+              <input type="date" formControlName="endDate" />
+            </label>
+
+            <label>
+              <span>Target points</span>
+              <input type="number" min="1" max="999" step="1" formControlName="targetPoints" />
+            </label>
+          </div>
+
+          <button type="submit" [disabled]="isCreatingCycle">
+            {{ isCreatingCycle ? 'Creating...' : 'Create cycle' }}
+          </button>
+        </fieldset></form></details>
+      }
+
+      @if (cycleCreateError) {
+        <p class="field-error">{{ cycleCreateError }}</p>
+      }
+
+@if (cycleSuccessMessage) {<p class="success-message" role="status">{{ cycleSuccessMessage }}</p>}
     </section>
   `,
   styles: `
-    .panel {
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 18px;
-      background: #ffffff;
-    }
-
     .panel-heading {
       display: flex;
       align-items: start;
@@ -448,6 +419,10 @@ export interface CycleUpdateRequest {
       gap: 8px;
     }
 
+    .record-edit .cycle-actions {
+      margin-top: 12px;
+    }
+
     .cycle-row__links {
       justify-content: flex-end;
     }
@@ -487,6 +462,11 @@ export interface CycleUpdateRequest {
       color: #64748b;
     }
 
+    :host {display:block;} fieldset {display:grid;gap:10px;border:0;padding:0;margin:0;min-width:0;}
+    details {border-top:1px solid #e5e7eb;padding-top:12px;} summary {cursor:pointer;font-weight:700;padding:8px 0;}
+    .create-disclosure {margin-top:20px;} .cycle-form {border:0;background:transparent;padding:12px 0;margin:0;}
+    h3,p,summary {overflow-wrap:anywhere;}
+
     @media (max-width: 900px) {
       .cycle-form__grid,
       .cycle-row__fields {
@@ -516,7 +496,9 @@ export class CycleManagerComponent {
   @Input() mutatingCycleId: string | null = null;
   @Input() cycleLoadError: string | null = null;
   @Input() cycleCreateError: string | null = null;
-  @Input() cycleMutationError: string | null = null;
+  @Input() mutationErrors: Record<string, string> = {};
+  @Input() mutationMessages: Record<string, string> = {};
+  @Input() writeBlocked = false;
   @Input() cycleSuccessMessage: string | null = null;
 
   @Output() readonly create = new EventEmitter<void>();

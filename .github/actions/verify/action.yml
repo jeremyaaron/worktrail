@@ -1,0 +1,47 @@
+name: Owned Verification
+description: Install the supported toolchain and run one isolated verification scope.
+inputs:
+  mode:
+    description: Verification scope
+    required: true
+  database:
+    description: Explicit provisioning strategy for scopes needing PostgreSQL
+    default: docker
+  shard:
+    description: Optional application browser shard N/M
+    default: ''
+  artifact:
+    description: Unique evidence artifact name
+    required: true
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: npm
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+    - name: Install browser runtime
+      if: inputs.mode != 'checks'
+      shell: bash
+      run: npx playwright install --with-deps chromium
+    - name: Verify owned scope
+      shell: bash
+      env:
+        VERIFY_MODE: ${{ inputs.mode }}
+        VERIFY_DATABASE: ${{ inputs.database }}
+        VERIFY_SHARD: ${{ inputs.shard }}
+      run: |
+        args=("--mode=$VERIFY_MODE" "--database=$VERIFY_DATABASE")
+        if [[ -n "$VERIFY_SHARD" ]]; then args+=("--shard=$VERIFY_SHARD"); fi
+        npm run verify -- "${args[@]}"
+    - name: Retain verification evidence
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact }}
+        path: test-results/verification
+        if-no-files-found: ignore
+        retention-days: 7

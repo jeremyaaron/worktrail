@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
 import type {
   MemberDto,
@@ -8,6 +9,7 @@ import type {
   ProjectDeliveryHealthDto,
   ProjectDto
 } from '@worktrail/contracts';
+import { PortfolioProjectComparisonComponent } from './portfolio-project-comparison.component';
 
 import { CurrentUserService } from '../../core/current-user.service';
 import { PortfolioPageComponent } from './portfolio-page.component';
@@ -59,6 +61,7 @@ const deliveryHealth: ProjectDeliveryHealthDto = {
       severity: 'critical',
       message: '1 blocked work item',
       count: 1,
+      countUnit: 'work_items' as const,
       query: { status: 'blocked', sort: 'priority_desc' }
     }
   ]
@@ -378,9 +381,61 @@ describe('PortfolioPageComponent', () => {
       `/projects/${project.id}/work-items?dependency=dependency_blocked&sort=priority_desc`
     );
     expect(linkHref(compiled, 'Overdue work')).toBe(
-      `/projects/${project.id}/work-items?dueDateState=overdue&sort=due_date_asc`
+      `/projects/${project.id}/work-items?workState=open&dueDateState=overdue&sort=due_date_asc`
     );
   });
+  it('refines the complete fifteen-row comparison independently of bounded attention and summary totals', () => {
+    const { fixture, http } = setup();
+    const base = portfolioFixture().projects[0]!;
+    const projects = Array.from({ length: 15 }, (_, index) => ({
+      ...structuredClone(base),
+      project: { ...base.project, id: 'project-' + index, key: 'P' + (index + 1), name: 'Comparison project ' + (index + 1) },
+      deliveryHealth: { ...base.deliveryHealth, health: (['blocked', 'at_risk', 'healthy'] as const)[index % 3]! },
+      report: { ...base.report, freshness: (['missing', 'stale', 'fresh'] as const)[index % 3]! }
+    }));
+    http.expectOne('/api/portfolio').flush(portfolioFixture({ projects }));
+    fixture.detectChanges();
+    const comparison = fixture.debugElement.query(By.directive(PortfolioProjectComparisonComponent)).componentInstance as PortfolioProjectComparisonComponent;
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelectorAll('.project-row').length).toBe(15);
+    expect(root.querySelector('[aria-label="Project comparison results"]')?.textContent).toContain('15 of 15');
+    comparison.health.set('healthy');
+    comparison.freshness.set('fresh');
+    fixture.detectChanges();
+    expect(root.querySelectorAll('.project-row').length).toBe(5);
+    comparison.search.set('p15');
+    fixture.detectChanges();
+    expect(root.querySelectorAll('.project-row').length).toBe(1);
+    expect(root.querySelector('.project-row')?.textContent).toContain('Comparison project 15');
+    expect(root.querySelector('[aria-label="Project comparison results"]')?.textContent).toContain('1 of 15');
+    comparison.search.set('no match');
+    fixture.detectChanges();
+    expect(root.textContent).toContain('No projects match these filters.');
+    comparison.clearFilters();
+    fixture.detectChanges();
+    expect(root.querySelectorAll('.project-row').length).toBe(15);
+    expect(root.querySelectorAll('details.secondary-details[open]').length).toBe(0);
+    expect(root.querySelector('.attention-disclosure')?.hasAttribute('open')).toBeFalse();
+    expect(root.querySelector('.preview-note')?.textContent).toContain('Bounded project previews');
+    http.expectNone('/api/portfolio');
+  });
+
+  it('cancels an earlier actor read and loads the newly committed workspace portfolio', () => {
+    const { fixture, http } = setup();
+    const pending = http.expectOne('/api/portfolio');
+    const actor = TestBed.inject(CurrentUserService);
+    const next = { ...owner, id: 'next-member', workspaceId: 'next-workspace' };
+    actor.members.set([owner, next]);
+    actor.selectMember(next.id);
+    fixture.detectChanges();
+    expect(pending.cancelled).toBeTrue();
+    const current = http.expectOne('/api/portfolio');
+    expect(current.request.headers.get('x-worktrail-workspace-id')).toBe(next.workspaceId);
+    current.flush(portfolioFixture({ projects: [] }));
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Worktrail App');
+  });
+
 });
 
 function linkHref(compiled: HTMLElement, label: string): string | null {

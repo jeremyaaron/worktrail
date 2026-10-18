@@ -1,13 +1,15 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import type { PortfolioDto } from '@worktrail/contracts';
+import { Subscription } from 'rxjs';
+import { PageContext } from '../../core/navigation/page-context';
 
 import { WorktrailApiService } from '../../core/worktrail-api.service';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
 import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
 import { PortfolioAttentionSectionsComponent } from './portfolio-attention-sections.component';
-import { PortfolioProjectComparisonComponent } from './portfolio-project-comparison.component';
 import { formatDateTime } from './portfolio-display';
+import { PortfolioProjectComparisonComponent } from './portfolio-project-comparison.component';
 import { PortfolioSummaryStripComponent } from './portfolio-summary-strip.component';
 
 @Component({
@@ -54,8 +56,8 @@ import { PortfolioSummaryStripComponent } from './portfolio-summary-strip.compon
       } @else {
         <div class="portfolio-layout">
           <app-portfolio-summary-strip [summary]="portfolio.summary" />
-          <app-portfolio-attention-sections [attention]="portfolio.attention" />
           <app-portfolio-project-comparison [rows]="portfolio.projects" />
+          <app-portfolio-attention-sections [attention]="portfolio.attention" />
         </div>
       }
     }
@@ -116,6 +118,8 @@ import { PortfolioSummaryStripComponent } from './portfolio-summary-strip.compon
   `
 })
 export class PortfolioPageComponent implements OnInit {
+  private readonly context = new PageContext();
+  private read: Subscription | null = null;
   private readonly api = inject(WorktrailApiService);
 
   readonly portfolio = signal<PortfolioDto | null>(null);
@@ -124,14 +128,15 @@ export class PortfolioPageComponent implements OnInit {
   readonly isEmpty = computed(() => (this.portfolio()?.projects.length ?? 0) === 0);
 
   ngOnInit(): void {
-    this.loadPortfolio();
+    this.context.start(() => { this.portfolio.set(null); this.loadPortfolio(); });
   }
 
   loadPortfolio(): void {
+    this.read?.unsubscribe();
     this.isLoading.set(true);
     this.error.set(null);
 
-    this.api.getPortfolio().subscribe({
+    this.read = this.api.getPortfolio().pipe(this.context.guard()).subscribe({
       next: (portfolio) => {
         this.portfolio.set(portfolio);
         this.isLoading.set(false);

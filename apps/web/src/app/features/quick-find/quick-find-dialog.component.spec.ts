@@ -67,7 +67,7 @@ describe('Quick Find dialog launcher and navigation mode', () => {
 
     expect(openRef.config.ariaLabelledBy).toBe('quick-find-heading');
     expect(openRef.config.ariaModal).toBeTrue();
-    expect(openRef.config.closeOnNavigation).toBeTrue();
+    expect(openRef.config.closeOnNavigation).toBeFalse();
     expect(openRef.config.disableClose).toBeFalse();
     expect(openRef.config.hasBackdrop).toBeTrue();
     expect(openRef.config.restoreFocus).toBeTrue();
@@ -144,7 +144,7 @@ describe('Quick Find dialog launcher and navigation mode', () => {
     ).toBeNull();
   });
 
-  it('keeps navigation visible for short queries and closes before routing an entry', async () => {
+  it('keeps navigation visible for short queries and closes only after routing an entry succeeds', async () => {
     openRef = await openQuickFindDialog(injector, { currentProjectId: projectId });
     openRef.componentRef?.changeDetectorRef.detectChanges();
     await applicationRef.whenStable();
@@ -176,10 +176,12 @@ describe('Quick Find dialog launcher and navigation mode', () => {
       .find((entry) => entry.textContent?.trim() === 'Board')!;
 
     board.click();
+    expect(close).not.toHaveBeenCalled();
+    await applicationRef.whenStable();
 
     expect(close).toHaveBeenCalledOnceWith();
     expect(navigate).toHaveBeenCalledOnceWith(['/projects', projectId, 'board'], {});
-    expect(callOrder).toEqual(['close', 'navigate']);
+    expect(callOrder).toEqual(['navigate', 'close']);
     openRef = null;
   });
 });

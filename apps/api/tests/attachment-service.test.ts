@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { createPersistence } from '../src/repositories/persistence.js';
 import { createDb, createPool } from '../src/db/client.js';
 import type { ActorContext } from '../src/domain/actor.js';
 import { attachmentPolicy } from '../src/domain/attachment-policy.js';
@@ -20,6 +21,7 @@ import {
 } from '../src/services/attachment-service.js';
 import type { AttachmentObjectStore } from '../src/storage/attachment-object-store.js';
 import { InMemoryAttachmentObjectStore } from '../src/storage/in-memory-attachment-object-store.js';
+import { cleanupWorkspace as cleanupOwnedWorkspace } from './support/workspace-fixtures.js';
 
 const workspaceIds = new Set<string>();
 const uploadBytes = new TextEncoder().encode('# Upload evidence\n');
@@ -41,13 +43,7 @@ function storageKey(): string {
 }
 
 async function cleanupWorkspace(workspaceId: string): Promise<void> {
-  await pool.query('delete from notifications where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from activity_events where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from work_item_attachments where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from work_items where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from projects where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from members where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from workspaces where id = $1', [workspaceId]);
+  await cleanupOwnedWorkspace(pool, workspaceId);
 }
 
 async function cleanupAllWorkspaces(): Promise<void> {
@@ -200,7 +196,7 @@ function createService(
   };
   const service = new AttachmentService({
     repositories,
-    db,
+    persistence: createPersistence(db),
     objectStore,
     now,
     ...(ids.length === 0 ? {} : { createId: () => ids.shift()! }),

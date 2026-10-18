@@ -2,13 +2,15 @@ import { randomUUID } from 'node:crypto';
 
 import type { CommentDto, UpdateCommentRequest } from '@worktrail/contracts';
 import { sql } from 'drizzle-orm';
-import request from 'supertest';
+import request from './support/local-http.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { createPersistence, withTransactionScope } from '../src/repositories/persistence.js';
 import { createExpressApp } from '../src/adapters/express/server.js';
-import { createDb, createPool, type WorktrailDb } from '../src/db/client.js';
+import { createDb, createPool } from '../src/db/client.js';
 import { createRepositories, type Repositories } from '../src/repositories/index.js';
 import { CommentService } from '../src/services/comment-service.js';
+import { cleanupWorkspace as cleanupOwnedWorkspace } from './support/workspace-fixtures.js';
 
 const workspaceIds = new Set<string>();
 let pool: ReturnType<typeof createPool>;
@@ -29,22 +31,7 @@ function actorHeaders(input: { workspaceId: string; memberId: string; role: stri
 }
 
 async function cleanupWorkspace(workspaceId: string) {
-  await pool.query('delete from notifications where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from comment_mentions where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from activity_events where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from comments where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from work_item_watchers where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from work_item_relationships where workspace_id = $1', [workspaceId]);
-  await pool.query(
-    'delete from work_item_labels where work_item_id in (select id from work_items where workspace_id = $1)',
-    [workspaceId]
-  );
-  await pool.query('delete from labels where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from work_items where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from milestones where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from projects where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from members where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from workspaces where id = $1', [workspaceId]);
+  await cleanupOwnedWorkspace(pool, workspaceId);
 }
 
 async function cleanupAllWorkspaces() {
@@ -152,7 +139,7 @@ function createService(
 ) {
   return new CommentService({
     actor: { workspaceId: fixture.workspaceId, memberId: fixture.actorId, role: 'owner' },
-    repositories, db, ...overrides
+    repositories, persistence: createPersistence(db), ...overrides
   });
 }
 
@@ -160,7 +147,7 @@ beforeAll(() => {
   pool = createPool();
   db = createDb(pool);
   repositories = createRepositories(db);
-  app = createExpressApp({ repositories, db });
+  app = createExpressApp({ repositories, persistence: createPersistence(db) });
 });
 
 afterEach(async () => {
@@ -299,13 +286,12 @@ describe('authored comment writes', () => {
     const fixture = await createFixture();
     const item = await createWorkItem(fixture);
     const comment = await createComment(fixture, item.id);
-    await expect(db.transaction(async (tx) => {
-      const transactionRepositories = createRepositories(tx as unknown as WorktrailDb);
-      vi.spyOn(transactionRepositories.activityEvents, 'create')
+    await expect(db.transaction((tx) => withTransactionScope(tx, 'write', async (scope) => {
+      vi.spyOn(scope.repositories.activityEvents, 'create')
         .mockRejectedValue(new Error('Simulated activity failure'));
-      return createService(fixture, { db: undefined, repositories: transactionRepositories })
+      return createService(fixture, scope)
         .updateComment(comment.id, { body: 'Changed source', bodyFormat: 'markdown_v1' });
-    })).rejects.toThrow('Simulated activity failure');
+    }))).rejects.toThrow('Simulated activity failure');
     expect(await repositories.comments.findById(comment.id)).toEqual(comment);
     expect(await repositories.activityEvents.findByWorkItem(item.id)).toEqual([]);
   });
@@ -404,16 +390,16 @@ describe('authored comment writes', () => {
     let ready!: (pid: number) => void;
     const gate = new Promise<void>((resolve) => { release = resolve; });
     const locked = new Promise<number>((resolve) => { ready = resolve; });
-    const first = db.transaction(async (tx) => {
+    const first = db.transaction((tx) => withTransactionScope(tx, 'write', async (scope) => {
       const { rows } = await tx.execute(sql`select pg_backend_pid() as pid`);
       const result = await perform(createService(fixture, {
-        db: undefined, repositories: createRepositories(tx as unknown as WorktrailDb),
+        ...scope,
         clock: () => new Date('2026-07-04T00:00:00Z')
       }), firstInput);
       ready(Number(rows[0]?.pid));
       await gate;
       return result;
-    });
+    }));
     let second: Promise<CommentDto> | undefined;
     try {
       const pid = await Promise.race([locked, first.then(() => { throw new Error('Writer ended early.'); })]);

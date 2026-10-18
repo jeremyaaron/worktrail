@@ -1,7 +1,8 @@
 import type { WorkItemAttachmentDto, WorkItemAttachmentListDto } from '@worktrail/contracts';
+import { coordinateProjects } from './project-write-coordination.js';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
-import type { WorktrailDb } from '../db/client.js';
+import { assertPersistence, type Persistence } from '../repositories/persistence.js';
 import type { ActorContext } from '../domain/actor.js';
 import {
   attachmentPolicy,
@@ -15,7 +16,7 @@ import {
   ForbiddenError,
   NotFoundError
 } from '../errors/app-error.js';
-import { type Repositories, withRepositoriesTransaction } from '../repositories/index.js';
+import type { Repositories } from '../repositories/index.js';
 import type { Member, Project, WorkItem, WorkItemAttachment } from '../repositories/types.js';
 import type { AttachmentObjectStore } from '../storage/attachment-object-store.js';
 import {
@@ -27,7 +28,7 @@ import { toWorkItemAttachmentDto, toWorkItemAttachmentUsageDto } from './attachm
 
 export interface AttachmentServiceContext {
   repositories: Repositories;
-  db: WorktrailDb;
+  persistence: Persistence;
   objectStore: AttachmentObjectStore;
   now?: () => Date;
   createId?: () => string;
@@ -64,6 +65,7 @@ export class AttachmentService {
   private readonly logger: AttachmentOperationalLogger;
 
   constructor(private readonly context: AttachmentServiceContext) {
+    assertPersistence(context.persistence);
     this.now = context.now ?? (() => new Date());
     this.createId = context.createId ?? randomUUID;
     this.createStorageKey = context.createStorageKey ?? (() => randomBytes(32).toString('hex'));
@@ -142,7 +144,9 @@ export class AttachmentService {
     }
 
     try {
-      const created = await withRepositoriesTransaction(this.context.db, async (repositories) => {
+      const created = await this.context.persistence.write(async (scope) => {
+        await coordinateProjects(scope, actor.workspaceId, [prechecked.project.id], 'shared');
+        const repositories = scope.repositories;
         const project = await repositories.projects.findByIdForShare(prechecked.project.id);
 
         if (project === null || project.workspaceId !== actor.workspaceId) {
@@ -285,7 +289,9 @@ export class AttachmentService {
     this.assertProjectWritable(prechecked.project);
     this.assertCanRemove(precheckedActor, prechecked.attachment);
 
-    await withRepositoriesTransaction(this.context.db, async (repositories) => {
+    await this.context.persistence.write(async (scope) => {
+      await coordinateProjects(scope, actor.workspaceId, [prechecked.project.id], 'shared');
+      const repositories = scope.repositories;
       const project = await repositories.projects.findByIdForShare(prechecked.project.id);
 
       if (project === null || project.workspaceId !== actor.workspaceId) {

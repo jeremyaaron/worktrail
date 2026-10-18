@@ -24,13 +24,13 @@ import type {
 } from '@worktrail/contracts';
 import { z } from 'zod';
 
-import type { WorktrailDb } from '../db/client.js';
 import {
   workItemPriorities,
   workItemRelationshipTypes,
   workItemStatuses,
   workItemTypes
 } from '../domain/constants.js';
+import type { Persistence } from '../repositories/persistence.js';
 import type { EndpointHandler } from '../http/app-request.js';
 import type { Repositories } from '../repositories/index.js';
 import { WorkItemService } from '../services/work-item-service.js';
@@ -202,14 +202,14 @@ const createWorkItemRelationshipSchema = z.object({
 
 export function listWorkItemsHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<WorkItemListPageDto> {
   return async (request) => {
     const { projectId } = parseWithSchema(projectIdParamSchema, request.params);
     const service = new WorkItemService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
     return {
       status: 200,
@@ -224,13 +224,13 @@ export function listWorkItemsHandler(input: {
 
 export function listWorkspaceWorkItemsHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<WorkspaceWorkItemListPageDto> {
   return async (request) => {
     const service = new WorkItemService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
     return {
       status: 200,
@@ -244,14 +244,14 @@ export function listWorkspaceWorkItemsHandler(input: {
 
 export function listProjectBoardWorkItemsHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<WorkItemListItemDto[]> {
   return async (request) => {
     const { projectId } = parseWithSchema(projectIdParamSchema, request.params);
     const service = new WorkItemService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
     return {
       status: 200,
@@ -262,7 +262,7 @@ export function listProjectBoardWorkItemsHandler(input: {
 
 export function createWorkItemHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<WorkItemDetailDto> {
   return async (request) => {
     const { projectId } = parseWithSchema(projectIdParamSchema, request.params);
@@ -270,7 +270,7 @@ export function createWorkItemHandler(input: {
     const service = new WorkItemService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
     return {
       status: 201,
@@ -281,7 +281,7 @@ export function createWorkItemHandler(input: {
 
 export function bulkUpdateWorkItemsHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<BulkUpdateWorkItemsResponseDto> {
   return async (request) => {
     const { projectId } = parseWithSchema(projectIdParamSchema, request.params);
@@ -289,7 +289,7 @@ export function bulkUpdateWorkItemsHandler(input: {
     const service = new WorkItemService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
     return {
       status: 200,
@@ -300,7 +300,7 @@ export function bulkUpdateWorkItemsHandler(input: {
 
 export function previewWorkItemCsvImportHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<WorkItemCsvImportPreviewDto> {
   return async (request) => {
     const { projectId } = parseWithSchema(projectIdParamSchema, request.params);
@@ -308,7 +308,7 @@ export function previewWorkItemCsvImportHandler(input: {
     const service = new WorkItemCsvImportService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
     return {
       status: 200,
@@ -319,7 +319,7 @@ export function previewWorkItemCsvImportHandler(input: {
 
 export function applyWorkItemCsvImportHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<WorkItemCsvImportApplyDto> {
   return async (request) => {
     const { projectId } = parseWithSchema(projectIdParamSchema, request.params);
@@ -327,7 +327,7 @@ export function applyWorkItemCsvImportHandler(input: {
     const service = new WorkItemCsvImportService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
     return {
       status: 201,
@@ -338,14 +338,14 @@ export function applyWorkItemCsvImportHandler(input: {
 
 export function exportProjectWorkItemsHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<string> {
   return async (request) => {
     const { projectId } = parseWithSchema(projectIdParamSchema, request.params);
     const service = new WorkItemCsvExportService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
     const exportResult = await service.exportProjectWorkItems(
       projectId,
@@ -362,13 +362,13 @@ export function exportProjectWorkItemsHandler(input: {
 
 export function exportWorkspaceWorkItemsHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<string> {
   return async (request) => {
     const service = new WorkItemCsvExportService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
     const exportResult = await service.exportWorkspaceWorkItems(parseWorkspaceWorkItemQuery(request.query));
 
@@ -382,14 +382,14 @@ export function exportWorkspaceWorkItemsHandler(input: {
 
 export function getWorkItemHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<WorkItemDetailDto> {
   return async (request) => {
     const { workItemId } = parseWithSchema(workItemIdParamSchema, request.params);
     const service = new WorkItemService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
     return {
       status: 200,
@@ -400,7 +400,7 @@ export function getWorkItemHandler(input: {
 
 export function listWorkItemChildrenHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<WorkItemChildrenDto> {
   return async (request) => {
     const { workItemId } = parseWithSchema(workItemIdParamSchema, request.params);
@@ -410,7 +410,7 @@ export function listWorkItemChildrenHandler(input: {
     const service = new WorkItemService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
     return {
       status: 200,
@@ -421,7 +421,7 @@ export function listWorkItemChildrenHandler(input: {
 
 export function listWorkItemParentCandidatesHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<WorkItemParentCandidateDto[]> {
   return async (request) => {
     const { workItemId } = parseWithSchema(workItemIdParamSchema, request.params);
@@ -431,7 +431,7 @@ export function listWorkItemParentCandidatesHandler(input: {
     const service = new WorkItemService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
     return {
       status: 200,
@@ -442,7 +442,7 @@ export function listWorkItemParentCandidatesHandler(input: {
 
 export function setWorkItemParentHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<WorkItemDetailDto> {
   return async (request) => {
     const { workItemId } = parseWithSchema(workItemIdParamSchema, request.params);
@@ -450,7 +450,7 @@ export function setWorkItemParentHandler(input: {
     const service = new WorkItemService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
     return {
       status: 200,
@@ -461,10 +461,12 @@ export function setWorkItemParentHandler(input: {
 
 export function getWorkItemWatchStateHandler(input: {
   repositories: Repositories;
+  persistence: Persistence;
 }): EndpointHandler<WorkItemWatchStateDto> {
   return async (request) => {
     const { workItemId } = parseWithSchema(workItemIdParamSchema, request.params);
     const service = new WorkItemWatcherService({
+      persistence: input.persistence,
       actor: request.actor,
       repositories: input.repositories
     });
@@ -477,10 +479,12 @@ export function getWorkItemWatchStateHandler(input: {
 
 export function watchWorkItemHandler(input: {
   repositories: Repositories;
+  persistence: Persistence;
 }): EndpointHandler<WorkItemWatchStateDto> {
   return async (request) => {
     const { workItemId } = parseWithSchema(workItemIdParamSchema, request.params);
     const service = new WorkItemWatcherService({
+      persistence: input.persistence,
       actor: request.actor,
       repositories: input.repositories
     });
@@ -493,10 +497,12 @@ export function watchWorkItemHandler(input: {
 
 export function unwatchWorkItemHandler(input: {
   repositories: Repositories;
+  persistence: Persistence;
 }): EndpointHandler<WorkItemWatchStateDto> {
   return async (request) => {
     const { workItemId } = parseWithSchema(workItemIdParamSchema, request.params);
     const service = new WorkItemWatcherService({
+      persistence: input.persistence,
       actor: request.actor,
       repositories: input.repositories
     });
@@ -509,14 +515,14 @@ export function unwatchWorkItemHandler(input: {
 
 export function listWorkItemRelationshipsHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<WorkItemRelationshipSummaryDto> {
   return async (request) => {
     const { workItemId } = parseWithSchema(workItemIdParamSchema, request.params);
     const service = new WorkItemRelationshipService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
     return {
       status: 200,
@@ -527,7 +533,7 @@ export function listWorkItemRelationshipsHandler(input: {
 
 export function createWorkItemRelationshipHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<WorkItemRelationshipDto> {
   return async (request) => {
     const { workItemId } = parseWithSchema(workItemIdParamSchema, request.params);
@@ -535,7 +541,7 @@ export function createWorkItemRelationshipHandler(input: {
     const service = new WorkItemRelationshipService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
     return {
       status: 201,
@@ -546,7 +552,7 @@ export function createWorkItemRelationshipHandler(input: {
 
 export function deleteWorkItemRelationshipHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<void> {
   return async (request) => {
     const { workItemId, relationshipId } = parseWithSchema(
@@ -556,7 +562,7 @@ export function deleteWorkItemRelationshipHandler(input: {
     const service = new WorkItemRelationshipService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
     await service.deleteRelationship(workItemId, relationshipId);
     return {
@@ -582,7 +588,7 @@ function emptyQueryValueToUndefined(value: string | undefined): string | undefin
 
 export function updateWorkItemHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<WorkItemDetailDto> {
   return async (request) => {
     const { workItemId } = parseWithSchema(workItemIdParamSchema, request.params);
@@ -590,7 +596,7 @@ export function updateWorkItemHandler(input: {
     const service = new WorkItemService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
     return {
       status: 200,
@@ -601,7 +607,7 @@ export function updateWorkItemHandler(input: {
 
 export function transitionWorkItemHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<WorkItemDetailDto> {
   return async (request) => {
     const { workItemId } = parseWithSchema(workItemIdParamSchema, request.params);
@@ -609,7 +615,7 @@ export function transitionWorkItemHandler(input: {
     const service = new WorkItemService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
     return {
       status: 200,
@@ -620,7 +626,7 @@ export function transitionWorkItemHandler(input: {
 
 export function moveWorkItemOnBoardHandler(input: {
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
 }): EndpointHandler<WorkItemDetailDto> {
   return async (request) => {
     const { workItemId } = parseWithSchema(workItemIdParamSchema, request.params);
@@ -628,7 +634,7 @@ export function moveWorkItemOnBoardHandler(input: {
     const service = new WorkItemService({
       actor: request.actor,
       repositories: input.repositories,
-      db: input.db
+      persistence: input.persistence
     });
     return {
       status: 200,

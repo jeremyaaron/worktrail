@@ -111,6 +111,7 @@ function milestoneReview(input: Partial<MilestoneReviewDto> = {}): MilestoneRevi
           severity: 'warning',
           message: '1 dependency-blocked work item',
           count: 1,
+          countUnit: 'work_items' as const,
           query: { dependency: 'dependency_blocked', sort: 'priority_desc' }
         }
       ]
@@ -153,6 +154,7 @@ function milestoneReview(input: Partial<MilestoneReviewDto> = {}): MilestoneRevi
         title: 'Blocked work',
         description: 'Work items currently blocked inside this milestone.',
         count: 1,
+        countUnit: 'work_items' as const,
         query: { milestoneId, status: 'blocked', sort: 'priority_desc' },
         items: [blockedWorkItem]
       },
@@ -161,6 +163,7 @@ function milestoneReview(input: Partial<MilestoneReviewDto> = {}): MilestoneRevi
         title: 'Stale in progress',
         description: 'Active work that has not moved recently.',
         count: 2,
+        countUnit: 'work_items' as const,
         query: { milestoneId, workRisk: 'stale_in_progress', sort: 'updated_asc' },
         items: [staleWorkItem]
       }
@@ -281,7 +284,7 @@ describe('ProjectMilestoneReviewPageComponent', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('0%');
     expect(compiled.textContent).toContain('No milestone risks found');
-    expect(compiled.textContent).toContain('No risk sections');
+    expect(compiled.textContent).toContain('No milestone risks found');
     expect(compiled.textContent).toContain('No recent movement');
   });
 

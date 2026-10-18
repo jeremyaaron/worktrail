@@ -1,7 +1,13 @@
+import { DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { DraftTracker } from '../../../core/navigation/draft-tracker';
+import { DraftDepartureCoordinator, draftRouteKey } from '../../../core/navigation/draft-departure-coordinator';
+import { snapshotRiskCountLabel } from '@worktrail/contracts';
+import { PageContext } from '../../../core/navigation/page-context';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import type {
   CreateProjectStatusReportRequest,
   DeliveryHealthState,
@@ -11,7 +17,7 @@ import type {
   ProjectStatusReportRiskSnapshotDto
 } from '@worktrail/contracts';
 
-import { WorktrailApiService } from '../../../core/worktrail-api.service';
+import { ProjectsApi } from '../../../core/api/projects-api';
 import {
   deliveryHealthLabel,
   deliveryHealthTone
@@ -25,6 +31,7 @@ const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 @Component({
   selector: 'app-project-status-report-draft-page',
+  host: { '[attr.inert]': 'departure.isDeparting() ? "": null' },
   imports: [
     ErrorPanelComponent,
     LoadingIndicatorComponent,
@@ -215,7 +222,7 @@ const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
                   @for (risk of topRisks(); track risk.type) {
                     <article class="compact-row">
                       <strong>{{ risk.title }}</strong>
-                      <span>{{ risk.count }} matching work item{{ risk.count === 1 ? '' : 's' }}</span>
+                      <span>{{ riskCountLabel(risk) }}</span>
                     </article>
                   }
                 </div>
@@ -525,9 +532,15 @@ const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
   `
 })
 export class ProjectStatusReportDraftPageComponent implements OnInit {
-  private readonly api = inject(WorktrailApiService);
+  readonly departure = inject(DraftDepartureCoordinator);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly narrativeDraft = new DraftTracker(() => this.narrativeValue());
+  private narrativeBaseline: ReturnType<ProjectStatusReportDraftPageComponent['narrativeValue']> | null = null;
+  private readonly context = new PageContext();
+  private narrativeInitialized = false;
+  readonly riskCountLabel = snapshotRiskCountLabel;
+  private readonly projectsApi = inject(ProjectsApi);
   private readonly formBuilder = inject(FormBuilder);
-  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
   readonly draft = signal<ProjectStatusReportDraftDto | null>(null);
@@ -536,7 +549,7 @@ export class ProjectStatusReportDraftPageComponent implements OnInit {
   readonly hasSubmitted = signal(false);
   readonly loadError = signal<string | null>(null);
   readonly publishError = signal<string | null>(null);
-  readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
+  readonly projectId = computed(() => this.context.param('projectId'));
   readonly topRisks = computed<ProjectStatusReportRiskSnapshotDto[]>(() =>
     this.draft()?.snapshot.risks.filter((risk) => risk.count > 0).slice(0, 4) ?? []
   );
@@ -553,7 +566,19 @@ export class ProjectStatusReportDraftPageComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.loadDraft();
+    this.registerDraft();
+    this.context.start(() => {
+      this.narrativeInitialized = false;
+      this.narrativeBaseline = null;
+      this.draft.set(null);
+      this.isLoading.set(false);
+      this.isPublishing.set(false);
+      this.hasSubmitted.set(false);
+      this.loadError.set(null);
+      this.publishError.set(null);
+      this.draftForm.reset(undefined, { emitEvent: false });
+      this.loadDraft();
+    });
   }
 
   loadDraft(): void {
@@ -562,18 +587,23 @@ export class ProjectStatusReportDraftPageComponent implements OnInit {
     this.publishError.set(null);
     this.draft.set(null);
 
-    this.api.getProjectStatusReportDraft(this.projectId()).subscribe({
+    this.projectsApi.getProjectStatusReportDraft(this.projectId()).pipe(this.context.guard()).subscribe({
       next: (draft) => {
         this.draft.set(draft);
-        this.draftForm.reset({
-          title: draft.title,
-          statusDate: draft.statusDate,
-          summary: draft.summary,
-          highlights: draft.highlights,
-          risks: draft.risks,
-          nextSteps: draft.nextSteps
-        });
-        this.hasSubmitted.set(false);
+        if (!this.narrativeInitialized) {
+          this.draftForm.reset({
+            title: draft.title,
+            statusDate: draft.statusDate,
+            summary: draft.summary,
+            highlights: draft.highlights,
+            risks: draft.risks,
+            nextSteps: draft.nextSteps
+          });
+          this.narrativeInitialized = true;
+          this.narrativeBaseline = this.narrativeValue();
+          this.narrativeDraft.accept();
+          this.hasSubmitted.set(false);
+        }
         this.isLoading.set(false);
       },
       error: (error: HttpErrorResponse) => {
@@ -598,15 +628,21 @@ export class ProjectStatusReportDraftPageComponent implements OnInit {
       return;
     }
 
+    const submitted = this.narrativeValue();
     this.isPublishing.set(true);
-    this.api.publishProjectStatusReport(this.projectId(), this.toRequest(draft)).subscribe({
+    this.draftForm.disable({ emitEvent: false });
+    this.projectsApi.publishProjectStatusReport(this.projectId(), this.toRequest(draft)).pipe(this.context.guardMutation()).subscribe({
       next: (report) => {
+        this.narrativeBaseline = submitted;
+        this.narrativeDraft.accept(submitted);
         this.isPublishing.set(false);
+        this.draftForm.enable({ emitEvent: false });
         void this.router.navigate(['/projects', this.projectId(), 'status', report.id]);
       },
       error: (error: HttpErrorResponse) => {
         this.publishError.set(this.toErrorMessage(error, 'Report could not be published.'));
         this.isPublishing.set(false);
+        this.draftForm.enable({ emitEvent: false });
       }
     });
   }
@@ -684,4 +720,27 @@ export class ProjectStatusReportDraftPageComponent implements OnInit {
     const message = (error.error as { error?: { message?: string } } | null)?.error?.message;
     return message ?? fallback;
   }
+  private narrativeValue() {
+    const value = this.draftForm.getRawValue();
+    return { title: value.title.trim(), statusDate: value.statusDate.trim(),
+      summary: value.summary.trim(), highlights: value.highlights.trim(),
+      risks: value.risks.trim(), nextSteps: value.nextSteps.trim() };
+  }
+
+  private registerDraft(): void {
+    this.departure.register({
+      category: 'Report narrative', context: () => this.context.contextKey(),
+      routeKey: () => draftRouteKey('report', this.projectId()),
+      revision: () => this.narrativeDraft.revision(),
+      meaningful: () => this.narrativeInitialized && this.narrativeDraft.meaningful(),
+      pending: () => this.isPublishing(),
+      discard: () => {
+        if (this.narrativeBaseline !== null) this.draftForm.reset(this.narrativeBaseline);
+        this.narrativeDraft.accept();
+      }
+    }, this.destroyRef);
+    this.draftForm.valueChanges.pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.departure.refresh());
+  }
+
 }

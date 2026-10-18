@@ -6,6 +6,7 @@ import {
   count,
   desc,
   eq,
+  getTableColumns,
   ilike,
   inArray,
   isNull,
@@ -15,16 +16,17 @@ import {
   type SQL
 } from 'drizzle-orm';
 
-import type { WorktrailDb } from '../db/client.js';
+import type { RepositoryExecutor } from '../db/client.js';
 import { projects, workItems } from '../db/schema.js';
 import {
   buildProjectWorkItemConditions,
   buildProjectWorkItemOrderBy,
   buildWorkspaceWorkItemConditions,
   buildWorkspaceWorkItemOrderBy,
+  dependencyConditions,
   type ProjectWorkItemQuery
 } from './work-item-query-builder.js';
-import type { NewWorkItem, Project, WorkItem } from './types.js';
+import type { NewWorkItem, Project, WorkItem, WorkItemSummary } from './types.js';
 
 export type WorkItemFilters = ProjectWorkItemQuery;
 
@@ -55,6 +57,23 @@ export interface WorkspaceWorkItemRecord {
   workItem: WorkItem;
   project: Pick<Project, 'id' | 'key' | 'name' | 'status'>;
 }
+
+export interface WorkspaceWorkItemSummaryRecord {
+  workItem: WorkItemSummary;
+  project: WorkspaceWorkItemRecord['project'];
+}
+
+const { description: _description, descriptionFormat: _descriptionFormat, ...summaryColumns } = getTableColumns(workItems);
+const evaluationColumns = {
+  id: workItems.id, workspaceId: workItems.workspaceId, projectId: workItems.projectId,
+  parentWorkItemId: workItems.parentWorkItemId, milestoneId: workItems.milestoneId, cycleId: workItems.cycleId,
+  displayKey: workItems.displayKey, title: workItems.title, status: workItems.status, priority: workItems.priority,
+  assigneeId: workItems.assigneeId, reporterId: workItems.reporterId, dueDate: workItems.dueDate,
+  estimatePoints: workItems.estimatePoints, createdAt: workItems.createdAt, updatedAt: workItems.updatedAt,
+  itemNumber: workItems.itemNumber,
+  dependencyBlocked: dependencyConditions('dependency_blocked')[0]!.mapWith(Boolean),
+  blockingOpenWork: dependencyConditions('blocking_open_work')[0]!.mapWith(Boolean)
+};
 
 export interface EligibleParentCandidateInput {
   workItem: WorkItem;
@@ -112,8 +131,29 @@ function priorityRankSql(): SQL {
   end`;
 }
 
-export function createWorkItemRepository(db: WorktrailDb) {
+export function createWorkItemRepository(db: RepositoryExecutor) {
   return {
+    async listEvaluationByProject(projectId: string) {
+      return db.select(evaluationColumns).from(workItems)
+        .where(and(...buildProjectWorkItemConditions(projectId)))
+        .orderBy(...buildProjectWorkItemOrderBy('board_order'));
+    },
+
+    async listEvaluationByWorkspace(workspaceId: string) {
+      return db.select({ workItem: evaluationColumns, project: {
+        id: projects.id, key: projects.key, name: projects.name, status: projects.status
+      } }).from(workItems).innerJoin(projects, eq(projects.id, workItems.projectId))
+        .where(and(...buildWorkspaceWorkItemConditions(workspaceId)))
+        .orderBy(...buildWorkspaceWorkItemOrderBy('updated_desc'));
+    },
+
+    async listWorkspaceSummariesByIds(workspaceId: string, ids: string[]) {
+      if (ids.length === 0) return [];
+      return db.select({ workItem: summaryColumns, project: {
+        id: projects.id, key: projects.key, name: projects.name, status: projects.status
+      } }).from(workItems).innerJoin(projects, eq(projects.id, workItems.projectId))
+        .where(and(...buildWorkspaceWorkItemConditions(workspaceId), inArray(workItems.id, [...new Set(ids)])));
+    },
     async create(input: NewWorkItem) {
       const [workItem] = await db.insert(workItems).values(input).returning();
       return workItem;
@@ -211,7 +251,15 @@ export function createWorkItemRepository(db: WorktrailDb) {
       return db
         .select({
           childWorkItemId: workItems.id,
-          parent: parentWorkItems
+          parent: {
+            id: parentWorkItems.id,
+            workspaceId: parentWorkItems.workspaceId,
+            projectId: parentWorkItems.projectId,
+            displayKey: parentWorkItems.displayKey,
+            title: parentWorkItems.title,
+            type: parentWorkItems.type,
+            status: parentWorkItems.status
+          }
         })
         .from(workItems)
         .innerJoin(parentWorkItems, eq(parentWorkItems.id, workItems.parentWorkItemId))
@@ -316,7 +364,7 @@ export function createWorkItemRepository(db: WorktrailDb) {
       const orderBy = buildProjectWorkItemOrderBy(filters.sort);
 
       return db
-        .select()
+        .select(summaryColumns)
         .from(workItems)
         .where(and(...conditions))
         .orderBy(...orderBy)
@@ -328,7 +376,7 @@ export function createWorkItemRepository(db: WorktrailDb) {
       const conditions = buildProjectWorkItemConditions(projectId);
 
       return db
-        .select()
+        .select(summaryColumns)
         .from(workItems)
         .where(and(...conditions))
         .orderBy(...buildProjectWorkItemOrderBy('board_order'));
@@ -344,7 +392,7 @@ export function createWorkItemRepository(db: WorktrailDb) {
       const orderBy = buildProjectWorkItemOrderBy(filters.sort);
 
       return db
-        .select()
+        .select(summaryColumns)
         .from(workItems)
         .where(and(...conditions))
         .orderBy(...orderBy)
@@ -399,14 +447,14 @@ export function createWorkItemRepository(db: WorktrailDb) {
       workspaceId: string,
       filters: WorkItemQuery,
       window: WorkItemPageWindow
-    ): Promise<WorkspaceWorkItemRecord[]> {
+    ): Promise<WorkspaceWorkItemSummaryRecord[]> {
       assertPageWindow(window);
       const conditions = buildWorkspaceWorkItemConditions(workspaceId, filters);
       const orderBy = buildWorkspaceWorkItemOrderBy(filters.sort);
 
       return db
         .select({
-          workItem: workItems,
+          workItem: summaryColumns,
           project: {
             id: projects.id,
             key: projects.key,
@@ -426,14 +474,14 @@ export function createWorkItemRepository(db: WorktrailDb) {
       workspaceId: string,
       filters: WorkItemQuery,
       limit: number
-    ): Promise<WorkspaceWorkItemRecord[]> {
+    ): Promise<WorkspaceWorkItemSummaryRecord[]> {
       assertFinitePositiveLimit(limit);
       const conditions = buildWorkspaceWorkItemConditions(workspaceId, filters);
       const orderBy = buildWorkspaceWorkItemOrderBy(filters.sort);
 
       return db
         .select({
-          workItem: workItems,
+          workItem: summaryColumns,
           project: {
             id: projects.id,
             key: projects.key,
@@ -502,12 +550,13 @@ export function createWorkItemRepository(db: WorktrailDb) {
       return workItem ?? null;
     },
 
-    async compactBoardPositions(projectId: string, status: WorkItem['status']) {
-      const items = await this.listByProjectAndStatusForBoard(projectId, status);
+    async compactBoardPositions(projectId: string, status: WorkItem['status'], excludeWorkItemId?: string) {
+      const items = (await this.listByProjectAndStatusForBoard(projectId, status)).filter(({ id }) => id !== excludeWorkItemId);
       const compacted: WorkItem[] = [];
-
-      for (const [index, item] of items.entries()) {
-        const boardPosition = (index + 1) * 1024;
+      const positions = new Map(items.map((item, index) => [item.id, (index + 1) * 1024]));
+      // Callers hold the board key and the complete target row set. Keep update order canonical too.
+      for (const item of [...items].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0)) {
+        const boardPosition = positions.get(item.id)!;
         const [updated] = await db
           .update(workItems)
           .set({ boardPosition })
@@ -519,7 +568,7 @@ export function createWorkItemRepository(db: WorktrailDb) {
         }
       }
 
-      return compacted;
+      return compacted.sort((a, b) => a.boardPosition - b.boardPosition);
     },
 
     async update(id: string, input: UpdateWorkItemInput) {

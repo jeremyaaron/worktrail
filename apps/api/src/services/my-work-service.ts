@@ -5,17 +5,19 @@ import type {
   WorkspaceWorkItemListItemDto
 } from '@worktrail/contracts';
 
+import { assertPersistence, type Persistence } from '../repositories/persistence.js';
 import type { ActorContext } from '../domain/actor.js';
 import {
-  addDays,
-  dueSoonWindowDays,
-  staleInProgressDays,
-  toDateString
+  createRiskTimeWindow,
+  isOpenWorkItemStatus,
+  isOverdueDueDate,
+  isDueSoonDueDate
 } from '../domain/work-risk-policy.js';
 import { NotFoundError } from '../errors/app-error.js';
 import type { Repositories } from '../repositories/index.js';
 import { toMemberDto } from './dto.js';
-import { WorkItemService } from './work-item-service.js';
+import { WorkItemHydrator } from './work-item-hydrator.js';
+import type { WorkItemEvaluation } from '../repositories/types.js';
 
 const dashboardLimit = 8;
 const activeWorkflowStatuses = new Set(['in_progress', 'blocked']);
@@ -23,22 +25,25 @@ const activeWorkflowStatuses = new Set(['in_progress', 'blocked']);
 export interface MyWorkServiceContext {
   actor: ActorContext;
   repositories: Repositories;
+  persistence: Persistence;
   clock?: () => Date;
 }
 
 export class MyWorkService {
   private readonly clock: () => Date;
-  private readonly workItems: WorkItemService;
 
   constructor(private readonly context: MyWorkServiceContext) {
+    assertPersistence(context.persistence);
     this.clock = context.clock ?? (() => new Date());
-    this.workItems = new WorkItemService({
-      actor: context.actor,
-      repositories: context.repositories
-    });
   }
 
   async getDashboard(): Promise<MyWorkDashboardDto> {
+    return this.context.persistence.readConsistent((scope) =>
+      new MyWorkService({ ...this.context, ...scope }).getDashboardInScope()
+    );
+  }
+
+  private async getDashboardInScope(): Promise<MyWorkDashboardDto> {
     const actor = await this.context.repositories.members.findById(this.context.actor.memberId);
 
     if (actor === null || actor.workspaceId !== this.context.actor.workspaceId) {
@@ -65,30 +70,41 @@ export class MyWorkService {
       dependency: 'dependency_blocked',
       sort: 'priority_desc'
     });
-    const recentlyUpdatedQuery = this.withDefaults({
-      workState: 'open',
-      sort: 'updated_desc'
+
+    const window = createRiskTimeWindow(this.clock());
+    const records = await this.context.repositories.workItems.listEvaluationByWorkspace(this.context.actor.workspaceId);
+    const items = records.map(record => record.workItem);
+    const relevant = (item: WorkItemEvaluation) => item.assigneeId === actor.id || item.reporterId === actor.id;
+    const assignedOpen = items.filter(item => item.assigneeId === actor.id && isOpenWorkItemStatus(item.status));
+    const reportedOpen = items.filter(item => item.reporterId === actor.id && isOpenWorkItemStatus(item.status));
+    const priority = { urgent: 4, high: 3, medium: 2, low: 1 };
+    const comparePriority = (left: WorkItemEvaluation, right: WorkItemEvaluation) =>
+      priority[right.priority] - priority[left.priority] || right.updatedAt.getTime() - left.updatedAt.getTime();
+    // Stable sort retains the repository's project/key/number/ID tie-breakers.
+    const blockedRelevant = items.filter(item => item.status === 'blocked' && relevant(item)).sort(comparePriority);
+    const dependencyBlockedAssigned = assignedOpen.filter(item => item.dependencyBlocked).sort(comparePriority);
+    const dueSoon = assignedOpen.filter(item => isDueSoonDueDate(item.dueDate, window.today, window.dueSoonEnd));
+    const overdue = assignedOpen.filter(item => isOverdueDueDate(item.dueDate, window.today));
+    const staleAssigned = assignedOpen.filter(item => activeWorkflowStatuses.has(item.status) && item.updatedAt < window.staleCutoff);
+    const recentlyUpdated = items.filter(item => isOpenWorkItemStatus(item.status) && relevant(item));
+    const selected = {
+      assignedToMe: assignedOpen.slice(0, dashboardLimit),
+      dueSoonOrOverdue: [...overdue, ...dueSoon].sort(compareByDueDateThenUpdated).slice(0, dashboardLimit),
+      blockedRelevant: blockedRelevant.slice(0, dashboardLimit),
+      dependencyBlockedAssigned: dependencyBlockedAssigned.slice(0, dashboardLimit),
+      reportedByMe: reportedOpen.slice(0, dashboardLimit),
+      recentlyUpdated: recentlyUpdated.slice(0, dashboardLimit)
+    };
+    const ids = [...new Set(Object.values(selected).flat().map(item => item.id))];
+    const previews = await new WorkItemHydrator(this.context.repositories).workspace(
+      await this.context.repositories.workItems.listWorkspaceSummariesByIds(actor.workspaceId, ids)
+    );
+    const byId = new Map(previews.map(item => [item.id, item]));
+    const hydrate = (rows: WorkItemEvaluation[]): WorkspaceWorkItemListItemDto[] => rows.map(row => {
+      const item = byId.get(row.id);
+      if (!item) throw new NotFoundError('Dashboard work item not found.');
+      return item;
     });
-
-    const [
-      assignedOpen,
-      reportedOpen,
-      blockedWork,
-      dependencyBlockedAssigned,
-      recentlyUpdatedOpen
-    ] = await Promise.all([
-      this.workItems.listWorkspaceWorkItems(assignedOpenQuery),
-      this.workItems.listWorkspaceWorkItems(reportedOpenQuery),
-      this.workItems.listWorkspaceWorkItems(blockedQuery),
-      this.workItems.listWorkspaceWorkItems(dependencyBlockedAssignedQuery),
-      this.workItems.listWorkspaceWorkItems(recentlyUpdatedQuery)
-    ]);
-
-    const dueSoon = assignedOpen.filter((item) => this.isDueSoon(item));
-    const overdue = assignedOpen.filter((item) => this.isOverdue(item));
-    const staleAssigned = assignedOpen.filter((item) => this.isStaleAssigned(item));
-    const blockedRelevant = blockedWork.filter((item) => this.isRelevantToActor(item));
-    const recentlyUpdated = recentlyUpdatedOpen.filter((item) => this.isRelevantToActor(item));
 
     return {
       actor: toMemberDto(actor),
@@ -133,14 +149,12 @@ export class MyWorkService {
         ),
         this.toSummaryCount('reported_open', 'Reported open', reportedOpen.length, reportedOpenQuery)
       ],
-      assignedToMe: assignedOpen.slice(0, dashboardLimit),
-      dueSoonOrOverdue: [...overdue, ...dueSoon]
-        .sort(compareByDueDateThenUpdated)
-        .slice(0, dashboardLimit),
-      blockedRelevant: blockedRelevant.slice(0, dashboardLimit),
-      dependencyBlockedAssigned: dependencyBlockedAssigned.slice(0, dashboardLimit),
-      reportedByMe: reportedOpen.slice(0, dashboardLimit),
-      recentlyUpdated: recentlyUpdated.slice(0, dashboardLimit)
+      assignedToMe: hydrate(selected.assignedToMe),
+      dueSoonOrOverdue: hydrate(selected.dueSoonOrOverdue),
+      blockedRelevant: hydrate(selected.blockedRelevant),
+      dependencyBlockedAssigned: hydrate(selected.dependencyBlockedAssigned),
+      reportedByMe: hydrate(selected.reportedByMe),
+      recentlyUpdated: hydrate(selected.recentlyUpdated)
     };
   }
 
@@ -160,35 +174,11 @@ export class MyWorkService {
     return { key, label, count, query };
   }
 
-  private isRelevantToActor(item: WorkspaceWorkItemListItemDto): boolean {
-    return item.assignee?.id === this.context.actor.memberId || item.reporter.id === this.context.actor.memberId;
-  }
-
-  private isDueSoon(item: WorkspaceWorkItemListItemDto): boolean {
-    if (item.dueDate === null || this.isOverdue(item)) {
-      return false;
-    }
-
-    const dueSoonEnd = toDateString(addDays(this.clock(), dueSoonWindowDays));
-    return item.dueDate <= dueSoonEnd;
-  }
-
-  private isOverdue(item: WorkspaceWorkItemListItemDto): boolean {
-    return item.dueDate !== null && item.dueDate < toDateString(this.clock());
-  }
-
-  private isStaleAssigned(item: WorkspaceWorkItemListItemDto): boolean {
-    if (!activeWorkflowStatuses.has(item.status)) {
-      return false;
-    }
-
-    return new Date(item.updatedAt).getTime() < addDays(this.clock(), -staleInProgressDays).getTime();
-  }
 }
 
 function compareByDueDateThenUpdated(
-  left: WorkspaceWorkItemListItemDto,
-  right: WorkspaceWorkItemListItemDto
+  left: WorkItemEvaluation,
+  right: WorkItemEvaluation
 ): number {
   const dueDateCompare = (left.dueDate ?? '').localeCompare(right.dueDate ?? '');
 
@@ -196,5 +186,5 @@ function compareByDueDateThenUpdated(
     return dueDateCompare;
   }
 
-  return right.updatedAt.localeCompare(left.updatedAt);
+  return right.updatedAt.getTime() - left.updatedAt.getTime();
 }

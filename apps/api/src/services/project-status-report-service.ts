@@ -1,27 +1,26 @@
+import { coordinateProjects } from './project-write-coordination.js';
 import type {
   CreateProjectStatusReportRequest,
   MilestoneProgressDto,
   ProjectStatusReportCountSnapshotDto,
   ProjectCycleReviewDto,
-  ProjectStatusReportCycleSnapshotDto,
+  ProjectStatusReportCycleSnapshotV2Dto as ProjectStatusReportCycleSnapshotDto,
   ProjectStatusReportDetailDto,
   ProjectStatusReportDraftDto,
-  ProjectStatusReportLinkDto,
-  ProjectStatusReportMilestoneSnapshotDto,
+  ProjectStatusReportLinkV2Dto as ProjectStatusReportLinkDto,
+  ProjectStatusReportMilestoneSnapshotV2Dto as ProjectStatusReportMilestoneSnapshotDto,
   ProjectStatusReportSnapshotDto,
   ProjectStatusReportSummaryDto
 } from '@worktrail/contracts';
 import { randomUUID } from 'node:crypto';
 
-import type { WorktrailDb } from '../db/client.js';
+import { mapSequential } from '../repositories/map-sequential.js';
+import { assertPersistence, type Persistence } from '../repositories/persistence.js';
 import type { ActorContext } from '../domain/actor.js';
 import { canManageProject } from '../domain/permissions.js';
 import { toDateString } from '../domain/work-risk-policy.js';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../errors/app-error.js';
-import {
-  type Repositories,
-  withRepositoriesTransaction
-} from '../repositories/index.js';
+import type { Repositories } from '../repositories/index.js';
 import type { Member, Milestone, Project, ProjectStatusReport } from '../repositories/types.js';
 import { DeliveryHealthService } from './delivery-health-service.js';
 import {
@@ -41,6 +40,7 @@ import {
   toPlanningRiskItems
 } from './work-risk-sections.js';
 import {
+  assertProjectStatusReportSnapshotMatchesRecord,
   parseRequestedProjectStatusReportSnapshot,
   parseStoredProjectStatusReportSnapshot
 } from '../validation/project-status-report-snapshot.js';
@@ -52,7 +52,7 @@ const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 export interface ProjectStatusReportServiceContext {
   actor: ActorContext;
   repositories: Repositories;
-  db?: WorktrailDb;
+  persistence: Persistence;
   clock?: () => Date;
   idGenerator?: () => string;
 }
@@ -83,11 +83,18 @@ export class ProjectStatusReportService {
   private readonly idGenerator: () => string;
 
   constructor(private readonly context: ProjectStatusReportServiceContext) {
+    assertPersistence(context.persistence);
     this.clock = context.clock ?? (() => new Date());
     this.idGenerator = context.idGenerator ?? randomUUID;
   }
 
   async listProjectStatusReports(projectId: string): Promise<ProjectStatusReportSummaryDto[]> {
+    return this.context.persistence.readConsistent((scope) =>
+      new ProjectStatusReportService({ ...this.context, ...scope }).listProjectStatusReportsInScope(projectId)
+    );
+  }
+
+  private async listProjectStatusReportsInScope(projectId: string): Promise<ProjectStatusReportSummaryDto[]> {
     await this.requireProject(projectId, this.context.repositories);
     const reports = await this.context.repositories.projectStatusReports.listByProject(projectId);
     const authors = await this.hydrateAuthors(reports, this.context.repositories);
@@ -108,6 +115,15 @@ export class ProjectStatusReportService {
     projectId: string,
     reportId: string
   ): Promise<ProjectStatusReportDetailDto> {
+    return this.context.persistence.readConsistent((scope) =>
+      new ProjectStatusReportService({ ...this.context, ...scope }).getProjectStatusReportInScope(projectId, reportId)
+    );
+  }
+
+  private async getProjectStatusReportInScope(
+    projectId: string,
+    reportId: string
+  ): Promise<ProjectStatusReportDetailDto> {
     const project = await this.requireProject(projectId, this.context.repositories);
     const report = await this.requireReport(projectId, reportId, this.context.repositories);
     const author = await this.requireReportAuthor(report, this.context.repositories);
@@ -120,6 +136,15 @@ export class ProjectStatusReportService {
     projectId: string,
     reportId: string
   ): Promise<ProjectStatusReportMarkdownExport> {
+    return this.context.persistence.readConsistent((scope) =>
+      new ProjectStatusReportService({ ...this.context, ...scope }).exportProjectStatusReportMarkdownInScope(projectId, reportId)
+    );
+  }
+
+  private async exportProjectStatusReportMarkdownInScope(
+    projectId: string,
+    reportId: string
+  ): Promise<ProjectStatusReportMarkdownExport> {
     const report = await this.getProjectStatusReport(projectId, reportId);
 
     return {
@@ -129,6 +154,12 @@ export class ProjectStatusReportService {
   }
 
   async getProjectStatusReportDraft(projectId: string): Promise<ProjectStatusReportDraftDto> {
+    return this.context.persistence.readConsistent((scope) =>
+      new ProjectStatusReportService({ ...this.context, ...scope }).getProjectStatusReportDraftInScope(projectId)
+    );
+  }
+
+  private async getProjectStatusReportDraftInScope(projectId: string): Promise<ProjectStatusReportDraftDto> {
     const project = await this.requireProject(projectId, this.context.repositories);
     this.assertCanPublish(project);
 
@@ -153,6 +184,16 @@ export class ProjectStatusReportService {
   }
 
   async publishProjectStatusReport(
+    projectId: string,
+    input: CreateProjectStatusReportRequest
+  ): Promise<ProjectStatusReportDetailDto> {
+    return this.context.persistence.write(async (scope) => {
+      await coordinateProjects(scope, this.context.actor.workspaceId, [projectId], 'shared');
+      return new ProjectStatusReportService({ ...this.context, ...scope }).publishProjectStatusReportInScope(projectId, input);
+    });
+  }
+
+  private async publishProjectStatusReportInScope(
     projectId: string,
     input: CreateProjectStatusReportRequest
   ): Promise<ProjectStatusReportDetailDto> {
@@ -259,23 +300,23 @@ export class ProjectStatusReportService {
     const authors = new Map<string, Member>();
     const authorIds = new Set(reports.map((report) => report.authorMemberId));
 
-    await Promise.all(
-      [...authorIds].map(async (authorId) => {
-        const author = await repositories.members.findById(authorId);
+    await mapSequential([...authorIds], async (authorId) => {
+      const author = await repositories.members.findById(authorId);
 
-        if (author !== null && author.workspaceId === this.context.actor.workspaceId) {
-          authors.set(author.id, author);
-        }
-      })
-    );
+      if (author !== null && author.workspaceId === this.context.actor.workspaceId) {
+        authors.set(author.id, author);
+      }
+    });
 
     return authors;
   }
 
   private withParsedStoredSnapshot(report: ProjectStatusReport): ProjectStatusReport {
+    const snapshot = parseStoredProjectStatusReportSnapshot(report.snapshot);
+    assertProjectStatusReportSnapshotMatchesRecord(snapshot, report);
     return {
       ...report,
-      snapshot: parseStoredProjectStatusReportSnapshot(report.snapshot)
+      snapshot
     };
   }
 
@@ -319,15 +360,16 @@ export class ProjectStatusReportService {
       activeCycle === null
         ? null
         : toCycleSnapshot(
-            await new ProjectCycleService({
-              actor: this.context.actor,
-              repositories: input.repositories,
-              clock: () => input.generatedAt
-            }).getCycleReview(input.project.id, activeCycle.id)
-          );
+          await new ProjectCycleService({
+            persistence: this.context.persistence,
+            actor: this.context.actor,
+            repositories: input.repositories,
+            clock: () => input.generatedAt
+          }).getCycleReview(input.project.id, activeCycle.id)
+        );
 
     return {
-      snapshotVersion: 1,
+      snapshotVersion: 2,
       generatedAt: input.generatedAt.toISOString(),
       project: {
         id: input.project.id,
@@ -435,11 +477,7 @@ export class ProjectStatusReportService {
   private async withWriteRepositories<T>(
     callback: (repositories: Repositories) => Promise<T>
   ): Promise<T> {
-    if (this.context.db === undefined) {
-      return callback(this.context.repositories);
-    }
-
-    return withRepositoriesTransaction(this.context.db, callback);
+    return this.context.persistence.write(({ repositories }) => callback(repositories));
   }
 }
 

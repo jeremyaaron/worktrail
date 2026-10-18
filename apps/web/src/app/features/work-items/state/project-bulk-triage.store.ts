@@ -12,13 +12,17 @@ export class ProjectBulkTriageStore {
   readonly isApplying = signal(false);
   readonly error = signal<string | null>(null);
   readonly result = signal<BulkUpdateWorkItemsResponseDto | null>(null);
+  readonly selectionNotice = signal<string | null>(null);
 
   enter(): void {
+    this.selectionNotice.set(null);
     this.isActive.set(true);
     this.clearFeedback();
   }
 
-  exit(): void {
+  exit(reason?: string): void {
+    const hadSelection = this.selectedItemIds().length > 0;
+    this.selectionNotice.set(hadSelection && reason ? reason : null);
     this.isActive.set(false);
     this.selectedItemIds.set([]);
     this.isApplying.set(false);
@@ -44,6 +48,7 @@ export class ProjectBulkTriageStore {
   }
 
   toggleItem(itemId: string): void {
+    this.selectionNotice.set(null);
     if (!this.isActive()) {
       return;
     }
@@ -61,6 +66,7 @@ export class ProjectBulkTriageStore {
   }
 
   toggleAllVisible(items: BulkTriageItem[]): void {
+    this.selectionNotice.set(null);
     if (!this.isActive()) {
       return;
     }
@@ -82,7 +88,8 @@ export class ProjectBulkTriageStore {
     this.clearFeedback();
   }
 
-  clearSelection(): void {
+  clearSelection(reason = 'Selection cleared.'): void {
+    if (this.selectedItemIds().length > 0) this.selectionNotice.set(reason);
     this.selectedItemIds.set([]);
     this.isApplying.set(false);
     this.clearFeedback();

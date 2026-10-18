@@ -2,10 +2,52 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
+import { csvImportPaths, jsonBodyLimits } from '../src/adapters/express/body-parsing.js';
 
 const openApiPath = fileURLToPath(new URL('../../../docs/api/openapi.yaml', import.meta.url));
 
 describe('OpenAPI reference', () => {
+  it('documents bounded Planning risks separately from exact health counts and complete history', async () => {
+    const openApi = await readFile(openApiPath, 'utf8');
+    const planning = openApi.split('    ProjectPlanningSummary:\n')[1]!.split('    ProjectPlanningCycleSummary:\n')[0]!;
+    expect(planning.match(/maxItems: 5/g)).toHaveLength(7);
+    expect(planning).toContain('Exact category totals remain in deliveryHealth');
+    const closeout = openApi.split('    ProjectCycleCloseoutSnapshotV2:\n')[1]!.split('    Member:\n')[0]!;
+    expect(closeout).not.toContain('maxItems: 5');
+  });
+  it('documents estimate parity, live count units and independently frozen evidence versions', async () => {
+    const openApi = await readFile(openApiPath, 'utf8');
+    expect(openApi.match(/#\/components\/parameters\/WorkItemEstimateStateQuery/g)).toHaveLength(4);
+    expect(openApi.match(/#\/components\/parameters\/WorkItemRiskQuery/g)).toHaveLength(4);
+    expect(openApi).toContain('enum: [estimated, unestimated]');
+    for (const name of ['ProjectStatusReportSnapshot', 'ProjectCycleCloseoutSnapshot']) {
+      expect(openApi).toContain(`${name}V1:`);
+      expect(openApi).toContain(`${name}V2:`);
+      const frozen = openApi.split(`    ${name}V1:\n`)[1]!.split(`    ${name}V2:\n`)[0]!;
+      expect(frozen).not.toContain('#/components/schemas/WorkItemQuery');
+      expect(frozen).not.toContain('estimateState:');
+      expect(frozen).not.toContain('countUnit:');
+    }
+    expect(openApi).toContain('scope_conditions');
+    expect(openApi).toContain('risk signals, not unique items');
+  });
+  it('documents the implemented import/ordinary transport budgets and safe parser errors', async () => {
+    const openApi = await readFile(openApiPath, 'utf8');
+    expect(openApi).toContain(jsonBodyLimits.ordinary.toLocaleString('en-US') + '-byte (100 KiB)');
+    for (const path of Object.values(csvImportPaths)) {
+      const documentPath = path.replace(':projectId', '{projectId}');
+      const operation = openApi.split(`  ${documentPath}:\n`)[1]?.split('\n  /api/')[0];
+      expect(operation).toContain(jsonBodyLimits.csvImport.toLocaleString('en-US') + ' bytes');
+      expect(operation).toContain('1,048,576');
+      expect(operation).toContain('250 data rows');
+      for (const status of ['400', '413', '415']) expect(operation).toContain(`"${status}":`);
+      expect(operation).toContain('PAYLOAD_TOO_LARGE');
+      expect(operation).toContain('VALIDATION_ERROR');
+    }
+    expect(openApi).toContain('rejected without inflation');
+    expect(openApi).toContain('independent application/octet-stream boundary and 4 MiB file limit');
+  });
+
   it('documents format-aware CSV import and bounded source previews without changing exports', async () => {
     const openApi = await readFile(openApiPath, 'utf8');
     const requestSchema = openApi.split('    WorkItemCsvImportPreviewRequest:\n')[1]?.split('    WorkItemCsvImportApplyRequest:')[0];
@@ -137,7 +179,7 @@ describe('OpenAPI reference', () => {
       expect(openApi, `missing ${path}`).toContain(`  ${path}:`);
     }
 
-    expect(openApi).toContain('version: 0.2.9');
+    expect(openApi).toContain('version: 0.3.0');
     expect(openApi).toContain('x-worktrail-member-id');
     expect(openApi).toContain('x-worktrail-workspace-id');
     expect(openApi).toContain('x-worktrail-role');

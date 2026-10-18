@@ -1,21 +1,23 @@
 import { Component, Input } from '@angular/core';
-import type { WorkItemDetailDto } from '@worktrail/contracts';
+import { RouterLink } from '@angular/router';
+import type { WorkItemDetailDto, ProjectDto } from '@worktrail/contracts';
 
 import { memberDisplayName } from '../../../shared/display/member-display';
 import { AuthoredContentViewerComponent } from '../../../shared/authored-content/authored-content-viewer.component';
 import {
-  workItemMetadata,
   workItemPriorityLabel,
   workItemStatusLabel
 } from '../../../shared/work-items/work-item-display';
 
 @Component({
   selector: 'app-work-item-detail-summary',
-  imports: [AuthoredContentViewerComponent],
+  imports: [AuthoredContentViewerComponent, RouterLink],
   template: `
     <section class="summary" aria-label="Work item summary">
       <div class="summary__title">
-        <p class="eyebrow">Work item</p>
+        @if (project; as currentProject) {
+          <a class="project-link" [routerLink]="['/projects', item.projectId]">{{ currentProject.name }}</a>
+        }
         <h1>{{ item.title }}</h1>
       </div>
 
@@ -27,7 +29,7 @@ import {
         <span class="priority-pill" [attr.data-priority]="item.priority">
           {{ workItemPriorityLabel(item.priority) }}
         </span>
-        <span>{{ workItemMetadata(item) }}</span>
+        <span class="type">{{ item.type }}</span>
       </div>
 
       <dl class="summary__grid">
@@ -39,6 +41,9 @@ import {
           <dt>Milestone</dt>
           <dd>{{ item.milestone?.name ?? 'No milestone' }}</dd>
         </div>
+        <div><dt>Cycle</dt><dd>{{ item.cycle?.name ?? 'No cycle' }}</dd></div>
+        <div><dt>{{ item.childSummary === null ? 'Estimate' : 'Parent estimate' }}</dt>
+          <dd>{{ item.estimatePoints === null ? 'Unestimated' : item.estimatePoints + ' points' }}</dd></div>
         <div>
           <dt>Due date</dt>
           <dd>{{ item.dueDate === null ? 'No due date' : formatDateOnly(item.dueDate) }}</dd>
@@ -79,11 +84,15 @@ import {
     </section>
   `,
   styles: `
+    .type { text-transform: capitalize; }
+
     .summary {
       display: grid;
       gap: 14px;
       min-width: 0;
     }
+
+    .project-link { font-size: .875rem; font-weight: 700; color: #1f4f99; }
 
     .summary__title {
       display: grid;
@@ -118,6 +127,7 @@ import {
     }
 
     h1 {
+      overflow-wrap: anywhere;
       color: #111827;
       font-size: 1.75rem;
       line-height: 1.2;
@@ -142,17 +152,15 @@ import {
 
     .summary__grid {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 10px;
     }
 
     .summary__grid div {
       display: grid;
       gap: 4px;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 10px;
-      background: #f8fafc;
+      align-content: start;
+      min-width: 0;
     }
 
     dt {
@@ -266,16 +274,16 @@ import {
 
     @media (max-width: 520px) {
       .summary__grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
   `
 })
 export class WorkItemDetailSummaryComponent {
   @Input({ required: true }) item!: WorkItemDetailDto;
+  @Input() project: ProjectDto | null = null;
 
   memberDisplayName = memberDisplayName;
-  workItemMetadata = workItemMetadata;
   workItemPriorityLabel = workItemPriorityLabel;
   workItemStatusLabel = workItemStatusLabel;
 

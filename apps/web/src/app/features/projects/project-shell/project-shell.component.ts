@@ -1,13 +1,12 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import {
-  ActivatedRoute,
-  RouterLink,
-  RouterLinkActive,
-  RouterOutlet
-} from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import type { DeliveryHealthState, ProjectSummaryDto } from '@worktrail/contracts';
+import { PageContext } from '../../../core/navigation/page-context';
+import { navigationContextFromPage, recordOriginParams } from '../../../shared/navigation/work-navigation';
+import { projectSectionFromSnapshot, type ProjectSection } from './project-navigation';
 
-import { WorktrailApiService } from '../../../core/worktrail-api.service';
+import { ProjectsApi } from '../../../core/api/projects-api';
 import {
   deliveryHealthLabel,
   deliveryHealthTone
@@ -16,9 +15,9 @@ import { ErrorPanelComponent } from '../../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../../shared/ui/loading-indicator.component';
 
 interface ProjectSectionLink {
+  id: ProjectSection;
   label: string;
   commands: unknown[];
-  exact: boolean;
 }
 
 @Component({
@@ -27,7 +26,6 @@ interface ProjectSectionLink {
     ErrorPanelComponent,
     LoadingIndicatorComponent,
     RouterLink,
-    RouterLinkActive,
     RouterOutlet
   ],
   template: `
@@ -45,7 +43,7 @@ interface ProjectSectionLink {
           <div class="project-shell__identity">
             <p class="project-shell__eyebrow">Project</p>
             <div class="project-shell__title-row">
-              <h1>{{ summary.project.name }}</h1>
+              <p class="project-shell__name">{{ summary.project.name }}</p>
               <span class="project-shell__key">{{ summary.project.key }}</span>
               <span
                 class="project-shell__status"
@@ -60,9 +58,6 @@ interface ProjectSectionLink {
                 {{ healthLabel(summary.deliveryHealth.health) }}
               </span>
             </div>
-            @if (summary.project.description.trim() !== '') {
-              <p class="project-shell__description">{{ summary.project.description }}</p>
-            }
           </div>
 
           <div class="project-shell__actions">
@@ -71,6 +66,7 @@ interface ProjectSectionLink {
               <a
                 class="project-shell__primary-action"
                 [routerLink]="['/projects', projectId(), 'work-items', 'new']"
+                [queryParams]="createQueryParams()"
               >
                 Create
               </a>
@@ -90,8 +86,8 @@ interface ProjectSectionLink {
         @for (section of sections(); track section.label) {
           <a
             [routerLink]="section.commands"
-            routerLinkActive="project-shell__nav-link--active"
-            [routerLinkActiveOptions]="{ exact: section.exact }"
+            [class.project-shell__nav-link--active]="activeSection() === section.id"
+            [attr.aria-current]="activeSection() === section.id ? 'page' : null"
           >
             {{ section.label }}
           </a>
@@ -104,6 +100,10 @@ interface ProjectSectionLink {
     </section>
   `,
   styles: `
+    @media print {
+      .project-shell__header, .project-shell__nav { display: none !important; }
+      .project-shell { gap: 0; }
+    }
     .project-shell {
       display: grid;
       gap: 18px;
@@ -112,10 +112,8 @@ interface ProjectSectionLink {
     .project-shell__header {
       display: grid;
       gap: 16px;
-      border: 1px solid #d7e0ea;
-      border-radius: 8px;
-      padding: 18px;
-      background: #ffffff;
+      border-bottom: 1px solid #d7e0ea;
+      padding: 0 0 12px;
     }
 
     .project-shell__identity {
@@ -141,10 +139,11 @@ interface ProjectSectionLink {
       min-width: 0;
     }
 
-    .project-shell__title-row h1 {
+    .project-shell__name {
       margin: 0;
       color: #111827;
-      font-size: clamp(1.35rem, 2vw, 1.85rem);
+      font-size: 1.05rem;
+      font-weight: 800;
       line-height: 1.15;
       overflow-wrap: anywhere;
     }
@@ -266,7 +265,7 @@ interface ProjectSectionLink {
     .project-shell__nav {
       display: flex;
       gap: 6px;
-      overflow-x: auto;
+      flex-wrap: wrap;
       border-bottom: 1px solid #d7e0ea;
       scrollbar-width: thin;
     }
@@ -286,7 +285,7 @@ interface ProjectSectionLink {
     }
 
     .project-shell__nav a:hover,
-    .project-shell__nav-link--active {
+    .project-shell__nav a.project-shell__nav-link--active {
       border-bottom-color: #1f4f99;
       color: #183b73;
     }
@@ -312,7 +311,7 @@ interface ProjectSectionLink {
 
     @media (max-width: 560px) {
       .project-shell__header {
-        padding: 14px;
+        padding: 0 0 10px;
       }
 
       .project-shell__nav a {
@@ -323,31 +322,50 @@ interface ProjectSectionLink {
   `
 })
 export class ProjectShellComponent implements OnInit {
-  private readonly api = inject(WorktrailApiService);
-  private readonly route = inject(ActivatedRoute);
+  private readonly context = new PageContext();
+  private readonly router = inject(Router);
+
+  readonly activeSection = signal(projectSectionFromSnapshot(this.router.routerState.snapshot.root) ?? 'overview');
+  private readonly projectsApi = inject(ProjectsApi);
 
   readonly summary = signal<ProjectSummaryDto | null>(null);
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
-  readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
+  readonly projectId = computed(() => this.context.param('projectId'));
   readonly sections = computed<ProjectSectionLink[]>(() => [
-    { label: 'Overview', commands: ['/projects', this.projectId()], exact: true },
-    { label: 'Work', commands: ['/projects', this.projectId(), 'work-items'], exact: false },
-    { label: 'Board', commands: ['/projects', this.projectId(), 'board'], exact: false },
-    { label: 'Planning', commands: ['/projects', this.projectId(), 'planning'], exact: false },
-    { label: 'Reports', commands: ['/projects', this.projectId(), 'status'], exact: false },
-    { label: 'Settings', commands: ['/projects', this.projectId(), 'settings'], exact: false }
+    { id: 'overview', label: 'Overview', commands: ['/projects', this.projectId()] },
+    { id: 'work', label: 'Work', commands: ['/projects', this.projectId(), 'work-items'] },
+    { id: 'board', label: 'Board', commands: ['/projects', this.projectId(), 'board'] },
+    { id: 'planning', label: 'Planning', commands: ['/projects', this.projectId(), 'planning'] },
+    { id: 'reports', label: 'Reports', commands: ['/projects', this.projectId(), 'status'] },
+    { id: 'settings', label: 'Settings', commands: ['/projects', this.projectId(), 'settings'] }
   ]);
 
+  createQueryParams(): { returnUrl: string } {
+    return recordOriginParams(navigationContextFromPage(this.router.url, `/projects/${this.projectId()}/work-items`).origin.url);
+  }
+
+  constructor() {
+    this.router.events.pipe(takeUntilDestroyed()).subscribe(event => {
+      if (event instanceof NavigationEnd) this.activeSection.set(projectSectionFromSnapshot(this.router.routerState.snapshot.root) ?? 'overview');
+    });
+  }
+
   ngOnInit(): void {
-    this.loadProjectSummary();
+    this.context.start(() => {
+      this.summary.set(null);
+      this.isLoading.set(false);
+      this.error.set(null);
+
+      this.loadProjectSummary();
+    });
   }
 
   loadProjectSummary(): void {
     this.isLoading.set(true);
     this.error.set(null);
 
-    this.api.getProjectSummary(this.projectId()).subscribe({
+    this.projectsApi.getProjectSummary(this.projectId()).pipe(this.context.guard()).subscribe({
       next: (summary) => {
         this.summary.set(summary);
         this.isLoading.set(false);

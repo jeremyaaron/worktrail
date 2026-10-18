@@ -1,3 +1,4 @@
+import { recordOriginParams, workItemSection } from '../../shared/navigation/work-navigation';
 import { Component, OnDestroy, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { NotificationDto, NotificationStateFilter } from '@worktrail/contracts';
@@ -88,7 +89,7 @@ import { InboxStateService } from './inbox-state.service';
                 <a
                   class="work-item-link"
                   [routerLink]="['/work-items', notification.workItem.id]"
-                  [queryParams]="{ returnUrl: '/inbox' }"
+                  [queryParams]="detailQueryParams()" [fragment]="notificationFragment(notification) ?? undefined"
                 >
                   <strong>{{ notification.workItem.displayKey }}</strong>
                   <span>{{ notification.workItem.title }}</span>
@@ -322,6 +323,14 @@ export class InboxPageComponent implements OnDestroy {
   private lastActorId: string | null = null;
 
   readonly stateFilter = signal<NotificationStateFilter>('unread');
+  detailQueryParams(): { returnUrl: string } { return recordOriginParams('/inbox'); }
+  notificationFragment(notification: NotificationDto): string | null {
+    if (notification.type === 'mention' || notification.type === 'watched_comment') {
+      const id = notification.metadata['commentId'];
+      return typeof id === 'string' ? workItemSection('comment-' + id) ?? 'discussion' : 'discussion';
+    }
+    return null;
+  }
   readonly notifications = signal<NotificationDto[]>([]);
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);

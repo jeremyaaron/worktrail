@@ -104,6 +104,21 @@ describe('WorkItemResultListComponent', () => {
     expect(card?.textContent).toContain('UX');
   });
 
+  it('provides table cell/header semantics, selected rows and mobile visible-page selection', () => {
+    fixture.componentInstance.selectionEnabled = true;
+    fixture.componentInstance.selectedItemIds = [workspaceWorkItem.id];
+    fixture.componentInstance.allVisibleSelected = true;
+    const toggled = jasmine.createSpy('toggleAll');
+    fixture.componentInstance.toggleAllVisibleSelection.subscribe(toggled);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelectorAll('[role="columnheader"]').length).toBe(8);
+    expect(root.querySelectorAll('.work-item-row > [role="cell"]').length).toBe(8);
+    expect(root.querySelector('.work-item-row')?.getAttribute('aria-selected')).toBe('true');
+    root.querySelector<HTMLInputElement>('.mobile-selection input')!.click();
+    expect(toggled).toHaveBeenCalled();
+  });
+
   it('renders the visible range from server page metadata', () => {
     fixture.componentInstance.metadata = {
       page: 3,
@@ -205,6 +220,15 @@ describe('WorkItemResultListComponent', () => {
     expect(projectRows[0].textContent).toContain('Child of WT-40');
     expect(projectRows[1].textContent).toContain('3 children · 2/3 complete');
     expect(projectRows[2].querySelector('.hierarchy-link, .hierarchy-pill')).toBeNull();
+  });
+
+  it('disables both desktop and mobile selection while a bulk command is pending', () => {
+    fixture.componentInstance.selectionEnabled = true;
+    fixture.componentInstance.selectionDisabled = true;
+    fixture.detectChanges();
+    const controls = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLInputElement>('input[type="checkbox"]'));
+    expect(controls.length).toBe(4);
+    expect(controls.every(control => control.disabled)).toBeTrue();
   });
 
   it('renders selection controls and emits item and visible-toggle events', () => {

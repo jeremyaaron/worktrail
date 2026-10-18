@@ -2,13 +2,16 @@ import { randomUUID } from 'node:crypto';
 
 import type { UpdateWorkItemRequest } from '@worktrail/contracts';
 import { sql } from 'drizzle-orm';
-import request from 'supertest';
+import request from './support/local-http.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { fakeRepositoryContext } from './support/fake-persistence.js';
+import { createPersistence, withTransactionScope } from '../src/repositories/persistence.js';
 import { createExpressApp } from '../src/adapters/express/server.js';
-import { createDb, createPool, type WorktrailDb } from '../src/db/client.js';
+import { createDb, createPool } from '../src/db/client.js';
 import { createRepositories, type Repositories } from '../src/repositories/index.js';
 import { WorkItemService } from '../src/services/work-item-service.js';
+import { cleanupWorkspace as cleanupOwnedWorkspace } from './support/workspace-fixtures.js';
 
 const workspaceIds = new Set<string>();
 let pool: ReturnType<typeof createPool>;
@@ -29,27 +32,7 @@ function actorHeaders(input: { workspaceId: string; memberId: string; role: stri
 }
 
 async function cleanupWorkspace(workspaceId: string) {
-  await pool.query('delete from notifications where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from comment_mentions where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from workspace_activity_events where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from activity_events where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from comments where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from work_item_watchers where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from work_item_relationships where workspace_id = $1', [workspaceId]);
-  await pool.query(
-    'delete from work_item_labels where work_item_id in (select id from work_items where workspace_id = $1)',
-    [workspaceId]
-  );
-  await pool.query('delete from labels where workspace_id = $1', [workspaceId]);
-  await pool.query('update work_items set parent_work_item_id = null where workspace_id = $1', [
-    workspaceId
-  ]);
-  await pool.query('delete from work_items where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from project_cycles where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from milestones where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from projects where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from members where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from workspaces where id = $1', [workspaceId]);
+  await cleanupOwnedWorkspace(pool, workspaceId);
 }
 
 async function cleanupAllWorkspaces() {
@@ -248,7 +231,7 @@ function createService(
       role: 'owner'
     },
     repositories,
-    db,
+    persistence: createPersistence(db),
     ...overrides
   });
 }
@@ -257,7 +240,7 @@ beforeAll(() => {
   pool = createPool();
   db = createDb(pool);
   repositories = createRepositories(db);
-  app = createExpressApp({ repositories, db });
+  app = createExpressApp({ repositories, persistence: createPersistence(db) });
 });
 
 afterEach(async () => {
@@ -346,9 +329,9 @@ describe('authored work-item descriptions', () => {
     expect(JSON.stringify(response.body)).not.toContain(input.description);
     await request(app).patch(`/api/work-items/${item.id}`).set(fixture.headers)
       .send({ description: input.description }).expect(400);
-    await expect(createService(fixture).createWorkItemWithRepositories(
-      fixture.projectId, input, repositories
-    )).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    await expect(createPersistence(db).write((scope) => createService(fixture).createWorkItemWithScope(
+      fixture.projectId, input, scope
+    ))).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
     expect(await repositories.projects.findById(fixture.projectId)).toEqual(project);
     expect(await repositories.workItems.findById(item.id)).toEqual(item);
     expect(await repositories.activityEvents.findByWorkItem(item.id)).toEqual([]);
@@ -356,9 +339,9 @@ describe('authored work-item descriptions', () => {
 
   it('normalizes direct creation without inferring a format', async () => {
     const fixture = await createFixture();
-    const item = await createService(fixture).createWorkItemWithRepositories(fixture.projectId, {
+    const item = await createPersistence(db).write((scope) => createService(fixture).createWorkItemWithScope(fixture.projectId, {
       title: 'Direct', type: 'task', priority: 'medium', description: '  **literal**\r\n'
-    }, repositories);
+    }, scope));
     expect(item).toMatchObject({ description: '  **literal**\n', descriptionFormat: 'plain_text' });
   });
 
@@ -502,16 +485,16 @@ describe('authored work-item descriptions', () => {
     let ready!: (pid: number) => void;
     const gate = new Promise<void>((resolve) => { release = resolve; });
     const locked = new Promise<number>((resolve) => { ready = resolve; });
-    const first = db.transaction(async (tx) => {
+    const first = db.transaction((tx) => withTransactionScope(tx, 'write', async (scope) => {
       const { rows } = await tx.execute(sql`select pg_backend_pid() as pid`);
       const result = await createService(fixture, {
-        db: undefined, repositories: createRepositories(tx as unknown as WorktrailDb),
+        ...scope,
         clock: () => new Date('2026-07-04T00:00:00Z')
       }).updateWorkItem(id, firstInput);
       ready(Number(rows[0]?.pid));
       await gate;
       return result;
-    });
+    }));
     let second: ReturnType<WorkItemService['updateWorkItem']> | undefined;
     try {
       const pid = await Promise.race([locked, first.then(() => { throw new Error('Writer ended early.'); })]);
@@ -641,11 +624,11 @@ describe('work item API', () => {
     )).toBe(true);
   });
 
-  it('uses repository-only paging and enriches only returned page ids', async () => {
+  it('uses an explicit repository-only fake and enriches only returned page ids', async () => {
     const fixture = await createFixture('owner');
     await Promise.all(
       Array.from({ length: 16 }, (_, index) =>
-        createWorkItem(fixture, { title: `Fallback page item ${index + 1}` })
+        createWorkItem(fixture, { title: `Fake capability page item ${index + 1}` })
       )
     );
     const listPageSpy = vi.spyOn(repositories.workItems, 'listPageByProject');
@@ -653,7 +636,7 @@ describe('work item API', () => {
     const dependencySpy = vi.spyOn(repositories.workItemRelationships, 'listDependencyCounts');
     const parentSpy = vi.spyOn(repositories.workItems, 'listParentsForChildren');
     const childSummarySpy = vi.spyOn(repositories.workItems, 'summarizeChildren');
-    const service = createService(fixture, { db: undefined });
+    const service = createService(fixture, { ...fakeRepositoryContext(repositories) });
 
     const page = await service.listWorkItemPage(
       fixture.projectId,
@@ -679,6 +662,7 @@ describe('work item API', () => {
     await createWorkItem(fixture);
     const countSpy = vi.spyOn(repositories.workItems, 'countByProjectQuery');
     const service = new WorkItemService({
+      ...fakeRepositoryContext(repositories),
       actor: {
         workspaceId: randomUUID(),
         memberId: randomUUID(),

@@ -1,6 +1,6 @@
 import { count, desc, eq, sql } from 'drizzle-orm';
 
-import type { WorktrailDb } from '../db/client.js';
+import type { RepositoryExecutor } from '../db/client.js';
 import { workItemAttachments } from '../db/schema.js';
 import type { NewWorkItemAttachment } from './types.js';
 
@@ -9,7 +9,7 @@ export interface WorkItemAttachmentUsage {
   aggregateBytes: number;
 }
 
-export function createWorkItemAttachmentRepository(db: WorktrailDb) {
+export function createWorkItemAttachmentRepository(db: RepositoryExecutor) {
   return {
     async create(input: NewWorkItemAttachment) {
       const [attachment] = await db.insert(workItemAttachments).values(input).returning();

@@ -15,6 +15,7 @@ import {
 } from './config/runtime-config.js';
 import { createDb, createPool, type WorktrailDb } from './db/client.js';
 import { createRepositories, type Repositories } from './repositories/index.js';
+import { createPersistence, type Persistence } from './repositories/persistence.js';
 import {
   AttachmentObjectStoreError,
   type AttachmentObjectStore
@@ -26,6 +27,7 @@ export interface StartDependencies {
   createPool: (connectionString: string) => pg.Pool;
   createDb: (pool: pg.Pool) => WorktrailDb;
   createRepositories: (db: WorktrailDb) => Repositories;
+  createPersistence: (db: WorktrailDb) => Persistence;
   createAttachmentObjectStore: (config: RuntimeConfig) => AttachmentObjectStore;
   createExpressApp: (options: CreateExpressAppOptions) => Express;
   log: (message: string) => void;
@@ -36,6 +38,7 @@ const defaultStartDependencies: StartDependencies = {
   createPool,
   createDb,
   createRepositories,
+  createPersistence,
   createAttachmentObjectStore: (config) =>
     new LocalAttachmentObjectStore(config.attachmentStoragePath),
   createExpressApp,
@@ -61,7 +64,7 @@ export async function start(
       : undefined;
     const app = dependencies.createExpressApp({
       repositories,
-      db,
+      persistence: dependencies.createPersistence(db),
       healthCheckPool: pool,
       attachmentObjectStore,
       corsOrigin: config.corsOrigin,

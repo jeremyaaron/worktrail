@@ -2,11 +2,13 @@ import { randomUUID } from 'node:crypto';
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
+import { createPersistence } from '../src/repositories/persistence.js';
 import { createDb, createPool } from '../src/db/client.js';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../src/errors/app-error.js';
 import { createRepositories, type Repositories } from '../src/repositories/index.js';
 import { ProjectCycleCloseoutService } from '../src/services/project-cycle-closeout-service.js';
 import { ProjectCycleService } from '../src/services/project-cycle-service.js';
+import { cleanupWorkspace as cleanupOwnedWorkspace } from './support/workspace-fixtures.js';
 
 const workspaceIds = new Set<string>();
 let pool: ReturnType<typeof createPool>;
@@ -19,24 +21,7 @@ function now() {
 }
 
 async function cleanupWorkspace(workspaceId: string) {
-  await pool.query('delete from notifications where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from comment_mentions where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from activity_events where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from comments where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from work_item_watchers where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from work_item_relationships where workspace_id = $1', [workspaceId]);
-  await pool.query(
-    'delete from work_item_labels where work_item_id in (select id from work_items where workspace_id = $1)',
-    [workspaceId]
-  );
-  await pool.query('delete from labels where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from work_items where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from project_cycle_closeouts where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from project_cycles where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from milestones where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from projects where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from members where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from workspaces where id = $1', [workspaceId]);
+  await cleanupOwnedWorkspace(pool, workspaceId);
 }
 
 async function cleanupAllWorkspaces() {
@@ -90,7 +75,7 @@ async function createFixture(role: 'owner' | 'maintainer' | 'contributor' = 'own
       role
     },
     repositories,
-    db,
+    persistence: createPersistence(db),
     clock: now
   });
 
@@ -310,7 +295,7 @@ describe('ProjectCycleService', () => {
         role: 'contributor'
       },
       repositories,
-      db,
+      persistence: createPersistence(db),
       clock: now
     });
 
@@ -557,7 +542,7 @@ describe('ProjectCycleService', () => {
         role: 'owner'
       },
       repositories,
-      db,
+      persistence: createPersistence(db),
       clock: now
     });
     const closed = await closeoutService.close(fixture.projectId, cycle.id, {
@@ -597,7 +582,7 @@ describe('ProjectCycleService', () => {
         role: 'owner'
       },
       repositories,
-      db,
+      persistence: createPersistence(db),
       clock: now
     });
     await closeoutService.close(fixture.projectId, cycle.id, { destinationCycleId: null });

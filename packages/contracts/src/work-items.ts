@@ -22,6 +22,7 @@ export type WorkItemState = 'open' | 'terminal';
 export type DependencyFilter = 'dependency_blocked' | 'blocking_open_work';
 export type WorkItemRiskFilter = 'unassigned_active' | 'stale_in_progress';
 export type WorkItemHierarchyFilter = 'top_level' | 'children' | 'parents';
+export type WorkItemEstimateState = 'estimated' | 'unestimated';
 export type WorkItemSort =
   | 'updated_desc'
   | 'updated_asc'
@@ -44,6 +45,7 @@ export interface WorkItemQuery {
   milestoneId?: string;
   cycleId?: string;
   dueDateState?: DueDateState;
+  estimateState?: WorkItemEstimateState;
   blocked?: boolean;
   dependency?: DependencyFilter;
   workRisk?: WorkItemRiskFilter;

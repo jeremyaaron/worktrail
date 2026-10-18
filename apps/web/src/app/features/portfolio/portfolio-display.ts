@@ -67,7 +67,10 @@ export function formatDate(value: string | null): string {
     return 'No date';
   }
 
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value));
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    ...(/^\d{4}-\d{2}-\d{2}$/.test(value) ? { timeZone: 'UTC' } : {})
+  }).format(new Date(value));
 }
 
 export function formatDateTime(value: string): string {

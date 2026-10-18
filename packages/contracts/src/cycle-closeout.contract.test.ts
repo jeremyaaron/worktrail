@@ -186,7 +186,7 @@ describe('cycle closeout contracts', () => {
       project,
       cycle: sourceCycle,
       generatedAt: '2026-07-14T15:55:00.000Z',
-      health: snapshot.health,
+      health: { ...snapshot.health, reasons: snapshot.health.reasons.map(reason => ({ ...reason, countUnit: 'work_items' as const })) },
       counts: {
         totalCount: counts.totalCount,
         completedCount: counts.completedCount,

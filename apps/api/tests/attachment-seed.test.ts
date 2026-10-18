@@ -8,10 +8,12 @@ import {
   type AttachmentSeedReferences,
   type DeterministicSeedAttachment
 } from '../src/db/attachment-seed.js';
+import { createPersistence } from '../src/repositories/persistence.js';
 import { createDb, createPool } from '../src/db/client.js';
 import { createRepositories, type Repositories } from '../src/repositories/index.js';
 import { AttachmentService } from '../src/services/attachment-service.js';
 import { InMemoryAttachmentObjectStore } from '../src/storage/in-memory-attachment-object-store.js';
+import { cleanupWorkspace as cleanupOwnedWorkspace } from './support/workspace-fixtures.js';
 
 const workspaceIds = new Set<string>();
 let pool: ReturnType<typeof createPool>;
@@ -23,12 +25,7 @@ function now(): Date {
 }
 
 async function cleanupWorkspace(workspaceId: string): Promise<void> {
-  await pool.query('delete from activity_events where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from work_item_attachments where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from work_items where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from projects where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from members where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from workspaces where id = $1', [workspaceId]);
+  await cleanupOwnedWorkspace(pool, workspaceId);
 }
 
 async function cleanupAllWorkspaces(): Promise<void> {
@@ -158,7 +155,7 @@ describe('seedDeterministicAttachments', () => {
       2
     );
 
-    const service = new AttachmentService({ repositories, db, objectStore });
+    const service = new AttachmentService({ repositories, persistence: createPersistence(db), objectStore });
     const actor = {
       memberId: fixture.references.ownerMemberId,
       workspaceId: fixture.references.workspaceId,

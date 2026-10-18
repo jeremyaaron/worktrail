@@ -16,6 +16,7 @@ test('serves compiled assets and deep links with formatted read and preview beha
     page.locator('app-work-item-detail-summary app-authored-content-viewer h3')
   ).toHaveText('Project summary requirements');
   await page.reload();
+  await page.locator('button[aria-controls="edit-work-item"]').click();
   await expect(page.locator('#detail-description-format')).toHaveValue('markdown_v1');
   const editor = page.locator('app-authored-content-editor[formcontrolname="descriptionContent"]');
   await page.locator('#detail-description').fill('## Production preview\n\n**Compiled content**');
@@ -33,9 +34,21 @@ test('serves compiled assets and deep links with formatted read and preview beha
       .toBeLessThanOrEqual(1);
     await page.screenshot({ path: testInfo.outputPath(`production-${width}.png`) });
   }
+  await page.locator('app-work-item-detail-editor').getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Discard unsaved changes?' }).getByRole('button', { name: 'Discard', exact: true }).click();
+  const planning = '/projects/10000000-0000-4000-8000-000000000201/planning?view=cycles#cycles-heading';
+  await page.goto(`/work-items/10000000-0000-4000-8000-000000000401?returnUrl=${encodeURIComponent(planning)}#history`);
+  await expect(page.locator('#history')).toBeFocused();
+  await expect(page.locator('#history > details')).toHaveAttribute('open', '');
+  await page.reload();
+  await expect(page.locator('#history')).toBeFocused();
+  await page.getByRole('link', { name: 'Back to Planning', exact: true }).click();
+  await expect(page).toHaveURL(planning);
+  await expect(page.locator('#cycles-heading')).toBeFocused();
   await page.goto('/work-items/10000000-0000-4000-8000-000000000427');
   await expect(page.locator('app-work-item-detail-summary strong')).toHaveText('original source');
-  await expect(page.locator('#detail-description')).toBeDisabled();
+  await expect(page.locator('#detail-description')).toHaveCount(0);
+  await expect(page.locator('button[aria-controls="edit-work-item"]')).toBeDisabled();
   await page.goto('/projects/10000000-0000-4000-8000-000000000201/board');
   await expect(page.getByRole('heading', { name: 'Project board', exact: true })).toBeVisible();
   const missing = await request.get('/api/no-such-endpoint');

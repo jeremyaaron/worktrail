@@ -44,6 +44,7 @@ test('authors descriptions across creation paths, preserves legacy text and draf
   await expect(summary.locator('strong')).toHaveText('Important');
   expect(await summary.locator('app-authored-content-viewer').innerHTML()).toBe(previewHTML);
   await expect(summary.getByRole('heading', { name: 'Description', level: 2 })).toBeVisible();
+  await page.locator('button[aria-controls="edit-work-item"]').click();
   await expect(page.locator('#detail-description')).toHaveValue(source);
 
   await page.locator('#detail-title').fill(`Renamed description ${suffix}`);
@@ -137,8 +138,11 @@ test('authors descriptions across creation paths, preserves legacy text and draf
   await page.getByRole('link', { name: 'Open work item', exact: true }).click();
   await expect(summary.locator('app-authored-content-viewer')).toHaveText(legacySource);
   await expect(summary.locator('strong, h3')).toHaveCount(0);
+  await page.locator('button[aria-controls="edit-work-item"]').click();
   await page.locator('#detail-description-format').selectOption('markdown_v1');
-  await page.getByRole('button', { name: 'Discard changes', exact: true }).click();
+  await page.locator('app-work-item-detail-editor').getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Discard unsaved changes?' }).getByRole('button', { name: 'Discard', exact: true }).click();
+  await page.locator('button[aria-controls="edit-work-item"]').click();
   await expect(page.locator('#detail-description-format')).toHaveValue('plain_text');
   await expect(page.locator('#detail-description')).toHaveValue(legacySource);
   await page.locator('#detail-description-format').selectOption('markdown_v1');
@@ -157,14 +161,17 @@ test('authors descriptions across creation paths, preserves legacy text and draf
   });
   expect(relationship.ok()).toBe(true);
   await page.reload();
+  await page.locator('button[aria-controls="edit-work-item"]').click();
   await page.locator('#detail-description').fill('Unsaved source on old item');
   await page
-    .locator(`a[href="/work-items/${created.id}"]`)
+    .locator(`a[href^="/work-items/${created.id}?"]`)
     .filter({ hasText: `Renamed description ${suffix}` })
     .click();
+  await page.getByRole('dialog', { name: 'Discard unsaved changes?' }).getByRole('button', { name: 'Discard', exact: true }).click();
   await expect(summary.getByRole('heading', { level: 1 })).toHaveText(
     `Renamed description ${suffix}`
   );
+  await page.locator('button[aria-controls="edit-work-item"]').click();
   await expect(page.locator('#detail-description')).toHaveValue(draft);
   await expect(page.locator('#detail-description-format')).toHaveValue('markdown_v1');
   expect(errors).toEqual([]);

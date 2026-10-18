@@ -1,13 +1,15 @@
 import { randomUUID } from 'node:crypto';
 
-import request from 'supertest';
+import request from './support/local-http.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
+import { createPersistence } from '../src/repositories/persistence.js';
 import { createExpressApp } from '../src/adapters/express/server.js';
 import { createDb, createPool } from '../src/db/client.js';
 import type { MemberRole, ProjectStatus, WorkItemPriority, WorkItemStatus } from '../src/domain/constants.js';
 import { createRepositories, type Repositories } from '../src/repositories/index.js';
 import { ProjectStatusReportService } from '../src/services/project-status-report-service.js';
+import { cleanupWorkspace as cleanupOwnedWorkspace } from './support/workspace-fixtures.js';
 
 const workspaceIds = new Set<string>();
 let pool: ReturnType<typeof createPool>;
@@ -33,25 +35,7 @@ function actorHeaders(input: { workspaceId: string; memberId: string; role: Memb
 }
 
 async function cleanupWorkspace(workspaceId: string) {
-  await pool.query('delete from notifications where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from comment_mentions where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from project_status_reports where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from activity_events where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from comments where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from saved_work_views where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from work_item_watchers where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from work_item_relationships where workspace_id = $1', [workspaceId]);
-  await pool.query(
-    'delete from work_item_labels where work_item_id in (select id from work_items where workspace_id = $1)',
-    [workspaceId]
-  );
-  await pool.query('delete from labels where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from work_items where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from project_cycles where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from milestones where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from projects where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from members where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from workspaces where id = $1', [workspaceId]);
+  await cleanupOwnedWorkspace(pool, workspaceId);
 }
 
 async function cleanupAllWorkspaces() {
@@ -242,7 +226,7 @@ function createService(fixture: Awaited<ReturnType<typeof createFixture>>) {
   return new ProjectStatusReportService({
     actor: fixture.actor,
     repositories,
-    db,
+    persistence: createPersistence(db),
     clock: now
   });
 }
@@ -251,7 +235,7 @@ beforeAll(() => {
   pool = createPool();
   db = createDb(pool);
   repositories = createRepositories(db);
-  app = createExpressApp({ repositories, db });
+  app = createExpressApp({ repositories, persistence: createPersistence(db) });
 });
 
 afterEach(async () => {
@@ -337,7 +321,7 @@ describe('project status reports', () => {
     expect(draft.statusDate).toBe('2026-07-10');
     expect(draft.summary).toContain('4 open work items');
     expect(draft.risks).toContain('Blocked work: 1');
-    expect(draft.snapshot.snapshotVersion).toBe(1);
+    expect(draft.snapshot.snapshotVersion).toBe(2);
     expect(draft.snapshot.project).toMatchObject({ id: fixture.projectId, key: 'STAT' });
     expect(draft.snapshot.counts).toMatchObject({
       openWorkCount: 4,
@@ -401,7 +385,8 @@ describe('project status reports', () => {
       }),
       expect.objectContaining({
         key: 'unestimated_work',
-        query: { cycleId: activeCycle.id, workState: 'open', sort: 'priority_desc' }
+        countUnit: 'work_items',
+        query: { cycleId: activeCycle.id, workState: 'open', estimateState: 'unestimated', sort: 'priority_desc' }
       })
     ]));
     expect(draft.snapshot.recentWork).toHaveLength(4);
@@ -452,7 +437,7 @@ describe('project status reports', () => {
         role: 'contributor'
       },
       repositories,
-      db,
+      persistence: createPersistence(db),
       clock: now
     });
     const contributorList = await contributorService.listProjectStatusReports(fixture.projectId);
@@ -553,7 +538,7 @@ describe('project status reports', () => {
     });
 
     await pool.query('update project_status_reports set snapshot = $1::jsonb where id = $2', [
-      JSON.stringify({ ...draft.snapshot, snapshotVersion: 2 }),
+      JSON.stringify({ ...draft.snapshot, snapshotVersion: 3 }),
       published.id
     ]);
 
@@ -718,7 +703,7 @@ describe('project status report API', () => {
       .expect(({ body }) => {
         expect(body.project.id).toBe(fixture.projectId);
         expect(body.title).toMatch(/^Status update - \d{4}-\d{2}-\d{2}$/);
-        expect(body.snapshot.snapshotVersion).toBe(1);
+        expect(body.snapshot.snapshotVersion).toBe(2);
         expect(body.snapshot.counts.blockedWorkCount).toBe(1);
         expect(body.snapshot.risks.map((risk: { type: string }) => risk.type)).toEqual([
           'blocked',
@@ -889,7 +874,7 @@ describe('project status report API', () => {
         summary: 'Snapshot shape should be validated.',
         snapshot: {
           ...draft.snapshot,
-          snapshotVersion: 2
+          snapshotVersion: 3
         }
       })
       .expect(400)

@@ -190,6 +190,7 @@ function cycleReview(input: Partial<ProjectCycleReviewDto> = {}): ProjectCycleRe
           severity: 'warning',
           message: 'Cycle estimate is 3 points over target.',
           count: 3,
+          countUnit: 'estimate_points' as const,
           query: { cycleId, sort: 'priority_desc' }
         }
       ]
@@ -232,6 +233,7 @@ function cycleReview(input: Partial<ProjectCycleReviewDto> = {}): ProjectCycleRe
         title: 'Blocked work',
         description: 'Work items currently blocked inside this cycle.',
         count: 1,
+        countUnit: 'work_items' as const,
         query: { cycleId, status: 'blocked', sort: 'priority_desc' },
         items: [blockedWorkItem]
       }
@@ -379,7 +381,8 @@ describe('ProjectCycleReviewPageComponent', () => {
     fixture.detectChanges();
     http.expectOne(`/api/projects/${projectId}/cycles/${cycleId}/review`).flush(
       cycleReview({
-        cycle: { ...activeCycle, status: 'completed' },
+        project: { ...activeProject, name: 'Renamed current project' },
+        cycle: { ...activeCycle, name: 'Renamed current cycle', status: 'completed' },
         closeout
       })
     );
@@ -394,22 +397,46 @@ describe('ProjectCycleReviewPageComponent', () => {
     expect(text).toContain('Retained11');
     expect(text).toContain('Moved1');
     expect(text).toContain('Next delivery cycle received 1 moved item');
-    expect(text).toContain('2 additional snapshot items not shown.');
-    expect(text).toContain('Current state · Live view');
-    expect(text).toContain('reflect current work item data, not the closeout snapshot');
+    expect(text).toContain('Done at close');
+    expect(text).toContain('Current context');
+    expect(compiled.querySelector('details.current-context')?.hasAttribute('open')).toBeFalse();
+    expect(compiled.querySelector('[aria-label="Cycle progress summary"]')).toBeNull();
     expect(text).not.toContain('Close cycle');
 
+    expect(compiled.querySelector('h1')?.textContent).toBe(closeout.snapshot.cycle.name);
+    expect(text).not.toContain('Renamed current cycle');
+    expect(text).not.toContain('Renamed current project');
+
     const completedGroup = compiled.querySelector('[aria-labelledby="snapshot-completed"]');
-    expect(completedGroup?.querySelectorAll('[aria-label^="Open current WT-"]').length).toBe(8);
+    expect(completedGroup?.querySelectorAll('[aria-label^="Open current WT-"]').length).toBe(10);
     expect(
       completedGroup?.querySelector<HTMLAnchorElement>('[aria-label="Open current WT-1"]')?.getAttribute('href')
-    ).toBe(`/work-items/${closeout.snapshot.items.completed[0]?.id}`);
+    ).toBe(`/work-items/${closeout.snapshot.items.completed[0]?.id}?returnUrl=${encodeURIComponent(`/projects/${closeout.projectId}/cycles/${closeout.cycleId}#cycle-result-heading`)}`);
     expect(
       Array.from(compiled.querySelectorAll<HTMLAnchorElement>('a')).find((link) =>
-        link.textContent?.includes('Review destination cycle')
+        link.textContent?.includes('Current destination cycle')
       )?.getAttribute('href')
-    ).toBe('/projects/10000000-0000-4000-8000-000000000201/cycles/10000000-0000-4000-8000-000000000702');
+    ).toBe('/projects/10000000-0000-4000-8000-000000000201/cycles/10000000-0000-4000-8000-000000000702?returnUrl=' + encodeURIComponent(`/projects/${closeout.projectId}/cycles/${closeout.cycleId}#cycle-result-heading`));
   });
+
+  for (const [name, returnUrl, accepted] of [
+    ['same-project outcome', `/projects/${projectId}/cycles/10000000-0000-4000-8000-000000000702#cycle-result-heading`, true],
+    ['external URL', 'https://example.com/outcome', false],
+    ['recursive return', `/projects/${projectId}/cycles/other?returnUrl=%2Fprojects#cycle-result-heading`, false],
+    ['another project', '/projects/other/cycles/cycle#cycle-result-heading', false],
+    ['self return', `/projects/${projectId}/cycles/${cycleId}#cycle-result-heading`, false]
+  ] as const) {
+    it('bounds the destination cycle return: ' + name, () => {
+      Object.assign(TestBed.inject(ActivatedRoute), { snapshot: { queryParamMap: convertToParamMap({ returnUrl }) } });
+      const fixture = TestBed.createComponent(ProjectCycleReviewPageComponent);
+      fixture.detectChanges();
+      TestBed.inject(HttpTestingController).expectOne(`/api/projects/${projectId}/cycles/${cycleId}/review`).flush(cycleReview());
+      fixture.detectChanges();
+      const link = (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('.outcome-return');
+      if (accepted) expect(link?.getAttribute('href')).toBe(returnUrl);
+      else expect(link).toBeNull();
+    });
+  }
 
   it('shows honest legacy copy for completed cycles without closeout history', () => {
     const fixture = TestBed.createComponent(ProjectCycleReviewPageComponent);
@@ -466,6 +493,7 @@ describe('ProjectCycleReviewPageComponent', () => {
             title: 'Unestimated work',
             description: 'Open cycle work without an estimate.',
             count: 0,
+            countUnit: 'work_items' as const,
             query: { cycleId, sort: 'priority_desc' },
             items: []
           }
@@ -476,8 +504,9 @@ describe('ProjectCycleReviewPageComponent', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.textContent).toContain('Unestimated work');
-    expect(compiled.textContent).toContain('No matching work');
+    expect(compiled.textContent).not.toContain('Unestimated work');
+    expect(compiled.textContent).toContain('No cycle risks found');
+    expect(compiled.querySelectorAll('.risk-section')).toHaveSize(0);
     expect(compiled.textContent).toContain('No recent movement');
   });
 

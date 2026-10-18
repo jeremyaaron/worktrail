@@ -115,13 +115,16 @@ test.describe.serial('v0.2.4 cycle closeout', () => {
 
     const destinationChoice = page.getByRole('radio', { name: /Follow-up Validation/ });
     const unplannedChoice = page.getByRole('radio', { name: /Return to unplanned work/ });
-    await expect(destinationChoice).toBeChecked();
+    await expect(destinationChoice).not.toBeChecked();
+    await expect(page.getByRole('button', { name: 'Close cycle' })).toBeDisabled();
     await expect(unplannedChoice).not.toBeChecked();
     await destinationChoice.focus();
     await page.keyboard.press('Tab');
     await expectFocused(unplannedChoice);
     await page.keyboard.press('Shift+Tab');
     await expectFocused(destinationChoice);
+
+    await destinationChoice.check();
 
     for (const viewport of [
       { name: 'preview-desktop', width: 1440, height: 900 },
@@ -168,7 +171,8 @@ test.describe.serial('v0.2.4 cycle closeout', () => {
     expect(submittingButtonBox?.width).toBeCloseTo(restingButtonBox?.width ?? 0, 0);
     expect(submittingButtonBox?.height).toBeCloseTo(restingButtonBox?.height ?? 0, 0);
 
-    await expect(page).toHaveURL(sourceReviewPath);
+    await expect(page).toHaveURL(sourceReviewPath + '#cycle-result-heading');
+    await expect(page.locator('#cycle-result-heading')).toBeFocused();
     await expect(page.getByRole('heading', { name: 'Outcome at close' })).toBeVisible();
     await expect(page.getByText(/Closed .* by Morgan Maintainer/)).toBeVisible();
     await expect(metric(page, 'Cycle closeout metrics', 'Target points')).toHaveText('13');
@@ -179,7 +183,8 @@ test.describe.serial('v0.2.4 cycle closeout', () => {
     await expect(
       page.getByRole('heading', { name: 'Follow-up Validation received 3 moved items' })
     ).toBeVisible();
-    await expect(page.getByText('Current state · Live view')).toBeVisible();
+    await expect(page.locator('details.current-context')).not.toHaveAttribute('open');
+    await expect(page.getByLabel('Cycle progress summary')).toHaveCount(0);
 
     for (const viewport of [
       { name: 'result-desktop', width: 1440, height: 900 },
@@ -192,17 +197,23 @@ test.describe.serial('v0.2.4 cycle closeout', () => {
     }
 
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.getByRole('link', { name: 'Review destination cycle' }).click();
-    await expect(page).toHaveURL(destinationReviewPath);
+    await page.getByRole('link', { name: 'Current destination cycle' }).click();
+    await expect(page).toHaveURL(destinationReviewPath + '?returnUrl=' + encodeURIComponent(sourceReviewPath + '#cycle-result-heading'));
     await expect(page.getByRole('heading', { name: 'Follow-up Validation' })).toBeVisible();
     await expect(page.getByLabel('Cycle progress summary')).toContainText('3');
+    await page.getByRole('link', { name: 'Back to outcome at close', exact: true }).click();
+    await expect(page.locator('#cycle-result-heading')).toBeFocused();
 
     await page.goto(sourceReviewPath);
     await page.getByRole('link', { name: 'Open current LAB-3' }).click();
-    await expect(page).toHaveURL(`/work-items/${carriedItemId}`);
+    await expect(page).toHaveURL(url => url.pathname === `/work-items/${carriedItemId}` && url.searchParams.get('returnUrl') === `${sourceReviewPath}#cycle-result-heading`);
     await expect(page.getByRole('heading', { name: longCarriedTitle })).toBeVisible();
-    await expect(page.getByLabel('Metadata')).toContainText('Follow-up Validation');
+    await expect(page.getByRole('region', { name: 'Work item summary', exact: true })).toContainText('Follow-up Validation');
+    await page.locator('#history > details > summary').click();
     await expect(page.getByRole('heading', { name: 'Activity' })).toBeVisible();
     await expect(page.getByText('Cycle changed to Follow-up Validation.')).toBeVisible();
+    await page.getByRole('link', { name: 'Back to cycle review', exact: true }).click();
+    await expect(page).toHaveURL(`${sourceReviewPath}#cycle-result-heading`);
+    await expect(page.locator('#cycle-result-heading')).toBeFocused();
   });
 });

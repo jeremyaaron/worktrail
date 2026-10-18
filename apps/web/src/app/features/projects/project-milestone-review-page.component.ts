@@ -1,5 +1,5 @@
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import type {
   DeliveryHealthReasonDto,
   DeliveryHealthState,
@@ -11,9 +11,13 @@ import type {
   WorkItemQuery,
   WorkItemStatus
 } from '@worktrail/contracts';
-import { Subscription } from 'rxjs';
+import { snapshotCountLabel } from '@worktrail/contracts';
+import { NavigationSectionTargetDirective } from '../../shared/navigation/section-target';
+import { recordOriginParams } from '../../shared/navigation/work-navigation';
+import { populatedRiskSections } from './planning/risk-display';
 
-import { WorktrailApiService } from '../../core/worktrail-api.service';
+import { PlanningApi } from '../../core/api/planning-api';
+import { PageContext } from '../../core/navigation/page-context';
 import {
   deliveryHealthLabel,
   deliveryHealthReasonLabel,
@@ -24,7 +28,7 @@ import { ErrorPanelComponent } from '../../shared/ui/error-panel.component';
 import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.component';
 import { WorkItemParentPillComponent } from '../../shared/work-items/work-item-parent-pill.component';
 
-const visibleRiskItemLimit = 4;
+const visibleRiskItemLimit = 5;
 const workItemStatuses: WorkItemStatus[] = [
   'backlog',
   'ready',
@@ -57,12 +61,15 @@ interface BreakdownMetric {
 @Component({
   selector: 'app-project-milestone-review-page',
   imports: [
+    NavigationSectionTargetDirective,
     ErrorPanelComponent,
     LoadingIndicatorComponent,
     RouterLink,
     WorkItemParentPillComponent
   ],
   template: `
+    <section [appNavigationSectionTarget]="navigationFragment()" [navigationIdentity]="navigationIdentity()" [navigationReady]="review()">
+
     @if (isLoading()) {
       <app-loading-indicator label="Loading milestone review" />
     } @else if (error()) {
@@ -227,22 +234,22 @@ interface BreakdownMetric {
             <p class="panel-eyebrow">Risks</p>
             <h2 id="risk-sections-heading">Needs attention</h2>
           </div>
-          <span>{{ totalRiskCount(review) }} items</span>
+          <span>{{ totalRiskCount(review) }} risk signals</span>
         </div>
 
-        @if (review.riskSections.length === 0) {
+        @if (populatedRiskSections(review.riskSections).length === 0) {
           <div class="compact-empty">
-            <strong>No risk sections</strong>
-            <span>Current milestone work has no surfaced risk categories.</span>
+            <strong>No milestone risks found</strong>
           </div>
         } @else {
           <div class="risk-section-list">
-            @for (section of review.riskSections; track section.type) {
+            @for (section of populatedRiskSections(review.riskSections); track section.type) {
               <section class="risk-section" [attr.aria-labelledby]="riskHeadingId(section)">
                 <div class="section-heading">
                   <div>
                     <h3 [id]="riskHeadingId(section)">{{ section.title }}</h3>
                     <p>{{ section.description }}</p>
+                    <span>{{ riskCountLabel(section) }}</span>
                   </div>
                   <a
                     [routerLink]="['/projects', projectId(), 'work-items']"
@@ -336,6 +343,8 @@ interface BreakdownMetric {
         }
       </section>
     }
+
+    </section>
   `,
   styles: `
     :host {
@@ -775,30 +784,33 @@ interface BreakdownMetric {
     }
   `
 })
-export class ProjectMilestoneReviewPageComponent implements OnInit, OnDestroy {
-  private readonly route = inject(ActivatedRoute);
-  private readonly api = inject(WorktrailApiService);
-  private routeSubscription: Subscription | null = null;
+export class ProjectMilestoneReviewPageComponent implements OnInit {
+  readonly populatedRiskSections = populatedRiskSections;
+  private readonly context = new PageContext();
+  readonly navigationFragment = this.context.fragment;
+  readonly navigationIdentity = computed(() => this.context.contextKey());
+  readonly riskCountLabel = snapshotCountLabel;
+  private readonly planningApi = inject(PlanningApi);
 
   readonly review = signal<MilestoneReviewDto | null>(null);
   readonly isLoading = signal(true);
   readonly error = signal<string | null>(null);
 
-  readonly projectId = computed(() => this.route.snapshot.paramMap.get('projectId') ?? '');
-  readonly milestoneId = computed(() => this.route.snapshot.paramMap.get('milestoneId') ?? '');
+  readonly projectId = computed(() => this.context.param('projectId'));
+  readonly milestoneId = computed(() => this.context.param('milestoneId'));
   readonly scopedWorkQueryParams = computed(() => {
     const query = this.review()?.scopedWorkQuery ?? {};
     return this.queryParamsFromQuery(query);
   });
 
   ngOnInit(): void {
-    this.routeSubscription = this.route.paramMap.subscribe(() => {
+    this.context.start(() => {
+      this.review.set(null);
+      this.isLoading.set(true);
+      this.error.set(null);
+
       this.loadReview();
     });
-  }
-
-  ngOnDestroy(): void {
-    this.routeSubscription?.unsubscribe();
   }
 
   loadReview(): void {
@@ -814,7 +826,7 @@ export class ProjectMilestoneReviewPageComponent implements OnInit, OnDestroy {
     this.isLoading.set(true);
     this.error.set(null);
 
-    this.api.getMilestoneReview(projectId, milestoneId).subscribe({
+    this.planningApi.getMilestoneReview(projectId, milestoneId).pipe(this.context.guard()).subscribe({
       next: (review) => {
         this.review.set(review);
         this.isLoading.set(false);
@@ -898,12 +910,10 @@ export class ProjectMilestoneReviewPageComponent implements OnInit, OnDestroy {
   }
 
   hiddenRiskItemCount(section: MilestoneReviewRiskSectionDto): number {
-    return Math.max(section.count - visibleRiskItemLimit, 0);
+    return section.countUnit === 'work_items' ? Math.max(section.count - visibleRiskItemLimit, 0) : 0;
   }
 
-  detailQueryParams(): { returnUrl: string } {
-    return { returnUrl: `/projects/${this.projectId()}/milestones/${this.milestoneId()}` };
-  }
+  detailQueryParams(): { returnUrl: string } { return recordOriginParams(`/projects/${this.projectId()}/milestones/${this.milestoneId()}`, this.context.fragment()); }
 
   queryParamsFromQuery(query: WorkItemQuery | null): Record<string, string> | null {
     if (query === null) {

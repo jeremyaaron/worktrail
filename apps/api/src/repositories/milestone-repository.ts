@@ -1,6 +1,6 @@
-import { and, asc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 
-import type { WorktrailDb } from '../db/client.js';
+import type { RepositoryExecutor } from '../db/client.js';
 import { milestones } from '../db/schema.js';
 import type { Milestone, NewMilestone } from './types.js';
 
@@ -19,8 +19,13 @@ export interface UpdateMilestoneInput {
   updatedAt: Date;
 }
 
-export function createMilestoneRepository(db: WorktrailDb) {
+export function createMilestoneRepository(db: RepositoryExecutor) {
   return {
+    async listByProjects(projectIds: string[]) {
+      if (projectIds.length === 0) return [];
+      return db.select().from(milestones).where(inArray(milestones.projectId, projectIds))
+        .orderBy(asc(milestones.targetDate), asc(milestones.name), asc(milestones.id));
+    },
     async create(input: NewMilestone) {
       const [milestone] = await db.insert(milestones).values(input).returning();
       return milestone;
@@ -29,6 +34,11 @@ export function createMilestoneRepository(db: WorktrailDb) {
     async findById(id: string) {
       const [milestone] = await db.select().from(milestones).where(eq(milestones.id, id)).limit(1);
       return milestone ?? null;
+    },
+
+    async listByIds(ids: string[]) {
+      if (ids.length === 0) return [];
+      return db.select().from(milestones).where(inArray(milestones.id, [...new Set(ids)]));
     },
 
     async findActiveByProjectName(projectId: string, name: string) {

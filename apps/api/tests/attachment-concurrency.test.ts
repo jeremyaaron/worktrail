@@ -2,12 +2,14 @@ import { randomUUID } from 'node:crypto';
 
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { createPersistence } from '../src/repositories/persistence.js';
 import { createDb, createPool } from '../src/db/client.js';
 import type { ActorContext } from '../src/domain/actor.js';
 import { attachmentPolicy } from '../src/domain/attachment-policy.js';
 import { createRepositories, type Repositories } from '../src/repositories/index.js';
 import { AttachmentService } from '../src/services/attachment-service.js';
 import { InMemoryAttachmentObjectStore } from '../src/storage/in-memory-attachment-object-store.js';
+import { cleanupWorkspace as cleanupOwnedWorkspace } from './support/workspace-fixtures.js';
 
 let pool: ReturnType<typeof createPool>;
 let db: ReturnType<typeof createDb>;
@@ -27,13 +29,7 @@ async function cleanup(): Promise<void> {
     return;
   }
 
-  await pool.query('delete from notifications where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from activity_events where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from work_item_attachments where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from work_items where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from projects where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from members where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from workspaces where id = $1', [workspaceId]);
+  await cleanupOwnedWorkspace(pool, workspaceId);
 }
 
 async function createConcurrencyFixture() {
@@ -133,7 +129,7 @@ describe('attachment upload concurrency', () => {
       const ids = [attachmentIds[index]!, randomUUID()];
       return new AttachmentService({
         repositories,
-        db,
+        persistence: createPersistence(db),
         objectStore,
         now,
         createId: () => ids.shift()!,
@@ -217,7 +213,7 @@ describe('attachment upload concurrency', () => {
     const createService = () =>
       new AttachmentService({
         repositories,
-        db,
+        persistence: createPersistence(db),
         objectStore,
         now,
         createId: randomUUID,

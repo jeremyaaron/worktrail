@@ -1,6 +1,7 @@
 import type { MilestoneReviewDto, ProjectPlanningSummaryDto } from '@worktrail/contracts';
 import { z } from 'zod';
 
+import type { Persistence } from '../repositories/persistence.js';
 import type { EndpointHandler } from '../http/app-request.js';
 import type { Repositories } from '../repositories/index.js';
 import { MilestoneReviewService } from '../services/milestone-review-service.js';
@@ -18,6 +19,7 @@ const milestoneReviewParamSchema = z.object({
 
 export interface PlanningHandlerOptions {
   repositories: Repositories;
+  persistence: Persistence;
   clock?: () => Date;
 }
 
@@ -27,6 +29,7 @@ export function getProjectPlanningSummaryHandler(
   return async (request) => {
     const { projectId } = parseWithSchema(uuidParamSchema, request.params);
     const service = new PlanningService({
+      persistence: options.persistence,
       actor: request.actor,
       repositories: options.repositories,
       clock: options.clock
@@ -48,6 +51,7 @@ export function getMilestoneReviewHandler(
       request.params
     );
     const service = new MilestoneReviewService({
+      persistence: options.persistence,
       actor: request.actor,
       repositories: options.repositories,
       clock: options.clock

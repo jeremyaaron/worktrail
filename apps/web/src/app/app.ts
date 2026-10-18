@@ -1,25 +1,33 @@
-import { FormsModule } from '@angular/forms';
 import {
   Component,
   DestroyRef,
   HostListener,
   Injector,
   OnInit,
+  computed,
+  effect,
   inject,
   signal
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { FormsModule } from '@angular/forms';
 import {
   type ActivatedRouteSnapshot,
+  NavigationCancel,
   NavigationEnd,
+  NavigationError,
+  NavigationStart,
   Router,
   RouterLink,
   RouterLinkActive,
   RouterOutlet
 } from '@angular/router';
-import { filter, take } from 'rxjs';
+import { take } from 'rxjs';
+import { AuthorizedProjectContext } from './core/navigation/authorized-project-context';
+import { QuickFindSessionService } from './features/quick-find/quick-find-session.service';
 
 import { CurrentUserService } from './core/current-user.service';
+import { DraftDepartureCoordinator } from './core/navigation/draft-departure-coordinator';
 import { InboxStateService } from './features/inbox/inbox-state.service';
 import type { QuickFindDialogRef } from './features/quick-find/open-quick-find-dialog';
 import { ErrorPanelComponent } from './shared/ui/error-panel.component';
@@ -42,6 +50,7 @@ export class App implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly injector = inject(Injector);
   private readonly router = inject(Router);
+  readonly isNavigating = signal(this.router.getCurrentNavigation() !== null);
   private quickFindRef: QuickFindDialogRef | null = null;
   private isQuickFindOpening = false;
   private quickFindGeneration = 0;
@@ -49,22 +58,39 @@ export class App implements OnInit {
     import('./features/quick-find/open-quick-find-dialog');
 
   readonly currentUser = inject(CurrentUserService);
+  readonly departure = inject(DraftDepartureCoordinator);
   readonly inboxState = inject(InboxStateService);
-  readonly currentProjectId = signal(
-    projectIdFromRouteSnapshot(this.router.routerState.snapshot.root)
+  private readonly projectContext = inject(AuthorizedProjectContext);
+  private readonly quickFindSession = inject(QuickFindSessionService);
+  private readonly routeRecordId = signal(routeParam(this.router.routerState.snapshot.root, 'workItemId'));
+  private readonly routeProjectId = signal(
+    routeParam(this.router.routerState.snapshot.root, 'projectId')
   );
 
+  readonly currentProjectId = computed(() => this.routeProjectId() ?? this.projectContext.projectIdFor(this.routeRecordId()));
+
+  private quickFindIdentity = this.quickFindSession.identity();
+
   constructor() {
+    effect(() => {
+      const identity = this.quickFindSession.identity();
+      if (identity !== this.quickFindIdentity) { this.quickFindIdentity = identity; this.closeQuickFind(); }
+    });
     this.router.events
-      .pipe(
-        filter((event): event is NavigationEnd => event instanceof NavigationEnd),
-        takeUntilDestroyed()
-      )
-      .subscribe(() => {
-        this.closeQuickFind();
-        this.currentProjectId.set(
-          projectIdFromRouteSnapshot(this.router.routerState.snapshot.root)
-        );
+      .pipe(takeUntilDestroyed())
+      .subscribe((event) => {
+        if (event instanceof NavigationStart) this.isNavigating.set(true);
+        if (event instanceof NavigationCancel || event instanceof NavigationError) {
+          this.isNavigating.set(false);
+        }
+        if (event instanceof NavigationEnd) {
+          this.isNavigating.set(false);
+          this.closeQuickFind();
+          this.routeRecordId.set(routeParam(this.router.routerState.snapshot.root, 'workItemId'));
+          this.routeProjectId.set(
+            routeParam(this.router.routerState.snapshot.root, 'projectId')
+          );
+        }
       });
 
     this.destroyRef.onDestroy(() => {
@@ -80,12 +106,22 @@ export class App implements OnInit {
     this.currentUser.loadMembers();
   }
 
-  selectMember(memberId: string): void {
-    this.closeQuickFind();
-    this.currentUser.selectMember(memberId);
+  async selectMember(memberId: string, select?: HTMLSelectElement): Promise<void> {
+    if (select) select.value = this.currentUser.selectedMember()?.id ?? '';
+    if (memberId === this.currentUser.selectedMember()?.id) return;
+    const accepted = await this.departure.change(() => {
+      if (!this.currentUser.activeMembers().some((member) => member.id === memberId)) return false;
+      this.closeQuickFind();
+      this.currentUser.selectMember(memberId);
+      if (select) select.value = memberId;
+      return true;
+    });
+    if (!accepted && !this.departure.isConfirming()) select?.focus({ preventScroll: true });
   }
 
   async openQuickFind(): Promise<void> {
+    if (this.isNavigating() || this.currentUser.isLoading() || this.currentUser.selectedMember() === null) return;
+    if (this.departure.isConfirming() || this.departure.isDeparting()) return;
     if (this.quickFindRef !== null) {
       this.quickFindRef.componentInstance?.focusQueryInput();
       return;
@@ -97,6 +133,7 @@ export class App implements OnInit {
 
     this.isQuickFindOpening = true;
     const generation = ++this.quickFindGeneration;
+    const identity = this.quickFindSession.identity();
 
     try {
       const { openQuickFindDialog } = await this.loadQuickFindLauncher();
@@ -104,7 +141,7 @@ export class App implements OnInit {
         currentProjectId: this.currentProjectId()
       });
 
-      if (generation !== this.quickFindGeneration) {
+      if (generation !== this.quickFindGeneration || identity !== this.quickFindSession.identity()) {
         ref.close();
         return;
       }
@@ -152,15 +189,15 @@ export class App implements OnInit {
   }
 }
 
-function projectIdFromRouteSnapshot(snapshot: ActivatedRouteSnapshot): string | null {
-  const ownProjectId = snapshot.paramMap.get('projectId');
+function routeParam(snapshot: ActivatedRouteSnapshot, name: string): string | null {
+  const ownProjectId = snapshot.paramMap.get(name);
 
   if (ownProjectId !== null) {
     return ownProjectId;
   }
 
   for (const child of snapshot.children) {
-    const projectId = projectIdFromRouteSnapshot(child);
+    const projectId = routeParam(child, name);
 
     if (projectId !== null) {
       return projectId;

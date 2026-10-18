@@ -20,42 +20,42 @@ export function registerCycleRoutes(app: Express, context: ExpressRouteContext):
   app.get(
     '/api/projects/:projectId/cycles',
     adaptEndpoint(
-      listProjectCyclesHandler({ repositories: context.repositories, db: context.db }),
+      listProjectCyclesHandler({ repositories: context.repositories, persistence: context.persistence }),
       options
     )
   );
   app.post(
     '/api/projects/:projectId/cycles',
     adaptEndpoint(
-      createProjectCycleHandler({ repositories: context.repositories, db: context.db }),
+      createProjectCycleHandler({ repositories: context.repositories, persistence: context.persistence }),
       options
     )
   );
   app.get(
     '/api/projects/:projectId/cycles/:cycleId',
     adaptEndpoint(
-      getProjectCycleHandler({ repositories: context.repositories, db: context.db }),
+      getProjectCycleHandler({ repositories: context.repositories, persistence: context.persistence }),
       options
     )
   );
   app.patch(
     '/api/projects/:projectId/cycles/:cycleId',
     adaptEndpoint(
-      updateProjectCycleHandler({ repositories: context.repositories, db: context.db }),
+      updateProjectCycleHandler({ repositories: context.repositories, persistence: context.persistence }),
       options
     )
   );
   app.post(
     '/api/projects/:projectId/cycles/:cycleId/archive',
     adaptEndpoint(
-      archiveProjectCycleHandler({ repositories: context.repositories, db: context.db }),
+      archiveProjectCycleHandler({ repositories: context.repositories, persistence: context.persistence }),
       options
     )
   );
   app.post(
     '/api/projects/:projectId/cycles/:cycleId/reactivate',
     adaptEndpoint(
-      reactivateProjectCycleHandler({ repositories: context.repositories, db: context.db }),
+      reactivateProjectCycleHandler({ repositories: context.repositories, persistence: context.persistence }),
       options
     )
   );
@@ -64,7 +64,7 @@ export function registerCycleRoutes(app: Express, context: ExpressRouteContext):
     adaptEndpoint(
       getProjectCycleCloseoutPreviewHandler({
         repositories: context.repositories,
-        db: context.db
+        persistence: context.persistence
       }),
       options
     )
@@ -72,14 +72,14 @@ export function registerCycleRoutes(app: Express, context: ExpressRouteContext):
   app.post(
     '/api/projects/:projectId/cycles/:cycleId/closeout',
     adaptEndpoint(
-      closeProjectCycleHandler({ repositories: context.repositories, db: context.db }),
+      closeProjectCycleHandler({ repositories: context.repositories, persistence: context.persistence }),
       options
     )
   );
   app.get(
     '/api/projects/:projectId/cycles/:cycleId/review',
     adaptEndpoint(
-      getProjectCycleReviewHandler({ repositories: context.repositories, db: context.db }),
+      getProjectCycleReviewHandler({ repositories: context.repositories, persistence: context.persistence }),
       options
     )
   );

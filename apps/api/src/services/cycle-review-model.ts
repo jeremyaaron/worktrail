@@ -9,13 +9,14 @@ import type {
 
 import { workItemPriorities, workItemStatuses } from '../domain/constants.js';
 import {
+  distinctWorkItems,
   isActiveUnassignedWorkItemStatus,
   isDueSoonDueDate,
   isOpenWorkItemStatus,
   isOverdueDueDate,
   isStaleInProgressStatus
 } from '../domain/work-risk-policy.js';
-import type { ProjectCycle, WorkItem } from '../repositories/types.js';
+import type { ProjectCycle, WorkItemEvaluationFacts } from '../repositories/types.js';
 import type { WorkRiskEvaluationContext } from './work-risk-sections.js';
 
 export interface CycleEvaluation {
@@ -27,7 +28,7 @@ export interface CycleEvaluation {
 
 export function createCycleEvaluation(input: {
   cycle: ProjectCycle;
-  scopedWorkItems: WorkItem[];
+  scopedWorkItems: WorkItemEvaluationFacts[];
   context: WorkRiskEvaluationContext;
 }): CycleEvaluation {
   const progress = createCycleProgress(input.cycle, input.scopedWorkItems, input.context);
@@ -42,9 +43,10 @@ export function createCycleEvaluation(input: {
 
 export function createCycleProgress(
   cycle: ProjectCycle,
-  scopedWorkItems: WorkItem[],
+  scopedWorkItems: WorkItemEvaluationFacts[],
   context: WorkRiskEvaluationContext
 ): CycleReviewProgressDto {
+  scopedWorkItems = distinctWorkItems(scopedWorkItems);
   const openItems = scopedWorkItems.filter(isOpenWorkItem);
   const doneItems = scopedWorkItems.filter((workItem) => workItem.status === 'done');
 
@@ -66,7 +68,7 @@ export function createCycleProgress(
 export function createCycleHealth(
   cycle: ProjectCycle,
   progress: CycleReviewProgressDto,
-  scopedWorkItems: WorkItem[],
+  scopedWorkItems: WorkItemEvaluationFacts[],
   context: WorkRiskEvaluationContext
 ): CycleReviewHealthDto {
   if (cycle.archivedAt !== null || cycle.status === 'canceled') {
@@ -99,7 +101,7 @@ export function createCycleHealth(
     };
   }
 
-  const reasons = createActiveCycleReasons(cycle, progress, scopedWorkItems, context);
+  const reasons = createActiveCycleReasons(cycle, progress, distinctWorkItems(scopedWorkItems), context);
   const hasBlockedReason = reasons.some(
     (reason) => reason.key === 'blocked_work' || reason.key === 'dependency_blocked'
   );
@@ -116,7 +118,7 @@ export function createCycleHealth(
 }
 
 export function createCycleScopeBreakdown(
-  scopedWorkItems: WorkItem[],
+  scopedWorkItems: WorkItemEvaluationFacts[],
   context: WorkRiskEvaluationContext
 ): CycleReviewScopeBreakdownDto {
   const statusCounts = Object.fromEntries(
@@ -136,7 +138,7 @@ export function createCycleScopeBreakdown(
   let dependencyBlockedCount = 0;
   let blockingOpenWorkCount = 0;
 
-  for (const workItem of scopedWorkItems) {
+  for (const workItem of distinctWorkItems(scopedWorkItems)) {
     statusCounts[workItem.status] += 1;
     priorityCounts[workItem.priority] += 1;
 
@@ -188,7 +190,7 @@ export function isCycleOverTarget(progress: CycleReviewProgressDto): boolean {
 function createActiveCycleReasons(
   cycle: ProjectCycle,
   progress: CycleReviewProgressDto,
-  scopedWorkItems: WorkItem[],
+  scopedWorkItems: WorkItemEvaluationFacts[],
   context: WorkRiskEvaluationContext
 ): DeliveryHealthReasonDto[] {
   const openItems = scopedWorkItems.filter(isOpenWorkItem);
@@ -331,6 +333,7 @@ function createActiveCycleReasons(
         {
           cycleId: cycle.id,
           workState: 'open',
+          estimateState: 'unestimated',
           sort: 'priority_desc'
         }
       )
@@ -352,15 +355,17 @@ function createReason(
     severity,
     message,
     count,
+    countUnit: key === 'cycle_over_target' ? 'estimate_points' :
+      key === 'inactive_milestone' || key === 'all_work_done' ? 'scope_conditions' : 'work_items',
     query
   };
 }
 
-function isOpenWorkItem(workItem: WorkItem): boolean {
+function isOpenWorkItem(workItem: WorkItemEvaluationFacts): boolean {
   return isOpenWorkItemStatus(workItem.status);
 }
 
-function sumEstimatePoints(workItems: WorkItem[]): number {
+function sumEstimatePoints(workItems: WorkItemEvaluationFacts[]): number {
   return workItems.reduce((total, workItem) => total + (workItem.estimatePoints ?? 0), 0);
 }
 

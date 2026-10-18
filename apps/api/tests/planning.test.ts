@@ -1,14 +1,16 @@
 import { randomUUID } from 'node:crypto';
 
-import request from 'supertest';
+import request from './support/local-http.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { createPersistence } from '../src/repositories/persistence.js';
 import { createExpressApp } from '../src/adapters/express/server.js';
 import { createDb, createPool } from '../src/db/client.js';
 import { createRepositories, type Repositories } from '../src/repositories/index.js';
 import { MilestoneReviewService } from '../src/services/milestone-review-service.js';
 import { PlanningService } from '../src/services/planning-service.js';
 import { ProjectCycleCloseoutService } from '../src/services/project-cycle-closeout-service.js';
+import { cleanupWorkspace as cleanupOwnedWorkspace } from './support/workspace-fixtures.js';
 
 const workspaceIds = new Set<string>();
 let pool: ReturnType<typeof createPool>;
@@ -33,24 +35,7 @@ function actorHeaders(input: { workspaceId: string; memberId: string; role: stri
 }
 
 async function cleanupWorkspace(workspaceId: string) {
-  await pool.query('delete from notifications where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from comment_mentions where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from activity_events where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from comments where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from work_item_watchers where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from work_item_relationships where workspace_id = $1', [workspaceId]);
-  await pool.query(
-    'delete from work_item_labels where work_item_id in (select id from work_items where workspace_id = $1)',
-    [workspaceId]
-  );
-  await pool.query('delete from labels where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from work_items where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from project_cycle_closeouts where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from project_cycles where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from milestones where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from projects where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from members where workspace_id = $1', [workspaceId]);
-  await pool.query('delete from workspaces where id = $1', [workspaceId]);
+  await cleanupOwnedWorkspace(pool, workspaceId);
 }
 
 async function cleanupAllWorkspaces() {
@@ -240,7 +225,7 @@ beforeAll(() => {
   pool = createPool();
   db = createDb(pool);
   repositories = createRepositories(db);
-  app = createExpressApp({ repositories, db });
+  app = createExpressApp({ repositories, persistence: createPersistence(db) });
 });
 
 afterEach(async () => {
@@ -334,8 +319,20 @@ describe('planning summary', () => {
       dueDate: '2026-07-01'
     });
 
-    const parentReads = vi.spyOn(repositories.workItems, 'listParentsForChildren');
+    const parentReads = vi.fn();
+    const persistence = createPersistence(db);
     const service = new PlanningService({
+      persistence: {
+        ...persistence,
+        readConsistent: (callback) => persistence.readConsistent(async (scope) => {
+          const original = scope.repositories.workItems.listParentsForChildren;
+          vi.spyOn(scope.repositories.workItems, 'listParentsForChildren').mockImplementation(async (...args) => {
+            parentReads(...args);
+            return original(...args);
+          });
+          return callback(scope);
+        })
+      },
       actor: fixture.actor,
       repositories,
       clock: now
@@ -458,7 +455,7 @@ describe('planning summary', () => {
             key: 'stale_in_progress',
             query: {
               milestoneId: plannedMilestone.id,
-              status: 'in_progress',
+              workRisk: 'stale_in_progress',
               sort: 'updated_asc'
             }
           })
@@ -537,7 +534,7 @@ describe('planning summary', () => {
     await new ProjectCycleCloseoutService({
       actor: fixture.actor,
       repositories,
-      db,
+      persistence: createPersistence(db),
       clock: now
     }).close(fixture.projectId, completedCycle.id, { destinationCycleId: null });
     const activeCycle = await createProjectCycle(fixture, {
@@ -567,6 +564,8 @@ describe('planning summary', () => {
     });
 
     const service = new PlanningService({
+
+      persistence: createPersistence(db),
       actor: fixture.actor,
       repositories,
       clock: now
@@ -735,6 +734,8 @@ describe('planning summary', () => {
     });
 
     const service = new MilestoneReviewService({
+
+      persistence: createPersistence(db),
       actor: fixture.actor,
       repositories,
       clock: now
@@ -922,6 +923,7 @@ describe('planning summary', () => {
       updatedAt: now()
     });
     const service = new MilestoneReviewService({
+      persistence: createPersistence(db),
       actor: fixture.actor,
       repositories,
       clock: now
@@ -1007,6 +1009,8 @@ describe('planning summary', () => {
     }
 
     const service = new MilestoneReviewService({
+
+      persistence: createPersistence(db),
       actor: fixture.actor,
       repositories,
       clock: now

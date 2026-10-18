@@ -39,19 +39,19 @@ import { adapterOptions, type ExpressRouteContext } from './context.js';
 export function registerProjectRoutes(app: Express, context: ExpressRouteContext): void {
   const options = adapterOptions(context);
 
-  app.get('/api/portfolio', adaptEndpoint(getPortfolioHandler(context.repositories), options));
-  app.get('/api/projects', adaptEndpoint(listProjectsHandler(context.repositories), options));
+  app.get('/api/portfolio', adaptEndpoint(getPortfolioHandler(context), options));
+  app.get('/api/projects', adaptEndpoint(listProjectsHandler(context), options));
   app.get(
     '/api/projects/navigation-summary',
-    adaptEndpoint(listProjectNavigationSummariesHandler(context.repositories), options)
+    adaptEndpoint(listProjectNavigationSummariesHandler(context), options)
   );
   app.post(
     '/api/projects',
-    adaptEndpoint(createProjectHandler({ repositories: context.repositories, db: context.db }), options)
+    adaptEndpoint(createProjectHandler({ repositories: context.repositories, persistence: context.persistence }), options)
   );
   app.get(
     '/api/projects/:projectId/summary',
-    adaptEndpoint(getProjectSummaryHandler(context.repositories), options)
+    adaptEndpoint(getProjectSummaryHandler(context), options)
   );
   app.get(
     '/api/projects/:projectId/activity',
@@ -59,45 +59,45 @@ export function registerProjectRoutes(app: Express, context: ExpressRouteContext
   );
   app.get(
     '/api/projects/:projectId/labels',
-    adaptEndpoint(listProjectLabelsHandler({ repositories: context.repositories, db: context.db }), options)
+    adaptEndpoint(listProjectLabelsHandler({ repositories: context.repositories, persistence: context.persistence }), options)
   );
   app.post(
     '/api/projects/:projectId/labels',
-    adaptEndpoint(createLabelHandler({ repositories: context.repositories, db: context.db }), options)
+    adaptEndpoint(createLabelHandler({ repositories: context.repositories, persistence: context.persistence }), options)
   );
   app.get(
     '/api/projects/:projectId/milestones',
-    adaptEndpoint(listProjectMilestonesHandler({ repositories: context.repositories, db: context.db }), options)
+    adaptEndpoint(listProjectMilestonesHandler({ repositories: context.repositories, persistence: context.persistence }), options)
   );
   app.post(
     '/api/projects/:projectId/milestones',
-    adaptEndpoint(createMilestoneHandler({ repositories: context.repositories, db: context.db }), options)
+    adaptEndpoint(createMilestoneHandler({ repositories: context.repositories, persistence: context.persistence }), options)
   );
   app.get(
     '/api/projects/:projectId/status-reports',
     adaptEndpoint(
-      listProjectStatusReportsHandler({ repositories: context.repositories, db: context.db }),
+      listProjectStatusReportsHandler({ repositories: context.repositories, persistence: context.persistence }),
       options
     )
   );
   app.get(
     '/api/projects/:projectId/status-reports/draft',
     adaptEndpoint(
-      getProjectStatusReportDraftHandler({ repositories: context.repositories, db: context.db }),
+      getProjectStatusReportDraftHandler({ repositories: context.repositories, persistence: context.persistence }),
       options
     )
   );
   app.post(
     '/api/projects/:projectId/status-reports',
     adaptEndpoint(
-      publishProjectStatusReportHandler({ repositories: context.repositories, db: context.db }),
+      publishProjectStatusReportHandler({ repositories: context.repositories, persistence: context.persistence }),
       options
     )
   );
   app.get(
     '/api/projects/:projectId/status-reports/:reportId',
     adaptEndpoint(
-      getProjectStatusReportHandler({ repositories: context.repositories, db: context.db }),
+      getProjectStatusReportHandler({ repositories: context.repositories, persistence: context.persistence }),
       options
     )
   );
@@ -106,46 +106,46 @@ export function registerProjectRoutes(app: Express, context: ExpressRouteContext
     adaptEndpoint(
       exportProjectStatusReportMarkdownHandler({
         repositories: context.repositories,
-        db: context.db
+        persistence: context.persistence
       }),
       options
     )
   );
   app.post(
     '/api/projects/:projectId/archive',
-    adaptEndpoint(archiveProjectHandler(context.repositories), options)
+    adaptEndpoint(archiveProjectHandler(context), options)
   );
   app.post(
     '/api/projects/:projectId/reactivate',
-    adaptEndpoint(reactivateProjectHandler(context.repositories), options)
+    adaptEndpoint(reactivateProjectHandler(context), options)
   );
-  app.get('/api/projects/:projectId', adaptEndpoint(getProjectHandler(context.repositories), options));
+  app.get('/api/projects/:projectId', adaptEndpoint(getProjectHandler(context), options));
   app.patch(
     '/api/projects/:projectId',
-    adaptEndpoint(updateProjectHandler(context.repositories), options)
+    adaptEndpoint(updateProjectHandler(context), options)
   );
   app.patch(
     '/api/labels/:labelId',
-    adaptEndpoint(updateLabelHandler({ repositories: context.repositories, db: context.db }), options)
+    adaptEndpoint(updateLabelHandler({ repositories: context.repositories, persistence: context.persistence }), options)
   );
   app.patch(
     '/api/milestones/:milestoneId',
-    adaptEndpoint(updateMilestoneHandler({ repositories: context.repositories, db: context.db }), options)
+    adaptEndpoint(updateMilestoneHandler({ repositories: context.repositories, persistence: context.persistence }), options)
   );
   app.post(
     '/api/labels/:labelId/archive',
-    adaptEndpoint(archiveLabelHandler({ repositories: context.repositories, db: context.db }), options)
+    adaptEndpoint(archiveLabelHandler({ repositories: context.repositories, persistence: context.persistence }), options)
   );
   app.post(
     '/api/milestones/:milestoneId/archive',
-    adaptEndpoint(archiveMilestoneHandler({ repositories: context.repositories, db: context.db }), options)
+    adaptEndpoint(archiveMilestoneHandler({ repositories: context.repositories, persistence: context.persistence }), options)
   );
   app.post(
     '/api/labels/:labelId/reactivate',
-    adaptEndpoint(reactivateLabelHandler({ repositories: context.repositories, db: context.db }), options)
+    adaptEndpoint(reactivateLabelHandler({ repositories: context.repositories, persistence: context.persistence }), options)
   );
   app.post(
     '/api/milestones/:milestoneId/reactivate',
-    adaptEndpoint(reactivateMilestoneHandler({ repositories: context.repositories, db: context.db }), options)
+    adaptEndpoint(reactivateMilestoneHandler({ repositories: context.repositories, persistence: context.persistence }), options)
   );
 }

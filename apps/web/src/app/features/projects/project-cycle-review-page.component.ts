@@ -1,6 +1,7 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import type {
   CycleReviewRiskSectionDto,
   CycleReviewScopeBreakdownDto,
@@ -12,10 +13,13 @@ import type {
   WorkItemQuery,
   WorkItemStatus
 } from '@worktrail/contracts';
-import { Subscription } from 'rxjs';
+import { snapshotCountLabel } from '@worktrail/contracts';
+import { NavigationSectionTargetDirective } from '../../shared/navigation/section-target';
+import { parseWorkNavigationTarget, recordOriginParams } from '../../shared/navigation/work-navigation';
 
 import { CyclesApi } from '../../core/api/cycles-api';
 import { CurrentUserService } from '../../core/current-user.service';
+import { PageContext } from '../../core/navigation/page-context';
 import {
   cycleDateRangeLabel,
   cycleHealthLabel,
@@ -32,8 +36,9 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
 import { WorkItemParentPillComponent } from '../../shared/work-items/work-item-parent-pill.component';
 import { routerLinkQueryParamsFromWorkItemQuery } from '../work-items/query/work-item-query-serialization';
 import { CycleCloseoutResultComponent } from './cycle-closeout/cycle-closeout-result.component';
+import { populatedRiskSections } from './planning/risk-display';
 
-const visibleRiskItemLimit = 4;
+const visibleRiskItemLimit = 5;
 const workItemStatuses: WorkItemStatus[] = [
   'backlog',
   'ready',
@@ -66,6 +71,8 @@ interface BreakdownMetric {
 @Component({
   selector: 'app-project-cycle-review-page',
   imports: [
+    NgTemplateOutlet,
+    NavigationSectionTargetDirective,
     CycleCloseoutResultComponent,
     EmptyStateComponent,
     ErrorPanelComponent,
@@ -74,7 +81,12 @@ interface BreakdownMetric {
     WorkItemParentPillComponent
   ],
   template: `
+    <section [appNavigationSectionTarget]="navigationFragment()" [navigationIdentity]="navigationIdentity()" [navigationReady]="review()">
+
     <section class="cycle-review-page">
+      @if (outcomeReturn(); as target) {
+        <a class="planning-return outcome-return" [routerLink]="target.path" [fragment]="target.fragment ?? undefined">Back to outcome at close</a>
+      }
       @if (isLoading()) {
         <app-loading-indicator label="Loading cycle review" />
       } @else if (error()) {
@@ -84,12 +96,37 @@ interface BreakdownMetric {
           (retry)="loadReview()"
         />
       } @else if (review(); as review) {
+
+        @if (review.closeout; as closeout) {
+          <header class="review-header frozen-header">
+            <div>
+              <p class="eyebrow">Completed cycle · Frozen identity</p>
+              <h1>{{ closeout.snapshot.cycle.name }}</h1>
+              <p class="review-copy">{{ closeout.snapshot.project.key }} · {{ closeout.snapshot.project.name }} · {{ dateRange(closeout.snapshot.cycle) }}</p>
+              <p class="review-copy">{{ closeout.snapshot.cycle.goal || 'No cycle goal provided.' }}</p>
+            </div>
+            <a class="planning-return" [routerLink]="['/projects', projectId(), 'planning']">Back to Planning</a>
+          </header>
+          <app-cycle-closeout-result [closeout]="closeout" />
+          <details class="current-context" [open]="currentContextOpen()" (toggle)="currentContextOpen.set($any($event.target).open)">
+            <summary id="current-cycle-state-heading">Current context</summary>
+            @if (currentContextOpen()) {
+              <div class="current-context-body">
+              <p>Current assignments and risks are not the frozen carryover set.</p>
+              <ng-container [ngTemplateOutlet]="currentReview" />
+              </div>
+            }
+          </details>
+        } @else {
+          <ng-container [ngTemplateOutlet]="currentReview" />
+        }
+        <ng-template #currentReview>
         <section class="review-header">
           <div>
             <p class="eyebrow">
-              {{ review.closeout === null ? 'Cycle review · Live view' : 'Cycle result · Snapshot' }}
+              {{ review.closeout === null ? 'Cycle review · Live view' : 'Current cycle · Live view' }}
             </p>
-            <h1>{{ review.cycle.name }}</h1>
+            @if (review.closeout === null) { <h1>{{ review.cycle.name }}</h1> } @else { <h2>{{ review.cycle.name }}</h2> }
             <div class="review-meta">
               <span>{{ review.project.key }}</span>
               <span>{{ review.project.name }}</span>
@@ -103,12 +140,14 @@ interface BreakdownMetric {
           </div>
 
           <div class="review-actions">
-            <a [routerLink]="['/projects', projectId(), 'planning']">Back to Planning</a>
+            @if (review.closeout === null) {
+              <a [routerLink]="['/projects', projectId(), 'planning']">Back to Planning</a>
+            }
             <a
               [routerLink]="['/projects', projectId(), 'work-items']"
               [queryParams]="scopedWorkQueryParams(review.scopedWorkQuery)"
             >
-              Open cycle work
+              {{ review.closeout === null ? 'Open cycle work' : 'Current cycle assignments' }}
             </a>
             @if (canCloseCycle()) {
               <a
@@ -128,20 +167,12 @@ interface BreakdownMetric {
           </section>
         }
 
-        @if (review.closeout !== null) {
-          <app-cycle-closeout-result [closeout]="review.closeout" />
-          <section class="current-context" aria-labelledby="current-cycle-state-heading">
-            <p class="eyebrow">Current state · Live view</p>
-            <h2 id="current-cycle-state-heading">Current cycle context</h2>
-            <p>Links and risk details below reflect current work item data, not the closeout snapshot.</p>
-          </section>
-        } @else if (review.cycle.status === 'completed') {
+        @if (review.closeout === null && review.cycle.status === 'completed') {
           <section class="legacy-notice" aria-label="Legacy completed cycle">
             <strong>Completed before closeout history was available</strong>
             <p>This page shows current linked work because no immutable closeout snapshot exists.</p>
           </section>
         }
-
         <section class="summary-grid" aria-label="Cycle progress summary">
           <article>
             <span>Complete</span>
@@ -301,28 +332,28 @@ interface BreakdownMetric {
               <p class="eyebrow">Risks</p>
               <h2 id="risk-sections-heading">Needs attention</h2>
             </div>
-            <span>{{ totalRiskCount(review) }} items</span>
+            <span>{{ totalRiskCount(review) }} risk signals</span>
           </div>
 
-          @if (review.riskSections.length === 0) {
+          @if (populatedRiskSections(review.riskSections).length === 0) {
             <div class="compact-empty">
-              <strong>No risk sections</strong>
-              <span>Current cycle work has no surfaced risk categories.</span>
+              <strong>No cycle risks found</strong>
             </div>
           } @else {
             <div class="risk-section-list">
-              @for (section of review.riskSections; track section.type) {
+              @for (section of populatedRiskSections(review.riskSections); track section.type) {
                 <section class="risk-section" [attr.aria-labelledby]="riskHeadingId(section)">
                   <div class="section-heading">
                     <div>
                       <h3 [id]="riskHeadingId(section)">{{ section.title }}</h3>
                       <p>{{ section.description }}</p>
+                    <span>{{ riskCountLabel(section) }}</span>
                     </div>
                     <a
                       [routerLink]="['/projects', projectId(), 'work-items']"
                       [queryParams]="scopedWorkQueryParams(section.query)"
                     >
-                      Open work
+                      {{ section.countUnit === 'scope_conditions' ? 'Open cycle scope' : 'Open work' }}
                     </a>
                   </div>
 
@@ -409,6 +440,7 @@ interface BreakdownMetric {
             </div>
           }
         </section>
+        </ng-template>
       } @else {
         <app-empty-state
           title="Cycle review unavailable"
@@ -416,8 +448,17 @@ interface BreakdownMetric {
         />
       }
     </section>
+
+    </section>
   `,
   styles: `
+    .current-context > summary { cursor: pointer; font-weight: 800; padding: 12px 0; }
+    .current-context-body { display: grid; gap: 20px; }
+    .current-context-body > p { color: #52637a; }
+    .planning-return { color: #1d4ed8; font-size: .875rem; font-weight: 700; }
+    @media print {
+      .current-context, .planning-return { display: none !important; }
+    }
     .cycle-review-page {
       display: grid;
       gap: 20px;
@@ -429,6 +470,7 @@ interface BreakdownMetric {
       justify-content: space-between;
       gap: 24px;
     }
+    .review-header > div { min-width: 0; }
 
     .eyebrow {
       margin: 0 0 8px;
@@ -450,8 +492,9 @@ interface BreakdownMetric {
 
     h1 {
       color: #111827;
-      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      font-size: 2rem;
       line-height: 1.05;
+      overflow-wrap: anywhere;
     }
 
     h2 {
@@ -907,15 +950,25 @@ interface BreakdownMetric {
     }
   `
 })
-export class ProjectCycleReviewPageComponent implements OnInit, OnDestroy {
-  private readonly route = inject(ActivatedRoute);
+export class ProjectCycleReviewPageComponent implements OnInit {
+  readonly populatedRiskSections = populatedRiskSections;
+  private readonly context = new PageContext();
+  readonly navigationFragment = this.context.fragment;
+  readonly navigationIdentity = computed(() => this.context.contextKey());
+  readonly riskCountLabel = snapshotCountLabel;
   private readonly cyclesApi = inject(CyclesApi);
   private readonly currentUser = inject(CurrentUserService);
-  private routeSubscription: Subscription | null = null;
 
-  readonly projectId = signal('');
-  readonly cycleId = signal('');
+  readonly projectId = computed(() => this.context.param('projectId'));
+  readonly cycleId = computed(() => this.context.param('cycleId'));
+  readonly outcomeReturn = computed(() => {
+    const target = parseWorkNavigationTarget(this.context.query('returnUrl'));
+    const source = '/projects/' + this.projectId() + '/cycles/';
+    return target?.kind === 'cycle' && target.fragment === 'cycle-result-heading' &&
+      target.path.startsWith(source) && target.path !== source + this.cycleId() ? target : null;
+  });
   readonly review = signal<ProjectCycleReviewDto | null>(null);
+  readonly currentContextOpen = signal(false);
   readonly isLoading = signal(true);
   readonly error = signal<string | null>(null);
   readonly errorTitle = signal('Cycle review unavailable');
@@ -931,15 +984,15 @@ export class ProjectCycleReviewPageComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
-    this.routeSubscription = this.route.paramMap.subscribe((params) => {
-      this.projectId.set(params.get('projectId') ?? '');
-      this.cycleId.set(params.get('cycleId') ?? '');
+    this.context.start(() => {
+      this.currentContextOpen.set(false);
+      this.review.set(null);
+      this.isLoading.set(true);
+      this.error.set(null);
+      this.errorTitle.set('Cycle review unavailable');
+
       this.loadReview();
     });
-  }
-
-  ngOnDestroy(): void {
-    this.routeSubscription?.unsubscribe();
   }
 
   loadReview(): void {
@@ -957,7 +1010,7 @@ export class ProjectCycleReviewPageComponent implements OnInit, OnDestroy {
     this.error.set(null);
     this.errorTitle.set('Cycle review unavailable');
 
-    this.cyclesApi.getCycleReview(projectId, cycleId).subscribe({
+    this.cyclesApi.getCycleReview(projectId, cycleId).pipe(this.context.guard()).subscribe({
       next: (review) => {
         this.review.set(review);
         this.isLoading.set(false);
@@ -994,6 +1047,10 @@ export class ProjectCycleReviewPageComponent implements OnInit, OnDestroy {
 
   statusLabel(status: ProjectCycleReviewDto['cycle']['status']): string {
     return cycleStatusLabel(status);
+  }
+
+  dateRange(cycle: { startDate: string; endDate: string }): string {
+    return cycleDateRangeLabel(cycle);
   }
 
   dateRangeLabel(review: ProjectCycleReviewDto): string {
@@ -1068,12 +1125,10 @@ export class ProjectCycleReviewPageComponent implements OnInit, OnDestroy {
   }
 
   hiddenRiskItemCount(section: CycleReviewRiskSectionDto): number {
-    return Math.max(section.count - visibleRiskItemLimit, 0);
+    return section.countUnit === 'work_items' ? Math.max(section.count - visibleRiskItemLimit, 0) : 0;
   }
 
-  detailQueryParams(): { returnUrl: string } {
-    return { returnUrl: `/projects/${this.projectId()}/cycles/${this.cycleId()}` };
-  }
+  detailQueryParams(): { returnUrl: string } { return recordOriginParams(`/projects/${this.projectId()}/cycles/${this.cycleId()}`, this.context.fragment()); }
 
   targetVarianceLabel(review: ProjectCycleReviewDto): string {
     const target = review.progress.targetPoints;

@@ -110,6 +110,7 @@ const health = {
       severity: 'warning',
       message: '1 work item is blocked.',
       count: 1,
+      countUnit: 'work_items' as const,
       query: {
         cycleId: cycle.id,
         status: 'blocked',
@@ -185,6 +186,7 @@ describe('cycle contracts', () => {
       title: 'Blocked work',
       description: 'Work currently blocked in this cycle.',
       count: 1,
+      countUnit: 'work_items' as const,
       query: {
         cycleId: cycle.id,
         status: 'blocked',

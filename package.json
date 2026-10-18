@@ -1,6 +1,6 @@
 {
   "name": "worktrail",
-  "version": "0.2.9",
+  "version": "0.3.0",
   "private": true,
   "description": "Worktrail project management reference app.",
   "type": "module",
@@ -9,6 +9,12 @@
     "packages/*"
   ],
   "scripts": {
+    "verify": "node scripts/verify.mjs",
+    "verify:setup": "node scripts/verify-local-setup.mjs",
+    "check:site": "node scripts/check-site.mjs",
+    "audit:dependencies": "node scripts/audit-dependencies.mjs",
+    "test:verification": "node --test scripts/verification/*.test.mjs",
+    "test:verification:integration": "node --test scripts/verification/lifecycle.check.mjs",
     "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
     "dev:api": "npm run dev --workspace @worktrail/api",
     "dev:web": "npm run start --workspace @worktrail/web",
@@ -19,12 +25,16 @@
     "check": "npm run typecheck && npm test",
     "preview": "npm run build && npm run start:prod",
     "start:prod": "NODE_ENV=production npm run start --workspace @worktrail/api",
-    "typecheck": "npm run typecheck --workspaces --if-present",
+    "typecheck": "npm run typecheck:verification && npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "test:e2e": "playwright test",
-    "test:editor": "playwright test --config playwright.editor.config.ts",
-    "test:e2e:ui": "playwright test --ui",
-    "lint": "npm run lint --workspaces --if-present",
+    "test:e2e": "node scripts/verify.mjs --mode=e2e",
+    "test:editor": "node scripts/verify.mjs --mode=editor",
+    "test:e2e:ui": "node scripts/verify.mjs --mode=e2e --ui",
+    "test:preview": "node scripts/verify.mjs --mode=preview",
+    "test:site": "node scripts/verify.mjs --mode=site",
+    "lint": "npm run lint:verification && npm run lint --workspaces --if-present",
+    "lint:verification": "eslint apps/api/tests apps/api/vitest.config.ts e2e playwright*.config.ts scripts apps/web/browser-tests/authored-content-editor/*.ts --max-warnings=0",
+    "typecheck:verification": "tsc -p tsconfig.verification.json --noEmit && npm run typecheck --workspace @worktrail/api",
     "db:start": "docker compose up -d postgres",
     "db:stop": "docker compose stop postgres",
     "db:down": "docker compose down",
@@ -35,19 +45,20 @@
     "db:seed": "npm run db:seed --workspace @worktrail/api",
     "db:performance-evidence": "npm run db:performance-evidence --workspace @worktrail/api",
     "db:quick-find-performance-evidence": "npm run db:quick-find-performance-evidence --workspace @worktrail/api",
+    "db:cycle-diagnostics": "npm run db:cycle-diagnostics --workspace @worktrail/api --",
     "storage:reset": "npm run storage:reset --workspace @worktrail/api"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@playwright/test": "^1.61.1",
     "angular-eslint": "^20.7.0",
-    "concurrently": "^9.2.1",
+    "concurrently": "^9.2.5",
     "eslint": "^9.39.4",
     "globals": "^16.5.0",
     "typescript-eslint": "^8.62.1"
   },
   "engines": {
-    "node": ">=20.19.0",
-    "npm": ">=10.0.0"
+    "node": "^24.0.0",
+    "npm": "^11.0.0"
   }
 }

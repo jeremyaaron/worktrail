@@ -1,6 +1,6 @@
 import { asc, eq, inArray, or, sql } from 'drizzle-orm';
 
-import type { WorktrailDb } from '../db/client.js';
+import type { RepositoryExecutor } from '../db/client.js';
 import { workItemRelationships } from '../db/schema.js';
 import { riskTerminalWorkItemStatuses } from '../domain/work-risk-policy.js';
 import type { NewWorkItemRelationship, WorkItemRelationship } from './types.js';
@@ -18,7 +18,7 @@ export interface DependencyCountRecord {
   openBlockedWorkCount: number;
 }
 
-export function createWorkItemRelationshipRepository(db: WorktrailDb) {
+export function createWorkItemRelationshipRepository(db: RepositoryExecutor) {
   return {
     async create(input: NewWorkItemRelationship) {
       const [relationship] = await db.insert(workItemRelationships).values(input).returning();
@@ -31,6 +31,12 @@ export function createWorkItemRelationshipRepository(db: WorktrailDb) {
         .from(workItemRelationships)
         .where(eq(workItemRelationships.id, id))
         .limit(1);
+      return relationship ?? null;
+    },
+
+    async findByIdForUpdate(id: string) {
+      const [relationship] = await db.select().from(workItemRelationships)
+        .where(eq(workItemRelationships.id, id)).limit(1).for('update');
       return relationship ?? null;
     },
 

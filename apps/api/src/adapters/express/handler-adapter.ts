@@ -4,6 +4,7 @@ import { toApiErrorResponse } from '../../errors/app-error.js';
 import { isAppBinaryBody, type AppRequest, type EndpointHandler } from '../../http/app-request.js';
 import type { Repositories } from '../../repositories/index.js';
 import { resolveLocalActor } from './actor.js';
+import { markRequestFailure } from './request-logging.js';
 
 function normalizeHeaders(request: Request): Record<string, string | undefined> {
   const headers: Record<string, string | undefined> = {};
@@ -85,7 +86,8 @@ export function adaptEndpoint(handler: EndpointHandler, options: AdaptEndpointOp
       const apiError = toApiErrorResponse(error);
 
       if (apiError.status >= 500) {
-        console.error(error);
+        markRequestFailure(response, 'internal_error');
+        console.error('Endpoint request failed.');
       }
 
       response.status(apiError.status).json(apiError.body);

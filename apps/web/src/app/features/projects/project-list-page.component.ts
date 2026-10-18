@@ -1,13 +1,16 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, Injector, OnInit, afterNextRender, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { LucidePlus } from '@lucide/angular';
 import type {
   ProjectDto,
   ProjectNavigationSummaryDto,
   ProjectStatus,
   WorkspaceCapabilitiesDto
 } from '@worktrail/contracts';
+import { Subscription } from 'rxjs';
+import { PageContext } from '../../core/navigation/page-context';
 
 import { WorktrailApiService } from '../../core/worktrail-api.service';
 import { EmptyStateComponent } from '../../shared/ui/empty-state.component';
@@ -19,6 +22,7 @@ type ProjectStatusFilter = 'all' | ProjectStatus;
 @Component({
   selector: 'app-project-list-page',
   imports: [
+    LucidePlus,
     EmptyStateComponent,
     ErrorPanelComponent,
     LoadingIndicatorComponent,
@@ -29,17 +33,120 @@ type ProjectStatusFilter = 'all' | ProjectStatus;
     <section class="page-header">
       <div>
         <p class="eyebrow">Projects</p>
-        <h1>Project workspace</h1>
-        <p class="page-copy">Create and open project spaces for the Worktrail MVP workflow.</p>
+        <h1>Projects</h1>
       </div>
+      @if (canCreateProjects()) { <button type="button" aria-controls="create-project-panel" [attr.aria-expanded]="isCreateOpen()" (click)="openCreateProject()"><svg lucidePlus aria-hidden="true"></svg>New project</button> }
     </section>
 
+    @if (createSuccess()) { <p class="success-message" role="status">Project created.</p> }
     <section class="project-layout">
-      <section class="create-panel" aria-labelledby="create-project-heading">
-        <h2 id="create-project-heading">Create project</h2>
-        @if (!canCreateProjects()) {
-          <p class="permission-note">Owners and maintainers can create projects. Contributors can view existing projects.</p>
+      <section class="list-panel" aria-labelledby="project-list-heading">
+        <div class="list-toolbar">
+          <div>
+            <h2 id="project-list-heading">Project directory</h2>
+            <p>{{ filteredSummaries().length }} shown of {{ projectSummaries().length }}</p>
+          </div>
+
+          <div class="list-toolbar__controls">
+            <label class="search-control" for="project-search">
+              <span>Search</span>
+              <input
+                id="project-search"
+                type="search"
+                autocomplete="off"
+                placeholder="Name or key"
+                [value]="searchTerm()"
+                (input)="searchTerm.set($any($event.target).value)"
+              />
+            </label>
+
+            <div class="filter-control" role="group" aria-label="Project status filter">
+              @for (filter of statusFilters; track filter.value) {
+                <button
+                  type="button"
+                  [class.filter-control__button--active]="statusFilter() === filter.value"
+                  [attr.aria-pressed]="statusFilter() === filter.value"
+                  (click)="statusFilter.set(filter.value)"
+                >
+                  {{ filter.label }}
+                </button>
+              }
+            </div>
+          </div>
+        </div>
+
+        @if (isLoading()) {
+          <app-loading-indicator label="Loading projects" />
+        } @else if (error()) {
+          <app-error-panel [message]="error() ?? ''" (retry)="loadProjects()" />
+        } @else if (projectSummaries().length === 0) {
+          <app-empty-state
+            title="No projects yet"
+            message="No projects are available in this workspace."
+          />
+        } @else if (filteredSummaries().length === 0) {
+          <app-empty-state
+            title="No projects match these filters"
+            message="Adjust search or status to continue."
+          />
+        } @else {
+          <section class="project-list" aria-label="Projects">
+            @for (summary of filteredSummaries(); track summary.project.id) {
+              @if (showArchivedDivider(summary, $index)) {
+                <h3 class="archive-divider">Archived projects</h3>
+              }
+              <article
+                class="project-row"
+                [class.project-row--archived]="summary.project.status === 'archived'"
+              >
+                <div class="project-row__main">
+                  @let project = summary.project;
+                  <span class="project-key">{{ project.key }}</span>
+                  <h3>
+                    <a [id]="'project-link-' + project.id" [routerLink]="['/projects', project.id]">{{ project.name }}</a>
+                  </h3>
+                  <p>{{ project.description || 'No description provided.' }}</p>
+
+                  <dl class="summary-strip" [attr.aria-label]="project.name + ' work summary'">
+                    <div>
+                      <dt>Open</dt>
+                      <dd>{{ summary.openWorkItemCount }}</dd>
+                    </div>
+                    <div>
+                      <dt>Blocked</dt>
+                      <dd>{{ summary.blockedWorkItemCount }}</dd>
+                    </div>
+                    <div>
+                      <dt>Overdue</dt>
+                      <dd>{{ summary.overdueWorkItemCount }}</dd>
+                    </div>
+                    <div>
+                      <dt>Updated</dt>
+                      <dd>{{ formatDate(summary.updatedAt) }}</dd>
+                    </div>
+                  </dl>
+                </div>
+
+                <div class="project-row__meta">
+                  <span [class.project-row__status--archived]="project.status === 'archived'">
+                    {{ project.status }}
+                  </span>
+                  <a [routerLink]="['/projects', project.id, 'work-items']">Work items</a>
+                  <a [routerLink]="['/projects', project.id, 'board']">Board</a>
+                  <a [routerLink]="['/projects', project.id, 'planning']">Planning</a>
+                  <a [routerLink]="['/projects', project.id, 'settings']">Settings</a>
+                </div>
+              </article>
+            }
+          </section>
         }
+      </section>
+
+      @if (capabilitiesError()) { <app-error-panel title="Permissions unavailable" [message]="capabilitiesError() ?? ''" (retry)="loadCapabilities()" /> }
+      @if (canCreateProjects()) {
+      <details id="create-project-panel" class="create-panel" [open]="isCreateOpen()" (toggle)="isCreateOpen.set($any($event.target).open)">
+        <summary>Project creation</summary>
+        <h2 id="create-project-heading">Create project</h2>
         <form [formGroup]="createProjectForm" (ngSubmit)="createProject()" novalidate>
           <label for="project-name">Name</label>
           <input
@@ -87,116 +194,13 @@ type ProjectStatusFilter = 'all' | ProjectStatus;
             />
           }
 
-          @if (createSuccess()) {
-            <p class="success-message">Project created.</p>
-          }
-
           <button type="submit" [disabled]="!canCreateProjects() || isCreating()">
             {{ isCreating() ? 'Creating...' : 'Create project' }}
           </button>
         </form>
-      </section>
+      </details>
+      }
 
-      <section class="list-panel" aria-labelledby="project-list-heading">
-        <div class="list-toolbar">
-          <div>
-            <h2 id="project-list-heading">Projects</h2>
-            <p>{{ filteredSummaries().length }} shown of {{ projectSummaries().length }}</p>
-          </div>
-
-          <div class="list-toolbar__controls">
-            <label class="search-control" for="project-search">
-              <span>Search</span>
-              <input
-                id="project-search"
-                type="search"
-                autocomplete="off"
-                placeholder="Name or key"
-                [value]="searchTerm()"
-                (input)="searchTerm.set($any($event.target).value)"
-              />
-            </label>
-
-            <div class="filter-control" role="group" aria-label="Project status filter">
-              @for (filter of statusFilters; track filter.value) {
-                <button
-                  type="button"
-                  [class.filter-control__button--active]="statusFilter() === filter.value"
-                  (click)="statusFilter.set(filter.value)"
-                >
-                  {{ filter.label }}
-                </button>
-              }
-            </div>
-          </div>
-        </div>
-
-        @if (isLoading()) {
-          <app-loading-indicator label="Loading projects" />
-        } @else if (error()) {
-          <app-error-panel [message]="error() ?? ''" (retry)="loadProjects()" />
-        } @else if (projectSummaries().length === 0) {
-          <app-empty-state
-            title="No projects yet"
-            message="Use the create form to add the first project."
-          />
-        } @else if (filteredSummaries().length === 0) {
-          <app-empty-state
-            title="No projects match these filters"
-            message="Adjust search or status to continue."
-          />
-        } @else {
-          <section class="project-list" aria-label="Projects">
-            @for (summary of filteredSummaries(); track summary.project.id) {
-              @if (showArchivedDivider(summary, $index)) {
-                <h3 class="archive-divider">Archived projects</h3>
-              }
-              <article
-                class="project-row"
-                [class.project-row--archived]="summary.project.status === 'archived'"
-              >
-                <div class="project-row__main">
-                  @let project = summary.project;
-                  <span class="project-key">{{ project.key }}</span>
-                  <h3>
-                    <a [routerLink]="['/projects', project.id]">{{ project.name }}</a>
-                  </h3>
-                  <p>{{ project.description || 'No description provided.' }}</p>
-
-                  <dl class="summary-strip" [attr.aria-label]="project.name + ' work summary'">
-                    <div>
-                      <dt>Open</dt>
-                      <dd>{{ summary.openWorkItemCount }}</dd>
-                    </div>
-                    <div>
-                      <dt>Blocked</dt>
-                      <dd>{{ summary.blockedWorkItemCount }}</dd>
-                    </div>
-                    <div>
-                      <dt>Overdue</dt>
-                      <dd>{{ summary.overdueWorkItemCount }}</dd>
-                    </div>
-                    <div>
-                      <dt>Updated</dt>
-                      <dd>{{ formatDate(summary.updatedAt) }}</dd>
-                    </div>
-                  </dl>
-                </div>
-
-                <div class="project-row__meta">
-                  <span [class.project-row__status--archived]="project.status === 'archived'">
-                    {{ project.status }}
-                  </span>
-                  <a [routerLink]="['/projects', project.id, 'work-items']">Work items</a>
-                  <a [routerLink]="['/projects', project.id, 'board']">Board</a>
-                  <a [routerLink]="['/projects', project.id, 'planning']">Planning</a>
-                  <a [routerLink]="['/projects', project.id, 'settings']">Settings</a>
-                </div>
-              </article>
-            }
-          </section>
-        }
-      </section>
     </section>
   `,
   styles: `
@@ -253,22 +257,22 @@ type ProjectStatusFilter = 'all' | ProjectStatus;
 
     .project-layout {
       display: grid;
-      grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr);
       gap: 18px;
       align-items: start;
     }
 
     .create-panel,
     .list-panel {
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      background: #ffffff;
+      border-top: 1px solid #e5e7eb;
     }
 
     .create-panel {
-      padding: 18px;
+      padding: 18px 0;
     }
 
+    summary { cursor: pointer; font-weight: 800; color: #334155; }
+    .create-panel h2 { margin-top: 14px; }
     form {
       display: grid;
       gap: 10px;
@@ -347,7 +351,7 @@ type ProjectStatusFilter = 'all' | ProjectStatus;
     .list-panel {
       display: grid;
       gap: 16px;
-      padding: 18px;
+      padding: 18px 0;
     }
 
     .list-toolbar {
@@ -424,6 +428,9 @@ type ProjectStatusFilter = 'all' | ProjectStatus;
       background: #ffffff;
     }
 
+    .project-row > div { min-width: 0; overflow-wrap: anywhere; }
+    .page-header button { display: inline-flex; align-items: center; gap: 6px; align-self: start; }
+    .page-header svg { width: 16px; height: 16px; }
     .project-row--archived {
       background: #f8fafc;
     }
@@ -516,7 +523,12 @@ type ProjectStatusFilter = 'all' | ProjectStatus;
   `
 })
 export class ProjectListPageComponent implements OnInit {
+  private readonly context = new PageContext();
+  private listRead: Subscription | null = null;
+  private capabilitiesRead: Subscription | null = null;
+  readonly isCreateOpen = signal(false);
   private readonly api = inject(WorktrailApiService);
+  private readonly injector = inject(Injector);
   private readonly formBuilder = inject(FormBuilder);
 
   readonly statusFilters: Array<{ label: string; value: ProjectStatusFilter }> = [
@@ -561,15 +573,29 @@ export class ProjectListPageComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.loadProjects();
-    this.loadCapabilities();
+    this.context.start(() => {
+      this.projectSummaries.set([]);
+      this.capabilities.set(null);
+      this.searchTerm.set('');
+      this.statusFilter.set('all');
+      this.isCreateOpen.set(false);
+      this.isCreating.set(false);
+      this.hasSubmittedCreate.set(false);
+      this.createError.set(null);
+      this.createSuccess.set(false);
+      this.createProjectForm.reset({ key: '', name: '', description: '' });
+      this.createProjectForm.disable({ emitEvent: false });
+      this.loadProjects();
+      this.loadCapabilities();
+    });
   }
 
   loadProjects(): void {
+    this.listRead?.unsubscribe();
     this.isLoading.set(true);
     this.error.set(null);
 
-    this.api.listProjectNavigationSummaries().subscribe({
+    this.listRead = this.api.listProjectNavigationSummaries().pipe(this.context.guard()).subscribe({
       next: (summaries) => {
         this.projectSummaries.set(summaries);
         this.isLoading.set(false);
@@ -582,11 +608,13 @@ export class ProjectListPageComponent implements OnInit {
   }
 
   loadCapabilities(): void {
+    this.capabilitiesRead?.unsubscribe();
     this.capabilitiesError.set(null);
 
-    this.api.getWorkspaceCapabilities().subscribe({
+    this.capabilitiesRead = this.api.getWorkspaceCapabilities().pipe(this.context.guard()).subscribe({
       next: (capabilities) => {
         this.capabilities.set(capabilities);
+        if (capabilities.canCreateProjects) this.createProjectForm.enable({ emitEvent: false });
       },
       error: () => {
         this.capabilitiesError.set('Workspace permissions could not be loaded from the API.');
@@ -594,7 +622,17 @@ export class ProjectListPageComponent implements OnInit {
     });
   }
 
+  openCreateProject(): void {
+    if (!this.canCreateProjects()) return;
+    this.isCreateOpen.set(true);
+    const isCurrent = this.context.capture();
+    afterNextRender(() => {
+      if (isCurrent()) document.getElementById('project-name')?.focus();
+    }, { injector: this.injector });
+  }
+
   createProject(): void {
+    if (this.isCreating()) return;
     this.hasSubmittedCreate.set(true);
     this.createError.set(null);
     this.createSuccess.set(false);
@@ -609,9 +647,11 @@ export class ProjectListPageComponent implements OnInit {
       return;
     }
 
+    const isCurrent = this.context.capture();
     const formValue = this.createProjectForm.getRawValue();
     const key = formValue.key.trim().toUpperCase();
     this.isCreating.set(true);
+    this.createProjectForm.disable({ emitEvent: false });
 
     this.api
       .createProject({
@@ -619,7 +659,7 @@ export class ProjectListPageComponent implements OnInit {
         name: formValue.name.trim(),
         description: formValue.description.trim()
       })
-      .subscribe({
+      .pipe(this.context.guardMutation()).subscribe({
         next: (project) => {
           this.projectSummaries.set([
             this.toNavigationSummary(project),
@@ -630,11 +670,15 @@ export class ProjectListPageComponent implements OnInit {
           this.createProjectForm.reset({ key: '', name: '', description: '' });
           this.hasSubmittedCreate.set(false);
           this.isCreating.set(false);
+          this.createProjectForm.enable({ emitEvent: false });
           this.createSuccess.set(true);
+          this.isCreateOpen.set(false);
+          afterNextRender(() => { if (isCurrent()) document.getElementById('project-link-' + project.id)?.focus(); }, { injector: this.injector });
         },
         error: (error: unknown) => {
           this.createError.set(this.toErrorMessage(error, 'The project could not be created.'));
           this.isCreating.set(false);
+          this.createProjectForm.enable({ emitEvent: false });
         }
       });
   }

@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 
-import type { WorktrailDb } from '../db/client.js';
+import type { RepositoryExecutor } from '../db/client.js';
 import { workspaces } from '../db/schema.js';
 import type { NewWorkspace } from './types.js';
 
@@ -9,7 +9,7 @@ export interface UpdateWorkspaceInput {
   updatedAt: Date;
 }
 
-export function createWorkspaceRepository(db: WorktrailDb) {
+export function createWorkspaceRepository(db: RepositoryExecutor) {
   return {
     async create(input: NewWorkspace) {
       const [workspace] = await db.insert(workspaces).values(input).returning();

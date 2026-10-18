@@ -205,6 +205,12 @@ describe('Quick Find navigation', () => {
     expect(destination.queryParams?.['sort']).toBeUndefined();
   });
 
+
+  it('carries a selected preview project into the real canonical Work Items continuation', () => {
+    expect(quickFindWorkItemOverflowDestination('release', project.id).queryParams).toEqual({
+      projectId: project.id, search: 'release', archivedProjects: 'include'
+    });
+  });
   it('defines selectable navigation, result, and work-item overflow models', () => {
     const options: QuickFindSelectableOption[] = [
       { type: 'navigation', entry: quickFindGlobalNavigationEntries[0] },

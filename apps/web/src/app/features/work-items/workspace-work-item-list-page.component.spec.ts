@@ -339,6 +339,33 @@ function managementButtons(compiled: HTMLElement): HTMLButtonElement[] {
 }
 
 describe('WorkspaceWorkItemListPageComponent', () => {
+
+  it('uses the shared owner for applied view identity and announces only accepted loads', async () => {
+    const { fixture, http } = setup();
+    flushProjectSummaries(http); flushSavedViews(http, [savedView]);
+    http.expectOne(candidate => candidate.url === '/api/work-items').flush(workItemPage([workItem]));
+    const page = fixture.componentInstance;
+    expect(page.savedViews).toBe(page.savedViewsState.views);
+    const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    page.openSavedView(savedView);
+    route.setQuery({ assigneeId: owner.id, workState: 'open', sort: 'priority_desc' });
+    fixture.detectChanges(); await fixture.whenStable();
+    expect(navigate).toHaveBeenCalled();
+    expect(page.savedViewState().kind).toBe('named');
+    expect(page.resultsMessage()).toBeNull();
+    http.expectOne(candidate => candidate.url === '/api/work-items').flush(workItemPage([workItem]));
+    fixture.detectChanges();
+    expect(page.resultsMessage()).toContain('Named: Open owner work. Results updated:');
+    page.filterForm.controls.search.setValue('Unapplied');
+    expect(page.savedViewState().kind).toBe('named');
+    route.setQuery({ assigneeId: owner.id, workState: 'open', sort: 'priority_desc', estimateState: 'unestimated' });
+    expect(page.savedViewState().kind).toBe('modified');
+    expect(page.resultsMessage()).toBeNull();
+    http.expectOne(candidate => candidate.url === '/api/work-items').flush({}, { status: 500, statusText: 'Expected' });
+    expect(page.resultsMessage()).toBeNull();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('[aria-label="Current view"]')?.textContent).toContain('Modified:');
+  });
   beforeEach(async () => {
     localStorage.clear();
     route = new ActivatedRouteStub();
@@ -365,6 +392,32 @@ describe('WorkspaceWorkItemListPageComponent', () => {
 
   afterEach(() => {
     TestBed.inject(HttpTestingController).verify();
+  });
+
+  it('preserves deep-link paging when the initial actor resolves after the page mounts', () => {
+    route.setQuery({ status: 'ready', page: '2', pageSize: '10' });
+    const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    const fixture = TestBed.createComponent(WorkspaceWorkItemListPageComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    const initialRequests = http.match(() => true);
+    initialRequests.find(request => request.request.url === '/api/members')!.flush([owner, contributor]);
+    fixture.detectChanges();
+
+    expect(navigate).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.activePageQuery()).toEqual({ page: 2, pageSize: 10 });
+    flushProjectSummaries(http);
+    flushSavedViews(http);
+    const request = http.expectOne(candidate => candidate.url === '/api/work-items');
+    expect(request.request.params.get('page')).toBe('2');
+    expect(request.request.params.get('pageSize')).toBe('10');
+    expect(request.request.params.get('status')).toBe('ready');
+    request.flush(workItemPage([workItem], {
+      page: 2, pageSize: 10, totalCount: 11, totalPages: 2, hasPreviousPage: true
+    }));
+    fixture.detectChanges();
+    expect(fixture.componentInstance.workItems()).toEqual([workItem]);
   });
 
   it('loads workspace work from URL query state and renders result links', () => {
@@ -483,7 +536,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('.list-heading')?.textContent).toContain('11-11 of 21 work items');
-    expect(compiled.querySelector('.pagination__status')?.textContent).toContain('Page 2 of 3');
+    expect(compiled.querySelector('nav[aria-label="Work item pages"] .pagination__status')?.textContent).toContain('Page 2 of 3');
     expect(compiled.querySelector<HTMLSelectElement>('.pagination__size select')?.value).toBe('10');
   });
 
@@ -504,7 +557,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     let compiled = fixture.nativeElement as HTMLElement;
     const initialHeading = compiled.querySelector<HTMLHeadingElement>('.list-heading h2');
     expect(initialHeading?.textContent?.trim()).toBe('1-10 of 21 work items');
-    expect(compiled.querySelector('.pagination__status')?.textContent?.trim()).toBe('Page 1 of 3');
+    expect(compiled.querySelector('nav[aria-label="Work item pages"] .pagination__status')?.textContent?.trim()).toBe('Page 1 of 3');
     expect(document.activeElement).not.toBe(initialHeading);
 
     route.setQuery({ page: '3', pageSize: '10' });
@@ -527,7 +580,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect(compiled.querySelector('.list-heading h2')?.textContent?.trim()).toBe(
       '21-21 of 21 work items'
     );
-    expect(compiled.querySelector('.pagination__status')?.textContent?.trim()).toBe('Page 3 of 3');
+    expect(compiled.querySelector('nav[aria-label="Work item pages"] .pagination__status')?.textContent?.trim()).toBe('Page 3 of 3');
     expect(document.activeElement).not.toBe(compiled.querySelector('.list-heading h2'));
 
     route.setQuery({ search: 'no matches', pageSize: '10' });
@@ -544,7 +597,8 @@ describe('WorkspaceWorkItemListPageComponent', () => {
 
     compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('.list-heading h2')?.textContent?.trim()).toBe('0 work items');
-    expect(compiled.querySelector('app-work-item-pagination nav')).toBeNull();
+    expect(compiled.querySelector('nav[aria-label="Work item pages"]')).toBeNull();
+    expect(compiled.querySelector('nav[aria-label="Work item result navigation"]')?.textContent).toContain('0-0 of 0 work items');
     expect(compiled.textContent).toContain('No work items match these filters');
   });
 
@@ -803,16 +857,23 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     const router = TestBed.inject(Router);
     const navigate = spyOn(router, 'navigate').and.resolveTo(true);
     fixture.componentInstance.filterForm.controls.projectId.setValue(projectId);
+    http.expectOne(`/api/projects/${projectId}/labels?includeArchived=true`).flush([designLabel]);
+    http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([milestone]);
+    http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([activeCycle]);
+    expect(navigate).not.toHaveBeenCalled();
+    fixture.componentInstance.applyFilters();
     expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
       jasmine.objectContaining({ projectId, page: null, pageSize: null })
     );
 
     fixture.componentInstance.filterForm.controls.archivedProjects.setValue('only');
+    fixture.componentInstance.applyFilters();
     expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
       jasmine.objectContaining({ archivedProjects: 'only', page: null, pageSize: null })
     );
 
     fixture.componentInstance.filterForm.controls.sort.setValue('created_desc');
+    fixture.componentInstance.applyFilters();
     expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
       jasmine.objectContaining({ sort: 'created_desc', page: null, pageSize: null })
     );
@@ -1013,7 +1074,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect(fixture.componentInstance.isExporting()).toBeFalse();
   });
 
-  it('applies dropdown filters immediately without showing pending filter pills', () => {
+  it('keeps dropdown filters pending until Apply without showing pending pills', () => {
     const { fixture, http } = setup();
     flushProjectSummaries(http);
     flushSavedViews(http);
@@ -1024,6 +1085,8 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     const navigate = spyOn(router, 'navigate').and.resolveTo(true);
 
     fixture.componentInstance.filterForm.controls.status.setValue('ready');
+    expect(navigate).not.toHaveBeenCalled();
+    fixture.componentInstance.applyFilters();
     fixture.detectChanges();
 
     expect(navigate).toHaveBeenCalled();
@@ -1064,11 +1127,14 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     const navigate = spyOn(router, 'navigate').and.resolveTo(true);
 
     fixture.componentInstance.filterForm.controls.priority.setValue('urgent');
+    expect(navigate).not.toHaveBeenCalled();
+    fixture.componentInstance.applyFilters();
     expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
       jasmine.objectContaining({ priority: 'urgent', parentKey: 'WT-42', hierarchy: null })
     );
 
     fixture.componentInstance.filterForm.controls.hierarchy.setValue('children');
+    fixture.componentInstance.applyFilters();
     expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
       jasmine.objectContaining({ hierarchy: 'children', parentKey: null })
     );
@@ -1092,13 +1158,13 @@ describe('WorkspaceWorkItemListPageComponent', () => {
       'Work breakdown: Child work'
     );
 
-    fixture.componentInstance.removeActiveFilter('Work breakdown: Child work');
+    fixture.componentInstance.removeActiveFilter('hierarchy');
     expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
       jasmine.objectContaining({ hierarchy: null, parentKey: null })
     );
   });
 
-  it('debounces search before updating URL query params', fakeAsync(() => {
+  it('keeps search pending until Apply', fakeAsync(() => {
     const { fixture, http } = setup();
     flushProjectSummaries(http);
     flushSavedViews(http);
@@ -1113,6 +1179,8 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect(navigate).not.toHaveBeenCalled();
 
     tick(1);
+    expect(navigate).not.toHaveBeenCalled();
+    fixture.componentInstance.applyFilters();
     expect(navigate).toHaveBeenCalledOnceWith(
       [],
       jasmine.objectContaining({
@@ -1213,7 +1281,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
         })
       })
     );
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain(
       'Opened "Open owner work". Results updated below.'
     );
 

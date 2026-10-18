@@ -1,6 +1,7 @@
 import { Component, Input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type {
+  DeliveryHealthReasonDto,
   DeliveryHealthState,
   ProjectPlanningCycleSummaryDto,
   ProjectPlanningSummaryDto
@@ -11,6 +12,7 @@ import {
   cycleHealthLabel
 } from '../../../shared/cycles/cycle-display';
 import {
+  deliveryHealthReasonLabel, deliveryHealthReasonQueryParams,
   deliveryHealthTone,
   workItemQueryToRouterQueryParams
 } from '../../../shared/delivery-health/delivery-health-display';
@@ -21,26 +23,40 @@ import {
   template: `
     <section class="dashboard-section" aria-labelledby="cycle-summary-heading">
       <div class="section-heading">
-        <h3 id="cycle-summary-heading">Cycle planning</h3>
+        <h3 id="cycle-summary-heading">Cycle execution</h3>
         <span>{{ cycleSummaryCount() }} visible</span>
       </div>
 
-      @if (cycleSummaryCount() === 0) {
-        <div class="compact-empty">
-          <strong>No active cycle context</strong>
-          <span>Active, upcoming, and recently completed cycles will appear here once created.</span>
-        </div>
-      } @else {
-        <div class="cycle-summary-grid">
+      <div class="cycle-summary-grid">
+        @if (!summary?.activeCycle) {
+          <div class="no-active-cycle">
+            <strong>No active cycle</strong>
+            <a [routerLink]="['/projects', projectId, 'work-items']" [queryParams]="{cycleId:'none', workState:'open', sort:'priority_desc'}">Open unplanned work</a>
+            @if (canManageCycles) {<a [routerLink]="['/projects',projectId,'planning']" [queryParams]="{view:'cycles'}" fragment="cycles-heading">Manage cycles</a>}
+          </div>
+        }
           @if (summary?.activeCycle; as activeCycle) {
-            <article class="cycle-summary-card">
+            <article class="cycle-summary-card cycle-summary-card--active" aria-label="Active cycle execution">
               <p class="section-eyebrow">Active cycle</p>
               <h4>{{ activeCycle.cycle.name }}</h4>
               <span class="health-pill" [attr.data-tone]="healthTone(activeCycle.health.health)">
                 {{ cycleHealthLabel(activeCycle.health.health) }}
               </span>
               <p>{{ cycleDateRangeLabel(activeCycle.cycle) }}</p>
+              <p>{{ activeCycle.cycle.goal }}</p>
               <p>{{ cycleProgressLabel(activeCycle) }}</p>
+              <p class="closeout-readiness" role="status" aria-label="Closeout readiness">
+                @if (activeCycle.progress.openCount === 0) { All work is finished. Ready for closeout. }
+                @else { {{ activeCycle.progress.openCount }} unfinished work items · {{ activeCycle.progress.unestimatedCount }} unestimated }
+              </p>
+              @if (activeCycle.health.reasons.length > 0) {
+                <div class="cycle-reasons" aria-label="Active cycle risks">
+                  @for (reason of activeCycle.health.reasons; track reason.key) {
+                    @if (reasonQueryParams(reason); as query) {<a [routerLink]="['/projects',projectId,'work-items']" [queryParams]="query">{{ reasonLabel(reason) }}</a>}
+                    @else {<span>{{ reasonLabel(reason) }}</span>}
+                  }
+                </div>
+              }
               <div class="cycle-summary-card__actions">
                 <a [routerLink]="['/projects', projectId, 'cycles', activeCycle.cycle.id]">Review</a>
                 <a
@@ -49,7 +65,7 @@ import {
                 >
                   Open work
                 </a>
-                @if (canManageCycles) {
+                @if (canManageCycles && !activeCycle.cycle.isArchived && activeCycle.cycle.status === 'active') {
                   <a
                     [routerLink]="[
                       '/projects',
@@ -116,7 +132,6 @@ import {
             </article>
           }
         </div>
-      }
     </section>
   `,
   styles: `
@@ -166,17 +181,15 @@ import {
 
     .cycle-summary-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px;
     }
 
     .cycle-summary-card {
       display: grid;
       gap: 9px;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 12px;
-      background: #ffffff;
+      border-top: 1px solid #e5e7eb;
+      padding: 12px 0;
     }
 
     .cycle-summary-card__actions {
@@ -275,6 +288,11 @@ import {
       line-height: 1.4;
     }
 
+    .cycle-summary-card--active, .no-active-cycle {grid-column:1 / -1;}
+    .no-active-cycle, .cycle-reasons {display:flex;flex-wrap:wrap;gap:12px;align-items:center;}
+    .cycle-summary-card--active h4 {font-size:1.125rem;}
+    .closeout-readiness {color:#334155;font-weight:700;}
+    a {color:#1d4ed8;} p,h4,a {overflow-wrap:anywhere;}
     @media (max-width: 900px) {
       .cycle-summary-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -293,6 +311,8 @@ export class CycleSummaryPanelComponent {
   @Input() summary: ProjectPlanningSummaryDto | null = null;
   @Input() canManageCycles = false;
 
+  reasonLabel = deliveryHealthReasonLabel;
+  reasonQueryParams(reason: DeliveryHealthReasonDto): Record<string, string> | null { return deliveryHealthReasonQueryParams(reason, 'project'); }
   cycleSummaryCount(): number {
     return [
       this.summary?.activeCycle ?? null,
@@ -311,7 +331,7 @@ export class CycleSummaryPanelComponent {
         ? 'no target'
         : `${summary.progress.targetPoints} target points`;
 
-    return `${summary.progress.doneCount} of ${summary.progress.totalCount} done · ${summary.progress.openCount} open · ${summary.progress.committedEstimatePoints}/${target}`;
+    return `${summary.progress.doneCount} of ${summary.progress.totalCount} done · ${summary.progress.openCount} open · ${summary.progress.committedEstimatePoints} estimated points · ${target}`;
   }
 
   cycleDateRangeLabel(cycle: ProjectPlanningCycleSummaryDto['cycle']): string {

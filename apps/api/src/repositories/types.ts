@@ -33,12 +33,20 @@ export type NewProjectCycle = InferInsertModel<typeof projectCycles>;
 export type ProjectCycleCloseout = InferSelectModel<typeof projectCycleCloseouts>;
 export type NewProjectCycleCloseout = InferInsertModel<typeof projectCycleCloseouts>;
 export type ProjectStatusReport = InferSelectModel<typeof projectStatusReports>;
+export type ProjectStatusReportSummaryRecord = Omit<ProjectStatusReport, 'summary' | 'highlights' | 'risks' | 'nextSteps'>;
 export type NewProjectStatusReport = InferInsertModel<typeof projectStatusReports>;
 export type Milestone = InferSelectModel<typeof milestones>;
 export type NewMilestone = InferInsertModel<typeof milestones>;
 export type SavedWorkView = InferSelectModel<typeof savedWorkViews>;
 export type NewSavedWorkView = InferInsertModel<typeof savedWorkViews>;
 export type WorkItem = InferSelectModel<typeof workItems>;
+export type WorkItemSummary = Omit<WorkItem, 'description' | 'descriptionFormat'>;
+export type WorkItemEvaluationFacts = Pick<WorkItem,
+  'id' | 'workspaceId' | 'projectId' | 'parentWorkItemId' | 'milestoneId' | 'cycleId' |
+  'displayKey' | 'title' | 'status' | 'priority' | 'assigneeId' | 'reporterId' |
+  'dueDate' | 'estimatePoints' | 'createdAt' | 'updatedAt' | 'itemNumber'
+>;
+export type WorkItemEvaluation = WorkItemEvaluationFacts & { dependencyBlocked: boolean; blockingOpenWork: boolean };
 export type NewWorkItem = InferInsertModel<typeof workItems>;
 export type WorkItemAttachment = InferSelectModel<typeof workItemAttachments>;
 export type NewWorkItemAttachment = InferInsertModel<typeof workItemAttachments>;

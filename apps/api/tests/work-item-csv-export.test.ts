@@ -1,12 +1,10 @@
 import { randomUUID } from 'node:crypto';
 
-import type {
-  WorkItemListItemDto,
-  WorkspaceWorkItemListItemDto
-} from '@worktrail/contracts';
-import request from 'supertest';
+import type { WorkItemListItemDto } from '@worktrail/contracts';
+import request from './support/local-http.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { fakeRepositoryContext } from './support/fake-persistence.js';
 import { createExpressApp } from '../src/adapters/express/server.js';
 import type { Repositories } from '../src/repositories/index.js';
 import type { WorkItem } from '../src/repositories/types.js';
@@ -14,7 +12,7 @@ import {
   synchronousExportLimit,
   WorkItemCsvExportService
 } from '../src/services/work-item-csv-export-service.js';
-import { WorkItemService } from '../src/services/work-item-service.js';
+import { WorkItemHydrator } from '../src/services/work-item-hydrator.js';
 
 const workspaceId = '10000000-0000-4000-8000-000000000001';
 const memberId = '10000000-0000-4000-8000-000000000002';
@@ -107,11 +105,11 @@ describe('work item CSV export limits', () => {
   it.each(['project', 'workspace'] as const)('retains exact %s summary headers without description enrichment', async (scope) => {
     const repositories = repositoriesWithRawRows(1);
     const dto = exportDto();
-    vi.spyOn(WorkItemService.prototype, 'enrichWorkItemListWithRepositories').mockResolvedValue([dto]);
-    vi.spyOn(WorkItemService.prototype, 'enrichWorkspaceWorkItemListWithRepositories').mockResolvedValue([
+    vi.spyOn(WorkItemHydrator.prototype, 'list').mockResolvedValue([dto]);
+    vi.spyOn(WorkItemHydrator.prototype, 'workspace').mockResolvedValue([
       { ...dto, project: { id: projectId, key: 'EXP', name: 'Export Project', status: 'active' } }
     ]);
-    const service = new WorkItemCsvExportService({ actor: actor(), repositories });
+    const service = new WorkItemCsvExportService({ actor: actor(), ...fakeRepositoryContext(repositories) });
     const result = scope === 'project'
       ? await service.exportProjectWorkItems(projectId) : await service.exportWorkspaceWorkItems();
     expect(result.csv.split('\n')[0]).toBe(expectedHeader);
@@ -119,32 +117,36 @@ describe('work item CSV export limits', () => {
     expect(synchronousExportLimit).toBe(10_000);
   });
 
-  it('accepts exactly 10,000 project rows from a 10,001-row bounded read', async () => {
+  it.each(['project', 'workspace'] as const)('accepts exactly 10,000 %s rows from a 10,001-row bounded read', async (scope) => {
     const repositories = repositoriesWithRawRows(synchronousExportLimit);
     const enriched = Array.from({ length: synchronousExportLimit }, (_, index) =>
       exportDto(index + 1)
     );
     const enrich = vi
-      .spyOn(WorkItemService.prototype, 'enrichWorkItemListWithRepositories')
+      .spyOn(WorkItemHydrator.prototype, 'list')
       .mockResolvedValue(enriched);
-    const service = new WorkItemCsvExportService({ actor: actor(), repositories });
+    const enrichWorkspace = vi.spyOn(WorkItemHydrator.prototype, 'workspace').mockResolvedValue(
+      enriched.map((item) => ({ ...item, project: { id: projectId, key: 'EXP', name: 'Export Project', status: 'active' } }))
+    );
+    const service = new WorkItemCsvExportService({ actor: actor(), ...fakeRepositoryContext(repositories) });
 
-    const result = await service.exportProjectWorkItems(projectId, { sort: 'created_desc' });
+    const result = scope === 'project' ? await service.exportProjectWorkItems(projectId, { sort: 'created_desc' })
+      : await service.exportWorkspaceWorkItems({ sort: 'created_desc' });
 
-    expect(repositories.workItems.listByProjectForExport).toHaveBeenCalledWith(
-      projectId,
+    expect(scope === 'project' ? repositories.workItems.listByProjectForExport : repositories.workItems.listByWorkspaceForExport).toHaveBeenCalledWith(
+      scope === 'project' ? projectId : workspaceId,
       { sort: 'created_desc' },
       synchronousExportLimit + 1
     );
-    expect(enrich).toHaveBeenCalledWith(expect.any(Array), repositories);
-    expect(result.fileName).toBe('worktrail-exp-work-items.csv');
+    expect(scope === 'project' ? enrich : enrichWorkspace).toHaveBeenCalledWith(expect.any(Array));
+    expect(result.fileName).toBe(scope === 'project' ? 'worktrail-exp-work-items.csv' : 'worktrail-work-items.csv');
     expect(result.csv.match(/\n/g)).toHaveLength(synchronousExportLimit + 1);
   });
 
   it('rejects 10,001 project rows before DTO enrichment', async () => {
     const repositories = repositoriesWithRawRows(synchronousExportLimit + 1);
-    const enrich = vi.spyOn(WorkItemService.prototype, 'enrichWorkItemListWithRepositories');
-    const service = new WorkItemCsvExportService({ actor: actor(), repositories });
+    const enrich = vi.spyOn(WorkItemHydrator.prototype, 'list');
+    const service = new WorkItemCsvExportService({ actor: actor(), ...fakeRepositoryContext(repositories) });
 
     await expect(service.exportProjectWorkItems(projectId)).rejects.toMatchObject({
       code: 'EXPORT_LIMIT_EXCEEDED',
@@ -158,10 +160,10 @@ describe('work item CSV export limits', () => {
   it('uses actor workspace scope and rejects workspace overflow before enrichment', async () => {
     const repositories = repositoriesWithRawRows(synchronousExportLimit + 1);
     const enrich = vi.spyOn(
-      WorkItemService.prototype,
-      'enrichWorkspaceWorkItemListWithRepositories'
+      WorkItemHydrator.prototype,
+      'workspace'
     );
-    const service = new WorkItemCsvExportService({ actor: actor(), repositories });
+    const service = new WorkItemCsvExportService({ actor: actor(), ...fakeRepositoryContext(repositories) });
 
     await expect(
       service.exportWorkspaceWorkItems({ archivedProjects: 'include' })
@@ -176,7 +178,7 @@ describe('work item CSV export limits', () => {
 
   it('authorizes project scope before reading export rows', async () => {
     const repositories = repositoriesWithRawRows(1, false);
-    const service = new WorkItemCsvExportService({ actor: actor(), repositories });
+    const service = new WorkItemCsvExportService({ actor: actor(), ...fakeRepositoryContext(repositories) });
 
     await expect(service.exportProjectWorkItems(projectId)).rejects.toMatchObject({
       code: 'NOT_FOUND'
@@ -186,7 +188,7 @@ describe('work item CSV export limits', () => {
 
   it('returns one JSON overflow error without CSV headers or a partial body', async () => {
     const repositories = repositoriesWithRawRows(synchronousExportLimit + 1);
-    const app = createExpressApp({ repositories });
+    const app = createExpressApp({ ...fakeRepositoryContext(repositories) });
 
     const response = await request(app)
       .get(`/api/projects/${projectId}/work-items/export`)

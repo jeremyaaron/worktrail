@@ -34,6 +34,7 @@ export type ProjectWorkItemQuery = Pick<
   | 'milestoneId'
   | 'cycleId'
   | 'dueDateState'
+  | 'estimateState'
   | 'blocked'
   | 'dependency'
   | 'workRisk'
@@ -54,7 +55,7 @@ export function buildWorkspaceWorkItemConditions(
   workspaceId: string,
   filters: WorkItemQuery = {}
 ): SQL[] {
-  const conditions = [eq(workItems.workspaceId, workspaceId)];
+  const conditions = [eq(workItems.workspaceId, workspaceId), eq(projects.workspaceId, workspaceId)];
 
   if (filters.projectId !== undefined) {
     conditions.push(eq(workItems.projectId, filters.projectId));
@@ -92,9 +93,13 @@ function buildCommonWorkItemConditions(filters: ProjectWorkItemQuery): SQL[] {
     conditions.push(inArray(workItems.status, riskTerminalWorkItemStatuses));
   }
 
+  // False retains historical no-restriction semantics, not "not blocked".
   if (filters.blocked === true && filters.status === undefined) {
     conditions.push(eq(workItems.status, 'blocked'));
   }
+
+  if (filters.estimateState === 'estimated') conditions.push(isNotNull(workItems.estimatePoints));
+  if (filters.estimateState === 'unestimated') conditions.push(isNull(workItems.estimatePoints));
 
   if (filters.assigneeId !== undefined) {
     conditions.push(eq(workItems.assigneeId, filters.assigneeId));
@@ -190,7 +195,7 @@ function workRiskConditions(workRisk: WorkItemQuery['workRisk']): SQL[] {
   if (workRisk === 'stale_in_progress') {
     return [
       eq(workItems.status, 'in_progress'),
-      sql`${workItems.updatedAt} < now() - (${staleInProgressDays} * interval '1 day')`
+      sql`${workItems.updatedAt} < now() - (${staleInProgressDays} * interval '24 hours')`
     ];
   }
 
@@ -208,15 +213,15 @@ function labelCondition(labelId: string): SQL {
 function dueDateConditions(dueDateState: WorkItemQuery['dueDateState']): SQL[] {
   if (dueDateState === 'overdue') {
     return [
-      sql`${workItems.dueDate} < current_date`,
+      sql`${workItems.dueDate} < (now() at time zone 'UTC')::date`,
       sql`${workItems.status} not in ${terminalStatusListSql()}`
     ];
   }
 
   if (dueDateState === 'due_soon') {
     return [
-      sql`${workItems.dueDate} >= current_date`,
-      sql`${workItems.dueDate} <= current_date + (${dueSoonWindowDays} * interval '1 day')`,
+      sql`${workItems.dueDate} >= (now() at time zone 'UTC')::date`,
+      sql`${workItems.dueDate} <= (now() at time zone 'UTC')::date + (${dueSoonWindowDays} * interval '1 day')`,
       sql`${workItems.status} not in ${terminalStatusListSql()}`
     ];
   }
@@ -227,35 +232,19 @@ function dueDateConditions(dueDateState: WorkItemQuery['dueDateState']): SQL[] {
 
   return [];
 }
-
-function dependencyConditions(dependency: WorkItemQuery['dependency']): SQL[] {
-  if (dependency === 'dependency_blocked') {
-    return [
-      sql`exists (
-        select 1 from ${workItemRelationships}
-        inner join ${workItems} blocker
-          on blocker.id = ${workItemRelationships.sourceWorkItemId}
-        where ${workItemRelationships.relationshipType} = 'blocks'
-          and ${workItemRelationships.targetWorkItemId} = ${workItems.id}
-          and blocker.status not in ${terminalStatusListSql()}
-      )`
-    ];
-  }
-
-  if (dependency === 'blocking_open_work') {
-    return [
-      sql`exists (
-        select 1 from ${workItemRelationships}
-        inner join ${workItems} blocked
-          on blocked.id = ${workItemRelationships.targetWorkItemId}
-        where ${workItemRelationships.relationshipType} = 'blocks'
-          and ${workItemRelationships.sourceWorkItemId} = ${workItems.id}
-          and blocked.status not in ${terminalStatusListSql()}
-      )`
-    ];
-  }
-
-  return [];
+export function dependencyConditions(dependency: WorkItemQuery['dependency']): SQL[] {
+  if (dependency === undefined) return [];
+  const blocked = dependency === 'dependency_blocked';
+  const relatedId = sql.identifier(blocked ? 'source_work_item_id' : 'target_work_item_id');
+  const currentId = sql.identifier(blocked ? 'target_work_item_id' : 'source_work_item_id');
+  // Explicit identifiers retain correlation in both WHERE and Drizzle's single-table SELECT projection.
+  return [sql`exists (
+    select 1 from ${workItemRelationships} as dependency_edge
+    inner join ${workItems} as related_work on related_work.id = dependency_edge.${relatedId}
+    where dependency_edge.relationship_type = 'blocks'
+      and dependency_edge.${currentId} = ${sql.identifier('work_items')}.${sql.identifier('id')}
+      and related_work.status not in ${terminalStatusListSql()}
+  )`];
 }
 
 function buildWorkItemOrderBy(

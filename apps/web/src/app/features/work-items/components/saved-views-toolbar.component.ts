@@ -1,5 +1,6 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, Output, type SimpleChanges } from '@angular/core';
 import type { SavedWorkViewDto, SavedWorkViewVisibility } from '@worktrail/contracts';
+import { LucideRotateCw } from '@lucide/angular';
 
 import { EmptyStateComponent } from '../../../shared/ui/empty-state.component';
 import { LoadingIndicatorComponent } from '../../../shared/ui/loading-indicator.component';
@@ -21,13 +22,14 @@ interface SavedViewOption {
 
 @Component({
   selector: 'app-saved-views-toolbar',
-  imports: [EmptyStateComponent, LoadingIndicatorComponent],
+  imports: [EmptyStateComponent, LoadingIndicatorComponent, LucideRotateCw],
   template: `
     <section class="saved-views" aria-labelledby="saved-views-heading">
       <div class="saved-views__heading">
         <div>
           <h2 id="saved-views-heading">Saved views</h2>
           <p>{{ sharedViews.length }} shared · {{ personalViews.length }} personal</p>
+          <p aria-label="Current view">{{ viewState }}</p>
         </div>
         @if (isLoading) {
           <app-loading-indicator label="Loading saved views" />
@@ -36,7 +38,10 @@ interface SavedViewOption {
 
       @if (loadError !== null) {
         <p class="inline-error">{{ loadError }}</p>
+        <button type="button" class="secondary-action retry-views" title="Retry saved views" aria-label="Retry saved views"
+          [disabled]="isLoading || isSaving" (click)="retryLoad.emit()"><svg lucideRotateCw aria-hidden="true"></svg></button>
       }
+      <p role="status" aria-label="Saved view action status">{{ isSaving ? 'Updating saved views...' : '' }}</p>
 
       @if (sharedViews.length > 0 || personalViews.length > 0) {
         <div class="saved-view-open">
@@ -44,6 +49,7 @@ interface SavedViewOption {
             <span>Open saved view</span>
             <select
               [value]="selectedOpenViewId"
+              aria-label="Open saved view"
               aria-describedby="saved-view-open-help"
               (change)="selectedOpenViewId = $any($event.target).value"
             >
@@ -67,7 +73,7 @@ interface SavedViewOption {
           <button
             type="button"
             aria-label="Open selected saved view"
-            [disabled]="selectedOpenViewOption() === null"
+            [disabled]="isLoading || isSaving || selectedOpenViewOption() === null"
             (click)="openSelectedView()"
           >
             Open
@@ -82,10 +88,6 @@ interface SavedViewOption {
             {{ option.group === 'shared' ? 'Shared view' : 'Personal view' }} · {{ option.summary }}
           </p>
         }
-      }
-
-      @if (openedViewMessage !== null) {
-        <p class="saved-view-opened" aria-live="polite">{{ openedViewMessage }}</p>
       }
 
       @if (canManagePersonalViews || canManageSharedViews) {
@@ -136,10 +138,12 @@ interface SavedViewOption {
       }
 
       @if (sharedViews.length === 0 && personalViews.length === 0) {
+        @if (!isLoading && loadError === null) {
         <app-empty-state
           [title]="emptyTitle"
           [message]="emptyMessage"
         />
+        }
       } @else {
         <details class="saved-view-manager">
           <summary>Manage views</summary>
@@ -149,6 +153,7 @@ interface SavedViewOption {
               <span>Manage saved view</span>
               <select
                 [value]="selectedManageViewId"
+                aria-label="Manage saved view"
                 aria-describedby="saved-view-manage-help"
                 (change)="selectedManageViewId = $any($event.target).value"
               >
@@ -191,6 +196,7 @@ interface SavedViewOption {
                   <button
                     type="button"
                     [attr.aria-label]="'Open ' + option.savedView.name"
+                    [disabled]="isSaving || isLoading"
                     (click)="openSavedView(option.savedView)"
                   >
                     Open
@@ -201,6 +207,7 @@ interface SavedViewOption {
                       type="button"
                       class="secondary-action"
                       [attr.aria-label]="'Update query for ' + option.savedView.name"
+                      [disabled]="isSaving"
                       (click)="updateQuery.emit(option.savedView)"
                     >
                       Update query
@@ -212,6 +219,7 @@ interface SavedViewOption {
                         (option.savedView.isPinned ? 'Unpin ' : 'Pin ') + option.savedView.name
                       "
                       (click)="pinChange.emit({ savedView: option.savedView, isPinned: !option.savedView.isPinned })"
+                      [disabled]="isSaving"
                     >
                       {{ option.savedView.isPinned ? 'Unpin' : 'Pin' }}
                     </button>
@@ -224,6 +232,7 @@ interface SavedViewOption {
                     <input
                       type="text"
                       [value]="draftNames[option.id] ?? option.savedView.name"
+                      [disabled]="isSaving"
                       (input)="draftNameChange.emit({ savedViewId: option.id, name: $any($event.target).value })"
                     />
                   </label>
@@ -233,6 +242,7 @@ interface SavedViewOption {
                       type="button"
                       class="secondary-action"
                       [attr.aria-label]="'Rename ' + option.savedView.name"
+                      [disabled]="isSaving"
                       (click)="rename.emit(option.savedView)"
                     >
                       Rename
@@ -241,6 +251,7 @@ interface SavedViewOption {
                       type="button"
                       class="danger-action"
                       [attr.aria-label]="'Delete ' + option.savedView.name"
+                      [disabled]="isSaving"
                       (click)="delete.emit(option.savedView)"
                     >
                       Delete
@@ -261,6 +272,8 @@ interface SavedViewOption {
     </section>
   `,
   styles: `
+    .retry-views { width: 38px; height: 38px; padding: 8px; }
+    .retry-views svg { width: 18px; height: 18px; }
     .saved-views {
       display: grid;
       gap: 12px;
@@ -340,15 +353,10 @@ interface SavedViewOption {
       font-size: 0.875rem;
     }
 
-    .saved-view-selected-summary,
-    .saved-view-opened {
+    .saved-view-selected-summary {
       color: #475569;
       font-size: 0.8125rem;
       font-weight: 700;
-    }
-
-    .saved-view-opened {
-      color: #166534;
     }
 
     .visually-hidden {
@@ -524,7 +532,12 @@ interface SavedViewOption {
     }
   `
 })
-export class SavedViewsToolbarComponent {
+export class SavedViewsToolbarComponent implements OnChanges {
+  @Input() contextKey = '';
+  @Input() openedViewId: string | null = null;
+  @Input() viewState = 'Custom';
+  @Input() manageableViewIds: ReadonlySet<string> | null = null;
+  @Input() createdRevision = 0;
   @Input() personalViews: SavedWorkViewDto[] = [];
   @Input() sharedViews: SavedWorkViewDto[] = [];
   @Input() canManagePersonalViews = true;
@@ -547,6 +560,7 @@ export class SavedViewsToolbarComponent {
   @Input() loadError: string | null = null;
   @Input() mutationError: string | null = null;
   @Output() readonly savePersonal = new EventEmitter<string>();
+  @Output() readonly retryLoad = new EventEmitter<void>();
   @Output() readonly saveWorkspace = new EventEmitter<string>();
   @Output() readonly saveShared = new EventEmitter<string>();
   @Output() readonly save = new EventEmitter<string>();
@@ -560,7 +574,19 @@ export class SavedViewsToolbarComponent {
   newViewName = '';
   selectedOpenViewId = '';
   selectedManageViewId = '';
-  openedViewMessage: string | null = null;
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['contextKey']) {
+      this.selectedOpenViewId = '';
+      this.selectedManageViewId = '';
+      this.newViewName = '';
+    }
+    if (changes['createdRevision']) this.newViewName = '';
+    if (changes['openedViewId']) this.selectedOpenViewId = this.openedViewId ?? '';
+    const ids = new Set(this.savedViewOptions().map(option => option.id));
+    if (!ids.has(this.selectedOpenViewId)) this.selectedOpenViewId = '';
+    if (!ids.has(this.selectedManageViewId)) this.selectedManageViewId = '';
+  }
 
   @Input()
   set savedViews(savedViews: SavedWorkViewDto[]) {
@@ -587,7 +613,6 @@ export class SavedViewsToolbarComponent {
       this.save.emit(this.newViewName);
     }
 
-    this.newViewName = '';
   }
 
   sharedViewOptions(): SavedViewOption[] {
@@ -611,6 +636,7 @@ export class SavedViewsToolbarComponent {
   }
 
   canManageView(savedView: SavedWorkViewDto): boolean {
+    if (this.manageableViewIds !== null) return this.manageableViewIds.has(savedView.id);
     return savedView.visibility === 'personal'
       ? this.canManagePersonalViews
       : this.canManageSharedViews;
@@ -628,7 +654,6 @@ export class SavedViewsToolbarComponent {
 
   openSavedView(savedView: SavedWorkViewDto): void {
     this.selectedOpenViewId = savedView.id;
-    this.openedViewMessage = `Opened "${savedView.name}". Results updated below.`;
     this.open.emit(savedView);
   }
 

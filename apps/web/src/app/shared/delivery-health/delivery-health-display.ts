@@ -1,5 +1,5 @@
 import type {
-  DeliveryHealthReasonDto,
+  HealthReasonReadDto as DeliveryHealthReasonDto,
   DeliveryHealthSeverity,
   DeliveryHealthState,
   WorkItemQuery
