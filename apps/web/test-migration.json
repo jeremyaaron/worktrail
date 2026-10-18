@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "migrated": [
+    "src/app/core/api/attachments-api.spec.ts",
+    "src/app/core/navigation/draft-departure-coordinator.spec.ts",
+    "src/app/shared/display/display-format.spec.ts",
+    "src/testing/web-toolchain.spec.ts"
+  ]
+}

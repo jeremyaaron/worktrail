@@ -1,0 +1,364 @@
+{
+  "schemaVersion": 1,
+  "phase": 1,
+  "recordedOn": "2026-10-18T21:43:45.265Z",
+  "baselineCommit": "16ed76c799ec2de0de1885ccf66d84e52a08c3a4",
+  "branch": "v0.3.1",
+  "releaseVersion": "0.3.0",
+  "node": "v24.16.0",
+  "npm": "11.13.0",
+  "lockSha256": "57208d70478309a22961f487ef64122b23e30e9358dc9a0c5eb92a8f7d22f0c7",
+  "sourceHashes": {
+    "package.json": "c894b13805d7fa69c4a4634236385a1e2671fc75b3e67322fff2171cb84c2de1",
+    "apps/web/package.json": "9991d6f7c6f93efc9c5ecd2299159dc19fe04dc18b0e69136ba47dbb839c459f",
+    "apps/web/angular.json": "a5e22f1b306337b9be5c7daafafd8d30f7e73cad602e343418b95e37281e82e5",
+    "apps/web/tsconfig.json": "f7a991f9a4cfb2eba48a3e86b8b6afa829c1b04d1c4e04c149eb70480a4bf5b1",
+    "apps/web/tsconfig.spec.json": "094ad325e532cc424bb84713b907d75a126cc5e205818893db7f57fd6c0b2c21",
+    "apps/web/tsconfig.vitest.json": "01aa199238d31fab461b45561f89d24dc2cf431ccb53a3d2ed706575019beb85",
+    "apps/web/test-migration.json": "82cabf08c2a23ba6abab5b85554a048b650b4e8577e44c2805b379dd806d134b",
+    "apps/web/vitest.config.ts": "f275d59700f4947890b91a1baf1872426bb575259a40dacd257fb445dc1bfbb0",
+    "apps/web/src/testing/providers.ts": "9bb052784b6eec90f1079d6bc1b6fd3de5f14118c75b744481c3df4580ad2862",
+    "apps/web/src/testing/web-toolchain.spec.ts": "e2e2312a11017c7e9f0c73bc38b8c1f97b16d7801fd3dbfdc5d182262b45d19e",
+    "scripts/test-web.mjs": "5728086f61786d557094977aeb97a28c738f844ec4b1c8d4e516fd3215f8f974",
+    "scripts/verify.mjs": "9bc1f2ec8582c27a98fa0eec603addff679c84ce75fb1103573694a12f1689dc",
+    "scripts/verification/web.mjs": "d714133dc1b53df280a3e28c17ffa9a27d8af46e7ffc4a0683e8994ca10800c4",
+    "scripts/verification/web.d.mts": "2a949d8aa4086652046cc360c59b4ea029a62d1e7f724e52d9d578d2d240cbb6",
+    "scripts/verification/web.test.mjs": "6d3d03062fcdfdaa336fcceefc4f0a63a9d32019ba389b7274f8915726445abb",
+    "scripts/verification/audit.test.mjs": "842a23bf90cdf777e0eb13c1946d04fd9d8d9a188df1130241d6e232d8683225",
+    "eslint.config.js": "c379aafe976f5d3d495843a2ed6e5c4fc8f8fd809e5199f7ede1ed2f31bc5238",
+    "tsconfig.verification.json": "35428df20bb5fed4bfae2afa8dfdb356d482d85a955309d96b5b4c36a09a856f",
+    "docs/security/development-audit-exceptions.json": "aefd327a3e8f170f8eabc0eb8e91d3e31e545b149a57a30359ca8eae54052869",
+    "apps/web/src/app/core/api/attachments-api.spec.ts": "a0167aac1cd0b4d497e36a2f9cb5b0be88245c3b33ecddf28073129d417ebd43",
+    "apps/web/src/app/core/navigation/draft-departure-coordinator.spec.ts": "c2049355d828fcf776b79419f726197361dc1b5ddbafeeb2ca51e76c433e2d52",
+    "apps/web/src/app/shared/display/display-format.spec.ts": "3dd7b7c658733f45bec1b0634c271e64613a9598a22538f25a5e8679e92156ca"
+  },
+  "partition": [
+    {
+      "runner": "karma",
+      "files": [
+        "src/app/app.routes.spec.ts",
+        "src/app/app.spec.ts",
+        "src/app/core/api/api-error.spec.ts",
+        "src/app/core/api/cycles-api.spec.ts",
+        "src/app/core/api/quick-find-api.spec.ts",
+        "src/app/core/navigation/authorized-project-context.spec.ts",
+        "src/app/core/navigation/page-context.spec.ts",
+        "src/app/core/worktrail-api.service.spec.ts",
+        "src/app/features/inbox/inbox-page.component.spec.ts",
+        "src/app/features/inbox/inbox-state.service.spec.ts",
+        "src/app/features/my-work/my-work-page.component.spec.ts",
+        "src/app/features/portfolio/portfolio-display.spec.ts",
+        "src/app/features/portfolio/portfolio-page.component.spec.ts",
+        "src/app/features/projects/cycle-closeout/cycle-closeout-result.component.spec.ts",
+        "src/app/features/projects/cycle-closeout/project-cycle-closeout-page.component.spec.ts",
+        "src/app/features/projects/planning/cycle-manager.component.spec.ts",
+        "src/app/features/projects/planning/cycle-options.spec.ts",
+        "src/app/features/projects/planning/cycle-summary-panel.component.spec.ts",
+        "src/app/features/projects/planning/planning-mutation-state.spec.ts",
+        "src/app/features/projects/project-cycle-review-page.component.spec.ts",
+        "src/app/features/projects/project-milestone-review-page.component.spec.ts",
+        "src/app/features/projects/project-planning-page.component.spec.ts",
+        "src/app/features/projects/project-shell/project-navigation.spec.ts",
+        "src/app/features/projects/project-shell/project-shell.component.spec.ts",
+        "src/app/features/projects/projects-page.component.spec.ts",
+        "src/app/features/projects/status-reports/project-status-report-detail-page.component.spec.ts",
+        "src/app/features/projects/status-reports/project-status-report-draft-page.component.spec.ts",
+        "src/app/features/projects/status-reports/project-status-report-list-page.component.spec.ts",
+        "src/app/features/quick-find/quick-find-dialog-search.spec.ts",
+        "src/app/features/quick-find/quick-find-dialog.component.spec.ts",
+        "src/app/features/quick-find/quick-find-navigation.spec.ts",
+        "src/app/features/quick-find/quick-find-session.service.spec.ts",
+        "src/app/features/work-items/components/active-filter-chips.component.spec.ts",
+        "src/app/features/work-items/components/pinned-saved-views.component.spec.ts",
+        "src/app/features/work-items/components/saved-views-toolbar.component.spec.ts",
+        "src/app/features/work-items/components/work-item-attachments.component.spec.ts",
+        "src/app/features/work-items/components/work-item-child-work.component.spec.ts",
+        "src/app/features/work-items/components/work-item-filter-panel.component.spec.ts",
+        "src/app/features/work-items/components/work-item-pagination.component.spec.ts",
+        "src/app/features/work-items/components/work-item-parent-components.spec.ts",
+        "src/app/features/work-items/components/work-item-result-list.component.spec.ts",
+        "src/app/features/work-items/query/work-item-filter-labels.spec.ts",
+        "src/app/features/work-items/query/work-item-page-query-serialization.spec.ts",
+        "src/app/features/work-items/query/work-item-query-serialization.spec.ts",
+        "src/app/features/work-items/query/work-query-parity.spec.ts",
+        "src/app/features/work-items/state/project-bulk-triage.store.spec.ts",
+        "src/app/features/work-items/state/saved-views.store.spec.ts",
+        "src/app/features/work-items/state/work-list-query.store.spec.ts",
+        "src/app/features/work-items/work-item-board-page.component.spec.ts",
+        "src/app/features/work-items/work-item-detail-page.component.spec.ts",
+        "src/app/features/work-items/work-item-detail-unavailable.spec.ts",
+        "src/app/features/work-items/work-items-page.component.spec.ts",
+        "src/app/features/work-items/workspace-work-item-list-page.component.spec.ts",
+        "src/app/features/workspace/workspace-settings-page.component.spec.ts",
+        "src/app/shared/authored-content/authored-content-edit-commands.spec.ts",
+        "src/app/shared/authored-content/authored-content-editor.component.spec.ts",
+        "src/app/shared/authored-content/authored-content-link.spec.ts",
+        "src/app/shared/authored-content/authored-content-parser.spec.ts",
+        "src/app/shared/authored-content/authored-content-validation.spec.ts",
+        "src/app/shared/authored-content/authored-content-viewer.component.spec.ts",
+        "src/app/shared/clipboard.service.spec.ts",
+        "src/app/shared/cycles/cycle-display.spec.ts",
+        "src/app/shared/delivery-health/delivery-health-display.spec.ts",
+        "src/app/shared/download-file.spec.ts",
+        "src/app/shared/http-error-message.spec.ts",
+        "src/app/shared/navigation/section-target.spec.ts",
+        "src/app/shared/navigation/work-navigation.spec.ts"
+      ]
+    },
+    {
+      "runner": "vitest",
+      "files": [
+        "src/app/core/api/attachments-api.spec.ts",
+        "src/app/core/navigation/draft-departure-coordinator.spec.ts",
+        "src/app/shared/display/display-format.spec.ts",
+        "src/testing/web-toolchain.spec.ts"
+      ]
+    }
+  ],
+  "ownerMigrations": {
+    "reviewed": true,
+    "changed": []
+  },
+  "legacySqlPreserved": 20,
+  "convertedPhase2Files": [
+    "apps/web/src/app/core/api/attachments-api.spec.ts",
+    "apps/web/src/app/core/navigation/draft-departure-coordinator.spec.ts",
+    "apps/web/src/app/shared/display/display-format.spec.ts"
+  ],
+  "cleanInstall": {
+    "command": "npm ci",
+    "passed": true,
+    "forcedPeers": false,
+    "overrides": false
+  },
+  "audits": {
+    "command": "npm run audit:dependencies",
+    "peerValid": true,
+    "production": 0,
+    "full": {
+      "moderate": 4,
+      "high": 6,
+      "total": 10
+    },
+    "retainedAdvisories": [
+      "GHSA-vfj7-8cjw-p6xm",
+      "GHSA-67mh-4wv8-2f99"
+    ],
+    "originalBoundariesPreserved": true
+  },
+  "webProfile": {
+    "command": "npm run verify -- --mode=web",
+    "summary": {
+      "runId": "81ec260c-57df-4d26-a14f-5fdbf2a76316",
+      "mode": "web",
+      "database": "none",
+      "apiTests": null,
+      "shard": null,
+      "passed": true,
+      "interactive": false,
+      "cleaned": true,
+      "interrupted": null,
+      "gates": [
+        {
+          "name": "lint:web",
+          "passed": true,
+          "durationMs": 4394
+        },
+        {
+          "name": "typecheck:web",
+          "passed": true,
+          "durationMs": 23620
+        },
+        {
+          "name": "test:web",
+          "passed": true,
+          "durationMs": 25601
+        },
+        {
+          "name": "test:web:karma",
+          "passed": true,
+          "durationMs": 16948
+        },
+        {
+          "name": "test:web:vitest",
+          "passed": true,
+          "durationMs": 8504
+        },
+        {
+          "name": "build:web",
+          "passed": true,
+          "durationMs": 20124
+        }
+      ]
+    },
+    "karmaTests": 870,
+    "vitestTests": 18,
+    "initialProductionKb": 410.31,
+    "budgetWarnings": 0,
+    "subsequentChanges": "Non-watch wrapper refinements, structured report/empty-name guard, diagnostics and type-only config annotation. Legacy/application/build inputs unchanged; affected checks rerun only."
+  },
+  "finalRepresentative": {
+    "command": "npm test --workspace @worktrail/web -- --runner=vitest",
+    "summary": {
+      "passed": true,
+      "cleaned": true,
+      "options": {
+        "runner": "vitest",
+        "include": [],
+        "filter": null,
+        "help": false
+      },
+      "results": [
+        {
+          "name": "test:web:vitest",
+          "passed": true,
+          "durationMs": 8438
+        }
+      ],
+      "interrupted": null
+    },
+    "tests": 18,
+    "note": "After structured-report guard; final change thereafter only corrects the imported config type name and aggregate diagnostic text, verified by typing/lint/Node checks."
+  },
+  "focusedSelection": {
+    "command": "npm test --workspace @worktrail/web -- --runner=vitest --include=src/app/shared/display/display-format.spec.ts '--filter=display helpers'",
+    "summary": {
+      "passed": true,
+      "cleaned": true,
+      "options": {
+        "runner": "vitest",
+        "include": [
+          "src/app/shared/display/display-format.spec.ts"
+        ],
+        "filter": "display helpers",
+        "help": false
+      },
+      "results": [
+        {
+          "name": "test:web:vitest",
+          "passed": true,
+          "durationMs": 3301
+        }
+      ],
+      "interrupted": null
+    },
+    "tests": 2
+  },
+  "emptyNameSelection": {
+    "expectedExit": 1,
+    "observedExit": 1,
+    "summary": {
+      "passed": false,
+      "cleaned": true,
+      "options": {
+        "runner": "vitest",
+        "include": [
+          "src/app/shared/display/display-format.spec.ts"
+        ],
+        "filter": "NO_SUCH_PHASE_1_TEST",
+        "help": false
+      },
+      "results": [
+        {
+          "name": "test:web:vitest",
+          "passed": false,
+          "durationMs": 3853
+        }
+      ],
+      "interrupted": null
+    }
+  },
+  "independentFailureProbes": [
+    {
+      "entry": "ordinary",
+      "failing": "karma",
+      "failed": true,
+      "results": [
+        {
+          "name": "test:web:karma",
+          "passed": false,
+          "durationMs": 3276
+        },
+        {
+          "name": "test:web:vitest",
+          "passed": true,
+          "durationMs": 2639
+        }
+      ],
+      "cleaned": true
+    },
+    {
+      "entry": "ordinary",
+      "failing": "vitest",
+      "failed": true,
+      "results": [
+        {
+          "name": "test:web:karma",
+          "passed": true,
+          "durationMs": 1868
+        },
+        {
+          "name": "test:web:vitest",
+          "passed": false,
+          "durationMs": 2551
+        }
+      ],
+      "cleaned": true
+    },
+    {
+      "entry": "owned",
+      "failing": "karma",
+      "failed": true,
+      "results": [
+        {
+          "name": "test:web:karma",
+          "passed": false
+        },
+        {
+          "name": "test:web:vitest",
+          "passed": true
+        }
+      ],
+      "cleaned": true
+    },
+    {
+      "entry": "owned",
+      "failing": "vitest",
+      "failed": true,
+      "results": [
+        {
+          "name": "test:web:karma",
+          "passed": true
+        },
+        {
+          "name": "test:web:vitest",
+          "passed": false
+        }
+      ],
+      "cleaned": true
+    }
+  ],
+  "toolingChecks": {
+    "nodeTests": 26,
+    "passed": true,
+    "lint": true,
+    "verificationTypes": true
+  },
+  "omitted": [
+    "API/database suites",
+    "application E2E",
+    "native editor",
+    "compiled preview",
+    "fresh setup",
+    "public site browser suite",
+    "repeat full legacy suite/builds after wrapper-only refinements"
+  ],
+  "cleanup": {
+    "privateOwnerReview": true,
+    "negativeSnapshots": true,
+    "webProfile": true,
+    "representativeRuns": true,
+    "workingDatabaseTouched": false,
+    "browserInstall": "Normal Playwright headless Chromium cache retained as a local test prerequisite; no test server retained."
+  }
+}

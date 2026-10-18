@@ -65,4 +65,52 @@ Linux evidence uses the available ARM64 Playwright image, not GitHub's remote AM
 
 All proof servers/browsers, disposable databases/containers, private dependency installations, and temporary browser binaries are removed after evidence retention. Cleanup validates owned identities/markers; it does not stop unrelated applications or reset working data. Root dependency/source/migration hashes are checked against the baseline before closeout.
 
-The working graph still has its original bounded exceptions until implementation retires them. A private clean candidate is not permission to change the policy early or claim the release is ready. Phase 9 shard balancing is deferred; no extra utilization/performance runs are needed for that non-change.
+At Phase 0, the working graph retained its original bounded exceptions. A private clean candidate is not permission to change the policy early or claim the release is ready. Phase 9 shard balancing is deferred; no extra utilization/performance runs are needed for that non-change.
+
+## Phase 1: Implemented Angular Foundation
+
+Completed October 18, 2026, on branch `v0.3.1`, starting from commit
+`16ed76c799ec2de0de1885ccf66d84e52a08c3a4`. The worktree was clean at entry.
+[Structured evidence](phase-1-evidence.json) records the lock/source identities, selections, summaries,
+and deliberate failure outcomes. This is an Angular/tooling change, not Drizzle adoption or a release verdict.
+
+| Command / Boundary | Outcome |
+| --- | --- |
+| Exact-version `npm ci` | Pass on Node `24.16.0` / npm `11.13.0`; no force flags or overrides |
+| `npm run audit:dependencies` | Valid installed peers; production 0; full 10 exact records under two original, unexpired advisories |
+| Spec ownership | 71 files assigned once: 67 Karma / four Vitest; editor type scopes and app/icon physical Angular identity match |
+| `node --test scripts/verification/{web,audit,ci}.test.mjs` | 26 passing focused checks, including negative selection/ownership/audit/CI cases |
+| Focused runner/config ESLint and `tsc -p tsconfig.verification.json --noEmit` | Pass |
+| `npm run verify -- --mode=web` | Pass: frontend lint, development build/typecheck, complete legacy partition (870), representative Vitest partition (18), production build, owned cleanup |
+| Production budgets | Initial 410.31 kB; unchanged 550 kB/1 MB initial and 8 kB/12 kB component-style thresholds; no warnings |
+| `npm test --workspace @worktrail/web -- --runner=vitest` | Four files / 18 passing tests, including final runner/report configuration |
+| Literal file + name selection | Display-helper selection runs its two tests; a nonexistent pattern returns exit 1 after zero executed tests, not a green skipped suite |
+| Four intentional assertion failures | Each runner failed separately through ordinary and owned execution; the independent other partition still ran/passed; every case failed acceptance and cleaned resources |
+| Owner migrations | Private core/CLI migration review over the specified 20-to-21 ranges; no application changes |
+
+The representative set retains all 17 existing display/HTTP/router/draft tests. Its one new regression
+renders the real Quick Find component and icons, advances its 220 ms debounce deterministically
+(219 + 1), and verifies native input focus. Production and TestBed remain Zone-based; there are no
+increased waits, retries, fixture sleeps, or weakened assertions.
+
+The ordinary and owned entries share one serial implementation. Successful/nonzero commands remove
+their registered processes, loopback endpoints, and private outputs; summaries remain in ignored
+`test-results/verification`. Unit checks also verify that interruption or retained child ownership
+prevents launching another partition. Host/Linux lifecycle feasibility remains the Phase 0 result;
+final single-runner watch/interruption acceptance belongs to Phase 5.
+
+The full web profile ran once at the framework boundary. Subsequent small wrapper/report refinements
+used only relevant Node/type/lint and representative Vitest checks. The legacy specs, application
+sources, framework graph and build configuration did not change after that full run. API, database,
+E2E, native editor, preview, setup and site suites were deliberately omitted as unrelated to this phase.
+
+Installation initially encountered npm's stale Angular 20 peer resolution; a scoped workspace update
+reconciled the lockfile without `--force`/overrides, followed by clean installation. The first focused
+Vitest build exposed a missing providers entry in the temporary compiler file list; it was fixed and
+all acceptance runs above use the corrected list. Adding a structured reporter required an explicit
+typed config return to preserve tuple typing; the final verification-config typecheck passes.
+
+All private proof snapshots/processes are removed after retaining sanitized results. No working
+database, API/contracts source, SQL file, public-site asset, CI trigger or release version changed.
+Three resolved Vitest/Tinypool exceptions are removed; Karma and Drizzle remain due in Phases 5/6,
+with no renewed deadline or claim of zero full-audit findings.

@@ -175,7 +175,7 @@ test('committed policy covers the lock graph, not production nodes, and is wired
   assert.match(runner, /npmGate\('audit:dependencies', \['run', 'audit:dependencies'\]\)/);
 });
 
-test('supported local/CI runtime and separate Vitest peers retain the active Karma builder', async () => {
+test('supported runtime retains staged Karma/Vitest builders without the vulnerable Vitest 3 graph', async () => {
   const json = async (path) => JSON.parse(await readFile(new URL(path, import.meta.url), 'utf8'));
   const root = await json('../../package.json');
   const actualLock = await json('../../package-lock.json');
@@ -186,9 +186,14 @@ test('supported local/CI runtime and separate Vitest peers retain the active Kar
   assert.equal((await readFile(new URL('../../.nvmrc', import.meta.url), 'utf8')).trim(), '24');
   assert.match(await readFile(new URL('../../.github/actions/verify/action.yml', import.meta.url), 'utf8'), /node-version: 24/);
   assert.equal(web.projects['worktrail-web'].architect.test.builder, '@angular/build:karma');
-  assert.match(actualLock.packages['apps/web/node_modules/vitest'].version, /^3\.2\./);
-  assert.match(actualLock.packages['node_modules/tinypool'].version, /^1\./);
-  assert.match(actualLock.packages['node_modules/vitest'].version, /^4\./);
+  assert.equal(web.projects['worktrail-web'].architect['test-vitest'].builder, '@angular/build:unit-test');
+  assert.equal(root.devDependencies.typescript, '5.9.3');
+  const runners = Object.entries(actualLock.packages).filter(([path]) => /node_modules\/vitest$/.test(path));
+  assert.ok(runners.length);
+  for (const [, pkg] of runners) assert.match(pkg.version, /^4\./);
+  for (const [path, pkg] of Object.entries(actualLock.packages)) {
+    if (/node_modules\/tinypool$/.test(path)) assert.doesNotMatch(pkg.version, /^1\./);
+  }
 });
 
 test('graph validation refuses incompatible peers even if pruning lowered the audit count', async () => {

@@ -21,7 +21,7 @@ export default tseslint.config(
   },
   {
     files: ['apps/api/src/**/*.ts', 'packages/contracts/src/**/*.ts', 'apps/api/tests/**/*.ts',
-      'apps/api/vitest.config.ts', 'e2e/**/*.ts', 'playwright*.config.ts', 'apps/web/browser-tests/**/*.ts'],
+      'apps/api/vitest.config.ts', 'apps/web/vitest.config.ts', 'e2e/**/*.ts', 'playwright*.config.ts', 'apps/web/browser-tests/**/*.ts'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     languageOptions: {
       globals: globals.node

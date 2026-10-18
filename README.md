@@ -650,9 +650,25 @@ site mode additionally renders the real Pages subpath with keyboard/reflow/motio
 audits, lint, scoped test/config typechecks, workspace typechecks, scratch schema generation,
 resource/API/contracts/Angular tests, production build,
 standalone editor, application E2E, compiled preview, and static/rendered site checks including local
-assets/fragments, repository documentation paths and release metadata. Karma/Jasmine
-still execute the Angular suite; their verification launcher uses Playwright's installed Chromium.
+assets/fragments, repository documentation paths and release metadata. During the Angular 21
+test migration, web tests run the complementary Karma/Jasmine and Vitest 4 partitions serially
+in Chromium. Both partitions report independently; either failure fails the command.
 Standard runner modes do not install dependencies or browser binaries themselves.
+
+For focused frontend checks without a database or application server:
+
+```sh
+npm test --workspace @worktrail/web
+npm test --workspace @worktrail/web -- --runner=vitest
+npm test --workspace @worktrail/web -- --include=src/app/core/api/attachments-api.spec.ts
+npm test --workspace @worktrail/web -- --runner=vitest '--filter=display helpers'
+```
+
+The default covers every discovered spec. Repeat `--include` for multiple literal paths; no globs.
+An empty, missing, or cross-runner selection fails. Each invocation owns its source snapshot,
+loopback ports and build/cache outputs, then removes them. These staged commands are non-watch;
+live watch/debug integration belongs to the final single-runner cutover. See
+[the migration manifest](apps/web/test-migration.json) and [developer guidance](docs/development.md#testing-and-verification).
 
 Fresh installation checks are separate, deliberately slower commands:
 

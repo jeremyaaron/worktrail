@@ -1,3 +1,5 @@
+import { describe, expect, it } from 'vitest';
+
 import { memberDisplayName } from './member-display';
 import { formatToken } from './token-format';
 

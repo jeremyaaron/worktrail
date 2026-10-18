@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./out-tsc/vitest",
+    "types": []
+  },
+  "include": [
+    "src/**/*.d.ts",
+    "src/testing/*.ts",
+    "src/app/core/api/attachments-api.spec.ts",
+    "src/app/core/navigation/draft-departure-coordinator.spec.ts",
+    "src/app/shared/display/display-format.spec.ts"
+  ]
+}

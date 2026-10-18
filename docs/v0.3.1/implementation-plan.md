@@ -2,9 +2,9 @@
 
 ## Status
 
-Implementation baseline: October 18, 2026. Phase 0 is complete; required implementation phases 1-8 and 10-11 have not started. Conditional Phase 9 is deferred by the Phase 0 scope decision.
+Implementation baseline: October 18, 2026. Phases 0-1 are complete; required implementation phases 2-8 and 10-11 have not started. Conditional Phase 9 is deferred by the Phase 0 scope decision.
 
-This plan implements the [PRD](prd.md) and [technical design](technical-design.md). The [dependency disposition](dependency-remediation.md), [verification notes](verification-notes.md), and [structured evidence](phase-0-evidence.json) record Phase 0's selected versions, proofs, and inventories. No application dependency, SQL history, or release identity has changed in the working checkout.
+This plan implements the [PRD](prd.md) and [technical design](technical-design.md). The [dependency disposition](dependency-remediation.md), [verification notes](verification-notes.md), and [Phase 0 evidence](phase-0-evidence.json) record the selected versions, proofs, and inventories. [Phase 1 evidence](phase-1-evidence.json) records the implemented Angular foundation. SQL history and release identity remain unchanged.
 
 The separately requested PR-only CI change is already in the working tree. Preserve it and its focused regression test; it is not unfinished feature scope to reimplement. Package/release identity remains `0.3.0` until closeout.
 
@@ -33,7 +33,7 @@ Angular conversion is split into infrastructure, three spec groups, and final cu
 | Phase | Deliverable | Status |
 | --- | --- | --- |
 | 0 | Baseline, private feasibility proofs, and decision closure | Complete |
-| 1 | Angular 21 foundation and staged Chromium test execution | Not started |
+| 1 | Angular 21 foundation and staged Chromium test execution | Complete |
 | 2 | Shared utilities, core clients, and navigation spec conversion | Not started |
 | 3 | Work discovery, saved views, and workspace spec conversion | Not started |
 | 4 | Work detail, Planning, and historical workflow spec conversion | Not started |
@@ -141,6 +141,21 @@ Acceptance:
 - The legacy suite remains executable under the new framework, and the committed representative Vitest specs pass in Chromium.
 
 Verification: graph and audit disposition, relevant configuration/runner Node tests, web lint/type/build checks, representative Vitest tests, and one complete legacy run because its framework changed. No API/database suite for an Angular-only change.
+
+Status: Complete (October 18, 2026).
+
+### Completion Evidence
+
+- Install exact Angular runtime/compiler `21.2.25`, CLI/build `21.2.27`, CDK `21.2.14`, angular-eslint `21.4.0`, TypeScript `5.9.3`, Vitest/browser provider `4.1.12`, and Playwright `1.61.1`. Clean `npm ci` and installed-peer validation pass without forced peers or overrides. Root peer bindings and an app/icon runtime-identity check preserve the proven graph.
+- Review core/CLI owner migrations for the specified Angular 20-to-21 ranges in a private snapshot; neither changes application files. Keep production Zone scheduling, lazy routes, and all budget thresholds unchanged.
+- Add the `test-vitest` target and explicit Zone-based TestBed providers. A short-lived manifest partitions 71 files into 67 Karma and four Vitest files; separate editor/compiler scopes are checked against actual discovery before execution.
+- Convert display helpers, attachments HTTP client, and real-router draft coordination: all 17 existing tests remain. These three files belong to Phase 2 and must not be converted again. Add one real Quick Find component/debounce/icon/focus regression, rather than retaining the prototype assertion-control test.
+- Share owned execution between ordinary web tests and `verify` without nesting snapshots. Use serial partitions, assigned loopback ports, isolated outputs, independent failures, literal file selection, and Vitest name filtering. Reject missing/empty/cross-runner selections, including a name pattern that skips every test. Keep the staged wrapper non-watch; live watch/debug integration remains Phase 5 work.
+- Pass 26 focused Node checks for discovery, type isolation, invalid selections, independent runner failure, interruption/cleanup stopping, audit policy, peer validation, snapshot lock ownership, and unchanged PR-only CI behavior. Verification-config typing and focused runner lint pass.
+- Pass `npm run verify -- --mode=web`: frontend lint, development build/typecheck, 870 tests across all 67 legacy files, 18 tests across four Vitest files, and production build. Production initial assets are 410.31 kB, with no budget warnings. After small wrapper/report refinements, rerun only affected Node/type/lint and focused Vitest checks, not the unchanged legacy suite/builds.
+- Deliberately fail each partition through both ordinary and owned entry points using two tiny selected files in disposable snapshots. All four cases fail acceptance, retain the independent other result, and remove owned resources. A nonexistent test-name pattern also fails rather than becoming a green skipped run.
+- Retire the three Vitest/Tinypool advisory exceptions. Production audit remains zero; full audit has ten exact records under the two retained Karma and Drizzle advisories. Review the hoisted development-only `node_modules/@angular/build` parent at `21.2.27`; original policy dates/version boundary remain unchanged.
+- Update current README/developer guidance and retain sanitized evidence. No backend/database/E2E/editor/site suite, working-data access, production application edit, release bump, commit, or remote workflow run is included in this phase.
 
 ## Phase 2: Shared And Core Spec Conversion
 

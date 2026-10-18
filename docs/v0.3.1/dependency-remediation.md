@@ -2,7 +2,7 @@
 
 ## Status
 
-Phase 0 feasibility decision, October 18, 2026. This records private candidate installations, not completed remediation of the working checkout. The working release remains `0.3.0`, with its original lockfile and exception policy unchanged.
+Updated through Phase 1, October 18, 2026. The Angular foundation is implemented in the working checkout; the Drizzle and runner-cutover candidates below remain Phase 0 feasibility evidence. Release identity remains `0.3.0`. Three resolved advisory exceptions are retired; two remain under their original deadlines.
 
 See [structured evidence](phase-0-evidence.json), [verification notes](verification-notes.md), and the [technical design](technical-design.md).
 
@@ -11,10 +11,22 @@ See [structured evidence](phase-0-evidence.json), [verification notes](verificat
 | Installation | Peer Graph | Production Findings | Full Findings |
 | --- | --- | --- | --- |
 | Working v0.3.0 baseline | Valid | 0 | 13, associated with five advisory IDs |
+| Working Phase 1, Angular 21 with staged runners and unchanged Drizzle | Valid; clean `npm ci` | 0 | 10: 6 high Karma records, 4 moderate Drizzle records |
 | Private staged Angular 21/Drizzle RC candidate, Karma retained | Valid after explicit peer bindings | 0 | 6 high, from the retained Karma/braces owner graph |
 | Private cutover candidate, Karma/Jasmine removed | Valid; clean `npm ci` | 0 | 0 |
 
 Counts include inherited parent findings. The private cutover proof establishes a viable combined path, not a release verdict for unconverted application tests. Phases 1-8 must implement and revalidate it; Phase 11 checks the actual `0.3.1` tree.
+
+### Phase 1 Disposition
+
+The installed web Vitest 3/Tinypool 1 paths are gone; all resolved Vitest owners use `4.1.12`.
+Retire `GHSA-82fw-gwwq-j7x9`, `GHSA-5gmw-xhrv-c9v3`, and `GHSA-85c8-ppgw-ccpr` only.
+The active Karma graph still owns `GHSA-vfj7-8cjw-p6xm`. Its shared `@angular/build` parent is now
+`21.2.27` at `node_modules/@angular/build`, still development-only; the remaining five Karma
+records and four Drizzle records retain their reviewed physical paths/versions/severities.
+Keep `GHSA-67mh-4wv8-2f99` until Phase 6; API/Drizzle declarations and SQL history are unchanged.
+Neither expiry nor the `0.3.1` review boundary is extended. The [working policy](../security/development-audit-exceptions.json)
+and [Phase 1 evidence](phase-1-evidence.json) distinguish this intermediate accounted graph from a clean release graph.
 
 ## Selected Versions
 

@@ -493,7 +493,8 @@ lint, backend typechecks, resource checks, and API tests without Angular/build/b
 For narrow changes, `--api-tests=server,work-item-csv-http` selects existing API test basenames; path,
 option, empty, and nonexistent selections fail rather than passing an empty suite. Shared HTTP or
 persistence infrastructure warrants the full API suite. `--mode=web` runs frontend lint, development
-typecheck/build, Karma/Jasmine and production build/budgets without PostgreSQL or application servers.
+typecheck/build, both staged Angular test partitions, and production build/budgets without PostgreSQL
+or application servers.
 Frontend changes use that profile and affected browser flows; shared contracts include affected consumers.
 Docs-only updates need links and
 format checks. Broaden for dependency/toolchain/cross-cutting changes. Reserve full verification for
@@ -501,6 +502,28 @@ release closeout, not every phase. CI merge acceptance runs equivalent coverage 
 backend/tooling, frontend, isolated application shards, preview, editor and site jobs. State selected
 checks and omissions in phase evidence; unchanged-code results need not be rerun after documentation-only
 completion edits.
+
+The v0.3.1 foundation uses Angular runtime/compiler `21.2.25`, CLI/build `21.2.27`, CDK `21.2.14`,
+TypeScript `5.9.3` and Vitest/browser provider `4.1.12`; keep Node 24/npm 11. Production and TestBed
+both retain Zone-based scheduling. Root Angular peer bindings keep the application and icon package
+on one physical runtime; do not replace them with overrides or forced peer installation.
+
+`npm test --workspace @worktrail/web` runs all discovered files in an owned, database-free snapshot.
+During conversion, [test-migration.json](../apps/web/test-migration.json) assigns converted files to
+Vitest; every other spec belongs to Karma. Keep `tsconfig.spec.json` (Jasmine) and
+`tsconfig.vitest.json` (explicit Vitest imports, no ambient globals) synchronized with the manifest.
+The runner validates complete, disjoint discovery and editor type scopes before execution.
+New specs must appear in exactly one matching type scope. Never add an exclusion just to pass discovery.
+
+Use `--runner=vitest` or `--runner=karma` after npm's `--` to select one partition. Repeat literal
+`--include=src/...spec.ts` for a focused selection; `--runner=vitest '--filter=display helpers'`
+selects test names. Invalid/empty selections fail. Both normal and owned commands use the same serial
+runner and preserve independent partition failures. Summaries are under
+`test-results/verification/<run-id>/web-summary.json` or the owned profile's `summary.json`.
+Install Chromium via `npx playwright install chromium` first; both runners use Playwright's binary.
+Do not run Angular test targets directly: they require the assigned, validated run context.
+The staged wrapper is intentionally non-watch; live-source watch/debug support is Phase 5 cutover work,
+not a watcher over an immutable verification snapshot. Do not overlap runs in the same snapshot/cache.
 
 The `checks` profile owns audits, verification/backend/contracts lint/types, schema generation,
 resource/API/contracts tests and contracts/API builds. It complements `web` without another Angular
