@@ -129,3 +129,28 @@ test('automatic port handoff collisions retry startup, but browser failures neve
     } finally { await cleanupRun(manifest); }
   }
 });
+
+test('application shard reaches Playwright unchanged without adding retries or fail-fast', async () => {
+  const manifest = await createManifest('none');
+  const checkout = join(manifest.root, 'checkout');
+  try {
+    await mkdir(join(checkout, 'apps/web/public'), { recursive: true });
+    await mkdir(join(checkout, 'node_modules/@playwright/test'), { recursive: true });
+    const captured = join(manifest.root, 'browser-arguments.json');
+    await writeFile(join(checkout, 'node_modules/@playwright/test/cli.js'),
+      `require('node:fs').writeFileSync(${JSON.stringify(captured)},JSON.stringify(process.argv.slice(2)))`);
+    await runBrowser(manifest, checkout, 'e2e', parseArguments(['--mode=e2e', '--shard=2/3']), {
+      portEnvironment: {},
+      startServer: (_command, _args, options) => {
+        const identity = { runId: manifest.runId, token: manifest.browser.token };
+        const port = _args.includes('scripts/verification/serve-api.mjs') ? manifest.browser.apiPort : manifest.browser.port;
+        const script = `require('node:http').createServer((q,s)=>{s.setHeader('Content-Type','application/json');s.end(${JSON.stringify(JSON.stringify(identity))})}).listen(${port},'127.0.0.1')`;
+        return launchServer(process.execPath, ['-e', script], options);
+      },
+      gate: async (_name, execute) => execute()
+    });
+    const args = JSON.parse(await readFile(captured, 'utf8'));
+    assert.deepEqual(args.slice(-2), ['--shard', '2/3']);
+    assert.ok(!args.some(arg => /retry|max-failures/.test(arg)));
+  } finally { await cleanupRun(manifest); }
+});

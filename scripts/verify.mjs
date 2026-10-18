@@ -14,7 +14,7 @@ import { prepareWorkspace } from './verification/workspace.mjs';
 async function main() {
   const options = parseArguments(process.argv.slice(2));
   if (options.help) {
-    console.log('npm run verify [--mode=full|api|web|e2e|preview|editor|site] [--database=docker|service]\nDefault: full with disposable Docker PostgreSQL 16. Web/editor/site need no database. Web mode runs frontend lint/typecheck/Angular tests and production build.\nService provisioning requires WORKTRAIL_VERIFY_ADMIN_DATABASE_URL.\nAPI mode includes backend lint/typechecks. Select files: --mode=api --api-tests=server,work-item-csv-http\nBrowser options: --api-port=N --web-port=N --preview-port=N --editor-port=N\nFocused browser selection: --grep=expression. Interactive application tests: --mode=e2e --ui\nAbandoned run: npm run verify -- --cleanup /absolute/run/manifest.json');
+    console.log('npm run verify [--mode=full|checks|api|web|e2e|preview|editor|site] [--database=docker|service]\nDefault: full with disposable Docker PostgreSQL 16. Checks mode verifies backend/contracts/tooling, audits, schema and API builds, without frontend/browser checks. Web/editor/site need no database. Web mode runs frontend lint/typecheck/Angular tests and production build.\nService provisioning requires WORKTRAIL_VERIFY_ADMIN_DATABASE_URL.\nAPI mode includes backend lint/typechecks. Select files: --mode=api --api-tests=server,work-item-csv-http\nBrowser options: --api-port=N --web-port=N --preview-port=N --editor-port=N\nFocused browser selection: --grep=expression. Isolated E2E shard: --mode=e2e --shard=1/3. Interactive application tests: --mode=e2e --ui\nAbandoned run: npm run verify -- --cleanup /absolute/run/manifest.json');
     return;
   }
   if (options.cleanup) {
@@ -69,6 +69,15 @@ async function main() {
       await npmGate('lint', ['run', 'lint']);
       await npmGate('typecheck', ['run', 'typecheck']);
     }
+    if (options.mode === 'checks') {
+      await npmGate('audit:dependencies', ['run', 'audit:dependencies']);
+      await npmGate('lint:verification', ['run', 'lint:verification']);
+      await npmGate('typecheck:verification', ['run', 'typecheck:verification']);
+      for (const workspace of ['api', 'contracts']) {
+        await npmGate(`lint:${workspace}`, ['run', 'lint', '--workspace', `@worktrail/${workspace}`]);
+      }
+      await npmGate('typecheck:contracts', ['run', 'typecheck', '--workspace', '@worktrail/contracts']);
+    }
     if (options.mode === 'api') {
       await npmGate('lint:api', ['run', 'lint', '--workspace', '@worktrail/api']);
       await npmGate('lint:api-tests', ['exec', '--', 'eslint', 'apps/api/tests', 'apps/api/vitest.config.ts', '--max-warnings=0']);
@@ -80,15 +89,20 @@ async function main() {
     }
     if (database !== 'none') {
       await gate('database:provision', () => provisionDatabase(manifest, { signal: controller.signal }));
-      if (options.mode === 'full') await gate('schema:generate', () => verifySchemaGeneration(checkout, () => npm(['run', 'db:generate'])));
+      if (['full', 'checks'].includes(options.mode)) await gate('schema:generate', () => verifySchemaGeneration(checkout, () => npm(['run', 'db:generate'])));
       await gate('database:migrate', () => prepareApiDatabase(manifest, { signal: controller.signal, cwd: checkout }));
     }
-    if (['api', 'full'].includes(options.mode)) {
+    if (['api', 'full', 'checks'].includes(options.mode)) {
       await npmGate('test:resources', ['run', 'test:verification']);
       await npmGate('test:api', ['run', 'test', '--workspace', '@worktrail/api', '--', '--silent=passed-only', ...apiTestFiles]);
     }
-    if (options.mode === 'full') {
+    if (['full', 'checks'].includes(options.mode)) {
       await npmGate('test:contracts', ['run', 'test', '--workspace', '@worktrail/contracts']);
+    }
+    if (options.mode === 'checks') {
+      for (const workspace of ['contracts', 'api']) {
+        await npmGate(`build:${workspace}`, ['run', 'build', '--workspace', `@worktrail/${workspace}`]);
+      }
     }
     if (['full', 'web'].includes(options.mode)) {
       const karmaPort = await selectPort();
@@ -132,7 +146,7 @@ async function main() {
         await mkdir(manifest.resultsRoot, { recursive: true });
         await writeFile(join(manifest.resultsRoot, 'summary.json'), JSON.stringify({
           runId: manifest.runId, mode: options.mode, database: manifest.databaseMode,
-          apiTests: options.apiTests,
+          apiTests: options.apiTests, shard: options.shard,
           passed: failure || interrupted ? false : options.ui ? null : true,
           interactive: options.ui, cleaned, interrupted, gates
         }, null, 2) + '\n');

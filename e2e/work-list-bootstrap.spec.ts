@@ -20,10 +20,16 @@ for (const scope of ['project', 'workspace'] as const) {
       exact: true
     });
     const secondPage = results.getByRole('heading', { name: /^11-\d+ of \d+ work items$/ });
+    // Wait for this page owner's initial query, not cold lazy-route rendering or pre-member results.
+    const initialQuery = page.waitForRequest(request => {
+      const url = new URL(request.url());
+      return request.method() === 'GET' && url.pathname === `/api${path}` &&
+        url.searchParams.get('page') === '2' && url.searchParams.get('pageSize') === '10';
+    });
     try {
       await page.goto(`${path}?page=2&pageSize=10&sort=created_desc`);
       await expect.poll(() => blockedRequests).toBeGreaterThan(0);
-      await expect(secondPage).toBeVisible();
+      await initialQuery;
       releaseMembers();
       await expect(page.getByRole('combobox', { name: 'Acting as', exact: true })).toHaveValue(ownerId);
       await expect(secondPage).toBeVisible();

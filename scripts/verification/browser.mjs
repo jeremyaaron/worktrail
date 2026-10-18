@@ -122,6 +122,7 @@ export async function runBrowser(manifest, checkout, kind, options, { signal, ga
       const args = ['node_modules/@playwright/test/cli.js', 'test', '--config', config];
       if (options.ui) args.push('--ui');
       if (options.grep !== null) args.push('--grep', options.grep);
+      if (options.shard) args.push('--shard', options.shard);
       await gate(`browser:${kind}`, () => runCommand(process.execPath, args, {
         manifest, env, cwd: checkout, signal, inherit: true, trackDescendants: true,
         timeoutMs: options.ui ? 12 * 60 * 60 * 1000 : 30 * 60 * 1000

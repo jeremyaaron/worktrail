@@ -628,6 +628,7 @@ The verification runner owns disposable resources for the full workflow and focu
 
 ```sh
 npm run verify
+npm run verify -- --mode=checks
 npm run verify -- --mode=api
 npm run verify -- --mode=api --api-tests=server,work-item-csv-http
 npm run verify -- --mode=web
@@ -640,7 +641,7 @@ npm run check:site
 
 Run `npm ci` first. Full/web/E2E/preview/editor/site modes also need `npx playwright install chromium`
 (Linux may need `npx playwright install --with-deps chromium`). Start Docker Desktop for
-full/API/E2E/preview modes, or explicitly select service provisioning below.
+full/checks/API/E2E/preview modes, or explicitly select service provisioning below.
 Process ownership uses macOS/Linux `ps` and POSIX process groups. Web, editor and site modes never
 provision or connect to PostgreSQL. `npm run check:site` is the browser-free, read-only site check;
 site mode additionally renders the real Pages subpath with keyboard/reflow/motion assertions.
@@ -727,6 +728,7 @@ Ports are selected automatically. To request ports or select a focused browser r
 npm run test:e2e -- --api-port=44031 --web-port=44032 '--grep=workspace filters'
 npm run test:preview -- --preview-port=44033
 npm run test:e2e:ui
+npm run verify -- --mode=e2e --shard=1/3
 ```
 
 An explicitly occupied port fails without stopping its occupant. Automatic bind handoff collisions
@@ -750,9 +752,22 @@ The lifecycle command requires Docker and proves service provisioning, rejection
 concurrent browser isolation, and cleanup. Direct Playwright invocations are internal and require
 the matching owned stage; use the root commands instead. Skip flags grant no ownership authority.
 
-CI installs dependencies/browser runtime, then invokes the full runner with `--database=service`
-against its disposable PostgreSQL 16 administrator. Gate output remains visible, and failure artifacts
-are uploaded from `test-results/`. `npm run audit:dependencies` reports production and full audits
+CI runs the full coverage in independent required jobs: backend/contracts/tooling (`--mode=checks`),
+frontend (`--mode=web`), three application browser shards, compiled preview, editor and site. Each
+application shard runs one worker against its own disposable PostgreSQL 16 service/database/store;
+tests never run concurrently against a shared fixture. Matrix fail-fast is disabled and browser
+retries remain zero, so failures do not suppress later tests or other shards. The existing `Verify`
+status requires every job to succeed, including rejecting skipped or canceled jobs. Superseded runs
+on the same PR/ref are canceled; this does not truncate the current commit's failure reporting.
+
+Sanitized summaries and browser evidence are uploaded for every job, not just failures. This shortens
+the serial critical path at the cost of additional runner setup; actual GitHub timing must be measured
+after publication. Local `npm run verify` still runs the complete serial release workflow.
+`--mode=checks` includes audits, verification/backend/contracts lint and types, schema generation,
+resource/API/contracts tests and contracts/API builds, without repeating frontend checks. Shards
+accept bounded `N/M` selections only in non-interactive E2E mode; omitting `--shard` runs all journeys.
+
+`npm run audit:dependencies` reports production and full audits
 separately and validates the installed workspace peer graph. Production findings always fail.
 Reviewed development exceptions are exact advisory/
 package/path/version/severity records with an owner, exposure limits, mitigation, follow-up, and expiry;

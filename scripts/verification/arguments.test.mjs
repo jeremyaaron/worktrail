@@ -6,7 +6,7 @@ test('selects full by default and supports focused modes with explicit database 
   assert.equal(parseArguments(['--mode=api']).database, 'docker');
   assert.equal(parseArguments(['--mode=api', '--database=service']).database, 'service');
   assert.equal(parseArguments([]).mode, 'full');
-  for (const mode of ['full', 'web', 'e2e', 'editor', 'preview', 'site']) assert.equal(parseArguments([`--mode=${mode}`]).mode, mode);
+  for (const mode of ['full', 'checks', 'web', 'e2e', 'editor', 'preview', 'site']) assert.equal(parseArguments([`--mode=${mode}`]).mode, mode);
 });
 
 test('validates focused selection, UI, and explicit port requests without command passthrough', () => {
@@ -23,6 +23,17 @@ test('rejects unknown arguments and invalid cleanup without accepting arbitrary 
   }
   assert.equal(parseArguments(['--cleanup', '/tmp/manifest.json']).cleanup, '/tmp/manifest.json');
   assert.equal(parseArguments(['--help']).help, true);
+});
+
+test('shards only isolated non-interactive application runs with bounded numeric selections', () => {
+  assert.equal(parseArguments(['--mode=e2e', '--shard=2/3']).shard, '2/3');
+  assert.equal(parseArguments(['--mode=e2e']).shard, null);
+  for (const shard of ['0/3', '4/3', '1/0', '1/17', '01/3', '1', '1/3;id', '../3', '1/Infinity']) {
+    assert.throws(() => parseArguments(['--mode=e2e', `--shard=${shard}`]));
+  }
+  for (const args of [['--shard=1/3'], ['--mode=checks', '--shard=1/3'], ['--mode=e2e', '--ui', '--shard=1/3']]) {
+    assert.throws(() => parseArguments(args));
+  }
 });
 
 test('selects explicit API files only in API mode without paths, options, or empty selections', () => {

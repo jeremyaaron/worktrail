@@ -6,13 +6,17 @@ on:
     branches:
       - main
 
-jobs:
-  verify:
-    name: Verify
-    runs-on: ubuntu-latest
-    env:
-      WORKTRAIL_VERIFY_ADMIN_DATABASE_URL: postgres://worktrail:worktrail@localhost:5432/worktrail
+permissions:
+  contents: read
 
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Backend And Tooling
+    runs-on: ubuntu-latest
     services:
       postgres:
         image: postgres:16-alpine
@@ -27,31 +31,107 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-
+    env:
+      WORKTRAIL_VERIFY_ADMIN_DATABASE_URL: postgres://worktrail:worktrail@localhost:5432/worktrail
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/verify
         with:
-          node-version: 24
-          cache: npm
+          mode: checks
+          database: service
+          artifact: verification-checks
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install browser test runtime
-        run: npx playwright install --with-deps chromium
-
-      - name: Verify owned full workflow
-        run: npm run verify -- --database=service
-
-      - name: Upload browser failure evidence
-        if: failure()
-        uses: actions/upload-artifact@v4
+  web:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/verify
         with:
-          name: browser-failure-evidence
-          path: test-results
-          if-no-files-found: ignore
-          retention-days: 7
+          mode: web
+          artifact: verification-web
+
+  e2e:
+    name: App Journeys (${{ matrix.shard }}/3)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: worktrail
+          POSTGRES_USER: worktrail
+          POSTGRES_PASSWORD: worktrail
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U worktrail -d worktrail"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      WORKTRAIL_VERIFY_ADMIN_DATABASE_URL: postgres://worktrail:worktrail@localhost:5432/worktrail
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/verify
+        with:
+          mode: e2e
+          database: service
+          shard: ${{ matrix.shard }}/3
+          artifact: verification-e2e-${{ matrix.shard }}
+
+  preview:
+    name: Compiled Preview
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: worktrail
+          POSTGRES_USER: worktrail
+          POSTGRES_PASSWORD: worktrail
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U worktrail -d worktrail"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      WORKTRAIL_VERIFY_ADMIN_DATABASE_URL: postgres://worktrail:worktrail@localhost:5432/worktrail
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/verify
+        with:
+          mode: preview
+          database: service
+          artifact: verification-preview
+
+  interfaces:
+    name: ${{ matrix.mode }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [editor, site]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/verify
+        with:
+          mode: ${{ matrix.mode }}
+          artifact: verification-${{ matrix.mode }}
+
+  verify:
+    name: Verify
+    if: always()
+    needs: [checks, web, e2e, preview, interfaces]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every verification job
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          node -e 'const jobs = JSON.parse(process.env.RESULTS); for (const [name, job] of Object.entries(jobs)) console.log(name + ": " + job.result); if (!Object.values(jobs).every(job => job.result === "success")) process.exit(1);'

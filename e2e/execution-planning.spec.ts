@@ -64,7 +64,12 @@ test('execution-first planning corrects exact unestimated cycle work and refresh
   });
   expect(order).toBe(true);
   await screenshot(page, info, '.cycle-summary-card--active', 'execution');
+  const reviewLoaded = page.waitForResponse(response => response.request().method() === 'GET' &&
+    new URL(response.url()).pathname === `/api/projects/${project.id}/cycles/${cycle.id}/review`);
   await active.getByRole('link', { name: 'Review', exact: true }).click();
+  const reviewResponse = await reviewLoaded;
+  expect(reviewResponse.ok()).toBe(true);
+  expect(await reviewResponse.finished()).toBeNull();
   const risk = page.locator('section.risk-section').filter({ has: page.getByRole('heading', { name: 'Unestimated work', exact: true }) });
   await expect(risk).toContainText('1 work item');
   await risk.getByRole('link', { name: 'Open work', exact: true }).click();

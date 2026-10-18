@@ -497,8 +497,25 @@ typecheck/build, Karma/Jasmine and production build/budgets without PostgreSQL o
 Frontend changes use that profile and affected browser flows; shared contracts include affected consumers.
 Docs-only updates need links and
 format checks. Broaden for dependency/toolchain/cross-cutting changes. Reserve full verification for
-release closeout and CI merge acceptance, not every phase. State selected checks and omissions in
-phase evidence; unchanged-code results need not be rerun after documentation-only completion edits.
+release closeout, not every phase. CI merge acceptance runs equivalent coverage in independent
+backend/tooling, frontend, isolated application shards, preview, editor and site jobs. State selected
+checks and omissions in phase evidence; unchanged-code results need not be rerun after documentation-only
+completion edits.
+
+The `checks` profile owns audits, verification/backend/contracts lint/types, schema generation,
+resource/API/contracts tests and contracts/API builds. It complements `web` without another Angular
+build. Application `--shard=N/M` forwards a validated Playwright shard; all three CI shards run with
+one worker on separate runners/services/marked databases. Do not increase workers on shared seeded
+fixtures. All jobs must pass the existing required `Verify` aggregate status; matrix fail-fast is off,
+browser retries are zero, and success/failure evidence is retained independently.
+
+Synchronize tests on meaningful state or deliberately controlled request/navigation ordering, not
+fixed sleeps. A deadline bounds a stalled test; it is not the prerequisite for its next action.
+Diagnose local/CI differences from traces and reproduce the relevant ordering before changing product
+or test logic. Longer deadlines or acceptance retries are not substitutes for a causal repair.
+The initial-member paging browser regression holds member responses until the page owner sends its
+deep-linked list query, then checks actor resolution, page-two results and the unchanged URL. It does not
+require work results to render before member initialization; that ordering is not a product requirement.
 
 For site changes, `npm run check:site` is read-only static validation; `npm run verify -- --mode=site`
 adds owned browser rendering without PostgreSQL. For fresh installation evidence, use

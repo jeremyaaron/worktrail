@@ -184,7 +184,7 @@ test('supported local/CI runtime and separate Vitest peers retain the active Kar
   assert.equal(root.engines.node, '^24.0.0');
   assert.equal(root.engines.npm, '^11.0.0');
   assert.equal((await readFile(new URL('../../.nvmrc', import.meta.url), 'utf8')).trim(), '24');
-  assert.match(await readFile(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8'), /node-version: 24/);
+  assert.match(await readFile(new URL('../../.github/actions/verify/action.yml', import.meta.url), 'utf8'), /node-version: 24/);
   assert.equal(web.projects['worktrail-web'].architect.test.builder, '@angular/build:karma');
   assert.match(actualLock.packages['apps/web/node_modules/vitest'].version, /^3\.2\./);
   assert.match(actualLock.packages['node_modules/tinypool'].version, /^1\./);

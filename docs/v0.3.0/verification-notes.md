@@ -2201,3 +2201,61 @@ limits are explicit in [acceptance](acceptance-handoff.md) and [known limits](kn
 Phase 21 and the sprint are locally complete. Remote CI, fixed-tag resolution, deployed Pages and
 external share/device validation remain [publication checks](known-limits.md#user-controlled-publication-checklist).
 No commit, push, merge, tag, publication or deployment was performed.
+
+## CI Follow-up: Independent Gates And Browser Readiness
+
+PR run `39136248654` on `399c75b21ef0b0ec126e8de9ecc38ef1b5bf5c12` took 17m20s;
+the verification command took 16m22s and application journeys accounted for 11.9 minutes. All
+backend/contracts/Angular/resource/editor checks passed; application acceptance passed 57/60 and
+preview/site were not reached. This remote failure supersedes any inference of remote acceptance
+from the earlier local full pass.
+
+The review and list responses in its traces were successful with the expected data. A resource-limited
+Linux diagnostic reproduced the review assertion failure. Failure-only component inspection showed
+the matching live context, generation zero, accepted review data, `isLoading: false`, and rendered
+review content by the after-test inspection. There was no evidence supporting a speculative change
+to production context guards or API behavior. A cold lazy route and response processing were sharing
+the content assertion's five-second window; a successful HTTP response alone did not establish when
+the user-facing result was ready.
+
+The planning journey now registers its expected review response before navigation and waits for its
+body to finish before asserting the rendered risk count. The delayed-member regressions hold member
+responses until the page owner sends its initial page-two query, then require the resolved actor,
+page-two results and unchanged URL. They no longer require results before member initialization,
+which is not a product requirement. Existing content assertions, deadlines, fixture counts and
+zero retries remain unchanged. No sleeps or production-code changes were introduced.
+
+CI now starts independent backend/tooling, frontend, application, compiled-preview, editor and site
+jobs. Application journeys use three Playwright shards, each with one worker and its own PostgreSQL
+service/marked database/store. Both matrices disable fail-fast. The existing required `Verify` status
+aggregates all jobs and rejects failed, skipped or canceled results; only superseded PR/ref runs are
+canceled. All jobs retain success/failure summaries and browser evidence. Coverage is retained rather
+than removed to shorten the serial critical path. Extra independent setup consumes additional runner
+time; remote elapsed-time improvement still needs measurement after pushing the changes.
+
+`--mode=checks` adds the backend/contracts/tooling lane without repeating Angular checks. Run
+`c6525a62-3865-4070-9957-3e288a790c5c` passes audits, source/test/tooling lint and types, unchanged schema
+generation/migrations, 61 resource checks, 880 API/88 contract cases and contracts/API builds, with
+`cleaned: true`. The five additional resource cases exercise shard validation/forwarding and the real
+CI aggregate's rejection of failures, skipped and canceled jobs. Actionlint 1.7.12 validates the workflow;
+verification lint/types pass. Unchanged Angular, editor, preview and site functionality reuses the
+Phase 21 evidence above rather than rerunning those suites for CI/test-only edits.
+
+Final Linux experiment `c3aee9b4-999d-4996-9ed9-3cc045186c3f` uses the matching Playwright
+1.61.1 Noble image/bundled Chromium, native container filesystem, two allocated CPUs and Docker's
+user-raised 8 GiB memory allowance. This is a resource-limited Linux reproduction, not a claim of
+identical GitHub runner hardware. In a disposable copy, reinstating the original unconditional actor
+initialization makes both revised paging tests fail at the final page-two assertion, not during setup
+(`5e8e8d77-eadb-49e9-ae98-c892b08ee920`). Restoring the production source and synchronizing review
+readiness passes all three affected journeys repeated three times, nine successes in 79.4 seconds,
+with zero skipped, unexpected or flaky results (`ea6e4481-3343-4d84-a302-8c8b016b32b3`). The real
+Playwright invocation also exercises forwarded `--shard=1/1`; the resource fixture separately checks
+literal `2/3` forwarding. Repetition/fault injection exists only in the disposable experiment, not in
+committed acceptance configuration, and every repetition must pass rather than retrying to green.
+
+All eight outer diagnostic/check runs report cleanup; a read-only audit confirms their temporary roots,
+matching containers and processes are absent. Earlier failed diagnostics retain their failed status,
+including insufficient-container-memory server exits that were distinct from the healthy-server
+assertion failure. Ordinary PostgreSQL, application data/storage, unrelated services and pre-existing
+temporary directories were not modified. No commit, push or remote workflow rerun was performed;
+GitHub acceptance and actual new pipeline timings remain to be confirmed on the next push.
