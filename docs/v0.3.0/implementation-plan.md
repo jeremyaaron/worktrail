@@ -2,8 +2,8 @@
 
 ## Status
 
-Approved for sequential execution. Phases 0-15 are complete as of October 17, 2026;
-Phases 16-21 are not started. Release verification remains pending. Merge, tag, publication,
+Approved for sequential execution. Phases 0-16 are complete as of October 17, 2026;
+Phases 17-21 are not started. Release verification remains pending. Merge, tag, publication,
 and Pages deployment remain separate user-controlled actions.
 
 ## Purpose
@@ -102,7 +102,7 @@ integration boundaries.
 | 13 | Read-first detail and focused editing/collaboration owners | Complete |
 | 14 | Bounded return navigation and relevant section targeting | Complete |
 | 15 | Shared saved views, applied-query feedback, and work-list ergonomics | Complete |
-| 16 | Execution-first Planning and disclosed management | Not started |
+| 16 | Execution-first Planning and disclosed management | Complete |
 | 17 | Complete historical outcome and deliberate closeout destinations | Not started |
 | 18 | Portfolio, project navigation, and Quick Find ergonomics | Not started |
 | 19 | Public site, current developer guidance, and independent local setup | Not started |
@@ -1401,7 +1401,34 @@ Acceptance:
 Verification: Planning/cycle/milestone owner integration, role/archive/empty/loading/error cases,
 unestimated review -> list -> edit -> same-review refreshed evidence, mobile/desktop rendering and budgets.
 
-Status: Not started.
+Status: Complete (October 17, 2026).
+
+Completion notes:
+
+- Planning Review now leads with compact project health and active-cycle dates/goal/scope, exact risk
+  corrections and closeout readiness. Upcoming/history are secondary; a useful no-active-cycle state
+  remains visible when either exists. Reports/Draft report are compact contextual commands.
+- Actual health/review/cycle/target/milestone presenters own their styles; former projected page
+  markup and unused CSS are removed. Milestone targets are distinct from cycle execution and recent
+  review previews are disclosed after populated project risks.
+- Cycle/milestone records precede disclosed creation and per-record edits. Local drafts and row-specific
+  errors/messages survive unrelated writes; pending operations disable affected controls and serialize
+  writes/collection reads. Native numeric cycle targets no longer risk a trim exception. Archived
+  cycles expose reactivation, completed status stays immutable, and contributors/archive remain read-only.
+- Latest-only reads and existing committed-context guards protect refreshes, actor/project changes
+  and destruction. Canonical scoped queries, shared risk-window constants, unit labels and UTC date-only
+  display are adopted without changing backend thresholds, DTOs or snapshot producers. Zero-count
+  categories collapse quietly; over-target links explicitly identify cycle scope.
+- 76 affected Angular cases, frontend/test-code lint and verification TypeScript passed. Five distinct
+  browser journeys passed across documented focused runs, including unestimated review -> exact list ->
+  estimate zero -> same refreshed review, management failure/retry/draft isolation, contributor/archive
+  behavior and existing adoption/milestone/cycle workflows. Desktop/mobile screenshots were inspected.
+- Final production build and initial-graph checks are warning-free: 397.75 kB initial size, 155 inputs,
+  20 lazy page entries, with no heavy feature/CDK inputs in the initial graph. A final spacing-only
+  build/browser check reused the unchanged Angular evidence rather than rerunning unrelated suites.
+- [Planning evidence](execution-planning-evidence.md) and [verification notes](verification-notes.md)
+  record boundaries, diagnostics, commands, reuse, limits and owned cleanup. Versions remain 0.2.9;
+  ordinary data/storage, release actions and Phase 17 historical-outcome work are untouched.
 
 ## Phase 17: Historical Outcome And Deliberate Closeout
 

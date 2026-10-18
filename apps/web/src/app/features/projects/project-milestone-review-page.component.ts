@@ -1,6 +1,3 @@
-import { NavigationSectionTargetDirective } from '../../shared/navigation/section-target';
-import { recordOriginParams } from '../../shared/navigation/work-navigation';
-import { snapshotCountLabel } from '@worktrail/contracts';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type {
@@ -14,9 +11,13 @@ import type {
   WorkItemQuery,
   WorkItemStatus
 } from '@worktrail/contracts';
+import { snapshotCountLabel } from '@worktrail/contracts';
+import { NavigationSectionTargetDirective } from '../../shared/navigation/section-target';
+import { recordOriginParams } from '../../shared/navigation/work-navigation';
+import { populatedRiskSections } from './planning/risk-display';
 
-import { PageContext } from '../../core/navigation/page-context';
 import { PlanningApi } from '../../core/api/planning-api';
+import { PageContext } from '../../core/navigation/page-context';
 import {
   deliveryHealthLabel,
   deliveryHealthReasonLabel,
@@ -236,14 +237,13 @@ interface BreakdownMetric {
           <span>{{ totalRiskCount(review) }} risk signals</span>
         </div>
 
-        @if (review.riskSections.length === 0) {
+        @if (populatedRiskSections(review.riskSections).length === 0) {
           <div class="compact-empty">
-            <strong>No risk sections</strong>
-            <span>Current milestone work has no surfaced risk categories.</span>
+            <strong>No milestone risks found</strong>
           </div>
         } @else {
           <div class="risk-section-list">
-            @for (section of review.riskSections; track section.type) {
+            @for (section of populatedRiskSections(review.riskSections); track section.type) {
               <section class="risk-section" [attr.aria-labelledby]="riskHeadingId(section)">
                 <div class="section-heading">
                   <div>
@@ -785,6 +785,7 @@ interface BreakdownMetric {
   `
 })
 export class ProjectMilestoneReviewPageComponent implements OnInit {
+  readonly populatedRiskSections = populatedRiskSections;
   private readonly context = new PageContext();
   readonly navigationFragment = this.context.fragment;
   readonly navigationIdentity = computed(() => this.context.contextKey());
@@ -811,8 +812,6 @@ export class ProjectMilestoneReviewPageComponent implements OnInit {
       this.loadReview();
     });
   }
-
-
 
   loadReview(): void {
     const projectId = this.projectId();

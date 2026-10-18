@@ -1,6 +1,3 @@
-import { NavigationSectionTargetDirective } from '../../shared/navigation/section-target';
-import { recordOriginParams } from '../../shared/navigation/work-navigation';
-import { snapshotCountLabel } from '@worktrail/contracts';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
@@ -15,10 +12,13 @@ import type {
   WorkItemQuery,
   WorkItemStatus
 } from '@worktrail/contracts';
+import { snapshotCountLabel } from '@worktrail/contracts';
+import { NavigationSectionTargetDirective } from '../../shared/navigation/section-target';
+import { recordOriginParams } from '../../shared/navigation/work-navigation';
 
-import { PageContext } from '../../core/navigation/page-context';
 import { CyclesApi } from '../../core/api/cycles-api';
 import { CurrentUserService } from '../../core/current-user.service';
+import { PageContext } from '../../core/navigation/page-context';
 import {
   cycleDateRangeLabel,
   cycleHealthLabel,
@@ -35,6 +35,7 @@ import { LoadingIndicatorComponent } from '../../shared/ui/loading-indicator.com
 import { WorkItemParentPillComponent } from '../../shared/work-items/work-item-parent-pill.component';
 import { routerLinkQueryParamsFromWorkItemQuery } from '../work-items/query/work-item-query-serialization';
 import { CycleCloseoutResultComponent } from './cycle-closeout/cycle-closeout-result.component';
+import { populatedRiskSections } from './planning/risk-display';
 
 const visibleRiskItemLimit = 5;
 const workItemStatuses: WorkItemStatus[] = [
@@ -310,14 +311,13 @@ interface BreakdownMetric {
             <span>{{ totalRiskCount(review) }} risk signals</span>
           </div>
 
-          @if (review.riskSections.length === 0) {
+          @if (populatedRiskSections(review.riskSections).length === 0) {
             <div class="compact-empty">
-              <strong>No risk sections</strong>
-              <span>Current cycle work has no surfaced risk categories.</span>
+              <strong>No cycle risks found</strong>
             </div>
           } @else {
             <div class="risk-section-list">
-              @for (section of review.riskSections; track section.type) {
+              @for (section of populatedRiskSections(review.riskSections); track section.type) {
                 <section class="risk-section" [attr.aria-labelledby]="riskHeadingId(section)">
                   <div class="section-heading">
                     <div>
@@ -329,7 +329,7 @@ interface BreakdownMetric {
                       [routerLink]="['/projects', projectId(), 'work-items']"
                       [queryParams]="scopedWorkQueryParams(section.query)"
                     >
-                      Open work
+                      {{ section.countUnit === 'scope_conditions' ? 'Open cycle scope' : 'Open work' }}
                     </a>
                   </div>
 
@@ -917,6 +917,7 @@ interface BreakdownMetric {
   `
 })
 export class ProjectCycleReviewPageComponent implements OnInit {
+  readonly populatedRiskSections = populatedRiskSections;
   private readonly context = new PageContext();
   readonly navigationFragment = this.context.fragment;
   readonly navigationIdentity = computed(() => this.context.contextKey());
@@ -951,8 +952,6 @@ export class ProjectCycleReviewPageComponent implements OnInit {
       this.loadReview();
     });
   }
-
-
 
   loadReview(): void {
     const projectId = this.projectId();

@@ -1512,3 +1512,108 @@ Phase 15 is complete; Phase 16 and release-wide verification remain pending.
 Final read-only inspection confirmed all nine Phase 15 run summaries marked cleaned, their owned roots
 absent and no matching process/container remaining. Structured Markdown parsing validated 94 local
 links/anchors across the six changed documents; final test-code ESLint and `git diff --check` passed.
+
+## Phase 16: Execution-First Planning
+
+Completed October 17, 2026. [Planning evidence](execution-planning-evidence.md) records production
+adoption and limits. This is not a release or deployment claim.
+
+### Impact And Commands
+
+Changed production code is confined to Planning, cycle/milestone risk presentation and the shared
+date-only cycle label helper. Backend/services/contracts/schema and snapshot producers are unchanged.
+Affected frontend integration/component/context/display tests and related browser journeys were
+selected; unrelated API, authored-editor and public-site regression suites were omitted, not passed.
+Browser migration/seeding/API compilation are prerequisites, not new backend regression evidence.
+Release-wide verification remains pending. Commands used Node 24.16.0/npm 11.13.0 explicitly:
+
+```sh
+npm run lint --workspace @worktrail/web
+npm run ng --workspace @worktrail/web -- test --watch=false --karma-config <owned-checkout>/scripts/verification/karma.config.cjs --include=<affected-specs>
+npm run build --workspace @worktrail/web -- --stats-json
+npm run verify -- --mode=e2e --grep='<selected-title-pattern>'
+npx eslint e2e/execution-planning.spec.ts e2e/worktrail-smoke.spec.ts --max-warnings=0
+npx tsc -p tsconfig.verification.json --noEmit
+git diff --check
+```
+
+Frontend acceptance used the established `createManifest('none')`/`prepareWorkspace`/`runCommand`/
+random-port Karma/`cleanupRun` pattern. Browser acceptance used the owned Docker mode. No working
+database or attachment root was used. Initial development compilation wrote only ignored web build
+artifacts and did not start an ordinary application server.
+
+### Focused Acceptance
+
+`905d3ec8-a844-4be1-aa1b-2db6afeff26c` passed 76 affected Angular cases, frontend lint, production
+build and static initial-graph checks. The selection covers the real Planning page, cycle/milestone
+reviews, Planning components/record state, PageContext and shared cycle/health display helpers.
+It proves execution-first order, no-active-cycle recovery with upcoming/history, nonzero-count rather
+than preview-length disclosure, exact continuation beyond five previews, canonical project risk links,
+scope units, latest-only refreshes, contributor/archive rules, record error/draft isolation, pending
+serialization, native numeric target points and failed create/summary recovery. The existing context
+case now resolves collection loading before submitting a create, matching the new overlap guard,
+while still verifying old-actor summary cancellation and ignored late write failure.
+
+The final CSS change adds 12px between record fields and actions. Only build/lint/graph checks were
+repeated in `17cf64dc-ba46-46c8-b6f3-e7aee8dcd8d8`; functional Angular evidence is reused. Initial
+production size is 397.75 kB (109.93 kB estimated transfer), 155 initial inputs and 20 lazy page entries.
+No heavy Planning/detail/editor/Markdown/CDK input entered the initial static graph; no budget warning.
+Preceding 75-case passes (`b0eeb7f9-c217-45c1-b5ee-09a641477a8e` and
+`dabc4668-03ae-4647-a34b-71ca040372a6`) overlap the final selection and are not added to its count.
+Subsequent context-spec cleanup removes formatting-only churn; no tested behavior changed.
+
+Five distinct browser journeys completed successfully across these focused runs; diagnostic multi-test
+runs are not represented as clean overall passes:
+
+- `772d84dc-ef14-4ca7-a23a-e82b239b8125`: the new unestimated correction journey and existing planning/
+  adoption and milestone-review journeys passed. Two selector failures are detailed below.
+- `e439544c-ac72-4f33-bea6-b016165e2a97`: clean three-journey pass for both new Planning journeys and
+  the corrected existing cycle-review/assignment journey.
+- `15317dd0-985a-4ed4-be9c-585758d40834`: clean single-journey management pass after final spacing and
+  canonical-project-link/segmented-group cleanup; other unchanged browser evidence was reused.
+
+The correction fixture creates an active cycle with two assigned open work items: one null estimate
+and one zero estimate. Review -> exact cycle/open/unestimated list excludes the zero record. Editing
+the null estimate to zero, returning through browser history and reloading the same cycle review
+clears its unestimated group; Planning readiness also refreshes. No broad cycle list substitutes for
+the exact unestimated group. Scope-condition links explicitly say Open cycle scope.
+
+The management fixture starts with an empty project and a rejected summary followed by successful
+Retry. It creates two nonoverlapping planned cycles through the real form, retains each record's
+independent goal draft during another operation, verifies pending disabling and a delayed rejected
+write, retries successfully, and archives/reactivates. It also creates/edits/archives/reactivates a
+milestone, switches to contributor and reloads an archived project without mutation controls while
+read links remain. Unit coverage verifies completed status and archived-cycle reactivation-only UI.
+
+Screenshots inspect execution and both management owners at 1280px and 320px, including final action
+spacing. Page overflow checks pass and no overlapping control/text was observed. Native disclosure,
+form and segmented-group semantics are retained; this is not a full assistive-device audit. Browser
+runs use one worker, zero retries and unchanged deadlines. Test-code lint and verification TypeScript
+also passed. No dependencies, budgets, timeouts, retries or workers were relaxed.
+
+### Diagnostics
+
+- Initial development compilation identified indexed access needed on a generic FormGroup; it now
+  reads `controls['name']`. Unused page presentation imports were removed during extraction.
+- `c99ef336-8927-4c80-88b3-5133c8b0acd8`: 65 selected cases with one obsolete assertion requiring a
+  zero-count Unestimated heading. The test now requires the quiet no-risks state and no risk sections.
+- `772d84dc...`: the new management test used an exact wrapped select label rather than its accessible
+  combobox name. The role/name selector preserves the planned-status assertion and subsequent checks.
+  The old cycle smoke test still targeted the pre-Phase-13 Metadata panel; it now asserts the assigned
+  cycle in the actual read-first Work item summary. No application behavior was weakened to pass.
+- Screenshot inspection found fields/actions visually adjacent after introducing disclosures. A
+  spacing-only fix was followed by the final production build and management screenshots above.
+
+### Closure
+
+Acceptance/browser runs used private checkouts/builds/profiles, random-port servers and (for browsers)
+labeled disposable PostgreSQL containers plus owned attachment storage. Resources were removed on
+success and failure; ignored summaries/screenshots remain under `test-results/verification`. Ordinary
+PostgreSQL on 5432, working data/storage and unrelated processes were not changed or stopped.
+Documentation-only closure reuses the focused checks above. Versions remain 0.2.9. No commit, push,
+merge, tag, publication or deployment was performed. Phase 16 is complete; Phase 17 and release-wide
+verification remain pending.
+Final read-only inspection confirmed all eight Phase 16 run summaries marked cleaned, their owned
+roots absent and no matching process/container remaining. Structured Markdown parsing validated
+99 local links/anchors across six changed documents. Final frontend/test-code lint, verification
+TypeScript and `git diff --check` passed; documentation-only closure did not rerun the test suites.

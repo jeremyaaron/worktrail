@@ -560,15 +560,19 @@ Delivery-health support includes:
 
 - project-level health states: on track, at risk, blocked, complete, and inactive;
 - compact delivery-health panels on project overview;
-- detailed planning delivery-health summaries with active, on-track, at-risk, blocked, and open-work counts;
+- compact Planning delivery-health summaries with explicitly labeled milestone and open-work counts;
 - live-view framing on Planning, Milestone Review, and Cycle Review pages;
-- cycle summaries for active, upcoming, and recently completed project execution windows;
+- execution-first cycle summaries with active dates, goal, scope, estimate gaps and closeout readiness,
+  followed by upcoming and recently completed windows;
 - cycle review pages with target progress, scope breakdown, risk, and recent-movement detail;
-- a Planning-to-Reports bridge for publishing a shareable snapshot from current state;
+- contextual Reports/Draft report commands without a large report promotion ahead of live evidence;
 - milestone health labels and explainable reason chips;
 - milestone review pages with scoped health, risk, and recent-movement detail;
 - reason links into filtered project work item lists when the current work-item query model supports the reason;
-- planning review sections for needs attention, upcoming work, and recently changed work;
+- populated Planning risk groups with exact counts/continuation, separate milestone targets and
+  disclosed recent-review groups; zero-risk categories collapse to a quiet scoped state;
+- existing cycle/milestone records before disclosed creation and per-record editing, with independent
+  drafts, row-specific mutation feedback and existing contributor/archived-project read-only rules;
 - deterministic seed examples for blocked, at-risk, healthy, complete, inactive, and unmilestoned risk scenarios.
 
 Delivery health is derived at read time from milestones, cycles, work item status, due dates, assignees, stale in-progress work, estimates, and dependency relationships. It is not stored in the database and does not trigger automatic workflow transitions.

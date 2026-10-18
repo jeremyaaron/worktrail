@@ -1,10 +1,10 @@
 # Worktrail Developer Ownership And Invariants
 
-This is the current implementation guide, not a release archive. As of v0.3.0 Phase 15, persistence
+This is the current implementation guide, not a release archive. As of v0.3.0 Phase 16, persistence
 ownership, batched queries, lifecycle coordination, authoritative work/relationship commands,
 bounded HTTP parsing, versioned risk/query policy, aggregate narrowing, committed frontend context,
 shared draft departure protection, read-first detail composition, bounded inspection navigation,
-and shared saved-view/list state are implemented. Remaining presentation
+shared saved-view/list state and execution-first Planning are implemented. Remaining presentation
 consolidation follows the [implementation plan](v0.3.0/implementation-plan.md).
 
 ## Committed Frontend Context
@@ -66,6 +66,36 @@ Project bulk selection remains explicit visible IDs. Page/query/context changes 
 submitted bulk writes disable desktop/mobile selection. Table headers/cells and selected rows retain
 semantics, and mobile cards expose select-all without depending on hidden desktop controls.
 See [shared work-list evidence](v0.3.0/shared-work-list-evidence.md).
+
+## Planning Ownership
+
+`ProjectPlanningPageComponent` coordinates the committed project/actor, URL-backed Review/Cycles/
+Milestones subview, API reads and independent cycle/milestone creation forms. Same-context project,
+summary and collection reads cancel their predecessor; `PageContext` still guards context changes,
+destruction and submitted mutation callbacks. Collection reads and writes do not overlap within
+their owner, and duplicate submits are rejected. Cycle and milestone owners remain independent.
+
+`PlanningReviewComponent` now owns actual review presentation rather than projecting page markup.
+Health, current cycle execution and milestone targets have focused presentation/style components.
+Active execution/readiness precedes populated project risks and separate milestone targets; recent
+review groups are disclosed. No active cycle remains explicit even when upcoming/history exists.
+Reports are compact contextual commands, not a promotion section. No backend health threshold changed.
+
+`CycleManagerComponent` and `MilestoneManagerComponent` render existing records before disclosed
+creation/editing. Record input DOM is keyed by ID, so another record's successful write does not reset
+its draft. Page-local `PlanningMutationState` instances own pending IDs and per-record errors/messages;
+creation has separate feedback. Pending writes disable affected controls. Committed actor/project
+changes clear all local forms/feedback; these management drafts are neither persistent nor newly
+registered with authored-content departure protection. Archived cycles expose Reactivate, not a
+nonfunctional edit form. Completed cycle status remains immutable; contributor/project archive rules
+remain authoritative in the API and are reflected in the UI.
+
+`populatedRiskSections` uses exact server counts rather than preview lengths across Planning, cycle
+and milestone reviews. Count labels use the shared unit policy; scope conditions are not work-item
+totals. Cycle correction links use the server's exact query, including open/unestimated predicates;
+over-target conditions link to clearly labeled cycle scope. Project risk links use canonical codecs,
+shared risk-window constants and UTC scope copy. Date-only cycle/Planning labels format in UTC.
+See [execution-first Planning evidence](v0.3.0/execution-planning-evidence.md).
 
 ## Draft Departure Ownership
 

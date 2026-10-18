@@ -479,8 +479,9 @@ describe('ProjectCycleReviewPageComponent', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.textContent).toContain('Unestimated work');
-    expect(compiled.textContent).toContain('No matching work');
+    expect(compiled.textContent).not.toContain('Unestimated work');
+    expect(compiled.textContent).toContain('No cycle risks found');
+    expect(compiled.querySelectorAll('.risk-section')).toHaveSize(0);
     expect(compiled.textContent).toContain('No recent movement');
   });
 

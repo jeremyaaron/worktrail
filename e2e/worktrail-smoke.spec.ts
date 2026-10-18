@@ -449,7 +449,7 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
   await page.getByLabel('Project sections').getByRole('link', { name: 'Planning' }).click();
   await expect(projectShellHeading(page, 'Worktrail App')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Planning dashboard' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Milestone progress' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Milestone targets' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Blocked work', exact: true })).toBeVisible();
   await expect(
     page.getByRole('link', { name: /WT-4 .*Choose status transition copy/ }).first()
@@ -464,9 +464,10 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
   ).toBeVisible();
 
   await page.getByRole('button', { name: 'Milestones' }).click();
+  await page.locator('app-milestone-manager .create-disclosure > summary').click();
   await page.locator('#milestone-name').fill(milestone);
   await page.locator('#milestone-description').fill('Created by the v0.0.3 Playwright smoke test.');
-  await page.getByRole('button', { name: 'Create milestone' }).click();
+  await page.locator('form.milestone-form').getByRole('button', { name: 'Create milestone' }).click();
   await expect(page.getByText('Milestone created.')).toBeVisible();
   await expect(page.getByRole('heading', { name: milestone })).toBeVisible();
 
@@ -1051,7 +1052,7 @@ test('surfaces v0.0.9 delivery health on project overview and planning', async (
   await expect(page.getByText('Delivery health', { exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Blocked', exact: true })).toBeVisible();
   await expect(page.getByLabel('Delivery health counts')).toContainText('Open work');
-  await expect(page.getByRole('heading', { name: 'Milestone progress' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Milestone targets' })).toBeVisible();
   await expect(
     page.locator('.progress-list').getByRole('link', { name: 'v0.0.3 Planning', exact: true })
   ).toBeVisible();
@@ -1149,6 +1150,7 @@ test('reviews v0.2.1 cycle planning, scoped work, and cycle assignment', async (
   await expect(page.getByRole('heading', { name: 'Planning dashboard' })).toBeVisible();
   await page.getByRole('button', { name: 'Cycles' }).click();
   await expect(page.getByRole('heading', { name: 'Cycles' })).toBeVisible();
+  await page.locator('app-cycle-manager .create-disclosure > summary').click();
   const cycleForm = page.locator('form.cycle-form');
   await expect(cycleForm.getByLabel('Name')).toBeVisible();
   await expect(cycleForm.getByRole('button', { name: 'Create cycle' })).toBeVisible();
@@ -1186,7 +1188,7 @@ test('reviews v0.2.1 cycle planning, scoped work, and cycle assignment', async (
   );
   await page.getByRole('link', { name: 'Open work item' }).click();
   await expect(page.getByRole('heading', { name: workItemTitle })).toBeVisible();
-  await expect(page.getByLabel('Metadata')).toContainText('v0.2.1 Cycle Planning');
+  await expect(page.getByRole('region', { name: 'Work item summary', exact: true })).toContainText('v0.2.1 Cycle Planning');
 });
 
 test('reviews v0.2.3 workspace portfolio and drills into project work', async ({ page }) => {

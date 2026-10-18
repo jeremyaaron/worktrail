@@ -284,7 +284,7 @@ describe('ProjectMilestoneReviewPageComponent', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('0%');
     expect(compiled.textContent).toContain('No milestone risks found');
-    expect(compiled.textContent).toContain('No risk sections');
+    expect(compiled.textContent).toContain('No milestone risks found');
     expect(compiled.textContent).toContain('No recent movement');
   });
 

@@ -471,6 +471,9 @@ per-record editing use focused disclosure components with their own pending/erro
 Collapse zero-risk categories into one quiet no-risks state or a category disclosure. Do not render
 nine large empty panels. Keep risk continuation links exact and scoped.
 
+Phase 16 production ownership and focused checks are recorded in
+[execution-first Planning evidence](execution-planning-evidence.md).
+
 A completed cycle renders Outcome at close first. Display frozen project/cycle identity, close time,
 destination, counts, and the full stored completed/canceled/unfinished groups. Use local pagination
 of 10 rows per group, with group totals and Show all; pagination is only a presentation of the stored

@@ -346,13 +346,14 @@ describe('Page context with real reused Worktrail routes', () => {
     http.expectOne('/api/projects/a').flush({ id: 'a', status: 'active' });
     const options = http.match((request) => /milestones|cycles|planning/.test(request.url));
     expect(options.length).toBe(3);
+    for (const option of options.filter(option => /milestones|cycles/.test(option.request.url))) option.flush([]);
     page.milestoneForm.controls.name.setValue('Old actor milestone');
     page.createMilestone();
     const mutation = http.expectOne((request) => request.method === 'POST');
     TestBed.inject(CurrentUserService).selectMember(contributor.id);
     harness.detectChanges();
     expect(mutation.cancelled).toBeFalse();
-    expect(options.every((request) => request.cancelled)).toBeTrue();
+    expect(options.filter(option => /planning-summary/.test(option.request.url)).every(request => request.cancelled)).toBeTrue();
     expect(page.project()).toBeNull();
     expect(page.milestones()).toEqual([]);
     expect(page.cycles()).toEqual([]);
