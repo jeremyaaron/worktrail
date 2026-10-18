@@ -33,8 +33,7 @@ packages/
   contracts/ Shared DTO and API contract types
 docs/
   v0.0.X/  Archived v0.0.1-v0.0.9 sprint docs
-  v0.1.0/  Consolidation PRD, technical design, implementation plan, audits, and extraction notes
-  v0.1.x/  Incremental v0.1 product sprint docs
+  v0.1.X/  Archived v0.1.0-v0.1.9 sprint docs
   v0.2.0/  Consolidated Operating Baseline PRD, technical design, implementation plan, audits, release notes, and pattern notes
   v0.2.1/  Cycle Planning PRD, technical design, implementation plan, release notes, and pattern notes
   v0.2.2/  Saved Views Ergonomics PRD, technical design, implementation plan, release notes, and pattern notes
@@ -45,6 +44,9 @@ docs/
   v0.2.7/  Files in Context PRD, technical design, implementation plan, release notes, and pattern notes
   v0.2.8/  Quick Find PRD, technical design, implementation plan, release notes, and pattern notes
   v0.2.9/  Readable Work PRD, design, plan, release/pattern notes, CSV example, and verification evidence
+  v0.3.0/  Current consolidation plan, audits, and implementation evidence
+  development.md Current implementation owners and invariants
+  operations.md Current local operation, upgrade, and backup guidance
   api/     OpenAPI reference
 site/       Static GitHub Pages product site
 e2e/        Playwright smoke tests
@@ -54,61 +56,48 @@ e2e/        Playwright smoke tests
 
 - Node.js 24 LTS (`nvm use` selects the repository's `.nvmrc`)
 - npm 11
-- Docker, for the local Postgres container
-- Playwright browser dependencies for end-to-end smoke tests
+- Git and Docker with Compose, for the local PostgreSQL 16 container (or a separate existing PostgreSQL database)
+- Playwright Chromium is required only for browser verification, not for using the app
 
 ## Local Setup
 
-Select Node 24, then install dependencies from the lockfile:
+This is a fresh demo path. Choose this or the independent compiled-preview path below; do not run
+both against existing working data. The Node commands use nvm; another manager selecting Node 24
+and npm 11 is equivalent. From a fresh clone:
 
 ```sh
+git clone https://github.com/jeremyaaron/worktrail.git
+cd worktrail
+nvm install
+nvm use
 npm ci
-```
-
-Install the Playwright Chromium browser used by the e2e smoke test:
-
-```sh
-npx playwright install chromium
-```
-
-Start local Postgres:
-
-```sh
+export NODE_ENV=development
+export API_PORT=3000
+export CORS_ORIGIN=http://localhost:4200
+export WORKTRAIL_SERVE_STATIC=false
+export DATABASE_URL=postgres://worktrail:worktrail@localhost:5432/worktrail
+export WORKTRAIL_ATTACHMENT_STORAGE_DRIVER=local
+export WORKTRAIL_ATTACHMENT_STORAGE_PATH="$PWD/.worktrail/attachments"
 npm run db:start
-```
-
-Apply migrations and seed demo data, including the small attachment fixtures stored under
-`.worktrail/attachments`:
-
-```sh
 npm run db:migrate
 npm run db:seed
-```
-
-For a complete clean local rebuild of both PostgreSQL data and attachment objects, run:
-
-```sh
-npm run storage:reset
-npm run db:reset
-npm run db:migrate
-npm run db:seed
-```
-
-The reset commands are intentionally separate: `db:reset` never removes attachment files, while
-`storage:reset` only removes an initialized Worktrail attachment store with a valid marker.
-
-Start the API and web app together:
-
-```sh
 npm run dev
 ```
 
-Or run them separately:
+Open <http://localhost:4200>. Keep the same absolute attachment root for seed and API runtime.
+Seeding initializes the marked store and writes the sample files; changing the root afterward does
+not move those bytes. No `.env` file is required for these explicit commands. See `.env.example`
+for optional persisted configuration, and do not commit connection credentials.
 
-```sh
-npm run dev:api
-npm run dev:web
-```
+If PostgreSQL already occupies 5432, omit `npm run db:start`. Create a separate `worktrail` demo
+database owned by your local role and export its `DATABASE_URL` before migration/seed. The role needs
+schema creation/migration privileges, not CREATEDB for ordinary app operation. Never seed an existing
+working database to test installation. Port conflicts should be resolved deliberately, not by
+stopping an unrelated service. The default Angular proxy expects the API at port 3000.
+
+The combined process is long-running. Stop it with Ctrl+C; alternatively run `npm run dev:api` and
+`npm run dev:web` in separate terminals with the same configuration. Browser checks additionally
+require `npx playwright install chromium` (Linux CI: `npx playwright install --with-deps chromium`).
 
 Local services:
 
@@ -120,30 +109,46 @@ Local services:
 
 ## Production Preview
 
-Production preview builds contracts, the API, and the Angular app, then runs compiled API code while Express serves the built Angular assets and `/api/*` routes from one origin.
-
-Production mode requires an explicit absolute attachment storage path. Use the same path for seeding
-and runtime so attachment metadata and bytes stay aligned:
+This is an independent fresh demo setup, not commands to append after the development server.
+Requires Git, Node 24/npm 11 and Docker with Compose, or an independently provisioned PostgreSQL 16
+database. Stop a conflicting development API before starting preview on port 3000. From a fresh clone:
 
 ```sh
+git clone https://github.com/jeremyaaron/worktrail.git
+cd worktrail
+nvm install
+nvm use
+npm ci
+export NODE_ENV=production
+export API_PORT=3000
+export CORS_ORIGIN=false
+export WORKTRAIL_SERVE_STATIC=true
 export DATABASE_URL=postgres://worktrail:worktrail@localhost:5432/worktrail
-export WORKTRAIL_ATTACHMENT_STORAGE_PATH=/absolute/path/to/worktrail-preview-attachments
+export WORKTRAIL_ATTACHMENT_STORAGE_DRIVER=local
+export WORKTRAIL_ATTACHMENT_STORAGE_PATH="$PWD/.worktrail/preview-attachments"
+export WORKTRAIL_STATIC_ASSETS_PATH="$PWD/apps/web/dist/worktrail-web/browser"
+npm run db:start
 npm run db:migrate
 npm run db:seed
 npm run preview
 ```
 
-Equivalent explicit sequence:
+Open <http://localhost:3000>. This builds contracts, API and Angular, then runs compiled API code with
+Express serving the built web assets and `/api/*` from one origin. The attachment root is established
+before seeding and reused at runtime. For an existing PostgreSQL server, use the separate-database
+guidance above and omit `db:start`. No development storage fallback is intended.
+
+The final command is equivalent to:
 
 ```sh
 npm run build
 npm run start:prod
 ```
 
-Production preview requires explicit `DATABASE_URL` and `WORKTRAIL_ATTACHMENT_STORAGE_PATH` values.
-It is useful for local operational inspection, but it is not a secure internet-facing deployment and
-does not add production authentication, malware scanning, managed object storage, or multi-instance
-file coordination.
+When switching an existing installation between development and preview, retain its original
+database and absolute attachment root; do not reset or reseed it. Preview is for local inspection,
+not secure internet-facing deployment. It does not add authentication, malware scanning, managed
+object storage or multi-instance coordination.
 
 Preview checks:
 
@@ -154,7 +159,9 @@ curl -I http://localhost:3000/my-work
 curl -I http://localhost:3000/work-items/new
 ```
 
-The detailed operator guide is in [docs/v0.0.X/v0.0.6/operations-runbook.md](docs/v0.0.X/v0.0.6/operations-runbook.md).
+Current operating, upgrade and reset guidance is in [docs/operations.md](docs/operations.md).
+The [older operations runbook](docs/v0.0.X/v0.0.6/operations-runbook.md) is historical context, not the
+current setup authority. The [developer guide](docs/development.md) names actual implementation owners.
 
 ### Attachment Persistence And Backup
 
@@ -314,7 +321,7 @@ Key behavior:
 
 - Filtered workspace and project work item URLs are shareable and reloadable.
 - Active filter chips describe the applied query, not pending form edits.
-- Dropdown filter changes apply immediately; search updates after a short debounce.
+- Search and filter controls are drafts until Apply; active chips and results describe the accepted query.
 - "Copy link" copies the current applied filtered view with canonical query parameters.
 - Personal saved views store normalized query state and remain private to the selected actor within their scope.
 - Workspace-shared saved views store normalized cross-project discovery queries and are visible to all active workspace members.
@@ -627,27 +634,43 @@ npm run test:e2e
 npm run test:preview
 npm run test:editor
 npm run test:site
+npm run check:site
 ```
 
-Run `npm ci` first. Full/E2E/preview/editor modes also need `npx playwright install chromium`
+Run `npm ci` first. Full/web/E2E/preview/editor/site modes also need `npx playwright install chromium`
 (Linux may need `npx playwright install --with-deps chromium`). Start Docker Desktop for
 full/API/E2E/preview modes, or explicitly select service provisioning below.
 Process ownership uses macOS/Linux `ps` and POSIX process groups. Web, editor and site modes never
-provision or connect to PostgreSQL; site mode does not need a browser runtime.
+provision or connect to PostgreSQL. `npm run check:site` is the browser-free, read-only site check;
+site mode additionally renders the real Pages subpath with keyboard/reflow/motion assertions.
 
 `npm run verify` defaults to full verification: strict production and bounded development dependency
 audits, lint, scoped test/config typechecks, workspace typechecks, scratch schema generation,
 resource/API/contracts/Angular tests, production build,
-standalone editor, application E2E, compiled preview, and current site assets/local fragments. Karma/Jasmine
+standalone editor, application E2E, compiled preview, and static/rendered site checks including local
+assets/fragments, repository documentation paths and release metadata. Karma/Jasmine
 still execute the Angular suite; their verification launcher uses Playwright's installed Chromium.
-The runner does not install dependencies or browser binaries itself.
+Standard runner modes do not install dependencies or browser binaries themselves.
+
+Fresh installation checks are separate, deliberately slower commands:
+
+```sh
+npm run verify:setup -- development
+npm run verify:setup -- preview
+```
+
+Each installs the lockfile into a new owned source snapshot, provisions its own PostgreSQL container,
+sets one absolute attachment root before seed/runtime, reloads a deep link and compares both seeded
+downloads byte-for-byte. Runtime startup uses the same source/compiled application with owned
+identity wrappers and random ports instead of ordinary local defaults. These are not remote-clone
+or deployment checks. See [local verification scope](docs/operations.md#isolated-verification).
 
 Use checks proportional to the change, not full verification after every implementation phase.
 API mode includes backend source/test lint, backend typechecking, resource-safety tests, and API tests;
 it does not run Angular, editor, application E2E, production build/preview, or site checks.
 `--api-tests` selects comma-separated filenames from `apps/api/tests` without `.test.ts`; nonexistent
 files and path/option injection are rejected. Omit it for the whole API suite. Database-backed tests
-still require the owned runner, even when selecting a single file. Browser modes support `--grep`.
+still require the owned runner, even when selecting a single file. E2E/editor/preview modes support `--grep`.
 API test console output is retained for failing tests only; test results and failure diagnostics remain visible.
 Backend-only edits normally need affected API checks; shared HTTP/persistence infrastructure warrants
 the full API suite. Frontend/shared-contract edits include affected consumers and browser flows;
@@ -738,7 +761,11 @@ See the [dependency disposition](docs/v0.3.0/dependency-remediation.md) and
 
 ## Public Site
 
-The static GitHub Pages site lives in `site/`. The Pages workflow publishes that directory when changes land on `main`.
+The static product site lives in [site/index.html](site/index.html), with the configured Pages address
+<https://jeremyaaron.github.io/worktrail/>. The main-branch Pages workflow validates local assets,
+fragments, repository documentation paths and release metadata before uploading `site/`.
+`npm run check:site` performs that read-only check; `npm run test:site` adds owned rendered acceptance
+at the actual repository subpath without a database. See [site/setup evidence](docs/v0.3.0/site-setup-evidence.md).
 
 ## Demo Walkthrough
 
@@ -810,7 +837,7 @@ Suggested walkthrough:
 1. As an owner or maintainer, create a new status report, edit the narrative, publish it, and confirm the detail page shows a published snapshot notice.
 1. Switch to a contributor and confirm published reports remain readable and exportable while the create action is unavailable.
 1. Create a milestone, then create a work item assigned to that milestone.
-1. Use the project work item list search and filters. Dropdown filters apply immediately, while search applies after a short debounce.
+1. Edit the project work list search and filters, then select Apply; confirm active chips and results change together.
 1. Filter by dependency state to find dependency-blocked work or work blocking downstream items.
 1. Copy the filtered project work item list link and reload it to confirm the same applied view.
 1. Open a seeded pinned workspace view such as `Dependency risks` directly from the pinned shortcuts area.

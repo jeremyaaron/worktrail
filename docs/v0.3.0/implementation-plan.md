@@ -105,7 +105,7 @@ integration boundaries.
 | 16 | Execution-first Planning and disclosed management | Complete |
 | 17 | Complete historical outcome and deliberate closeout destinations | Complete |
 | 18 | Portfolio, project navigation, and Quick Find ergonomics | Complete |
-| 19 | Public site, current developer guidance, and independent local setup | Not started |
+| 19 | Public site, current developer guidance, and independent local setup | Complete |
 | 20 | Cross-surface acceptance, accessibility, and UAT handoff | Not started |
 | 21 | Release identity, documentation closeout, and final verification | Not started |
 
@@ -1582,7 +1582,32 @@ Acceptance:
 Verification: site static/rendered checks, independent development/compiled setup transcripts with owned
 cleanup, exact-byte downloads, local repository links, source/metadata/Pages workflow review. Do not deploy.
 
-Status: Not started.
+Status: Complete.
+
+Completion evidence:
+
+- Replaced duplicate feature/Baseline/Operations inventories with four workflow outcomes, one audience
+  paragraph, five linked architecture responsibilities and three clear operating/capability limits.
+  Two real Portfolio/read-first-detail proof points have desktop/mobile renditions and full originals.
+- Confirmed the existing Pages origin/subpath through its read-only API. Canonical/share metadata and
+  local rendering use that path. Skip/focus/anchor/reduced-motion, seven viewport configurations and
+  short landscape pass actual bounds/image checks; static hosting and main deployment remain intact.
+- README has independent complete development/compiled-preview setup, with absolute attachment roots
+  established before seed/runtime. Current operations distinguish upgrades, coordinated metadata/byte
+  backup and disposable reset. The adopted-owner developer guide and archived paths are current.
+- Centralized existing demo IDs and deterministic byte definitions into import-safe modules without
+  changing seed facts or attachment behavior. Both fresh setup paths install the lockfile into their
+  own resources, reload a deep link and download both seeded files byte-for-byte; compiled preview
+  uses hashed assets without Vite or development-storage fallback.
+- Passed 55 infrastructure cases, three selected API seed cases, two independently configured setup
+  executions, two static/rendered site browser checks, lint/typechecks and warning-free production
+  build. Static validation runs in full/site verification and before Pages upload. Local documentation,
+  YAML source and command consistency checks pass; all five owned runs and their resources are cleaned.
+  See [site/setup evidence](site-setup-evidence.md) and
+  [verification notes](verification-notes.md#phase-19-public-site-and-working-local-setup).
+
+Versions and fixed published-release links remain 0.2.9 until Phase 21. No publication/deployment was
+performed. Phase 20 integrated acceptance/manual UAT and Phase 21 release finalization remain pending.
 
 ## Phase 20: Cross-Surface Acceptance And UAT Handoff
 

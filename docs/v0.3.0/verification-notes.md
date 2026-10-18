@@ -1820,3 +1820,94 @@ are absent and no matching process/container remains. Ordinary PostgreSQL on 543
 attachment storage, and unrelated servers were not used or stopped. Final focused browser-test lint,
 verification TypeScript and diff checks pass. Phase 18 is complete; public-site/setup work, broader
 acceptance and release verification remain pending.
+
+## Phase 19 Public Site And Working Local Setup
+
+### Scope And Commands
+
+The phase changes the static site, current setup/operations/developer guidance, release-relevant
+import-safe seed constants and verification/site wiring. App Angular source, API domain/endpoints,
+database schema, dependency versions and build/test budgets remain unchanged. Verification targets
+the affected seed owners, new runner/check boundaries, static/rendered site and two independent
+fresh local configurations. No unrelated Angular or full API regression was repeated.
+
+```sh
+gh api repos/jeremyaaron/worktrail/pages --jq '{html_url, build_type, status, cname}'
+npm run verify:setup -- development
+npm run verify:setup -- preview
+npm run check:site
+npm run verify -- --mode=site
+npm run verify -- --mode=api --api-tests=attachment-seed,closeout-demo-seed
+npm run lint:verification
+npx tsc -p tsconfig.verification.json --noEmit
+git diff --check
+```
+
+Commands used explicit Node 24.16.0/npm 11.13. Source/workflow/Markdown checks are read-only; resource
+commands use the established private manifest, labeled disposable PostgreSQL, absolute owned storage,
+process identity and cleanup lifecycle. Browser tests retain one worker, zero retries and unchanged
+deadlines. No working `.env`, database, attachment root or unrelated server was used or stopped.
+
+### Clean Acceptance
+
+- `5077d7dc-4a45-4835-a5d7-c81cae5a8e3c`: development setup independently installed 804 packages
+  from the lockfile, provisioned fresh owned PostgreSQL, migrated/seeded and passed the deep-link/
+  exact-file browser proof. Both seeded downloads match byte-for-byte. Vite requests identify the
+  dev runtime. This run produced the four actual desktop/mobile screenshot assets.
+- `97c5d2b5-d642-4352-9745-bfe8b09f3d2d`: preview repeated install/provision/migrate/seed in a separate
+  fresh root/database, built contracts/API/web and passed the same deep-link/exact-file proof from
+  compiled assets. Hashed main is requested and Vite is absent. Production build is warning-free
+  at 401.95 kB initial (112.06 kB estimated transfer); no budget was raised.
+- `a10ec8bf-0abc-4537-8851-c0d6a6098dd7`: backend source/test lint and backend typechecks passed,
+  followed by 55 infrastructure cases and three selected seed cases across two API files.
+  Infrastructure includes ten nested static rejection cases, fresh dependency isolation and
+  invalid-database import-safe identity/byte fixture checks. Existing attachment metadata/object
+  behavior and historical-demo insert-only semantics retain their focused integration tests.
+- `4fe64d06-d41a-476a-b345-c6c2e501bbe2`: final static/rendered site checks passed. Static validation
+  resolves 43 references, 17 repository-document links and 13 IDs with package/site identity 0.2.9.
+  Two browser checks cover seven viewport configurations, native image rendition loading, containment,
+  first-viewport transition, keyboard skip/focus/anchors, full originals and reduced motion.
+- Earlier `c43dc02b-8945-43d5-ad45-c3dc40970c23` also passed both site checks; the final run adds
+  full mobile-original links and closer proof/reference/scope/setup captures. It is overlapping
+  evidence, not two additional distinct browser checks.
+
+The setup paths use private source snapshots, real lockfile installations and the actual app's
+startup/adapters. Owned identity wrappers, random ports and cache-disabled builds substitute for
+ordinary source aliases/Compose defaults; they do not clone remote main, use the working default
+ports or establish remote publication. Each path has its own absolute byte root before seed and
+runtime, so compiled preview cannot succeed through development-storage fallback. Startup alone
+does not substitute for the exact download assertions. Both fresh `npm ci` runs retain existing
+lockfile deprecation/advisory output; dependency versions are unchanged and the complete dependency
+audit remains a Phase 20/21 gate, not claimed clean here.
+
+### Source And Visual Review
+
+GitHub's read-only Pages API returned `https://jeremyaaron.github.io/worktrail/`, workflow publishing
+and no custom domain on October 18, 2026. Metadata uses that exact origin/subpath. A structured YAML
+review confirms main push, static artifact path and validation before upload; deployment itself was
+not invoked. Published-release links remain fixed to v0.2.9 until Phase 21 finalizes real artifacts.
+
+Inspected actual product originals and rendered site frames at desktop, mobile and short landscape,
+including the primary transition, legible mobile proof, architecture, limits and horizontally
+scrolling setup block. No overlapping text/controls or page-level clipping was observed. The browser
+tests check element bounds and reject global overflow hiding, not just document width. This is not an
+actual browser-zoom, screen-reader or OS-device audit; those manual/integration gates remain Phase 20.
+
+See [site/setup evidence](site-setup-evidence.md) for source ownership, runtime substitutions, proof
+provenance and capability limits. After the clean setup executions, owner-identity validation and
+summary-write error handling were tightened without changing install/seed/runtime commands; focused
+lint/typechecks and the common lifecycle evidence cover that reporting/safety-only change rather
+than repeating two installations. Documentation-only closure reuses unchanged functional evidence.
+
+### Closure
+
+Final read-only audit confirmed all five phase run summaries passed and report cleanup, their
+temporary roots are absent, and no matching process or labeled container remains. Product assets
+match their original capture bytes. Structured HTML/Markdown checks confirm the site's development
+commands exactly match the README's standalone development sequence, and both README paths set
+absolute attachment storage before seed. Current document links/anchors and final diff checks pass.
+No unrelated process was stopped and no working data or storage was changed.
+
+Phase 19 is complete. Versions and fixed published-release links remain 0.2.9. No commit, push,
+merge, tag, publication or deployment was performed. Phase 20 integrated acceptance, actual zoom/
+assistive-device/manual UAT and Phase 21 release verification remain pending.

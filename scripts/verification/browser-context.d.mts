@@ -1,5 +1,5 @@
 export interface BrowserContext {
-  kind: 'e2e' | 'preview' | 'editor';
+  kind: 'e2e' | 'preview' | 'editor' | 'site';
   runId: string;
   checkout: string;
   port: number;

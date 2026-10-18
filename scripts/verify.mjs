@@ -116,7 +116,10 @@ async function main() {
     if (options.mode === 'full' || options.mode === 'editor') await browser('editor');
     if (options.mode === 'full' || options.mode === 'e2e') await browser('e2e');
     if (options.mode === 'full' || options.mode === 'preview') await browser('preview');
-    if (options.mode === 'full' || options.mode === 'site') await gate('site:assets-links', () => checkSite(checkout));
+    if (options.mode === 'full' || options.mode === 'site') {
+      await gate('site:assets-links', () => checkSite(checkout));
+      await runBrowser(manifest, checkout, 'site', options, { signal: controller.signal, gate });
+    }
   } catch (error) { failure = error; }
   finally {
     if (manifest) {

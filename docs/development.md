@@ -1,11 +1,31 @@
 # Worktrail Developer Ownership And Invariants
 
-This is the current implementation guide, not a release archive. As of v0.3.0 Phase 16, persistence
+This is the current implementation guide, not a release archive. As of v0.3.0 Phase 19, persistence
 ownership, batched queries, lifecycle coordination, authoritative work/relationship commands,
 bounded HTTP parsing, versioned risk/query policy, aggregate narrowing, committed frontend context,
 shared draft departure protection, read-first detail composition, bounded inspection navigation,
-shared saved-view/list state and execution-first Planning are implemented. Remaining presentation
-consolidation follows the [implementation plan](v0.3.0/implementation-plan.md).
+shared saved-view/list state, execution-first Planning, complete historical outcomes and repeated
+discovery are implemented. Broad acceptance and release finalization remain in the
+[implementation plan](v0.3.0/implementation-plan.md). Start with the
+[README setup paths](../README.md#local-setup) and [current operating guide](operations.md).
+
+## Production Owner Map
+
+Paths below name adopted production owners, not proposed extraction scaffolds. Feature-level
+presentation details and the invariants below complement these entry points.
+
+| Boundary | Current Entry |
+| --- | --- |
+| API composition and adapters | [main.ts](../apps/api/src/main.ts), [Express server](../apps/api/src/adapters/express/server.ts) |
+| Scoped transactions and coordination | [persistence.ts](../apps/api/src/repositories/persistence.ts), [locks.ts](../apps/api/src/repositories/locks.ts), [project gates](../apps/api/src/services/project-write-coordination.ts) |
+| Work reads and SQL predicates | [query service](../apps/api/src/services/work-item-query-service.ts), [query builder](../apps/api/src/repositories/work-item-query-builder.ts) |
+| Work commands and preplanned locks | [command/owner inventory](#work-command-owners), [command locks](../apps/api/src/services/work-item-command-locks.ts) |
+| Live query/risk and frozen evidence | [live query policy](../packages/contracts/src/work-item-query-policy.ts), [risk policy](../packages/contracts/src/work-risk-policy.ts), [snapshot policy](../packages/contracts/src/snapshot-policy.ts), [compatibility matrix](v0.3.0/query-policy.md) |
+| Committed route/actor ownership | [PageContext](../apps/web/src/app/core/navigation/page-context.ts), [focused clients](../apps/web/src/app/core/api) |
+| Authored drafts and navigation | [departure coordinator](../apps/web/src/app/core/navigation/draft-departure-coordinator.ts), [bounded work navigation](../apps/web/src/app/shared/navigation/work-navigation.ts) |
+| Shared work lists and saved views | [query store](../apps/web/src/app/features/work-items/state/work-list-query.store.ts), [saved views store](../apps/web/src/app/features/work-items/state/saved-views.store.ts) |
+| Authorized detail discovery | [record context](../apps/web/src/app/core/navigation/authorized-project-context.ts), [Quick Find session](../apps/web/src/app/features/quick-find/quick-find-session.service.ts) |
+| Object bytes and runtime limits | [object-store port](../apps/api/src/storage/attachment-object-store.ts), [runtime config](../apps/api/src/config/runtime-config.ts), [operations](operations.md) |
 
 ## Committed Frontend Context
 
@@ -34,8 +54,9 @@ the child title/description. Accepted actor/project changes clear authored defau
 messages and selection before reloading. A report's evidence refresh preserves its existing narrative;
 only its first successful load in a new context initializes narrative fields.
 
-Touched pages use focused API clients directly; `WorktrailApiService` is compatibility-only for
-untouched consumers. The context owner imports no feature/editor/Planning modules. Regression evidence
+Resource-specific `core/api/*` clients own focused HTTP contracts. `WorktrailApiService` remains a
+compatibility facade for remaining consumers, including Projects and Portfolio; do not duplicate
+their transport rules while moving ownership. The context owner imports no feature/editor/Planning modules. Regression evidence
 is in [reactive context evidence](v0.3.0/reactive-context-evidence.md). The following departure layer
 was added in Phase 12; it is separate from committed route/request ownership.
 
@@ -277,7 +298,7 @@ inside the database callback; this phase does not redesign that failure window o
 Health, Quick Find, and activity-feed reads retain their existing focused read owners. Attachment
 list/download preflight reads also retain their existing behavior. Required capability injection does
 not imply these paths now have a cross-statement snapshot. Batched work-list ownership and measured
-query budgets are described below; dashboard narrowing remains Phase 10 work.
+query budgets and implemented aggregate narrowing are described below.
 
 ## Work Queries And Batched Hydration
 
@@ -467,6 +488,14 @@ format checks. Broaden for dependency/toolchain/cross-cutting changes. Reserve f
 release closeout and CI merge acceptance, not every phase. State selected checks and omissions in
 phase evidence; unchanged-code results need not be rerun after documentation-only completion edits.
 
+For site changes, `npm run check:site` is read-only static validation; `npm run verify -- --mode=site`
+adds owned browser rendering without PostgreSQL. For fresh installation evidence, use
+`npm run verify:setup -- development` and `npm run verify:setup -- preview` independently. These
+explicitly install into new owned checkouts rather than sharing working `node_modules`, then verify
+deep links and exact seeded-file bytes. They are slower installation checks, not default per-phase
+regressions. The harness uses identity-proving startup wrappers/random ports; see the operating guide
+for the exact scope and substitutions.
+
 The [query/risk policy](v0.3.0/query-policy.md) owns the live field matrix and frozen v1/v2 semantics.
 Do not evolve stored snapshot types/parsers by inheriting expanded live shapes. Risk links must preserve
 open/scope/estimate predicates and explicit false values end to end.
@@ -603,3 +632,30 @@ The launcher waits for member bootstrap and pending route navigation. Navigation
 dialog and updates route context; cancellation/error releases the launch guard without dismissing
 an existing dialog, preserving Stay. Lazy launch generation/identity checks prevent late overlays.
 See [discovery and navigation evidence](v0.3.0/discovery-navigation-evidence.md).
+
+## Fixture And Documentation Ownership
+
+[demo-ids.ts](../apps/api/src/db/demo-ids.ts) is the import-safe stable identity map consumed by the
+explicit [seed entry point](../apps/api/src/db/seed.ts) and current setup/proof tests.
+[demo-attachments.ts](../apps/api/src/db/demo-attachments.ts) owns deterministic file definitions,
+bytes and checksums without importing database/runtime code; the attachment seed adapter retains
+its existing metadata/object behavior and compatibility exports. Importing either module cannot
+connect, seed or reset a database. Never import executable `seed.ts` into tests or browser tooling.
+
+Named historical closeout, hydration, aggregate, snapshot and estimate-risk scenarios stay with their
+existing focused owners. [Test support](../apps/api/tests/support) constructs deterministic acceptance
+inputs separately from product walkthrough records. The release's two public proof points use the
+real read-first WT-1 and Portfolio UI; desktop/mobile renditions are actual screenshots with full
+originals, not synthetic UI. Capturing evidence does not modify seed facts to make health look better.
+
+Current setup and implementation authority is README plus this guide and operations, not an old
+sprint design. [v0.0.X](v0.0.X) and [v0.1.X](v0.1.X) contain archived sprint material. The v0.2.x
+folders and [v0.3.0 plan](v0.3.0/implementation-plan.md) preserve their own historical decisions and
+evidence; do not mass-rewrite archived claims as if they describe today's implementation.
+
+The static product site has four durable workflow groups, five architecture boundaries and three
+prominent operating limits. New capabilities join an existing group by default; do not append a
+feature card and matching non-goal inventory every sprint. Maintain the two proof points and compact
+release label/linked fixed-tag evidence together. Static checks validate local assets, document paths,
+fragments, image dimensions and release metadata before Pages upload. Local checks do not verify a
+remote deployment or share preview. Update release links only when their target artifacts exist.

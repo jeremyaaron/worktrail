@@ -6,7 +6,7 @@ const context = await readBrowserContext('preview');
 
 export default defineConfig({
   testDir: './e2e',
-  testMatch: '**/production-preview.check.ts',
+  testMatch: ['**/production-preview.check.ts', '**/local-setup-proof.spec.ts'],
   workers: 1,
   retries: 0,
   reporter: [['list'], ['json', { outputFile: `${context.outputDir}/report.json` }]],

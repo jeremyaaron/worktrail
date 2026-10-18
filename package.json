@@ -10,6 +10,8 @@
   ],
   "scripts": {
     "verify": "node scripts/verify.mjs",
+    "verify:setup": "node scripts/verify-local-setup.mjs",
+    "check:site": "node scripts/check-site.mjs",
     "audit:dependencies": "node scripts/audit-dependencies.mjs",
     "test:verification": "node --test scripts/verification/*.test.mjs",
     "test:verification:integration": "node --test scripts/verification/lifecycle.check.mjs",

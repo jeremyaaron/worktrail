@@ -111,10 +111,13 @@ export async function runBrowser(manifest, checkout, kind, options, { signal, ga
       } else if (kind === 'editor') {
         const editor = launch(['scripts/serve-authored-content-editor.mjs']);
         await waitForReadiness(editor, `${manifest.browser.baseURL}/__worktrail_verification`, { runId: manifest.runId, token }, { signal });
+      } else if (kind === 'site') {
+        const site = launch(['scripts/verification/serve-site.mjs']);
+        await waitForReadiness(site, `${manifest.browser.baseURL}/__worktrail_verification`, { runId: manifest.runId, token }, { signal });
       }
       started = true;
       console.log(`Owned ${kind} ready on ${manifest.browser.baseURL}`);
-      const config = kind === 'e2e' ? 'playwright.config.ts' : kind === 'editor' ? 'playwright.editor.config.ts' : 'playwright.production.config.ts';
+      const config = kind === 'e2e' ? 'playwright.config.ts' : kind === 'editor' ? 'playwright.editor.config.ts' : kind === 'site' ? 'playwright.site.config.ts' : 'playwright.production.config.ts';
       await mkdir(join(manifest.resultsRoot, kind), { recursive: true });
       const args = ['node_modules/@playwright/test/cli.js', 'test', '--config', config];
       if (options.ui) args.push('--ui');
