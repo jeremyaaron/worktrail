@@ -408,3 +408,71 @@ Every final verification summary reports cleanup. All host/Linux source snapshot
 and diagnostic containers, registered browser/process groups and endpoints were removed; retained
 reports remain under ignored `test-results/verification`. No normal database, user storage, unrelated
 development server or remote GitHub state was changed. Nothing was committed, tagged or pushed.
+
+## Phase 6: Drizzle Adoption And Metadata
+
+Completed October 18, 2026, from clean commit `b5bf78152baf3b38a0b0c141d750cd9a69e81074`
+on `v0.3.1`. [Structured evidence](phase-6-evidence.json) records the before/after lock identities,
+every original SQL hash and converted folder/snapshot ancestry, the exact expression review,
+selected tests, ledger mapping and owned cleanup. Release identity remains `0.3.0`.
+
+| Command / Boundary | Outcome |
+| --- | --- |
+| Upstream selection recheck | Stable Kit `0.31.11` still declares the legacy loader; stable ORM `0.45.4` does not fix that owner path. Retain exact Kit/ORM `1.0.0-rc.4`, matching both RC tags and the Phase 0 proof |
+| Independent baseline installation | Clean `npm ci` of the pre-Phase-6 snapshot, with its own lock and dependencies; old ORM `0.45.2` executes the prior migrations |
+| Working installation | Clean `npm ci` on Node `24.16.0` / npm `11.13.0`; no forced peers, overrides or audit-fix downgrade |
+| `npm run audit:dependencies` | Installed workspace peer graph valid; production 0, full 0; empty exception list with original policy dates/review boundary retained |
+| Owner folder conversion | Private `npm exec --workspace @worktrail/api -- drizzle-kit up`; all 20 historical SQL byte hashes, execution order, breakpoints and snapshot IDs/ancestry preserved |
+| Metadata review | Exactly the 23 Phase 0 terminal-expression normalizations; no other manual snapshot change and no new domain SQL |
+| Two `npm run db:generate` executions | Both report no schema changes; complete recursive 40-file SQL/snapshot inventory unchanged |
+| API lint/typecheck and contracts/API builds | Pass; explicit provided client and API-local contracts path mapping; no repository/persistence interface rewrite |
+| Schema/audit helpers | 23 passing checks via `node --test scripts/verification/schema.test.mjs scripts/verification/audit.test.mjs` |
+| Fresh migration/reapplication | All 20 migrations; second application leaves the entire ledger unchanged |
+| Minimal populated prior-version upgrade | Four legacy records across workspace/member/project/work item, including literal source and millisecond timestamps, remain unchanged; original 20 ledger IDs/hashes/timestamps preserved |
+| Upgrade schema/reapplication | Public columns/indexes/constraints unchanged and equal to fresh schema; repeat migration changes neither ledger nor data |
+| Focused API selection | Five files / 40 passing cases: `authored-content-migration`, `persistence`, `persistence-integration`, `repository-read-transaction`, `estimate-query-snapshots` |
+| Changed-test/tooling ESLint and verification TypeScript | Pass with zero warnings/errors |
+
+The old migrator builds the upgrade database from the independent prior-version installation, not
+from a fabricated ledger. A separate owned service-mode database is provisioned inside the disposable
+PostgreSQL 16 server, with its own database comment/manifest. Only then are four explicit fixture rows
+inserted and all public-table contents/catalog/ledger captured. After capture there is no seed/reset.
+The new ordinary `db:migrate` entry supplies the owned target guard and provided pool throughout.
+
+The owner augments the existing ledger transactionally with `name` and `applied_at`; historical
+application times are unknown (`null`). Original `created_at` millisecond values are not rewritten.
+Converted folder names encode UTC seconds, with a recorded old-to-new mapping. The owner's matching
+uses truncated timestamps and hash disambiguation/fallback. This is intentional metadata conversion,
+not historical SQL replay or permission to replace domain history. Phase 0's old-migrator rollback
+observation is not rerun or expanded into a future rollback guarantee here.
+
+The authored-content test now locates its migration by name and still executes real pre-column
+rows followed by the format migration; fresh coverage is not substituted for the upgrade range.
+The focused runtime set includes real HTTP queries/CSV, saved views, immutable v1/v2 snapshots,
+activity/notification rollback, row/coordinating locks, consistent reads and scope invalidation. A new
+unit regression asserts that `createDb` retains the exact provided pool without fallback construction.
+The unsupported relational `schema` option is removed; Worktrail uses query builders, not RQB.
+
+Inventory tests use converted per-migration fixtures and independently reject changed/deleted SQL,
+changed/deleted snapshots, new migrations, unknown nested metadata, generator failures and symlink
+entries before/after generation. The production helper still recursively hashes every regular file;
+it does not exclude the new metadata layout. Guarded generation/migration entry points are retained.
+
+An initial constructor typecheck caught the obsolete `schema` option before the passing acceptance
+run. The first database proof then stopped at a temporary fixture insert missing mandatory timestamps;
+its failed summary and cleanup are retained separately at `test-results/phase-6/proof-attempt-1.json`.
+The corrected database proof passes at `proof.json`, with `api-tests.json` and `ledger-mapping.json`.
+Only the private fixture changed between attempts: reuse the already passed lint/types/builds and
+two generation checks, rather than repeating them. No retry, sleep, deadline increase or weakened
+assertion was introduced. The failed attempt is not relabeled as successful aggregate acceptance.
+
+All owned conversion/prior-version source installations, temporary proof scripts, database
+manifests and PostgreSQL resources were removed after evidence retention. The working database/storage and any
+unrelated resources are untouched. The final machine policy is empty because the actual owner graph
+is fixed, not because audit scope or policy dates changed. README/current-disposition pointers are
+corrected without rewriting historical v0.3.0 audit counts.
+
+Broader populated/attachment preservation, full API/concurrency/performance acceptance, independent
+combined installation and release checks remain in Phases 7/8/11. No Angular, application browser,
+editor, preview or rendered-site suite was run for this backend-only boundary; earlier evidence is
+unchanged. No version bump, git commit, tag, push or remote workflow change was made.

@@ -2,7 +2,7 @@
 
 ## Status
 
-Updated through the Phase 5 Angular cutover, October 18, 2026. Angular/Vitest adoption and legacy-runner removal are implemented; the Drizzle candidate below remains Phase 0 feasibility evidence. Release identity remains `0.3.0`. All four Angular-related advisory exceptions are retired; the Drizzle exception remains under its original deadline.
+Updated through Phase 6, October 18, 2026. Angular/Vitest cutover and Drizzle adoption are implemented. The actual installed graph is valid and production/full audits report zero findings; all five carried advisory exceptions are retired without extending the original dates or review boundary. Release identity remains `0.3.0`. Broader data/API acceptance, the independent combined-install gate, and release acceptance remain in Phases 7, 8 and 11.
 
 See [structured evidence](phase-0-evidence.json), [verification notes](verification-notes.md), and the [technical design](technical-design.md).
 
@@ -13,6 +13,7 @@ See [structured evidence](phase-0-evidence.json), [verification notes](verificat
 | Working v0.3.0 baseline | Valid | 0 | 13, associated with five advisory IDs |
 | Working Phase 1, Angular 21 with staged runners and unchanged Drizzle | Valid; clean `npm ci` | 0 | 10: 6 high Karma records, 4 moderate Drizzle records |
 | Working Phase 5, sole Vitest/Chromium runner and unchanged Drizzle | Valid; clean `npm ci` | 0 | 4 moderate Drizzle records, one advisory ID |
+| Working Phase 6, exact Drizzle RC pair and converted metadata | Valid; clean `npm ci` | 0 | 0 |
 | Private staged Angular 21/Drizzle RC candidate, Karma retained | Valid after explicit peer bindings | 0 | 6 high, from the retained Karma/braces owner graph |
 | Private cutover candidate, Karma/Jasmine removed | Valid; clean `npm ci` | 0 | 0 |
 
@@ -38,6 +39,24 @@ graphs are gone. Retire `GHSA-vfj7-8cjw-p6xm`; all four Angular-related advisory
 The full graph still has four moderate records associated solely with `GHSA-67mh-4wv8-2f99`.
 Its exact paths, mitigations, expiry and review boundary are unchanged, as are Drizzle declarations,
 API behavior and historical SQL. This is Angular-boundary acceptance, not a clean final release graph.
+
+### Phase 6 Disposition
+
+The exact Kit/ORM `1.0.0-rc.4` pair removes `@esbuild-kit/esm-loader`, its core utilities and
+the legacy esbuild `0.18.20` graph. Clean `npm ci`, installed-peer validation and both structured
+audits pass with zero findings. Retire `GHSA-67mh-4wv8-2f99`; the working exception list is empty.
+The owner update adds its supported Jiti/Temporal/config-loader dependencies; there are no forced
+peers, overrides, or unrelated framework upgrades. [Phase 6 evidence](phase-6-evidence.json)
+records the lock delta and complete SQL/history mapping. This is not the independent Phase 8 gate.
+
+Owner folder conversion, exactly 23 reviewed terminal-expression normalizations, two stable
+generation runs, fresh/repeat migration and minimally populated prior-version ledger adoption pass.
+The original ledger's IDs/hashes/millisecond timestamps remain intact. New folder names encode UTC
+seconds; the owner's upgrade matches by truncated timestamp, resolving ambiguity/fallback by hash,
+then adds names and unknown (`null`) historical application times. No history is reconstructed by
+Worktrail, no statements are marked applied by hand, and no redundant domain migration is adopted.
+Selected runtime/transaction tests pass; broader populated/attachment preservation and the full API
+suite remain in Phase 7. The working/user database is untouched.
 
 ## Selected Versions
 
@@ -67,13 +86,13 @@ Peer validation remains mandatory but is insufficient by itself to prove Angular
 
 ## Drizzle Prerelease Decision
 
-The refreshed stable Kit tag remains `0.31.11` and still declares the vulnerable legacy loader. The owner-published `1.0.0-rc.4` pair removes that path and provides a migration-ledger upgrade. The [owner upgrade guide](https://orm.drizzle.team/docs/upgrade-v1) supplies the folder-conversion path; the installed RC's migrator supplies transactional ledger augmentation.
+At the Phase 6 recheck, stable Kit remains `0.31.11` and still declares the vulnerable legacy loader; ORM's stable tag is `0.45.4`. Both RC tags resolve to the owner-published `1.0.0-rc.4` pair already proven in Phase 0. That exact pair removes the path and provides a migration-ledger upgrade. The [owner upgrade guide](https://orm.drizzle.team/docs/upgrade-v1) supplies the folder-conversion path; the installed RC's migrator supplies transactional ledger augmentation.
 
-Adopt the exact pair as an engineering choice within the approved scope, contingent on the remaining API/runtime and release checks. This deliberately accepts prerelease maintenance risk, not a dependency-security exception. Recheck upstream availability before adoption; a newly available stable remedy may replace the pair only after its affected compatibility proofs pass.
+Phase 6 adopts the exact pair as an engineering choice within the approved scope, contingent on the remaining API/preservation and release checks. This deliberately accepts prerelease maintenance risk, not a dependency-security exception. A subsequent stable remedy may replace the pair only after its affected compatibility proofs pass.
 
 ### Required Compatibility Changes
 
-- Use the explicit `{ client: pool }` constructor. The old positional Pool call is not supported and can select default connection configuration; preserve the guarded, explicitly provisioned target.
+- Use the explicit `{ client: pool }` constructor. The old positional Pool call is not supported and can select default connection configuration; preserve the guarded, explicitly provisioned target. Remove the obsolete relational `schema` option: Worktrail uses query builders, not relational queries. A regression asserts the returned database retains the provided pool.
 - Override the contracts source path relative to `apps/api/tsconfig.json`. The RC schema loader otherwise resolves an inherited relative path from the wrong directory. Keep `tsconfig.build.json`'s compiled contracts mapping separate.
 - Run the owner's folder conversion on a private checkout. All 20 original SQL hashes and execution order must remain identical.
 - Normalize 23 terminal-snapshot expression fields only: 11 index predicates and 12 checks lose owning-table qualification. Preserve the snapshot ID and ancestry. The structured evidence contains every old/new field value.

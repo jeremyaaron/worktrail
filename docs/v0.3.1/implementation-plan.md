@@ -2,9 +2,12 @@
 
 ## Status
 
-Implementation baseline: October 18, 2026. Phases 0-5 are complete; required implementation phases 6-8 and 10-11 have not started. Conditional Phase 9 is deferred by the Phase 0 scope decision.
+Implementation baseline: October 18, 2026. Phases 0-6 are complete; required implementation phases 7-8 and 10-11 have not started. Conditional Phase 9 is deferred by the Phase 0 scope decision.
 
 This plan implements the [PRD](prd.md) and [technical design](technical-design.md). The [dependency disposition](dependency-remediation.md), [verification notes](verification-notes.md), and [Phase 0 evidence](phase-0-evidence.json) record the selected versions, proofs, and inventories. [Phase 1 evidence](phase-1-evidence.json) records the implemented Angular foundation; [Phase 2 evidence](phase-2-evidence.json) maps the shared/core conversion and retained coverage. [Phase 3 evidence](phase-3-evidence.json) records discovery/workspace conversion, focused acceptance, and controlled negative probes. [Phase 4 evidence](phase-4-evidence.json) completes detail/Planning/history conversion and the full inventory reconciliation. [Phase 5 evidence](phase-5-evidence.json) records single-runner cutover, advisory retirement, host/Linux lifecycle and integration results, and one unreproduced Quick Find observation. SQL history and release identity remain unchanged.
+
+[Phase 6 evidence](phase-6-evidence.json) records Drizzle adoption, unchanged SQL hashes/history,
+the reviewed metadata conversion, focused runtime/upgrade checks, and retirement of the final exception.
 
 The separately requested PR-only CI change is already in the working tree. Preserve it and its focused regression test; it is not unfinished feature scope to reimplement. Package/release identity remains `0.3.0` until closeout.
 
@@ -38,7 +41,7 @@ Angular conversion is split into infrastructure, three spec groups, and final cu
 | 3 | Work discovery, saved views, and workspace spec conversion | Complete |
 | 4 | Work detail, Planning, and historical workflow spec conversion | Complete |
 | 5 | Single-runner cutover, owned lifecycle, and Angular acceptance | Complete |
-| 6 | Proven Drizzle adoption and historical metadata conversion | Not started |
+| 6 | Proven Drizzle adoption and historical metadata conversion | Complete |
 | 7 | Upgrade preservation, transactions, and API compatibility | Not started |
 | 8 | Combined clean dependency graph and audit-gate acceptance | Not started |
 | 9 | Measured E2E shard balancing, if capacity permits | Deferred in Phase 0 |
@@ -290,6 +293,10 @@ Verification: clean graph/audit checks, focused runner/ownership/CI tests, compl
 
 ## Phase 6: Drizzle Adoption And Metadata
 
+Status: Complete, October 18, 2026. [Evidence](phase-6-evidence.json) and
+[verification notes](verification-notes.md#phase-6-drizzle-adoption-and-metadata) distinguish
+implemented compatibility acceptance from the broader Phase 7 preservation and Phase 8 private-install gates.
+
 Goal: apply the proven schema/runtime toolchain without rewriting application history.
 
 Scope:
@@ -311,6 +318,16 @@ Acceptance:
 - Required repository/persistence interfaces still typecheck, and representative runtime queries/transactions pass.
 
 Verification: clean install/graph/audits, API lint/type/build checks, schema helper/partial-history tests, two generation checks, fresh and minimal populated upgrade proofs, and representative query/transaction tests. No full Angular rerun for a backend-only change.
+
+Completed work:
+
+- Recheck upstream tags: stable Kit `0.31.11` still owns the legacy loader; retain the Phase 0 exact Kit/ORM `1.0.0-rc.4` pair, not a moving RC tag or an unproved development build.
+- Apply explicit pool construction, remove the obsolete relational `schema` option, and bind contracts relative to the API tsconfig. Add a regression for provided-pool identity; repository interfaces typecheck unchanged.
+- Run owner `drizzle-kit up` privately. Preserve all 20 SQL byte hashes/order, statement breakpoints, snapshot IDs/ancestry, and the original ledger identities/timestamps. Review and apply exactly the 23 Phase 0 terminal-expression normalizations, with no new domain DDL.
+- Find the authored-content partial-history boundary by migration name. Expand recursive generation-helper checks for unchanged files, SQL/metadata additions/modifications/deletions, generator errors and unsupported links.
+- Pass clean installation, actual installed-peer validation and both audits at zero. Retire the final Drizzle exception; original policy dates/review boundary remain unchanged. Phase 8 still owns the independent final combined installation proof.
+- Pass API lint/typecheck, contracts/API builds, 23 focused schema/audit checks, 40 API cases in five selected files, and two unchanged recursive generation checks. Fresh migration and a separately marked, minimally populated prior-version database preserve schema/data/history; repeat migrations are no-ops. Retain the initial temporary-fixture error separately from the passing corrected proof.
+- Remove owned conversion/baseline snapshots and proof databases/containers. No working database, frontend/CI/site behavior, timeout/retry policy or release identity changed. Full API/broader preservation checks remain in Phase 7; no unchanged Angular suite was run.
 
 ## Phase 7: Data And Transaction Preservation
 

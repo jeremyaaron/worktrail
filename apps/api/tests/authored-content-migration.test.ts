@@ -9,7 +9,8 @@ import { createPool } from '../src/db/client.js';
 const migrations = readMigrationFiles({
   migrationsFolder: fileURLToPath(new URL('../drizzle', import.meta.url))
 });
-const formatMigrationIndex = 19;
+const formatMigrationIndex = migrations.findIndex(migration => migration.name === '20261012032935_nosy_junta');
+if (formatMigrationIndex < 0) throw new Error('Authored-content format migration is missing from the migration history.');
 let pool: ReturnType<typeof createPool>;
 let client: pg.PoolClient;
 let schema: string;

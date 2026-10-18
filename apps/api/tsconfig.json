@@ -1,6 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "paths": {
+      "@worktrail/contracts": ["../../packages/contracts/src/index.ts"]
+    },
     "rootDir": "../..",
     "outDir": "dist",
     "declaration": true,

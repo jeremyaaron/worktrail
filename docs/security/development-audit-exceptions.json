@@ -5,47 +5,5 @@
   "reviewBeforeVersion": "0.3.1",
   "releaseDate": "2026-10-18",
   "maxExpiresOn": "2026-11-16",
-  "exceptions": [
-    {
-      "advisory": "GHSA-67mh-4wv8-2f99",
-      "owner": "jeremyaaron",
-      "expiresOn": "2026-11-16",
-      "commands": [
-        "npm run db:generate"
-      ],
-      "dependencyPaths": [
-        "@worktrail/api > drizzle-kit@0.31.10 > @esbuild-kit/esm-loader@2.6.5 > @esbuild-kit/core-utils@3.3.2 > esbuild@0.18.20"
-      ],
-      "trustBoundary": "Local schema tooling only. Production migrations use Drizzle ORM, not the Drizzle Kit CLI.",
-      "preconditions": "The vulnerable esbuild serve API must be started and a developer must visit an attacker-controlled website. drizzle-kit generate loads trusted local schema and generates SQL without starting esbuild serve. The legacy loader pins ~0.18.20, outside the fixed >=0.25.0 line.",
-      "mitigation": "Use Drizzle Kit only for local generation from reviewed schema; do not use drizzle-kit studio or start esbuild serve from this legacy graph. Do not expose schema tooling to a network or run it against untrusted schema/config.",
-      "followUp": "Adopt a maintainer release removing the legacy loader, or evaluate a separately scoped Drizzle Kit migration before expiry. Do not downgrade Kit to npm's suggested 0.18.1.",
-      "affected": [
-        {
-          "package": "@esbuild-kit/core-utils",
-          "path": "node_modules/@esbuild-kit/core-utils",
-          "version": "3.3.2",
-          "severity": "moderate"
-        },
-        {
-          "package": "@esbuild-kit/esm-loader",
-          "path": "node_modules/@esbuild-kit/esm-loader",
-          "version": "2.6.5",
-          "severity": "moderate"
-        },
-        {
-          "package": "drizzle-kit",
-          "path": "node_modules/drizzle-kit",
-          "version": "0.31.10",
-          "severity": "moderate"
-        },
-        {
-          "package": "esbuild",
-          "path": "node_modules/@esbuild-kit/core-utils/node_modules/esbuild",
-          "version": "0.18.20",
-          "severity": "moderate"
-        }
-      ]
-    }
-  ]
+  "exceptions": []
 }

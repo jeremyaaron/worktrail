@@ -242,7 +242,8 @@ API compatibility and input rules:
   and closeout snapshots retain their previous semantics.
 
 Existing installations should run `npm run db:migrate` to apply additive migration
-`0019_nosy_junta.sql`; it backfills existing records as plain text without rewriting their source.
+`apps/api/drizzle/20261012032935_nosy_junta/migration.sql` (originally `0019_nosy_junta.sql`);
+it backfills existing records as plain text without rewriting their source.
 Do not reset or reseed working data to upgrade. See the [current release notes](docs/v0.3.0/release-notes.md),
 [verification evidence](docs/v0.3.0/verification-notes.md#phase-21-final-release-verification), and
 [known limits](docs/v0.3.0/known-limits.md) for compatibility and residual risk.
@@ -796,8 +797,10 @@ separately and validates the installed workspace peer graph. Production findings
 Reviewed development exceptions are exact advisory/
 package/path/version/severity records with an owner, exposure limits, mitigation, follow-up, and expiry;
 unknown findings, stale records, transport failures, or expired exceptions fail the gate.
-See the [dependency disposition](docs/v0.3.0/dependency-remediation.md) and
-[exception data](docs/security/development-audit-exceptions.json). The full tree is not vulnerability-free.
+See the [current dependency disposition](docs/v0.3.1/dependency-remediation.md) and
+[exception data](docs/security/development-audit-exceptions.json). The v0.3.1 Phase 6 working graph
+reports zero production/full audit findings and has no active exceptions. This is a point-in-time
+audit result, not a guarantee against undisclosed vulnerabilities; release acceptance is still pending.
 
 ## Public Site
 

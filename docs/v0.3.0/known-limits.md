@@ -22,8 +22,9 @@ have scaling/consistency limits. CSV export is synchronous and capped at 10,000 
 ## Bounded Development Advisories
 
 This section records the v0.3.0 baseline. For the current v0.3.1 working tree, see
-[dependency disposition](../v0.3.1/dependency-remediation.md): Phase 5 retires all four Angular-related
-advisories; only the unchanged Drizzle advisory remains for Phase 6. The machine policy is authoritative.
+[dependency disposition](../v0.3.1/dependency-remediation.md): Phases 1/5/6 retire all five carried
+advisories; the working exception list is empty and both audits report zero findings. Broader
+preservation and release gates remain. The machine policy is authoritative.
 
 Production auditing must have zero findings. The v0.3.0 full graph was not clean: its disposition
 contains 13 findings (5 moderate, 6 high, 2 critical), five advisory IDs and 19 exact affected records.
