@@ -89,7 +89,7 @@ code { font: 14px/1.7 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; 
   .architecture > div { grid-template-columns: minmax(0, 1fr); gap: 8px; }
 }
 @media (max-width: 380px) {
-  h1 { font-size: 54px; }
+  h1 { font-size: 48px; }
   .topbar nav { gap: 10px 16px; }
 }
 @media (max-width: 600px) {

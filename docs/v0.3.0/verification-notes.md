@@ -2259,3 +2259,27 @@ including insufficient-container-memory server exits that were distinct from the
 assertion failure. Ordinary PostgreSQL, application data/storage, unrelated services and pre-existing
 temporary directories were not modified. No commit, push or remote workflow rerun was performed;
 GitHub acceptance and actual new pipeline timings remain to be confirmed on the next push.
+
+### Site Font-Metric Follow-up
+
+Run `39141580951` on `f6c7c700fe0a0d62ead6522415efe182eb1df1bb` passes backend/tooling,
+frontend, all three application shards, compiled preview and editor. The site job fails its 320x700
+first-viewport check; the required `Verify` status correctly propagates this single failure, not a
+second independent defect. The site failure is reported within 49 seconds of job start; all jobs
+finish in about eight minutes rather than the previous seventeen-minute serial run.
+
+The failure screenshot shows the final letter of the 54px product name wrapped onto a second line
+under the runner's system-font metrics. This pushes the next section to 713.52px, below the unchanged
+692px visibility boundary. The narrow-screen heading now uses 48px at widths up to 380px. The site
+test explicitly checks a single-line product name at each existing viewport, while retaining the
+original containment, first-viewport transition, image, keyboard and reduced-motion checks. No
+timing or geometry threshold was relaxed; no app source or workflow change was needed.
+
+Focused site runs pass both cases on macOS (`3ab8a555-29c6-4268-818c-f290b7e0edd7`) and Linux
+(`b17edb22-96e7-4a77-aa62-d7d27b20a605`, outer `42f26dad-327b-4e34-8d7b-e3529cceba7f`), across
+all seven viewport sizes. Mobile/desktop screenshots were inspected; targeted test lint and
+verification TypeScript checks pass. The local Linux image's fonts also fit the old heading, so its
+baseline experiment did not reproduce the runner's wrap; the actual CI screenshot remains the
+failure evidence, and identical font rendering is not claimed. Both diagnostic containers and all
+owned checkouts were removed. Unchanged application/backend/Angular checks reuse the successful
+remote results rather than being rerun. The corrected site still needs confirmation on the next push.

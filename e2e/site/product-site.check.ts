@@ -19,6 +19,11 @@ test('site reflows with legible product renditions and a first-viewport transiti
     await page.setViewportSize({ width, height });
     await page.goto('./');
     await expect(page.getByRole('heading', { level: 1, name: 'Worktrail', exact: true })).toBeVisible();
+    const title = await page.locator('#hero-title').evaluate(element => ({
+      height: element.getBoundingClientRect().height,
+      lineHeight: Number.parseFloat(getComputedStyle(element).lineHeight)
+    }));
+    expect(title.height, `${width}x${height} product name must stay on one line`).toBeLessThanOrEqual(title.lineHeight + 1);
     await expect(page.locator('.workflow')).toHaveCount(4);
     await contained(page);
     const transition = await page.locator('#app').evaluate(element => element.getBoundingClientRect().top);
