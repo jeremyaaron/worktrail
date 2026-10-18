@@ -4,6 +4,7 @@ import type { APIRequestContext, Page } from '@playwright/test';
 import type { ProjectDto, ProjectCycleDto, ProjectStatusReportDetailDto, ProjectStatusReportSnapshotV1Dto, SavedWorkViewDto, WorkItemDetailDto } from '@worktrail/contracts';
 import { addDays, toDateString } from '../packages/contracts/src/work-risk-policy.js';
 import { goldenReportV1 } from '../apps/api/tests/support/snapshot-fixtures.js';
+import { waitForCycleReview, waitForWorkItemResults } from './page-readiness';
 
 const ownedProjectIds = new Set<string>();
 test.afterEach(async ({ request }) => {
@@ -57,6 +58,7 @@ test('v0.3.0 estimate query survives Apply, saved pins, copy, return, reload and
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(`${f.path}?cycleId=${f.cycle.id}&workState=open`);
+  await waitForWorkItemResults(page);
   await expect(page.getByRole('row', { name: /Null estimate/ })).toBeVisible();
   await expect(page.getByRole('row', { name: /Zero estimate/ })).toBeVisible();
   await page.locator('form.filters summary').click();
@@ -68,6 +70,7 @@ test('v0.3.0 estimate query survives Apply, saved pins, copy, return, reload and
   await page.locator('form.filters').getByRole('button', { name: 'Apply', exact: true }).click();
   await expect(page).toHaveURL(/estimateState=unestimated/);
   await expect(page).toHaveURL(/blocked=false/);
+  await waitForWorkItemResults(page);
   await expect(page.getByRole('row', { name: /Null estimate/ })).toBeVisible();
   await expect(page.getByRole('row', { name: /Zero estimate/ })).toHaveCount(0);
   await expect(page.getByRole('row', { name: /Positive estimate/ })).toHaveCount(0);
@@ -98,6 +101,7 @@ test('v0.3.0 estimate query survives Apply, saved pins, copy, return, reload and
   expect(returnUrl).toContain('blocked=false');
   await page.goBack();
   await page.reload();
+  await waitForWorkItemResults(page);
   await expect(page.getByLabel('Active filters')).toContainText('Estimate: Unestimated');
   await expect(page.getByRole('row', { name: /Zero estimate/ })).toHaveCount(0);
   await page.locator('form.filters summary').click();
@@ -114,12 +118,14 @@ test('v0.3.0 versioned evidence shows units and precise current-work links in re
   test.setTimeout(90_000);
   const f = await estimateFixture(request);
   await page.goto(`/projects/${f.project.id}/cycles/${f.cycle.id}`);
+  await waitForCycleReview(page);
   const section = (name: string) => page.locator('section.risk-section').filter({ has: page.getByRole('heading', { name, exact: true }) });
   await expect(section('Unestimated work')).toContainText('1 work item');
   await expect(section('Over target')).toContainText('1 scope condition');
   await section('Unestimated work').getByRole('link', { name: 'Open work', exact: true }).click();
   await expect(page).toHaveURL(/estimateState=unestimated/);
   await expect(page).toHaveURL(/workState=open/);
+  await waitForWorkItemResults(page);
   await expect(page.getByRole('row', { name: /Null estimate/ })).toBeVisible();
   await expect(page.getByRole('row', { name: /Zero estimate/ })).toHaveCount(0);
   await page.goto(`/projects/${f.project.id}/status/new`);
@@ -140,6 +146,7 @@ test('v0.3.0 versioned evidence shows units and precise current-work links in re
   const preciseLink = page.getByRole('link', { name: /^Open current work: .*unestimated/ });
   await preciseLink.click();
   await expect(page).toHaveURL(/estimateState=unestimated/);
+  await waitForWorkItemResults(page);
   await expect(page.getByRole('row', { name: /Null estimate/ })).toBeVisible();
   await expect(page.getByRole('row', { name: /Zero estimate/ })).toHaveCount(0);
   await page.goto(reportPath);

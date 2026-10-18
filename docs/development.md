@@ -517,6 +517,15 @@ The initial-member paging browser regression holds member responses until the pa
 deep-linked list query, then checks actor resolution, page-two results and the unchanged URL. It does not
 require work results to render before member initialization; that ordering is not a product requirement.
 
+Keep page readiness separate from expected content. The shared browser readiness helpers wait for a
+visible list with `aria-busy="false"`, or a cycle review's populated header/error state, within the
+existing overall test deadline. They reject rendered error panels. Empty and single-item lists are
+valid settled states; a particular expected fixture row is not the loading signal. Only then assert
+the expected rows, risk counts and URLs with the normal assertion deadlines. HTTP response completion
+does not prove Angular has rendered its result. A loader that never settles still fails the overall
+test deadline; missing/wrong results fail content assertions. These behavioral journeys do not impose
+an incidental five-second cold-development startup SLA.
+
 For site changes, `npm run check:site` is read-only static validation; `npm run verify -- --mode=site`
 adds owned browser rendering without PostgreSQL. For fresh installation evidence, use
 `npm run verify:setup -- development` and `npm run verify:setup -- preview` independently. These

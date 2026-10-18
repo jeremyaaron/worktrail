@@ -3,6 +3,7 @@ import type { APIRequestContext, Page, TestInfo } from '@playwright/test';
 import type { ProjectCycleDto, ProjectDto } from '@worktrail/contracts';
 import { addDays, toDateString } from '../packages/contracts/src/work-risk-policy';
 import { resetDemoDatabase } from './reset-demo-database';
+import { waitForCycleReview, waitForWorkItemResults } from './page-readiness';
 
 test.afterEach(resetDemoDatabase);
 
@@ -70,12 +71,14 @@ test('execution-first planning corrects exact unestimated cycle work and refresh
   const reviewResponse = await reviewLoaded;
   expect(reviewResponse.ok()).toBe(true);
   expect(await reviewResponse.finished()).toBeNull();
+  await waitForCycleReview(page);
   const risk = page.locator('section.risk-section').filter({ has: page.getByRole('heading', { name: 'Unestimated work', exact: true }) });
   await expect(risk).toContainText('1 work item');
   await risk.getByRole('link', { name: 'Open work', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`cycleId=${cycle.id}`));
   await expect(page).toHaveURL(/workState=open/);
   await expect(page).toHaveURL(/estimateState=unestimated/);
+  await waitForWorkItemResults(page);
   await expect(page.getByRole('link', { name: 'Already estimated at zero', exact: true })).toHaveCount(0);
   await page.getByRole('link', { name: 'Estimate remaining delivery work', exact: true }).click();
   await page.locator('button[aria-controls="edit-work-item"]').click();
@@ -86,10 +89,12 @@ test('execution-first planning corrects exact unestimated cycle work and refresh
   await expect(page.locator('app-work-item-detail-summary')).toContainText('0');
   await page.goBack();
   await expect(page).toHaveURL(/estimateState=unestimated/);
+  await waitForWorkItemResults(page);
   await expect(page.getByRole('status', { name: 'Work item results status', exact: true })).toContainText('0-0 of 0');
   await page.goBack();
   await expect(page).toHaveURL(new RegExp(`/projects/${project.id}/cycles/${cycle.id}$`));
   await page.reload();
+  await waitForCycleReview(page);
   await expect(page.locator('section[aria-labelledby="risk-sections-heading"]')).toContainText('No cycle risks found');
   await expect(page.locator('section.risk-section')).toHaveCount(0);
   await page.getByRole('link', { name: 'Back to Planning', exact: true }).click();

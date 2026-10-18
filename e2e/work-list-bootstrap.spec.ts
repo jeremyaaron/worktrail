@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { waitForWorkItemResults } from './page-readiness';
 
 const projectId = '10000000-0000-4000-8000-000000000201';
 const ownerId = '10000000-0000-4000-8000-000000000101';
@@ -32,6 +33,7 @@ for (const scope of ['project', 'workspace'] as const) {
       await initialQuery;
       releaseMembers();
       await expect(page.getByRole('combobox', { name: 'Acting as', exact: true })).toHaveValue(ownerId);
+      await waitForWorkItemResults(page);
       await expect(secondPage).toBeVisible();
       await expect(page).toHaveURL(url => url.pathname === path &&
         url.searchParams.get('page') === '2' && url.searchParams.get('pageSize') === '10' &&

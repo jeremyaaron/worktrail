@@ -2283,3 +2283,42 @@ baseline experiment did not reproduce the runner's wrap; the actual CI screensho
 failure evidence, and identical font rendering is not claimed. Both diagnostic containers and all
 owned checkouts were removed. Unchanged application/backend/Angular checks reuse the successful
 remote results rather than being rerun. The corrected site still needs confirmation on the next push.
+
+### Rendered-Readiness Follow-up
+
+Run `39142985591` on `64d1da38f4f05e734ee704e6b2649adb8c87802d` confirms the site repair.
+Backend/tooling, frontend, preview, editor and application shards one/three also pass. Shard two passes
+38/39; the estimate-query journey checks its initial expected row while the list still displays
+`Loading work items`. Its trace contains the correct null/zero/positive estimate items in a successful
+31ms HTTP response and no console errors. The aggregate `Verify` correctly propagates this failure.
+
+Response completion is not rendered readiness. Shared helpers now wait for a visible work-list panel
+with `aria-busy="false"`, or a cycle review's populated header/error state, and reject error panels.
+The estimate-query/snapshot, execution-planning and delayed-member journeys use these helpers before
+their existing content assertions. Loading deliberately uses the existing overall test deadline rather
+than the expected row's five-second assertion window; no new timeout value, sleep, retry or production
+change is introduced. Wrong rows, risk counts, URLs, saved/pinned filters, clipboard, return/reload and
+historical evidence retain their assertions. This is behavioral readiness, not a cold-development
+startup latency guarantee. Empty and single-item lists are valid settled states.
+
+A disposable Linux counterexample drops the expected `Null estimate` row from the rendered response
+while allowing the list to settle. Run `69bf03d2-c7ed-444a-82d2-8fa05c0de2ae` correctly fails the original
+row assertion with its unchanged five-second deadline after the readiness helper returns. It does not
+pass or wait out the overall deadline. An earlier helper-selector mismatch for single-item list copy
+was caught locally; run `9c7aceaa-cfe9-4426-9731-1b87c8497240` was interrupted and cleaned, not claimed
+as passing. The helper now uses the explicit busy state instead of assuming a range-heading format.
+
+The current file-level shard distribution puts 39 of the 60 journeys in shard two, including the
+large smoke-test file. That remaining critical-path imbalance is distinct from this readiness fix;
+no parallel workers, fixture-sharing changes or workflow changes are included here.
+
+Final Linux run `36a8fb70-774c-4d0b-b5e1-59736ab3fbc4` passes all five affected journeys repeated
+twice, ten successes in 112 seconds with zero skipped, unexpected or flaky results. It covers
+multi-row/single-row/empty lists, estimate filtering, saved/pinned views, clipboard links, detail
+return/reload, precise cycle risks, historical snapshots/Markdown/print and delayed actor bootstrap.
+Repetition and the missing-row injection exist only in disposable experiment
+`9739c058-3b72-4bc5-bd7e-e4405e57ff1b`; acceptance retries remain zero and every repetition must pass.
+Targeted lint and verification TypeScript checks pass. Both outer runs report cleanup and their owned
+containers/checkouts are absent. Unchanged application source, workflows, backend and Angular suites
+reuse the successful CI evidence. No commit, push or remote rerun was performed; the new readiness
+checks still need GitHub confirmation on the next push.
