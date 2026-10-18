@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
@@ -399,7 +401,7 @@ describe('ProjectCycleReviewPageComponent', () => {
     expect(text).toContain('Next delivery cycle received 1 moved item');
     expect(text).toContain('Done at close');
     expect(text).toContain('Current context');
-    expect(compiled.querySelector('details.current-context')?.hasAttribute('open')).toBeFalse();
+    expect(compiled.querySelector('details.current-context')?.hasAttribute('open')).toBe(false);
     expect(compiled.querySelector('[aria-label="Cycle progress summary"]')).toBeNull();
     expect(text).not.toContain('Close cycle');
 
@@ -506,7 +508,7 @@ describe('ProjectCycleReviewPageComponent', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).not.toContain('Unestimated work');
     expect(compiled.textContent).toContain('No cycle risks found');
-    expect(compiled.querySelectorAll('.risk-section')).toHaveSize(0);
+    expect(compiled.querySelectorAll('.risk-section')).toHaveLength(0);
     expect(compiled.textContent).toContain('No recent movement');
   });
 
@@ -539,4 +541,13 @@ describe('ProjectCycleReviewPageComponent', () => {
     expect(compiled.textContent).toContain('Cycle review restricted');
     expect(compiled.textContent).toContain('You do not have permission to view this cycle review.');
   });
+});
+
+afterEach(() => {
+  try {
+    TestBed.resetTestingModule();
+  } finally {
+    vi.restoreAllMocks();
+    localStorage.removeItem('worktrail.selectedMemberId');
+  }
 });

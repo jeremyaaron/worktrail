@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import type {
@@ -239,4 +241,13 @@ key: 'unestimated_work', severity: 'warning', count: 1, countUnit: 'work_items',
     expect(compiled.textContent).toContain('0 visible');
     expect(compiled.textContent).toContain('No active cycle');
   });
+});
+
+afterEach(() => {
+  try {
+    TestBed.resetTestingModule();
+  } finally {
+    vi.restoreAllMocks();
+    localStorage.removeItem('worktrail.selectedMemberId');
+  }
 });

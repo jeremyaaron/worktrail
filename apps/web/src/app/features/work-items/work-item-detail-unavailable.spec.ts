@@ -1,3 +1,5 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
@@ -29,4 +31,13 @@ describe('Unavailable current work item', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('a')?.getAttribute('href')).toBe(returnUrl);
     http.verify({ ignoreCancelled: true });
   });
+});
+
+afterEach(() => {
+  try {
+    TestBed.resetTestingModule();
+  } finally {
+    vi.restoreAllMocks();
+    localStorage.removeItem('worktrail.selectedMemberId');
+  }
 });

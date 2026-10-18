@@ -1,3 +1,5 @@
+import { describe, expect, it } from 'vitest';
+
 import type { ProjectCycleDto } from '@worktrail/contracts';
 
 import { cycleOptionsFromDtos } from './cycle-options';
@@ -33,14 +35,14 @@ describe('cycle option helpers', () => {
     ]);
 
     expect(options).toEqual([
-      jasmine.objectContaining({
+      expect.objectContaining({
         id: '10000000-0000-4000-8000-000000000702',
         label: 'v0.2.0',
         statusLabel: 'Completed',
         dateRangeLabel: 'Jun 29, 2026 - Jul 10, 2026',
         isArchived: false
       }),
-      jasmine.objectContaining({
+      expect.objectContaining({
         id: '10000000-0000-4000-8000-000000000701',
         label: 'v0.2.1',
         statusLabel: 'Active',

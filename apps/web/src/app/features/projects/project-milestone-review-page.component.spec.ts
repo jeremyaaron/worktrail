@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
@@ -337,4 +339,13 @@ describe('ProjectMilestoneReviewPageComponent', () => {
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('v0.1.7');
   });
+});
+
+afterEach(() => {
+  try {
+    TestBed.resetTestingModule();
+  } finally {
+    vi.restoreAllMocks();
+    localStorage.removeItem('worktrail.selectedMemberId');
+  }
 });

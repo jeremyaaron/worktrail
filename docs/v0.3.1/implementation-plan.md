@@ -2,9 +2,9 @@
 
 ## Status
 
-Implementation baseline: October 18, 2026. Phases 0-3 are complete; required implementation phases 4-8 and 10-11 have not started. Conditional Phase 9 is deferred by the Phase 0 scope decision.
+Implementation baseline: October 18, 2026. Phases 0-4 are complete; required implementation phases 5-8 and 10-11 have not started. Conditional Phase 9 is deferred by the Phase 0 scope decision.
 
-This plan implements the [PRD](prd.md) and [technical design](technical-design.md). The [dependency disposition](dependency-remediation.md), [verification notes](verification-notes.md), and [Phase 0 evidence](phase-0-evidence.json) record the selected versions, proofs, and inventories. [Phase 1 evidence](phase-1-evidence.json) records the implemented Angular foundation; [Phase 2 evidence](phase-2-evidence.json) maps the shared/core conversion and retained coverage. [Phase 3 evidence](phase-3-evidence.json) records discovery/workspace conversion, focused acceptance, and controlled negative probes. SQL history and release identity remain unchanged.
+This plan implements the [PRD](prd.md) and [technical design](technical-design.md). The [dependency disposition](dependency-remediation.md), [verification notes](verification-notes.md), and [Phase 0 evidence](phase-0-evidence.json) record the selected versions, proofs, and inventories. [Phase 1 evidence](phase-1-evidence.json) records the implemented Angular foundation; [Phase 2 evidence](phase-2-evidence.json) maps the shared/core conversion and retained coverage. [Phase 3 evidence](phase-3-evidence.json) records discovery/workspace conversion, focused acceptance, and controlled negative probes. [Phase 4 evidence](phase-4-evidence.json) completes detail/Planning/history conversion and the full inventory reconciliation. SQL history and release identity remain unchanged.
 
 The separately requested PR-only CI change is already in the working tree. Preserve it and its focused regression test; it is not unfinished feature scope to reimplement. Package/release identity remains `0.3.0` until closeout.
 
@@ -36,7 +36,7 @@ Angular conversion is split into infrastructure, three spec groups, and final cu
 | 1 | Angular 21 foundation and staged Chromium test execution | Complete |
 | 2 | Shared utilities, core clients, and navigation spec conversion | Complete |
 | 3 | Work discovery, saved views, and workspace spec conversion | Complete |
-| 4 | Work detail, Planning, and historical workflow spec conversion | Not started |
+| 4 | Work detail, Planning, and historical workflow spec conversion | Complete |
 | 5 | Single-runner cutover, owned lifecycle, and Angular acceptance | Not started |
 | 6 | Proven Drizzle adoption and historical metadata conversion | Not started |
 | 7 | Upgrade preservation, transactions, and API compatibility | Not started |
@@ -243,6 +243,17 @@ Acceptance:
 - No Jasmine/Zone-test-helper dependency remains in migrated specs; production Zone scheduling is unchanged.
 
 Verification: this group's specs, affected shared consumers, lint/spec typing, discovery reconciliation, and targeted browser evidence for any actual behavior change. Full single-runner integration belongs to Phase 5.
+
+### Completion Evidence
+
+- Convert all 17 assigned detail, attachment/hierarchy, Planning, review/closeout and status-report specs to explicit Vitest imports and typed doubles. Retain all 228 cases, registration loops, existing assertion sites, HTTP mock response arguments and logical-clock advancement sequence; no cases are added, removed, merged, focused or disabled.
+- Preserve reused-route identity, draft/departure and submitted-write guards, attachment transfer/removal permissions, dependency/hierarchy links, focus targeting, Planning mutations, stored report snapshots, publication, clipboard/download and print behavior. Native focus/scroll/emitter doubles explicitly retain Jasmine's stub semantics rather than Vitest's default call-through.
+- Replace the three parent-manager Zone-clock tests with native async/Vitest controlled clocks, retaining the 300 ms debounce boundary, 299 + 1 ms checkpoint, minimum search length and stale-conflict/error handling. Destroy fixtures before restoring timers; restore native mocks/descriptors, actor selection and test-owned download anchors even after failures.
+- Reconcile all 70 Phase 0 specs plus the one toolchain regression: 71 Vitest / zero Karma files, complete and disjoint. No migrated spec retains Jasmine or Zone clock-test helpers. An explicit empty `files` list keeps the complementary legacy TypeScript scope valid without a placeholder test or relaxed configuration validation.
+- Pass the focused 24-file Chromium selection: 228 converted cases plus 50 affected API/navigation/clipboard/download cases, 278 passed without skips or retries. A successful closeout test exposed an empty fixture router; explicitly double its navigation and add one exact destination assertion. Rerun only that changed eight-case file, passing without the route diagnostic. The evidence distinguishes both executed revisions.
+- Pass Vitest and empty-legacy spec typechecks, affected-spec ESLint with zero warnings, eight runner/discovery/type-scope/ownership checks, AST coverage reconciliation and whitespace validation. Adapt the stale-scope regression to omit a required file now that a broad include is legitimately complete; add explicit completed-migration/empty-legacy selection coverage.
+- In an owned snapshot only, change parent-search debounce from 300 to 301 ms. The selected test fails because its expected HTTP request is absent at 300 ms; no sleeps, deadline changes or retries are introduced. Remove all positive/negative snapshots and owned processes.
+- Keep scope proportional: do not execute the full 888-case suite, unrelated backend/data/site suites, app builds, native-editor/E2E/preview integration, dependency installation/audits or Linux lifecycle checks. Final runner/dependency removal and full Angular acceptance remain Phase 5. Production source, providers, dependencies, budgets, SQL, advisory deadlines, release identity and CI triggers are unchanged.
 
 ## Phase 5: Single Runner And Angular Acceptance
 

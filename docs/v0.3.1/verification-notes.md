@@ -231,3 +231,75 @@ omitted. Their sources, dependency graph and execution infrastructure are unchan
 evidence is not relabeled as a fresh run. Phase 4 owns the remaining conversion; Phase 5 owns final
 single-runner/editor/lifecycle acceptance. Production scheduling, budgets, dependency/security policy,
 SQL history, release version and CI triggers remain unchanged.
+
+## Phase 4: Detail And Planning Conversion
+
+Completed October 18, 2026, on branch `v0.3.1`, starting from clean commit
+`99f54b804e5451e9ac6b9bb46ec6734ab8984826`. Release identity remains `0.3.0`.
+[Structured evidence](phase-4-evidence.json) records per-file retained cases, before/current/executed
+hashes, test registration loops, assertion/HTTP/clock parity, exact focused selections and cleanup.
+
+| Converted Group | Files | Retained Cases |
+| --- | --- | --- |
+| Work-item detail and unavailable state | 2 | 113 |
+| Attachments and parent/child components | 3 | 26 |
+| Planning page, cycle manager/options/summary and mutation state | 5 | 32 |
+| Cycle/milestone review and cycle closeout/result | 4 | 32 |
+| Status-report list, draft and historical detail | 3 | 25 |
+| Total Phase 4 group | 17 | 228 |
+
+| Check / Selection | Outcome |
+| --- | --- |
+| Shared owned runner, 24 explicitly selected files | 278 passing Chromium cases: all 228 converted cases plus 50 affected cases; zero skips/retries; resources removed |
+| Affected consumers | PageContext (23), draft departure (11), attachments API (4), cycles API (4), clipboard (3), downloads (3), section targeting (2); their sources are unchanged |
+| Closeout fixture follow-up | Only its eight-case file rerun after the navigation-double fix; all pass without the route diagnostic |
+| Vitest spec typecheck | Pass; explicit imports, no Jasmine ambient types or Zone test clocks |
+| Legacy spec typecheck | Pass with zero source inputs; no legacy tests executed |
+| ESLint on the 17 changed specs | Pass, zero warnings |
+| `node --test scripts/verification/web.test.mjs` | Eight passing selection/discovery/type-scope/runtime-identity/failure/ownership checks |
+| Full inventory reconciliation | All 70 original specs plus one toolchain spec assigned exactly once: 71 Vitest, zero Karma; all 228 Phase 4 cases retained |
+| Parent-search negative probe | A private 301 ms debounce fails the selected test at its original 300 ms HTTP-request boundary |
+
+Use `npm test --workspace @worktrail/web -- --runner=vitest` with one literal `--include=<path>` for
+each selected file recorded in the evidence to reproduce the positive selection. Evidence drivers
+use the same owned `runWebTests` entry point as ordinary web tests and `verify`, retaining structured
+results before cleanup. The full 71-file/888-case suite was reconciled but not rerun in this phase.
+
+The converted tests retain repeated route/draft ownership, submitted writes, attachment permissions
+and transfer errors, dependency/hierarchy navigation, cycle outcomes, stored historical snapshots
+and publication guards. Matcher translations retain deep/asymmetric containment rather than relying
+on reference identity. Typed clipboard and event doubles replace Jasmine objects. Bare native
+focus/scroll/emitter spies are explicitly stubbed because Vitest otherwise calls through.
+
+The parent manager's three Zone-clock cases now use controlled Vitest timers with native async
+completion. The existing advances remain 300, 299 + 1, 300, 300 and 300 ms: they test actual product
+debouncing, not machine-speed assumptions. Fixture destruction precedes real-clock restoration.
+Failure-safe teardown restores native spies/descriptors and actor selection, and removes only the
+download anchors owned by the tests, including the anchor whose production removal is deliberately
+stubbed. No global browser shim, real sleep, retry or deadline increase is introduced.
+
+The initial typecheck caught seven missing explicit `vi` imports before browser acceptance. The
+old stale-editor-scope probe's broad include became valid once every file migrated; it now removes
+a required spec and proves that omission is rejected. An additional cheap regression proves a
+complete migration selects only Vitest and rejects explicit legacy selections. The empty legacy
+TypeScript scope uses `files: []`, retaining its exact exclusions without a no-input diagnostic,
+dummy legacy spec or change to runner/configuration validation.
+
+The 278-case selection passed but logged `NG04002` from one successful closeout write targeting an
+empty fixture router. That case now explicitly resolves navigation and asserts the exact cycle
+review destination and fragment. Only its changed eight-case file was rerun, passing cleanly; one
+assertion is added to the existing case, no case is added or removed. The two executed source
+revisions are separately recorded rather than claiming the entire selection reran after that edit.
+
+The negative probe changes only an owned copy's parent debounce to 301 ms. The selected case fails
+at the expected missing HTTP request at 300 ms, confirming the converted timing test can detect the
+regression. Other cases are filtered out for that diagnostic, not disabled in the committed suite.
+All owned snapshots, recorded browser/process groups and endpoints are removed after both positive
+runs and the expected negative result. No working data or ordinary development server is used.
+
+Previously converted specs outside the seven selected consumers, application builds, dependency
+installation/audits, API/database tests, site/setup suites, native-editor harness, application E2E,
+compiled preview and Linux lifecycle reruns were deliberately omitted. Their inputs are unchanged;
+Phase 5 owns full single-runner integration and removal of the legacy target/dependencies. No
+production code, Zone provider, budget, SQL history, advisory deadline, release identity or CI trigger
+changes are part of this phase.

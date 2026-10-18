@@ -43,6 +43,14 @@ test('web arguments reject unsafe paths, unsupported watch/filter modes, and unk
   assert.equal(parseWebArguments(['--runner=vitest', '--filter=HTTP']).filter, 'HTTP');
 });
 
+test('a completed migration runs only Vitest and rejects explicit legacy selections', () => {
+  const complete = { schemaVersion: 1, migrated: files };
+  assert.deepEqual(partitionWebTests(files, complete), [{ runner: 'vitest', files }]);
+  assert.throws(() => partitionWebTests(files, complete, parseWebArguments(['--runner=karma'])), /No specs match/);
+  assert.throws(() => partitionWebTests(files, complete,
+    parseWebArguments(['--runner=karma', '--include=src/a.spec.ts'])), /No specs match/);
+});
+
 test('either failed partition preserves independent results and the aggregate failure', async () => {
   for (const failing of [['karma'], ['vitest'], ['karma', 'vitest']]) {
     const observed = [];
@@ -97,7 +105,7 @@ test('a stale editor type scope fails rather than excluding newly migrated specs
     const checkout = await prepareWorkspace(manifest);
     const path = join(checkout, 'apps/web/tsconfig.vitest.json');
     const config = JSON.parse(await readFile(path, 'utf8'));
-    config.include = ['src/**/*.spec.ts'];
+    config.include = config.include.filter(file => file !== 'src/app/app.spec.ts');
     await writeFile(path, JSON.stringify(config));
     await assert.rejects(validateWebConfiguration(checkout), /out of sync/);
   } finally { await cleanupRun(manifest); }

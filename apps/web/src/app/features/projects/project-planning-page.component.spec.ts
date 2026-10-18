@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { By } from '@angular/platform-browser';
 import { PlanningReviewComponent } from './planning/planning-review.component';
 import { provideHttpClient } from '@angular/common/http';
@@ -451,7 +453,7 @@ describe('ProjectPlanningPageComponent', () => {
     expect(order.indexOf('Cycle execution')).toBeGreaterThan(order.indexOf('Blocked'));
     expect(order.indexOf('Project risks')).toBeGreaterThan(order.indexOf('Cycle execution'));
     expect(order.indexOf('Milestone targets')).toBeGreaterThan(order.indexOf('Project risks'));
-    expect(compiled.querySelectorAll('.review-disclosure:not([open])')).toHaveSize(3);
+    expect(compiled.querySelectorAll('.review-disclosure:not([open])')).toHaveLength(3);
     expect(compiled.querySelector('[aria-labelledby="risk-due-soon"]')).toBeNull();
     expect(compiled.querySelector('[aria-label="Closeout readiness"]')?.textContent).toContain('unfinished work items');
   });
@@ -479,7 +481,7 @@ describe('ProjectPlanningPageComponent', () => {
       load();
       const first = http.expectOne(url);
       load();
-      expect(first.cancelled).toBeTrue();
+      expect(first.cancelled).toBe(true);
       http.expectOne(url).flush(response);
     }
     fixture.detectChanges();
@@ -508,7 +510,7 @@ describe('ProjectPlanningPageComponent', () => {
     own.querySelector<HTMLButtonElement>('.milestone-actions button')!.click();
     const write = http.expectOne(`/api/milestones/${activeMilestone.id}`);
     fixture.detectChanges();
-    expect(otherName.disabled).toBeTrue();
+    expect(otherName.disabled).toBe(true);
     page.loadMilestones();
     http.expectNone(`/api/projects/${projectId}/milestones?includeArchived=true`);
     page.archiveMilestone(archivedMilestone);
@@ -545,7 +547,7 @@ describe('ProjectPlanningPageComponent', () => {
     http.expectNone(request => request.method === 'POST');
     write.flush({ error: { message: 'Cycle conflict' } }, { status: 409, statusText: 'Conflict' });
     fixture.detectChanges();
-    expect(page.isCreatingCycle()).toBeFalse();
+    expect(page.isCreatingCycle()).toBe(false);
     expect(page.cycleForm.controls.name.value).toBe('Numeric cycle');
     expect(points.value).toBe('7');
     expect(page.milestoneForm.controls.name.value).toBe('Independent milestone draft');
@@ -598,8 +600,8 @@ describe('ProjectPlanningPageComponent', () => {
     expect(compiled.querySelector('button[aria-pressed="true"]')?.textContent?.trim()).toBe(
       'Cycles'
     );
-    expect(compiled.querySelector<HTMLDetailsElement>('.create-disclosure')?.open).toBeFalse();
-    expect(compiled.querySelector<HTMLDetailsElement>('.record-edit')?.open).toBeFalse();
+    expect(compiled.querySelector<HTMLDetailsElement>('.create-disclosure')?.open).toBe(false);
+    expect(compiled.querySelector<HTMLDetailsElement>('.record-edit')?.open).toBe(false);
     expect(compiled.textContent).toContain('v0.2.1 Cycle Planning');
     expect(compiled.textContent).toContain('Archived cycle');
     expect(compiled.textContent).toContain('4 total');
@@ -630,7 +632,7 @@ describe('ProjectPlanningPageComponent', () => {
     expect(compiled.querySelector('button[aria-pressed="true"]')?.textContent?.trim()).toBe(
       'Milestones'
     );
-    expect(compiled.querySelector<HTMLDetailsElement>('.create-disclosure')?.open).toBeFalse();
+    expect(compiled.querySelector<HTMLDetailsElement>('.create-disclosure')?.open).toBe(false);
     expect(compiled.textContent).toContain('legacy target');
     expect(compiled.textContent).toContain('2 total');
     expect(compiled.querySelector('button[type="submit"]')?.textContent).toContain(
@@ -698,37 +700,37 @@ describe('ProjectPlanningPageComponent', () => {
         (link) => link.getAttribute('href')
       )
     ).toContain(`/projects/${projectId}/work-items?cycleId=${activeCycle.id}&sort=priority_desc`);
-    expect(riskLinks).toContain(jasmine.objectContaining({
-      text: jasmine.stringContaining('WT-1'),
-      href: jasmine.stringContaining(`/work-items/${blockedWorkItem.id}?returnUrl=`)
+    expect(riskLinks).toContainEqual(expect.objectContaining({
+      text: expect.stringContaining('WT-1'),
+      href: expect.stringContaining(`/work-items/${blockedWorkItem.id}?returnUrl=`)
     }));
-    expect(riskLinks).toContain(jasmine.objectContaining({
-      text: jasmine.stringContaining('WT-2'),
-      href: jasmine.stringContaining(`/work-items/${overdueWorkItem.id}?returnUrl=`)
+    expect(riskLinks).toContainEqual(expect.objectContaining({
+      text: expect.stringContaining('WT-2'),
+      href: expect.stringContaining(`/work-items/${overdueWorkItem.id}?returnUrl=`)
     }));
-    expect(riskLinks).toContain(jasmine.objectContaining({
-      text: jasmine.stringContaining('WT-3'),
-      href: jasmine.stringContaining(`/work-items/${dependencyBlockedWorkItem.id}?returnUrl=`)
+    expect(riskLinks).toContainEqual(expect.objectContaining({
+      text: expect.stringContaining('WT-3'),
+      href: expect.stringContaining(`/work-items/${dependencyBlockedWorkItem.id}?returnUrl=`)
     }));
-    expect(riskLinks).toContain(jasmine.objectContaining({
-      text: jasmine.stringContaining('WT-4'),
-      href: jasmine.stringContaining(`/work-items/${blockingOpenWorkItem.id}?returnUrl=`)
+    expect(riskLinks).toContainEqual(expect.objectContaining({
+      text: expect.stringContaining('WT-4'),
+      href: expect.stringContaining(`/work-items/${blockingOpenWorkItem.id}?returnUrl=`)
     }));
-    expect(reviewLinks).toContain(jasmine.objectContaining({
-      text: jasmine.stringContaining('WT-1'),
-      href: jasmine.stringContaining(`/work-items/${blockedWorkItem.id}?returnUrl=`)
+    expect(reviewLinks).toContainEqual(expect.objectContaining({
+      text: expect.stringContaining('WT-1'),
+      href: expect.stringContaining(`/work-items/${blockedWorkItem.id}?returnUrl=`)
     }));
-    expect(reviewLinks).toContain(jasmine.objectContaining({
-      text: jasmine.stringContaining('v0.0.3'),
+    expect(reviewLinks).toContainEqual(expect.objectContaining({
+      text: expect.stringContaining('v0.0.3'),
       href: `/projects/${projectId}/milestones/${activeMilestone.id}`
     }));
-    expect(reviewLinks).toContain(jasmine.objectContaining({
-      text: jasmine.stringContaining('WT-4'),
-      href: jasmine.stringContaining(`/work-items/${blockingOpenWorkItem.id}?returnUrl=`)
+    expect(reviewLinks).toContainEqual(expect.objectContaining({
+      text: expect.stringContaining('WT-4'),
+      href: expect.stringContaining(`/work-items/${blockingOpenWorkItem.id}?returnUrl=`)
     }));
-    expect(reasonLinks.some((href) => href.includes('status=blocked'))).toBeTrue();
-    expect(listLinks.some((href) => href.includes('dependency=dependency_blocked'))).toBeTrue();
-    expect(listLinks.some((href) => href.includes('dependency=blocking_open_work'))).toBeTrue();
+    expect(reasonLinks.some((href) => href.includes('status=blocked'))).toBe(true);
+    expect(listLinks.some((href) => href.includes('dependency=dependency_blocked'))).toBe(true);
+    expect(listLinks.some((href) => href.includes('dependency=blocking_open_work'))).toBe(true);
   });
 
   it('uses exact counts and continuation links when the API returns only five risk preview rows', () => {
@@ -744,12 +746,12 @@ describe('ProjectPlanningPageComponent', () => {
     const component = fixture.debugElement.query(By.directive(PlanningReviewComponent)).componentInstance as PlanningReviewComponent;
     const section = component.riskSections().find(section => section.title === 'Blocked work')!;
     expect(component.totalRiskCount(summary)).toBe(12);
-    expect(component.visibleRiskItems(section)).toHaveSize(5);
+    expect(component.visibleRiskItems(section)).toHaveLength(5);
     expect(component.hiddenRiskItemCount(section)).toBe(7);
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('[aria-labelledby="risk-blocked-work"]')?.textContent).toContain('12 work items');
     const blocked = compiled.querySelector('[aria-labelledby="risk-blocked-work"]')!;
-    expect(blocked.querySelectorAll('.risk-row')).toHaveSize(5);
+    expect(blocked.querySelectorAll('.risk-row')).toHaveLength(5);
     expect(blocked.querySelector('.risk-more')?.textContent).toContain('View 7 more');
     expect(compiled.querySelector('[aria-labelledby="risk-stale-in-progress-work"]')).toBeNull();
   });
@@ -778,8 +780,8 @@ describe('ProjectPlanningPageComponent', () => {
     expect(compiled.textContent).toContain('No project delivery risks found');
     expect(compiled.textContent).toContain('No project work risks found.');
     expect(compiled.textContent).toContain('No active cycle');
-    expect(compiled.querySelectorAll('.risk-section-list .dashboard-section')).toHaveSize(0);
-    expect(compiled.querySelectorAll('.review-disclosure')).toHaveSize(0);
+    expect(compiled.querySelectorAll('.risk-section-list .dashboard-section')).toHaveLength(0);
+    expect(compiled.querySelectorAll('.review-disclosure')).toHaveLength(0);
 
   });
 
@@ -1101,4 +1103,13 @@ describe('ProjectPlanningPageComponent', () => {
 
     expect(compiled.textContent).toContain('Only owners and maintainers can manage cycles.');
   });
+});
+
+afterEach(() => {
+  try {
+    TestBed.resetTestingModule();
+  } finally {
+    vi.restoreAllMocks();
+    localStorage.removeItem('worktrail.selectedMemberId');
+  }
 });

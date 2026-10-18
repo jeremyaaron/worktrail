@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi, type Mocked } from 'vitest';
+
 import { HttpResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -237,14 +239,16 @@ function report(input: {
   };
 }
 
+const downloadLinks = new Set<HTMLAnchorElement>();
+
 describe('ProjectStatusReportDetailPageComponent', () => {
   let fixture: ComponentFixture<ProjectStatusReportDetailPageComponent>;
   let http: HttpTestingController;
-  let clipboard: jasmine.SpyObj<ClipboardService>;
+  let clipboard: Mocked<Pick<ClipboardService, 'copyText'>>;
 
   beforeEach(async () => {
-    clipboard = jasmine.createSpyObj<ClipboardService>('ClipboardService', ['copyText']);
-    clipboard.copyText.and.resolveTo();
+    clipboard = { copyText: vi.fn<ClipboardService['copyText']>() };
+    clipboard.copyText.mockResolvedValue(undefined);
 
     await TestBed.configureTestingModule({
       imports: [ProjectStatusReportDetailPageComponent],
@@ -406,12 +410,12 @@ describe('ProjectStatusReportDetailPageComponent', () => {
     fixture.detectChanges();
 
     expect(clipboard.copyText).toHaveBeenCalledWith('# Weekly status\n');
-    expect(fixture.componentInstance.isCopyingMarkdown()).toBeFalse();
+    expect(fixture.componentInstance.isCopyingMarkdown()).toBe(false);
     expect(compiled.textContent).toContain('Markdown copied.');
   });
 
   it('shows copy failures when the clipboard write fails', async () => {
-    clipboard.copyText.and.rejectWith(new Error('copy failed'));
+    clipboard.copyText.mockRejectedValue(new Error('copy failed'));
     createComponent();
     flushReport();
 
@@ -429,18 +433,19 @@ describe('ProjectStatusReportDetailPageComponent', () => {
     fixture.detectChanges();
 
     expect(compiled.textContent).toContain('Markdown could not be copied.');
-    expect(fixture.componentInstance.isCopyingMarkdown()).toBeFalse();
+    expect(fixture.componentInstance.isCopyingMarkdown()).toBe(false);
   });
 
   it('downloads exported Markdown using the attachment filename', () => {
-    const createObjectUrl = spyOn(URL, 'createObjectURL').and.returnValue('blob:status-report');
-    const revokeObjectUrl = spyOn(URL, 'revokeObjectURL').and.stub();
-    const linkClick = spyOn(HTMLAnchorElement.prototype, 'click').and.stub();
+    const createObjectUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:status-report');
+    const revokeObjectUrl = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    const linkClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
     const appendChild = document.body.appendChild.bind(document.body);
     let downloadedFileName = '';
 
-    spyOn(document.body, 'appendChild').and.callFake(<T extends Node>(node: T): T => {
+    vi.spyOn(document.body, 'appendChild').mockImplementation(<T extends Node>(node: T): T => {
       if (node instanceof HTMLAnchorElement) {
+        downloadLinks.add(node);
         downloadedFileName = node.download;
       }
 
@@ -472,12 +477,12 @@ describe('ProjectStatusReportDetailPageComponent', () => {
     expect(linkClick).toHaveBeenCalled();
     expect(revokeObjectUrl).toHaveBeenCalledWith('blob:status-report');
     expect(downloadedFileName).toBe('weekly-status.md');
-    expect(fixture.componentInstance.isDownloadingMarkdown()).toBeFalse();
+    expect(fixture.componentInstance.isDownloadingMarkdown()).toBe(false);
     expect(compiled.textContent).toContain('Markdown download started.');
   });
 
   it('prints the report detail page', () => {
-    const print = spyOn(window, 'print').and.stub();
+    const print = vi.spyOn(window, 'print').mockImplementation(() => undefined);
     createComponent();
     flushReport();
 
@@ -505,7 +510,7 @@ describe('ProjectStatusReportDetailPageComponent', () => {
     expect(compiled.textContent).toContain('Share and export');
     expect(compiled.textContent).toContain('Report actions');
     expect(actionButtons.length).toBe(3);
-    expect([...actionButtons].every((button) => button.type === 'button')).toBeTrue();
+    expect([...actionButtons].every((button) => button.type === 'button')).toBe(true);
   });
 
   it('renders archived project reports from their stored snapshot', () => {
@@ -532,4 +537,15 @@ describe('ProjectStatusReportDetailPageComponent', () => {
     expect(compiled.textContent).toContain('Report could not be loaded from the API.');
     expect(compiled.querySelector('.report-hero')).toBeNull();
   });
+});
+
+afterEach(() => {
+  try {
+    TestBed.resetTestingModule();
+  } finally {
+    vi.restoreAllMocks();
+    for (const link of downloadLinks) link.remove();
+    downloadLinks.clear();
+    localStorage.removeItem('worktrail.selectedMemberId');
+  }
 });
