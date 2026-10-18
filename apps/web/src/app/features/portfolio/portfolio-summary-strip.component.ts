@@ -14,6 +14,8 @@ import type { PortfolioSummaryDto } from '@worktrail/contracts';
     </section>
   `,
   styles: `
+    :host { display: block; container-type: inline-size; }
+    article { min-width: 0; overflow-wrap: anywhere; }
     .portfolio-summary {
       display: grid;
       grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -60,13 +62,13 @@ import type { PortfolioSummaryDto } from '@worktrail/contracts';
       line-height: 1;
     }
 
-    @media (max-width: 1100px) {
+    @container (max-width: 960px) {
       .portfolio-summary {
         grid-template-columns: repeat(3, minmax(0, 1fr));
       }
     }
 
-    @media (max-width: 700px) {
+    @container (max-width: 560px) {
       .portfolio-summary {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }

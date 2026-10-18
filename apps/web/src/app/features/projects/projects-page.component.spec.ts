@@ -350,6 +350,26 @@ describe('ProjectListPageComponent', () => {
     expect(compiled.textContent).not.toContain('Archived Project');
   });
 
+
+  it('puts the searchable directory before a closed creation disclosure and preserves a failed pending draft', () => {
+    const { fixture, http } = setupProjectList();
+    flushProjectListLoad(http, [activeNavigationSummary]);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const directory = root.querySelector('.list-panel')!;
+    const creation = root.querySelector<HTMLDetailsElement>('.create-panel')!;
+    expect(directory.compareDocumentPosition(creation) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(creation.open).toBeFalse();
+    fixture.componentInstance.createProjectForm.setValue({ key: 'NEW', name: 'New project draft', description: 'Keep this draft' });
+    fixture.componentInstance.createProject();
+    fixture.componentInstance.createProject();
+    const pending = http.expectOne('/api/projects');
+    expect(fixture.componentInstance.createProjectForm.disabled).toBeTrue();
+    pending.flush({ error: { message: 'Try again.' } }, { status: 503, statusText: 'Unavailable' });
+    expect(fixture.componentInstance.createProjectForm.getRawValue().description).toBe('Keep this draft');
+    expect(fixture.componentInstance.createProjectForm.enabled).toBeTrue();
+    expect(fixture.componentInstance.isCreating()).toBeFalse();
+  });
   it('shows project creation validation before posting', () => {
     const { fixture, http } = setupProjectList();
 
@@ -450,7 +470,7 @@ describe('ProjectListPageComponent', () => {
     http.expectNone((request) => request.method === 'POST' && request.url === '/api/projects');
   });
 
-  it('disables project creation for contributors', () => {
+  it('omits project creation for contributors and still rejects programmatic submission', () => {
     const { fixture, http } = setupProjectList();
 
     flushProjectListLoad(http, [activeNavigationSummary], contributorCapabilities);
@@ -460,8 +480,8 @@ describe('ProjectListPageComponent', () => {
     const createButton = [...compiled.querySelectorAll('button')].find(
       (button) => button.textContent?.trim() === 'Create project'
     );
-    expect(compiled.textContent).toContain('Owners and maintainers can create projects.');
-    expect(createButton?.disabled).toBeTrue();
+    expect(compiled.querySelector('.create-panel')).toBeNull();
+    expect(createButton).toBeUndefined();
 
     fixture.componentInstance.createProjectForm.setValue({
       key: '',
@@ -471,7 +491,7 @@ describe('ProjectListPageComponent', () => {
     fixture.componentInstance.createProject();
     fixture.detectChanges();
 
-    expect(compiled.textContent).toContain('Only owners and maintainers can create projects.');
+    expect(fixture.componentInstance.createError()).toBe('Only owners and maintainers can create projects.');
     http.expectNone((request) => request.method === 'POST' && request.url === '/api/projects');
   });
 

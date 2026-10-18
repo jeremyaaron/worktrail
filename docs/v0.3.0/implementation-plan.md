@@ -104,7 +104,7 @@ integration boundaries.
 | 15 | Shared saved views, applied-query feedback, and work-list ergonomics | Complete |
 | 16 | Execution-first Planning and disclosed management | Complete |
 | 17 | Complete historical outcome and deliberate closeout destinations | Complete |
-| 18 | Portfolio, project navigation, and Quick Find ergonomics | Not started |
+| 18 | Portfolio, project navigation, and Quick Find ergonomics | Complete |
 | 19 | Public site, current developer guidance, and independent local setup | Not started |
 | 20 | Cross-surface acceptance, accessibility, and UAT handoff | Not started |
 | 21 | Release identity, documentation closeout, and final verification | Not started |
@@ -1519,7 +1519,29 @@ Acceptance:
 Verification: populated Portfolio filter/containment tests, constrained-container screenshots/control
 bounds, role/navigation metadata tests, successive Quick Find/actor/stale-result browser journeys, budgets.
 
-Status: Not started.
+Status: Complete.
+
+Completion evidence:
+
+- Portfolio comparison reflows against actual inline-size containers, prioritizes one next action,
+  discloses secondary metrics/links and filters all returned project rows with visible/total counts.
+  Attention previews are separately disclosed and labeled; workspace totals remain exact/unfiltered.
+- Projects is directory-first with deliberate creation, preserved failed drafts and accepted-create
+  focus. Planning owns milestone/cycle/closeout routes through metadata; compact project identity,
+  active semantics and contributor-readable top-bar Settings are verified on mobile.
+- Authorized detail project context uses record/actor/workspace identity and owner-specific release.
+  Quick Find retains only in-memory query/refinement, searches afresh on reopen, clears on identity
+  change/reload and preserves real canonical continuation, escaped snippets and guarded inspection.
+- Fixed a cold-launch navigation race without weakening Stay: launching waits for bootstrap/pending
+  navigation, while canceled navigation retains an existing dialog. Superseded result responses
+  cannot overwrite newer searches.
+- Passed 77 selected Angular cases, ten distinct browser journeys, frontend/test lint/typechecks and
+  a warning-free production build/initial-graph check. Fifteen-project control bounds and inspected
+  1600px/760px-container/390px screenshots establish reflow without hiding overflow. All owned test
+  resources were removed; unrelated suites were not rerun. See [discovery/navigation evidence](discovery-navigation-evidence.md)
+  and [verification notes](verification-notes.md#phase-18-portfolio-and-navigation-ergonomics).
+
+Versions remain 0.2.9. Phase 19 public-site/setup work and later broad acceptance/release gates remain pending.
 
 ## Phase 19: Public Site And Working Local Setup
 

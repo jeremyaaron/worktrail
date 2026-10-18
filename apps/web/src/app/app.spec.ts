@@ -1,11 +1,13 @@
-import { provideHttpClient } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Dialog } from '@angular/cdk/dialog';
 import { OverlayContainer } from '@angular/cdk/overlay';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Component } from '@angular/core';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
-import { Router, RouterOutlet, provideRouter } from '@angular/router';
+import { NavigationStart, Router, RouterOutlet, provideRouter } from '@angular/router';
 import type { MemberDto } from '@worktrail/contracts';
+import { filter, firstValueFrom, take } from 'rxjs';
+import { AuthorizedProjectContext } from './core/navigation/authorized-project-context';
 
 import { App } from './app';
 import { CurrentUserService } from './core/current-user.service';
@@ -13,13 +15,13 @@ import { CurrentUserService } from './core/current-user.service';
 @Component({
   template: ''
 })
-class TestRouteComponent {}
+class TestRouteComponent { }
 
 @Component({
   imports: [RouterOutlet],
   template: '<router-outlet />'
 })
-class TestProjectRouteComponent {}
+class TestProjectRouteComponent { }
 
 const workspaceId = '10000000-0000-4000-8000-000000000001';
 const owner: MemberDto = {
@@ -69,6 +71,7 @@ describe('App', () => {
         provideHttpClientTesting(),
         provideRouter([
           { path: 'my-work', component: TestRouteComponent },
+          { path: 'work-items/:workItemId', component: TestRouteComponent },
           {
             path: 'projects/:projectId',
             component: TestProjectRouteComponent,
@@ -113,7 +116,6 @@ describe('App', () => {
       'Projects',
       'Portfolio',
       'Work Items',
-      'Workspace Settings',
       'Create'
     ]);
     expect(compiled.querySelector('select')?.textContent).toContain('Avery Owner');
@@ -239,6 +241,68 @@ describe('App', () => {
     expect(overlays.querySelector('.quick-find-overlay')).toBeNull();
   });
 
+  it('blocks launching during pending navigation without closing a dialog on cancellation', async () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    flushShellRequests(http, fixture, [owner]);
+    fixture.detectChanges();
+    const router = TestBed.inject(Router);
+    let resolveGuard!: (allowed: boolean) => void;
+    let enteredGuard!: () => void;
+    router.resetConfig([...router.config, {
+      path: 'pending', component: TestRouteComponent,
+      canActivate: [() => new Promise<boolean>(resolve => { resolveGuard = resolve; enteredGuard(); })]
+    }]);
+    const navigatePending = async () => {
+      const started = firstValueFrom(router.events.pipe(filter(event => event instanceof NavigationStart), take(1)));
+      const guardStarted = new Promise<void>(resolve => { enteredGuard = resolve; });
+      const navigation = router.navigateByUrl('/pending');
+      await started;
+      await guardStarted;
+      fixture.detectChanges();
+      return { navigation };
+    };
+    const first = await navigatePending();
+    expect(fixture.componentInstance.isNavigating()).toBeTrue();
+    expect((fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.quick-find-trigger')?.disabled).toBeTrue();
+    await fixture.componentInstance.openQuickFind();
+    expect(TestBed.inject(Dialog).openDialogs.length).toBe(0);
+    resolveGuard(false);
+    await first.navigation;
+    expect(fixture.componentInstance.isNavigating()).toBeFalse();
+    await fixture.componentInstance.openQuickFind();
+    const dialog = TestBed.inject(Dialog).openDialogs[0];
+    const second = await navigatePending();
+    resolveGuard(false);
+    await second.navigation;
+    expect(TestBed.inject(Dialog).openDialogs[0]).toBe(dialog);
+    expect(fixture.componentInstance.isNavigating()).toBeFalse();
+  });
+
+  it('consumes only authorized context for the currently committed detail record', async () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    flushShellRequests(http, fixture, [owner]);
+    fixture.detectChanges();
+    const router = TestBed.inject(Router);
+    const context = TestBed.inject(AuthorizedProjectContext);
+    await router.navigateByUrl('/work-items/record-a');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.currentProjectId()).toBeNull();
+    const releaseA = context.publish('record-a', 'project-a');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.currentProjectId()).toBe('project-a');
+    await router.navigateByUrl('/work-items/record-b');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.currentProjectId()).toBeNull();
+    const releaseB = context.publish('record-b', 'project-b');
+    releaseA();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.currentProjectId()).toBe('project-b');
+    releaseB();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.currentProjectId()).toBeNull();
+  });
   it('resets the opening guard when lazy launcher loading fails', async () => {
     const fixture = TestBed.createComponent(App);
     const app = fixture.componentInstance;
@@ -251,6 +315,10 @@ describe('App', () => {
       }
     ).loadQuickFindLauncher = launcher;
 
+    fixture.detectChanges();
+    await app.openQuickFind();
+    expect(launcher).not.toHaveBeenCalled();
+    flushShellRequests(http, fixture, [owner]);
     await app.openQuickFind();
     await app.openQuickFind();
 

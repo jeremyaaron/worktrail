@@ -138,7 +138,7 @@ test.describe("Quick Find", () => {
       dialog.getByRole("heading", { name: "Milestones" }),
     ).toBeVisible();
     await expect(
-      dialog.getByRole("option", { name: /Cloud Readiness/ }),
+      dialog.getByRole("listbox", { name: "Quick Find results" }).getByRole("option", { name: /Cloud Readiness/ }),
     ).toHaveCount(2);
 
     await page.getByLabel("Acting as").selectOption(maintainerId);

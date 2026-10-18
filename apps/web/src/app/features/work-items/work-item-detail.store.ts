@@ -1,4 +1,3 @@
-import { bareWorkItemUrl, createNavigationTarget, recordNavigationTarget, returnNavigationTarget, workNavigationContext } from '../../shared/navigation/work-navigation';
 import { computed, DestroyRef, effect, inject, Injectable, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, Validators, type ValidatorFn } from '@angular/forms';
@@ -17,8 +16,10 @@ import type {
 import { normalizeAuthoredContentSource } from '@worktrail/contracts';
 import type { MonoTypeOperatorFunction } from 'rxjs';
 import { Subject } from 'rxjs';
+import { AuthorizedProjectContext } from '../../core/navigation/authorized-project-context';
 import { DraftDepartureCoordinator, draftRouteKey } from '../../core/navigation/draft-departure-coordinator';
 import { DraftTracker } from '../../core/navigation/draft-tracker';
+import { bareWorkItemUrl, createNavigationTarget, recordNavigationTarget, returnNavigationTarget, workNavigationContext } from '../../shared/navigation/work-navigation';
 
 import { CyclesApi } from '../../core/api/cycles-api';
 import { ProjectsApi } from '../../core/api/projects-api';
@@ -60,7 +61,9 @@ export class WorkItemDetailStore {
   }
   readonly saveNotice = signal<string | null>(null);
 
-  constructor() { effect(() => { this.isStatusTransitionReadOnly(); this.isUpdating(); this.isTransitioning(); this.syncReadOnlyState(); }); }
+  constructor() {
+    this.destroyRef.onDestroy(() => this.releaseProjectContext?.()); effect(() => { this.isStatusTransitionReadOnly(); this.isUpdating(); this.isTransitioning(); this.syncReadOnlyState(); });
+  }
 
   openEditor(): void {
     if (this.isArchivedProject() || this.isUpdating()) return;
@@ -87,6 +90,8 @@ export class WorkItemDetailStore {
 
   private readonly cyclesApi = inject(CyclesApi);
 
+  private readonly projectContext = inject(AuthorizedProjectContext);
+  private releaseProjectContext: (() => void) | null = null;
   private readonly currentUser = inject(CurrentUserService);
 
   private readonly destroyRef = inject(DestroyRef);
@@ -240,6 +245,7 @@ export class WorkItemDetailStore {
   });
 
   loadWorkItem(): void {
+    this.releaseProjectContext?.();
     const workItemId = this.workItemId();
     const generation = ++this.loadGeneration;
     this.isLoading.set(true);
@@ -505,6 +511,8 @@ export class WorkItemDetailStore {
           }
 
           this.project.set(project);
+          this.releaseProjectContext?.();
+          this.releaseProjectContext = this.projectContext.publish(this.workItemId(), project.id);
           this.syncReadOnlyState();
         },
         error: () => {
@@ -513,6 +521,7 @@ export class WorkItemDetailStore {
           }
 
           this.project.set(null);
+          this.releaseProjectContext?.();
           this.syncReadOnlyState();
         }
       });
@@ -580,6 +589,7 @@ export class WorkItemDetailStore {
   }
 
   resetNavigationState(): void {
+    this.releaseProjectContext?.();
     this.isEditing.set(false);
     this.invalidPlanningInputs.set([]);
     this.saveNotice.set(null);

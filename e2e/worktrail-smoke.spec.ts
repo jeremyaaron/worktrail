@@ -90,7 +90,7 @@ async function expectFocused(locator: Locator): Promise<void> {
 }
 
 function projectShellHeading(page: Page, name: string): Locator {
-  return page.locator('.project-shell__header').getByRole('heading', { name });
+  return page.locator('.project-shell__name').filter({ hasText: name });
 }
 
 function workspaceWorkItemsHeading(page: Page): Locator {
@@ -393,7 +393,8 @@ test('completes the v0.0.4 workspace governance workflow', async ({ page }) => {
 
   await page.locator('#current-member').selectOption({ label: `${memberName} · maintainer` });
   await page.goto('/projects');
-  await expect(page.getByRole('heading', { name: 'Project workspace' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Projects', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'New project', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Create project' })).toBeEnabled();
   await expect(page.getByText('Owners and maintainers can create projects.')).toHaveCount(0);
 
@@ -441,7 +442,7 @@ test('completes the v0.0.3 planning and adoption workflow', async ({ page }) => 
   const editedComment = `Edited E2E smoke comment ${runId}`;
 
   await page.goto('/projects');
-  await expect(page.getByRole('heading', { name: 'Project workspace' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Projects', exact: true })).toBeVisible();
 
   await page.getByRole('link', { name: 'Worktrail App' }).click();
   await expect(projectShellHeading(page, 'Worktrail App')).toBeVisible();
@@ -1207,6 +1208,7 @@ test('reviews v0.2.3 workspace portfolio and drills into project work', async ({
   await expect(page.getByLabel('Portfolio summary')).toContainText('Active');
   await expect(page.getByLabel('Portfolio summary')).toContainText('On track');
   await expect(page.getByLabel('Portfolio summary')).toContainText('Reports stale or missing');
+  await page.locator('.attention-disclosure > summary').click();
   await expect(page.getByRole('heading', { name: 'Needs attention' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Communication freshness' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Dependency pressure' })).toBeVisible();
@@ -1237,7 +1239,7 @@ test('reviews v0.2.3 workspace portfolio and drills into project work', async ({
   await expect(operationsRow).toContainText('Reference Operations weekly status');
   await expectNoPageOverflow(page);
 
-  await worktrailRow.getByRole('link', { name: 'Dependency-blocked work' }).click();
+  await worktrailRow.locator('.next-action').click();
   await expect(page).toHaveURL(new RegExp(`/projects/${demoProjectId}/work-items\\?`));
   await expect(page).toHaveURL(/dependency=dependency_blocked/);
   await expect(page).toHaveURL(/sort=priority_desc/);
@@ -1247,6 +1249,7 @@ test('reviews v0.2.3 workspace portfolio and drills into project work', async ({
 
   await page.goto('/portfolio');
   await expect(page.getByRole('heading', { name: 'Portfolio review' })).toBeVisible();
+  await page.locator('article.project-row').filter({ hasText: 'Worktrail App' }).locator('summary').click();
   await page
     .locator('article.project-row')
     .filter({ hasText: 'Worktrail App' })

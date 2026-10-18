@@ -1722,3 +1722,101 @@ roots absent and no matching process/container remaining. Structured Markdown pa
 TypeScript and `git diff --check` passed. A final singular/plural correction to the unselected-choice
 prompt and an explanatory sentinel comment reuse unchanged decision/validation evidence; suites
 were not repeated for those copy-only changes or documentation closure.
+
+## Phase 18 Portfolio And Navigation Ergonomics
+
+### Impact Selection
+
+This phase changes frontend Portfolio/directory/shell/detail-context and Quick Find behavior only.
+Backend routes, database/schema, dependencies, test deadlines, retries, worker count and build budgets
+are unchanged. Acceptance targets the changed Angular owners and their existing browser integrations;
+API migration/seed/build work is an owned browser-harness prerequisite, not an API regression pass.
+Unrelated API/editor/site/full Angular suites were omitted, not passed. Full integration and release
+verification remain Phases 20-21, with public-site/setup work in Phase 19.
+
+Commands used explicit Node 24.16.0/npm 11.13 and the existing private-checkout lifecycle:
+
+```sh
+npm run lint --workspace @worktrail/web
+npm run ng --workspace @worktrail/web -- test --watch=false --karma-config <owned-checkout>/scripts/verification/karma.config.cjs --include=src/app/app.spec.ts --include=src/app/app.routes.spec.ts --include=src/app/core/navigation/authorized-project-context.spec.ts --include=src/app/features/portfolio/*.spec.ts --include=src/app/features/projects/projects-page.component.spec.ts --include=src/app/features/projects/project-shell/*.spec.ts --include=src/app/features/quick-find/*.spec.ts
+npm run build --workspace @worktrail/web -- --stats-json
+npm run verify -- --mode=e2e --grep='discovery ergonomics|Quick Find|v0.2.3 workspace portfolio'
+npm run verify -- --mode=e2e --grep='compares fifteen projects'
+npm run lint:verification
+npx tsc -p tsconfig.verification.json --noEmit
+git diff --check
+```
+
+The selected Angular command runs on a random owned Karma port. The same owner builds production
+assets and checks the static initial import graph before removing its checkout. Browser checks use
+disposable PostgreSQL/attachment storage, private browser profiles, random ports, one worker and no
+retries; no ordinary server/database is reused.
+
+### Clean Acceptance
+
+- `c2e7ee55-93ca-4bbd-abc3-bf2703aeb435`: 77 selected Angular cases, frontend lint, production build
+  and initial-graph checks passed. Coverage includes complete fifteen-row Portfolio filtering,
+  totals versus preview lengths, latest actor reads, creation pending/failure/draft behavior,
+  contributor controls, route ownership, authorized record-context leases, identity round trips,
+  retained query/refinement with fresh results, stale response exclusion, canonical continuation,
+  calendar dates and the pending/canceled navigation launch guard.
+- Production initial size is 401.95 kB (112.13 kB estimated transfer), 157 static initial inputs and
+  20 lazy page entries, without warnings. No Lucide runtime, CDK/dialog, heavy detail/Planning/editor
+  or Markdown input entered the initial graph. The shell's new gear reuses installed Lucide artwork
+  as a licensed static asset, matching the existing Search asset; budgets were not increased.
+- `8d1b233b-3027-49cb-9aef-3c4590c2731c`: all ten selected browser journeys passed. Three new
+  journeys cover fifteen real projects and actual-container filters/reflow, deliberate project
+  creation/Planning ownership/contributor Settings, and successive refreshed Quick Find inspection.
+  The existing five Quick Find journeys, draft-departure integration and Portfolio drill-down journey
+  also pass. Duplicate earlier executions are not additional journey coverage.
+- The successive-inspection fixture verifies a sixth milestone beyond the initial five-row preview
+  through a specific query, then checks type/project refinement, changed server data on reopen,
+  keyboard inspection with bounded return metadata, reload and actor reset, and unavailable-detail
+  context. Its controlled delayed response is released after newer results are visible, and cannot
+  replace them. Unsupported non-work View all is absent; normal work overflow and repeat Files
+  targeting retain their existing acceptance journeys.
+
+Portfolio containment uses a 1600px viewport, a deliberately forced 760px content shell at that same
+viewport, and 390px mobile. Assertions check document overflow, every primary field/control and
+disclosed destination bounds, rather than hiding clipping. The complete API projection supplies
+expected local-filter counts. Separate mobile checks assert accessible actor labeling, the loaded
+gear asset and Planning `aria-current` on milestone/cycle/closeout routes. These are focused reflow
+and keyboard checks, not a full screen-reader or actual browser-zoom audit.
+
+### Diagnostics And Reuse
+
+- The first frontend run stopped at a missed route-helper rename. The next found a stale primary
+  Settings expectation and a genuine disabled form after failed creation; both were corrected.
+- The first new browser selection passed directory and repeated Quick Find behavior but exposed
+  a positional fixture race after clearing Portfolio filters. The fixture now waits for the full
+  count and selects the stable project identity before opening its disclosure.
+- Broader browser selections exposed older tests selecting native preview options as result rows
+  and assuming attention was expanded. They now scope result options to the listbox and explicitly
+  open the disclosure; neither correction weakens product behavior.
+- Cold Quick Find launch could finish during initial member/route bootstrap, then disappear at
+  NavigationEnd. A member-only guard was insufficient; trace timing identified the pending route.
+  Launch now waits for both boundaries. Canceled navigation preserves an already-open dialog, as
+  verified by the focused root test and existing Stay/draft browser journey. A focused clean run
+  `0f731c76-3ea6-49bd-b319-03427e059a52` preceded the final ten-journey run.
+- Earlier 73/76-case clean frontend results are superseded by the final 77-case run, not added to
+  its coverage. Diagnostic browser selections were failures even when individual journeys passed.
+  One malformed ad hoc Node invocation exited before creating a manifest/resource; its corrected
+  invocation uses the unchanged ownership lifecycle.
+
+See [discovery and navigation evidence](discovery-navigation-evidence.md) for capability boundaries.
+README and current developer guidance describe the implemented behavior. Versions remain 0.2.9;
+no commit, push, merge, tag, publication or deployment is part of this phase.
+
+### Closure
+
+`16ca11ed-25b6-4f4b-896e-1a4aa6ea08f4` repeats only the fifteen-project journey after adding a
+closer mobile comparison screenshot; it passes and is not an eleventh distinct journey. Inspected
+wide/constrained/mobile screenshots include expanded secondary destinations, compact mobile
+Planning ownership and the refined Quick Find dialog, without overlapping text/controls. The date-only
+fix is present in final captures. Documentation-only closure reuses the unchanged functional evidence.
+
+Read-only inspection confirmed all twelve phase run summaries report cleaned, their temporary roots
+are absent and no matching process/container remains. Ordinary PostgreSQL on 5432, working data and
+attachment storage, and unrelated servers were not used or stopped. Final focused browser-test lint,
+verification TypeScript and diff checks pass. Phase 18 is complete; public-site/setup work, broader
+acceptance and release verification remain pending.

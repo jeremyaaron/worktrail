@@ -6,8 +6,8 @@
     </a>
 
     <nav class="primary-nav" aria-label="Primary navigation">
-      <a routerLink="/my-work" routerLinkActive="primary-nav__link--active">My Work</a>
-      <a routerLink="/inbox" routerLinkActive="primary-nav__link--active">
+      <a routerLink="/my-work" routerLinkActive="primary-nav__link--active" ariaCurrentWhenActive="page">My Work</a>
+      <a routerLink="/inbox" routerLinkActive="primary-nav__link--active" ariaCurrentWhenActive="page">
         <span>Inbox</span>
         @if (inboxState.unreadCount() > 0) {
           <span class="primary-nav__badge" aria-label="Unread notifications">
@@ -15,27 +15,25 @@
           </span>
         }
       </a>
-      <a routerLink="/projects" routerLinkActive="primary-nav__link--active">Projects</a>
-      <a routerLink="/portfolio" routerLinkActive="primary-nav__link--active">Portfolio</a>
-      <a routerLink="/work-items" routerLinkActive="primary-nav__link--active">Work Items</a>
-      <a routerLink="/workspace/settings" routerLinkActive="primary-nav__link--active">
-        Workspace Settings
-      </a>
+      <a routerLink="/projects" routerLinkActive="primary-nav__link--active" ariaCurrentWhenActive="page">Projects</a>
+      <a routerLink="/portfolio" routerLinkActive="primary-nav__link--active" ariaCurrentWhenActive="page">Portfolio</a>
+      <a routerLink="/work-items" routerLinkActive="primary-nav__link--active" ariaCurrentWhenActive="page">Work Items</a>
       <a
         class="primary-nav__action"
         routerLink="/work-items/new"
-        routerLinkActive="primary-nav__link--active"
       >
         Create
       </a>
     </nav>
 
     <div class="topbar-tools">
+      <a class="settings-trigger" routerLink="/workspace/settings" routerLinkActive="settings-trigger--active" ariaCurrentWhenActive="page" aria-label="Workspace Settings" title="Workspace Settings"><img src="/icons/settings.svg" alt="" aria-hidden="true" /></a>
       <button
         class="quick-find-trigger"
         type="button"
         aria-label="Open Quick Find"
         title="Quick Find"
+        [disabled]="isNavigating() || currentUser.isLoading() || !currentUser.selectedMember()"
         (click)="openQuickFind()"
       >
         <img src="/icons/search.svg" alt="" aria-hidden="true" />

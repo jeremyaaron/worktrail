@@ -1,7 +1,7 @@
 import type { QuickFindResultDto } from '@worktrail/contracts';
 
-import { workItemFilesFragment } from '../work-items/work-item-files-target';
 import { routerLinkQueryParamsFromWorkItemQuery } from '../work-items/query/work-item-query-serialization';
+import { workItemFilesFragment } from '../work-items/work-item-files-target';
 import type {
   QuickFindNavigationEntry,
   QuickFindRouteTarget
@@ -133,11 +133,13 @@ export function quickFindResultOptionId(result: QuickFindResultDto): string {
 }
 
 export function quickFindWorkItemOverflowDestination(
-  normalizedQuery: string
+  normalizedQuery: string,
+  projectId?: string
 ): QuickFindRouteTarget {
   const queryParams = routerLinkQueryParamsFromWorkItemQuery(
     {
       search: normalizedQuery,
+      ...(projectId ? { projectId } : {}),
       archivedProjects: 'include'
     },
     'workspace'

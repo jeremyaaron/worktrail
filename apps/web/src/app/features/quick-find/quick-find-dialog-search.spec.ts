@@ -39,7 +39,7 @@ describe('QuickFindDialogComponent search mode', () => {
   let api: jasmine.SpyObj<QuickFindApi>;
   let dialogRef: jasmine.SpyObj<DialogRef<void, QuickFindDialogComponent>>;
   let dialogClosed: Subject<void>;
-  let selectedMember: WritableSignal<{ id: string } | null>;
+  let selectedMember: WritableSignal<{ id: string; workspaceId?: string } | null>;
   let router: Router;
 
   beforeEach(async () => {
@@ -50,7 +50,7 @@ describe('QuickFindDialogComponent search mode', () => {
       ['close'],
       { closed: dialogClosed.asObservable() }
     );
-    selectedMember = signal<{ id: string } | null>({ id: 'member-1' });
+    selectedMember = signal<{ id: string; workspaceId?: string } | null>({ id: 'member-1' });
 
     await TestBed.configureTestingModule({
       imports: [QuickFindDialogComponent],
@@ -74,6 +74,58 @@ describe('QuickFindDialogComponent search mode', () => {
     fixture.detectChanges();
   });
 
+  it('retains query and preview filters on reopening but refreshes results and resets selection', fakeAsync(() => {
+    const first = new Subject<QuickFindResponseDto>();
+    const second = new Subject<QuickFindResponseDto>();
+    api.search.and.returnValues(first, second);
+    component.queryControl.setValue('release');
+    tick(220);
+    first.next(fullResponse());
+    first.complete();
+    component.resultType.set('cycles');
+    component.projectFilter.set(project.id);
+    fixture.detectChanges();
+    expect(component.resultGroups().length).toBe(1);
+    fixture.destroy();
+    fixture = TestBed.createComponent(QuickFindDialogComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+    expect(component.queryControl.value).toBe('release');
+    expect(component.resultType()).toBe('cycles');
+    expect(component.projectFilter()).toBe(project.id);
+    expect(component.response()).toBeNull();
+    expect(component.activeOptionId()).toBeNull();
+    tick(220);
+    expect(api.search).toHaveBeenCalledTimes(2);
+    const fresh = fullResponse();
+    fresh.groups.cycles.items[0]!.cycle.name = 'Fresh cycle name';
+    second.next(fresh);
+    second.complete();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Fresh cycle name');
+    expect(fixture.nativeElement.querySelectorAll('.quick-find__result').length).toBe(1);
+    component.clearSearch();
+    fixture.detectChanges();
+    expect(component.resultType()).toBe('all');
+    expect(component.projectFilter()).toBe('');
+  }));
+
+  it('erases state and rejects an earlier response when workspace changes without a different member ID', fakeAsync(() => {
+    const pending = new Subject<QuickFindResponseDto>();
+    api.search.and.returnValue(pending);
+    component.queryControl.setValue('release');
+    tick(220);
+    selectedMember.set({ id: 'member-1', workspaceId: 'different-workspace' });
+    pending.next(fullResponse());
+    fixture.detectChanges();
+    expect(component.response()).toBeNull();
+    expect(dialogRef.close).toHaveBeenCalled();
+    fixture.destroy();
+    fixture = TestBed.createComponent(QuickFindDialogComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+    expect(component.queryControl.value).toBe('');
+  }));
   it('debounces normalized queries and cancels stale success and error outcomes', fakeAsync(() => {
     const first = new Subject<QuickFindResponseDto>();
     const second = new Subject<QuickFindResponseDto>();
@@ -131,12 +183,12 @@ describe('QuickFindDialogComponent search mode', () => {
       .map((heading: HTMLElement) => heading.textContent?.trim());
 
     expect(headings).toEqual([
-      'Work items',
-      'Projects',
-      'Milestones',
-      'Cycles',
-      'Reports',
-      'Attachments'
+      'Work items · 1 shown',
+      'Projects · 1 shown',
+      'Milestones · 1 shown',
+      'Cycles · 1 shown',
+      'Reports · 1 shown',
+      'Attachments · 1 shown'
     ]);
     expect(fixture.nativeElement.textContent).toContain('WT-42');
     expect(fixture.nativeElement.textContent).toContain('Worktrail');

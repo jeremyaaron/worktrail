@@ -54,6 +54,7 @@ export const routes: Routes = [
     children: [
       {
         path: '',
+        data: { projectSection: 'overview' },
         loadComponent: () =>
           import('./features/projects/project-home-page.component').then(
             (module) => module.ProjectHomePageComponent
@@ -62,7 +63,7 @@ export const routes: Routes = [
       },
       {
         path: 'work-items/new',
-        data: { draftEditor: 'create' },
+        data: { projectSection: 'work', draftEditor: 'create' },
         canActivate: [protectReusedEditor],
         canDeactivate: [protectEditorDeparture],
         runGuardsAndResolvers: 'always',
@@ -74,6 +75,7 @@ export const routes: Routes = [
       },
       {
         path: 'work-items/import',
+        data: { projectSection: 'work' },
         loadComponent: () =>
           import('./features/work-items/work-item-import-page.component').then(
             (module) => module.WorkItemImportPageComponent
@@ -82,6 +84,7 @@ export const routes: Routes = [
       },
       {
         path: 'work-items',
+        data: { projectSection: 'work' },
         loadComponent: () =>
           import('./features/work-items/work-item-list-page.component').then(
             (module) => module.WorkItemListPageComponent
@@ -90,6 +93,7 @@ export const routes: Routes = [
       },
       {
         path: 'board',
+        data: { projectSection: 'board' },
         loadComponent: () =>
           import('./features/work-items/work-item-board-page.component').then(
             (module) => module.WorkItemBoardPageComponent
@@ -98,6 +102,7 @@ export const routes: Routes = [
       },
       {
         path: 'planning',
+        data: { projectSection: 'planning' },
         loadComponent: () =>
           import('./features/projects/project-planning-page.component').then(
             (module) => module.ProjectPlanningPageComponent
@@ -106,6 +111,7 @@ export const routes: Routes = [
       },
       {
         path: 'status',
+        data: { projectSection: 'reports' },
         loadComponent: () =>
           import('./features/projects/status-reports/project-status-report-list-page.component').then(
             (module) => module.ProjectStatusReportListPageComponent
@@ -114,7 +120,7 @@ export const routes: Routes = [
       },
       {
         path: 'status/new',
-        data: { draftEditor: 'report' },
+        data: { projectSection: 'reports', draftEditor: 'report' },
         canActivate: [protectReusedEditor],
         canDeactivate: [protectEditorDeparture],
         runGuardsAndResolvers: 'always',
@@ -126,6 +132,7 @@ export const routes: Routes = [
       },
       {
         path: 'status/:reportId',
+        data: { projectSection: 'reports' },
         loadComponent: () =>
           import('./features/projects/status-reports/project-status-report-detail-page.component').then(
             (module) => module.ProjectStatusReportDetailPageComponent
@@ -134,6 +141,7 @@ export const routes: Routes = [
       },
       {
         path: 'milestones/:milestoneId',
+        data: { projectSection: 'planning' },
         loadComponent: () =>
           import('./features/projects/project-milestone-review-page.component').then(
             (module) => module.ProjectMilestoneReviewPageComponent
@@ -142,6 +150,7 @@ export const routes: Routes = [
       },
       {
         path: 'cycles/:cycleId/closeout',
+        data: { projectSection: 'planning' },
         loadComponent: () =>
           import('./features/projects/cycle-closeout/project-cycle-closeout-page.component').then(
             (module) => module.ProjectCycleCloseoutPageComponent
@@ -150,6 +159,7 @@ export const routes: Routes = [
       },
       {
         path: 'cycles/:cycleId',
+        data: { projectSection: 'planning' },
         loadComponent: () =>
           import('./features/projects/project-cycle-review-page.component').then(
             (module) => module.ProjectCycleReviewPageComponent
@@ -158,6 +168,7 @@ export const routes: Routes = [
       },
       {
         path: 'settings',
+        data: { projectSection: 'settings' },
         loadComponent: () =>
           import('./features/projects/project-settings-page.component').then(
             (module) => module.ProjectSettingsPageComponent

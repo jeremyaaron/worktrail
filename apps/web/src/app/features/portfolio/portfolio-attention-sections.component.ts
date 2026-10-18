@@ -19,12 +19,14 @@ interface AttentionSection {
   selector: 'app-portfolio-attention-sections',
   imports: [RouterLink],
   template: `
+    <details class="attention-disclosure"><summary>Attention previews</summary>
+    <p class="preview-note">Bounded project previews · Workspace totals above</p>
     <section class="attention-grid" aria-label="Portfolio attention sections">
       @for (section of sections(); track section.key) {
         <section class="attention-section" [attr.aria-labelledby]="section.key + '-heading'">
           <div class="section-heading">
             <h2 [id]="section.key + '-heading'">{{ section.title }}</h2>
-            <span>{{ section.items.length }}</span>
+            <span>{{ section.items.length }} shown</span>
           </div>
 
           @if (section.items.length === 0) {
@@ -48,8 +50,13 @@ interface AttentionSection {
         </section>
       }
     </section>
+    </details>
   `,
   styles: `
+    :host { display: block; container-type: inline-size; }
+    summary { cursor: pointer; font-size: .9rem; font-weight: 800; padding: 10px 0; }
+    .preview-note { margin-bottom: 12px; }
+    .attention-section { overflow-wrap: anywhere; }
     .attention-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -58,9 +65,7 @@ interface AttentionSection {
 
     .attention-section {
       min-width: 0;
-      border: 1px solid #dbe3ef;
-      border-radius: 8px;
-      background: #ffffff;
+      border-top: 1px solid #dbe3ef;
     }
 
     .section-heading {
@@ -156,13 +161,13 @@ interface AttentionSection {
       text-decoration: underline;
     }
 
-    @media (max-width: 1200px) {
+    @container (max-width: 960px) {
       .attention-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
 
-    @media (max-width: 760px) {
+    @container (max-width: 560px) {
       .attention-grid {
         grid-template-columns: 1fr;
       }

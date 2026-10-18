@@ -565,3 +565,41 @@ cannot navigate/update a new context.
 `closeout-demo-seed.ts` supplies named twelve-unfinished v1/v2 historical walkthroughs with changed
 current records and a renamed destination. It is not a deterministic test fixture; Angular/parser
 and browser acceptance construct separate inputs. See [historical outcome evidence](v0.3.0/historical-closeout-evidence.md).
+
+## Discovery And Navigation Ownership
+
+Portfolio comparison filters run over the complete authorized `PortfolioDto.projects` projection.
+They never filter the five-row attention previews or change workspace summary totals. Comparison,
+summary and attention layouts use their own inline-size containers; viewport width alone does not
+establish available row width. Details/links and attention use native disclosures. Calendar dates
+format in UTC to avoid shifting a date-only deadline; publication/update timestamps remain local.
+
+Project child routes carry `data.projectSection`; the project shell resolves the deepest declared
+owner so milestone/cycle/closeout pages select Planning without changing routes. Workspace Settings
+is an accessible top-bar utility, not a role-gated primary destination. The gear uses the installed
+Lucide geometry as a static asset with its license, following the existing Search asset pattern;
+adding the icon runtime to the root shell would defeat its lazy-loading boundary.
+
+Projects loads its directory and capabilities through `PageContext`, cancels replaced reads, and
+guards submitted mutation callbacks. Creation is disclosed explicitly; pending submissions cannot
+duplicate, failure retains form values, and accepted creation focuses the new directory link.
+Identity changes reset directory/filter/form state. This is not a new general-purpose form framework.
+
+`AuthorizedProjectContext` publishes detail project identity only after the existing authorized
+work-item/project reads succeed. Its record/actor/workspace key prevents reuse on a different detail;
+release callbacks belong to a specific publication so an old owner cannot clear its replacement.
+Loading, context loss, project failure and destruction release it. The shell consumes this context
+only for its committed detail record, not from untrusted return parameters.
+
+`QuickFindSessionService` holds query/type/project refinement only in memory. Committed identity
+events synchronously erase it, including rapid actor round trips; captured identity rejects old
+dialog writes. Each dialog issues a fresh search, resets active selection and rejects obsolete
+query/generation/identity outcomes. Preview filters never broaden the server's five-row groups;
+only work-item overflow has a real canonical continuation. Keep filenames distinct from contents
+and keep excerpts in escaped interpolation. No result DTO, permission decision or project label is
+retained in the session.
+
+The launcher waits for member bootstrap and pending route navigation. NavigationEnd closes the
+dialog and updates route context; cancellation/error releases the launch guard without dismissing
+an existing dialog, preserving Stay. Lazy launch generation/identity checks prevent late overlays.
+See [discovery and navigation evidence](v0.3.0/discovery-navigation-evidence.md).

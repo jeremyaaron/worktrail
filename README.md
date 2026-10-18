@@ -243,10 +243,12 @@ and [verification evidence](docs/v0.2.9/verification-notes.md) for compatibility
 
 v0.2.8 adds Quick Find as a bounded workspace navigation and search surface available throughout the
 application. Open it from the search button in the top bar or with `Command+K` on macOS and `Ctrl+K`
-elsewhere. The shortcut is ignored while focus is in an editable control.
+elsewhere. Launch waits for member bootstrap and route navigation to finish; an unresolved draft
+departure or pending write retains its existing protection.
 
 With an empty query, Quick Find offers global destinations and project destinations when the current
-route has project context. Queries are normalized to 2-120 Unicode code points and search:
+route has project context, including a successfully authorized work-item detail. Queries are
+normalized to 2-120 Unicode code points and search:
 
 - work item display keys, titles, and descriptions;
 - project keys, names, and descriptions;
@@ -261,6 +263,16 @@ returns at most five records and a `hasMore` signal rather than an exact total. 
 can continue into the canonical workspace Work Items page; other result groups do not have dedicated
 overflow pages in this release.
 
+Result type and Project in preview narrow the returned bounded groups, not the entire matching
+workspace set. Refine the search text to find records outside a non-work preview. Work-item overflow
+continues into Work Items with the search and selected project applied. Filenames are distinct from
+file contents, and snippets are rendered as text.
+
+Closing Quick Find retains only the query and preview refinements in memory for the current
+actor/workspace, making successive inspections possible without retyping. Reopening performs a
+fresh authorized search and resets selection; results are not cached. Actor/workspace changes and
+page reload clear that session.
+
 Quick Find sends search text in the JSON body of `POST /api/quick-find`, never in the page URL. Normal
 request logs record the route rather than the query or request body, responses are marked
 `private, no-store`, and actor/workspace authorization is applied before results are projected.
@@ -270,6 +282,14 @@ service. It does not search comments, activity, notifications, complete report b
 contents, and it does not provide mutation commands, saved global searches, exact totals, or hosted
 search infrastructure.
 
+## Project Navigation
+
+Projects opens a searchable directory. Owners and maintainers use New project to open creation;
+successful creation returns focus to the new project, while failures preserve the draft. Contributor
+directory access does not expose creation controls. Workspace Settings is the labeled gear utility
+in the top bar and remains readable by contributors. Milestone, cycle and closeout routes identify
+Planning as their active project section, with compact project identity above the page heading.
+
 ## Portfolio Review
 
 v0.2.3 adds a top-level Portfolio review at `/portfolio`. Portfolio is a read-only workspace operating surface that compares active projects without requiring a user to open each project individually.
@@ -277,13 +297,14 @@ v0.2.3 adds a top-level Portfolio review at `/portfolio`. Portfolio is a read-on
 Portfolio support includes:
 
 - active-project summary counts for on-track, at-risk, blocked, overdue, dependency-pressure, and stale-or-missing-report projects;
-- bounded attention sections for delivery risk, communication freshness, current execution, and dependency pressure;
-- project comparison rows with delivery health, health reasons, work counts, report freshness, latest report details, active milestone context, and active cycle context;
+- disclosed attention previews for delivery risk, communication freshness, current execution, and dependency pressure; preview lengths are not workspace totals;
+- container-responsive project comparison rows leading with identity, health/top reason, planning context, report freshness and one next action; Details and links exposes secondary metrics and destinations;
+- immediate name/key, health and report-freshness filters across all returned active-project rows, with visible/total counts; summary totals remain workspace-wide;
 - action links into existing Overview, Work, Planning, Reports, latest report, milestone review, cycle review, and risk-specific filtered Work pages;
 - canonical `WorkItemQuery` conversion for Portfolio drill-down links, using each link's project or workspace query scope;
 - deterministic seed data that shows blocked/risky projects, a healthy comparison project, fresh and missing report states, active planning context, and dependency pressure.
 
-Portfolio is derived at read time from existing projects, work items, delivery health, milestones, cycles, and status reports. It does not add stored portfolio snapshots, new planning hierarchy, charts, custom sorting, exports, portfolio filters, historical portfolio review, or cross-project mutation workflows.
+Portfolio is derived at read time from existing projects, work items, delivery health, milestones, cycles, and status reports. Its local comparison filters are not saved or URL-backed queries. It does not add stored portfolio snapshots, new planning hierarchy, charts, custom sorting, exports, historical portfolio review, or cross-project mutation workflows.
 
 ## Reliable Filtered Views And Saved Work Views
 
@@ -759,12 +780,12 @@ Suggested walkthrough:
 1. Copy the filtered workspace view link, open it in another tab, and confirm the same applied chips and results appear.
 1. Use the global Create work item route, select a project, choose project-dependent labels or milestones, create work, and open the created item.
 1. Open Portfolio and compare Worktrail App, Cloud Readiness, and Reference Operations across delivery health, report freshness, planning context, and dependency pressure.
-1. Follow a Portfolio dependency-pressure link into filtered project Work, then return and open the latest Worktrail App report from Portfolio.
+1. Filter Portfolio by health or report freshness, follow its primary dependency-pressure action into project Work, then return and expand Details and links to open the latest Worktrail App report. Attention previews are a separate disclosure below the comparison.
 1. Open Projects, search by project name or key, and review project summary signals for open, blocked, overdue, status, and last updated state.
-1. Open Workspace Settings and review role summaries, members, and workspace activity.
+1. Open Workspace Settings from the top-bar gear and review role summaries, members, and workspace activity.
 1. As Avery Owner, create a contributor, promote the member to maintainer, deactivate the member, and reactivate the member.
 1. Confirm the actor selector updates when active members are created, changed, deactivated, and reactivated.
-1. Switch to a maintainer and confirm project creation is available, then create a project with an explicit key.
+1. Switch to a maintainer, open Projects and select New project, then create a project with an explicit key and confirm focus returns to its directory link.
 1. Switch to a contributor and confirm member administration is unavailable with clear helper copy.
 1. Open the Worktrail App project.
 1. Open Work, change the page size to 10, move to page 2, open a work item, and use the return link to confirm the page position is preserved.
@@ -988,7 +1009,7 @@ Suggested walkthrough:
 - Comment mentions are selected through an active-member picker. Free-text `@name` parsing is deferred.
 - Watchers are work-item scoped only. Project-level and workspace-level watching are deferred.
 - Saved views support workspace and project scopes with personal/shared visibility and pinned shortcuts. Custom pinned ordering, saved-view folders, icons, colors, descriptions, ownership transfer, custom permissions, short links, and analytics are deferred.
-- Portfolio review is read-only and active-project focused. Portfolio filters, custom sorting, charts, exports, stored portfolio snapshots, historical portfolio review, and cross-project mutation workflows are deferred.
+- Portfolio review is read-only and active-project focused. Comparison filters are local over the complete returned rows; saved/URL-backed Portfolio queries, custom sorting, charts, exports, stored snapshots, historical review, and cross-project mutation workflows are deferred.
 - Batch triage is project-scoped and works on explicit visible selections only. Cross-project bulk edit, board bulk actions, bulk delete, bulk comments, query-wide durable selection sets, background jobs, and custom bulk permissions are deferred.
 - Copy-link support uses browser clipboard APIs and a textarea fallback. Native share sheets, short links, and permission customization are deferred.
 - CSV import is project-scoped and limited to 1 MiB and 250 data rows per file.
