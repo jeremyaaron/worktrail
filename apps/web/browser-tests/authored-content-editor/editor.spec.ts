@@ -18,7 +18,9 @@ test('preserves native typing undo across preview and synchronizes undo/redo wit
     'additional'
   );
   await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  await expect(textarea).toBeVisible();
   await textarea.focus();
+  await expect(textarea).toBeFocused();
   await textarea.press('ControlOrMeta+z');
   await expect(textarea).toHaveValue(original);
   await expect(page.getByTestId('model')).toHaveText(original);

@@ -867,3 +867,45 @@ These focused results supersede earlier editor-spec acceptance only for the adde
 the prior full release record remains historical. Unchanged API/contracts/Angular/application/preview/
 site/audit suites are not repeated. This Linux ARM64 proof is not GitHub's AMD64 runner or a new remote
 CI pass. No commit, push or remote rerun is performed here.
+
+## CI Follow Up: Visible Undo Target
+
+The next [editor job](https://github.com/jeremyaaron/worktrail/actions/runs/39182442772/job/117837872549?pr=31)
+passes the sample baseline but fails later at Undo. This is a second missing precondition in the
+same test, not a recurrence of the empty-baseline read. Trace snapshots after `focus()` and before
+`ControlOrMeta+z` retain the textarea's ancestor `hidden` attribute; Edit's scheduled rendering has
+not completed. The value remains the sample plus suffix. Locator focus/press do not wait for a
+hidden textarea to become visible, so the keyboard action can miss its intended target.
+
+After clicking Edit, assert textarea visibility before calling focus, then assert focus before
+sending Undo. Keep all original native undo/redo and parent-model assertions. Waiting longer for the
+value after sending a misdirected shortcut cannot repair the missing keyboard action. No timeout,
+sleep, retry, product, fixture, dependency or CI configuration change is made.
+
+Private controlled probes hold the observed hidden-preview state by capturing one Edit click,
+without a timer or changed application code. On a fresh page, the unguarded focus/Undo sequence
+leaves focus on Edit and fails to restore the original source. On another fresh page, start the
+visibility assertion, explicitly release Edit, focus and verify the textarea, then native Undo/Redo
+and parent synchronization pass. An initial combined diagnostic continued the valid path after the
+deliberately invalid shortcut and failed; retain it separately, not as acceptance. The final controls
+use independent pages so the invalid keyboard path cannot affect the positive comparison.
+
+Targeted results on October 18, 2026 (local time):
+
+- Standard `npm run test:editor`: five pass on macOS, run `f357b148-276c-4ecd-b65a-57e5e6689779`.
+  Original CI trace/artifacts and job log are retained with this run.
+- Two independent controlled probes pass on macOS, outer run `90a945d3-01be-4ec0-a4b6-6186436f6f1a`,
+  nested `246c628d-bd2a-41fa-9eae-f57c1ff47657`. Probe source, log and structured attachments are retained.
+- Fresh independent Playwright `v1.61.1-noble` Linux ARM64 installation: all five standard editor
+  checks and both private controls pass. Outer run `265375ed-2506-4079-b52f-678151b5d3eb`, nested
+  `70548ca3-83c9-485d-a637-d25ccc4086ab`. Node `24.17.0`, Chromium `149.0.7827.0`; macOS uses Node
+  `24.16.0` and Chromium `149.0.7827.55`. These are not GitHub AMD64 execution claims.
+- Accepted reports have no failed/skipped/flaky cases and zero retries. Changed-spec ESLint,
+  verification TypeScript and whitespace checks pass. All host/probe/Linux summaries report cleanup;
+  private roots and the labeled Linux container are absent. The initial failed diagnostic remains
+  under `27e59465-3917-4088-b253-cf62439d3d94` with successful cleanup, excluded from passing results.
+
+Every other verification job in the reported remote run passed; Verify fails because editor failed.
+Only the two readiness assertions and this note change. No unrelated application suite is repeated,
+and no commit, push or remote rerun is performed here. The prior release and first follow-up results
+remain historical; these scoped results cover the updated editor spec.
