@@ -669,3 +669,170 @@ efficiency effort must measure a current baseline, preserve serial fixture owner
 discovery coverage, exercise moved groups in isolated resources and compare runner cost as well
 as wall-clock time. Phase 9 has no remaining work for v0.3.1; Phases 10-11 remain pending. Nothing
 was committed, tagged, pushed or changed remotely.
+
+## Phase 10: Documentation And Setup Acceptance
+
+Complete October 18, 2026 (local time), from clean commit
+`6d15319d3706cfe9841ca4a4535202ec25c0fcdc` on `v0.3.1`. The
+[structured evidence](phase-10-evidence.json) retains source/lock identity, setup reports and cleanup.
+Only documentation changes; release identity remains `0.3.0`. Phase 11 is not executed here.
+
+Update the README and current developer/operating guides with maintenance pointers, exact versions,
+literal focused/watch commands, lifecycle prerequisites and proportionate verification. Document
+timestamped Drizzle folders, generation versus application, ordinary ledger adoption, the deliberate
+`1.0.0-rc.4` prerelease pair and coordinated backup/rollback requirements. Add current
+[known limits](known-limits.md) and framework-neutral [pattern notes](pattern-notes.md). Preserve
+historical results and the original empty-policy dates. All five exceptions are retired; the clean
+registry result is point-in-time evidence, not an undisclosed-vulnerability guarantee.
+
+### Fresh Setup Results
+
+Use Node `24.16.0`, npm `11.13.0`, Docker PostgreSQL `16-alpine` and Playwright `1.61.1` Chromium on
+macOS arm64. Install the missing browser with `npx playwright install chromium`; do not reinstall
+the working dependencies. Run the two existing setup commands sequentially, each with its own fresh
+lockfile installation, private source snapshot, marked database/store and tracked startup processes.
+
+| Command | Outcome | Owned Run |
+| --- | --- | --- |
+| `npm run verify:setup -- development` | Pass: install, migrate, seed, source API/Angular serve, one Chromium setup journey, cleanup | `0df2920b-083f-477d-807a-d7e7d705f984` |
+| `npm run verify:setup -- preview` | Pass: independent install, migrate, seed, contracts/API/Angular build, compiled production runtime, one Chromium setup journey, cleanup | `03c7cdb4-f031-46ea-845f-c5a31f488715` |
+
+Each journey reloads work detail by deep link and compares both seeded attachment downloads
+byte-for-byte. It checks four portfolio rows, read-first authored requirements, absence of page
+errors and the appropriate source-Vite versus compiled-main asset behavior. Each produces desktop
+and mobile portfolio/detail captures; a development mobile detail capture was also visually
+inspected. This is not a new accessibility or every-route UAT signoff. Both browser reports have
+one expected pass, no failures, skips or flaky cases; no test retry or deadline change is used.
+Preview production initial assets are **410.31 kB**, with unchanged budgets and no budget warnings.
+
+The setup harness deliberately uses random loopback ports and identity-proving wrappers instead of
+literal default-port shell commands. Migration/seed and the source API use the owned test environment;
+preview runtime uses production mode and explicit static/storage configuration. These are actual
+application adapters and source/compiled entry points, not a mocked file server. This does not prove
+a remote clone/deployment, ordinary port availability, external database privileges, or new backup
+restore behavior. Do not seed an existing working database to reproduce installation evidence.
+
+Reports, screenshots and summaries remain under `test-results/verification/<run-id>/`. Both commands
+exit zero with `passed: true`, `cleaned: true` and no interruption. Their private roots and owned
+containers are absent after completion; server shutdown uses the existing tracked ownership logic.
+No ordinary database, local attachment store or unrelated process is mutated or stopped.
+
+### Evidence Reuse And Documentation Checks
+
+The lock SHA-256 remains `5b43fb1f87ae625a7f7858f359fa6a3a593c8ae219165d25579b08f1c7b97257`.
+Recheck all 18 source-hash entries from Phases 7-8 and the complete API source/tests, contracts and
+migration inventories: unchanged. Reuse Phase 7's actual v0.3.0 populated upgrade, no-op migration,
+data/history/files preservation, full backend and compiled API evidence; no full upgrade repeat is
+needed for prose changes. Reuse Phase 8's independent valid-peer/zero-production/full-audit result.
+The setup installs' incidental npm audit output is not a replacement for that strict collector proof.
+
+Review site content and setup against the implemented capabilities. No obsolete toolchain-specific
+instructions or invented features need changing; published footer/tag identity correctly stays
+`0.3.0` until Phase 11. No HTML, styles, screenshots, favicons or other site inputs change, so no
+rendered-site suite is repeated. `npm run check:site` passes (43 references, 17 repository links,
+13 IDs). Markdown parsing checks local paths/fragments and documented root script names against
+`package.json`; whitespace checks pass. An initial scratch link checker incorrectly required file
+links rather than accepting valid directory links; correcting that checker required no product or
+documentation workaround.
+
+Current guidance keeps comprehensive CI PR-only and Pages on main-push, with no assertion that local
+edits configured branch protection or proved remote checks/deployment. Remove an unsupported
+critical-path speedup claim; Phase 9 remains deferred without timing measurements. Preserve the
+unexplained Phase 5 Quick Find observation and manual validation gaps in current limits.
+
+Do not rerun full Angular/API/contracts, broad E2E, native-editor, lifecycle, schema generation,
+upgrade or live audit suites after these documentation edits. Only the two explicit setup journeys
+and preview's necessary build fill new acceptance gaps. Final versioned installation/audits/broad
+release verification, merge, tag and publication remain unclaimed. Nothing was committed or pushed.
+
+## Phase 11: Final Release Verification
+
+Complete October 18, 2026 (local time), on `v0.3.1`, based on commit
+`6d15319d3706cfe9841ca4a4535202ec25c0fcdc`, preserving the uncommitted Phase 10 documentation.
+Root/API/web/contracts manifests, the internal contracts dependency, lockfile workspace entries,
+OpenAPI and its version assertion now identify `0.3.1`. Site metadata points to the checked-in
+v0.3.1 notes and intended matching tag; tag availability and deployment are not locally attested.
+
+The new lock SHA-256 is `8953513d2ca03eca4fbe941af2c136631075a94bf0c7ed3c357a7d5b8ef1b110`.
+A structured comparison permits only release/workspace version fields and the internal contracts
+dependency to differ from the prior lock. Every external resolution/integrity is unchanged. The
+machine exception policy, its original dates and the v0.3.1 review boundary remain byte-identical
+with an empty exception list. No dependency update, override or forced installation is used.
+
+### Final Versioned Installation
+
+An outer owned private snapshot installs the final lock with `npm ci`, without a dependency mirror,
+then invokes the ordinary `npm run verify` from that installation. The full runner owns another
+source/build snapshot, disposable PostgreSQL, marked storage and browser processes; its dependency
+mirror resolves to the independently installed final graph, not the working checkout. Neither run
+targets the ordinary working database/store. Node `24.16.0`, npm `11.13.0` and Chromium
+`149.0.7827.55`/Playwright `1.61.1` run on macOS arm64 with PostgreSQL `16-alpine` in Docker.
+
+Outer owner: `d8207de8-319f-42f3-894d-fe413097fae9`; full profile:
+`27b905c0-2038-48a9-b7c2-1900aa4ee570`. Retain nested reports under the outer evidence directory
+before removing its installation. Both commands exit zero and both summaries record `passed: true`,
+`cleaned: true`, no interruption and every gate successful. Their private roots and owned containers
+are absent. The [structured evidence](phase-11-evidence.json) retains hashes, reports and timings.
+
+| Boundary | Final Result |
+| --- | --- |
+| Independent `npm ci` | Pass; private dependency owner, no lock rewrite or forced peers |
+| Installed peer graph and strict audits at `0.3.1` | Valid peers; 0 production/full findings, 0 exceptions |
+| Lint and typechecks/development build | Pass |
+| Schema generation/fresh migration | Pass; complete SQL/snapshot inventory unchanged |
+| Verification helpers | 88 passed, including audit/CI/ownership/failure controls |
+| API | 881 passed across 68 files |
+| Contracts | 88 passed across 13 files |
+| Angular real Chromium | 888 passed across all 71 files; none skipped |
+| Production build | Pass; 410.31 kB initial, unchanged budgets, no budget warnings |
+| Native-editor browser | 5 passed |
+| Application journeys | 60 passed |
+| Compiled preview | 2 passed, including exact seeded downloads/deep-link reload |
+| Static/rendered site | 43 references/17 repository links/13 IDs; 2 browser checks passed |
+
+Every browser report has zero failed/skipped/flaky cases and zero retries. The current Quick Find
+group passes; this does not establish a cause or retroactive fix for Phase 5's observation. No sleep,
+timeout, retry, fixture concurrency or assertion behavior is changed to obtain these results.
+Expected errors emitted by helper negative controls are not release-run failures.
+
+The independent install takes 7.797 seconds and the serial full profile 751.317 seconds on this host;
+the application journey report is about 8.1 minutes. These are retained local observations, not a
+comparable GitHub Actions baseline, runner-cost measurement or speedup claim. No CI redistribution
+or extra main-push verification is introduced.
+
+Actual evidence is retained under
+`test-results/verification/d8207de8-319f-42f3-894d-fe413097fae9/`: `summary.json`, `acceptance.log` and
+`combined/27b905c0-2038-48a9-b7c2-1900aa4ee570/` with its summary, Angular report and editor/application/
+preview/site JSON reports and captures. No normal local app service is left running by these checks.
+
+### Reused Supplemental Evidence
+
+Reuse Phase 7's populated actual-v0.3.0 upgrade, ledger no-op, fresh schema equivalence and exact
+row/history/file preservation. Recheck complete production API, contracts and migration inventories:
+unchanged. The sole API-test difference is OpenAPI's release-version expectation, exercised again
+in the final full API suite. Upgrade/lifecycle helpers and their tested boundaries are unchanged;
+the prior real interruption/failure proofs remain supplemental evidence, not newly executed tests.
+
+Phase 10's separate fresh source/compiled installations established deep-link reload and both seeded
+downloads byte-for-byte. Final clean-install/graph/audit evidence is not reused across the version
+change: the current independent installation and full profile establish it anew. Fresh migration,
+seed, source/compiled runtime and the setup journey are also included in the final full profile.
+No additional full upgrade, two-install setup or opt-in lifecycle rerun is needed for version-only
+metadata. Future behavior/dependency changes invalidate this reuse and require affected acceptance.
+
+Phase 9 stays Deferred. CI remains PR-only with independent outcomes, three isolated application
+shards, one worker and zero browser retries; Pages remains a separate main-push workflow. No timing
+speedup, remote CI pass, manual device/accessibility signoff, branch-protection change, merge, tag,
+push or publication is claimed. Preserve the unexplained Phase 5 Quick Find observation in
+[known limits](known-limits.md), even if the current regression journeys pass.
+
+### Closeout
+
+All required phases are complete; optional Phase 9 is closed as Deferred. Current README/development,
+operations, release notes, dependency disposition and known limits match the implemented toolchain
+and upgrade posture. Version/lock-policy/source/report consistency, Markdown local paths/fragments,
+documented root commands, static site checks and whitespace validation pass. Historical evidence
+keeps its original identities/counts. Do not repeat application suites after these prose-only notes.
+The [publication checklist](known-limits.md#ci-and-publication) remains user-controlled; no commit,
+push, merge, remote CI invocation, tag, npm publication, Pages deployment or repository settings
+change is performed locally.

@@ -2,9 +2,13 @@
 
 ## Status
 
-Updated through Phase 9 closeout, October 18, 2026. Angular/Vitest cutover, Drizzle adoption, data/API acceptance and the independent combined graph/audit gate are complete. A fresh private installation of the actual adopted lock validates physical peers and reports zero production/full audit findings. All five carried exceptions are retired without extending original dates or review boundaries. Release identity remains `0.3.0`; setup/documentation and release acceptance remain in Phases 10-11. Conditional Phase 9 is closed as Deferred.
+Updated through Phase 11 closeout, October 18, 2026. Angular/Vitest cutover, Drizzle adoption, data/API acceptance, independent graph/audit gates and fresh development/compiled-preview setup are complete. The final independently installed `0.3.1` tree passes full local release verification with valid physical peers and zero production/full audit findings. All five carried exceptions are retired without extending original dates or review boundaries. Conditional Phase 9 is closed as Deferred. Remote CI, merge, tag and Pages publication are separate user-controlled steps.
 
 See [structured evidence](phase-0-evidence.json), [verification notes](verification-notes.md), and the [technical design](technical-design.md).
+Current [maintenance limits](known-limits.md) and [setup evidence](phase-10-evidence.json) separate
+prerelease/operational risk from the retired advisory exceptions. Phase 10 reuses Phase 8's graph/audit
+evidence for prose changes; [Phase 11](phase-11-evidence.json) independently installs the versioned lock
+and reruns the strict gate and full local profile. No prior install/audit result is relabeled `0.3.1`.
 
 ## Owner Graphs
 
@@ -15,12 +19,13 @@ See [structured evidence](phase-0-evidence.json), [verification notes](verificat
 | Working Phase 5, sole Vitest/Chromium runner and unchanged Drizzle | Valid; clean `npm ci` | 0 | 4 moderate Drizzle records, one advisory ID |
 | Working Phase 6, exact Drizzle RC pair and converted metadata | Valid; clean `npm ci` | 0 | 0 |
 | Independent Phase 8 adopted snapshot/lock | Valid physical peers; clean private `npm ci` | 0 | 0 |
+| Independent final `0.3.1` installation/full profile | Valid physical peers; clean private `npm ci` | 0 | 0 |
 | Private staged Angular 21/Drizzle RC candidate, Karma retained | Valid after explicit peer bindings | 0 | 6 high, from the retained Karma/braces owner graph |
 | Private cutover candidate, Karma/Jasmine removed | Valid; clean `npm ci` | 0 | 0 |
 
 Counts include inherited parent findings. The original private cutover proof established feasibility;
-Phases 1-8 have now implemented and revalidated the combined tree. This is not final release acceptance:
-Phase 11 checks the actual `0.3.1` identity and remaining handoff requirements.
+Phases 1-8 implemented and revalidated the combined tree. Phase 11 separately accepts the actual
+`0.3.1` identity with full local verification; earlier candidate results retain their original scope.
 
 ### Phase 1 Disposition
 
@@ -152,5 +157,17 @@ Defer E2E shard balancing for this sprint. The framework/test migration and sche
 Phase 9 closeout reaffirms that decision rather than reopening optimization after remediation.
 No new comparative CI timing/cost evidence was collected and no speedup is claimed. Shards,
 fixture isolation, assertions, workers, retries and failure reporting are unchanged. A future
-efficiency effort needs its own measured baseline and correctness proof; it does not block the
-remaining v0.3.1 setup and release acceptance. See the [closed disposition](implementation-plan.md#phase-9-conditional-ci-efficiency).
+efficiency effort needs its own measured baseline and correctness proof; it did not displace the
+completed v0.3.1 setup and release acceptance. See the [closed disposition](implementation-plan.md#phase-9-conditional-ci-efficiency).
+
+## Final Release Disposition
+
+The version-only lock delta preserves every external package resolution/integrity. A new independent
+installation passes strict peer/production/full audits at `0.3.1`, with the original empty policy
+unchanged. All 88 verification-helper, 881 API, 88 contracts and 888 Angular tests pass, along with
+5 editor, 60 application, 2 compiled-preview and 2 rendered-site checks. Schema generation is stable;
+production initial assets remain 410.31 kB with unchanged budgets and no warnings. All owned release
+resources are removed. [Final evidence](phase-11-evidence.json) and the
+[verification record](verification-notes.md#phase-11-final-release-verification) retain exact scope,
+reused preservation/lifecycle proofs, timing and residual limits. No security exception is renewed,
+and clean auditing is not a guarantee against undisclosed vulnerabilities.

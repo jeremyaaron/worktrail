@@ -6,6 +6,8 @@
 - Release theme: dependency remediation and sustainable development tooling.
 - The product owner has approved these requirements for technical design and implementation planning.
 - v0.3.0 is the application baseline. This sprint does not introduce a new product feature area.
+- Local implementation/release acceptance completed October 18, 2026; conditional CI optimization
+  is deferred. See [final evidence](phase-11-evidence.json). Remote CI and publication remain separate.
 
 ## Summary
 

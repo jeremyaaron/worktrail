@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementation baseline: October 18, 2026. Phases 0-8 are complete; Phase 9 is closed as Deferred, reaffirming the Phase 0 scope decision. Required implementation phases 10-11 have not started.
+Implementation baseline: October 18, 2026. Phases 0-8 and 10-11 are complete; Phase 9 is closed as Deferred, reaffirming the Phase 0 scope decision. All required local implementation/release-acceptance work is complete. Merge, remote CI, tag and Pages publication remain user-controlled actions.
 
 This plan implements the [PRD](prd.md) and [technical design](technical-design.md). The [dependency disposition](dependency-remediation.md), [verification notes](verification-notes.md), and [Phase 0 evidence](phase-0-evidence.json) record the selected versions, proofs, and inventories. [Phase 1 evidence](phase-1-evidence.json) records the implemented Angular foundation; [Phase 2 evidence](phase-2-evidence.json) maps the shared/core conversion and retained coverage. [Phase 3 evidence](phase-3-evidence.json) records discovery/workspace conversion, focused acceptance, and controlled negative probes. [Phase 4 evidence](phase-4-evidence.json) completes detail/Planning/history conversion and the full inventory reconciliation. [Phase 5 evidence](phase-5-evidence.json) records single-runner cutover, advisory retirement, host/Linux lifecycle and integration results, and one unreproduced Quick Find observation. SQL history and release identity remain unchanged.
 
@@ -14,8 +14,12 @@ populated data/files/history preservation, full API/contracts acceptance and com
 retirement of all five carried advisories, final-toolchain invariants and fail-closed gate controls.
 The [Phase 9 disposition](#phase-9-conditional-ci-efficiency) closes the conditional CI work as
 Deferred; its documentation-only review is recorded in the [verification notes](verification-notes.md#phase-9-conditional-ci-efficiency).
+[Phase 10 evidence](phase-10-evidence.json) records fresh independent development/preview setup,
+documentation and site consistency, cleanup, and unchanged-input reuse of prior upgrade/audit results.
+[Phase 11 evidence](phase-11-evidence.json) records the independent final `0.3.1` installation,
+strict clean audits, full owned release profile, evidence reuse and cleanup.
 
-The separately requested PR-only CI change is already in the working tree. Preserve it and its focused regression test; it is not unfinished feature scope to reimplement. Package/release identity remains `0.3.0` until closeout.
+The separately requested PR-only CI change is already in the working tree. Preserve it and its focused regression test; it is not unfinished feature scope to reimplement. Phase 11 sets package/release identity to `0.3.1`; publication is separate.
 
 ## Purpose
 
@@ -51,8 +55,8 @@ Angular conversion is split into infrastructure, three spec groups, and final cu
 | 7 | Upgrade preservation, transactions, and API compatibility | Complete |
 | 8 | Combined clean dependency graph and audit-gate acceptance | Complete |
 | 9 | Measured E2E shard balancing, if capacity permits | Closed: Deferred |
-| 10 | Developer guidance, setup acceptance, and release documentation | Not started |
-| 11 | Version identity, final verification, and closeout | Not started |
+| 10 | Developer guidance, setup acceptance, and release documentation | Complete |
+| 11 | Version identity, final verification, and closeout | Complete |
 
 Phases execute sequentially. Phase 0 must establish a viable path for both owner graphs before Phase 1. Phase 9 may be explicitly deferred with a reason and no loss of primary release scope. A required failed gate cannot be treated as a conditional deferral.
 
@@ -458,6 +462,34 @@ Acceptance:
 
 Verification: Markdown/local-link/command consistency, relevant site asset/link/render checks only if site inputs changed, and targeted owned setup/start/stop checks where evidence is missing. No routine full Angular/API rerun after prose edits.
 
+Status: Complete (October 18, 2026).
+
+Completion evidence:
+
+- Update README/development with current maintenance pointers, exact toolchain choices, focused/watch
+  commands, lifecycle prerequisites and change-based verification. Add current known limits and
+  framework-neutral pattern notes; retain historical release evidence.
+- Document the committed Drizzle folder format, generator/migrator distinction, exact prerelease
+  pair, ledger adoption and coordinated backup/rollback posture. No user-data reset or reseed is an
+  upgrade step. All five advisory exceptions remain retired with original policy dates unchanged.
+- Pass `npm run verify:setup -- development` and `npm run verify:setup -- preview` sequentially in
+  separate independent installations/databases/stores. Each passes one focused Chromium journey:
+  deep-link reload, both exact seeded downloads, portfolio/detail desktop/mobile captures and no
+  page errors. Compiled preview uses production mode and built assets without Vite.
+- Production build passes at 410.31 kB initial assets with unchanged bundle/style budgets and no
+  budget warnings. Both setup commands exit zero, report successful cleanup, and remove their
+  private roots and containers. No ordinary working database/storage is touched.
+- Reuse Phase 7's populated upgrade/full backend proof and Phase 8's graph/audit proof after checking
+  source hashes, application inventories and the unchanged lock. No routine full Angular/API/contracts,
+  broad E2E, lifecycle, generation, upgrade or rendered-site suite is repeated.
+- Review the public site: technical/setup information and the published `0.3.0` identity remain
+  accurate; no site inputs change. Static site checks and Markdown/local-link/root-command checks
+  pass. PR-only comprehensive CI, separate main-push Pages and remote-settings limits are explicit;
+  remove an unsupported speedup claim and preserve the Phase 9 deferral.
+- [Structured evidence](phase-10-evidence.json) and [verification notes](verification-notes.md#phase-10-documentation-and-setup-acceptance)
+  retain exact scope and limitations. Phase 11 versioning/final release acceptance remains pending;
+  no commit, tag, publication or repository administration is performed.
+
 ## Phase 11: Release Closeout
 
 Goal: verify and document the final `0.3.1` tree against the approved release requirements.
@@ -481,6 +513,34 @@ Acceptance:
 - Local readiness does not claim remote CI passed or Pages deployed. Publication, merge, tag, and repository administration remain separate user-controlled actions.
 
 Verification: final clean install/graph/audits, full owned verification, supplemental fresh/upgrade and relevant lifecycle checks, and release metadata/document checks. No automatic rerun of all suites after recording documentation-only results.
+
+Status: Complete (October 18, 2026).
+
+Completion evidence:
+
+- Set all four manifests, the internal contracts dependency, matching lock entries, OpenAPI/version
+  assertion and staged site identity/notes to `0.3.1`. Keep external dependency resolutions and the
+  original empty exception policy unchanged. Add release notes and the user-controlled publication
+  checklist; preserve historical documents and candidate evidence.
+- Independently install the final lock with `npm ci`, then run the ordinary full owned profile from
+  that private installation. Strict installed peers and production/full audits pass with zero
+  findings/exceptions at the actual release identity.
+- Pass lint, typechecks/development build, unchanged schema generation, fresh migration, 88 helper,
+  881 API, 88 contracts and 888 Angular checks. Pass production build, 5 native-editor, 60 application,
+  2 compiled-preview and 2 rendered-site checks with no browser retries or failed/skipped cases.
+- Production initial assets remain 410.31 kB with unchanged bundle/style budgets and no warnings.
+  Fresh source/compiled setup journeys pass inside the final profile, including deep-link reload
+  and both exact seeded downloads.
+- Reuse Phase 7's populated prior-release/ledger/history/file proof and unchanged real lifecycle
+  evidence; recheck production inventories and the metadata-only lock delta. Do not reuse an old
+  install/audit identity or repeat unrelated supplemental suites for version/prose changes.
+- Retain reports/logs and [structured evidence](phase-11-evidence.json). Both release owners report
+  successful cleanup; their private roots and containers are absent. Working data/storage and
+  unrelated services are untouched. Documentation/link/version/whitespace checks pass.
+- Keep Phase 9 Deferred, PR-only comprehensive CI and independent main-push Pages unchanged. Disclose
+  the Drizzle prerelease/recovery posture, earlier unexplained Quick Find observation and manual
+  validation gaps. Local acceptance does not claim remote Linux CI or publication. No commit,
+  push, merge, tag, package publication or repository settings change is performed.
 
 ## Verification Budget
 

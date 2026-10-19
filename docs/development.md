@@ -5,9 +5,10 @@ ownership, batched queries, lifecycle coordination, authoritative work/relations
 bounded HTTP parsing, versioned risk/query policy, aggregate narrowing, committed frontend context,
 shared draft departure protection, read-first detail composition, bounded inspection navigation,
 shared saved-view/list state, execution-first Planning, complete historical outcomes and repeated
-discovery are implemented. The [implementation plan](v0.3.0/implementation-plan.md),
-[release verification](v0.3.0/verification-notes.md#phase-21-final-release-verification), and
-[known limits](v0.3.0/known-limits.md) record acceptance and release boundaries. Start with the
+discovery are implemented. The [v0.3.0 release verification](v0.3.0/verification-notes.md#phase-21-final-release-verification)
+records that product baseline. The current [maintenance plan](v0.3.1/implementation-plan.md),
+[toolchain evidence](v0.3.1/verification-notes.md), and [known limits](v0.3.1/known-limits.md)
+record the v0.3.1 maintenance release and its local acceptance/publication boundaries. Start with the
 [README setup paths](../README.md#local-setup) and [current operating guide](operations.md).
 
 ## Production Owner Map
@@ -475,7 +476,7 @@ preserve its existing policies rather than inferring new role restrictions. See 
 Run database-backed checks through `npm run verify -- --mode=api`. It provisions owned disposable
 PostgreSQL/storage; never point rollback or concurrency tests at the working application database.
 See the [README verification guide](../README.md#verification) and
-[current evidence](v0.3.0/verification-notes.md).
+[current maintenance evidence](v0.3.1/verification-notes.md).
 
 The [v0.3.0 acceptance handoff](v0.3.0/acceptance-handoff.md) maps integrated journeys and records
 manual signoff gaps. Cross-surface browser checks wait for populated content before checking reflow.
@@ -504,7 +505,9 @@ checks and omissions in phase evidence; unchanged-code results need not be rerun
 completion edits.
 
 The v0.3.1 foundation uses Angular runtime/compiler `21.2.25`, CLI/build `21.2.27`, CDK `21.2.14`,
-TypeScript `5.9.3` and Vitest/browser provider `4.1.12`; keep Node 24/npm 11. Production and TestBed
+angular-eslint `21.4.0`, TypeScript `5.9.3`, Vitest/browser provider `4.1.12` and Playwright `1.61.1`;
+keep Node 24/npm 11. Drizzle Kit/ORM are exactly `1.0.0-rc.4`, a deliberate prerelease choice with
+[generation, upgrade and rollback requirements](operations.md#v031-toolchain-boundary). Production and TestBed
 both retain Zone-based scheduling. Root Angular peer bindings keep the application and icon package
 on one physical runtime; do not replace them with overrides or forced peer installation.
 
@@ -545,6 +548,8 @@ browser retries are zero, and success/failure evidence is retained independently
 Comprehensive CI runs on pull requests only, not again after a merge or direct push to `main`.
 Use PRs with required checks against the current base branch; direct pushes bypass this verification.
 The separate Pages workflow still validates and deploys the public site on pushes to `main`.
+Local workflow changes do not configure repository branch protection or prove a remote CI pass.
+Further shard balancing is deferred; no comparative timing improvement is claimed for this sprint.
 
 Synchronize tests on meaningful state or deliberately controlled request/navigation ordering, not
 fixed sleeps. A deadline bounds a stalled test; it is not the prerequisite for its next action.

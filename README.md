@@ -1,6 +1,6 @@
 # Worktrail
 
-Worktrail is a project management reference app. The v0.3.0 baseline is a local-first Angular +
+Worktrail is a project management reference app. The v0.3.1 baseline is a local-first Angular +
 TypeScript API + Postgres application focused on readable descriptions and discussion, fast workspace
 navigation and bounded multi-entity search, files in work-item context, scalable work discovery, daily team workflow, two-level work
 breakdown, workspace portfolio review, collaboration updates, reliable filtered work views, pinned
@@ -45,6 +45,7 @@ docs/
   v0.2.8/  Quick Find PRD, technical design, implementation plan, release notes, and pattern notes
   v0.2.9/  Readable Work PRD, design, plan, release/pattern notes, CSV example, and verification evidence
   v0.3.0/  Connected Work PRD, design, plan, audits, release/pattern notes, limits, and verification evidence
+  v0.3.1/  Toolchain maintenance PRD, design, plan, release/pattern notes, dependency disposition, limits, and acceptance evidence
   development.md Current implementation owners and invariants
   operations.md Current local operation, upgrade, and backup guidance
   api/     OpenAPI reference
@@ -58,6 +59,12 @@ e2e/        Playwright smoke tests
 - npm 11
 - Git and Docker with Compose, for the local PostgreSQL 16 container (or a separate existing PostgreSQL database)
 - Playwright Chromium is required only for browser verification, not for using the app
+
+The v0.3.1 maintenance release retains these runtime prerequisites. It adopts Angular 21.2, TypeScript 5.9,
+Vitest 4/Chromium and the exact Drizzle Kit/ORM `1.0.0-rc.4` pair. Drizzle is deliberately prerelease;
+read the [upgrade and rollback boundary](docs/operations.md#v031-toolchain-boundary) before upgrading
+preserved data. See the [release notes](docs/v0.3.1/release-notes.md) and
+[current maintenance limits](docs/v0.3.1/known-limits.md) for risk and publication status.
 
 ## Local Setup
 
@@ -244,9 +251,9 @@ API compatibility and input rules:
 Existing installations should run `npm run db:migrate` to apply additive migration
 `apps/api/drizzle/20261012032935_nosy_junta/migration.sql` (originally `0019_nosy_junta.sql`);
 it backfills existing records as plain text without rewriting their source.
-Do not reset or reseed working data to upgrade. See the [current release notes](docs/v0.3.0/release-notes.md),
-[verification evidence](docs/v0.3.0/verification-notes.md#phase-21-final-release-verification), and
-[known limits](docs/v0.3.0/known-limits.md) for compatibility and residual risk.
+Do not reset or reseed working data to upgrade. See the [current release notes](docs/v0.3.1/release-notes.md),
+[verification evidence](docs/v0.3.1/verification-notes.md#phase-11-final-release-verification), and
+[current maintenance limits](docs/v0.3.1/known-limits.md) for compatibility and residual risk.
 
 ## Quick Find
 
@@ -653,7 +660,7 @@ Process ownership uses macOS/Linux `ps` and POSIX process groups. Web, editor an
 provision or connect to PostgreSQL. `npm run check:site` is the browser-free, read-only site check;
 site mode additionally renders the real Pages subpath with keyboard/reflow/motion assertions.
 
-`npm run verify` defaults to full verification: strict production and bounded development dependency
+`npm run verify` defaults to full verification: strict production and full dependency
 audits, lint, scoped test/config typechecks, workspace typechecks, scratch schema generation,
 resource/API/contracts/Angular tests, production build,
 standalone editor, application E2E, compiled preview, and static/rendered site checks including local
@@ -693,6 +700,8 @@ sets one absolute attachment root before seed/runtime, reloads a deep link and c
 downloads byte-for-byte. Runtime startup uses the same source/compiled application with owned
 identity wrappers and random ports instead of ordinary local defaults. These are not remote-clone
 or deployment checks. See [local verification scope](docs/operations.md#isolated-verification).
+Both paths pass on the adopted toolchain; see [setup acceptance](docs/v0.3.1/verification-notes.md#phase-10-documentation-and-setup-acceptance)
+for the independent runs, substitutions, cleanup and reused upgrade evidence.
 
 Use checks proportional to the change, not full verification after every implementation phase.
 API mode includes backend source/test lint, backend typechecking, resource-safety tests, and API tests;
@@ -743,7 +752,8 @@ npm run verify -- --cleanup /absolute/run/manifest.json
 Cleanup refuses active owners or mismatched identities; it is not permission to remove arbitrary
 databases/directories/processes. Sanitized gate summaries, browser JSON reports, traces, and screenshots
 remain under `test-results/verification/<runId>/`. Browser acceptance uses zero retries.
-See the [v0.3.0 verification evidence](docs/v0.3.0/verification-notes.md).
+See the [current maintenance evidence](docs/v0.3.1/verification-notes.md) and the
+[published v0.3.0 baseline](docs/v0.3.0/verification-notes.md).
 The [developer ownership guide](docs/development.md) describes persistence scopes, database effects,
 query sequencing, test fakes, and project lock participation. The
 [cycle diagnostic guide](docs/cycle-diagnostics.md) covers read-only schedule inspection and deliberate
@@ -769,14 +779,18 @@ Database-independent checks and resource lifecycle regressions are also availabl
 ```sh
 npm run test:verification
 npm run test:verification:integration
+npm run test:verification:web-lifecycle
+npm run test:verification:upgrade-lifecycle
 npm run audit:dependencies
 npm run test --workspace @worktrail/api -- --project=unit
 npm run lint:verification
 npm run typecheck:verification
 ```
 
-The lifecycle command requires Docker and proves service provisioning, rejection, interruption,
-concurrent browser isolation, and cleanup. Direct Playwright invocations are internal and require
+The integration lifecycle command requires Docker and proves service provisioning, rejection,
+interruption, concurrent browser isolation, and cleanup. The web lifecycle command needs Chromium,
+not PostgreSQL; upgrade lifecycle checks need Docker and exercise failure/interruption cleanup.
+These explicit lifecycle proofs are not default per-edit suites. Direct Playwright invocations are internal and require
 the matching owned stage; use the root commands instead. Skip flags grant no ownership authority.
 
 CI runs the full coverage in independent required jobs: backend/contracts/tooling (`--mode=checks`),
@@ -791,9 +805,11 @@ Comprehensive CI runs on pull requests only; merges into `main` do not repeat it
 `main` are not verified, so use PRs with required checks against the current base branch. The separate
 Pages workflow still validates and deploys the public site on pushes to `main`.
 
-Sanitized summaries and browser evidence are uploaded for every job, not just failures. This shortens
-the serial critical path at the cost of additional runner setup; actual GitHub timing must be measured
-after publication. Local `npm run verify` still runs the complete serial release workflow.
+Sanitized summaries and browser evidence are uploaded for every job, not just failures. Parallel jobs
+trade additional runner setup for potential critical-path savings; no measured speedup is claimed.
+Further shard balancing is deferred. Compare actual GitHub timing and total runner cost before
+optimizing. Local `npm run verify` still runs the complete serial release workflow. PR requirements
+and branch protection are repository settings, not changes made by these local checks.
 `--mode=checks` includes audits, verification/backend/contracts lint and types, schema generation,
 resource/API/contracts tests and contracts/API builds, without repeating frontend checks. Shards
 accept bounded `N/M` selections only in non-interactive E2E mode; omitting `--shard` runs all journeys.
@@ -804,9 +820,11 @@ Reviewed development exceptions are exact advisory/
 package/path/version/severity records with an owner, exposure limits, mitigation, follow-up, and expiry;
 unknown findings, stale records, transport failures, or expired exceptions fail the gate.
 See the [current dependency disposition](docs/v0.3.1/dependency-remediation.md) and
-[exception data](docs/security/development-audit-exceptions.json). The independent v0.3.1 Phase 8 installation
-reports zero production/full audit findings, valid workspace peers and no active exceptions. This is a point-in-time
-audit result, not a guarantee against undisclosed vulnerabilities; release acceptance is still pending.
+[exception data](docs/security/development-audit-exceptions.json). The independent final `0.3.1`
+installation passes full local release acceptance with zero production/full audit findings, valid
+workspace peers and no active exceptions. This is a point-in-time result, not a guarantee against
+undisclosed vulnerabilities. Remote PR verification, merge, tag and publication are separate;
+see the [final release record](docs/v0.3.1/verification-notes.md#phase-11-final-release-verification).
 
 ## Public Site
 
@@ -814,7 +832,9 @@ The static product site lives in [site/index.html](site/index.html), with the co
 <https://jeremyaaron.github.io/worktrail/>. The main-branch Pages workflow validates local assets,
 fragments, repository documentation paths and release metadata before uploading `site/`.
 `npm run check:site` performs that read-only check; `npm run test:site` adds owned rendered acceptance
-at the actual repository subpath without a database. See [site/setup evidence](docs/v0.3.0/site-setup-evidence.md).
+at the actual repository subpath without a database. See the
+[final site acceptance](docs/v0.3.1/verification-notes.md#phase-11-final-release-verification) and
+[original screenshot/setup evidence](docs/v0.3.0/site-setup-evidence.md).
 
 ## Demo Walkthrough
 

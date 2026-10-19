@@ -1,0 +1,348 @@
+{
+  "schemaVersion": 1,
+  "phase": 11,
+  "recordedOn": "2026-10-19T00:26:21.836Z",
+  "releaseIdentity": "0.3.1",
+  "baseline": {
+    "commit": "6d15319d3706cfe9841ca4a4535202ec25c0fcdc",
+    "branch": "v0.3.1",
+    "preexistingPhase10DocumentationPreserved": true
+  },
+  "environment": {
+    "node": "v24.16.0",
+    "npm": "11.13.0",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "postgres": "16-alpine",
+    "playwright": "1.61.1",
+    "chromium": "149.0.7827.55"
+  },
+  "lockSha256": "8953513d2ca03eca4fbe941af2c136631075a94bf0c7ed3c357a7d5b8ef1b110",
+  "lockChange": "Release/workspace versions and internal contracts dependency only; every external resolution/integrity unchanged.",
+  "sources": {
+    "package.json": "94926f57ec930cae6e7897f12aa55480e089c2810f5ff5342b99020e5cd08589",
+    "package-lock.json": "8953513d2ca03eca4fbe941af2c136631075a94bf0c7ed3c357a7d5b8ef1b110",
+    "apps/api/package.json": "f147ba736ddafab7c101f54e5051e45fa2e4a79250dbe398dbf74c42eefaccc3",
+    "apps/web/package.json": "cb243da4c46b84d792cc2d63c1a499d4924779b5bb8e2bd1e89d3747c883e2e6",
+    "packages/contracts/package.json": "9bbe457b9a4fa437216448fa70ff444c1f7919dbf3dd93ed49ae7b186bf18447",
+    "apps/api/tests/openapi.test.ts": "7e67f3d067e5025bd7529d44b55b4f493c261f829d93f8b4863c4d7624b02b89",
+    "docs/api/openapi.yaml": "22ceef3cad3c89baf5165002c2747df9e0d094509e7e022fb10903b489069ced",
+    "site/index.html": "e1d24ede3e0de587104ae00a06b93b20c0f1c8492b3ed73c3fe500437f3c02e9",
+    "site/styles.css": "79bcf3297a05bf8bc649357514a8c2cd750dde5467989cda19d07aec1fadecbb",
+    "scripts/verify.mjs": "9bc1f2ec8582c27a98fa0eec603addff679c84ce75fb1103573694a12f1689dc",
+    "scripts/verification/web.mjs": "eb640dc9f8b0d462e786642c1bda223563a697d52abe05ad1341abe005ee640a",
+    "scripts/verification/upgrade.mjs": "c0f88c0dcbb11c5cd1a5257694cec5bb2b6084f3cba61b1394b0339b188119c8",
+    "scripts/verify-upgrade.mjs": "5f23477e16e0a1498b5bd192bedc2f269a1262377762a8201b9a994ad948f1bf",
+    ".github/workflows/ci.yml": "62ea6cd9ff61167158f856e1e0fd5c4777a2f0cb720630858d6b3695613ab444",
+    ".github/workflows/pages.yml": "6425542beaa5266346e380b3089372b2c403b12722b022f018e111feb0231421",
+    "docs/security/development-audit-exceptions.json": "7825ac5a6fda8735b132b5414b40884d1094c540b567b0f3dd9b197dee29a6f4"
+  },
+  "independentInstall": {
+    "command": "npm ci",
+    "dependencyMirror": false,
+    "lockUnchangedByInstall": true,
+    "actualPrivateOwner": true,
+    "summary": "test-results/verification/d8207de8-319f-42f3-894d-fe413097fae9/summary.json",
+    "runId": "d8207de8-319f-42f3-894d-fe413097fae9",
+    "releaseIdentity": "0.3.1",
+    "independentInstall": true,
+    "passed": true,
+    "cleaned": true,
+    "interrupted": null,
+    "gates": [
+      {
+        "name": "independent-clean-install",
+        "passed": true,
+        "durationMs": 7797
+      },
+      {
+        "name": "full-owned-release-profile",
+        "passed": true,
+        "durationMs": 751317
+      }
+    ]
+  },
+  "fullVerification": {
+    "command": "npm run verify",
+    "summary": "test-results/verification/d8207de8-319f-42f3-894d-fe413097fae9/combined/27b905c0-2038-48a9-b7c2-1900aa4ee570/summary.json",
+    "runId": "27b905c0-2038-48a9-b7c2-1900aa4ee570",
+    "mode": "full",
+    "database": "docker",
+    "apiTests": null,
+    "shard": null,
+    "passed": true,
+    "interactive": false,
+    "cleaned": true,
+    "interrupted": null,
+    "gates": [
+      {
+        "name": "audit:dependencies",
+        "passed": true,
+        "durationMs": 1947
+      },
+      {
+        "name": "lint",
+        "passed": true,
+        "durationMs": 9936
+      },
+      {
+        "name": "typecheck",
+        "passed": true,
+        "durationMs": 44612
+      },
+      {
+        "name": "database:provision",
+        "passed": true,
+        "durationMs": 4384
+      },
+      {
+        "name": "schema:generate",
+        "passed": true,
+        "durationMs": 2292
+      },
+      {
+        "name": "database:migrate",
+        "passed": true,
+        "durationMs": 2111
+      },
+      {
+        "name": "test:resources",
+        "passed": true,
+        "durationMs": 7411
+      },
+      {
+        "name": "test:api",
+        "passed": true,
+        "durationMs": 53543
+      },
+      {
+        "name": "test:contracts",
+        "passed": true,
+        "durationMs": 1272
+      },
+      {
+        "name": "test:web",
+        "passed": true,
+        "durationMs": 26657
+      },
+      {
+        "name": "test:web:vitest",
+        "passed": true,
+        "durationMs": 26492
+      },
+      {
+        "name": "build:production",
+        "passed": true,
+        "durationMs": 34898
+      },
+      {
+        "name": "browser:editor",
+        "passed": true,
+        "durationMs": 24144
+      },
+      {
+        "name": "database:e2e:reset",
+        "passed": true,
+        "durationMs": 1245
+      },
+      {
+        "name": "database:e2e:migrate",
+        "passed": true,
+        "durationMs": 1320
+      },
+      {
+        "name": "storage:e2e:initialize",
+        "passed": true,
+        "durationMs": 245
+      },
+      {
+        "name": "storage:e2e:reset",
+        "passed": true,
+        "durationMs": 517
+      },
+      {
+        "name": "database:e2e:seed",
+        "passed": true,
+        "durationMs": 1715
+      },
+      {
+        "name": "browser:e2e",
+        "passed": true,
+        "durationMs": 485990
+      },
+      {
+        "name": "database:preview:reset",
+        "passed": true,
+        "durationMs": 1315
+      },
+      {
+        "name": "database:preview:migrate",
+        "passed": true,
+        "durationMs": 1296
+      },
+      {
+        "name": "storage:preview:initialize",
+        "passed": true,
+        "durationMs": 191
+      },
+      {
+        "name": "storage:preview:reset",
+        "passed": true,
+        "durationMs": 479
+      },
+      {
+        "name": "database:preview:seed",
+        "passed": true,
+        "durationMs": 1597
+      },
+      {
+        "name": "browser:preview",
+        "passed": true,
+        "durationMs": 5351
+      },
+      {
+        "name": "site:assets-links",
+        "passed": true,
+        "durationMs": 67
+      },
+      {
+        "name": "browser:site",
+        "passed": true,
+        "durationMs": 3325
+      }
+    ]
+  },
+  "audit": {
+    "currentVersion": "0.3.1",
+    "installedPeersValid": true,
+    "productionFindings": 0,
+    "fullFindings": 0,
+    "activeExceptions": 0,
+    "originalPolicyMetadataUnchanged": true,
+    "liveResultIsPointInTime": true
+  },
+  "tests": {
+    "verificationHelpers": {
+      "passed": 88,
+      "failed": 0
+    },
+    "api": {
+      "files": 68,
+      "passed": 881,
+      "failed": 0
+    },
+    "contracts": {
+      "files": 13,
+      "passed": 88,
+      "failed": 0
+    },
+    "web": {
+      "files": 71,
+      "passed": 888,
+      "failed": 0,
+      "skipped": 0,
+      "report": "test-results/verification/d8207de8-319f-42f3-894d-fe413097fae9/combined/27b905c0-2038-48a9-b7c2-1900aa4ee570/web/report.json"
+    },
+    "browser": {
+      "editor": {
+        "report": "test-results/verification/d8207de8-319f-42f3-894d-fe413097fae9/combined/27b905c0-2038-48a9-b7c2-1900aa4ee570/editor/report.json",
+        "sha256": "a12c06083cbe91c7dfabadd951f3e00f12c012e6334e65c2199d695d092657bd",
+        "startTime": "2026-10-19T00:16:55.093Z",
+        "duration": 23712.52,
+        "expected": 5,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0,
+        "retries": 0
+      },
+      "e2e": {
+        "report": "test-results/verification/d8207de8-319f-42f3-894d-fe413097fae9/combined/27b905c0-2038-48a9-b7c2-1900aa4ee570/e2e/report.json",
+        "sha256": "37ca6001b500115916d26f302640ced972e45514cf36095cee1458f4c0a18045",
+        "startTime": "2026-10-19T00:17:50.213Z",
+        "duration": 485401.375,
+        "expected": 60,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0,
+        "retries": 0
+      },
+      "preview": {
+        "report": "test-results/verification/d8207de8-319f-42f3-894d-fe413097fae9/combined/27b905c0-2038-48a9-b7c2-1900aa4ee570/preview/report.json",
+        "sha256": "ea678d61a4922085c34b88f4040d269b56bb762a22178eed7d3d1378f98cbb3e",
+        "startTime": "2026-10-19T00:26:04.529Z",
+        "duration": 4886.978999999999,
+        "expected": 2,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0,
+        "retries": 0
+      },
+      "site": {
+        "report": "test-results/verification/d8207de8-319f-42f3-894d-fe413097fae9/combined/27b905c0-2038-48a9-b7c2-1900aa4ee570/site/report.json",
+        "sha256": "9eba8dfeeb46673143197dce3b1783ce7d67ece86cf9e714218e52b844c15d39",
+        "startTime": "2026-10-19T00:26:10.096Z",
+        "duration": 2961.7980000000002,
+        "expected": 2,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0,
+        "retries": 0
+      }
+    }
+  },
+  "build": {
+    "productionInitialKb": 410.31,
+    "budgetsUnchanged": true,
+    "budgetWarnings": 0,
+    "developmentAndProductionPassed": true,
+    "schemaGenerationUnchanged": true
+  },
+  "reuse": {
+    "phase7": "phase-7-evidence.json",
+    "phase10": "phase-10-evidence.json",
+    "unchangedProductionInventories": {
+      "apps/api/src": "d188189a880e7e997b3fc3526b9c8257544c5188b843f9f3705a1ce6cd0d75be",
+      "packages/contracts/src": "09b487628bf3413a7e9c56b71a00209430fa2f23b1a9a2faf50fa41ee9ba684c",
+      "apps/api/drizzle": "14c6bc577ccfae43d85cc041a6307027450aeb38654a6be2927c8ffcfda482ce"
+    },
+    "apiTestDelta": "Only OpenAPI release-version expectation; full API suite rerun.",
+    "supplemental": "Prior populated upgrade and real failure/interruption lifecycle proofs reused for unchanged behavior/helpers. Final clean-install, graph and audits were executed anew."
+  },
+  "log": {
+    "path": "test-results/verification/d8207de8-319f-42f3-894d-fe413097fae9/acceptance.log",
+    "sha256": "9257aa473ea1ebdef81edb8778ffac14b995aa51bbbf09734530584b677b7030"
+  },
+  "cleanup": [
+    {
+      "runId": "d8207de8-319f-42f3-894d-fe413097fae9",
+      "rootRemoved": true,
+      "ownedContainerAbsent": true
+    },
+    {
+      "runId": "27b905c0-2038-48a9-b7c2-1900aa4ee570",
+      "rootRemoved": true,
+      "ownedContainerAbsent": true
+    }
+  ],
+  "ordinaryDatabaseStorageAndUnrelatedProcessesTouched": false,
+  "ciChanges": false,
+  "documentationChecks": {
+    "markdownFiles": 11,
+    "localReferences": 179,
+    "documentedRootCommands": 111,
+    "versionPolicySourceAndReportConsistency": true,
+    "ownedPortsReleased": true,
+    "staticSite": { "references": 43, "repositoryLinks": 17, "ids": 13, "version": "0.3.1", "passed": true },
+    "whitespace": true,
+    "noApplicationRerunAfterProseCloseout": true
+  },
+  "phase9": "Closed: Deferred",
+  "noRetrySleepDeadlineOrAssertionChanges": true,
+  "remainingLimits": [
+    "Deliberate Drizzle prerelease and coordinated-restore rollback posture",
+    "Earlier Quick Find cause unestablished despite passing current journeys",
+    "Manual screen-reader/device/real IME/clipboard/forced-colors gaps",
+    "Local demonstration identity and single-instance attachment storage"
+  ],
+  "remoteCiMergeTagPublicationAndRepositoryAdministrationNotPerformed": true
+}

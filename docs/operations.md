@@ -52,6 +52,14 @@ prerelease maintenance choice, not a new domain schema migration. Historical SQL
 the committed migration folders/snapshots use the owner's new layout. Do not run folder conversion
 again, generate replacement historical SQL, or edit migration ledger rows on an installation.
 
+For deliberate future schema changes, edit `apps/api/src/db/schema.ts`, run `npm run db:generate`
+from the repository root, and review the generated SQL and snapshot before committing the complete
+new folder under `apps/api/drizzle/`. The new format stores `migration.sql` and `snapshot.json` in
+timestamped folders rather than the old flat SQL plus `meta` journal layout. Generation does not
+apply SQL; `npm run db:migrate` does. An unchanged schema must not produce a migration. Do not accept
+unrelated generated DDL as a harmless tool upgrade. Keep Kit/ORM pinned together and revalidate
+generation, populated upgrade and runtime behavior before changing this prerelease pair again.
+
 The ordinary `db:migrate` command adopts the prior ledger: it retains IDs, SQL hashes and original
 millisecond timestamps, adds mapped migration names, and leaves historical application times unknown
 (`applied_at = null`). Fresh ledgers use the new folder timestamps at UTC-second precision. Repeated
@@ -69,6 +77,9 @@ working database, Compose service, or ordinary attachment directory. Reports rem
 `test-results/verification/<run-id>/`; owned installations, databases, server processes and storage
 are removed on success, command failure or handled interruption. It is an explicit backend acceptance
 command, not an additional default CI job or a check to repeat after every small edit.
+See [Phase 7 preservation evidence](v0.3.1/phase-7-evidence.json) and the
+[current maintenance limits](v0.3.1/known-limits.md). The prerelease adoption does not add a supported
+cloud deployment, a general downgrade path or a backup implementation.
 
 ### Rollback Posture
 
@@ -129,6 +140,10 @@ source or compiled runtime, reloads a deep link and checks both seeded downloads
 cache-disabled builds and identity-proving startup wrappers replace ordinary local port/Compose
 defaults; these checks do not clone or deploy remote main. They reuse the app's real startup and
 adapters, not a mocked file server. Both paths need Docker and installed Chromium.
+For isolation, migration/seed run in the owned test environment; the source API also uses
+`NODE_ENV=test`. Preview runtime switches to `NODE_ENV=production` with explicit static/storage
+configuration. These substitutions are not a literal replay of the README's default-port shell
+session or proof of external database permissions/networking.
 
 Site mode needs no database; it validates links/assets/release metadata and renders the actual Pages
 subpath. All automated verification owns its processes, resources and cleanup. It never resets the

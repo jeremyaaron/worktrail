@@ -4,7 +4,11 @@
 
 Implementation baseline confirmed in Phase 0 on October 18, 2026. Implements the approved direction in the [PRD](prd.md); [verification notes](verification-notes.md) and the [dependency disposition](dependency-remediation.md) record the feasibility results.
 
-Private installations confirmed the selected graph and representative compatibility. Required implementation phases have not started: no working package identity, lockfile, migration artifact, or exception deadline changed in Phase 0. Full application/runtime acceptance remains required after migration.
+At Phase 0, private installations confirmed the selected graph and representative compatibility;
+no working package identity, lockfile, migration artifact or exception deadline changed in that phase.
+Implementation and full local `0.3.1` acceptance are now complete; see the
+[final evidence](phase-11-evidence.json) and [release notes](release-notes.md). Conditional CI efficiency
+remains deferred. Historical feasibility results below are not relabeled final-tree results.
 
 The separately approved PR-only CI change is already present in the working tree and is part of this design's baseline. Pages retains its independent deployment workflow.
 
