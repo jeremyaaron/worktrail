@@ -2,8 +2,6 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import type { Logger } from 'drizzle-orm/logger';
 
-import * as schema from './schema.js';
-
 const { Pool } = pg;
 
 export function getDatabaseUrl(): string {
@@ -15,7 +13,7 @@ export function createPool(connectionString = getDatabaseUrl()): pg.Pool {
 }
 
 export function createDb(pool: pg.Pool, options: { logger?: Logger } = {}) {
-  return drizzle(pool, { schema, ...options });
+  return drizzle({ client: pool, ...options });
 }
 
 export type WorktrailDb = ReturnType<typeof createDb>;

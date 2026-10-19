@@ -1,3 +1,5 @@
+import { describe, expect, it } from 'vitest';
+
 import {
   applyAuthoredContentCommand as command,
   insertAuthoredContentLink as link,
@@ -133,8 +135,8 @@ describe('authored-content edit commands', () => {
   it('escapes link labels and delimits destinations containing parentheses', () => {
     const source = 'before a [b] *c*\\d\nnext after';
     const edit = link(source, 7, 22, 'https://example.com/a_(b)?q=x&z=1')!;
-    expect(edit.source.startsWith('before ')).toBeTrue();
-    expect(edit.source.endsWith(' after')).toBeTrue();
+    expect(edit.source.startsWith('before ')).toBe(true);
+    expect(edit.source.endsWith(' after')).toBe(true);
     const document = parseAuthoredContent(edit.source, 'markdown_v1');
     expect(JSON.stringify(document)).toContain('"kind":"link"');
     expect(JSON.stringify(document)).not.toContain('"kind":"emphasis"');

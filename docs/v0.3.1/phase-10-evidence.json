@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "phase": 10,
+  "recordedOn": "2026-10-19T00:07:04.508Z",
+  "localCompletionDate": "2026-10-18",
+  "releaseIdentity": "0.3.0",
+  "baseline": {
+    "commit": "6d15319d3706cfe9841ca4a4535202ec25c0fcdc",
+    "branch": "v0.3.1",
+    "worktree": "clean"
+  },
+  "environment": {
+    "node": "v24.16.0",
+    "npm": "11.13.0",
+    "platform": "darwin",
+    "architecture": "arm64",
+    "databaseImage": "postgres:16-alpine",
+    "playwright": "1.61.1",
+    "chromiumRevision": "1228",
+    "browserInstallCommand": "npx playwright install chromium"
+  },
+  "lockSha256": "5b43fb1f87ae625a7f7858f359fa6a3a593c8ae219165d25579b08f1c7b97257",
+  "sources": {
+    "package.json": "8ccf6b3a5d347de927f1e3a8726be7b53dd6d3390ab654e23e50db491c5a03bb",
+    "apps/api/package.json": "5f0372b843568571ab3b03f49df0dbf1383740b81b33e4c8face173eb0c63b22",
+    "apps/web/package.json": "3115bf6e8490a648967fd0fe361636416dd304ce28abc1c33bd3fd1fe21005be",
+    "packages/contracts/package.json": "dd443956d0f9cf5a54c6734c78bd12c6f009e34e93555865d684c1568e6ec156",
+    "scripts/verify-local-setup.mjs": "7e977d54caa63b9483ee826c3b6529a8fcd4aa9301a2416ea857e4b6678eabe1",
+    "scripts/verification/ownership.mjs": "1efa2205c80771a5b62c057fac38a18b06bca3c4c4bb45c4e2e6bea3b32847d0",
+    "scripts/verification/resources.mjs": "c015fd00676ce427ac6f30461e5f26ff0743086c8fae3ef254e69cb261edee8d",
+    "scripts/verification/workspace.mjs": "e6ffee39cc0264a15418d4ba2e66c5deb0f824f0871592dd7bc6e7937e7eca12",
+    "scripts/verification/browser.mjs": "84165e26429e2d3bd2b0722faa59ca1ed3ad6ce90400fa74f832330e0bdb1755",
+    "scripts/verification/serve-api.mjs": "c8cf89a08b11f690aa9f6b23a1f0ffcc02c9f63f97ecb75a7061dda1280291cc",
+    "e2e/local-setup-proof.spec.ts": "5c9a1eb57c2731750caea27634d07e3cffd5df16cd179207a685c047ddeb0b79",
+    "playwright.config.ts": "29467fcd7b95345e56620e9c701f6c01508c9f29559a2535c378a82b1c9b2235",
+    "playwright.production.config.ts": "01d1c94bc73ead19484a5f371c4b04372e9c7f71a42af7a65cbf33f28cd94088",
+    ".github/workflows/ci.yml": "62ea6cd9ff61167158f856e1e0fd5c4777a2f0cb720630858d6b3695613ab444",
+    ".github/workflows/pages.yml": "6425542beaa5266346e380b3089372b2c403b12722b022f018e111feb0231421",
+    "site/index.html": "28dc3a6bd511b9df9f9aba80f0fd2f0cef4235479f08b42f688ae0e698097fe3",
+    "site/styles.css": "79bcf3297a05bf8bc649357514a8c2cd750dde5467989cda19d07aec1fadecbb"
+  },
+  "setups": [
+    {
+      "command": "npm run verify:setup -- development",
+      "runId": "0df2920b-083f-477d-807a-d7e7d705f984",
+      "exitCode": 0,
+      "summary": "test-results/verification/0df2920b-083f-477d-807a-d7e7d705f984/summary.json",
+      "reportSha256": "fea34d3ec6f98868e1a75efb7f38d8390c0a2c5d66c93e5f2de39ad05867bbd3",
+      "passed": true,
+      "cleaned": true,
+      "independentInstall": true,
+      "gates": ["install:fresh-lockfile", "database:fresh-owned", "database:migrate", "database:seed", "browser:e2e"],
+      "browser": { "passed": 1, "failed": 0, "skipped": 0, "flaky": 0, "retries": 0 },
+      "ports": { "api": 49530, "web": 49531 }
+    },
+    {
+      "command": "npm run verify:setup -- preview",
+      "runId": "03c7cdb4-f031-46ea-845f-c5a31f488715",
+      "exitCode": 0,
+      "summary": "test-results/verification/03c7cdb4-f031-46ea-845f-c5a31f488715/summary.json",
+      "reportSha256": "dfb08d15e905f176389e0398af557d59eee04ce57290711d746df3a8114aacd9",
+      "passed": true,
+      "cleaned": true,
+      "independentInstall": true,
+      "gates": ["install:fresh-lockfile", "database:fresh-owned", "database:migrate", "database:seed", "build:production", "browser:preview"],
+      "browser": { "passed": 1, "failed": 0, "skipped": 0, "flaky": 0, "retries": 0 },
+      "ports": { "preview": 49758 },
+      "productionInitialKb": 410.31,
+      "budgetsUnchanged": true,
+      "budgetWarnings": 0
+    }
+  ],
+  "setupCoverage": [
+    "fresh independent lockfile installation without dependency mirror",
+    "owned PostgreSQL migration and deterministic seed",
+    "same marked absolute attachment root for seed and runtime",
+    "real source or compiled API/Angular startup",
+    "work detail deep-link reload",
+    "both seeded attachment downloads compared byte-for-byte",
+    "source Vite versus compiled main asset behavior",
+    "four portfolio rows and read-first authored requirements",
+    "desktop/mobile portfolio and detail captures",
+    "no browser page errors",
+    "tracked server shutdown and owned resource cleanup"
+  ],
+  "scopeSubstitutions": [
+    "private local snapshot, not a remote clone or deployment",
+    "random loopback ports and identity-proving startup wrappers",
+    "migration/seed and source API use owned NODE_ENV=test",
+    "preview runtime uses NODE_ENV=production with explicit static/storage configuration",
+    "not proof of external database privileges, ordinary port availability or every product journey"
+  ],
+  "reuse": {
+    "phase7": "phase-7-evidence.json",
+    "phase8": "phase-8-evidence.json",
+    "sourceHashEntriesCompared": 18,
+    "unchangedApplicationInventories": {
+      "apps/api/src": "d188189a880e7e997b3fc3526b9c8257544c5188b843f9f3705a1ce6cd0d75be",
+      "apps/api/tests": "d761a48cef41dbcb81614c946ba6877c40dc90e4c45431ea6756f685f476996e",
+      "packages/contracts/src": "09b487628bf3413a7e9c56b71a00209430fa2f23b1a9a2faf50fa41ee9ba684c",
+      "apps/api/drizzle": "14c6bc577ccfae43d85cc041a6307027450aeb38654a6be2927c8ffcfda482ce"
+    },
+    "boundaries": ["populated prior-release upgrade and data/history/file preservation", "full backend/contracts and compiled API acceptance", "physical peers and strict production/full audits"],
+    "unchangedLockAndExecutableInputsVerified": true
+  },
+  "documentation": {
+    "localLinkAndRootCommandChecks": true,
+    "staticSiteCheck": { "command": "npm run check:site", "passed": true, "references": 43, "repositoryLinks": 17, "ids": 13 },
+    "whitespaceCheck": true,
+    "historicalEvidencePreserved": true,
+    "siteInputsChanged": false,
+    "publishedSiteIdentity": "0.3.0",
+    "prOnlyComprehensiveCiAndSeparatePagesExplicit": true,
+    "generatorMetadataPrereleaseAndRollbackDocumented": true,
+    "currentKnownLimitsAndFrameworkNeutralPatternsAdded": true,
+    "initialScratchCheckerFileOnlyRestrictionCorrectedForValidDirectoryLinks": true
+  },
+  "cleanup": {
+    "bothSummariesReportCleaned": true,
+    "bothPrivateRootsAbsent": true,
+    "bothOwnedContainersAbsent": true,
+    "ordinaryWorkingDatabaseAndStorageTouched": false
+  },
+  "omitted": ["full Angular/API/contracts suites", "broad application E2E", "native-editor suite", "lifecycle suites", "schema generation", "repeat populated upgrade", "repeat strict live audits", "rendered site suite"],
+  "remainingLimits": ["deliberate Drizzle prerelease risk", "unestablished cause of Phase 5 Quick Find observation", "manual accessibility/device/real IME validation gaps", "local demonstration identity and single-instance storage", "Phase 9 shard optimization deferred without timing claims"],
+  "phase11NotExecuted": true,
+  "versionBumpCommitTagPushRemoteCiPagesOrSettingsChange": false
+}

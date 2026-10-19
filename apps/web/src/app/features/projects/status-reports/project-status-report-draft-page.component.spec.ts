@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -317,7 +319,7 @@ describe('ProjectStatusReportDraftPageComponent', () => {
       'button[type="submit"]'
     );
 
-    expect(button?.disabled).toBeTrue();
+    expect(button?.disabled).toBe(true);
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Title is required');
     http.expectNone(`/api/projects/${projectId}/status-reports`);
   });
@@ -340,7 +342,7 @@ describe('ProjectStatusReportDraftPageComponent', () => {
   });
 
   it('publishes the edited narrative with the reviewed snapshot and navigates to detail', () => {
-    spyOn(router, 'navigate').and.resolveTo(true);
+    vi.spyOn(router, 'navigate').mockResolvedValue(true);
     createComponent();
     const currentDraft = flushDraft();
 
@@ -419,4 +421,13 @@ describe('ProjectStatusReportDraftPageComponent', () => {
     expect(compiled.textContent).toContain('Archived projects cannot publish status reports.');
     expect(compiled.querySelector('form')).toBeNull();
   });
+});
+
+afterEach(() => {
+  try {
+    TestBed.resetTestingModule();
+  } finally {
+    vi.restoreAllMocks();
+    localStorage.removeItem('worktrail.selectedMemberId');
+  }
 });

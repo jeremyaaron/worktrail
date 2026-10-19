@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -98,7 +100,7 @@ describe('ProjectShellComponent', () => {
   }
 
   it('carries the current safe project subview into creation', () => {
-    spyOnProperty(TestBed.inject(Router), 'url', 'get').and.returnValue(`/projects/${projectId}/planning?view=cycles#cycles-heading`);
+    vi.spyOn(TestBed.inject(Router), 'url', 'get').mockReturnValue(`/projects/${projectId}/planning?view=cycles#cycles-heading`);
     createComponent();
     http.expectOne(`/api/projects/${projectId}/summary`).flush(projectSummary('active'));
     fixture.detectChanges();
@@ -136,3 +138,6 @@ describe('ProjectShellComponent', () => {
     expect(compiled.querySelector('.project-shell__primary-action')).toBeNull();
   });
 });
+
+
+afterEach(() => vi.restoreAllMocks());

@@ -19,7 +19,7 @@ export async function verifySchemaGeneration(checkout, generate) {
   await generate();
   const after = await inventory(root);
   if (JSON.stringify(before) !== JSON.stringify(after)) {
-    throw new Error('Schema generation changed the owned migration inventory; review schema/journal drift. Working migrations were not modified.');
+    throw new Error('Schema generation changed the owned migration inventory; review SQL/snapshot drift. Working migrations were not modified.');
   }
-  console.log('Schema generation matches the committed SQL/journal/snapshot inventory.');
+  console.log('Schema generation matches the committed recursive SQL/snapshot inventory.');
 }

@@ -1,3 +1,5 @@
+import { describe, expect, it } from 'vitest';
+
 import { apiErrorMessageFromBody } from './http-error-message';
 
 describe('API error messages', () => {
@@ -14,17 +16,17 @@ describe('API error messages', () => {
       { type: 'application/json' }
     );
 
-    await expectAsync(apiErrorMessageFromBody(body, 'Fallback')).toBeResolvedTo(
+    await expect(apiErrorMessageFromBody(body, 'Fallback')).resolves.toEqual(
       'More than 10,000 work items match. Narrow the applied filters and retry.'
     );
   });
 
   it('uses the fallback for malformed blobs and empty messages', async () => {
-    await expectAsync(
+    await expect(
       apiErrorMessageFromBody(new Blob(['not JSON'], { type: 'text/plain' }), 'Fallback')
-    ).toBeResolvedTo('Fallback');
-    await expectAsync(
+    ).resolves.toEqual('Fallback');
+    await expect(
       apiErrorMessageFromBody({ error: { message: '  ' } }, 'Fallback')
-    ).toBeResolvedTo('Fallback');
+    ).resolves.toEqual('Fallback');
   });
 });

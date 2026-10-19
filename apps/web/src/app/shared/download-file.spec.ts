@@ -1,6 +1,15 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { downloadBlob, fileNameFromContentDisposition } from './download-file';
 
 describe('download helpers', () => {
+  let link: HTMLAnchorElement | undefined;
+  afterEach(() => {
+    vi.restoreAllMocks();
+    link?.remove();
+    link = undefined;
+  });
+
   it('extracts filenames from content disposition headers', () => {
     expect(
       fileNameFromContentDisposition(
@@ -33,15 +42,15 @@ describe('download helpers', () => {
   });
 
   it('downloads blobs through an object URL and revokes it', () => {
-    const link = document.createElement('a');
-    spyOn(document, 'createElement').and.returnValue(link);
-    spyOn(document.body, 'appendChild').and.callThrough();
-    spyOn(link, 'click').and.stub();
-    spyOn(link, 'remove').and.stub();
+    link = document.createElement('a');
+    vi.spyOn(document, 'createElement').mockReturnValue(link);
+    vi.spyOn(document.body, 'appendChild');
+    vi.spyOn(link, 'click').mockImplementation(() => undefined);
+    vi.spyOn(link, 'remove').mockImplementation(() => undefined);
 
     const objectUrl = {
-      createObjectURL: jasmine.createSpy('createObjectURL').and.returnValue('blob:test-url'),
-      revokeObjectURL: jasmine.createSpy('revokeObjectURL')
+      createObjectURL: vi.fn<typeof URL.createObjectURL>().mockName('createObjectURL').mockReturnValue('blob:test-url'),
+      revokeObjectURL: vi.fn<typeof URL.revokeObjectURL>().mockName('revokeObjectURL')
     };
     const blob = new Blob(['project_key\n'], { type: 'text/csv' });
 

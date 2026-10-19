@@ -1,3 +1,5 @@
+import { describe, expect, it } from 'vitest';
+
 import { WorkListQueryStore } from './work-list-query.store';
 
 describe('WorkListQueryStore', () => {
@@ -33,7 +35,7 @@ describe('WorkListQueryStore', () => {
     const filters = store.applyRouteQueryParams(params);
 
     expect(filters).toEqual(
-      jasmine.objectContaining({
+      expect.objectContaining({
         search: 'release',
         status: 'blocked',
         labelId: 'label-1',
@@ -41,7 +43,7 @@ describe('WorkListQueryStore', () => {
       })
     );
     expect(store.activeQuery()).toEqual(
-      jasmine.objectContaining({
+      expect.objectContaining({
         search: 'release',
         status: 'blocked',
         labelId: 'label-1',
@@ -64,7 +66,7 @@ describe('WorkListQueryStore', () => {
     expect(store.activeQuery()).toEqual({ search: 'current' });
     expect(store.pendingQuery()).toEqual({ search: 'pending', projectId: 'project-1' });
     expect(store.pendingRouterQueryParams()).toEqual(
-      jasmine.objectContaining({
+      expect.objectContaining({
         search: 'pending',
         projectId: 'project-1'
       })
@@ -136,13 +138,13 @@ describe('WorkListQueryStore', () => {
 
     expect(store.activeQuery()).toEqual({ status: 'ready' });
     expect(store.activePageQuery()).toEqual({ page: 3, pageSize: 50 });
-    expect(store.isCanonicalPageQuery(params)).toBeTrue();
+    expect(store.isCanonicalPageQuery(params)).toBe(true);
     expect(store.returnUrl('/work-items')).toBe('/work-items?status=ready&page=3&pageSize=50');
     expect(store.routerQueryParamsForPage(2)).toEqual(
-      jasmine.objectContaining({ status: 'ready', page: '2', pageSize: '50' })
+      expect.objectContaining({ status: 'ready', page: '2', pageSize: '50' })
     );
     expect(store.routerQueryParamsForPageSize(100)).toEqual(
-      jasmine.objectContaining({ status: 'ready', page: null, pageSize: '100' })
+      expect.objectContaining({ status: 'ready', page: null, pageSize: '100' })
     );
   });
 
@@ -153,14 +155,14 @@ describe('WorkListQueryStore', () => {
     store.applyRouteQueryParams(invalidParams);
 
     expect(store.activePageQuery()).toEqual({ page: 1, pageSize: 25 });
-    expect(store.isCanonicalPageQuery(invalidParams)).toBeFalse();
+    expect(store.isCanonicalPageQuery(invalidParams)).toBe(false);
 
     store.applyRouteQueryParams(new URLSearchParams({ page: '4', pageSize: '10' }));
     store.applyQuery({ status: 'blocked' });
 
     expect(store.activePageQuery()).toEqual({ page: 1, pageSize: 25 });
     expect(store.routerQueryParamsFromQuery({ status: 'blocked' })).toEqual(
-      jasmine.objectContaining({ status: 'blocked', page: null, pageSize: null })
+      expect.objectContaining({ status: 'blocked', page: null, pageSize: null })
     );
   });
 
@@ -184,7 +186,7 @@ describe('WorkListQueryStore', () => {
       sort: 'updated_desc'
     });
     expect(store.pendingRouterQueryParams()).toEqual(
-      jasmine.objectContaining({ hierarchy: 'parents', parentKey: null })
+      expect.objectContaining({ hierarchy: 'parents', parentKey: null })
     );
   });
 });

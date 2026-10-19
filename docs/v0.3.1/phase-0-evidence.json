@@ -1,0 +1,1983 @@
+{
+  "schemaVersion": 1,
+  "recordedOn": "2026-10-18T21:26:54.906Z",
+  "phase": 0,
+  "baseline": {
+    "recordedOn": "2026-10-18T21:13:48.924Z",
+    "commit": "df9710d8c9f736f5c7f8ec6632ab58b3e68cdbbf",
+    "branch": "v0.3.1",
+    "worktree": "M .github/workflows/ci.yml\n M README.md\n M docs/development.md\n M scripts/verification/ci.test.mjs\n?? docs/v0.3.1/",
+    "lockSha256": "d4c0e399e23981da4df5cf3fab93fa138a146dd7aa5727be6f5f06407df6f2da",
+    "node": "v24.16.0",
+    "npm": "11.13.0",
+    "graph": {
+      "exitCode": 0,
+      "problems": []
+    },
+    "specs": [
+      {
+        "file": "apps/web/src/app/app.routes.spec.ts",
+        "phase": 2,
+        "sha256": "78dbb2bac8dd0791e30c91ddd5361ef6a4f5e2f2acf3d4221e3f23385d38be15",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/app.spec.ts",
+        "phase": 2,
+        "sha256": "7f1698513585bb142ab5075985b178b9eaecc028ae381daae1d26b2412e48f1a",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/core/api/api-error.spec.ts",
+        "phase": 2,
+        "sha256": "1b35d7d8a71a0999ca9d256bf56f86c58b3cb09b914500c82e4b3f617e30fc65",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/core/api/attachments-api.spec.ts",
+        "phase": 2,
+        "sha256": "8d9ac9d7fd2fa7a7e1abe8c4fa30482eb19d6610c66cd536f7594f08ae941331",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/core/api/cycles-api.spec.ts",
+        "phase": 2,
+        "sha256": "8ae7f5c27e5d28c67c397230a3faecff87b16143d88771869cc7df1f00b02657",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/core/api/quick-find-api.spec.ts",
+        "phase": 2,
+        "sha256": "b250122bcd96a0f9f4185d8553f4b12f6133e44061ed0c9c90fb21c358d253ba",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/core/navigation/authorized-project-context.spec.ts",
+        "phase": 2,
+        "sha256": "18869ee06712ce73688497b0373d21e5243ae0985a625c475e04f6c103e6c3a0",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/core/navigation/draft-departure-coordinator.spec.ts",
+        "phase": 2,
+        "sha256": "1b7ec0355d5899f2703934e1936cd420d800438e8bfb27b1d7f95f6680a3f365",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/core/navigation/page-context.spec.ts",
+        "phase": 2,
+        "sha256": "e8e66d8481d83f69a1b27aa3ef9bd4f05e15141e414baaeffdcc864ae035876e",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/core/worktrail-api.service.spec.ts",
+        "phase": 2,
+        "sha256": "d91768c16631ca58cd0f3ce5c24953484723f2f44e8d54c69fdfaed9ee2e9fa9",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/inbox/inbox-page.component.spec.ts",
+        "phase": 3,
+        "sha256": "e4e961af8586e4490b9f17b680cf22a3cc95f9921faae4c6ce8857b72f999c6b",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/inbox/inbox-state.service.spec.ts",
+        "phase": 3,
+        "sha256": "32ea85bf77b4f2f1a7bc04cc7b5255d80490cfff5eda965cd271673c886b4f24",
+        "zoneHelpers": true,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/my-work/my-work-page.component.spec.ts",
+        "phase": 3,
+        "sha256": "90bf0fefdf73b818e979b83c086f22b5cef9a208725e18df09ed171a19e6e257",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/portfolio/portfolio-display.spec.ts",
+        "phase": 3,
+        "sha256": "e532758ba4c6ac86a2dc1802a7028e9ad6c10add8d28a4ded21abe95e69c91ef",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/portfolio/portfolio-page.component.spec.ts",
+        "phase": 3,
+        "sha256": "23de8d7b5c490ef7c43385b67adb767ccbd37537d3eebe9fb07523f7ffe14adf",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/projects/cycle-closeout/cycle-closeout-result.component.spec.ts",
+        "phase": 4,
+        "sha256": "ff154b68f7c4031829c88a826541253187f7ea9adb4e49f57c1f9558841dcff0",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/projects/cycle-closeout/project-cycle-closeout-page.component.spec.ts",
+        "phase": 4,
+        "sha256": "39f8f167e63c5ef6762e570e807210a274500acde4239aac59a131ada1f2b326",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/projects/planning/cycle-manager.component.spec.ts",
+        "phase": 4,
+        "sha256": "e7730ab925819c83466f4646e9c038d10cfc012108b6b5c81e40ff0e6397fe44",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/projects/planning/cycle-options.spec.ts",
+        "phase": 4,
+        "sha256": "6fa459c22112aa49902b3b539a3f2db70b1947bf593063d08a011d853f720762",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/projects/planning/cycle-summary-panel.component.spec.ts",
+        "phase": 4,
+        "sha256": "c2ee57c6e0c0f1b8238055a296bbbc8d71ddc7daec96bc669253fb9ef6823ea0",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/projects/planning/planning-mutation-state.spec.ts",
+        "phase": 4,
+        "sha256": "e06e50853b19ac61f6440ff657ab56fd5081239c7d1f89d44fdc7413ca17c923",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/projects/project-cycle-review-page.component.spec.ts",
+        "phase": 4,
+        "sha256": "54f1e649b85b57bbfda1ddae8683059a417886e82c9753365442725a0606bd96",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/projects/project-milestone-review-page.component.spec.ts",
+        "phase": 4,
+        "sha256": "6f26556accdf1c288dc07a051eaba5a8e42b14352536941c6a83717411f363f8",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/projects/project-planning-page.component.spec.ts",
+        "phase": 4,
+        "sha256": "947721da5dd3a3349ed689e036ae114c7b17381486671a461ce487d06d57c08b",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/projects/project-shell/project-navigation.spec.ts",
+        "phase": 3,
+        "sha256": "c354b4cd82428b3078a962facd21da0f0de62b4354aaaef2c4cb6a19bc65d736",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/projects/project-shell/project-shell.component.spec.ts",
+        "phase": 3,
+        "sha256": "8eaac34f523b0f33bffd0a0c0200c644e4e960ec38ed8fa28f66ef5b2c579463",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/projects/projects-page.component.spec.ts",
+        "phase": 3,
+        "sha256": "db1a761441a954ce819f7df1b1b7b839f5fc9347af93042bca220941517807eb",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/projects/status-reports/project-status-report-detail-page.component.spec.ts",
+        "phase": 4,
+        "sha256": "f8ccd98a44cf45baae05b688ea6591452a47fe094e9eaee5d506b8f709405b9d",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/projects/status-reports/project-status-report-draft-page.component.spec.ts",
+        "phase": 4,
+        "sha256": "8ed444dacb49091538ba044fdbf11f9c7fb1f77c928cf10c883b925622b43ce3",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/projects/status-reports/project-status-report-list-page.component.spec.ts",
+        "phase": 4,
+        "sha256": "aaa8697d594b2a2dff35462fe18341b2cb5ecbb8c212480dd1cd5c0d53b8baec",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/quick-find/quick-find-dialog-search.spec.ts",
+        "phase": 3,
+        "sha256": "b94b3994b6e71d84d9e6040a19500009849bbbeb6a3d83759c74af40fe55cb3e",
+        "zoneHelpers": true,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/quick-find/quick-find-dialog.component.spec.ts",
+        "phase": 3,
+        "sha256": "acb6b37a9f8a418b721adc58a21e14945e4f28045972322b0fac0fcec6f19612",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/quick-find/quick-find-navigation.spec.ts",
+        "phase": 3,
+        "sha256": "27ce0b85b81db2b9472394f3507d5ec70ffa06c000b11418915b759a134ac80f",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/quick-find/quick-find-session.service.spec.ts",
+        "phase": 3,
+        "sha256": "77af85660cfa017a4c6cffe33148a038b59b59275a1adac54139b555032d7721",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/work-items/components/active-filter-chips.component.spec.ts",
+        "phase": 3,
+        "sha256": "65ccb8c2d0735f6c44e510c1901167ab9ea02a5dcd87c3126e1a0abb99f42f01",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/work-items/components/pinned-saved-views.component.spec.ts",
+        "phase": 3,
+        "sha256": "5178647cf87ae4bf16e1f452e005c10f950ec35d845fc4a92f872059859b0f5b",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/work-items/components/saved-views-toolbar.component.spec.ts",
+        "phase": 3,
+        "sha256": "f837a31ee3546c11fd9bf3ccd4e64b33bb21064e6e7bf2ee4fed3eb6dd3e439d",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/work-items/components/work-item-attachments.component.spec.ts",
+        "phase": 4,
+        "sha256": "73cd5a24fa7fa60f3d2eec03deddb6defcaf569b9be4e5f264edb956d1f0b708",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/work-items/components/work-item-child-work.component.spec.ts",
+        "phase": 4,
+        "sha256": "749da33d7b55a8126df29d4907e02f153407c66ce1d8e3dedb91aed012a35442",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/work-items/components/work-item-filter-panel.component.spec.ts",
+        "phase": 3,
+        "sha256": "3a5788dc4854d392730bec9de7562d88178a6613efec76ef6d4c042ce3034bee",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/work-items/components/work-item-pagination.component.spec.ts",
+        "phase": 3,
+        "sha256": "3673e705ce2486e010d6dff529112edfa3c5918f0009f8324f663decc26486ba",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/work-items/components/work-item-parent-components.spec.ts",
+        "phase": 4,
+        "sha256": "03fb74603b9f920246424fea0625839b9bd01b04c576da99e1080ce834b85de5",
+        "zoneHelpers": true,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/work-items/components/work-item-result-list.component.spec.ts",
+        "phase": 3,
+        "sha256": "8299b0ebfe08d8429d6dfe52f7bbb54681c4ef06f13a28e7ee35fd1cde8e78c8",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/work-items/query/work-item-filter-labels.spec.ts",
+        "phase": 3,
+        "sha256": "b45147922c1befdcf5348cd6df26e68dca79a4a7c6def7d0dea36b1d9c80c5bf",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/work-items/query/work-item-page-query-serialization.spec.ts",
+        "phase": 3,
+        "sha256": "e0489f9e79e1e95335fb09d660c38187dc20d4547715f2487033e6800c1168d5",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/work-items/query/work-item-query-serialization.spec.ts",
+        "phase": 3,
+        "sha256": "8820535cb65af9b238d1db4141ce9fdd9df05eeebec0aa92eb687a8747fad56e",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/work-items/query/work-query-parity.spec.ts",
+        "phase": 3,
+        "sha256": "4ce3d42417bab0a3fa6c25087d2e07ba1c1bbbcdf08b18cf632a054e2835efac",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/work-items/state/project-bulk-triage.store.spec.ts",
+        "phase": 3,
+        "sha256": "69a2ef3106467e688b8e9afd500a9f10b67edce572e9e56cedca40cd56629247",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/work-items/state/saved-views.store.spec.ts",
+        "phase": 3,
+        "sha256": "350e838d4245017e11804e60f3f9faf4aa3a5333e4dffe06ee20d1197ab2ac29",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/work-items/state/work-list-query.store.spec.ts",
+        "phase": 3,
+        "sha256": "5379a08c915fe0f9c84603af69371ac93aa9ba7e8be0f4c611a3caf0532c05f7",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/work-items/work-item-board-page.component.spec.ts",
+        "phase": 3,
+        "sha256": "4af454bdceef3bc98d7eec3d3e31013d581e5c5a88a68b91d965cf8c9240b92e",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/work-items/work-item-detail-page.component.spec.ts",
+        "phase": 4,
+        "sha256": "a2272e6ca67d787c6f7934102d555668c272e2e5d4b41389adb9bb0d50fdde59",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/work-items/work-item-detail-unavailable.spec.ts",
+        "phase": 4,
+        "sha256": "584223c3e07d15cd6380ad6572b83b5ceaa822bd17735cb13587c5c5130cf578",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/work-items/work-items-page.component.spec.ts",
+        "phase": 3,
+        "sha256": "3cad21e4b82d3dd7851190ee9729a1d252204d227cc437b7f07fa34ae2a4b511",
+        "zoneHelpers": true,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/work-items/workspace-work-item-list-page.component.spec.ts",
+        "phase": 3,
+        "sha256": "ff543d566e001df8e8b56bb38cd23e9cd5c588edc09867e01d572979654f50e5",
+        "zoneHelpers": true,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/features/workspace/workspace-settings-page.component.spec.ts",
+        "phase": 3,
+        "sha256": "d93c580d7e75b63c6a3a022c773126e63974a6210e6083bbabdc0a3f64ae95c0",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/shared/authored-content/authored-content-edit-commands.spec.ts",
+        "phase": 2,
+        "sha256": "8e24b11c8cdc1c1a79acf98b36eb6a3ec16e14f2fe0a6697051fbe07e3950e9d",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/shared/authored-content/authored-content-editor.component.spec.ts",
+        "phase": 2,
+        "sha256": "15a5cfb43e51f7a3f3a51c9e13f885fad909d9294eb3250c4c7c1b4bcb2bf726",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/shared/authored-content/authored-content-link.spec.ts",
+        "phase": 2,
+        "sha256": "88eb2ece1647cb37a9b0a4702565a5137d6b400cf8e7bffecb725c0eab350e08",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/shared/authored-content/authored-content-parser.spec.ts",
+        "phase": 2,
+        "sha256": "4a9077acf22039d8d23fe9e196ddd76302b2e8c8407b635e2789f4d098a2a1fc",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/shared/authored-content/authored-content-validation.spec.ts",
+        "phase": 2,
+        "sha256": "563f9e635d7a1474119d7719121ce984ed1cee28e4f95fc8cb01a82b12d35b2d",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/shared/authored-content/authored-content-viewer.component.spec.ts",
+        "phase": 2,
+        "sha256": "0c47e6edb4715e0e2946adb69e0712a77c4ad555544424ef77a09052928cb6cc",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/shared/clipboard.service.spec.ts",
+        "phase": 2,
+        "sha256": "3b1f66cafa706e438b4fb0a9127c85c00d508a891fca8b336a33793060426bd4",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/shared/cycles/cycle-display.spec.ts",
+        "phase": 2,
+        "sha256": "9545210eece1b819d2acfa90bd35a2fd61d8f662b964db7b7a2b83679c3319fe",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/shared/delivery-health/delivery-health-display.spec.ts",
+        "phase": 2,
+        "sha256": "3ae16ae371af4535dc9e3f594e9841c93b1980b65ddb8d1716ef574b460020bf",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/shared/display/display-format.spec.ts",
+        "phase": 2,
+        "sha256": "f2fd53b895aa38f297373a7bc889f7d56eb63e035a2d03068eed36e97c5e29ac",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/shared/download-file.spec.ts",
+        "phase": 2,
+        "sha256": "83949df29cd5e60b3c4f03a3296a9b8c0d4e30c697fe4ecec480a0a20af27a67",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/shared/http-error-message.spec.ts",
+        "phase": 2,
+        "sha256": "6ff77f6820bccd5f0c784b68798c751e6f049726570c0fc59f4e3fb81971a0a8",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/shared/navigation/section-target.spec.ts",
+        "phase": 2,
+        "sha256": "4d0c07faeef6b869e94f0ff49220215ed7c5cb3b59f68484358c0237d827511a",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      },
+      {
+        "file": "apps/web/src/app/shared/navigation/work-navigation.spec.ts",
+        "phase": 2,
+        "sha256": "6041344c819295581bb88dc06f5b822f69c4246958c2d157df01f98ea918f88c",
+        "zoneHelpers": false,
+        "focusedOrDisabled": false
+      }
+    ],
+    "migrations": [
+      {
+        "idx": 0,
+        "version": "7",
+        "when": 1783115439679,
+        "tag": "0000_aberrant_centennial",
+        "breakpoints": true,
+        "sha256": "ace5b1aa1c880376d0c997d5dfb19b021b35bbc21a97c3d7ac3065ecf4e7622c"
+      },
+      {
+        "idx": 1,
+        "version": "7",
+        "when": 1783129808675,
+        "tag": "0001_easy_blade",
+        "breakpoints": true,
+        "sha256": "e9d9c596c1df20f3cb2a47cd9819cc427a1d66fb5bf601bed23f1d7de4d09ed8"
+      },
+      {
+        "idx": 2,
+        "version": "7",
+        "when": 1783180739472,
+        "tag": "0002_wide_nicolaos",
+        "breakpoints": true,
+        "sha256": "0fb99df7a0cd0da896a2f874a5dfca9195fcd87bd7fbd43bfe4749c3953904cd"
+      },
+      {
+        "idx": 3,
+        "version": "7",
+        "when": 1783193362168,
+        "tag": "0003_overrated_hercules",
+        "breakpoints": true,
+        "sha256": "380b18a2504a8662e16f7b9ddd81f52ef64672aeffb7353c7c6b94592e35df7b"
+      },
+      {
+        "idx": 4,
+        "version": "7",
+        "when": 1783200768507,
+        "tag": "0004_modern_jane_foster",
+        "breakpoints": true,
+        "sha256": "e61c6bf215111e93866867a66408444b4f66984fd90681516d3c5247378910b6"
+      },
+      {
+        "idx": 5,
+        "version": "7",
+        "when": 1783220766995,
+        "tag": "0005_hot_post",
+        "breakpoints": true,
+        "sha256": "9bfce0aafbd08281b1c866ebb5f565163e7a39a4ff903c98343a25efaab3aff6"
+      },
+      {
+        "idx": 6,
+        "version": "7",
+        "when": 1783288022190,
+        "tag": "0006_odd_valeria_richards",
+        "breakpoints": true,
+        "sha256": "b342f7e1b43899cf766e6baf94ea675ed0afb8e54793512c025d2a54a8ff22e1"
+      },
+      {
+        "idx": 7,
+        "version": "7",
+        "when": 1783303027541,
+        "tag": "0007_panoramic_chimera",
+        "breakpoints": true,
+        "sha256": "d305bc7aa042ee72107e56e0c26d78385993030be6374c4ef0833c2795d9ab9a"
+      },
+      {
+        "idx": 8,
+        "version": "7",
+        "when": 1783307679945,
+        "tag": "0008_careless_silver_fox",
+        "breakpoints": true,
+        "sha256": "580631b9d1c70d4286fd82b26b5544e96c905d1eaaca1d8a000758b6a831e176"
+      },
+      {
+        "idx": 9,
+        "version": "7",
+        "when": 1783380599272,
+        "tag": "0009_smart_tana_nile",
+        "breakpoints": true,
+        "sha256": "4d5369e2445848687b10325c630a2fb1ac07038fdb0eaf0044087a7b55a0fdcd"
+      },
+      {
+        "idx": 10,
+        "version": "7",
+        "when": 1783381168612,
+        "tag": "0010_free_quasar",
+        "breakpoints": true,
+        "sha256": "e05ce26eb0750c479038fcfdf8784a189394edcf038580d864f235de431f585a"
+      },
+      {
+        "idx": 11,
+        "version": "7",
+        "when": 1783391852692,
+        "tag": "0011_bouncy_zaladane",
+        "breakpoints": true,
+        "sha256": "d1171bdefe2a2da1bdbe6f15e23bb81eae6b5f98c6f4f73b7f9dc0a4296ff7a0"
+      },
+      {
+        "idx": 12,
+        "version": "7",
+        "when": 1783428382363,
+        "tag": "0012_oval_deathstrike",
+        "breakpoints": true,
+        "sha256": "f0e3408d089a35026b79e7bef07affcf272aafa82e74f966bb56391abcfef8d6"
+      },
+      {
+        "idx": 13,
+        "version": "7",
+        "when": 1783637476626,
+        "tag": "0013_cuddly_dreadnoughts",
+        "breakpoints": true,
+        "sha256": "c3d28e74b73c3285a1b41a9a44db99df19a6cfaefea061498453e39c456ef80e"
+      },
+      {
+        "idx": 14,
+        "version": "7",
+        "when": 1783792561762,
+        "tag": "0014_dapper_hellfire_club",
+        "breakpoints": true,
+        "sha256": "28ecce7bd5164e4bc034950b7d4768a6a205c665c0fd8918651fba8c81e6e639"
+      },
+      {
+        "idx": 15,
+        "version": "7",
+        "when": 1784085671500,
+        "tag": "0015_silky_tyger_tiger",
+        "breakpoints": true,
+        "sha256": "30a88e81f510a299546af441d9055a92b26011f80488409144b3bf39bf4ab54f"
+      },
+      {
+        "idx": 16,
+        "version": "7",
+        "when": 1784484444707,
+        "tag": "0016_scalable_search",
+        "breakpoints": true,
+        "sha256": "fec0e1c895b437604dc6910b81d21f391d38e0a720ae1563e0fe37fe49b9f714"
+      },
+      {
+        "idx": 17,
+        "version": "7",
+        "when": 1784510361560,
+        "tag": "0017_safe_pandemic",
+        "breakpoints": true,
+        "sha256": "0288a71ada18f91a104da0ec8be1d046235d58e6871a3a1d9beb985dd9edd6b2"
+      },
+      {
+        "idx": 18,
+        "version": "7",
+        "when": 1784777429705,
+        "tag": "0018_sweet_apocalypse",
+        "breakpoints": true,
+        "sha256": "51bc79ce8c87cd235daf191adf7dc4e41425924e34ff58ea9588b1306c00519b"
+      },
+      {
+        "idx": 19,
+        "version": "7",
+        "when": 1791775775513,
+        "tag": "0019_nosy_junta",
+        "breakpoints": true,
+        "sha256": "295cd60f134a89e06694e2353e5dd085754945d91bbc07ab7706131cd2bc4f95"
+      }
+    ],
+    "audits": {
+      "production": {
+        "exitCode": 0,
+        "report": {
+          "auditReportVersion": 2,
+          "vulnerabilities": {},
+          "metadata": {
+            "vulnerabilities": {
+              "info": 0,
+              "low": 0,
+              "moderate": 0,
+              "high": 0,
+              "critical": 0,
+              "total": 0
+            },
+            "dependencies": {
+              "prod": 119,
+              "dev": 822,
+              "optional": 156,
+              "peer": 0,
+              "peerOptional": 0,
+              "total": 941
+            }
+          }
+        }
+      },
+      "full": {
+        "exitCode": 1,
+        "report": {
+          "auditReportVersion": 2,
+          "vulnerabilities": {
+            "@angular/build": {
+              "name": "@angular/build",
+              "severity": "high",
+              "isDirect": true,
+              "via": [
+                "karma",
+                "vitest"
+              ],
+              "effects": [],
+              "range": ">=19.2.0-next.0",
+              "nodes": [
+                "apps/web/node_modules/@angular/build"
+              ],
+              "fixAvailable": {
+                "name": "@angular/build",
+                "version": "22.2.3",
+                "isSemVerMajor": true
+              }
+            },
+            "@esbuild-kit/core-utils": {
+              "name": "@esbuild-kit/core-utils",
+              "severity": "moderate",
+              "isDirect": false,
+              "via": [
+                "esbuild"
+              ],
+              "effects": [
+                "@esbuild-kit/esm-loader"
+              ],
+              "range": "*",
+              "nodes": [
+                "node_modules/@esbuild-kit/core-utils"
+              ],
+              "fixAvailable": {
+                "name": "drizzle-kit",
+                "version": "0.18.1",
+                "isSemVerMajor": true
+              }
+            },
+            "@esbuild-kit/esm-loader": {
+              "name": "@esbuild-kit/esm-loader",
+              "severity": "moderate",
+              "isDirect": false,
+              "via": [
+                "@esbuild-kit/core-utils"
+              ],
+              "effects": [
+                "drizzle-kit"
+              ],
+              "range": "*",
+              "nodes": [
+                "node_modules/@esbuild-kit/esm-loader"
+              ],
+              "fixAvailable": {
+                "name": "drizzle-kit",
+                "version": "0.18.1",
+                "isSemVerMajor": true
+              }
+            },
+            "@vitest/mocker": {
+              "name": "@vitest/mocker",
+              "severity": "moderate",
+              "isDirect": false,
+              "via": [
+                {
+                  "source": 1193684,
+                  "name": "@vitest/mocker",
+                  "dependency": "@vitest/mocker",
+                  "title": "Vitest: Path Traversal / Arbitrary File Read via @vitest/mocker Redirect Mock",
+                  "url": "https://github.com/advisories/GHSA-82fw-gwwq-j7x9",
+                  "severity": "moderate",
+                  "cwe": [
+                    "CWE-22"
+                  ],
+                  "cvss": {
+                    "score": 5.9,
+                    "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N"
+                  },
+                  "range": ">=2.1.0 <4.1.11"
+                }
+              ],
+              "effects": [
+                "vitest"
+              ],
+              "range": "2.1.0 - 4.1.10",
+              "nodes": [
+                "apps/web/node_modules/vitest/node_modules/@vitest/mocker"
+              ],
+              "fixAvailable": {
+                "name": "vitest",
+                "version": "5.0.5",
+                "isSemVerMajor": true
+              }
+            },
+            "braces": {
+              "name": "braces",
+              "severity": "high",
+              "isDirect": false,
+              "via": [
+                {
+                  "source": 1240992,
+                  "name": "braces",
+                  "dependency": "braces",
+                  "title": "braces vulnerable to stack-exhaustion denial of service through deeply nested patterns",
+                  "url": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+                  "severity": "high",
+                  "cwe": [
+                    "CWE-674"
+                  ],
+                  "cvss": {
+                    "score": 7.5,
+                    "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+                  },
+                  "range": "<=3.0.3"
+                }
+              ],
+              "effects": [
+                "chokidar",
+                "karma"
+              ],
+              "range": "*",
+              "nodes": [
+                "node_modules/braces"
+              ],
+              "fixAvailable": {
+                "name": "karma",
+                "version": "4.0.0",
+                "isSemVerMajor": true
+              }
+            },
+            "chokidar": {
+              "name": "chokidar",
+              "severity": "high",
+              "isDirect": false,
+              "via": [
+                "braces"
+              ],
+              "effects": [
+                "karma"
+              ],
+              "range": "2.0.0 - 3.6.0",
+              "nodes": [
+                "node_modules/karma/node_modules/chokidar"
+              ],
+              "fixAvailable": {
+                "name": "karma",
+                "version": "4.0.0",
+                "isSemVerMajor": true
+              }
+            },
+            "drizzle-kit": {
+              "name": "drizzle-kit",
+              "severity": "moderate",
+              "isDirect": true,
+              "via": [
+                "@esbuild-kit/esm-loader"
+              ],
+              "effects": [],
+              "range": "0.19.0 - 1.0.0-beta.1-fd8bfcc",
+              "nodes": [
+                "node_modules/drizzle-kit"
+              ],
+              "fixAvailable": {
+                "name": "drizzle-kit",
+                "version": "0.18.1",
+                "isSemVerMajor": true
+              }
+            },
+            "esbuild": {
+              "name": "esbuild",
+              "severity": "moderate",
+              "isDirect": false,
+              "via": [
+                {
+                  "source": 1102341,
+                  "name": "esbuild",
+                  "dependency": "esbuild",
+                  "title": "esbuild enables any website to send any requests to the development server and read the response",
+                  "url": "https://github.com/advisories/GHSA-67mh-4wv8-2f99",
+                  "severity": "moderate",
+                  "cwe": [
+                    "CWE-346"
+                  ],
+                  "cvss": {
+                    "score": 5.3,
+                    "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:N/A:N"
+                  },
+                  "range": "<=0.24.2"
+                }
+              ],
+              "effects": [
+                "@esbuild-kit/core-utils"
+              ],
+              "range": "<=0.24.2",
+              "nodes": [
+                "node_modules/@esbuild-kit/core-utils/node_modules/esbuild"
+              ],
+              "fixAvailable": {
+                "name": "drizzle-kit",
+                "version": "0.18.1",
+                "isSemVerMajor": true
+              }
+            },
+            "karma": {
+              "name": "karma",
+              "severity": "high",
+              "isDirect": true,
+              "via": [
+                "braces",
+                "chokidar"
+              ],
+              "effects": [
+                "@angular/build",
+                "karma-jasmine",
+                "karma-jasmine-html-reporter"
+              ],
+              "range": ">=2.0.3",
+              "nodes": [
+                "node_modules/karma"
+              ],
+              "fixAvailable": {
+                "name": "karma",
+                "version": "4.0.0",
+                "isSemVerMajor": true
+              }
+            },
+            "karma-jasmine": {
+              "name": "karma-jasmine",
+              "severity": "high",
+              "isDirect": true,
+              "via": [
+                "karma"
+              ],
+              "effects": [],
+              "range": ">=5.0.0",
+              "nodes": [
+                "node_modules/karma-jasmine"
+              ],
+              "fixAvailable": {
+                "name": "karma-jasmine",
+                "version": "4.0.2",
+                "isSemVerMajor": true
+              }
+            },
+            "karma-jasmine-html-reporter": {
+              "name": "karma-jasmine-html-reporter",
+              "severity": "high",
+              "isDirect": true,
+              "via": [
+                "karma",
+                "karma-jasmine"
+              ],
+              "effects": [],
+              "range": ">=2.0.0",
+              "nodes": [
+                "node_modules/karma-jasmine-html-reporter"
+              ],
+              "fixAvailable": {
+                "name": "karma-jasmine-html-reporter",
+                "version": "1.7.0",
+                "isSemVerMajor": true
+              }
+            },
+            "tinypool": {
+              "name": "tinypool",
+              "severity": "critical",
+              "isDirect": false,
+              "via": [
+                {
+                  "source": 1241260,
+                  "name": "tinypool",
+                  "dependency": "tinypool",
+                  "title": "Tinypool: Prototype Pollution gadget in worker options leads to Remote Code Execution",
+                  "url": "https://github.com/advisories/GHSA-5gmw-xhrv-c9v3",
+                  "severity": "critical",
+                  "cwe": [
+                    "CWE-1321"
+                  ],
+                  "cvss": {
+                    "score": 0,
+                    "vectorString": null
+                  },
+                  "range": "<=2.1.0"
+                },
+                {
+                  "source": 1241261,
+                  "name": "tinypool",
+                  "dependency": "tinypool",
+                  "title": "Tinypool: Prototype Pollution Gadget to RCE in run() options",
+                  "url": "https://github.com/advisories/GHSA-85c8-ppgw-ccpr",
+                  "severity": "critical",
+                  "cwe": [
+                    "CWE-94",
+                    "CWE-1321"
+                  ],
+                  "cvss": {
+                    "score": 0,
+                    "vectorString": null
+                  },
+                  "range": "<2.1.2"
+                }
+              ],
+              "effects": [
+                "vitest"
+              ],
+              "range": "<=2.1.1",
+              "nodes": [
+                "node_modules/tinypool"
+              ],
+              "fixAvailable": {
+                "name": "vitest",
+                "version": "5.0.5",
+                "isSemVerMajor": true
+              }
+            },
+            "vitest": {
+              "name": "vitest",
+              "severity": "critical",
+              "isDirect": true,
+              "via": [
+                "@vitest/mocker",
+                {
+                  "source": 1193683,
+                  "name": "vitest",
+                  "dependency": "vitest",
+                  "title": "Vitest: Path Traversal / Arbitrary File Read via @vitest/mocker Redirect Mock",
+                  "url": "https://github.com/advisories/GHSA-82fw-gwwq-j7x9",
+                  "severity": "moderate",
+                  "cwe": [
+                    "CWE-22"
+                  ],
+                  "cvss": {
+                    "score": 5.9,
+                    "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N"
+                  },
+                  "range": ">=2.1.0 <4.1.11"
+                },
+                "tinypool"
+              ],
+              "effects": [
+                "@angular/build"
+              ],
+              "range": "0.0.95 - 4.1.10",
+              "nodes": [
+                "apps/web/node_modules/vitest"
+              ],
+              "fixAvailable": {
+                "name": "vitest",
+                "version": "5.0.5",
+                "isSemVerMajor": true
+              }
+            }
+          },
+          "metadata": {
+            "vulnerabilities": {
+              "info": 0,
+              "low": 0,
+              "moderate": 5,
+              "high": 6,
+              "critical": 2,
+              "total": 13
+            },
+            "dependencies": {
+              "prod": 119,
+              "dev": 822,
+              "optional": 156,
+              "peer": 0,
+              "peerOptional": 0,
+              "total": 941
+            }
+          }
+        }
+      }
+    },
+    "policy": {
+      "schemaVersion": 1,
+      "createdOn": "2026-10-17",
+      "releaseVersion": "0.3.0",
+      "reviewBeforeVersion": "0.3.1",
+      "releaseDate": "2026-10-18",
+      "maxExpiresOn": "2026-11-16",
+      "exceptions": [
+        {
+          "advisory": "GHSA-vfj7-8cjw-p6xm",
+          "owner": "jeremyaaron",
+          "expiresOn": "2026-11-16",
+          "commands": [
+            "npm run verify (test:web)",
+            "npm test --workspace @worktrail/web"
+          ],
+          "dependencyPaths": [
+            "@worktrail/web > karma@6.4.4 > braces@3.0.3",
+            "@worktrail/web > karma@6.4.4 > chokidar@3.6.0 > braces@3.0.3",
+            "@worktrail/web > karma-jasmine-html-reporter@2.1.0 > karma-jasmine@5.1.0 > karma@6.4.4",
+            "@worktrail/web > @angular/build@20.3.40 > optional peer karma@6.4.4"
+          ],
+          "trustBoundary": "Development test configuration and filesystem glob patterns; not a production dependency.",
+          "preconditions": "A deeply nested attacker-controlled brace pattern must reach braces compilation/expansion. Karma consumes repository test configuration/globs; application request values are not passed to it. No patched braces release is available in the inspected owner range.",
+          "mitigation": "Use reviewed repository glob patterns, never user-supplied patterns. Owned verification runs Karma on loopback with retries disabled. Do not expose standalone Karma or run untrusted repository/test code with credentials.",
+          "followUp": "Recheck braces/Karma patches before expiry; if still unavailable, explicitly scope a supported Angular test-runner migration rather than downgrading Karma.",
+          "affected": [
+            {
+              "package": "@angular/build",
+              "path": "apps/web/node_modules/@angular/build",
+              "version": "20.3.40",
+              "severity": "high"
+            },
+            {
+              "package": "braces",
+              "path": "node_modules/braces",
+              "version": "3.0.3",
+              "severity": "high"
+            },
+            {
+              "package": "chokidar",
+              "path": "node_modules/karma/node_modules/chokidar",
+              "version": "3.6.0",
+              "severity": "high"
+            },
+            {
+              "package": "karma-jasmine-html-reporter",
+              "path": "node_modules/karma-jasmine-html-reporter",
+              "version": "2.1.0",
+              "severity": "high"
+            },
+            {
+              "package": "karma-jasmine",
+              "path": "node_modules/karma-jasmine",
+              "version": "5.1.0",
+              "severity": "high"
+            },
+            {
+              "package": "karma",
+              "path": "node_modules/karma",
+              "version": "6.4.4",
+              "severity": "high"
+            }
+          ]
+        },
+        {
+          "advisory": "GHSA-67mh-4wv8-2f99",
+          "owner": "jeremyaaron",
+          "expiresOn": "2026-11-16",
+          "commands": [
+            "npm run db:generate"
+          ],
+          "dependencyPaths": [
+            "@worktrail/api > drizzle-kit@0.31.10 > @esbuild-kit/esm-loader@2.6.5 > @esbuild-kit/core-utils@3.3.2 > esbuild@0.18.20"
+          ],
+          "trustBoundary": "Local schema tooling only. Production migrations use Drizzle ORM, not the Drizzle Kit CLI.",
+          "preconditions": "The vulnerable esbuild serve API must be started and a developer must visit an attacker-controlled website. drizzle-kit generate loads trusted local schema and generates SQL without starting esbuild serve. The legacy loader pins ~0.18.20, outside the fixed >=0.25.0 line.",
+          "mitigation": "Use Drizzle Kit only for local generation from reviewed schema; do not use drizzle-kit studio or start esbuild serve from this legacy graph. Do not expose schema tooling to a network or run it against untrusted schema/config.",
+          "followUp": "Adopt a maintainer release removing the legacy loader, or evaluate a separately scoped Drizzle Kit migration before expiry. Do not downgrade Kit to npm's suggested 0.18.1.",
+          "affected": [
+            {
+              "package": "@esbuild-kit/core-utils",
+              "path": "node_modules/@esbuild-kit/core-utils",
+              "version": "3.3.2",
+              "severity": "moderate"
+            },
+            {
+              "package": "@esbuild-kit/esm-loader",
+              "path": "node_modules/@esbuild-kit/esm-loader",
+              "version": "2.6.5",
+              "severity": "moderate"
+            },
+            {
+              "package": "drizzle-kit",
+              "path": "node_modules/drizzle-kit",
+              "version": "0.31.10",
+              "severity": "moderate"
+            },
+            {
+              "package": "esbuild",
+              "path": "node_modules/@esbuild-kit/core-utils/node_modules/esbuild",
+              "version": "0.18.20",
+              "severity": "moderate"
+            }
+          ]
+        },
+        {
+          "owner": "jeremyaaron",
+          "expiresOn": "2026-11-16",
+          "commands": [
+            "npm run verify (web test stage uses Karma; Vitest 3 peer is not executed)",
+            "npm test --workspace @worktrail/web (Karma)"
+          ],
+          "advisory": "GHSA-82fw-gwwq-j7x9",
+          "dependencyPaths": [
+            "@worktrail/web > vitest@3.2.7 > @vitest/mocker@3.2.7",
+            "@worktrail/web > @angular/build@20.3.40 > optional peer vitest@^3.1.1 (bound to web Vitest 3.2.7)"
+          ],
+          "trustBoundary": "Web-only Vitest 3 peer binding; Karma remains the active Angular test builder. API/contracts resolve patched Vitest 4.1.12.",
+          "preconditions": "Redirect-mock registration must reach the vulnerable Vite plugin. Public mockerPlugin/interceptorPlugin handlers can be unauthenticated on a reachable HMR WebSocket; Vitest browser RPC instead requires its per-run token. Neither path is enabled by the configured Karma builder.",
+          "mitigation": "Keep the web Karma builder and do not run web Vitest 3 browser/UI/server APIs or install its mocking plugins in dev serve. API/contracts run Vitest 4.1.12 in run mode. Do not expose development/test servers to untrusted networks.",
+          "followUp": "Adopt a maintainer-supported fixed Vitest 3 backport or separately scope the Angular test-builder upgrade before expiry. Do not force Vitest 4 into Angular 20's ^3.1.1 peer.",
+          "affected": [
+            {
+              "package": "@angular/build",
+              "path": "apps/web/node_modules/@angular/build",
+              "version": "20.3.40",
+              "severity": "high"
+            },
+            {
+              "package": "@vitest/mocker",
+              "path": "apps/web/node_modules/vitest/node_modules/@vitest/mocker",
+              "version": "3.2.7",
+              "severity": "moderate"
+            },
+            {
+              "package": "vitest",
+              "path": "apps/web/node_modules/vitest",
+              "version": "3.2.7",
+              "severity": "critical"
+            }
+          ]
+        },
+        {
+          "owner": "jeremyaaron",
+          "expiresOn": "2026-11-16",
+          "commands": [
+            "npm run verify (web test stage uses Karma; Vitest 3 peer is not executed)",
+            "npm test --workspace @worktrail/web (Karma)"
+          ],
+          "advisory": "GHSA-5gmw-xhrv-c9v3",
+          "dependencyPaths": [
+            "@worktrail/web > vitest@3.2.7 > tinypool@1.1.1",
+            "@worktrail/web > @angular/build@20.3.40 > optional peer vitest@^3.1.1 (bound to web Vitest 3.2.7)"
+          ],
+          "trustBoundary": "Unexecuted web Vitest 3 worker pool, installed to satisfy Angular's optional peer coherently. Not a production dependency or the API/contracts Vitest 4 pool.",
+          "preconditions": "An attacker must first pollute Object.prototype and cause the affected Tinypool constructor to consume inherited worker options. The configured web Karma builder does not execute this pool. Fixed Tinypool 2.1.2 is outside Vitest 3's ^1.1.1 owner range.",
+          "mitigation": "Do not invoke the nested web Vitest 3 binary or enable its worker pool. Use only reviewed tests/config in isolated least-privilege CI, with no credentials for untrusted PR code.",
+          "followUp": "Recheck a compatible owner-supported Vitest 3/Tinypool backport or explicitly scope an Angular/test-builder upgrade before expiry; do not apply a Tinypool major override.",
+          "affected": [
+            {
+              "package": "@angular/build",
+              "path": "apps/web/node_modules/@angular/build",
+              "version": "20.3.40",
+              "severity": "high"
+            },
+            {
+              "package": "tinypool",
+              "path": "node_modules/tinypool",
+              "version": "1.1.1",
+              "severity": "critical"
+            },
+            {
+              "package": "vitest",
+              "path": "apps/web/node_modules/vitest",
+              "version": "3.2.7",
+              "severity": "critical"
+            }
+          ]
+        },
+        {
+          "owner": "jeremyaaron",
+          "expiresOn": "2026-11-16",
+          "commands": [
+            "npm run verify (web test stage uses Karma; Vitest 3 peer is not executed)",
+            "npm test --workspace @worktrail/web (Karma)"
+          ],
+          "advisory": "GHSA-85c8-ppgw-ccpr",
+          "dependencyPaths": [
+            "@worktrail/web > vitest@3.2.7 > tinypool@1.1.1",
+            "@worktrail/web > @angular/build@20.3.40 > optional peer vitest@^3.1.1 (bound to web Vitest 3.2.7)"
+          ],
+          "trustBoundary": "Unexecuted web Vitest 3 run() worker options; Karma is the web test engine and API/contracts use Vitest 4.1.12.",
+          "preconditions": "An attacker must first pollute Object.prototype.filename and cause Tinypool run() to use a caller-supplied options object without an own filename. This requires worker-pool execution, which is not part of the web Karma workflow. The fixed Tinypool line is incompatible with the Vitest 3 owner range.",
+          "mitigation": "Keep web Vitest 3 disabled and do not pass untrusted worker options or run unreviewed test code with secrets. Development/test servers are not public application services.",
+          "followUp": "Recheck an owner-supported backport or plan the supported Angular test-builder migration before expiry; do not force an incompatible Tinypool major to lower the audit count.",
+          "affected": [
+            {
+              "package": "@angular/build",
+              "path": "apps/web/node_modules/@angular/build",
+              "version": "20.3.40",
+              "severity": "high"
+            },
+            {
+              "package": "tinypool",
+              "path": "node_modules/tinypool",
+              "version": "1.1.1",
+              "severity": "critical"
+            },
+            {
+              "package": "vitest",
+              "path": "apps/web/node_modules/vitest",
+              "version": "3.2.7",
+              "severity": "critical"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "staged": {
+    "graph": {
+      "exitCode": 0,
+      "problems": []
+    },
+    "production": {
+      "exitCode": 0,
+      "report": {
+        "auditReportVersion": 2,
+        "vulnerabilities": {},
+        "metadata": {
+          "vulnerabilities": {
+            "info": 0,
+            "low": 0,
+            "moderate": 0,
+            "high": 0,
+            "critical": 0,
+            "total": 0
+          },
+          "dependencies": {
+            "prod": 121,
+            "dev": 792,
+            "optional": 153,
+            "peer": 3,
+            "peerOptional": 0,
+            "total": 913
+          }
+        }
+      }
+    },
+    "full": {
+      "exitCode": 1,
+      "report": {
+        "auditReportVersion": 2,
+        "vulnerabilities": {
+          "@angular/build": {
+            "name": "@angular/build",
+            "severity": "high",
+            "isDirect": true,
+            "via": [
+              "karma"
+            ],
+            "effects": [],
+            "range": ">=19.2.0-next.0",
+            "nodes": [
+              "apps/web/node_modules/@angular/build"
+            ],
+            "fixAvailable": {
+              "name": "@angular/build",
+              "version": "19.1.9",
+              "isSemVerMajor": true
+            }
+          },
+          "braces": {
+            "name": "braces",
+            "severity": "high",
+            "isDirect": false,
+            "via": [
+              {
+                "source": 1240992,
+                "name": "braces",
+                "dependency": "braces",
+                "title": "braces vulnerable to stack-exhaustion denial of service through deeply nested patterns",
+                "url": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+                "severity": "high",
+                "cwe": [
+                  "CWE-674"
+                ],
+                "cvss": {
+                  "score": 7.5,
+                  "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+                },
+                "range": "<=3.0.3"
+              }
+            ],
+            "effects": [
+              "chokidar",
+              "karma"
+            ],
+            "range": "*",
+            "nodes": [
+              "node_modules/braces"
+            ],
+            "fixAvailable": {
+              "name": "karma",
+              "version": "4.0.0",
+              "isSemVerMajor": true
+            }
+          },
+          "chokidar": {
+            "name": "chokidar",
+            "severity": "high",
+            "isDirect": false,
+            "via": [
+              "braces"
+            ],
+            "effects": [
+              "karma"
+            ],
+            "range": "2.0.0 - 3.6.0",
+            "nodes": [
+              "node_modules/karma/node_modules/chokidar"
+            ],
+            "fixAvailable": {
+              "name": "karma",
+              "version": "4.0.0",
+              "isSemVerMajor": true
+            }
+          },
+          "karma": {
+            "name": "karma",
+            "severity": "high",
+            "isDirect": true,
+            "via": [
+              "braces",
+              "chokidar"
+            ],
+            "effects": [
+              "@angular/build",
+              "karma-jasmine",
+              "karma-jasmine-html-reporter"
+            ],
+            "range": ">=2.0.3",
+            "nodes": [
+              "node_modules/karma"
+            ],
+            "fixAvailable": {
+              "name": "karma",
+              "version": "4.0.0",
+              "isSemVerMajor": true
+            }
+          },
+          "karma-jasmine": {
+            "name": "karma-jasmine",
+            "severity": "high",
+            "isDirect": true,
+            "via": [
+              "karma"
+            ],
+            "effects": [],
+            "range": ">=5.0.0",
+            "nodes": [
+              "node_modules/karma-jasmine"
+            ],
+            "fixAvailable": {
+              "name": "karma-jasmine",
+              "version": "4.0.2",
+              "isSemVerMajor": true
+            }
+          },
+          "karma-jasmine-html-reporter": {
+            "name": "karma-jasmine-html-reporter",
+            "severity": "high",
+            "isDirect": true,
+            "via": [
+              "karma",
+              "karma-jasmine"
+            ],
+            "effects": [],
+            "range": ">=2.0.0",
+            "nodes": [
+              "node_modules/karma-jasmine-html-reporter"
+            ],
+            "fixAvailable": {
+              "name": "karma-jasmine-html-reporter",
+              "version": "1.7.0",
+              "isSemVerMajor": true
+            }
+          }
+        },
+        "metadata": {
+          "vulnerabilities": {
+            "info": 0,
+            "low": 0,
+            "moderate": 0,
+            "high": 6,
+            "critical": 0,
+            "total": 6
+          },
+          "dependencies": {
+            "prod": 121,
+            "dev": 792,
+            "optional": 153,
+            "peer": 3,
+            "peerOptional": 0,
+            "total": 913
+          }
+        }
+      }
+    },
+    "lockSha256": "850191bb937ca9c8d0472867c218e454d25b22c593640725b70efa7cd9e97683",
+    "privateFileHashes": {
+      "package.json": "4a7c820e39e27a13a9ad16ccd6774db5842eebc1fcd8040a7d2921395524d0d1",
+      "apps/web/package.json": "203fb3781989b8029d4a85b90f95d7745982ae7dd454efe943c2d3a63ea90ff6",
+      "apps/api/package.json": "5f0372b843568571ab3b03f49df0dbf1383740b81b33e4c8face173eb0c63b22",
+      "apps/web/angular.json": "fd3ca0edcbb3cfc327a88d97850a1ea276dd21e9b83121e77cbc0a6b7213580c",
+      "apps/web/tsconfig.proof.json": "b0cfd847d63dcdf70dbacfe42dc59625f69316a30c78fce78f4e62410fa77ced",
+      "apps/web/tsconfig.legacy-proof.json": "b8834a31a7db1606789effa7c3271fca1e33467cb15eed2a6586514c2e71de92",
+      "apps/web/vitest.proof.config.ts": "604dbbc292f5049b77e215130159379b3da17e1dbfe4dfced63732841cb93299",
+      "apps/web/src/testing/proof-providers.ts": "39e072a001ee602c2d05c29e30a76692a4a69f352b530a3f2c6492f98378a45f",
+      "apps/web/src/testing/phase-zero.spec.ts": "a6f281629bd8455e294a68d61c457313d833a35fea04d65be04f055a500be984",
+      "apps/web/src/app/shared/display/display-format.spec.ts": "a8a8dbd2063a7250c35703573662b9465a053483c08939858cf9ce0672c8946a",
+      "apps/web/src/app/core/api/attachments-api.spec.ts": "bd28a2be16a14a5f7b90965598c6400124558b4ea47604d7fa2d6e6c3361578f",
+      "apps/web/src/app/core/navigation/draft-departure-coordinator.spec.ts": "d109c1af9d23d5499230414fda5836803613abc0050c50e445b21e2e9c57faa5",
+      "apps/api/tsconfig.json": "85b1c899b7d44a54d58cffa9000776c8f7e366f64cc5aa0e5e995b972e8b9f3f",
+      "apps/api/src/db/client.ts": "87f8803d0b4cda91d816336f2506e63e2231e01a88988fd778a942b507112b2a"
+    }
+  },
+  "cutover": {
+    "lock": {
+      "exitCode": 0
+    },
+    "install": {
+      "exitCode": 0
+    },
+    "graph": {
+      "exitCode": 0,
+      "problems": []
+    },
+    "production": {
+      "auditReportVersion": 2,
+      "vulnerabilities": {},
+      "metadata": {
+        "vulnerabilities": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 0,
+          "critical": 0,
+          "total": 0
+        },
+        "dependencies": {
+          "prod": 121,
+          "dev": 691,
+          "optional": 153,
+          "peer": 3,
+          "peerOptional": 0,
+          "total": 812
+        }
+      }
+    },
+    "full": {
+      "auditReportVersion": 2,
+      "vulnerabilities": {},
+      "metadata": {
+        "vulnerabilities": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 0,
+          "critical": 0,
+          "total": 0
+        },
+        "dependencies": {
+          "prod": 121,
+          "dev": 691,
+          "optional": 153,
+          "peer": 3,
+          "peerOptional": 0,
+          "total": 812
+        }
+      }
+    },
+    "lockSha256": "69a657e4b455043e70d477aef260c131fce9ba51ade55f72ee6458778dcb3220"
+  },
+  "selectedManifests": {
+    "package.json": {
+      "name": "worktrail",
+      "version": "0.3.0",
+      "private": true,
+      "description": "Worktrail project management reference app.",
+      "type": "module",
+      "workspaces": [
+        "apps/*",
+        "packages/*"
+      ],
+      "scripts": {
+        "verify": "node scripts/verify.mjs",
+        "verify:setup": "node scripts/verify-local-setup.mjs",
+        "check:site": "node scripts/check-site.mjs",
+        "audit:dependencies": "node scripts/audit-dependencies.mjs",
+        "test:verification": "node --test scripts/verification/*.test.mjs",
+        "test:verification:integration": "node --test scripts/verification/lifecycle.check.mjs",
+        "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
+        "dev:api": "npm run dev --workspace @worktrail/api",
+        "dev:web": "npm run start --workspace @worktrail/web",
+        "build": "npm run build --workspace @worktrail/contracts && npm run build --workspace @worktrail/api && npm run build --workspace @worktrail/web",
+        "build:api": "npm run build --workspace @worktrail/api",
+        "build:web": "npm run build --workspace @worktrail/web",
+        "build:contracts": "npm run build --workspace @worktrail/contracts",
+        "check": "npm run typecheck && npm test",
+        "preview": "npm run build && npm run start:prod",
+        "start:prod": "NODE_ENV=production npm run start --workspace @worktrail/api",
+        "typecheck": "npm run typecheck:verification && npm run typecheck --workspaces --if-present",
+        "test": "npm run test --workspaces --if-present",
+        "test:e2e": "node scripts/verify.mjs --mode=e2e",
+        "test:editor": "node scripts/verify.mjs --mode=editor",
+        "test:e2e:ui": "node scripts/verify.mjs --mode=e2e --ui",
+        "test:preview": "node scripts/verify.mjs --mode=preview",
+        "test:site": "node scripts/verify.mjs --mode=site",
+        "lint": "npm run lint:verification && npm run lint --workspaces --if-present",
+        "lint:verification": "eslint apps/api/tests apps/api/vitest.config.ts e2e playwright*.config.ts scripts apps/web/browser-tests/authored-content-editor/*.ts --max-warnings=0",
+        "typecheck:verification": "tsc -p tsconfig.verification.json --noEmit && npm run typecheck --workspace @worktrail/api",
+        "db:start": "docker compose up -d postgres",
+        "db:stop": "docker compose stop postgres",
+        "db:down": "docker compose down",
+        "db:logs": "docker compose logs -f postgres",
+        "db:generate": "npm run db:generate --workspace @worktrail/api",
+        "db:migrate": "npm run db:migrate --workspace @worktrail/api",
+        "db:reset": "npm run db:reset --workspace @worktrail/api",
+        "db:seed": "npm run db:seed --workspace @worktrail/api",
+        "db:performance-evidence": "npm run db:performance-evidence --workspace @worktrail/api",
+        "db:quick-find-performance-evidence": "npm run db:quick-find-performance-evidence --workspace @worktrail/api",
+        "db:cycle-diagnostics": "npm run db:cycle-diagnostics --workspace @worktrail/api --",
+        "storage:reset": "npm run storage:reset --workspace @worktrail/api"
+      },
+      "devDependencies": {
+        "@eslint/js": "^9.39.4",
+        "@playwright/test": "^1.61.1",
+        "angular-eslint": "21.4.0",
+        "typescript": "5.9.3",
+        "chokidar": "5.0.0",
+        "@angular/core": "21.2.25",
+        "@angular/common": "21.2.25",
+        "@angular/compiler": "21.2.25",
+        "concurrently": "^9.2.5",
+        "eslint": "^9.39.4",
+        "globals": "^16.5.0",
+        "typescript-eslint": "^8.62.1"
+      },
+      "engines": {
+        "node": "^24.0.0",
+        "npm": "^11.0.0"
+      }
+    },
+    "apps/web/package.json": {
+      "name": "@worktrail/web",
+      "version": "0.3.0",
+      "scripts": {
+        "ng": "ng",
+        "start": "ng serve --host 0.0.0.0 --proxy-config proxy.conf.json",
+        "build": "ng build",
+        "watch": "ng build --watch --configuration development",
+        "test": "ng test --watch=false --browsers=ChromeHeadless",
+        "typecheck": "ng build --configuration development",
+        "lint": "eslint src --max-warnings=0"
+      },
+      "prettier": {
+        "printWidth": 100,
+        "singleQuote": true,
+        "overrides": [
+          {
+            "files": "*.html",
+            "options": {
+              "parser": "angular"
+            }
+          }
+        ]
+      },
+      "private": true,
+      "dependencies": {
+        "@angular/cdk": "21.2.14",
+        "@angular/common": "21.2.25",
+        "@angular/compiler": "21.2.25",
+        "@angular/core": "21.2.25",
+        "@angular/forms": "21.2.25",
+        "@angular/platform-browser": "21.2.25",
+        "@angular/router": "21.2.25",
+        "@lucide/angular": "^1.26.0",
+        "markdown-it": "15.0.2",
+        "rxjs": "~7.8.0",
+        "tslib": "^2.3.0",
+        "zone.js": "~0.15.0"
+      },
+      "devDependencies": {
+        "@angular/build": "21.2.27",
+        "@angular/cli": "21.2.27",
+        "@angular/compiler-cli": "21.2.25",
+        "@types/jasmine": "~5.1.0",
+        "jasmine-core": "~5.9.0",
+        "karma": "~6.4.0",
+        "karma-chrome-launcher": "~3.2.0",
+        "karma-coverage": "~2.2.0",
+        "karma-jasmine": "~5.1.0",
+        "karma-jasmine-html-reporter": "~2.1.0",
+        "typescript": "5.9.3",
+        "vitest": "4.1.12",
+        "@vitest/browser-playwright": "4.1.12",
+        "playwright": "1.61.1"
+      }
+    },
+    "apps/api/package.json": {
+      "name": "@worktrail/api",
+      "version": "0.3.0",
+      "private": true,
+      "type": "module",
+      "main": "dist/main.js",
+      "types": "dist/main.d.ts",
+      "scripts": {
+        "dev": "tsx watch src/main.ts",
+        "start": "node dist/main.js",
+        "start:prod": "NODE_ENV=production node dist/main.js",
+        "build": "tsc -p tsconfig.build.json",
+        "db:generate": "drizzle-kit generate",
+        "db:migrate": "tsx src/db/migrate.ts",
+        "db:reset": "tsx src/db/reset.ts",
+        "db:seed": "tsx src/db/seed.ts",
+        "db:performance-evidence": "tsx src/db/performance-evidence.ts",
+        "db:quick-find-performance-evidence": "tsx src/db/quick-find-performance-evidence.ts",
+        "db:cycle-diagnostics": "tsx src/db/cycle-diagnostics.ts",
+        "storage:reset": "tsx src/storage/reset.ts",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "lint": "eslint src --max-warnings=0",
+        "test": "vitest run --passWithNoTests"
+      },
+      "dependencies": {
+        "@worktrail/contracts": "0.3.0",
+        "cors": "^2.8.5",
+        "csv-parse": "^7.0.3",
+        "csv-stringify": "^6.8.1",
+        "dotenv": "^17.2.3",
+        "drizzle-orm": "1.0.0-rc.4",
+        "express": "^5.1.0",
+        "pg": "^8.22.0",
+        "yauzl": "^3.4.0",
+        "zod": "^4.1.13"
+      },
+      "devDependencies": {
+        "@types/cors": "^2.8.19",
+        "@types/express": "^5.0.3",
+        "@types/node": "^24.10.2",
+        "@types/pg": "^8.20.0",
+        "@types/supertest": "^7.2.0",
+        "@types/yauzl": "^3.4.0",
+        "drizzle-kit": "1.0.0-rc.4",
+        "supertest": "^7.2.2",
+        "tsx": "^4.20.6",
+        "typescript": "~5.9.2",
+        "vitest": "^4.1.11"
+      }
+    }
+  },
+  "proofs": {
+    "web": {
+      "files": 4,
+      "convertedExistingTests": 17,
+      "prototypeHarnessChecks": 2,
+      "total": 19,
+      "hostPassed": true,
+      "linux": {
+        "platform": "linux",
+        "architecture": "arm64",
+        "node": "v24.17.0",
+        "cleanInstall": true,
+        "representativeBrowserProof": true
+      },
+      "hostFailureExit": 1,
+      "hostInterruption": true,
+      "hostEndpointClosed": true,
+      "hostTrackedChildrenRemaining": 0,
+      "linuxLifecycle": {
+        "negative": true,
+        "interrupted": true,
+        "endpointClosed": true,
+        "trackedChildrenRemaining": 0,
+        "platform": "linux",
+        "architecture": "arm64",
+        "node": "v24.17.0"
+      }
+    },
+    "partition": {
+      "total": 70,
+      "migrated": 3,
+      "legacy": 67,
+      "noMissingOrDuplicateFiles": true,
+      "isolatedTypes": true,
+      "outcomes": [
+        {
+          "label": "vitest-negative",
+          "success": false
+        },
+        {
+          "label": "karma-independent",
+          "success": true
+        }
+      ],
+      "aggregateSuccess": false
+    },
+    "drizzle": {
+      "sqlHashesPreserved": true,
+      "migrationCount": 20,
+      "upgrade": {
+        "ledgerRows": 20,
+        "originalLedgerColumnsUnchanged": true,
+        "populatedDataUnchanged": true,
+        "reapplicationNoOp": true,
+        "ownerAddsNameAndAppliedAt": true
+      },
+      "rollback": {
+        "priorReleaseMigratorAcceptsUpgradedLedger": true
+      },
+      "metadataNormalization": {
+        "postgresCatalogEquivalent": true,
+        "domainDdlRequired": false
+      },
+      "attachments": {
+        "inventoriedFiles": 3,
+        "byteHashesUnchanged": true
+      },
+      "fresh": {
+        "schemaMatchesPrior": true,
+        "migrationRows": 20,
+        "reapplicationNoOp": true
+      },
+      "transactions": {
+        "repeatableRead": true,
+        "rowLockAndWriteRollback": true,
+        "selectAndCount": true,
+        "seededWorkItems": 39
+      }
+    },
+    "generation": {
+      "consecutiveUnchangedRuns": 2,
+      "completeInventoryCompared": true
+    },
+    "builds": {
+      "developmentPassed": true,
+      "productionPassed": true,
+      "productionInitialKb": 410.31,
+      "unchangedBudgets": true
+    },
+    "apiTypecheck": true
+  },
+  "metadataNormalization": [
+    {
+      "entity": "indexes:public:labels:labels_project_id_active_name_unique",
+      "field": "where",
+      "before": "\"labels\".\"archived_at\" is null",
+      "after": "\"archived_at\" is null"
+    },
+    {
+      "entity": "indexes:public:milestones:milestones_project_id_active_name_unique",
+      "field": "where",
+      "before": "\"milestones\".\"archived_at\" is null",
+      "after": "\"archived_at\" is null"
+    },
+    {
+      "entity": "indexes:public:notifications:notifications_recipient_source_event_unique",
+      "field": "where",
+      "before": "\"notifications\".\"source_event_key\" is not null",
+      "after": "\"source_event_key\" is not null"
+    },
+    {
+      "entity": "checks:public:project_cycles:project_cycles_date_range_check",
+      "field": "value",
+      "before": "\"project_cycles\".\"start_date\" <= \"project_cycles\".\"end_date\"",
+      "after": "\"start_date\" <= \"end_date\""
+    },
+    {
+      "entity": "checks:public:project_cycles:project_cycles_target_points_check",
+      "field": "value",
+      "before": "\"project_cycles\".\"target_points\" is null or \"project_cycles\".\"target_points\" > 0",
+      "after": "\"target_points\" is null or \"target_points\" > 0"
+    },
+    {
+      "entity": "indexes:public:project_cycles:project_cycles_project_id_active_unique",
+      "field": "where",
+      "before": "\"project_cycles\".\"status\" = 'active' and \"project_cycles\".\"archived_at\" is null",
+      "after": "\"status\" = 'active' and \"archived_at\" is null"
+    },
+    {
+      "entity": "indexes:public:project_cycles:project_cycles_project_id_active_name_unique",
+      "field": "where",
+      "before": "\"project_cycles\".\"archived_at\" is null",
+      "after": "\"archived_at\" is null"
+    },
+    {
+      "entity": "checks:public:projects:projects_key_check",
+      "field": "value",
+      "before": "\"projects\".\"key\" ~ '^[A-Z0-9]{2,8}$'",
+      "after": "\"key\" ~ '^[A-Z0-9]{2,8}$'"
+    },
+    {
+      "entity": "checks:public:projects:projects_next_work_item_number_check",
+      "field": "value",
+      "before": "\"projects\".\"next_work_item_number\" > 0",
+      "after": "\"next_work_item_number\" > 0"
+    },
+    {
+      "entity": "checks:public:saved_work_views:saved_work_views_scope_project_check",
+      "field": "value",
+      "before": "((\"saved_work_views\".\"scope\" = 'workspace' and \"saved_work_views\".\"project_id\" is null) or (\"saved_work_views\".\"scope\" = 'project' and \"saved_work_views\".\"project_id\" is not null))",
+      "after": "((\"scope\" = 'workspace' and \"project_id\" is null) or (\"scope\" = 'project' and \"project_id\" is not null))"
+    },
+    {
+      "entity": "indexes:public:saved_work_views:saved_work_views_project_scope_updated_idx",
+      "field": "where",
+      "before": "\"saved_work_views\".\"scope\" = 'project'",
+      "after": "\"scope\" = 'project'"
+    },
+    {
+      "entity": "indexes:public:saved_work_views:saved_work_views_workspace_personal_name_unique",
+      "field": "where",
+      "before": "\"saved_work_views\".\"scope\" = 'workspace' and \"saved_work_views\".\"visibility\" = 'personal'",
+      "after": "\"scope\" = 'workspace' and \"visibility\" = 'personal'"
+    },
+    {
+      "entity": "indexes:public:saved_work_views:saved_work_views_workspace_shared_name_unique",
+      "field": "where",
+      "before": "\"saved_work_views\".\"scope\" = 'workspace' and \"saved_work_views\".\"visibility\" = 'workspace'",
+      "after": "\"scope\" = 'workspace' and \"visibility\" = 'workspace'"
+    },
+    {
+      "entity": "indexes:public:saved_work_views:saved_work_views_project_personal_name_unique",
+      "field": "where",
+      "before": "\"saved_work_views\".\"scope\" = 'project' and \"saved_work_views\".\"visibility\" = 'personal'",
+      "after": "\"scope\" = 'project' and \"visibility\" = 'personal'"
+    },
+    {
+      "entity": "indexes:public:saved_work_views:saved_work_views_project_shared_name_unique",
+      "field": "where",
+      "before": "\"saved_work_views\".\"scope\" = 'project' and \"saved_work_views\".\"visibility\" = 'workspace'",
+      "after": "\"scope\" = 'project' and \"visibility\" = 'workspace'"
+    },
+    {
+      "entity": "checks:public:work_item_attachments:work_item_attachments_byte_size_check",
+      "field": "value",
+      "before": "\"work_item_attachments\".\"byte_size\" > 0 and \"work_item_attachments\".\"byte_size\" <= 4194304",
+      "after": "\"byte_size\" > 0 and \"byte_size\" <= 4194304"
+    },
+    {
+      "entity": "checks:public:work_item_attachments:work_item_attachments_file_name_check",
+      "field": "value",
+      "before": "char_length(\"work_item_attachments\".\"file_name\") between 1 and 180",
+      "after": "char_length(\"file_name\") between 1 and 180"
+    },
+    {
+      "entity": "checks:public:work_item_attachments:work_item_attachments_checksum_sha256_check",
+      "field": "value",
+      "before": "\"work_item_attachments\".\"checksum_sha256\" ~ '^[0-9a-f]{64}$'",
+      "after": "\"checksum_sha256\" ~ '^[0-9a-f]{64}$'"
+    },
+    {
+      "entity": "checks:public:work_item_attachments:work_item_attachments_storage_key_check",
+      "field": "value",
+      "before": "\"work_item_attachments\".\"storage_key\" ~ '^[0-9a-f]{64}$'",
+      "after": "\"storage_key\" ~ '^[0-9a-f]{64}$'"
+    },
+    {
+      "entity": "checks:public:work_item_relationships:work_item_relationships_no_self_check",
+      "field": "value",
+      "before": "\"work_item_relationships\".\"source_work_item_id\" <> \"work_item_relationships\".\"target_work_item_id\"",
+      "after": "\"source_work_item_id\" <> \"target_work_item_id\""
+    },
+    {
+      "entity": "indexes:public:work_item_watchers:work_item_watchers_active_unique",
+      "field": "where",
+      "before": "\"work_item_watchers\".\"unwatched_at\" is null",
+      "after": "\"unwatched_at\" is null"
+    },
+    {
+      "entity": "checks:public:work_items:work_items_item_number_check",
+      "field": "value",
+      "before": "\"work_items\".\"item_number\" > 0",
+      "after": "\"item_number\" > 0"
+    },
+    {
+      "entity": "checks:public:work_items:work_items_no_self_parent_check",
+      "field": "value",
+      "before": "\"work_items\".\"parent_work_item_id\" is null or \"work_items\".\"parent_work_item_id\" <> \"work_items\".\"id\"",
+      "after": "\"parent_work_item_id\" is null or \"parent_work_item_id\" <> \"id\""
+    }
+  ],
+  "scope": {
+    "conditionalShardBalancing": "deferred",
+    "workingSourcesAndLockUnchanged": true,
+    "workingPolicyUnchanged": true,
+    "releaseIdentity": "0.3.0",
+    "remoteCiAcceptance": false
+  },
+  "cleanup": {
+    "ownedWorkspaceRemoved": true,
+    "ownedDatabaseContainerRemoved": true,
+    "linuxProofContainersRemaining": 0,
+    "temporaryInstallationsRemoved": true,
+    "temporaryBrowserBinariesRemoved": true
+  }
+}

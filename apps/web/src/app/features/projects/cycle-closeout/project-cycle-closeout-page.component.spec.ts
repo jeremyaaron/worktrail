@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
@@ -212,7 +214,7 @@ describe('ProjectCycleCloseoutPageComponent', () => {
   });
 
   it('submits null carryover once and navigates to cycle review after success', () => {
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     const fixture = TestBed.createComponent(ProjectCycleCloseoutPageComponent);
     fixture.detectChanges();
     http
@@ -256,7 +258,7 @@ describe('ProjectCycleCloseoutPageComponent', () => {
 
     fixture.componentInstance.submit();
     fixture.detectChanges();
-    expect(button.disabled).toBeTrue();
+    expect(button.disabled).toBe(true);
     expect(button.getBoundingClientRect().width).toBeCloseTo(resting.width, 0);
     expect(button.getBoundingClientRect().height).toBeCloseTo(resting.height, 0);
     expect(button.querySelector('[aria-hidden="true"]')?.textContent?.trim()).toBe('Close cycle');
@@ -269,7 +271,7 @@ describe('ProjectCycleCloseoutPageComponent', () => {
       { status: 500, statusText: 'Internal Server Error' }
     );
     fixture.detectChanges();
-    expect(button.disabled).toBeFalse();
+    expect(button.disabled).toBe(false);
     expect(button.getBoundingClientRect().width).toBeCloseTo(resting.width, 0);
     expect(button.getBoundingClientRect().height).toBeCloseTo(resting.height, 0);
     expect(button.querySelector('[aria-hidden="true"]')?.textContent?.trim()).toBe('Closing...');
@@ -279,6 +281,7 @@ describe('ProjectCycleCloseoutPageComponent', () => {
   });
 
   it('disables destination selection when no unfinished work exists', () => {
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     const fixture = TestBed.createComponent(ProjectCycleCloseoutPageComponent);
     fixture.detectChanges();
     http
@@ -311,6 +314,9 @@ describe('ProjectCycleCloseoutPageComponent', () => {
     const closeout = http.expectOne(`/api/projects/${projectId}/cycles/${cycleId}/closeout`);
     expect(closeout.request.body).toEqual({ destinationCycleId: null });
     closeout.flush({});
+    expect(navigate).toHaveBeenCalledExactlyOnceWith(
+      ['/projects', projectId, 'cycles', cycleId], { fragment: 'cycle-result-heading' }
+    );
   });
 
   it('shows conflicts and refreshes the preview before another submission', () => {
@@ -357,15 +363,15 @@ describe('ProjectCycleCloseoutPageComponent', () => {
     const request = http.expectOne(`/api/projects/${projectId}/cycles/${cycleId}/closeout`);
     expect(request.request.body).toEqual({ destinationCycleId: laterDestinationId });
     fixture.componentInstance.loadPreview();
-    expect(request.cancelled).toBeFalse();
+    expect(request.cancelled).toBe(false);
     http.expectNone(`/api/projects/${projectId}/cycles/${cycleId}/closeout-preview`);
     request.flush({ error: { message: 'Retry later.' } }, { status: 503, statusText: 'Unavailable' });
     expect(fixture.componentInstance.form.controls.destinationCycleId.value).toBe(laterDestinationId);
-    expect(fixture.componentInstance.isSubmitting()).toBeFalse();
+    expect(fixture.componentInstance.isSubmitting()).toBe(false);
   });
 
   it('ignores an old closeout response after the route identity changes', () => {
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     const fixture = TestBed.createComponent(ProjectCycleCloseoutPageComponent);
     fixture.detectChanges();
     http.expectOne(`/api/projects/${projectId}/cycles/${cycleId}/closeout-preview`).flush(closeoutPreview());
@@ -374,11 +380,20 @@ describe('ProjectCycleCloseoutPageComponent', () => {
     const pending = http.expectOne(`/api/projects/${projectId}/cycles/${cycleId}/closeout`);
     params.next(convertToParamMap({ projectId, cycleId: laterDestinationId }));
     http.expectOne(`/api/projects/${projectId}/cycles/${laterDestinationId}/closeout-preview`).flush(closeoutPreview());
-    expect(pending.cancelled).toBeFalse();
+    expect(pending.cancelled).toBe(false);
     pending.flush({});
     expect(navigate).not.toHaveBeenCalled();
     expect(fixture.componentInstance.form.controls.destinationCycleId.value).toBe('');
-    expect(fixture.componentInstance.isSubmitting()).toBeFalse();
+    expect(fixture.componentInstance.isSubmitting()).toBe(false);
   });
 
+});
+
+afterEach(() => {
+  try {
+    TestBed.resetTestingModule();
+  } finally {
+    vi.restoreAllMocks();
+    localStorage.removeItem('worktrail.selectedMemberId');
+  }
 });

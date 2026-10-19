@@ -1,3 +1,5 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { signal } from '@angular/core';
 import type {
   CreateSavedWorkViewRequest,
@@ -75,10 +77,10 @@ describe('SavedViewsStore', () => {
     const store = new SavedViewsStore(gateway, { scope: 'workspace', actor: () => memberFixture() });
     store.load();
     expect(store.personalViews().map(view => view.id)).toEqual([own.id]);
-    expect(store.canMutate(own)).toBeFalse();
+    expect(store.canMutate(own)).toBe(false);
     store.rename(own, 'Denied');
     expect(gateway.updateRequests).toEqual([]);
-    expect(store.open(gateway.savedViews[1])).toBeFalse();
+    expect(store.open(gateway.savedViews[1])).toBe(false);
   });
 
   it('keeps explicit identity and canonical Named/Modified/Custom state separate from pending forms and paging', () => {
@@ -113,21 +115,21 @@ describe('SavedViewsStore', () => {
       store.load(); store.open(view);
       const completion = new Subject<SavedWorkViewDto>();
       const deletion = new Subject<void>();
-      spyOn(gateway, 'createSavedWorkView').and.returnValue(completion);
-      spyOn(gateway, 'updateSavedWorkView').and.returnValue(completion);
-      spyOn(gateway, 'deleteSavedWorkView').and.returnValue(deletion);
+      vi.spyOn(gateway, 'createSavedWorkView').mockReturnValue(completion);
+      vi.spyOn(gateway, 'updateSavedWorkView').mockReturnValue(completion);
+      vi.spyOn(gateway, 'deleteSavedWorkView').mockReturnValue(deletion);
       if (operation === 'create') store.create('New', 'personal', {});
       if (operation === 'rename') store.rename(view, 'New');
       if (operation === 'query') store.updateQuery(view, { status: 'ready' });
       if (operation === 'pin') store.setPinned(view, true);
       if (operation === 'delete') store.delete(view);
-      expect(store.isSaving()).toBeTrue();
+      expect(store.isSaving()).toBe(true);
       actor.set({ ...memberFixture(), id: 'other' }); store.reset(); actor.set(memberFixture());
       completion.next({ ...view, name: 'Obsolete' }); deletion.next();
       expect(store.views()).toEqual([]);
       expect(store.viewState().kind).toBe('custom');
-      expect(store.isSaving()).toBeFalse();
-      expect(completion.observed || deletion.observed).toBeFalse();
+      expect(store.isSaving()).toBe(false);
+      expect(completion.observed || deletion.observed).toBe(false);
       store.destroy(); store.load();
       expect(store.views()).toEqual([]);
     });
@@ -137,17 +139,17 @@ describe('SavedViewsStore', () => {
     const gateway = new FakeSavedViewsGateway();
     const first = new Subject<SavedWorkViewDto[]>();
     const second = new Subject<SavedWorkViewDto[]>();
-    spyOn(gateway, 'listSavedWorkViews').and.returnValues(first, second);
+    vi.spyOn(gateway, 'listSavedWorkViews').mockReturnValueOnce(first).mockReturnValueOnce(second);
     const store = new SavedViewsStore(gateway, { scope: 'workspace', actor: () => memberFixture(), canManagePersonalViews: () => true });
     store.load(); store.load();
-    expect(first.observed).toBeFalse();
+    expect(first.observed).toBe(false);
     first.next([savedViewFixture({ name: 'Old' })]);
     second.next([savedViewFixture()]);
     gateway.savedViews = [savedViewFixture()];
     store.rename(savedViewFixture(), 'Accepted');
     second.next([savedViewFixture({ name: 'Stale' })]);
     expect(store.views()[0].name).toBe('Accepted');
-    expect(second.observed).toBeFalse();
+    expect(second.observed).toBe(false);
   });
 
   it('serializes pending actions, retains failed rename drafts and preserves unrelated rename drafts', () => {
@@ -159,15 +161,15 @@ describe('SavedViewsStore', () => {
     store.load(); store.open(view);
     store.setDraftName(view.id, 'Retry name'); store.setDraftName(other.id, 'Keep other draft');
     const response = new Subject<SavedWorkViewDto>();
-    const update = spyOn(gateway, 'updateSavedWorkView').and.returnValue(response);
+    const update = vi.spyOn(gateway, 'updateSavedWorkView').mockReturnValue(response);
     store.rename(view, 'Retry name'); store.setPinned(view, true);
     expect(update).toHaveBeenCalledTimes(1);
     expect(store.pendingViewId()).toBe(view.id);
     response.error({ error: { error: { message: 'Expected failure' } } });
-    expect(store.isSaving()).toBeFalse();
+    expect(store.isSaving()).toBe(false);
     expect(store.mutationError()).toBe('Expected failure');
     expect(store.draftName(view.id)).toBe('Retry name');
-    update.and.returnValue(of({ ...view, name: 'Accepted' }));
+    update.mockReturnValue(of({ ...view, name: 'Accepted' }));
     store.rename(view, 'Accepted');
     expect(store.draftName(other.id)).toBe('Keep other draft');
     expect(store.openedView()?.id).toBe(view.id);
@@ -198,12 +200,12 @@ scope: 'project', projectId: project, actor,
 });
     store.load(); store.open(view);
     const write = new Subject<SavedWorkViewDto>();
-    spyOn(gateway, 'updateSavedWorkView').and.returnValue(write);
+    vi.spyOn(gateway, 'updateSavedWorkView').mockReturnValue(write);
     store.rename(view, 'Denied');
     actor.set({ ...memberFixture(), role: 'contributor' });
     write.next({ ...view, name: 'Denied' });
     expect(store.views()[0].name).toBe(view.name);
-    expect(store.isSaving()).toBeFalse();
+    expect(store.isSaving()).toBe(false);
     project.set('project-2'); store.reset();
     gateway.savedViews = [{ ...view, id: 'new', projectId: 'project-2' }]; store.load();
     write.next({ ...view, name: 'Old project' });
@@ -289,7 +291,7 @@ scope: 'project', projectId: project, actor,
       }
     ]);
     expect(store.sharedViews().map((view) => view.name)).toEqual(['Blocked bugs']);
-    expect(store.isSaving()).toBeFalse();
+    expect(store.isSaving()).toBe(false);
   });
 
   it('preserves hierarchy queries across personal, shared, and pinned saved views', () => {
@@ -376,7 +378,7 @@ scope: 'project', projectId: project, actor,
 
     expect(store.views()).toEqual([]);
     expect(store.loadError()).toBe('Saved views could not be loaded.');
-    expect(store.isLoading()).toBeFalse();
+    expect(store.isLoading()).toBe(false);
   });
 });
 
@@ -410,3 +412,6 @@ function memberFixture(): MemberDto {
     updatedAt: '2026-07-09T00:00:00.000Z'
   };
 }
+
+
+afterEach(() => vi.restoreAllMocks());

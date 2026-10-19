@@ -5,9 +5,10 @@ ownership, batched queries, lifecycle coordination, authoritative work/relations
 bounded HTTP parsing, versioned risk/query policy, aggregate narrowing, committed frontend context,
 shared draft departure protection, read-first detail composition, bounded inspection navigation,
 shared saved-view/list state, execution-first Planning, complete historical outcomes and repeated
-discovery are implemented. The [implementation plan](v0.3.0/implementation-plan.md),
-[release verification](v0.3.0/verification-notes.md#phase-21-final-release-verification), and
-[known limits](v0.3.0/known-limits.md) record acceptance and release boundaries. Start with the
+discovery are implemented. The [v0.3.0 release verification](v0.3.0/verification-notes.md#phase-21-final-release-verification)
+records that product baseline. The current [maintenance plan](v0.3.1/implementation-plan.md),
+[toolchain evidence](v0.3.1/verification-notes.md), and [known limits](v0.3.1/known-limits.md)
+record the v0.3.1 maintenance release and its local acceptance/publication boundaries. Start with the
 [README setup paths](../README.md#local-setup) and [current operating guide](operations.md).
 
 ## Production Owner Map
@@ -388,8 +389,8 @@ ordering before snapshot validation. Full board/history/closeout arrays are not 
 `tests/support/aggregate-fixture.ts` and the aggregate tests own 1/15-project evidence, complete HTTP SQL
 counts, evaluated/enriched rows, response bytes, diagnostic timings and external-commit consistency.
 See [aggregate evidence and remaining costs](v0.3.0/aggregate-evidence.md). Focused Angular verification
-can use the CLI's `--include=src/app/features/projects/project-planning-page.component.spec.ts` inside
-the existing owned manifest/private-workspace/Karma launcher; it is not a new public runner flag.
+can use `npm run test:web -- --include=src/app/features/projects/project-planning-page.component.spec.ts`
+through the same owned Vitest/Chromium runner as full frontend verification.
 
 ## Lock Ownership And Participation
 
@@ -475,7 +476,7 @@ preserve its existing policies rather than inferring new role restrictions. See 
 Run database-backed checks through `npm run verify -- --mode=api`. It provisions owned disposable
 PostgreSQL/storage; never point rollback or concurrency tests at the working application database.
 See the [README verification guide](../README.md#verification) and
-[current evidence](v0.3.0/verification-notes.md).
+[current maintenance evidence](v0.3.1/verification-notes.md).
 
 The [v0.3.0 acceptance handoff](v0.3.0/acceptance-handoff.md) maps integrated journeys and records
 manual signoff gaps. Cross-surface browser checks wait for populated content before checking reflow.
@@ -493,7 +494,8 @@ lint, backend typechecks, resource checks, and API tests without Angular/build/b
 For narrow changes, `--api-tests=server,work-item-csv-http` selects existing API test basenames; path,
 option, empty, and nonexistent selections fail rather than passing an empty suite. Shared HTTP or
 persistence infrastructure warrants the full API suite. `--mode=web` runs frontend lint, development
-typecheck/build, Karma/Jasmine and production build/budgets without PostgreSQL or application servers.
+typecheck/build, the Angular Chromium unit suite, and production build/budgets without PostgreSQL
+or application servers.
 Frontend changes use that profile and affected browser flows; shared contracts include affected consumers.
 Docs-only updates need links and
 format checks. Broaden for dependency/toolchain/cross-cutting changes. Reserve full verification for
@@ -502,12 +504,52 @@ backend/tooling, frontend, isolated application shards, preview, editor and site
 checks and omissions in phase evidence; unchanged-code results need not be rerun after documentation-only
 completion edits.
 
+The v0.3.1 foundation uses Angular runtime/compiler `21.2.25`, CLI/build `21.2.27`, CDK `21.2.14`,
+angular-eslint `21.4.0`, TypeScript `5.9.3`, Vitest/browser provider `4.1.12` and Playwright `1.61.1`;
+keep Node 24/npm 11. Drizzle Kit/ORM are exactly `1.0.0-rc.4`, a deliberate prerelease choice with
+[generation, upgrade and rollback requirements](operations.md#v031-toolchain-boundary). Production and TestBed
+both retain Zone-based scheduling. Root Angular peer bindings keep the application and icon package
+on one physical runtime; do not replace them with overrides or forced peer installation.
+
+`npm test --workspace @worktrail/web` and `npm run test:web` run all discovered files in an owned,
+database-free snapshot using the sole Angular `test` target (Vitest/Chromium). Specs import Vitest
+explicitly; `tsconfig.spec.json` includes all source specs with no ambient test globals. Discovery and
+editor/compiler scope must agree exactly. New specs are picked up automatically; never add an
+exclusion just to pass discovery. Karma/Jasmine and the temporary migration manifest/partition are gone.
+
+Repeat literal `--include=src/...spec.ts` arguments after npm's `--` to focus files; `--filter=expression`
+selects test names. Globs, unknown flags, missing files and zero passing cases fail. Non-filtered
+acceptance also rejects omitted files, empty files and skipped/incomplete cases in the actual report.
+Normal and owned commands use the same runner with zero retries. Summaries are under
+`test-results/verification/<run-id>/web-summary.json` or the owned profile's `summary.json`; structured
+browser results and failure screenshots remain in its `web/` directory after private-resource cleanup.
+Install Chromium via `npx playwright install chromium` first. Do not run Angular test targets directly:
+they require the assigned, validated run context.
+
+`npm run test:web -- --watch --include=src/testing/web-toolchain.spec.ts` watches live working source,
+not a copied snapshot. Add `--headed` to inspect Chromium interactively. The session owns its private
+compiler selection, loopback endpoint and browser processes; Angular's shared local disk cache is
+disabled for watch. Ctrl+C/SIGTERM stops the owned descendants and removes private resources. Watch
+summaries have `passed: null`, never acceptance success. Browser/dependency changes require restarting
+the session; a literal focused file list is fixed at startup. Do not overlap runs in one snapshot/cache.
+
+`npm run test:verification:web-lifecycle` is an opt-in, database-free real-browser lifecycle check.
+It verifies failure propagation, live source reruns, SIGINT/SIGTERM, abandoned SIGKILL cleanup and
+preservation of an unrelated loopback service. It observes reports/process identities rather than
+using startup sleeps; it is separate from cheap runner unit tests and ordinary feature verification.
+
 The `checks` profile owns audits, verification/backend/contracts lint/types, schema generation,
 resource/API/contracts tests and contracts/API builds. It complements `web` without another Angular
 build. Application `--shard=N/M` forwards a validated Playwright shard; all three CI shards run with
 one worker on separate runners/services/marked databases. Do not increase workers on shared seeded
 fixtures. All jobs must pass the existing required `Verify` aggregate status; matrix fail-fast is off,
 browser retries are zero, and success/failure evidence is retained independently.
+
+Comprehensive CI runs on pull requests only, not again after a merge or direct push to `main`.
+Use PRs with required checks against the current base branch; direct pushes bypass this verification.
+The separate Pages workflow still validates and deploys the public site on pushes to `main`.
+Local workflow changes do not configure repository branch protection or prove a remote CI pass.
+Further shard balancing is deferred; no comparative timing improvement is claimed for this sprint.
 
 Synchronize tests on meaningful state or deliberately controlled request/navigation ordering, not
 fixed sleeps. A deadline bounds a stalled test; it is not the prerequisite for its next action.
@@ -567,6 +609,15 @@ failures, no-write rejections, and ordinary/prefix/method isolation. Attachment 
 4 MiB and oversized-upload assertions and cover early metadata rejection logging.
 
 ## Persistence Test Discipline
+
+`npm run verify:upgrade` exercises the specific v0.3.0-to-v0.3.1 Drizzle boundary with independent
+installations and owned PostgreSQL/storage. It preserves all public rows and historical JSON plus
+attachment references/bytes, compares fresh/upgraded schemas separately from ledger augmentation,
+then runs full API/contracts checks and compiled API acceptance. Source/report inventories must
+agree; empty, skipped, missing or duplicated results cannot establish full acceptance. The normal
+API suite uses a separate fresh database, not the preserved seeded target. See
+[upgrade and rollback guidance](operations.md#v031-toolchain-boundary). Do not repeat this expensive
+boundary proof for unrelated frontend or documentation changes.
 
 Repository-only unit tests explicitly choose `tests/support/fake-persistence.ts`. That fake executes
 callbacks and refuses database locks; it does not simulate rollback, MVCC, or lifecycle safety. Real

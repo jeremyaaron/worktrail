@@ -6,7 +6,9 @@ test('preserves native typing undo across preview and synchronizes undo/redo wit
   await page.goto('/');
   await page.getByRole('button', { name: 'Load sample', exact: true }).click();
   const textarea = page.getByLabel('Description', { exact: true });
+  await expect(textarea).not.toHaveValue('');
   const original = await textarea.inputValue();
+  await expect(page.getByTestId('model')).toHaveText(original);
   await textarea.focus();
   await textarea.press('ControlOrMeta+End');
   await page.keyboard.type(' additional');
@@ -16,7 +18,9 @@ test('preserves native typing undo across preview and synchronizes undo/redo wit
     'additional'
   );
   await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  await expect(textarea).toBeVisible();
   await textarea.focus();
+  await expect(textarea).toBeFocused();
   await textarea.press('ControlOrMeta+z');
   await expect(textarea).toHaveValue(original);
   await expect(page.getByTestId('model')).toHaveText(original);

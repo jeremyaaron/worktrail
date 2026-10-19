@@ -1,3 +1,5 @@
+import { describe, expect, it } from 'vitest';
+
 import { ProjectBulkTriageStore } from './project-bulk-triage.store';
 
 describe('ProjectBulkTriageStore', () => {
@@ -12,7 +14,7 @@ describe('ProjectBulkTriageStore', () => {
     store.enter();
     store.toggleItem('work-1');
 
-    expect(store.isActive()).toBeTrue();
+    expect(store.isActive()).toBe(true);
     expect(store.selectedItemIds()).toEqual(['work-1']);
   });
 
@@ -23,7 +25,7 @@ describe('ProjectBulkTriageStore', () => {
     store.enter();
     store.toggleAllVisible(visibleRows);
     expect(store.selectedItemIds()).toEqual(['work-1', 'work-2']);
-    expect(store.areAllVisibleSelected(visibleRows)).toBeTrue();
+    expect(store.areAllVisibleSelected(visibleRows)).toBe(true);
     expect(store.selectedVisibleCount(visibleRows)).toBe(2);
 
     store.pruneSelectionToVisible([{ id: 'work-2' }]);
@@ -59,7 +61,7 @@ describe('ProjectBulkTriageStore', () => {
       ]
     });
 
-    expect(store.isApplying()).toBeFalse();
+    expect(store.isApplying()).toBe(false);
     expect(store.selectedItemIds()).toEqual(['work-3']);
     expect(store.result()?.failedCount).toBe(1);
   });
@@ -111,9 +113,9 @@ describe('ProjectBulkTriageStore', () => {
 
     store.exit();
 
-    expect(store.isActive()).toBeFalse();
+    expect(store.isActive()).toBe(false);
     expect(store.selectedItemIds()).toEqual([]);
-    expect(store.isApplying()).toBeFalse();
+    expect(store.isApplying()).toBe(false);
     expect(store.error()).toBeNull();
     expect(store.result()).toBeNull();
   });

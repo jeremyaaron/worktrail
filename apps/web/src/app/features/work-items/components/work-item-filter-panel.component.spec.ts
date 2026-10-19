@@ -1,3 +1,5 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormGroup } from '@angular/forms';
 
@@ -19,18 +21,18 @@ describe('WorkItemFilterPanelComponent', () => {
     fixture.detectChanges();
 
     const toggle = fixture.nativeElement.querySelector('.filters__toggle') as HTMLButtonElement;
-    expect(fixture.componentInstance.isExpanded()).toBeFalse();
+    expect(fixture.componentInstance.isExpanded()).toBe(false);
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
 
     toggle.click();
     fixture.detectChanges();
 
-    expect(fixture.componentInstance.isExpanded()).toBeTrue();
+    expect(fixture.componentInstance.isExpanded()).toBe(true);
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
   });
 
   it('emits apply and collapses after submission', () => {
-    const applySpy = jasmine.createSpy('apply');
+    const applySpy = vi.fn<(value: void) => void>().mockName('apply');
     fixture.componentInstance.apply.subscribe(applySpy);
     fixture.componentInstance.isExpanded.set(true);
     fixture.detectChanges();
@@ -39,7 +41,7 @@ describe('WorkItemFilterPanelComponent', () => {
     form.dispatchEvent(new Event('submit'));
     fixture.detectChanges();
 
-    expect(applySpy).toHaveBeenCalledOnceWith(undefined);
-    expect(fixture.componentInstance.isExpanded()).toBeFalse();
+    expect(applySpy).toHaveBeenCalledExactlyOnceWith(undefined);
+    expect(fixture.componentInstance.isExpanded()).toBe(false);
   });
 });

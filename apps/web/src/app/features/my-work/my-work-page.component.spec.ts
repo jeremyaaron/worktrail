@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -172,8 +174,8 @@ function flushInboxCount(http: HttpTestingController, unreadCount = 2): void {
 describe('MyWorkPageComponent', () => {
   beforeEach(async () => {
     localStorage.clear();
-    jasmine.clock().install();
-    jasmine.clock().mockDate(new Date('2026-07-08T12:00:00.000Z'));
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-07-08T12:00:00.000Z'));
 
     await TestBed.configureTestingModule({
       imports: [MyWorkPageComponent],
@@ -183,7 +185,7 @@ describe('MyWorkPageComponent', () => {
 
   afterEach(() => {
     TestBed.inject(HttpTestingController).verify();
-    jasmine.clock().uninstall();
+    vi.useRealTimers();
   });
 
   it('renders a deduped attention queue and secondary reported work', () => {
@@ -364,4 +366,15 @@ describe('MyWorkPageComponent', () => {
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Shape the default dashboard');
   });
+});
+
+
+afterEach(() => {
+  try {
+    TestBed.resetTestingModule();
+  } finally {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    localStorage.removeItem('worktrail.selectedMemberId');
+  }
 });

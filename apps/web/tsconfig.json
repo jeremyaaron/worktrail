@@ -5,7 +5,9 @@
   "compilerOptions": {
     "rootDir": "../..",
     "paths": {
-      "@worktrail/contracts": ["../../packages/contracts/src/index.ts"]
+      "@worktrail/contracts": [
+        "../../packages/contracts/src/index.ts"
+      ]
     },
     "strict": true,
     "noImplicitOverride": true,

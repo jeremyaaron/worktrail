@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -233,8 +235,8 @@ describe('ProjectStatusReportListPageComponent', () => {
     expect(latest?.textContent).toContain('At risk');
     expect(latest?.textContent).toContain('Morgan Maintainer');
     expect(rows.map((row) => row.textContent?.trim())).toEqual([
-      jasmine.stringContaining('Previous delivery update'),
-      jasmine.stringContaining('Initial status baseline')
+      expect.stringContaining('Previous delivery update'),
+      expect.stringContaining('Initial status baseline')
     ]);
     expect(rows[0]?.getAttribute('href')).toBe(
       '/projects/10000000-0000-4000-8000-000000000201/status/10000000-0000-4000-8000-000000000902'
@@ -273,4 +275,13 @@ describe('ProjectStatusReportListPageComponent', () => {
     expect(compiled.querySelector('.status-page__primary')).toBeNull();
     expect(compiled.textContent).toContain('Archived projects cannot publish new reports.');
   });
+});
+
+afterEach(() => {
+  try {
+    TestBed.resetTestingModule();
+  } finally {
+    vi.restoreAllMocks();
+    localStorage.removeItem('worktrail.selectedMemberId');
+  }
 });

@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import MarkdownIt from 'markdown-it';
 import { AuthoredContentViewerComponent } from './authored-content-viewer.component';
@@ -14,6 +16,11 @@ describe('AuthoredContentViewerComponent', () => {
     root = fixture.nativeElement as HTMLElement;
     root.style.display = 'block';
     root.style.width = '320px';
+  });
+
+  afterEach(() => {
+    try { fixture?.destroy(); }
+    finally { vi.restoreAllMocks(); }
   });
 
   async function render(source: string, format = 'markdown_v1'): Promise<void> {
@@ -48,12 +55,11 @@ describe('AuthoredContentViewerComponent', () => {
       'BR'
     ]);
     for (const element of Array.from(root.querySelectorAll('*'))) {
-      expect(allowed.has(element.tagName)).withContext(element.tagName).toBeTrue();
+      expect(allowed.has(element.tagName), element.tagName).toBe(true);
       for (const attr of Array.from(element.attributes)) {
-        expect(/^on/iu.test(attr.name)).withContext(attr.name).toBeFalse();
-        expect(['src', 'srcdoc', 'style', 'id', 'name', 'title'].includes(attr.name))
-          .withContext(attr.name)
-          .toBeFalse();
+        expect(/^on/iu.test(attr.name), attr.name).toBe(false);
+        expect(['src', 'srcdoc', 'style', 'id', 'name', 'title'].includes(attr.name), attr.name)
+          .toBe(false);
       }
     }
   }
@@ -133,32 +139,32 @@ describe('AuthoredContentViewerComponent', () => {
     expect(anchors[0].href).toBe('https://external.example/?a=1&b=2');
     expect(anchors[0].target).toBe('_blank');
     expect(anchors[0].querySelector('strong')?.textContent).toBe('external');
-    expect(anchors[1].hasAttribute('target')).toBeFalse();
+    expect(anchors[1].hasAttribute('target')).toBe(false);
     for (const anchor of Array.from(anchors)) {
       expect(anchor.rel).toBe('noopener noreferrer');
       expect(anchor.referrerPolicy).toBe('no-referrer');
-      expect(anchor.hasAttribute('title')).toBeFalse();
+      expect(anchor.hasAttribute('title')).toBe(false);
     }
     assertSafeDom();
   });
 
   it('computes only when source or format changes and switches safely between formats', async () => {
-    const parse = spyOn(MarkdownIt.prototype, 'parse').and.callThrough();
+    const parse = vi.spyOn(MarkdownIt.prototype, 'parse');
     await render('**bold**');
     fixture.detectChanges();
     fixture.detectChanges();
-    expect(parse.calls.count()).toBe(1);
+    expect(parse.mock.calls.length).toBe(1);
     await render('**bold**', 'plain_text');
     expect(root.querySelector('strong')).toBeNull();
     expect(root.querySelector('.plain-content')?.textContent).toBe('**bold**');
-    expect(parse.calls.count()).toBe(1);
+    expect(parse.mock.calls.length).toBe(1);
     await render('**next**');
     expect(root.querySelector('strong')?.textContent).toBe('next');
-    expect(parse.calls.count()).toBe(2);
+    expect(parse.mock.calls.length).toBe(2);
   });
 
   it('renders a parser failure as complete escaped source in the same region', async () => {
-    spyOn(MarkdownIt.prototype, 'parse').and.throwError('parser failed');
+    vi.spyOn(MarkdownIt.prototype, 'parse').mockImplementation(() => { throw new Error('parser failed'); });
     const source = '<script>bad()</script>\n**complete**';
     await render(source);
     expect(root.querySelector('.plain-content')?.textContent).toBe(source);
@@ -185,8 +191,8 @@ describe('AuthoredContentViewerComponent', () => {
     code.focus();
     expect(document.activeElement).toBe(code);
     await render('```\nshort\n```');
-    expect(root.querySelector('pre')?.hasAttribute('tabindex')).toBeFalse();
-    expect(root.querySelector('pre')?.hasAttribute('role')).toBeFalse();
+    expect(root.querySelector('pre')?.hasAttribute('tabindex')).toBe(false);
+    expect(root.querySelector('pre')?.hasAttribute('role')).toBe(false);
   });
 
   it('adds no universal empty-state copy', async () => {

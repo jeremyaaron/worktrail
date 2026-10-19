@@ -1,6 +1,8 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { fakeAsync, TestBed, tick } from '@angular/core/testing';
+import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import type {
   MemberDto,
@@ -129,20 +131,21 @@ describe('WorkItemParentManagerComponent', () => {
     TestBed.inject(HttpTestingController).verify();
   });
 
-  it('debounces two-character search, labels terminal results, and saves a selection', fakeAsync(() => {
+  it('debounces two-character search, labels terminal results, and saves a selection', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     const fixture = TestBed.createComponent(WorkItemParentManagerComponent);
     const http = TestBed.inject(HttpTestingController);
     fixture.componentRef.setInput('item', detail);
     fixture.detectChanges();
 
     fixture.componentInstance.searchControl.setValue('W');
-    tick(300);
+    await vi.advanceTimersByTimeAsync(300);
     http.expectNone((request) => request.url.includes('parent-candidates'));
 
     fixture.componentInstance.searchControl.setValue('WT-4');
-    tick(299);
+    await vi.advanceTimersByTimeAsync(299);
     http.expectNone((request) => request.url.includes('parent-candidates'));
-    tick(1);
+    await vi.advanceTimersByTimeAsync(1);
     const search = http.expectOne(
       (request) => request.url === `/api/work-items/${workItemId}/parent-candidates`
     );
@@ -155,9 +158,9 @@ describe('WorkItemParentManagerComponent', () => {
     expect(root.textContent).toContain('Done');
     root.querySelector<HTMLButtonElement>('.candidate')?.click();
     fixture.detectChanges();
-    expect(buttonByText(root, 'Save parent')?.disabled).toBeFalse();
+    expect(buttonByText(root, 'Save parent')?.disabled).toBe(false);
 
-    const changed = jasmine.createSpy('parentChanged');
+    const changed = vi.fn<(item: WorkItemDetailDto) => void>().mockName('parentChanged');
     fixture.componentInstance.parentChanged.subscribe(changed);
     buttonByText(root, 'Save parent')?.click();
     const save = http.expectOne(`/api/work-items/${workItemId}/parent`);
@@ -166,8 +169,8 @@ describe('WorkItemParentManagerComponent', () => {
     save.flush({ ...detail, parent: terminalCandidate });
     fixture.detectChanges();
 
-    expect(changed).toHaveBeenCalledWith(jasmine.objectContaining({ parent: terminalCandidate }));
-  }));
+    expect(changed).toHaveBeenCalledWith(expect.objectContaining({ parent: terminalCandidate }));
+  });
 
   it('disables no-op save, replaces the current parent, and clears it', () => {
     const child = { ...detail, parent };
@@ -177,7 +180,7 @@ describe('WorkItemParentManagerComponent', () => {
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
 
-    expect(buttonByText(root, 'Save parent')?.disabled).toBeTrue();
+    expect(buttonByText(root, 'Save parent')?.disabled).toBe(true);
     fixture.componentInstance.selectCandidate(replacementCandidate);
     fixture.componentInstance.saveParent();
     const replace = http.expectOne(`/api/work-items/${workItemId}/parent`);
@@ -193,13 +196,14 @@ describe('WorkItemParentManagerComponent', () => {
     clear.flush(detail);
   });
 
-  it('preserves a rejected selection and identifies a stale conflict', fakeAsync(() => {
+  it('preserves a rejected selection and identifies a stale conflict', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     const fixture = TestBed.createComponent(WorkItemParentManagerComponent);
     const http = TestBed.inject(HttpTestingController);
     fixture.componentRef.setInput('item', detail);
     fixture.detectChanges();
     fixture.componentInstance.searchControl.setValue('launch');
-    tick(300);
+    await vi.advanceTimersByTimeAsync(300);
     http.expectOne(`/api/work-items/${workItemId}/parent-candidates?search=launch`).flush([
       terminalCandidate
     ]);
@@ -218,19 +222,20 @@ describe('WorkItemParentManagerComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.componentInstance.selectedParent()).toEqual(terminalCandidate);
-    expect(fixture.componentInstance.isSelectionStale()).toBeTrue();
+    expect(fixture.componentInstance.isSelectionStale()).toBe(true);
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'The selected work item is no longer eligible as a parent.'
     );
-  }));
+  });
 
-  it('renders search errors and empty results as distinct recoverable states', fakeAsync(() => {
+  it('renders search errors and empty results as distinct recoverable states', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     const fixture = TestBed.createComponent(WorkItemParentManagerComponent);
     const http = TestBed.inject(HttpTestingController);
     fixture.componentRef.setInput('item', detail);
     fixture.detectChanges();
     fixture.componentInstance.searchControl.setValue('api');
-    tick(300);
+    await vi.advanceTimersByTimeAsync(300);
     http.expectOne(`/api/work-items/${workItemId}/parent-candidates?search=api`).flush(
       { error: { code: 'INTERNAL_ERROR' } },
       { status: 500, statusText: 'Server Error' }
@@ -241,13 +246,13 @@ describe('WorkItemParentManagerComponent', () => {
     );
 
     fixture.componentInstance.searchControl.setValue('none');
-    tick(300);
+    await vi.advanceTimersByTimeAsync(300);
     http.expectOne(`/api/work-items/${workItemId}/parent-candidates?search=none`).flush([]);
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'No eligible parent work found.'
     );
-  }));
+  });
 
   it('does not present mutation controls for archived or parent items', () => {
     const archivedFixture = TestBed.createComponent(WorkItemParentManagerComponent);
@@ -278,4 +283,14 @@ describe('WorkItemParentManagerComponent', () => {
     );
     expect(parentFixture.nativeElement.querySelector('input')).toBeNull();
   });
+});
+
+afterEach(() => {
+  try {
+    TestBed.resetTestingModule();
+  } finally {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    localStorage.removeItem('worktrail.selectedMemberId');
+  }
 });

@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { HttpEventType, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
@@ -16,6 +18,7 @@ const firstWorkItemId = '10000000-0000-4000-8000-000000000401';
 const secondWorkItemId = '10000000-0000-4000-8000-000000000402';
 const firstAttachmentId = '10000000-0000-4000-8000-000000000801';
 const secondAttachmentId = '10000000-0000-4000-8000-000000000802';
+const downloadLinks = new Set<HTMLAnchorElement>();
 
 const uploader: MemberDto = {
   id: '10000000-0000-4000-8000-000000000101',
@@ -181,12 +184,13 @@ describe('WorkItemAttachmentsComponent', () => {
     fixture.detectChanges();
 
     const link = document.createElement('a');
-    spyOn(document, 'createElement').and.returnValue(link);
-    spyOn(document.body, 'appendChild').and.callThrough();
-    spyOn(link, 'click').and.stub();
-    spyOn(link, 'remove').and.stub();
-    spyOn(URL, 'createObjectURL').and.returnValue('blob:attachment');
-    spyOn(URL, 'revokeObjectURL').and.stub();
+    downloadLinks.add(link);
+    vi.spyOn(document, 'createElement').mockReturnValue(link);
+    vi.spyOn(document.body, 'appendChild');
+    vi.spyOn(link, 'click').mockImplementation(() => undefined);
+    vi.spyOn(link, 'remove').mockImplementation(() => undefined);
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:attachment');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
 
     const button = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
       '.attachment-row__actions button'
@@ -194,7 +198,7 @@ describe('WorkItemAttachmentsComponent', () => {
     button?.click();
     fixture.detectChanges();
     expect(button?.textContent?.trim()).toBe('Downloading...');
-    expect(button?.disabled).toBeTrue();
+    expect(button?.disabled).toBe(true);
 
     const download = http.expectOne(`/api/attachments/${firstAttachmentId}/content`);
     expect(download.request.responseType).toBe('blob');
@@ -211,7 +215,7 @@ describe('WorkItemAttachmentsComponent', () => {
     expect(link.download).toBe('résumé.txt');
     expect(link.click).toHaveBeenCalled();
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:attachment');
-    expect(button?.disabled).toBeFalse();
+    expect(button?.disabled).toBe(false);
   });
 
   it('keeps metadata visible and makes a failed row download retryable', () => {
@@ -234,7 +238,7 @@ describe('WorkItemAttachmentsComponent', () => {
     expect(compiled.textContent).toContain('evidence.txt');
     expect(compiled.textContent).toContain('The attachment could not be downloaded. Try again.');
     const retry = compiled.querySelector<HTMLButtonElement>('.attachment-row__actions button');
-    expect(retry?.disabled).toBeFalse();
+    expect(retry?.disabled).toBe(false);
     retry?.click();
     http
       .expectOne(`/api/attachments/${firstAttachmentId}/content`)
@@ -274,7 +278,7 @@ describe('WorkItemAttachmentsComponent', () => {
 
   it('removes one attachment once and restores local count and byte capacity', () => {
     const fixture = createComponent();
-    const activityChanged = spyOn(fixture.componentInstance.activityChanged, 'emit');
+    const activityChanged = vi.spyOn(fixture.componentInstance.activityChanged, 'emit').mockImplementation(() => undefined);
     const item = attachment({
       id: firstAttachmentId,
       fileName: 'evidence.txt',
@@ -294,7 +298,7 @@ describe('WorkItemAttachmentsComponent', () => {
     expect(compiled.textContent).toContain('Removing...');
     expect(
       compiled.querySelector<HTMLButtonElement>('.removal-confirmation .danger-action')?.disabled
-    ).toBeTrue();
+    ).toBe(true);
     fixture.componentInstance.removeAttachment(item);
     http.expectNone(`/api/attachments/${firstAttachmentId}`);
 
@@ -315,7 +319,7 @@ describe('WorkItemAttachmentsComponent', () => {
 
   it('retains a failed removal with the API message and permits explicit retry', () => {
     const fixture = createComponent();
-    const activityChanged = spyOn(fixture.componentInstance.activityChanged, 'emit');
+    const activityChanged = vi.spyOn(fixture.componentInstance.activityChanged, 'emit').mockImplementation(() => undefined);
     const item = attachment({ id: firstAttachmentId, fileName: 'retry-removal.txt' });
     http.expectOne(`/api/work-items/${firstWorkItemId}/attachments`).flush(listResponse([item]));
     fixture.detectChanges();
@@ -340,7 +344,7 @@ describe('WorkItemAttachmentsComponent', () => {
     expect(compiled.textContent).toContain('File storage is unavailable.');
     expect(activityChanged).not.toHaveBeenCalled();
     const retry = compiled.querySelector<HTMLButtonElement>('.removal-confirmation .danger-action');
-    expect(retry?.disabled).toBeFalse();
+    expect(retry?.disabled).toBe(false);
 
     retry?.click();
     http.expectOne(`/api/attachments/${firstAttachmentId}`).flush(null);
@@ -351,7 +355,7 @@ describe('WorkItemAttachmentsComponent', () => {
 
   it('cancels an active removal and clears its state when route identity changes', () => {
     const fixture = createComponent();
-    const activityChanged = spyOn(fixture.componentInstance.activityChanged, 'emit');
+    const activityChanged = vi.spyOn(fixture.componentInstance.activityChanged, 'emit').mockImplementation(() => undefined);
     const item = attachment({ id: firstAttachmentId, fileName: 'old-removal.txt' });
     http.expectOne(`/api/work-items/${firstWorkItemId}/attachments`).flush(listResponse([item]));
     fixture.detectChanges();
@@ -367,7 +371,7 @@ describe('WorkItemAttachmentsComponent', () => {
     fixture.componentRef.setInput('workItemId', secondWorkItemId);
     fixture.detectChanges();
 
-    expect(removal.cancelled).toBeTrue();
+    expect(removal.cancelled).toBe(true);
     expect(fixture.componentInstance.confirmingRemovalId()).toBeNull();
     expect(fixture.componentInstance.removingIds().size).toBe(0);
     expect(activityChanged).not.toHaveBeenCalled();
@@ -396,8 +400,8 @@ describe('WorkItemAttachmentsComponent', () => {
   it('focuses and scrolls the Files target once after a requested load settles', () => {
     const fixture = createComponent(firstWorkItemId, 1);
     const target = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('#files')!;
-    const focus = spyOn(target, 'focus');
-    const scrollIntoView = spyOn(target, 'scrollIntoView');
+    const focus = vi.spyOn(target, 'focus').mockImplementation(() => undefined);
+    const scrollIntoView = vi.spyOn(target, 'scrollIntoView').mockImplementation(() => undefined);
 
     expect(target.getAttribute('tabindex')).toBe('-1');
     expect(focus).not.toHaveBeenCalled();
@@ -405,8 +409,8 @@ describe('WorkItemAttachmentsComponent', () => {
     http.expectOne(`/api/work-items/${firstWorkItemId}/attachments`).flush(listResponse([]));
     fixture.detectChanges();
 
-    expect(focus).toHaveBeenCalledOnceWith({ preventScroll: true });
-    expect(scrollIntoView).toHaveBeenCalledOnceWith({ block: 'start' });
+    expect(focus).toHaveBeenCalledExactlyOnceWith({ preventScroll: true });
+    expect(scrollIntoView).toHaveBeenCalledExactlyOnceWith({ block: 'start' });
 
     fixture.componentInstance.reload();
     http.expectOne(`/api/work-items/${firstWorkItemId}/attachments`).flush(listResponse([]));
@@ -423,7 +427,7 @@ describe('WorkItemAttachmentsComponent', () => {
     const untargeted = createComponent();
     const untargetedElement = (untargeted.nativeElement as HTMLElement)
       .querySelector<HTMLElement>('#files')!;
-    const untargetedFocus = spyOn(untargetedElement, 'focus');
+    const untargetedFocus = vi.spyOn(untargetedElement, 'focus').mockImplementation(() => undefined);
     http
       .expectOne(`/api/work-items/${firstWorkItemId}/attachments`)
       .flush(listResponse([]));
@@ -434,8 +438,8 @@ describe('WorkItemAttachmentsComponent', () => {
     const targeted = createComponent(secondWorkItemId, 3);
     const targetedElement = (targeted.nativeElement as HTMLElement)
       .querySelector<HTMLElement>('#files')!;
-    const targetedFocus = spyOn(targetedElement, 'focus');
-    const targetedScroll = spyOn(targetedElement, 'scrollIntoView');
+    const targetedFocus = vi.spyOn(targetedElement, 'focus').mockImplementation(() => undefined);
+    const targetedScroll = vi.spyOn(targetedElement, 'scrollIntoView').mockImplementation(() => undefined);
     http
       .expectOne(`/api/work-items/${secondWorkItemId}/attachments`)
       .flush(
@@ -444,8 +448,8 @@ describe('WorkItemAttachmentsComponent', () => {
       );
     targeted.detectChanges();
 
-    expect(targetedFocus).toHaveBeenCalledOnceWith({ preventScroll: true });
-    expect(targetedScroll).toHaveBeenCalledOnceWith({ block: 'start' });
+    expect(targetedFocus).toHaveBeenCalledExactlyOnceWith({ preventScroll: true });
+    expect(targetedScroll).toHaveBeenCalledExactlyOnceWith({ block: 'start' });
     expect((targeted.nativeElement as HTMLElement).textContent).toContain(
       'Attachments unavailable'
     );
@@ -458,7 +462,7 @@ describe('WorkItemAttachmentsComponent', () => {
     fixture.componentRef.setInput('workItemId', secondWorkItemId);
     fixture.detectChanges();
 
-    expect(firstRequest.cancelled).toBeTrue();
+    expect(firstRequest.cancelled).toBe(true);
     http.expectOne(`/api/work-items/${secondWorkItemId}/attachments`).flush(listResponse([]));
   });
 
@@ -469,7 +473,7 @@ describe('WorkItemAttachmentsComponent', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     const input = compiled.querySelector<HTMLInputElement>('input[type="file"]');
-    expect(input?.multiple).toBeTrue();
+    expect(input?.multiple).toBe(true);
     expect(input?.accept).toBe('.txt,.md,.png');
     expect(compiled.textContent).toContain('Up to 4 MiB per file. TXT, MD, PNG.');
 
@@ -518,7 +522,7 @@ describe('WorkItemAttachmentsComponent', () => {
 
   it('uploads files sequentially with determinate and indeterminate progress', () => {
     const fixture = createComponent();
-    const activityChanged = spyOn(fixture.componentInstance.activityChanged, 'emit');
+    const activityChanged = vi.spyOn(fixture.componentInstance.activityChanged, 'emit').mockImplementation(() => undefined);
     http.expectOne(`/api/work-items/${firstWorkItemId}/attachments`).flush(listResponse([]));
     fixture.detectChanges();
 
@@ -532,7 +536,7 @@ describe('WorkItemAttachmentsComponent', () => {
     firstUpload.event({ type: HttpEventType.UploadProgress, loaded: 1 });
     fixture.detectChanges();
     let progress = (fixture.nativeElement as HTMLElement).querySelector('progress');
-    expect(progress?.hasAttribute('value')).toBeFalse();
+    expect(progress?.hasAttribute('value')).toBe(false);
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Uploading');
 
     firstUpload.event({
@@ -583,7 +587,7 @@ describe('WorkItemAttachmentsComponent', () => {
 
   it('continues after a server failure and retries the retained file without reselection', () => {
     const fixture = createComponent();
-    const activityChanged = spyOn(fixture.componentInstance.activityChanged, 'emit');
+    const activityChanged = vi.spyOn(fixture.componentInstance.activityChanged, 'emit').mockImplementation(() => undefined);
     http.expectOne(`/api/work-items/${firstWorkItemId}/attachments`).flush(listResponse([]));
 
     const failedFile = new File(['failed'], 'failed.txt', { type: 'text/plain' });
@@ -676,7 +680,7 @@ describe('WorkItemAttachmentsComponent', () => {
 
   it('clears the queue and cancels an active upload when route identity changes', () => {
     const fixture = createComponent();
-    const activityChanged = spyOn(fixture.componentInstance.activityChanged, 'emit');
+    const activityChanged = vi.spyOn(fixture.componentInstance.activityChanged, 'emit').mockImplementation(() => undefined);
     http.expectOne(`/api/work-items/${firstWorkItemId}/attachments`).flush(listResponse([]));
 
     fixture.componentInstance.enqueueFiles([
@@ -687,9 +691,20 @@ describe('WorkItemAttachmentsComponent', () => {
     fixture.componentRef.setInput('workItemId', secondWorkItemId);
     fixture.detectChanges();
 
-    expect(upload.cancelled).toBeTrue();
+    expect(upload.cancelled).toBe(true);
     expect(fixture.componentInstance.uploadQueue()).toEqual([]);
     expect(activityChanged).not.toHaveBeenCalled();
     http.expectOne(`/api/work-items/${secondWorkItemId}/attachments`).flush(listResponse([]));
   });
+});
+
+afterEach(() => {
+  try {
+    TestBed.resetTestingModule();
+  } finally {
+    vi.restoreAllMocks();
+    for (const link of downloadLinks) link.remove();
+    downloadLinks.clear();
+    localStorage.removeItem('worktrail.selectedMemberId');
+  }
 });

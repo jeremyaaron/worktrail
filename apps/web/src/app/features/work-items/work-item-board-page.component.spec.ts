@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
@@ -216,8 +218,8 @@ describe('WorkItemBoardPageComponent', () => {
     request.flush(boardItems);
     fixture.detectChanges();
 
-    expect(fixture.componentInstance.workItems()).toHaveSize(101);
-    expect(fixture.componentInstance.itemsByStatus().get('ready')).toHaveSize(101);
+    expect(fixture.componentInstance.workItems()).toHaveLength(101);
+    expect(fixture.componentInstance.itemsByStatus().get('ready')).toHaveLength(101);
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'Complete board item 101'
     );
@@ -536,7 +538,7 @@ describe('WorkItemBoardPageComponent', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Archived project');
     expect(compiled.textContent).not.toContain('Create work item');
-    expect(compiled.querySelector('select')?.hasAttribute('disabled')).toBeTrue();
+    expect(compiled.querySelector('select')?.hasAttribute('disabled')).toBe(true);
 
     fixture.componentInstance.transitionCard(readyItem, {
       target: { value: 'in_progress' }
@@ -556,7 +558,7 @@ describe('WorkItemBoardPageComponent', () => {
     expect(compiled.textContent).toContain(
       'Only owners and maintainers can reopen done or canceled work items.'
     );
-    expect(compiled.querySelector('select')?.hasAttribute('disabled')).toBeTrue();
+    expect(compiled.querySelector('select')?.hasAttribute('disabled')).toBe(true);
 
     fixture.componentInstance.transitionCard(doneItem, {
       target: { value: 'ready' }

@@ -45,6 +45,57 @@ do not adopt a fresh-demo storage path. Migrations are the upgrade mechanism. `d
 and `storage:reset` are not upgrades or repair tools. Seed scripts may replace demo records/reports;
 do not seed a working installation. Review migration/release guidance before accepting production use.
 
+### v0.3.1 Toolchain Boundary
+
+The implemented v0.3.1 candidate pins Drizzle Kit and ORM to `1.0.0-rc.4`. This is an explicit
+prerelease maintenance choice, not a new domain schema migration. Historical SQL is byte-identical;
+the committed migration folders/snapshots use the owner's new layout. Do not run folder conversion
+again, generate replacement historical SQL, or edit migration ledger rows on an installation.
+
+For deliberate future schema changes, edit `apps/api/src/db/schema.ts`, run `npm run db:generate`
+from the repository root, and review the generated SQL and snapshot before committing the complete
+new folder under `apps/api/drizzle/`. The new format stores `migration.sql` and `snapshot.json` in
+timestamped folders rather than the old flat SQL plus `meta` journal layout. Generation does not
+apply SQL; `npm run db:migrate` does. An unchanged schema must not produce a migration. Do not accept
+unrelated generated DDL as a harmless tool upgrade. Keep Kit/ORM pinned together and revalidate
+generation, populated upgrade and runtime behavior before changing this prerelease pair again.
+
+The ordinary `db:migrate` command adopts the prior ledger: it retains IDs, SQL hashes and original
+millisecond timestamps, adds mapped migration names, and leaves historical application times unknown
+(`applied_at = null`). Fresh ledgers use the new folder timestamps at UTC-second precision. Repeated
+migration is a no-op. The populated v0.3.0-to-candidate proof compares all public rows, stored authored
+source/formats, relationships, saved views, historical JSON, application constraints/indexes and
+extensions, plus each referenced attachment's length/checksum and the complete file inventory.
+
+Run the reproducible proof with `npm run verify:upgrade`. It requires the local `v0.3.0` tag, Docker,
+Node 24/npm 11 and registry access/cached packages. It independently installs an archive of that
+release and a snapshot of the current source/lock, provisions separate owned fresh/upgrade databases
+inside a disposable PostgreSQL 16 server, and seeds only the prior-version target before capture.
+It then performs the comparisons, full API/contracts checks, and compiled API read/write/download
+acceptance. Runtime writes occur only after preservation comparison. It does not use the configured
+working database, Compose service, or ordinary attachment directory. Reports remain in
+`test-results/verification/<run-id>/`; owned installations, databases, server processes and storage
+are removed on success, command failure or handled interruption. It is an explicit backend acceptance
+command, not an additional default CI job or a check to repeat after every small edit.
+See [Phase 7 preservation evidence](v0.3.1/phase-7-evidence.json) and the
+[current maintenance limits](v0.3.1/known-limits.md). The prerelease adoption does not add a supported
+cloud deployment, a general downgrade path or a backup implementation.
+
+### Rollback Posture
+
+Before upgrading real data, stop all writes and capture a coordinated PostgreSQL/storage backup,
+the prior release/lockfile, and the original runtime configuration. Validate the backup's restore
+procedure before treating it as recovery protection. Keep the backup until the upgraded application
+and representative authorized file downloads have been checked.
+
+There is no supported down-migration or automatic RC-to-stable downgrade. Do not attempt recovery
+by deleting ledger names/columns, reseeding, or checking out old code against an arbitrarily changed
+database. Restore the database and complete attachment root from the same pre-upgrade capture, then
+install/run the matching prior release and configuration. Writes made after that capture require
+separate recovery/reconciliation; this app does not replay them automatically. The Phase 0 observation
+that the old ORM accepted the augmented ledger with unchanged domain history is not a general
+rollback guarantee for future migrations or a replacement for a backup.
+
 ## Coordinated Backup And Restore
 
 Quiesce attachment mutations and other writes, take a PostgreSQL backup, and copy the complete marked
@@ -89,6 +140,10 @@ source or compiled runtime, reloads a deep link and checks both seeded downloads
 cache-disabled builds and identity-proving startup wrappers replace ordinary local port/Compose
 defaults; these checks do not clone or deploy remote main. They reuse the app's real startup and
 adapters, not a mocked file server. Both paths need Docker and installed Chromium.
+For isolation, migration/seed run in the owned test environment; the source API also uses
+`NODE_ENV=test`. Preview runtime switches to `NODE_ENV=production` with explicit static/storage
+configuration. These substitutions are not a literal replay of the README's default-port shell
+session or proof of external database permissions/networking.
 
 Site mode needs no database; it validates links/assets/release metadata and renders the actual Pages
 subpath. All automated verification owns its processes, resources and cleanup. It never resets the

@@ -19,6 +19,13 @@ function fixture() {
 }
 
 describe('explicit persistence capabilities', () => {
+  it('binds the provided pool without creating a fallback connection', async () => {
+    const pool = createPool('postgres://unused:unused@localhost/unused');
+    try {
+      expect(createDb(pool).$client).toBe(pool);
+    } finally { await pool.end(); }
+  });
+
   it('starts writes with explicit read-committed/read-write configuration', async () => {
     const { persistence, transaction } = fixture();
     expect(await persistence.write(async () => 'done')).toBe('done');

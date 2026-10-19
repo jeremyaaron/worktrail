@@ -1,13 +1,19 @@
 import assert from 'node:assert/strict';
-import { readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { execFile } from 'node:child_process';
+import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
 import { test } from 'node:test';
+import { promisify } from 'node:util';
 
 import { auditFindings, collectAudit, evaluateAudits, installedDependencyRoot, parseAudit, verifyDependencyGraph } from './audit.mjs';
 import { createManifest, repositoryRoot } from './ownership.mjs';
 import { cleanupRun } from './resources.mjs';
 import { prepareWorkspace } from './workspace.mjs';
 
+const execute = promisify(execFile);
+const require = createRequire(import.meta.url);
+const { satisfies, valid } = createRequire(require.resolve('@angular/build'))('semver');
 const advisory = 'GHSA-aaaa-bbbb-cccc';
 const url = `https://github.com/advisories/${advisory}`;
 const lock = { lockfileVersion: 3, packages: {
@@ -154,9 +160,14 @@ test('audit collector explicitly includes development peers and rejects network/
   assert.ok(calls[0].args.includes('--audit-level=info'));
   assert.ok(calls[1].args.includes('--include=dev'));
   assert.ok(calls[1].args.includes('--include=optional'));
+  assert.ok(calls[1].args.includes('--include=peer'));
+  assert.ok(calls[1].args.includes('--include-workspace-root'));
+  assert.ok(calls[1].args.includes('--fetch-retries=0'));
   assert.ok(calls[1].args.includes('--workspaces'));
   assert.equal(calls[0].options.timeout, 60_000);
-  await assert.rejects(collectAudit('/scratch', false, async () => { throw Object.assign(new Error(), { code: 'ENOTFOUND' }); }), /Audit unavailable/);
+  for (const code of ['ENOTFOUND', 'ECONNRESET', 'ETIMEDOUT']) {
+    await assert.rejects(collectAudit('/scratch', false, async () => { throw Object.assign(new Error(), { code }); }), /Audit unavailable/);
+  }
   const input = fixture();
   const observed = await collectAudit('/scratch', false, async () => {
     throw Object.assign(new Error(), { code: 1, stdout: JSON.stringify(input.full) });
@@ -164,31 +175,99 @@ test('audit collector explicitly includes development peers and rejects network/
   assert.equal(observed.metadata.vulnerabilities.total, 2);
 });
 
-test('committed policy covers the lock graph, not production nodes, and is wired into full verification', async () => {
+test('retired policy stays empty without extending original dates or release boundaries', async () => {
   const policy = JSON.parse(await readFile(new URL('../../docs/security/development-audit-exceptions.json', import.meta.url), 'utf8'));
-  const actualLock = JSON.parse(await readFile(new URL('../../package-lock.json', import.meta.url), 'utf8'));
-  for (const exception of policy.exceptions) for (const affected of exception.affected) {
-    assert.equal(actualLock.packages[affected.path]?.version, affected.version);
-    assert.equal(actualLock.packages[affected.path]?.dev, true);
+  assert.deepEqual(policy, {
+    schemaVersion: 1, createdOn: '2026-10-17', releaseVersion: '0.3.0', reviewBeforeVersion: '0.3.1',
+    releaseDate: '2026-10-18', maxExpiresOn: '2026-11-16', exceptions: []
+  });
+  for (const currentVersion of ['0.3.0', '0.3.1', '0.4.0']) {
+    evaluateAudits({ production: report(), full: report(), lock, policy, currentVersion, now: new Date('2027-01-01') });
   }
-  const runner = await readFile(new URL('../verify.mjs', import.meta.url), 'utf8');
-  assert.match(runner, /npmGate\('audit:dependencies', \['run', 'audit:dependencies'\]\)/);
+  const input = fixture();
+  assert.throws(() => evaluateAudits({ ...input, policy, currentVersion: '0.3.1' }), /Unaccounted/);
 });
 
-test('supported local/CI runtime and separate Vitest peers retain the active Karma builder', async () => {
+test('supported runtime uses one Vitest builder without retired Angular test graphs', async () => {
   const json = async (path) => JSON.parse(await readFile(new URL(path, import.meta.url), 'utf8'));
   const root = await json('../../package.json');
   const actualLock = await json('../../package-lock.json');
   const web = await json('../../apps/web/angular.json');
+  assert.equal(root.overrides, undefined);
   assert.deepEqual(actualLock.packages[''].engines, root.engines);
   assert.equal(root.engines.node, '^24.0.0');
   assert.equal(root.engines.npm, '^11.0.0');
   assert.equal((await readFile(new URL('../../.nvmrc', import.meta.url), 'utf8')).trim(), '24');
   assert.match(await readFile(new URL('../../.github/actions/verify/action.yml', import.meta.url), 'utf8'), /node-version: 24/);
-  assert.equal(web.projects['worktrail-web'].architect.test.builder, '@angular/build:karma');
-  assert.match(actualLock.packages['apps/web/node_modules/vitest'].version, /^3\.2\./);
-  assert.match(actualLock.packages['node_modules/tinypool'].version, /^1\./);
-  assert.match(actualLock.packages['node_modules/vitest'].version, /^4\./);
+  assert.equal(web.projects['worktrail-web'].architect.test.builder, '@angular/build:unit-test');
+  assert.equal(web.projects['worktrail-web'].architect.test.options.runner, 'vitest');
+  assert.equal(web.projects['worktrail-web'].architect['test-vitest'], undefined);
+  for (const path of Object.keys(actualLock.packages)) {
+    assert.doesNotMatch(path, /node_modules\/(?:karma(?:-[^/]+)?|jasmine-core|@types\/jasmine)$/);
+  }
+});
+
+async function installedPackage(from, name) {
+  let directory = dirname(await realpath(from.resolve(name)));
+  for (;;) {
+    const metadata = await readFile(join(directory, 'package.json'), 'utf8').then(JSON.parse).catch(error => {
+      if (error.code === 'ENOENT') return null;
+      throw error;
+    });
+    if (metadata?.name === name) return metadata;
+    const parent = dirname(directory);
+    assert.notEqual(parent, directory, `Cannot find installed package metadata for ${name}.`);
+    directory = parent;
+  }
+}
+
+test('final installed toolchain satisfies owner peers, shares browser versions and pins the Drizzle pair', async () => {
+  const webRequire = createRequire(new URL('../../apps/web/package.json', import.meta.url));
+  const apiRequire = createRequire(new URL('../../apps/api/package.json', import.meta.url));
+  const build = await installedPackage(webRequire, '@angular/build');
+  const compiler = await installedPackage(webRequire, '@angular/compiler-cli');
+  const typescript = await installedPackage(webRequire, 'typescript');
+  const vitest = await installedPackage(webRequire, 'vitest');
+  const browser = await installedPackage(webRequire, '@vitest/browser');
+  const provider = await installedPackage(webRequire, '@vitest/browser-playwright');
+  assert.ok(satisfies(typescript.version, build.peerDependencies.typescript));
+  assert.ok(satisfies(typescript.version, compiler.peerDependencies.typescript));
+  assert.ok(satisfies(vitest.version, build.peerDependencies.vitest));
+  assert.equal(vitest.version, browser.version);
+  assert.equal(vitest.version, provider.version);
+  const rootRequire = createRequire(new URL('../../package.json', import.meta.url));
+  assert.equal((await installedPackage(rootRequire, 'typescript')).version, typescript.version);
+  const iconRequire = createRequire(webRequire.resolve('@lucide/angular'));
+  for (const name of ['@angular/core', '@angular/common', '@angular/compiler']) {
+    assert.equal(await realpath(rootRequire.resolve(name)), await realpath(webRequire.resolve(name)));
+    assert.equal(await realpath(iconRequire.resolve(name)), await realpath(webRequire.resolve(name)));
+  }
+  const api = JSON.parse(await readFile(new URL('../../apps/api/package.json', import.meta.url), 'utf8'));
+  const kit = await installedPackage(apiRequire, 'drizzle-kit');
+  const orm = await installedPackage(apiRequire, 'drizzle-orm');
+  assert.equal(valid(api.devDependencies['drizzle-kit']), kit.version, 'Kit must use an exact reviewed version, not a moving tag/range.');
+  assert.equal(valid(api.dependencies['drizzle-orm']), orm.version, 'ORM must use an exact reviewed version, not a moving tag/range.');
+  assert.equal(kit.version, orm.version);
+  assert.equal(kit.dependencies['@esbuild-kit/esm-loader'], undefined);
+});
+
+test('every physical lock entry is outside the five carried advisory ranges, independent of hoisting', async () => {
+  const actualLock = JSON.parse(await readFile(new URL('../../package-lock.json', import.meta.url), 'utf8'));
+  // Frozen regressions for the carried advisories; the live full audit remains authoritative.
+  const retired = [
+    ['GHSA-82fw-gwwq-j7x9', ['vitest', '@vitest/mocker'], '>=2.1.0 <4.1.11'],
+    ['GHSA-5gmw-xhrv-c9v3', ['tinypool'], '<=2.1.0'],
+    ['GHSA-85c8-ppgw-ccpr', ['tinypool'], '<2.1.2'],
+    ['GHSA-vfj7-8cjw-p6xm', ['braces'], '<=3.0.3'],
+    ['GHSA-67mh-4wv8-2f99', ['esbuild'], '<=0.24.2']
+  ];
+  for (const [path, pkg] of Object.entries(actualLock.packages)) {
+    const name = path.split('node_modules/').at(-1);
+    assert.ok(!['@esbuild-kit/esm-loader', '@esbuild-kit/core-utils'].includes(name), `Retired loader is present at ${path}.`);
+    for (const [id, names, range] of retired) {
+      if (names.includes(name)) assert.equal(satisfies(pkg.version, range, { includePrerelease: true }), false, `${id} remains at ${path}.`);
+    }
+  }
 });
 
 test('graph validation refuses incompatible peers even if pruning lowered the audit count', async () => {
@@ -206,5 +285,52 @@ test('private snapshots validate their real installation owner and reject lockfi
     assert.equal(await installedDependencyRoot(checkout), await installedDependencyRoot(repositoryRoot));
     await writeFile(join(checkout, 'package-lock.json'), '{}');
     await assert.rejects(installedDependencyRoot(checkout), /different lockfiles/);
+  } finally { await cleanupRun(manifest); }
+});
+
+test('the actual audit CLI accepts the final clean graph and preserves unsafe/error exits', async () => {
+  const manifest = await createManifest('none');
+  try {
+    const checkout = await prepareWorkspace(manifest);
+    const actualLock = JSON.parse(await readFile(join(checkout, 'package-lock.json'), 'utf8'));
+    const path = Object.keys(actualLock.packages).find(path => path.endsWith('node_modules/typescript'));
+    assert.ok(path);
+    const finding = report({ typescript: { name: 'typescript', severity: 'high', nodes: [path], via: [{
+      name: 'typescript', url, severity: 'high', range: '<99.0.0'
+    }] } });
+    const bin = join(manifest.root, 'bin'), response = join(manifest.root, 'response.json');
+    await mkdir(bin);
+    await writeFile(join(bin, 'npm'), [
+      '#!/usr/bin/env node',
+      'const fs = require("node:fs");',
+      'const fixture = JSON.parse(fs.readFileSync(process.env.WORKTRAIL_AUDIT_RESPONSE, "utf8"));',
+      'const args = process.argv.slice(2);',
+      'const result = fixture[args[0] === "ls" ? "graph" : args.includes("--omit=dev") ? "production" : "full"];',
+      'process.stdout.write(result.stdout);',
+      'process.exitCode = result.code;',
+      ''
+    ].join('\n'), { mode: 0o700 });
+    const clean = { stdout: JSON.stringify(report()), code: 0 };
+    const found = { stdout: JSON.stringify(finding), code: 1 };
+    const graph = { stdout: '{"dependencies":{}}', code: 0 };
+    for (const scenario of [
+      { name: 'clean', production: clean, full: clean, graph, success: true },
+      { name: 'production finding', production: found, full: found, graph, error: /Production audit failed/ },
+      { name: 'unknown finding with empty policy', production: clean, full: found, graph, error: /Unaccounted/ },
+      { name: 'malformed JSON', production: clean, full: { stdout: '{', code: 1 }, graph, error: /Audit unavailable/ },
+      { name: 'transport error', production: clean, full: { stdout: '{"error":{"code":"ENOTFOUND"}}', code: 1 }, graph, error: /Audit unavailable/ },
+      { name: 'bad peer graph', production: clean, full: clean, graph: { stdout: graph.stdout, code: 1 }, error: /Dependency graph check failed/ }
+    ]) {
+      await writeFile(response, JSON.stringify(scenario));
+      const operation = execute(process.execPath, ['scripts/audit-dependencies.mjs'], {
+        cwd: checkout, env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, WORKTRAIL_AUDIT_RESPONSE: response }, timeout: 15_000
+      });
+      if (scenario.success) assert.match((await operation).stdout, /gate passed: 0 bounded advisories/);
+      else await assert.rejects(operation, error => {
+        assert.equal(error.code, 1, scenario.name);
+        assert.match(error.stderr, scenario.error, scenario.name);
+        return true;
+      });
+    }
   } finally { await cleanupRun(manifest); }
 });

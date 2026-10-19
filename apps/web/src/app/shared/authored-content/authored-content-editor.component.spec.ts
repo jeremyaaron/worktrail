@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { Component } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
@@ -52,6 +54,11 @@ describe('AuthoredContentEditorComponent', () => {
     await settle();
   });
 
+  afterEach(() => {
+    try { fixture?.destroy(); }
+    finally { vi.restoreAllMocks(); }
+  });
+
   async function settle(): Promise<void> {
     fixture.detectChanges();
     await fixture.whenStable();
@@ -96,45 +103,45 @@ describe('AuthoredContentEditorComponent', () => {
     expect(format().value).toBe('markdown_v1');
     expect(root.querySelector('label[for="description"]')?.textContent).toBe('Description');
     expect(textarea().rows).toBe(8);
-    expect(textarea().hasAttribute('maxlength')).toBeFalse();
+    expect(textarea().hasAttribute('maxlength')).toBe(false);
     expect(textarea().getAttribute('aria-describedby')).toBe('description-count');
     expect(root.querySelector('output')?.textContent?.trim()).toBe('0 / 10,000');
-    expect(host.control.pristine).toBeTrue();
-    expect(host.control.untouched).toBeTrue();
+    expect(host.control.pristine).toBe(true);
+    expect(host.control.untouched).toBe(true);
   });
 
   it('writes exact loaded pairs without inferring format or echoing a change', async () => {
-    const changes = jasmine.createSpy('changes');
+    const changes = vi.fn<(value: AuthoredContentValue) => void>().mockName('changes');
     host.control.valueChanges.subscribe(changes);
     await setSource('  **legacy**\r\n ', 'plain_text');
     expect(host.control.value.source).toBe('  **legacy**\r\n ');
     expect(textarea().value).toBe('  **legacy**\n ');
     expect(format().value).toBe('plain_text');
     expect(root.querySelector('.formatting')).toBeNull();
-    expect(changes.calls.count()).toBe(1);
-    expect(host.control.pristine).toBeTrue();
+    expect(changes.mock.calls.length).toBe(1);
+    expect(host.control.pristine).toBe(true);
   });
 
   it('emits both fields on native source input and measures normalized UTF-16 units', async () => {
-    const changes = jasmine.createSpy('changes');
+    const changes = vi.fn<(value: AuthoredContentValue) => void>().mockName('changes');
     host.control.valueChanges.subscribe(changes);
     await type('  \ud83d\ude00\n ');
-    expect(changes).toHaveBeenCalledOnceWith({
+    expect(changes).toHaveBeenCalledExactlyOnceWith({
       source: '  \ud83d\ude00\n ',
       format: 'markdown_v1'
     });
-    expect(host.control.dirty).toBeTrue();
+    expect(host.control.dirty).toBe(true);
     expect(root.querySelector('output')?.textContent?.trim()).toBe('6 / 10,000');
   });
 
   it('does not overwrite native input value while Angular updates the model', async () => {
-    const valueSetter = spyOnProperty(
+    const valueSetter = vi.spyOn(
       HTMLTextAreaElement.prototype,
       'value',
       'set'
-    ).and.callThrough();
+    );
     textarea().value = 'native source';
-    valueSetter.calls.reset();
+    valueSetter.mockClear();
     textarea().dispatchEvent(new Event('input', { bubbles: true }));
     await settle();
     expect(valueSetter).not.toHaveBeenCalled();
@@ -143,29 +150,29 @@ describe('AuthoredContentEditorComponent', () => {
 
   it('switches only format, preserving exact source and emitting one pair', async () => {
     await setSource('  **legacy**\r\n', 'plain_text');
-    const changes = jasmine.createSpy('changes');
+    const changes = vi.fn<(value: AuthoredContentValue) => void>().mockName('changes');
     host.control.valueChanges.subscribe(changes);
     format().value = 'markdown_v1';
     format().dispatchEvent(new Event('change', { bubbles: true }));
     await settle();
-    expect(changes).toHaveBeenCalledOnceWith({ source: '  **legacy**\r\n', format: 'markdown_v1' });
-    expect(host.control.dirty).toBeTrue();
+    expect(changes).toHaveBeenCalledExactlyOnceWith({ source: '  **legacy**\r\n', format: 'markdown_v1' });
+    expect(host.control.dirty).toBe(true);
     expect(root.querySelector('.formatting')).not.toBeNull();
   });
 
   it('mounts faithful preview only when requested, without parsing edit keystrokes or changing form state', async () => {
-    const parse = spyOn(MarkdownIt.prototype, 'parse').and.callThrough();
+    const parse = vi.spyOn(MarkdownIt.prototype, 'parse');
     await type('**draft**');
     expect(parse).not.toHaveBeenCalled();
     host.control.markAsPristine();
-    const changes = jasmine.createSpy('changes');
+    const changes = vi.fn<(value: AuthoredContentValue) => void>().mockName('changes');
     host.control.valueChanges.subscribe(changes);
     const original = textarea();
     original.setSelectionRange(2, 7);
     await click('Preview');
     expect(root.querySelector('.preview strong')?.textContent).toBe('draft');
     expect(button('Preview').getAttribute('aria-pressed')).toBe('true');
-    expect(parse.calls.count()).toBe(1);
+    expect(parse.mock.calls.length).toBe(1);
     const reference = TestBed.createComponent(AuthoredContentViewerComponent);
     reference.componentRef.setInput('source', host.control.value.source);
     reference.componentRef.setInput('format', host.control.value.format);
@@ -180,12 +187,12 @@ describe('AuthoredContentEditorComponent', () => {
     expect(textarea().selectionEnd).toBe(7);
     expect(root.querySelector('app-authored-content-viewer')).toBeNull();
     expect(changes).not.toHaveBeenCalled();
-    expect(host.control.pristine).toBeTrue();
-    expect(host.control.untouched).toBeTrue();
+    expect(host.control.pristine).toBe(true);
+    expect(host.control.untouched).toBe(true);
   });
 
   it('keeps plain-text preview literal and makes no remote request for embedded HTML/images', async () => {
-    const fetch = spyOn(window, 'fetch').and.callThrough();
+    const fetch = vi.spyOn(window, 'fetch');
     await setSource('**literal** <img src="https://remote.example/image">', 'plain_text');
     await click('Preview');
     expect(root.querySelector('.preview')?.textContent).toContain(
@@ -199,10 +206,10 @@ describe('AuthoredContentEditorComponent', () => {
     textarea().focus();
     button('Bold').focus();
     await settle();
-    expect(host.control.untouched).toBeTrue();
+    expect(host.control.untouched).toBe(true);
     root.querySelector<HTMLButtonElement>('#outside')!.focus();
     await settle();
-    expect(host.control.touched).toBeTrue();
+    expect(host.control.touched).toBe(true);
   });
 
   it('applies a selection command, restores focus, updates the form, and never submits it', async () => {
@@ -214,8 +221,8 @@ describe('AuthoredContentEditorComponent', () => {
     expect(host.control.value).toEqual({ source: 'before **text** after', format: 'markdown_v1' });
     expect(document.activeElement).toBe(textarea());
     expect([textarea().selectionStart, textarea().selectionEnd]).toEqual([9, 13]);
-    expect(host.control.dirty).toBeTrue();
-    expect(host.control.untouched).toBeTrue();
+    expect(host.control.dirty).toBe(true);
+    expect(host.control.untouched).toBe(true);
     expect(host.submits).toBe(0);
     for (const element of Array.from(root.querySelectorAll('app-authored-content-editor button'))) {
       expect(element.getAttribute('type')).toBe('button');
@@ -241,7 +248,7 @@ describe('AuthoredContentEditorComponent', () => {
       textarea().setSelectionRange(0, 4);
       await click(name);
       expect(host.control.value.source).not.toBe('text');
-      expect(host.control.dirty).toBeTrue();
+      expect(host.control.dirty).toBe(true);
       expect(host.submits).toBe(0);
     });
   }
@@ -272,12 +279,12 @@ describe('AuthoredContentEditorComponent', () => {
     const key = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
     input.dispatchEvent(key);
     await settle();
-    expect(key.defaultPrevented).toBeTrue();
+    expect(key.defaultPrevented).toBe(true);
     expect(input.getAttribute('aria-invalid')).toBe('true');
     expect(input.getAttribute('aria-describedby')).toBe('description-link-error');
     expect(root.querySelector('[role="alert"]')?.textContent).toContain('valid HTTP or HTTPS URL');
     expect(host.control.value.source).toBe('label');
-    expect(host.control.pristine).toBeTrue();
+    expect(host.control.pristine).toBe(true);
     expect(host.submits).toBe(0);
     await url('https://example.com');
     expect(root.querySelector('[role="alert"]')).toBeNull();
@@ -299,7 +306,7 @@ describe('AuthoredContentEditorComponent', () => {
       expect(document.activeElement).toBe(textarea());
       expect([textarea().selectionStart, textarea().selectionEnd]).toEqual([7, 12]);
       expect(host.control.value.source).toBe('before label after');
-      expect(host.control.pristine).toBeTrue();
+      expect(host.control.pristine).toBe(true);
     });
   }
 
@@ -330,7 +337,7 @@ describe('AuthoredContentEditorComponent', () => {
     expect(root.querySelector('.link-entry')).toBeNull();
     expect(textarea()).not.toBe(current);
     expect(textarea().value).toBe('same source');
-    expect(host.control.pristine).toBeTrue();
+    expect(host.control.pristine).toBe(true);
     await click('Link');
     expect(root.querySelector<HTMLInputElement>('input[inputmode="url"]')?.value).toBe('');
     host.control.reset();
@@ -341,23 +348,23 @@ describe('AuthoredContentEditorComponent', () => {
   });
 
   it('suppresses formatting and intermediate input during IME composition, committing only once', async () => {
-    const changes = jasmine.createSpy('changes');
+    const changes = vi.fn<(value: AuthoredContentValue) => void>().mockName('changes');
     host.control.valueChanges.subscribe(changes);
     textarea().dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
     textarea().value = '\u65e5';
     textarea().dispatchEvent(new InputEvent('input', { bubbles: true, isComposing: true }));
     await settle();
-    expect(button('Bold').disabled).toBeTrue();
-    expect(button('Preview').disabled).toBeTrue();
-    expect(format().disabled).toBeTrue();
+    expect(button('Bold').disabled).toBe(true);
+    expect(button('Preview').disabled).toBe(true);
+    expect(format().disabled).toBe(true);
     await click('Bold');
     expect(changes).not.toHaveBeenCalled();
     textarea().value = '\u65e5\u672c';
     textarea().dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
     textarea().dispatchEvent(new InputEvent('input', { bubbles: true }));
     await settle();
-    expect(changes).toHaveBeenCalledOnceWith({ source: '\u65e5\u672c', format: 'markdown_v1' });
-    expect(button('Bold').disabled).toBeFalse();
+    expect(changes).toHaveBeenCalledExactlyOnceWith({ source: '\u65e5\u672c', format: 'markdown_v1' });
+    expect(button('Bold').disabled).toBe(false);
   });
 
   it('ignores stale composition/input events after a context reset', async () => {
@@ -369,7 +376,7 @@ describe('AuthoredContentEditorComponent', () => {
     previous.dispatchEvent(new InputEvent('input', { bubbles: true }));
     await settle();
     expect(host.control.value.source).toBe('new context');
-    expect(button('Bold').disabled).toBeFalse();
+    expect(button('Bold').disabled).toBe(false);
   });
 
   it('ignores old DOM events even before a parent write has rendered the next textarea', async () => {
@@ -388,8 +395,8 @@ describe('AuthoredContentEditorComponent', () => {
     textarea().focus();
     host.control.reset();
     await settle();
-    expect(host.control.pristine).toBeTrue();
-    expect(host.control.untouched).toBeTrue();
+    expect(host.control.pristine).toBe(true);
+    expect(host.control.untouched).toBe(true);
     expect(textarea().value).toBe('');
   });
 
@@ -401,7 +408,7 @@ describe('AuthoredContentEditorComponent', () => {
     await settle();
     expect(root.querySelector('.preview strong')?.textContent).toBe('legacy');
     expect(host.control.value).toEqual({ source: '**legacy**', format: 'markdown_v1' });
-    expect(host.control.dirty).toBeTrue();
+    expect(host.control.dirty).toBe(true);
   });
 
   it('protects URL IME composition without disabling the composing input', async () => {
@@ -409,10 +416,10 @@ describe('AuthoredContentEditorComponent', () => {
     const input = await url('https://example.com/');
     input.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
     await settle();
-    expect(input.disabled).toBeFalse();
-    expect(button('Insert link').disabled).toBeTrue();
-    expect(button('Cancel link').disabled).toBeTrue();
-    expect(button('Preview').disabled).toBeTrue();
+    expect(input.disabled).toBe(false);
+    expect(button('Insert link').disabled).toBe(true);
+    expect(button('Cancel link').disabled).toBe(true);
+    expect(button('Preview').disabled).toBe(true);
     input.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
     );
@@ -420,7 +427,7 @@ describe('AuthoredContentEditorComponent', () => {
     expect(host.control.value.source).toBe('');
     input.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
     await settle();
-    expect(button('Insert link').disabled).toBeFalse();
+    expect(button('Insert link').disabled).toBe(false);
     await click('Insert link');
     expect(host.control.value.source).toContain('](<https://example.com/>)');
   });
@@ -428,7 +435,7 @@ describe('AuthoredContentEditorComponent', () => {
   it('does not leak temporary URL constraint validation into the parent form', async () => {
     await click('Link');
     const input = await url('unfinished URL');
-    expect(input.checkValidity()).toBeTrue();
+    expect(input.checkValidity()).toBe(true);
     button('Save').click();
     await settle();
     expect(host.submits).toBe(1);
@@ -450,45 +457,45 @@ describe('AuthoredContentEditorComponent', () => {
   it('disables all authoring controls, closes pending links, and emits no value on disable/enable', async () => {
     await setSource('draft');
     await click('Link');
-    const changes = jasmine.createSpy('changes');
+    const changes = vi.fn<(value: AuthoredContentValue) => void>().mockName('changes');
     host.control.valueChanges.subscribe(changes);
     host.control.disable({ emitEvent: false });
     await settle();
     expect(root.querySelector('.link-entry')).toBeNull();
-    expect(textarea().disabled).toBeTrue();
-    expect(format().disabled).toBeTrue();
+    expect(textarea().disabled).toBe(true);
+    expect(format().disabled).toBe(true);
     for (const element of Array.from(
       root.querySelectorAll<HTMLButtonElement>('app-authored-content-editor button')
     ))
-      expect(element.disabled).toBeTrue();
+      expect(element.disabled).toBe(true);
     await click('Bold');
     await type('blocked');
     expect(host.control.value.source).toBe('draft');
     host.control.enable({ emitEvent: false });
     await settle();
     expect(changes).not.toHaveBeenCalled();
-    expect(textarea().disabled).toBeFalse();
+    expect(textarea().disabled).toBe(false);
   });
 
   it('associates external errors and enforces parent validation while leaving oversized legacy source editable', async () => {
     const baseline: AuthoredContentValue = { source: 'x'.repeat(10001), format: 'plain_text' };
     host.control.setValidators(authoredContentValidator({ baseline }));
     await setSource(baseline.source, baseline.format);
-    expect(host.control.valid).toBeTrue();
+    expect(host.control.valid).toBe(true);
     expect(textarea().value.length).toBe(10001);
-    expect(textarea().hasAttribute('maxlength')).toBeFalse();
+    expect(textarea().hasAttribute('maxlength')).toBe(false);
     format().value = 'markdown_v1';
     format().dispatchEvent(new Event('change', { bubbles: true }));
     host.invalid = true;
     host.errorIds = 'description-error other-error';
     await settle();
-    expect(host.control.hasError('authoredContentTooLong')).toBeTrue();
+    expect(host.control.hasError('authoredContentTooLong')).toBe(true);
     expect(textarea().getAttribute('aria-invalid')).toBe('true');
     expect(textarea().getAttribute('aria-describedby')).toBe(
       'description-error other-error description-count'
     );
     await type('shortened');
-    expect(host.control.valid).toBeTrue();
+    expect(host.control.valid).toBe(true);
   });
 
   for (const width of [320, 390, 760]) {

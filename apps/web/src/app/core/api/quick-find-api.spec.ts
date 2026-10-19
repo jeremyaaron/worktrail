@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
@@ -48,7 +50,8 @@ describe('QuickFindApi', () => {
   });
 
   afterEach(() => {
-    http.verify();
+    try { http.verify(); }
+    finally { localStorage.clear(); }
   });
 
   it('posts the query body with actor headers and no URL query text', () => {

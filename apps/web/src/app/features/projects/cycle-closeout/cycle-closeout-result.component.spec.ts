@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
@@ -75,7 +77,7 @@ describe('CycleCloseoutResultComponent', () => {
     expect(markdown).toContain('&lt;img');
     expect(markdown).toContain('\\[go\\]\\(javascript:alert\\(1\\)\\)');
     expect(markdown).toContain('````json\n');
-    expect(markdown.endsWith('\n````\n')).toBeTrue();
+    expect(markdown.endsWith('\n````\n')).toBe(true);
   });
 
   it('handles failed copies and ignores obsolete copy feedback after switching outcomes', async () => {
@@ -83,16 +85,25 @@ describe('CycleCloseoutResultComponent', () => {
     fixture.componentRef.setInput('closeout', historicalCloseout(1));
     fixture.detectChanges();
     let resolve!: () => void;
-    const clipboard = spyOn(TestBed.inject(ClipboardService), 'copyText').and.returnValue(new Promise<void>(done => { resolve = done; }));
+    const clipboard = vi.spyOn(TestBed.inject(ClipboardService), 'copyText').mockReturnValue(new Promise<void>(done => { resolve = done; }));
     const pending = fixture.componentInstance.copyMarkdown();
     fixture.componentRef.setInput('closeout', historicalCloseout(2));
     fixture.detectChanges();
     resolve();
     await pending;
     expect(fixture.componentInstance.shareMessage()).toBe('');
-    clipboard.and.rejectWith(new Error('Denied'));
+    clipboard.mockRejectedValue(new Error('Denied'));
     await fixture.componentInstance.copyMarkdown();
     expect(fixture.componentInstance.shareMessage()).toContain('Copy failed');
-    expect(fixture.componentInstance.isCopying()).toBeFalse();
+    expect(fixture.componentInstance.isCopying()).toBe(false);
   });
+});
+
+afterEach(() => {
+  try {
+    TestBed.resetTestingModule();
+  } finally {
+    vi.restoreAllMocks();
+    localStorage.removeItem('worktrail.selectedMemberId');
+  }
 });

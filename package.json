@@ -1,6 +1,6 @@
 {
   "name": "worktrail",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "Worktrail project management reference app.",
   "type": "module",
@@ -11,10 +11,13 @@
   "scripts": {
     "verify": "node scripts/verify.mjs",
     "verify:setup": "node scripts/verify-local-setup.mjs",
+    "verify:upgrade": "node scripts/verify-upgrade.mjs",
     "check:site": "node scripts/check-site.mjs",
     "audit:dependencies": "node scripts/audit-dependencies.mjs",
     "test:verification": "node --test scripts/verification/*.test.mjs",
     "test:verification:integration": "node --test scripts/verification/lifecycle.check.mjs",
+    "test:verification:web-lifecycle": "node --test scripts/verification/web-lifecycle.check.mjs",
+    "test:verification:upgrade-lifecycle": "node --test scripts/verification/upgrade.check.mjs",
     "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
     "dev:api": "npm run dev --workspace @worktrail/api",
     "dev:web": "npm run start --workspace @worktrail/web",
@@ -46,16 +49,22 @@
     "db:performance-evidence": "npm run db:performance-evidence --workspace @worktrail/api",
     "db:quick-find-performance-evidence": "npm run db:quick-find-performance-evidence --workspace @worktrail/api",
     "db:cycle-diagnostics": "npm run db:cycle-diagnostics --workspace @worktrail/api --",
-    "storage:reset": "npm run storage:reset --workspace @worktrail/api"
+    "storage:reset": "npm run storage:reset --workspace @worktrail/api",
+    "test:web": "node scripts/test-web.mjs"
   },
   "devDependencies": {
+    "@angular/common": "21.2.25",
+    "@angular/compiler": "21.2.25",
+    "@angular/core": "21.2.25",
     "@eslint/js": "^9.39.4",
     "@playwright/test": "^1.61.1",
-    "angular-eslint": "^20.7.0",
+    "angular-eslint": "21.4.0",
+    "chokidar": "5.0.0",
     "concurrently": "^9.2.5",
     "eslint": "^9.39.4",
     "globals": "^16.5.0",
-    "typescript-eslint": "^8.62.1"
+    "typescript-eslint": "^8.62.1",
+    "typescript": "5.9.3"
   },
   "engines": {
     "node": "^24.0.0",

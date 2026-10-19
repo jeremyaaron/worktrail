@@ -1,6 +1,6 @@
 {
   "name": "@worktrail/api",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "type": "module",
   "main": "dist/main.js",
@@ -23,12 +23,12 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@worktrail/contracts": "0.3.0",
+    "@worktrail/contracts": "0.3.1",
     "cors": "^2.8.5",
     "csv-parse": "^7.0.3",
     "csv-stringify": "^6.8.1",
     "dotenv": "^17.2.3",
-    "drizzle-orm": "^0.45.2",
+    "drizzle-orm": "1.0.0-rc.4",
     "express": "^5.1.0",
     "pg": "^8.22.0",
     "yauzl": "^3.4.0",
@@ -41,7 +41,7 @@
     "@types/pg": "^8.20.0",
     "@types/supertest": "^7.2.0",
     "@types/yauzl": "^3.4.0",
-    "drizzle-kit": "^0.31.10",
+    "drizzle-kit": "1.0.0-rc.4",
     "supertest": "^7.2.2",
     "tsx": "^4.20.6",
     "typescript": "~5.9.2",

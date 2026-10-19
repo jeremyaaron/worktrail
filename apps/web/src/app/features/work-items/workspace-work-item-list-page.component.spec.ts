@@ -1,6 +1,8 @@
+import { afterEach, beforeEach, describe, expect, it, vi, type Mocked } from 'vitest';
+
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { ComponentFixture, TestBed, fakeAsync, flushMicrotasks, tick } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import type {
   LabelDto,
@@ -221,7 +223,7 @@ class ActivatedRouteStub {
 }
 
 let route: ActivatedRouteStub;
-let clipboard: jasmine.SpyObj<ClipboardService>;
+let clipboard: Mocked<Pick<ClipboardService, 'copyText'>>;
 
 function seedCurrentUser(member: MemberDto = owner): void {
   const currentUser = TestBed.inject(CurrentUserService);
@@ -230,8 +232,8 @@ function seedCurrentUser(member: MemberDto = owner): void {
 }
 
 function spyOnCsvDownload(): void {
-  spyOn(URL, 'createObjectURL').and.returnValue('blob:worktrail-workspace-export');
-  spyOn(URL, 'revokeObjectURL');
+  vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:worktrail-workspace-export');
+  vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
 }
 
 function setup(
@@ -259,7 +261,7 @@ function flushSavedViews(http: HttpTestingController, views: SavedWorkViewDto[] 
   const request = http.expectOne((candidate) => candidate.url === '/api/saved-work-views');
   expect(request.request.method).toBe('GET');
   expect(request.request.params.get('scope')).toBe('workspace');
-  expect(request.request.params.has('projectId')).toBeFalse();
+  expect(request.request.params.has('projectId')).toBe(false);
   request.flush(views);
 }
 
@@ -346,7 +348,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     http.expectOne(candidate => candidate.url === '/api/work-items').flush(workItemPage([workItem]));
     const page = fixture.componentInstance;
     expect(page.savedViews).toBe(page.savedViewsState.views);
-    const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     page.openSavedView(savedView);
     route.setQuery({ assigneeId: owner.id, workState: 'open', sort: 'priority_desc' });
     fixture.detectChanges(); await fixture.whenStable();
@@ -369,8 +371,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
   beforeEach(async () => {
     localStorage.clear();
     route = new ActivatedRouteStub();
-    clipboard = jasmine.createSpyObj<ClipboardService>('ClipboardService', ['copyText']);
-    clipboard.copyText.and.resolveTo();
+    clipboard = { copyText: vi.fn<ClipboardService['copyText']>().mockResolvedValue(undefined) };
 
     await TestBed.configureTestingModule({
       imports: [WorkspaceWorkItemListPageComponent],
@@ -396,7 +397,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
 
   it('preserves deep-link paging when the initial actor resolves after the page mounts', () => {
     route.setQuery({ status: 'ready', page: '2', pageSize: '10' });
-    const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     const fixture = TestBed.createComponent(WorkspaceWorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
@@ -482,7 +483,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
         chipsElement!.compareDocumentPosition(filterPanelElement!) &
         Node.DOCUMENT_POSITION_FOLLOWING
       )
-    ).toBeTrue();
+    ).toBe(true);
     expect(compiled.textContent).toContain('Design workspace discovery');
     expect(compiled.textContent).toContain('Export CSV');
     expect(
@@ -602,7 +603,8 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect(compiled.textContent).toContain('No work items match these filters');
   });
 
-  it('preserves pending search input and focuses results after user paging', fakeAsync(() => {
+  it('preserves pending search input and focuses results after user paging', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     const { fixture, http } = setup({ pageSize: '10' });
     flushProjectSummaries(http);
     flushSavedViews(http);
@@ -617,7 +619,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     fixture.detectChanges();
 
     const router = TestBed.inject(Router);
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     fixture.componentInstance.filterForm.controls.search.setValue('pending search', {
       emitEvent: false
     });
@@ -625,9 +627,9 @@ describe('WorkspaceWorkItemListPageComponent', () => {
 
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
-      queryParams: jasmine.objectContaining({ page: '2', pageSize: '10' })
+      queryParams: expect.objectContaining({ page: '2', pageSize: '10' })
     });
-    expect(navigate.calls.mostRecent().args[1]?.queryParams?.['search']).toBeNull();
+    expect(navigate.mock.lastCall![1]?.queryParams?.['search']).toBeNull();
 
     route.setQuery({ page: '2', pageSize: '10' });
     http
@@ -645,7 +647,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
         })
       );
     fixture.detectChanges();
-    tick();
+    await vi.advanceTimersByTimeAsync(0);
 
     const heading = (fixture.nativeElement as HTMLElement).querySelector<HTMLHeadingElement>(
       '.list-heading h2'
@@ -655,15 +657,16 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect(fixture.componentInstance.filterForm.controls.search.value).toBe('pending search');
     expect(fixture.componentInstance.appliedFilterValues().search).toBe('');
 
-    navigate.calls.reset();
+    navigate.mockClear();
     fixture.componentInstance.changePageSize(25);
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
-      queryParams: jasmine.objectContaining({ page: null, pageSize: null })
+      queryParams: expect.objectContaining({ page: null, pageSize: null })
     });
-  }));
+  });
 
-  it('retains workspace paging focus through an error and retry', fakeAsync(() => {
+  it('retains workspace paging focus through an error and retry', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     const { fixture, http } = setup({ pageSize: '10' });
     flushProjectSummaries(http);
     flushSavedViews(http);
@@ -678,7 +681,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     fixture.detectChanges();
 
     const router = TestBed.inject(Router);
-    spyOn(router, 'navigate').and.resolveTo(true);
+    vi.spyOn(router, 'navigate').mockResolvedValue(true);
     fixture.componentInstance.goToPage(2);
     route.setQuery({ page: '2', pageSize: '10' });
     http
@@ -687,7 +690,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
       })
       .flush('failed', { status: 500, statusText: 'Server Error' });
     fixture.detectChanges();
-    tick();
+    await vi.advanceTimersByTimeAsync(0);
 
     let heading = (fixture.nativeElement as HTMLElement).querySelector<HTMLHeadingElement>(
       '.list-heading h2'
@@ -712,14 +715,14 @@ describe('WorkspaceWorkItemListPageComponent', () => {
         })
       );
     fixture.detectChanges();
-    tick();
+    await vi.advanceTimersByTimeAsync(0);
 
     heading = (fixture.nativeElement as HTMLElement).querySelector<HTMLHeadingElement>(
       '.list-heading h2'
     );
     expect(document.activeElement).toBe(heading);
     expect(heading?.textContent?.trim()).toBe('11-12 of 12 work items');
-  }));
+  });
 
   for (const scenario of [
     { label: 'active projects', query: 'exclude', requestValue: null, item: workItem },
@@ -763,7 +766,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     seedCurrentUser();
     route.setQuery({ page: '9', pageSize: '10' });
     const router = TestBed.inject(Router);
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     const fixture = TestBed.createComponent(WorkspaceWorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
@@ -782,11 +785,11 @@ describe('WorkspaceWorkItemListPageComponent', () => {
 
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
-      queryParams: jasmine.objectContaining({ page: '2', pageSize: '10' }),
+      queryParams: expect.objectContaining({ page: '2', pageSize: '10' }),
       replaceUrl: true
     });
     expect(fixture.componentInstance.workItems()).toEqual([]);
-    expect(fixture.componentInstance.isLoading()).toBeTrue();
+    expect(fixture.componentInstance.isLoading()).toBe(true);
   });
 
   it('cancels the previous workspace page request when route state changes', () => {
@@ -797,7 +800,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
 
     route.setQuery({ status: 'ready' });
 
-    expect(firstRequest.cancelled).toBeTrue();
+    expect(firstRequest.cancelled).toBe(true);
     const nextRequest = http.expectOne((candidate) => {
       return candidate.url === '/api/work-items' && candidate.params.get('status') === 'ready';
     });
@@ -805,7 +808,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.componentInstance.error()).toBeNull();
-    expect(fixture.componentInstance.isLoading()).toBeFalse();
+    expect(fixture.componentInstance.isLoading()).toBe(false);
   });
 
   it('resets workspace paging and reloads actor-sensitive context when the actor changes', () => {
@@ -824,7 +827,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     fixture.detectChanges();
 
     const router = TestBed.inject(Router);
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     TestBed.inject(CurrentUserService).selectMember(contributor.id);
     fixture.detectChanges();
     flushProjectSummaries(http);
@@ -835,7 +838,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect(fixture.componentInstance.pageMetadata().totalCount).toBe(0);
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
-      queryParams: jasmine.objectContaining({ page: null, pageSize: null })
+      queryParams: expect.objectContaining({ page: null, pageSize: null })
     });
   });
 
@@ -855,27 +858,27 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     fixture.detectChanges();
 
     const router = TestBed.inject(Router);
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     fixture.componentInstance.filterForm.controls.projectId.setValue(projectId);
     http.expectOne(`/api/projects/${projectId}/labels?includeArchived=true`).flush([designLabel]);
     http.expectOne(`/api/projects/${projectId}/milestones?includeArchived=true`).flush([milestone]);
     http.expectOne(`/api/projects/${projectId}/cycles?includeArchived=true`).flush([activeCycle]);
     expect(navigate).not.toHaveBeenCalled();
     fixture.componentInstance.applyFilters();
-    expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
-      jasmine.objectContaining({ projectId, page: null, pageSize: null })
+    expect(navigate.mock.lastCall![1]?.queryParams).toEqual(
+      expect.objectContaining({ projectId, page: null, pageSize: null })
     );
 
     fixture.componentInstance.filterForm.controls.archivedProjects.setValue('only');
     fixture.componentInstance.applyFilters();
-    expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
-      jasmine.objectContaining({ archivedProjects: 'only', page: null, pageSize: null })
+    expect(navigate.mock.lastCall![1]?.queryParams).toEqual(
+      expect.objectContaining({ archivedProjects: 'only', page: null, pageSize: null })
     );
 
     fixture.componentInstance.filterForm.controls.sort.setValue('created_desc');
     fixture.componentInstance.applyFilters();
-    expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
-      jasmine.objectContaining({ sort: 'created_desc', page: null, pageSize: null })
+    expect(navigate.mock.lastCall![1]?.queryParams).toEqual(
+      expect.objectContaining({ sort: 'created_desc', page: null, pageSize: null })
     );
   });
 
@@ -940,10 +943,11 @@ describe('WorkspaceWorkItemListPageComponent', () => {
 
     expect(URL.createObjectURL).toHaveBeenCalled();
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:worktrail-workspace-export');
-    expect(fixture.componentInstance.isExporting()).toBeFalse();
+    expect(fixture.componentInstance.isExporting()).toBe(false);
   });
 
-  it('copies the applied workspace filtered view link', fakeAsync(() => {
+  it('copies the applied workspace filtered view link', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     const { fixture, http } = setup({
       status: 'in_progress',
       dependency: 'blocking_open_work',
@@ -991,10 +995,10 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     fixture.detectChanges();
 
     fixture.componentInstance.copyViewLink();
-    flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(0);
     fixture.detectChanges();
 
-    const copiedUrl = new URL(clipboard.copyText.calls.mostRecent().args[0]);
+    const copiedUrl = new URL(clipboard.copyText.mock.lastCall![0]);
     expect(copiedUrl.pathname).toBe('/work-items');
     expect(copiedUrl.searchParams.get('search')).toBe('workspace');
     expect(copiedUrl.searchParams.get('status')).toBe('in_progress');
@@ -1013,11 +1017,11 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     ).toContain('returnUrl=');
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Link copied');
 
-    tick(2500);
+    await vi.advanceTimersByTimeAsync(2500);
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Link copied');
-  }));
+  });
 
   it('shows workspace export failures inline', () => {
     const { fixture, http } = setup();
@@ -1039,7 +1043,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'CSV export could not be downloaded.'
     );
-    expect(fixture.componentInstance.isExporting()).toBeFalse();
+    expect(fixture.componentInstance.isExporting()).toBe(false);
   });
 
   it('shows the workspace export limit message from a structured error blob', async () => {
@@ -1071,7 +1075,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'More than 10,000 work items match. Narrow the applied filters and retry.'
     );
-    expect(fixture.componentInstance.isExporting()).toBeFalse();
+    expect(fixture.componentInstance.isExporting()).toBe(false);
   });
 
   it('keeps dropdown filters pending until Apply without showing pending pills', () => {
@@ -1082,7 +1086,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     fixture.detectChanges();
 
     const router = TestBed.inject(Router);
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
 
     fixture.componentInstance.filterForm.controls.status.setValue('ready');
     expect(navigate).not.toHaveBeenCalled();
@@ -1090,8 +1094,8 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     fixture.detectChanges();
 
     expect(navigate).toHaveBeenCalled();
-    expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
-      jasmine.objectContaining({
+    expect(navigate.mock.lastCall![1]?.queryParams).toEqual(
+      expect.objectContaining({
         status: 'ready',
         workState: null
       })
@@ -1124,19 +1128,19 @@ describe('WorkspaceWorkItemListPageComponent', () => {
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Parent: WT-42');
     const router = TestBed.inject(Router);
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
 
     fixture.componentInstance.filterForm.controls.priority.setValue('urgent');
     expect(navigate).not.toHaveBeenCalled();
     fixture.componentInstance.applyFilters();
-    expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
-      jasmine.objectContaining({ priority: 'urgent', parentKey: 'WT-42', hierarchy: null })
+    expect(navigate.mock.lastCall![1]?.queryParams).toEqual(
+      expect.objectContaining({ priority: 'urgent', parentKey: 'WT-42', hierarchy: null })
     );
 
     fixture.componentInstance.filterForm.controls.hierarchy.setValue('children');
     fixture.componentInstance.applyFilters();
-    expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
-      jasmine.objectContaining({ hierarchy: 'children', parentKey: null })
+    expect(navigate.mock.lastCall![1]?.queryParams).toEqual(
+      expect.objectContaining({ hierarchy: 'children', parentKey: null })
     );
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Parent: WT-42');
@@ -1159,12 +1163,13 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     );
 
     fixture.componentInstance.removeActiveFilter('hierarchy');
-    expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
-      jasmine.objectContaining({ hierarchy: null, parentKey: null })
+    expect(navigate.mock.lastCall![1]?.queryParams).toEqual(
+      expect.objectContaining({ hierarchy: null, parentKey: null })
     );
   });
 
-  it('keeps search pending until Apply', fakeAsync(() => {
+  it('keeps search pending until Apply', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     const { fixture, http } = setup();
     flushProjectSummaries(http);
     flushSavedViews(http);
@@ -1172,24 +1177,24 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     fixture.detectChanges();
 
     const router = TestBed.inject(Router);
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
 
     fixture.componentInstance.filterForm.controls.search.setValue('api');
-    tick(399);
+    await vi.advanceTimersByTimeAsync(399);
     expect(navigate).not.toHaveBeenCalled();
 
-    tick(1);
+    await vi.advanceTimersByTimeAsync(1);
     expect(navigate).not.toHaveBeenCalled();
     fixture.componentInstance.applyFilters();
-    expect(navigate).toHaveBeenCalledOnceWith(
+    expect(navigate).toHaveBeenCalledExactlyOnceWith(
       [],
-      jasmine.objectContaining({
-        queryParams: jasmine.objectContaining({
+      expect.objectContaining({
+        queryParams: expect.objectContaining({
           search: 'api'
         })
       })
     );
-  }));
+  });
 
   it('resets all filters with a single URL update', () => {
     const { fixture, http } = setup({
@@ -1205,7 +1210,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     fixture.detectChanges();
 
     const router = TestBed.inject(Router);
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
 
     (fixture.nativeElement as HTMLElement)
       .querySelector<HTMLButtonElement>('.filter-actions .secondary-action')
@@ -1213,8 +1218,8 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     fixture.detectChanges();
 
     expect(navigate).toHaveBeenCalledTimes(1);
-    expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
-      jasmine.objectContaining({
+    expect(navigate.mock.lastCall![1]?.queryParams).toEqual(
+      expect.objectContaining({
         search: null,
         status: null,
         dependency: null,
@@ -1269,12 +1274,12 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Blocked risks');
 
     const router = TestBed.inject(Router);
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     openSavedViewFromToolbar(fixture, savedView.id);
     expect(navigate).toHaveBeenCalledWith(
       [],
-      jasmine.objectContaining({
-        queryParams: jasmine.objectContaining({
+      expect.objectContaining({
+        queryParams: expect.objectContaining({
           assigneeId: owner.id,
           workState: 'open',
           sort: 'priority_desc'
@@ -1299,7 +1304,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     const update = http.expectOne(`/api/saved-work-views/${savedView.id}`);
     expect(update.request.method).toBe('PATCH');
     expect(update.request.body.query).toEqual(
-      jasmine.objectContaining({
+      expect.objectContaining({
         search: 'risk',
         status: 'blocked',
         dependency: 'blocking_open_work',
@@ -1334,8 +1339,8 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     fixture.componentInstance.saveCurrentViewName('Paged blocked work');
     const create = http.expectOne('/api/saved-work-views');
     expect(create.request.body.query).toEqual({ status: 'blocked' });
-    expect('page' in create.request.body.query).toBeFalse();
-    expect('pageSize' in create.request.body.query).toBeFalse();
+    expect('page' in create.request.body.query).toBe(false);
+    expect('pageSize' in create.request.body.query).toBe(false);
     create.flush({
       ...savedView,
       id: '10000000-0000-4000-8000-000000000706',
@@ -1346,16 +1351,16 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     fixture.componentInstance.updateSavedViewQuery(savedView);
     const update = http.expectOne(`/api/saved-work-views/${savedView.id}`);
     expect(update.request.body.query).toEqual({ status: 'blocked' });
-    expect('page' in update.request.body.query).toBeFalse();
-    expect('pageSize' in update.request.body.query).toBeFalse();
+    expect('page' in update.request.body.query).toBe(false);
+    expect('pageSize' in update.request.body.query).toBe(false);
     update.flush({ ...savedView, query: update.request.body.query });
 
     const router = TestBed.inject(Router);
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     fixture.componentInstance.openSavedView(savedView);
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
-      queryParams: jasmine.objectContaining({ page: null, pageSize: null })
+      queryParams: expect.objectContaining({ page: null, pageSize: null })
     });
   });
 
@@ -1377,7 +1382,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect(fixture.componentInstance.workspaceSavedViews().map((view) => view.id)).toEqual([
       sharedSavedView.id
     ]);
-    expect(fixture.componentInstance.canManageWorkspaceSavedViews()).toBeTrue();
+    expect(fixture.componentInstance.canManageWorkspaceSavedViews()).toBe(true);
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('1 shared · 1 personal');
@@ -1434,7 +1439,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     const update = http.expectOne(`/api/saved-work-views/${sharedSavedView.id}`);
     expect(update.request.method).toBe('PATCH');
     expect(update.request.body.query).toEqual(
-      jasmine.objectContaining({
+      expect.objectContaining({
         search: 'risk',
         status: 'blocked',
         dependency: 'blocking_open_work',
@@ -1476,7 +1481,7 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect(compiled.textContent).toContain('1 shared · 1 personal');
 
     const router = TestBed.inject(Router);
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     compiled
       .querySelector<HTMLButtonElement>(
         'button[aria-label="Open pinned shared view Pinned dependency risks"]'
@@ -1485,8 +1490,8 @@ describe('WorkspaceWorkItemListPageComponent', () => {
 
     expect(navigate).toHaveBeenCalledWith(
       [],
-      jasmine.objectContaining({
-        queryParams: jasmine.objectContaining({
+      expect.objectContaining({
+        queryParams: expect.objectContaining({
           dependency: 'dependency_blocked',
           sort: 'priority_desc',
           page: null,
@@ -1579,18 +1584,18 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect(fixture.componentInstance.workspaceSavedViews().map((view) => view.id)).toEqual([
       sharedSavedView.id
     ]);
-    expect(fixture.componentInstance.canManageWorkspaceSavedViews()).toBeFalse();
+    expect(fixture.componentInstance.canManageWorkspaceSavedViews()).toBe(false);
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'Owners and maintainers manage shared saved views.'
     );
 
     const router = TestBed.inject(Router);
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     fixture.componentInstance.openSavedView(sharedSavedView);
     expect(navigate).toHaveBeenCalledWith(
       [],
-      jasmine.objectContaining({
-        queryParams: jasmine.objectContaining({
+      expect.objectContaining({
+        queryParams: expect.objectContaining({
           dependency: 'dependency_blocked',
           sort: 'priority_desc'
         })
@@ -1680,4 +1685,15 @@ describe('WorkspaceWorkItemListPageComponent', () => {
     expect(text).toContain('No work items match these filters');
     expect(text).toContain('Label: design');
   });
+});
+
+
+afterEach(() => {
+  try {
+    TestBed.resetTestingModule();
+  } finally {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    localStorage.removeItem('worktrail.selectedMemberId');
+  }
 });

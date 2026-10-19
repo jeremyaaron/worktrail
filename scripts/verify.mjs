@@ -5,11 +5,12 @@ import { parseArguments } from './verification/arguments.mjs';
 import { runBrowser } from './verification/browser.mjs';
 import { childEnvironment, createManifest, readCleanupManifest, saveManifest } from './verification/ownership.mjs';
 import { processIdentity, runCommand } from './verification/processes.mjs';
-import { planBrowserPorts, selectPort } from './verification/ports.mjs';
+import { planBrowserPorts } from './verification/ports.mjs';
 import { cleanupRun, prepareApiDatabase, provisionDatabase } from './verification/resources.mjs';
 import { verifySchemaGeneration } from './verification/schema.mjs';
 import { checkSite } from './verification/site.mjs';
 import { prepareWorkspace } from './verification/workspace.mjs';
+import { runWebTests } from './verification/web.mjs';
 
 async function main() {
   const options = parseArguments(process.argv.slice(2));
@@ -105,12 +106,7 @@ async function main() {
       }
     }
     if (['full', 'web'].includes(options.mode)) {
-      const karmaPort = await selectPort();
-      manifest.ports = { ...manifest.ports, karma: karmaPort };
-      await saveManifest(manifest);
-      await gate('test:web', () => npm(['run', 'ng', '--workspace', '@worktrail/web', '--', 'test', '--watch=false', '--karma-config', join(checkout, 'scripts/verification/karma.config.cjs')], {
-        ...childEnvironment(manifest), WORKTRAIL_VERIFY_KARMA_PORT: String(karmaPort)
-      }));
+      await gate('test:web', () => runWebTests(manifest, checkout, { signal: controller.signal, gate }));
     }
     if (['full', 'preview'].includes(options.mode)) await npmGate('build:production', ['run', 'build']);
     if (options.mode === 'web') await npmGate('build:web', ['run', 'build', '--workspace', '@worktrail/web']);

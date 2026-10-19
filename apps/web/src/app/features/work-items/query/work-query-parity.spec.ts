@@ -1,3 +1,5 @@
+import { describe, expect, it, vi } from 'vitest';
+
 import { workItemQueryEntries, type MemberDto, type SavedWorkViewDto } from '@worktrail/contracts';
 import { of } from 'rxjs';
 import { queryParityFixtures } from '../../../../../../../packages/contracts/src/fixtures/work-query-fixtures';
@@ -24,7 +26,7 @@ describe('complete live-query round trips', () => {
         const copied = new URL(store.filteredViewUrl('/work-items', 'http://worktrail.test'));
         expect(copied.searchParams.get('page')).toBe('2');
         const saved = structuredClone(store.activeQuery());
-        expect(saved).not.toEqual(jasmine.objectContaining({ page: 2 }));
+        expect(saved).not.toEqual(expect.objectContaining({ page: 2 }));
         store.applyQuery(saved);
         expect(store.activePageQuery()).toEqual({ page: 1, pageSize: 25 });
         expect(Object.fromEntries(workItemQueryEntries(store.activeQuery(), scope))).toEqual(expected);
@@ -46,9 +48,12 @@ describe('complete live-query round trips', () => {
           scope, visibility: 'personal', owner, name: 'All fields', query: store.activeQuery(), isPinned: false,
           createdAt: owner.createdAt, updatedAt: owner.updatedAt
         };
-        const gateway = jasmine.createSpyObj<SavedViewsGateway>('views', ['listSavedWorkViews', 'createSavedWorkView', 'updateSavedWorkView', 'deleteSavedWorkView']);
-        gateway.listSavedWorkViews.and.returnValue(of([view]));
-        gateway.updateSavedWorkView.and.callFake((_id, input) => of({ ...view, ...input }));
+        const gateway = {
+          listSavedWorkViews: vi.fn<SavedViewsGateway['listSavedWorkViews']>().mockReturnValue(of([view])),
+          createSavedWorkView: vi.fn<SavedViewsGateway['createSavedWorkView']>(),
+          updateSavedWorkView: vi.fn<SavedViewsGateway['updateSavedWorkView']>().mockImplementation((_id, input) => of({ ...view, ...input })),
+          deleteSavedWorkView: vi.fn<SavedViewsGateway['deleteSavedWorkView']>()
+        };
         const views = new SavedViewsStore(gateway, {
           scope, actor: () => owner, projectId: () => 'project',
           appliedQuery: () => store.activeQuery(), canManagePersonalViews: () => true

@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
@@ -400,8 +402,8 @@ describe('WorkItemDetailPageComponent', () => {
       const root = fixture.nativeElement as HTMLElement;
       const target = root.querySelector<HTMLElement>('#' + fragment)!;
       expect(document.activeElement).toBe(target);
-      if (fragment === 'history') expect(target.querySelector<HTMLDetailsElement>('details')?.open).toBeTrue();
-      const focus = spyOn(target, 'focus');
+      if (fragment === 'history') expect(target.querySelector<HTMLDetailsElement>('details')?.open).toBe(true);
+      const focus = vi.spyOn(target, 'focus').mockImplementation(() => undefined);
       fixture.componentInstance.state.workItem.update(item => item ? { ...item, title: 'Refreshed fact' } : item);
       fixture.detectChanges();
       await fixture.whenStable();
@@ -461,9 +463,8 @@ describe('WorkItemDetailPageComponent', () => {
       const editor = fixture.debugElement.query(By.directive(WorkItemDetailEditorComponent))
         .componentInstance as WorkItemDetailEditorComponent;
       let resolve!: (value: boolean) => void;
-      spyOn(fixture.componentInstance.state, 'requestDiscardDetailChanges')
-        .and.returnValue(new Promise<boolean>(done => { resolve = done; }));
-      const closed = jasmine.createSpy('closed');
+      vi.spyOn(fixture.componentInstance.state, 'requestDiscardDetailChanges').mockReturnValue(new Promise<boolean>(done => { resolve = done; }));
+      const closed = vi.fn<() => void>().mockName('closed');
       editor.closed.subscribe(closed);
       const pending = editor.cancel();
       if (departure === 'route') {
@@ -485,9 +486,9 @@ describe('WorkItemDetailPageComponent', () => {
     expect(root.querySelector('#comment-body')).not.toBeNull();
     expect(root.querySelector('.project-link')?.textContent).toContain(activeProject.name);
     expect(root.querySelector<HTMLSelectElement>('.status-form select')?.value).toBe(detail.status);
-    expect(root.querySelector<HTMLDetailsElement>('.hierarchy details')?.open).toBeFalse();
-    expect(root.querySelector<HTMLDetailsElement>('#dependencies details')?.open).toBeFalse();
-    expect(root.querySelector<HTMLDetailsElement>('#history details')?.open).toBeFalse();
+    expect(root.querySelector<HTMLDetailsElement>('.hierarchy details')?.open).toBe(false);
+    expect(root.querySelector<HTMLDetailsElement>('#dependencies details')?.open).toBe(false);
+    expect(root.querySelector<HTMLDetailsElement>('#history details')?.open).toBe(false);
     for (const id of ['discussion', 'files', 'dependencies', 'history']) {
       expect(root.querySelector('#' + id)).not.toBeNull();
       expect(root.querySelector('.section-nav a[href$="#' + id + '"]')).not.toBeNull();
@@ -504,11 +505,11 @@ describe('WorkItemDetailPageComponent', () => {
     for (const field of ['estimatePoints', 'dueDate'] as const) {
       state.validatePlanningInput(field, true);
       state.updateWorkItem();
-      expect(state.showPlanningError(field)).toBeTrue();
+      expect(state.showPlanningError(field)).toBe(true);
       http.expectNone(request => request.method === 'PATCH');
       state.validatePlanningInput(field, false);
     }
-    expect(state.detailForm.valid).toBeTrue();
+    expect(state.detailForm.valid).toBe(true);
   });
 
   for (const estimate of [0, 13, null]) {
@@ -532,8 +533,8 @@ describe('WorkItemDetailPageComponent', () => {
       const { fixture, http } = setup();
       fixture.componentInstance.state.detailForm.controls.estimatePoints.setValue(value as number);
       fixture.componentInstance.state.updateWorkItem();
-      expect(fixture.componentInstance.state.showPlanningError('estimatePoints')).toBeTrue();
-      expect(fixture.componentInstance.state.isUpdating()).toBeFalse();
+      expect(fixture.componentInstance.state.showPlanningError('estimatePoints')).toBe(true);
+      expect(fixture.componentInstance.state.isUpdating()).toBe(false);
       http.expectNone(request => request.method === 'PATCH');
     });
   }
@@ -543,7 +544,7 @@ describe('WorkItemDetailPageComponent', () => {
       const { fixture, http } = setup();
       fixture.componentInstance.state.detailForm.controls.dueDate.setValue(date);
       fixture.componentInstance.state.updateWorkItem();
-      expect(fixture.componentInstance.state.showPlanningError('dueDate')).toBeTrue();
+      expect(fixture.componentInstance.state.showPlanningError('dueDate')).toBe(true);
       http.expectNone(request => request.method === 'PATCH');
     });
   }
@@ -568,9 +569,9 @@ describe('WorkItemDetailPageComponent', () => {
     state.detailForm.patchValue({ estimatePoints: 0, dueDate: '' });
     state.updateWorkItem();
     http.expectOne('/api/work-items/' + workItemId).flush({}, { status: 403, statusText: 'Forbidden' });
-    expect(state.detailForm.getRawValue()).toEqual(jasmine.objectContaining({ estimatePoints: 0, dueDate: '' }));
-    expect(state.isEditing()).toBeTrue();
-    expect(state.detailForm.enabled).toBeTrue();
+    expect(state.detailForm.getRawValue()).toEqual(expect.objectContaining({ estimatePoints: 0, dueDate: '' }));
+    expect(state.isEditing()).toBe(true);
+    expect(state.detailForm.enabled).toBe(true);
     expect(discussion.selectedMentionMemberIds()).toEqual([contributorId]);
     state.updateWorkItem();
     http.expectOne('/api/work-items/' + workItemId).flush({ ...detail, estimatePoints: 0, dueDate: null });
@@ -578,7 +579,7 @@ describe('WorkItemDetailPageComponent', () => {
     const unchanged = http.expectOne('/api/work-items/' + workItemId);
     expect(unchanged.request.body.estimatePoints).toBe(0);
     expect(unchanged.request.body.dueDate).toBeNull();
-    expect(Object.hasOwn(unchanged.request.body, 'description')).toBeFalse();
+    expect(Object.hasOwn(unchanged.request.body, 'description')).toBe(false);
     unchanged.flush({ ...detail, estimatePoints: 0, dueDate: null });
     expect(discussion.commentForm.controls.bodyContent.value.source).toBe('  **Keep reply**\n');
     expect(discussion.selectedMentionMemberIds()).toEqual([contributorId]);
@@ -591,16 +592,16 @@ describe('WorkItemDetailPageComponent', () => {
     const { state, discussion } = fixture.componentInstance;
     const files = fixture.debugElement.query(By.directive(WorkItemAttachmentsComponent)).componentInstance;
     const confirmation = TestBed.inject(DraftConfirmationService);
-    const confirm = spyOn(confirmation, 'confirm').and.resolveTo(false);
+    const confirm = vi.spyOn(confirmation, 'confirm').mockResolvedValue(false);
     state.detailForm.controls.estimatePoints.setValue(0);
     discussion.commentForm.controls.bodyContent.setValue({ source: 'Keep reply', format: 'plain_text' });
     await state.requestDiscardDetailChanges();
-    expect(state.isEditing()).toBeTrue();
+    expect(state.isEditing()).toBe(true);
     expect(state.detailForm.controls.estimatePoints.value).toBe(0);
-    confirm.and.resolveTo(true);
+    confirm.mockResolvedValue(true);
     await state.requestDiscardDetailChanges();
     fixture.detectChanges();
-    expect(state.isEditing()).toBeFalse();
+    expect(state.isEditing()).toBe(false);
     expect(state.detailForm.controls.estimatePoints.value).toBe(detail.estimatePoints);
     expect(discussion.commentForm.controls.bodyContent.value.source).toBe('Keep reply');
     expect(fixture.debugElement.query(By.directive(WorkItemAttachmentsComponent)).componentInstance).toBe(files);
@@ -673,8 +674,8 @@ describe('WorkItemDetailPageComponent', () => {
       component.discussion.commentForm.controls.bodyContent.setValue({ source, format: 'markdown_v1' });
       component.discussion.addComment();
       fixture.detectChanges();
-      expect(component.discussion.commentForm.invalid).toBeTrue();
-      expect(component.discussion.isCommenting()).toBeFalse();
+      expect(component.discussion.commentForm.invalid).toBe(true);
+      expect(component.discussion.isCommenting()).toBe(false);
       const root = fixture.nativeElement as HTMLElement;
       expect(root.querySelector('#comment-body')?.getAttribute('aria-invalid')).toBe('true');
       expect(root.querySelector('#comment-body-error')?.textContent).toContain(
@@ -703,7 +704,7 @@ describe('WorkItemDetailPageComponent', () => {
       fixture.detectChanges();
       component.discussion.addComment();
       component.discussion.addComment();
-      expect(component.discussion.commentForm.disabled).toBeTrue();
+      expect(component.discussion.commentForm.disabled).toBe(true);
       component.discussion.removeMentionMember(contributor.id);
       component.discussion.addMentionMember(owner.id);
       const post = http.expectOne(`/api/work-items/${workItemId}/comments`);
@@ -714,9 +715,9 @@ describe('WorkItemDetailPageComponent', () => {
       });
       post.flush({}, { status: 500, statusText: 'Failure' });
       fixture.detectChanges();
-      expect(component.discussion.isCommenting()).toBeFalse();
-      expect(component.discussion.commentForm.enabled).toBeTrue();
-      expect(component.discussion.commentForm.dirty).toBeTrue();
+      expect(component.discussion.isCommenting()).toBe(false);
+      expect(component.discussion.commentForm.enabled).toBe(true);
+      expect(component.discussion.commentForm.dirty).toBe(true);
       expect(component.discussion.commentForm.controls.bodyContent.value).toEqual(pair);
       expect(component.discussion.selectedMentionMemberIds()).toEqual([contributor.id]);
       expect(editorElement.querySelector('[aria-label="Add comment preview"]')).not.toBeNull();
@@ -734,14 +735,14 @@ describe('WorkItemDetailPageComponent', () => {
       const refresh = http.expectOne(`/api/work-items/${workItemId}`);
       expect(
         component.state.workItem()?.comments.some((comment) => comment.id === created.id)
-      ).toBeTrue();
-      expect(component.discussion.isCommenting()).toBeFalse();
+      ).toBe(true);
+      expect(component.discussion.isCommenting()).toBe(false);
       expect(component.discussion.commentForm.controls.bodyContent.value).toEqual({
         source: '',
         format: 'markdown_v1'
       });
       expect(component.discussion.selectedMentionMemberIds()).toEqual([]);
-      expect(component.discussion.commentForm.pristine).toBeTrue();
+      expect(component.discussion.commentForm.pristine).toBe(true);
       refresh.flush({ ...detail, comments: [...detail.comments, created] });
       fixture.detectChanges();
       expect(editorElement.querySelector('[aria-label="Add comment preview"]')).toBeNull();
@@ -782,7 +783,7 @@ describe('WorkItemDetailPageComponent', () => {
     format.value = 'markdown_v1';
     format.dispatchEvent(new Event('change'));
     fixture.detectChanges();
-    expect(component.discussion.editCommentForm.dirty).toBeTrue();
+    expect(component.discussion.editCommentForm.dirty).toBe(true);
     expect(component.discussion.editCommentForm.controls.bodyContent.value).toEqual({
       source,
       format: 'markdown_v1'
@@ -801,7 +802,7 @@ describe('WorkItemDetailPageComponent', () => {
       const { fixture, http } = setup({ workItem: { ...detail, comments: [comment] } });
       const component = fixture.componentInstance;
       component.discussion.startEditComment(comment);
-      expect(component.discussion.editCommentForm.valid).toBeTrue();
+      expect(component.discussion.editCommentForm.valid).toBe(true);
       component.discussion.saveComment(comment);
       const update = http.expectOne(`/api/comments/${comment.id}`);
       expect(update.request.body).toEqual({ body: source, bodyFormat: 'plain_text' });
@@ -810,7 +811,7 @@ describe('WorkItemDetailPageComponent', () => {
       component.discussion.startEditComment(comment);
       component.discussion.editCommentForm.controls.bodyContent.setValue({ source, format: 'markdown_v1' });
       component.discussion.saveComment(comment);
-      expect(component.discussion.editCommentForm.invalid).toBeTrue();
+      expect(component.discussion.editCommentForm.invalid).toBe(true);
       expect(component.discussion.savingCommentId()).toBeNull();
       http.expectNone((request) => request.method === 'PATCH');
     });
@@ -874,13 +875,13 @@ describe('WorkItemDetailPageComponent', () => {
     fixture.detectChanges();
     component.discussion.saveComment(comment);
     component.discussion.saveComment(comment);
-    expect(component.discussion.editCommentForm.disabled).toBeTrue();
+    expect(component.discussion.editCommentForm.disabled).toBe(true);
     http
       .expectOne(`/api/comments/${comment.id}`)
       .flush({}, { status: 403, statusText: 'Forbidden' });
     fixture.detectChanges();
-    expect(component.discussion.editCommentForm.enabled).toBeTrue();
-    expect(component.discussion.editCommentForm.dirty).toBeTrue();
+    expect(component.discussion.editCommentForm.enabled).toBe(true);
+    expect(component.discussion.editCommentForm.dirty).toBe(true);
     expect(component.discussion.editCommentForm.controls.bodyContent.value).toEqual(pair);
     expect(component.discussion.commentForm.controls.bodyContent.value.source).toBe('Composer draft');
     expect(component.discussion.selectedMentionMemberIds()).toEqual([contributor.id]);
@@ -932,8 +933,8 @@ describe('WorkItemDetailPageComponent', () => {
     expect(root.querySelector('article.comment app-authored-content-viewer h3')?.textContent).toBe(
       'History'
     );
-    expect(root.querySelector<HTMLTextAreaElement>('#comment-body')?.disabled).toBeTrue();
-    expect(root.querySelector<HTMLSelectElement>('#comment-body-format')?.disabled).toBeTrue();
+    expect(root.querySelector<HTMLTextAreaElement>('#comment-body')?.disabled).toBe(true);
+    expect(root.querySelector<HTMLSelectElement>('#comment-body-format')?.disabled).toBe(true);
     component.discussion.startEditComment(comment);
     component.discussion.confirmDeleteComment(comment);
     component.discussion.addComment();
@@ -1043,7 +1044,7 @@ describe('WorkItemDetailPageComponent', () => {
     oldDelete.flush({ ...comment, isDeleted: true, body: '' });
     expect(component.discussion.editingCommentId()).toBe(comment.id);
     expect(component.discussion.editCommentForm.controls.bodyContent.value.source).toBe('New edit');
-    expect(component.state.workItem()?.comments[0].isDeleted).toBeFalse();
+    expect(component.state.workItem()?.comments[0].isDeleted).toBe(false);
     http.expectNone(`/api/work-items/${workItemId}`);
   });
 
@@ -1068,7 +1069,7 @@ describe('WorkItemDetailPageComponent', () => {
     component.discussion.addMentionMember(contributor.id);
     refresh.flush({}, { status: 500, statusText: 'Failure' });
     fixture.detectChanges();
-    expect(component.discussion.isCommenting()).toBeFalse();
+    expect(component.discussion.isCommenting()).toBe(false);
     expect(component.discussion.commentError()).toBeNull();
     expect(component.discussion.commentForm.controls.bodyContent.value).toEqual(pair);
     const root = fixture.nativeElement as HTMLElement;
@@ -1128,7 +1129,7 @@ describe('WorkItemDetailPageComponent', () => {
         };
         const newDetail = { ...detail, id: blockedWorkItemId, comments: [newComment] };
         // The pre-actor read is cancelled; only the current authorized read may initialize.
-        expect(loads.some((load) => load.cancelled)).toBeTrue();
+        expect(loads.some((load) => load.cancelled)).toBe(true);
         for (const load of loads) if (!load.cancelled) load.flush(newDetail);
         http.expectOne(`/api/work-items/${blockedWorkItemId}/watchers`).flush(unwatchedState);
         http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
@@ -1163,7 +1164,7 @@ describe('WorkItemDetailPageComponent', () => {
         expect(component.discussion.selectedMentionMemberIds()).toEqual([owner.id]);
         expect(component.discussion.commentError()).toBeNull();
         expect(component.discussion.commentMutationError()).toBeNull();
-        expect(component.discussion.isCommenting()).toBeFalse();
+        expect(component.discussion.isCommenting()).toBe(false);
         expect(component.discussion.savingCommentId()).toBeNull();
         expect(component.discussion.deletingCommentId()).toBeNull();
         http.expectNone(`/api/work-items/${blockedWorkItemId}`);
@@ -1218,8 +1219,8 @@ describe('WorkItemDetailPageComponent', () => {
         format: 'markdown_v1'
       });
       component.discussion.addMentionMember(contributor.id);
-      expect(oldRefresh.cancelled).toBeTrue();
-      expect(intermediate.cancelled).toBeTrue();
+      expect(oldRefresh.cancelled).toBe(true);
+      expect(intermediate.cancelled).toBe(true);
       expect(component.state.workItem()?.comments.length).toBe(1);
       expect(component.discussion.discussionRefreshError()).toBeNull();
       expect(component.discussion.commentForm.controls.bodyContent.value.source).toBe('Fresh route draft');
@@ -1291,7 +1292,7 @@ describe('WorkItemDetailPageComponent', () => {
     format.value = 'markdown_v1';
     format.dispatchEvent(new Event('change'));
     fixture.detectChanges();
-    expect(component.state.detailForm.dirty).toBeTrue();
+    expect(component.state.detailForm.dirty).toBe(true);
     expect(component.state.detailForm.controls.descriptionContent.value.source).toBe(source);
     expect(editor.value().format).toBe('markdown_v1');
     previewDescription(fixture);
@@ -1299,7 +1300,7 @@ describe('WorkItemDetailPageComponent', () => {
     component.state.discardDetailChanges();
     fixture.detectChanges();
     expect(editor.mode()).toBe('edit');
-    expect(component.state.detailForm.pristine).toBeTrue();
+    expect(component.state.detailForm.pristine).toBe(true);
     expect(component.state.detailForm.controls.descriptionContent.value).toEqual({
       source,
       format: 'plain_text'
@@ -1318,13 +1319,13 @@ describe('WorkItemDetailPageComponent', () => {
     });
     fixture.componentInstance.state.updateWorkItem();
     const update = http.expectOne(`/api/work-items/${workItemId}`);
-    expect(Object.hasOwn(update.request.body, 'description')).toBeFalse();
-    expect(Object.hasOwn(update.request.body, 'descriptionFormat')).toBeFalse();
+    expect(Object.hasOwn(update.request.body, 'description')).toBe(false);
+    expect(Object.hasOwn(update.request.body, 'descriptionFormat')).toBe(false);
     update.flush({ ...detail, title: 'Only title changed', description: '  old\r\nsource\r  ' });
     expect(fixture.componentInstance.state.detailForm.controls.descriptionContent.value.source).toBe(
       '  old\r\nsource\r  '
     );
-    expect(fixture.componentInstance.state.detailForm.pristine).toBeTrue();
+    expect(fixture.componentInstance.state.detailForm.pristine).toBe(true);
   });
 
   it('sends a format-only conversion once and adopts the successful pair as its new baseline', () => {
@@ -1347,8 +1348,8 @@ describe('WorkItemDetailPageComponent', () => {
     ).toBe('literal until saved');
     fixture.componentInstance.state.updateWorkItem();
     const unchanged = http.expectOne(`/api/work-items/${workItemId}`);
-    expect(Object.hasOwn(unchanged.request.body, 'description')).toBeFalse();
-    expect(Object.hasOwn(unchanged.request.body, 'descriptionFormat')).toBeFalse();
+    expect(Object.hasOwn(unchanged.request.body, 'description')).toBe(false);
+    expect(Object.hasOwn(unchanged.request.body, 'descriptionFormat')).toBe(false);
     unchanged.flush({ ...detail, description: source, descriptionFormat: 'markdown_v1' });
   });
 
@@ -1357,16 +1358,16 @@ describe('WorkItemDetailPageComponent', () => {
     const { fixture, http } = setup({ workItem: { ...detail, description: source } });
     openDetails(fixture);
     const control = fixture.componentInstance.state.detailForm.controls.descriptionContent;
-    expect(control.valid).toBeTrue();
+    expect(control.valid).toBe(true);
     fixture.componentInstance.state.detailForm.controls.title.setValue('Other edit');
     fixture.componentInstance.state.updateWorkItem();
     const update = http.expectOne(`/api/work-items/${workItemId}`);
-    expect(Object.hasOwn(update.request.body, 'description')).toBeFalse();
+    expect(Object.hasOwn(update.request.body, 'description')).toBe(false);
     update.flush({ ...detail, title: 'Other edit', description: source });
     control.setValue({ source, format: 'markdown_v1' });
     fixture.componentInstance.state.updateWorkItem();
     fixture.detectChanges();
-    expect(control.hasError('authoredContentTooLong')).toBeTrue();
+    expect(control.hasError('authoredContentTooLong')).toBe(true);
     expect(
       (fixture.nativeElement as HTMLElement)
         .querySelector('#detail-description')
@@ -1374,7 +1375,7 @@ describe('WorkItemDetailPageComponent', () => {
     ).toBe('true');
     http.expectNone((request) => request.method === 'PATCH');
     control.setValue({ source: 'shortened', format: 'markdown_v1' });
-    expect(control.valid).toBeTrue();
+    expect(control.valid).toBe(true);
   });
 
   it('preserves the entire pair and preview after a failed save, and recovers pending state', () => {
@@ -1391,21 +1392,21 @@ describe('WorkItemDetailPageComponent', () => {
     component.state.updateWorkItem();
     component.state.updateWorkItem();
     fixture.detectChanges();
-    expect(component.state.detailForm.disabled).toBeTrue();
+    expect(component.state.detailForm.disabled).toBe(true);
     const update = http.expectOne(`/api/work-items/${workItemId}`);
     update.flush({}, { status: 500, statusText: 'Failure' });
     fixture.detectChanges();
-    expect(component.state.isUpdating()).toBeFalse();
-    expect(component.state.detailForm.enabled).toBeTrue();
+    expect(component.state.isUpdating()).toBe(false);
+    expect(component.state.detailForm.enabled).toBe(true);
     expect(component.state.detailForm.controls.descriptionContent.value).toEqual(draft);
-    expect(component.state.detailForm.dirty).toBeTrue();
+    expect(component.state.detailForm.dirty).toBe(true);
     expect(editor.mode()).toBe('preview');
     component.state.updateWorkItem();
     const retry = http.expectOne(`/api/work-items/${workItemId}`);
     expect(retry.request.body.description).toBe(draft.source);
     retry.flush({ ...detail, description: draft.source, descriptionFormat: draft.format });
     fixture.detectChanges();
-    expect(component.state.detailForm.pristine).toBeTrue();
+    expect(component.state.detailForm.pristine).toBe(true);
     expect(editor.mode()).toBe('edit');
   });
 
@@ -1431,7 +1432,7 @@ describe('WorkItemDetailPageComponent', () => {
     http.expectOne(`/api/work-items/${workItemId}`).flush(detail);
     fixture.detectChanges();
     expect(component.state.detailForm.controls.descriptionContent.value).toEqual(draft);
-    expect(component.state.detailForm.dirty).toBeTrue();
+    expect(component.state.detailForm.dirty).toBe(true);
     expect(editor.mode()).toBe('preview');
     expect(component.state.descriptionEditorIdentity()).toBe(identity);
   });
@@ -1480,7 +1481,7 @@ describe('WorkItemDetailPageComponent', () => {
     });
     component.state.updateWorkItem();
     const unchanged = http.expectOne(`/api/work-items/${workItemId}`);
-    expect(Object.hasOwn(unchanged.request.body, 'description')).toBeFalse();
+    expect(Object.hasOwn(unchanged.request.body, 'description')).toBe(false);
     unchanged.flush({
       ...detail,
       status: 'ready',
@@ -1505,7 +1506,7 @@ describe('WorkItemDetailPageComponent', () => {
     http.expectOne(`/api/work-items/${workItemId}`).flush(detail);
     expect(component.state.detailForm.controls.descriptionContent.value).toEqual(draft);
     expect(component.discussion.commentForm.controls.bodyContent.value.source).toBe('Comment draft');
-    expect(component.relationships.isAddingRelationship()).toBeFalse();
+    expect(component.relationships.isAddingRelationship()).toBe(false);
   });
 
   it('does not let an old save clear the pending state of a new route save', () => {
@@ -1525,12 +1526,12 @@ describe('WorkItemDetailPageComponent', () => {
     component.state.updateWorkItem();
     const newSave = http.expectOne(`/api/work-items/${blockedWorkItemId}`);
     oldSave.flush(detail);
-    expect(component.state.isUpdating()).toBeTrue();
-    expect(component.state.detailForm.disabled).toBeTrue();
+    expect(component.state.isUpdating()).toBe(true);
+    expect(component.state.detailForm.disabled).toBe(true);
     expect(component.state.detailForm.controls.descriptionContent.value.source).toBe('New draft');
     newSave.flush({}, { status: 500, statusText: 'Failure' });
-    expect(component.state.isUpdating()).toBeFalse();
-    expect(component.state.detailForm.enabled).toBeTrue();
+    expect(component.state.isUpdating()).toBe(false);
+    expect(component.state.detailForm.enabled).toBe(true);
   });
 
   it('rejects old-actor responses even after returning to the same actor and item', () => {
@@ -1569,7 +1570,7 @@ describe('WorkItemDetailPageComponent', () => {
     });
     oldLoad.flush({}, { status: 500, statusText: 'Failure' });
     expect(fixture.componentInstance.state.loadError()).toBeNull();
-    expect(fixture.componentInstance.state.isLoading()).toBeFalse();
+    expect(fixture.componentInstance.state.isLoading()).toBe(false);
     expect(fixture.componentInstance.state.detailForm.controls.descriptionContent.value.source).toBe(
       'Retain me'
     );
@@ -1591,7 +1592,7 @@ describe('WorkItemDetailPageComponent', () => {
       routeParamMap.next(convertToParamMap({ workItemId }));
       fixture.detectChanges();
       finishReload(fixture, http);
-      expect(intermediate.cancelled).toBeTrue();
+      expect(intermediate.cancelled).toBe(true);
       component.state.detailForm.controls.descriptionContent.setValue({
         source: 'New draft',
         format: 'plain_text'
@@ -1603,7 +1604,7 @@ describe('WorkItemDetailPageComponent', () => {
       }
       expect(component.state.workItem()?.description).toBe(detail.description);
       expect(component.state.detailForm.controls.descriptionContent.value.source).toBe('New draft');
-      expect(component.state.isUpdating()).toBeFalse();
+      expect(component.state.isUpdating()).toBe(false);
       expect(component.state.updateError()).toBeNull();
     });
   }
@@ -1642,7 +1643,7 @@ describe('WorkItemDetailPageComponent', () => {
     expect(component.state.workItem()).toBeNull();
     fixture.detectChanges();
     expect(component.state.workItem()).toBeNull();
-    expect(component.state.isUpdating()).toBeFalse();
+    expect(component.state.isUpdating()).toBe(false);
     expect(component.state.detailForm.controls.descriptionContent.value.source).toBe('');
     finishReload(fixture, http);
     expect(component.state.detailForm.controls.descriptionContent.value).toEqual({
@@ -1684,8 +1685,8 @@ describe('WorkItemDetailPageComponent', () => {
     expect(root.querySelector('app-work-item-detail-summary h3')?.textContent).toBe('Read only');
     expect(root.querySelector('app-work-item-detail-summary strong')?.textContent).toBe('visible');
     expect(root.querySelector('#detail-description')).toBeNull();
-    expect(root.querySelector<HTMLButtonElement>('button[aria-controls="edit-work-item"]')?.disabled).toBeTrue();
-    expect(fixture.componentInstance.state.detailForm.disabled).toBeTrue();
+    expect(root.querySelector<HTMLButtonElement>('button[aria-controls="edit-work-item"]')?.disabled).toBe(true);
+    expect(fixture.componentInstance.state.detailForm.disabled).toBe(true);
     fixture.componentInstance.state.updateWorkItem();
     http.expectNone((request) => request.method === 'PATCH');
   });
@@ -1730,39 +1731,39 @@ describe('WorkItemDetailPageComponent', () => {
     const { fixture } = setup();
     openDetails(fixture);
     const component = fixture.componentInstance;
-    const confirm = spyOn(TestBed.inject(DraftConfirmationService), 'confirm').and.resolveTo(false);
+    const confirm = vi.spyOn(TestBed.inject(DraftConfirmationService), 'confirm').mockResolvedValue(false);
     const description = { source: '  **My draft**\n', format: 'markdown_v1' as const };
     const comment = { source: 'Comment draft', format: 'plain_text' as const };
     component.state.detailForm.controls.descriptionContent.setValue(description);
     component.discussion.commentForm.controls.bodyContent.setValue(comment);
     component.discussion.addMentionMember(contributor.id);
-    expect(await component.state.requestDiscardDetailChanges()).toBeFalse();
+    expect(await component.state.requestDiscardDetailChanges()).toBe(false);
     expect(component.state.detailForm.controls.descriptionContent.value).toEqual(description);
     expect(component.discussion.commentForm.controls.bodyContent.value).toEqual(comment);
     expect(component.discussion.selectedMentionMemberIds()).toEqual([contributor.id]);
-    expect(confirm.calls.mostRecent().args[0]).toEqual(['Work item details']);
-    confirm.and.resolveTo(true);
-    expect(await component.state.requestDiscardDetailChanges()).toBeTrue();
+    expect(confirm.mock.lastCall![0]).toEqual(['Work item details']);
+    confirm.mockResolvedValue(true);
+    expect(await component.state.requestDiscardDetailChanges()).toBe(true);
     expect(component.state.detailForm.controls.descriptionContent.value.source).toBe(detail.description);
     expect(component.discussion.commentForm.controls.bodyContent.value).toEqual(comment);
-    confirm.and.resolveTo(false);
-    expect(await TestBed.inject(DraftDepartureCoordinator).change(() => undefined)).toBeFalse();
-    expect(confirm.calls.mostRecent().args[0]).toEqual(['New comment']);
+    confirm.mockResolvedValue(false);
+    expect(await TestBed.inject(DraftDepartureCoordinator).change(() => undefined)).toBe(false);
+    expect(confirm.mock.lastCall![0]).toEqual(['New comment']);
   });
 
   it('does not mark unsaved fields as saved when a new comment succeeds', async () => {
     const { fixture, http } = setup();
     openDetails(fixture);
     const component = fixture.componentInstance;
-    const confirm = spyOn(TestBed.inject(DraftConfirmationService), 'confirm').and.resolveTo(false);
+    const confirm = vi.spyOn(TestBed.inject(DraftConfirmationService), 'confirm').mockResolvedValue(false);
     component.state.detailForm.controls.title.setValue('Still unsaved');
     component.discussion.commentForm.controls.bodyContent.setValue({ source: 'Posted comment', format: 'markdown_v1' });
     component.discussion.addComment();
     http.expectOne(`/api/work-items/${workItemId}/comments`).flush(detail.comments[0]);
     http.expectOne(`/api/work-items/${workItemId}`).flush(detail);
     expect(component.state.detailForm.controls.title.value).toBe('Still unsaved');
-    expect(await TestBed.inject(DraftDepartureCoordinator).change(() => undefined)).toBeFalse();
-    expect(confirm.calls.mostRecent().args[0]).toEqual(['Work item details']);
+    expect(await TestBed.inject(DraftDepartureCoordinator).change(() => undefined)).toBe(false);
+    expect(confirm.mock.lastCall![0]).toEqual(['Work item details']);
   });
 
   it('preserves inline comment source and format on Stay and treats a reverted editor as clean', async () => {
@@ -1772,13 +1773,13 @@ describe('WorkItemDetailPageComponent', () => {
     component.discussion.startEditComment(comment);
     const value = { source: 'Inline draft', format: 'markdown_v1' as const };
     component.discussion.editCommentForm.controls.bodyContent.setValue(value);
-    const confirm = spyOn(TestBed.inject(DraftConfirmationService), 'confirm').and.resolveTo(false);
-    expect(await component.discussion.requestCancelCommentEdit()).toBeFalse();
+    const confirm = vi.spyOn(TestBed.inject(DraftConfirmationService), 'confirm').mockResolvedValue(false);
+    expect(await component.discussion.requestCancelCommentEdit()).toBe(false);
     expect(component.discussion.editingCommentId()).toBe(comment.id);
     expect(component.discussion.editCommentForm.controls.bodyContent.value).toEqual(value);
     component.discussion.editCommentForm.controls.bodyContent.setValue({ source: comment.body, format: comment.bodyFormat });
-    confirm.calls.reset();
-    expect(await component.discussion.requestCancelCommentEdit()).toBeTrue();
+    confirm.mockClear();
+    expect(await component.discussion.requestCancelCommentEdit()).toBe(true);
     expect(confirm).not.toHaveBeenCalled();
   });
 
@@ -1880,7 +1881,7 @@ describe('WorkItemDetailPageComponent', () => {
     watchRequest.flush(watchedState);
     fixture.detectChanges();
 
-    expect(fixture.componentInstance.watch.watchState()?.isWatchedByCurrentActor).toBeTrue();
+    expect(fixture.componentInstance.watch.watchState()?.isWatchedByCurrentActor).toBe(true);
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('2 watching');
 
     fixture.componentInstance.watch.toggleWatch();
@@ -1889,7 +1890,7 @@ describe('WorkItemDetailPageComponent', () => {
     unwatchRequest.flush(unwatchedState);
     fixture.detectChanges();
 
-    expect(fixture.componentInstance.watch.watchState()?.isWatchedByCurrentActor).toBeFalse();
+    expect(fixture.componentInstance.watch.watchState()?.isWatchedByCurrentActor).toBe(false);
     expect(
       (fixture.nativeElement as HTMLElement)
         .querySelector<HTMLButtonElement>('.watch-panel button')
@@ -2047,7 +2048,7 @@ describe('WorkItemDetailPageComponent', () => {
     const searchButton = compiled.querySelector<HTMLButtonElement>(
       '.relationship-form-grid button'
     );
-    expect(searchButton?.disabled).toBeTrue();
+    expect(searchButton?.disabled).toBe(true);
     expect(searchButton?.textContent?.trim()).toBe('Searching...');
 
     http
@@ -2125,8 +2126,8 @@ describe('WorkItemDetailPageComponent', () => {
       By.directive(WorkItemAttachmentsComponent)
     ).componentInstance as WorkItemAttachmentsComponent;
     const target = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('#files')!;
-    const focus = spyOn(target, 'focus');
-    const scrollIntoView = spyOn(target, 'scrollIntoView');
+    const focus = vi.spyOn(target, 'focus').mockImplementation(() => undefined);
+    const scrollIntoView = vi.spyOn(target, 'scrollIntoView').mockImplementation(() => undefined);
 
     expect(fixture.componentInstance.state.filesTargetGeneration()).toBeNull();
     expect(attachmentComponent.focusWhenSettled()).toBeNull();
@@ -2137,8 +2138,8 @@ describe('WorkItemDetailPageComponent', () => {
 
     expect(firstGeneration).toBe(1);
     expect(attachmentComponent.focusWhenSettled()).toBe(firstGeneration);
-    expect(focus).toHaveBeenCalledOnceWith({ preventScroll: true });
-    expect(scrollIntoView).toHaveBeenCalledOnceWith({ block: 'start' });
+    expect(focus).toHaveBeenCalledExactlyOnceWith({ preventScroll: true });
+    expect(scrollIntoView).toHaveBeenCalledExactlyOnceWith({ block: 'start' });
 
     routeFragment.next('files');
     fixture.detectChanges();
@@ -2300,7 +2301,7 @@ describe('WorkItemDetailPageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'WT-4 Finish API contract'
     );
-    expect(fixture.componentInstance.relationships.isAddingRelationship()).toBeFalse();
+    expect(fixture.componentInstance.relationships.isAddingRelationship()).toBe(false);
   });
 
   it('adds blocked work by posting from the current work item to the selected target', () => {
@@ -2552,7 +2553,7 @@ describe('WorkItemDetailPageComponent', () => {
 
     expect(compiled.textContent).toContain('Comment deleted by Case Contributor');
     expect(compiled.textContent).not.toContain('Initial implementation note.');
-    expect(fixture.componentInstance.discussion.canModifyComment(deletedDetail.comments[0])).toBeFalse();
+    expect(fixture.componentInstance.discussion.canModifyComment(deletedDetail.comments[0])).toBe(false);
   });
 
   it('hides comment edit and delete actions when the local actor cannot modify the comment', () => {
@@ -2563,7 +2564,7 @@ describe('WorkItemDetailPageComponent', () => {
       (button) => button.textContent?.trim()
     );
 
-    expect(fixture.componentInstance.discussion.canModifyComment(detail.comments[0])).toBeFalse();
+    expect(fixture.componentInstance.discussion.canModifyComment(detail.comments[0])).toBe(false);
     expect(buttonLabels).not.toContain('Edit');
     expect(buttonLabels).not.toContain('Delete');
   });
@@ -2580,7 +2581,7 @@ describe('WorkItemDetailPageComponent', () => {
     expect(compiled.textContent).toContain(
       'Only owners and maintainers can reopen done or canceled work items.'
     );
-    expect(compiled.querySelector<HTMLSelectElement>('.status-form select')?.disabled).toBeTrue();
+    expect(compiled.querySelector<HTMLSelectElement>('.status-form select')?.disabled).toBe(true);
 
     fixture.componentInstance.state.statusForm.setValue({ status: 'ready' });
     fixture.componentInstance.state.transitionStatus();
@@ -2787,9 +2788,9 @@ describe('WorkItemDetailPageComponent', () => {
     expect(compiled.textContent).toContain('Archived project');
     expect(compiled.querySelector('app-work-item-parent-manager')).toBeNull();
     expect(compiled.textContent).not.toContain('Add child work item');
-    expect(compiled.querySelector('button[type="submit"]')?.hasAttribute('disabled')).toBeTrue();
-    expect(fixture.componentInstance.state.detailForm.disabled).toBeTrue();
-    expect(fixture.componentInstance.relationships.relationshipForm.disabled).toBeTrue();
+    expect(compiled.querySelector('button[type="submit"]')?.hasAttribute('disabled')).toBe(true);
+    expect(fixture.componentInstance.state.detailForm.disabled).toBe(true);
+    expect(fixture.componentInstance.relationships.relationshipForm.disabled).toBe(true);
 
     fixture.componentInstance.state.detailForm.patchValue({ title: 'Archived edit attempt' });
     fixture.componentInstance.state.updateWorkItem();
@@ -2969,4 +2970,13 @@ describe('WorkItemDetailPageComponent', () => {
     expect(compiled.textContent).toContain('Mentioning a collaborator.');
     expect(compiled.textContent).toContain('@Case Contributor');
   });
+});
+
+afterEach(() => {
+  try {
+    TestBed.resetTestingModule();
+  } finally {
+    vi.restoreAllMocks();
+    localStorage.removeItem('worktrail.selectedMemberId');
+  }
 });

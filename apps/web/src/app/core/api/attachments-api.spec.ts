@@ -2,6 +2,7 @@ import { HttpEventType, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import type { MemberDto } from '@worktrail/contracts';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { CurrentUserService } from '../current-user.service';
 import { AttachmentsApi } from './attachments-api';
@@ -58,7 +59,7 @@ describe('AttachmentsApi', () => {
     const upload = http.expectOne(`/api/work-items/${workItemId}/attachments`);
     expect(upload.request.method).toBe('POST');
     expect(upload.request.body).toBe(file);
-    expect(upload.request.reportProgress).toBeTrue();
+    expect(upload.request.reportProgress).toBe(true);
     expect(upload.request.headers.get('Content-Type')).toBe('application/octet-stream');
     expect(upload.request.headers.get('X-Worktrail-Filename')).toBe(encodeURIComponent(file.name));
     expect(upload.request.headers.get('X-Worktrail-Media-Type')).toBe('text/plain');

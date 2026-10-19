@@ -7,6 +7,7 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { NavigationCancel, Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { Subject, filter, firstValueFrom, take } from 'rxjs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DraftConfirmationService } from './draft-confirmation.service';
 import { DraftDepartureCoordinator, draftRouteKey } from './draft-departure-coordinator';
@@ -47,12 +48,12 @@ class Destination {}
 describe('DraftDepartureCoordinator with real guards', () => {
   let harness: RouterTestingHarness;
   let router: Router;
-  let confirmation: jasmine.Spy;
+  let confirmation: ReturnType<typeof vi.fn<() => Promise<boolean>>>;
   let departure: DraftDepartureCoordinator;
   let editor: EditorHost;
 
   beforeEach(async () => {
-    confirmation = jasmine.createSpy('confirm').and.resolveTo(false);
+    confirmation = vi.fn<() => Promise<boolean>>().mockResolvedValue(false);
     TestBed.configureTestingModule({ providers: [provideHttpClient(), provideLocationMocks(),
       { provide: DraftConfirmationService, useValue: { confirm: confirmation } },
       provideRouter([
@@ -72,30 +73,30 @@ describe('DraftDepartureCoordinator with real guards', () => {
     editor = await harness.navigateByUrl('/work-items/a', EditorHost);
   });
 
-  afterEach(() => harness.fixture.destroy());
+  afterEach(() => { harness.fixture.destroy(); vi.restoreAllMocks(); });
 
   it('uses value equality, not form dirty; reverted, clean and fragment-only drafts do not prompt', async () => {
     editor.source.setValue('Changed');
     editor.source.setValue('Baseline');
     editor.source.markAsDirty();
-    expect(await router.navigateByUrl('/work-items/a#files')).toBeTrue();
+    expect(await router.navigateByUrl('/work-items/a#files')).toBe(true);
     editor.source.setValue('A real draft');
-    expect(await router.navigateByUrl('/work-items/a?returnUrl=%2Fwork-items')).toBeTrue();
+    expect(await router.navigateByUrl('/work-items/a?returnUrl=%2Fwork-items')).toBe(true);
     expect(editor.source.value).toBe('A real draft');
     expect(confirmation).not.toHaveBeenCalled();
     editor.source.setValue('Baseline');
-    expect(await router.navigateByUrl('/destination')).toBeTrue();
+    expect(await router.navigateByUrl('/destination')).toBe(true);
     expect(confirmation).not.toHaveBeenCalled();
   });
 
   it('preserves drafts and reused identity on Stay and discards only after committed navigation', async () => {
     editor.source.setValue('Keep me');
-    expect(await router.navigateByUrl('/work-items/b')).toBeFalse();
+    expect(await router.navigateByUrl('/work-items/b')).toBe(false);
     expect(editor.source.value).toBe('Keep me');
     expect(editor.context.param('workItemId')).toBe('a');
     expect(editor.discarded).toBe(0);
-    confirmation.and.resolveTo(true);
-    expect(await router.navigateByUrl('/work-items/b')).toBeTrue();
+    confirmation.mockResolvedValue(true);
+    expect(await router.navigateByUrl('/work-items/b')).toBe(true);
     expect(harness.routeDebugElement?.componentInstance).toBe(editor);
     expect(editor.context.param('workItemId')).toBe('b');
     expect(editor.source.value).toBe('Baseline');
@@ -105,21 +106,21 @@ describe('DraftDepartureCoordinator with real guards', () => {
   for (const failure of ['rejected', 'error']) {
     it(`keeps an approved draft when a later ${failure} prevents navigation`, async () => {
       editor.source.setValue('Not discarded');
-      confirmation.and.resolveTo(true);
+      confirmation.mockResolvedValue(true);
       await router.navigateByUrl('/' + failure).catch(() => false);
       expect(router.url).toBe('/work-items/a');
       expect(editor.source.value).toBe('Not discarded');
       expect(editor.discarded).toBe(0);
-      expect(departure.isDeparting()).toBeFalse();
-      expect(await router.navigateByUrl('/work-items/b')).toBeTrue();
+      expect(departure.isDeparting()).toBe(false);
+      expect(await router.navigateByUrl('/work-items/b')).toBe(true);
       expect(confirmation).toHaveBeenCalledTimes(2);
     });
   }
 
   it('shares one decision between deactivation and activation guards', async () => {
     editor.source.setValue('Draft');
-    confirmation.and.resolveTo(true);
-    expect(await router.navigateByUrl('/other/b')).toBeTrue();
+    confirmation.mockResolvedValue(true);
+    expect(await router.navigateByUrl('/other/b')).toBe(true);
     expect(confirmation).toHaveBeenCalledTimes(1);
     const destination = harness.routeDebugElement?.componentInstance as EditorHost;
     expect(destination.source.value).toBe('Baseline');
@@ -134,11 +135,11 @@ describe('DraftDepartureCoordinator with real guards', () => {
       entered(); return answer;
     }] });
     editor.source.setValue('Approved draft');
-    confirmation.and.resolveTo(true);
+    confirmation.mockResolvedValue(true);
     const navigating = router.navigateByUrl('/delayed');
     await guardStarted;
     editor.source.setValue('Newer draft after approval');
-    expect(await navigating).toBeFalse();
+    expect(await navigating).toBe(false);
     expect(router.url).toBe('/work-items/a');
     expect(editor.source.value).toBe('Newer draft after approval');
     expect(editor.discarded).toBe(0);
@@ -148,28 +149,28 @@ describe('DraftDepartureCoordinator with real guards', () => {
 
   it('blocks route, actor/local and explicit discard attempts while a write is unresolved', async () => {
     editor.pending.set(true);
-    const commit = jasmine.createSpy('commit');
-    expect(await router.navigateByUrl('/destination')).toBeFalse();
-    expect(await departure.change(commit)).toBeFalse();
-    expect(await departure.change(commit, [editor.token])).toBeFalse();
+    const commit = vi.fn();
+    expect(await router.navigateByUrl('/destination')).toBe(false);
+    expect(await departure.change(commit)).toBe(false);
+    expect(await departure.change(commit, [editor.token])).toBe(false);
     expect(commit).not.toHaveBeenCalled();
     expect(confirmation).not.toHaveBeenCalled();
     expect(departure.status()).toContain('save to finish');
     editor.pending.set(false);
-    expect(await router.navigateByUrl('/destination')).toBeTrue();
+    expect(await router.navigateByUrl('/destination')).toBe(true);
   });
 
   it('does not queue another change or accept a stale revision while confirmation is pending', async () => {
     editor.source.setValue('Draft');
     let answer!: (value: boolean) => void;
-    confirmation.and.returnValue(new Promise<boolean>((resolve) => { answer = resolve; }));
-    const firstCommit = jasmine.createSpy('first commit');
-    const secondCommit = jasmine.createSpy('second commit');
+    confirmation.mockReturnValue(new Promise<boolean>((resolve) => { answer = resolve; }));
+    const firstCommit = vi.fn();
+    const secondCommit = vi.fn();
     const first = departure.change(firstCommit);
-    expect(await departure.change(secondCommit)).toBeFalse();
+    expect(await departure.change(secondCommit)).toBe(false);
     editor.source.setValue('A newer draft');
     answer(true);
-    expect(await first).toBeFalse();
+    expect(await first).toBe(false);
     expect(firstCommit).not.toHaveBeenCalled();
     expect(secondCommit).not.toHaveBeenCalled();
     expect(editor.source.value).toBe('A newer draft');
@@ -191,10 +192,10 @@ describe('DraftDepartureCoordinator with real guards', () => {
 
   it('attaches native unload protection only for meaningful drafts or pending writes', () => {
     let listener: EventListener | null = null;
-    spyOn(window, 'addEventListener').and.callFake((name: string, handler: EventListenerOrEventListenerObject) => {
+    vi.spyOn(window, 'addEventListener').mockImplementation((name: string, handler: EventListenerOrEventListenerObject) => {
       if (name === 'beforeunload') listener = handler as EventListener;
     });
-    spyOn(window, 'removeEventListener').and.callFake((name: string) => {
+    vi.spyOn(window, 'removeEventListener').mockImplementation((name: string) => {
       if (name === 'beforeunload') listener = null;
     });
     const dispatch = () => {
@@ -203,25 +204,25 @@ describe('DraftDepartureCoordinator with real guards', () => {
       if (listener !== null) (listener as EventListener)(event);
       return event.defaultPrevented;
     };
-    expect(dispatch()).toBeFalse();
+    expect(dispatch()).toBe(false);
     editor.source.setValue('Draft');
-    expect(dispatch()).toBeTrue();
+    expect(dispatch()).toBe(true);
     editor.source.setValue('Baseline');
-    expect(dispatch()).toBeFalse();
+    expect(dispatch()).toBe(false);
     editor.pending.set(true);
     departure.refresh();
-    expect(dispatch()).toBeTrue();
+    expect(dispatch()).toBe(true);
     editor.pending.set(false);
     departure.refresh();
-    expect(dispatch()).toBeFalse();
+    expect(dispatch()).toBe(false);
     harness.fixture.destroy();
-    expect(dispatch()).toBeFalse();
+    expect(dispatch()).toBe(false);
   });
 
   it('updates a successful save baseline before programmatic departure, without prompting', async () => {
     editor.source.setValue('Saved');
     editor.tracker.accept();
-    expect(await router.navigateByUrl('/destination')).toBeTrue();
+    expect(await router.navigateByUrl('/destination')).toBe(true);
     expect(confirmation).not.toHaveBeenCalled();
   });
 });

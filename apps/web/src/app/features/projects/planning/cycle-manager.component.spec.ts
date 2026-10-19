@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
@@ -54,15 +56,15 @@ describe('CycleManagerComponent', () => {
     fixture.componentInstance.canManageCycles = true;
     fixture.detectChanges();
 
-    const createSpy = spyOn(fixture.componentInstance.create, 'emit');
-    const updateSpy = spyOn(fixture.componentInstance.update, 'emit');
-    const archiveSpy = spyOn(fixture.componentInstance.archive, 'emit');
+    const createSpy = vi.spyOn(fixture.componentInstance.create, 'emit').mockImplementation(() => undefined);
+    const updateSpy = vi.spyOn(fixture.componentInstance.update, 'emit').mockImplementation(() => undefined);
+    const archiveSpy = vi.spyOn(fixture.componentInstance.archive, 'emit').mockImplementation(() => undefined);
     const compiled = fixture.nativeElement as HTMLElement;
 
     expect(compiled.textContent).toContain('Cycles');
     expect(compiled.textContent).toContain('v0.2.1 Cycle Planning');
-    expect(compiled.querySelector<HTMLDetailsElement>('.record-edit')?.open).toBeFalse();
-    expect(compiled.querySelector<HTMLDetailsElement>('.create-disclosure')?.open).toBeFalse();
+    expect(compiled.querySelector<HTMLDetailsElement>('.record-edit')?.open).toBe(false);
+    expect(compiled.querySelector<HTMLDetailsElement>('.create-disclosure')?.open).toBe(false);
     expect(compiled.querySelector('.cycle-list')!.compareDocumentPosition(compiled.querySelector('.create-disclosure')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(compiled.querySelector<HTMLAnchorElement>('.cycle-row__links a')?.getAttribute('href')).toBe(
       `/projects/${projectId}/cycles/${activeCycle.id}`
@@ -89,7 +91,7 @@ describe('CycleManagerComponent', () => {
     saveButton?.click();
 
     expect(updateSpy).toHaveBeenCalled();
-    expect((updateSpy.calls.mostRecent().args[0] as CycleUpdateRequest).name).toBe(
+    expect((updateSpy.mock.lastCall![0] as CycleUpdateRequest).name).toBe(
       'v0.2.1 Launch'
     );
 
@@ -105,7 +107,7 @@ describe('CycleManagerComponent', () => {
     fixture.componentInstance.cycleForm = createCycleForm();
     fixture.componentInstance.cycles = [{...activeCycle,isArchived:true}];
     fixture.componentInstance.canManageCycles = true;
-    const reactivate = spyOn(fixture.componentInstance.reactivate, 'emit');
+    const reactivate = vi.spyOn(fixture.componentInstance.reactivate, 'emit').mockImplementation(() => undefined);
     fixture.detectChanges();
     const row = (fixture.nativeElement as HTMLElement).querySelector('.cycle-row')!;
     expect(row.querySelector('.record-edit')).toBeNull();
@@ -183,4 +185,13 @@ describe('CycleManagerComponent', () => {
     expect(compiled.textContent).toContain('Project cycles could not be loaded from the API.');
     expect(compiled.textContent).toContain('Cycle name is required.');
   });
+});
+
+afterEach(() => {
+  try {
+    TestBed.resetTestingModule();
+  } finally {
+    vi.restoreAllMocks();
+    localStorage.removeItem('worktrail.selectedMemberId');
+  }
 });

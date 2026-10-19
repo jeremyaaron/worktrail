@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Component, OnInit, computed, signal } from '@angular/core';
@@ -51,7 +53,10 @@ function selectOwner(): CurrentUserService {
 }
 
 describe('PageContext committed navigation', () => {
-  afterEach(() => localStorage.removeItem('worktrail.selectedMemberId'));
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.removeItem('worktrail.selectedMemberId');
+  });
 
   it('retains duplicate query values so navigation policy can reject ambiguous return metadata', async () => {
     TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting(),
@@ -111,8 +116,8 @@ describe('PageContext committed navigation', () => {
       const fixture = TestBed.createComponent(ContextProbe);
       fixture.detectChanges();
       const source = new Subject<string>();
-      const next = jasmine.createSpy('next');
-      const error = jasmine.createSpy('error');
+      const next = vi.fn<(value: string) => void>().mockName('next');
+      const error = vi.fn<(error: Error) => void>().mockName('error');
       source.pipe(fixture.componentInstance.context.guard()).subscribe({ next, error });
       user.selectMember(contributor.id);
       if (outcome === 'success') source.next('obsolete');
@@ -133,11 +138,11 @@ describe('PageContext committed navigation', () => {
     const oldCompletion = context.capture();
     user.selectMember(contributor.id);
     user.selectMember(owner.id);
-    expect(oldCompletion()).toBeFalse();
+    expect(oldCompletion()).toBe(false);
     const currentCompletion = context.capture();
-    expect(currentCompletion()).toBeTrue();
+    expect(currentCompletion()).toBe(true);
     fixture.destroy();
-    expect(currentCompletion()).toBeFalse();
+    expect(currentCompletion()).toBe(false);
   });
 
   for (const outcome of ['success', 'error'] as const) {
@@ -149,12 +154,12 @@ describe('PageContext committed navigation', () => {
       const fixture = TestBed.createComponent(ContextProbe);
       fixture.detectChanges();
       const source = new Subject<string>();
-      const next = jasmine.createSpy('next');
-      const error = jasmine.createSpy('error');
+      const next = vi.fn<(value: string) => void>().mockName('next');
+      const error = vi.fn<(error: Error) => void>().mockName('error');
       source.pipe(fixture.componentInstance.context.guardMutation()).subscribe({ next, error });
       user.selectMember(contributor.id);
       user.selectMember(owner.id);
-      expect(source.observed).toBeTrue();
+      expect(source.observed).toBe(true);
       if (outcome === 'success') source.next('obsolete');
       else source.error(new Error('obsolete'));
       expect(next).not.toHaveBeenCalled();
@@ -186,9 +191,14 @@ describe('Page context with real reused Worktrail routes', () => {
   });
 
   afterEach(() => {
-    harness.fixture.destroy();
-    http.verify({ ignoreCancelled: true });
-    localStorage.removeItem('worktrail.selectedMemberId');
+    try {
+      harness?.fixture.destroy();
+      http?.verify({ ignoreCancelled: true });
+    } finally {
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+      localStorage.removeItem('worktrail.selectedMemberId');
+    }
   });
 
   function nestedPage<T>(component: Type<T>): T {
@@ -210,7 +220,7 @@ describe('Page context with real reused Worktrail routes', () => {
     expect(home.projectId()).toBe('b');
     expect(home.summary()).toBeNull();
     expect(shell.summary()).toBeNull();
-    expect(shell.sections().every((section) => section.commands[1] === 'b')).toBeTrue();
+    expect(shell.sections().every((section) => section.commands[1] === 'b')).toBe(true);
     const next = http.match('/api/projects/b/summary');
     expect(next.length).toBe(2);
     next.forEach((request) => request.flush({ project: { id: 'b', name: 'B' } }));
@@ -222,7 +232,7 @@ describe('Page context with real reused Worktrail routes', () => {
     const old = http.match('/api/projects/a/summary');
     await harness.navigateByUrl('/projects/b');
     expect(old.length).toBe(2);
-    expect(old.every((request) => request.cancelled)).toBeTrue();
+    expect(old.every((request) => request.cancelled)).toBe(true);
     http.match('/api/projects/b/summary');
   });
 
@@ -233,7 +243,7 @@ describe('Page context with real reused Worktrail routes', () => {
     http.match(() => true);
     await harness.navigateByUrl('/work-items#results');
     expect(nestedPage(WorkspaceWorkItemListPageComponent)).toBe(page);
-    expect(work.cancelled).toBeFalse();
+    expect(work.cancelled).toBe(false);
     http.expectNone((request) => request.url === '/api/work-items');
   });
 
@@ -246,7 +256,7 @@ describe('Page context with real reused Worktrail routes', () => {
     await harness.navigateByUrl('/projects/b/status/new');
     expect(nestedPage(ProjectStatusReportDraftPageComponent)).toBe(page);
     expect(page.projectId()).toBe('b');
-    expect(old.cancelled).toBeTrue();
+    expect(old.cancelled).toBe(true);
     expect(page.draftForm.controls.summary.value).toBe('');
     http.match('/api/projects/b/summary');
     http.expectOne('/api/projects/b/status-reports/draft');
@@ -262,7 +272,7 @@ describe('Page context with real reused Worktrail routes', () => {
     expect(nestedPage(ProjectCycleCloseoutPageComponent)).toBe(page);
     expect(page.projectId()).toBe('b');
     expect(page.cycleId()).toBe('two');
-    expect(old.cancelled).toBeTrue();
+    expect(old.cancelled).toBe(true);
     expect(page.form.controls.destinationCycleId.value).toBe('');
     http.match('/api/projects/b/summary');
     http.expectOne('/api/projects/b/cycles/two/closeout-preview');
@@ -280,13 +290,13 @@ describe('Page context with real reused Worktrail routes', () => {
     page.workItemForm.controls.projectId.setValue('a');
     expect(first.length).toBe(4);
     expect(second.length).toBe(4);
-    expect([...first, ...second].every((request) => request.cancelled)).toBeTrue();
+    expect([...first, ...second].every((request) => request.cancelled)).toBe(true);
     expect(page.availableLabels()).toEqual([]);
     expect(page.availableMilestones()).toEqual([]);
     expect(page.availableCycles()).toEqual([]);
     const current = http.match((request) => request.url.startsWith('/api/projects/a'));
     expect(current.length).toBe(4);
-    expect(current.every((request) => !request.cancelled)).toBeTrue();
+    expect(current.every((request) => !request.cancelled)).toBe(true);
   });
 
   for (const kind of ['milestones', 'cycles', 'status'] as const) {
@@ -302,7 +312,7 @@ describe('Page context with real reused Worktrail routes', () => {
       const old = http.expectOne(path('a', 'one'));
       await harness.navigateByUrl(`/projects/b/${kind}/two`);
       http.match('/api/projects/b/summary');
-      expect(old.cancelled).toBeTrue();
+      expect(old.cancelled).toBe(true);
       expect(page.projectId()).toBe('b');
       const next = http.expectOne(path('b', 'two'));
       if (kind === 'milestones') {
@@ -328,14 +338,14 @@ describe('Page context with real reused Worktrail routes', () => {
     page.state.detailForm.controls.title.setValue('Keep my title');
     const router = TestBed.inject(Router);
     router.config.unshift({ path: 'rejected', component: ContextProbe, canActivate: [() => false] });
-    expect(await router.navigateByUrl('/rejected')).toBeFalse();
+    expect(await router.navigateByUrl('/rejected')).toBe(false);
     expect(page.state.detailForm.controls.title.value).toBe('Keep my title');
-    expect(old.cancelled).toBeFalse();
+    expect(old.cancelled).toBe(false);
     await harness.navigateByUrl('/work-items/b');
     expect(nestedPage(WorkItemDetailPageComponent)).toBe(page);
     expect(page.state.workItemId()).toBe('b');
     expect(page.state.detailForm.controls.title.value).toBe('');
-    expect(old.cancelled).toBeTrue();
+    expect(old.cancelled).toBe(true);
     http.expectOne('/api/work-items/b');
   });
 
@@ -352,48 +362,51 @@ describe('Page context with real reused Worktrail routes', () => {
     const mutation = http.expectOne((request) => request.method === 'POST');
     TestBed.inject(CurrentUserService).selectMember(contributor.id);
     harness.detectChanges();
-    expect(mutation.cancelled).toBeFalse();
-    expect(options.filter(option => /planning-summary/.test(option.request.url)).every(request => request.cancelled)).toBeTrue();
+    expect(mutation.cancelled).toBe(false);
+    expect(options.filter(option => /planning-summary/.test(option.request.url)).every(request => request.cancelled)).toBe(true);
     expect(page.project()).toBeNull();
     expect(page.milestones()).toEqual([]);
     expect(page.cycles()).toEqual([]);
-    expect(page.isCreatingMilestone()).toBeFalse();
+    expect(page.isCreatingMilestone()).toBe(false);
     expect(page.createError()).toBeNull();
-    expect(page.isLoadingProject()).toBeTrue();
+    expect(page.isLoadingProject()).toBe(true);
     mutation.flush({}, { status: 500, statusText: 'Old actor failure' });
     expect(page.createError()).toBeNull();
-    expect(page.isLoadingProject()).toBeTrue();
+    expect(page.isLoadingProject()).toBe(true);
     const reload = http.expectOne('/api/projects/a');
     expect(reload.request.headers.get('x-worktrail-member-id')).toBe(contributor.id);
     http.match('/api/projects/a/summary');
   });
 
   it('ignores old report clipboard success and finalization while the new report copy is pending', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     await harness.navigateByUrl('/projects/a/status/one');
     const page = nestedPage(ProjectStatusReportDetailPageComponent);
     http.match(() => true);
+    let startedCopy!: () => void;
     let finishCopy!: () => void;
-    const copy = spyOn(TestBed.inject(ClipboardService), 'copyText').and.returnValue(
-      new Promise<void>((resolve) => { finishCopy = resolve; })
-    );
+    const copyStarted = new Promise<void>(resolve => { startedCopy = resolve; });
+    const copyFinished = new Promise<void>(resolve => { finishCopy = resolve; });
+    const copy = vi.spyOn(TestBed.inject(ClipboardService), 'copyText').mockImplementation(() => {
+      startedCopy();
+      return copyFinished;
+    });
     const blob = new Blob(['Old report']);
-    spyOn(blob, 'text').and.resolveTo('Old report');
+    vi.spyOn(blob, 'text').mockResolvedValue('Old report');
     page.copyMarkdown();
     http.expectOne((request) => request.url.includes('one') && request.url.includes('export')).flush(blob);
-    await Promise.resolve();
-    await Promise.resolve();
+    await copyStarted;
     expect(copy).toHaveBeenCalled();
     await harness.navigateByUrl('/projects/a/status/two');
     http.match(() => true);
     page.copyMarkdown();
     const nextExport = http.expectOne((request) => request.url.includes('two') && request.url.includes('export'));
     finishCopy();
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(page.isCopyingMarkdown()).toBeTrue();
+    // Drain the old success/catch/finally chain without elapsed-time guesses.
+    await vi.advanceTimersByTimeAsync(0);
+    expect(page.isCopyingMarkdown()).toBe(true);
     expect(page.shareStatus()).toBeNull();
-    expect(nextExport.cancelled).toBeFalse();
+    expect(nextExport.cancelled).toBe(false);
   });
 
   for (const scope of ['project', 'workspace'] as const) {
@@ -407,9 +420,9 @@ describe('Page context with real reused Worktrail routes', () => {
       page.savedViewMutationError.set('Old message');
       TestBed.inject(CurrentUserService).selectMember(contributor.id);
       harness.detectChanges();
-      expect(oldViews.cancelled).toBeTrue();
+      expect(oldViews.cancelled).toBe(true);
       expect(page.savedViews()).toEqual([]);
-      expect(page.isSavingView()).toBeFalse();
+      expect(page.isSavingView()).toBe(false);
       expect(page.savedViewMutationError()).toBeNull();
       const nextViews = http.expectOne((request) => request.url === '/api/saved-work-views');
       expect(nextViews.request.headers.get('x-worktrail-member-id')).toBe(contributor.id);
@@ -422,7 +435,7 @@ describe('Page context with real reused Worktrail routes', () => {
     await harness.navigateByUrl('/projects/a/work-items?page=3&pageSize=10');
     const page = nestedPage(WorkItemListPageComponent);
     http.match(() => true);
-    const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     const user = TestBed.inject(CurrentUserService);
     user.selectMember(contributor.id);
     user.selectMember(owner.id);

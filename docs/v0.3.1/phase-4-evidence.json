@@ -1,0 +1,1394 @@
+{
+  "schemaVersion": 1,
+  "phase": 4,
+  "recordedOn": "2026-10-18T22:26:08.661Z",
+  "baselineCommit": "99f54b804e5451e9ac6b9bb46ec6734ab8984826",
+  "branch": "v0.3.1",
+  "releaseVersion": "0.3.0",
+  "node": "v24.16.0",
+  "lockSha256": "57208d70478309a22961f487ef64122b23e30e9358dc9a0c5eb92a8f7d22f0c7",
+  "changedSpecs": 17,
+  "retainedPhase4Cases": 228,
+  "coverage": "All original test definitions, registration loops, assertion sites, HTTP mock response arguments and logical-clock advancements are preserved. One navigation assertion strengthens an existing closeout case; no cases added, removed, merged, focused or disabled.",
+  "files": [
+    {
+      "file": "apps/web/src/app/features/projects/cycle-closeout/cycle-closeout-result.component.spec.ts",
+      "beforeSha256": "ff154b68f7c4031829c88a826541253187f7ea9adb4e49f57c1f9558841dcff0",
+      "sha256": "da55cd7b543189574fbf3720da513148f7e5a99a35ce77b11547d2982b109040",
+      "executedSha256": "da55cd7b543189574fbf3720da513148f7e5a99a35ce77b11547d2982b109040",
+      "passedCases": 6,
+      "testDefinitions": [
+        {
+          "name": "`presents all v${version} frozen rows with independent group paging, Show all and bounded Current links`",
+          "registrationLoops": [
+            "[1, 2] as const"
+          ]
+        },
+        {
+          "name": "`prints and exports complete v${version} evidence without changing the screen page or stored data`",
+          "registrationLoops": [
+            "[1, 2] as const"
+          ]
+        },
+        {
+          "name": "'keeps arbitrary Markdown and HTML inert, including fences in frozen text'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'handles failed copies and ignores obsolete copy feedback after switching outcomes'",
+          "registrationLoops": []
+        }
+      ],
+      "preservedAssertionSites": 32,
+      "additionalAssertionSites": 0,
+      "unchangedHttpResponses": 0,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/projects/cycle-closeout/project-cycle-closeout-page.component.spec.ts",
+      "beforeSha256": "39f8f167e63c5ef6762e570e807210a274500acde4239aac59a131ada1f2b326",
+      "sha256": "e0e6a17613538a0b72de91b6747ff09571f9cf59b5729f3f2169fc1eafa16590",
+      "executedSha256": "e0e6a17613538a0b72de91b6747ff09571f9cf59b5729f3f2169fc1eafa16590",
+      "passedCases": 8,
+      "testDefinitions": [
+        {
+          "name": "'renders metrics and unfinished scope without silently selecting a destination'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows load errors, retries, and reloads when route parameters change'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'submits null carryover once and navigates to cycle review after success'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps the submit button sized for both labels with wider font metrics and after failure'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'disables destination selection when no unfinished work exists'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows conflicts and refreshes the preview before another submission'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'rejects an unknown destination, preserves choices after ordinary failures, and cannot refresh away a pending write'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'ignores an old closeout response after the route identity changes'",
+          "registrationLoops": []
+        }
+      ],
+      "preservedAssertionSites": 50,
+      "additionalAssertionSites": 1,
+      "unchangedHttpResponses": 18,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/projects/planning/cycle-manager.component.spec.ts",
+      "beforeSha256": "e7730ab925819c83466f4646e9c038d10cfc012108b6b5c81e40ff0e6397fe44",
+      "sha256": "5a20b91aa8ae18ffb7c13d59d594195787d16b3c87391dfd542ae5b54c015e41",
+      "executedSha256": "5a20b91aa8ae18ffb7c13d59d594195787d16b3c87391dfd542ae5b54c015e41",
+      "passedCases": 5,
+      "testDefinitions": [
+        {
+          "name": "'renders editable cycles and emits mutation events'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'offers reactivation rather than an unusable editor for an archived cycle'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'hides mutation controls in read-only mode'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps completed status read-only and preserves valid planned and canceled transitions'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows loading, load error, and create error states'",
+          "registrationLoops": []
+        }
+      ],
+      "preservedAssertionSites": 28,
+      "additionalAssertionSites": 0,
+      "unchangedHttpResponses": 0,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/projects/planning/cycle-options.spec.ts",
+      "beforeSha256": "6fa459c22112aa49902b3b539a3f2db70b1947bf593063d08a011d853f720762",
+      "sha256": "c2ddd8976c7a4864a7f7976aa1a06cd944149c22f7ac0e316934247426ac04b1",
+      "executedSha256": "c2ddd8976c7a4864a7f7976aa1a06cd944149c22f7ac0e316934247426ac04b1",
+      "passedCases": 1,
+      "testDefinitions": [
+        {
+          "name": "'sorts cycle options by start date and applies display labels'",
+          "registrationLoops": []
+        }
+      ],
+      "preservedAssertionSites": 1,
+      "additionalAssertionSites": 0,
+      "unchangedHttpResponses": 0,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/projects/planning/cycle-summary-panel.component.spec.ts",
+      "beforeSha256": "c2ee57c6e0c0f1b8238055a296bbbc8d71ddc7daec96bc669253fb9ef6823ea0",
+      "sha256": "8cc7557939bdcacef3462d7abd1db18883247fef3975ecd631a7777f6c5be724",
+      "executedSha256": "8cc7557939bdcacef3462d7abd1db18883247fef3975ecd631a7777f6c5be724",
+      "passedCases": 6,
+      "testDefinitions": [
+        {
+          "name": "'keeps readiness and exact risk corrections scoped to the active cycle'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows no-active-cycle recovery with an upcoming cycle rather than implying it is active'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders cycle summary cards and action links'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'hides active closeout actions without cycle-management permission'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders the compact recently completed closeout result'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders compact empty copy when there is no cycle context'",
+          "registrationLoops": []
+        }
+      ],
+      "preservedAssertionSites": 24,
+      "additionalAssertionSites": 0,
+      "unchangedHttpResponses": 0,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/projects/planning/planning-mutation-state.spec.ts",
+      "beforeSha256": "e06e50853b19ac61f6440ff657ab56fd5081239c7d1f89d44fdc7413ca17c923",
+      "sha256": "60003175b976d70abd3bf8a601f115891272d3c018bea2002bf537741ceae6f2",
+      "executedSha256": "60003175b976d70abd3bf8a601f115891272d3c018bea2002bf537741ceae6f2",
+      "passedCases": 2,
+      "testDefinitions": [
+        {
+          "name": "'serializes writes and retains unrelated record feedback until a context reset'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'uses authoritative nonzero counts rather than preview length to disclose risks'",
+          "registrationLoops": []
+        }
+      ],
+      "preservedAssertionSites": 10,
+      "additionalAssertionSites": 0,
+      "unchangedHttpResponses": 0,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/projects/project-cycle-review-page.component.spec.ts",
+      "beforeSha256": "54f1e649b85b57bbfda1ddae8683059a417886e82c9753365442725a0606bd96",
+      "sha256": "edbbb513beb1fd666d2c46cbaab135a6572fa6522a4e1900c2336424bca9a651",
+      "executedSha256": "edbbb513beb1fd666d2c46cbaab135a6572fa6522a4e1900c2336424bca9a651",
+      "passedCases": 14,
+      "testDefinitions": [
+        {
+          "name": "'loads and renders the cycle review shell'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows the read-only notice for archived cycle reviews'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'hides closeout mutation affordances from contributors'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'leads completed reviews with a bounded immutable result and current links'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'bounds the destination cycle return: ' + name",
+          "registrationLoops": [
+            "[\n    ['same-project outcome', `/projects/${projectId}/cycles/10000000-0000-4000-8000-000000000702#cycle-result-heading`, true],\n    ['external URL', 'https://example.com/outcome', false],\n    ['recursive return', `/projects/${projectId}/cycles/other?returnUrl=%2Fprojects#cycle-result-heading`, false],\n    ['another project', '/projects/other/cycles/cycle#cycle-result-heading', false],\n    ['self return', `/projects/${projectId}/cycles/${cycleId}#cycle-result-heading`, false]\n  ] as const"
+          ]
+        },
+        {
+          "name": "'shows honest legacy copy for completed cycles without closeout history'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'surfaces load errors and retries the review request'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps empty risk and recent movement states compact'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows a specific not-found state'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows a specific permission state'",
+          "registrationLoops": []
+        }
+      ],
+      "preservedAssertionSites": 66,
+      "additionalAssertionSites": 0,
+      "unchangedHttpResponses": 11,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/projects/project-milestone-review-page.component.spec.ts",
+      "beforeSha256": "6f26556accdf1c288dc07a051eaba5a8e42b14352536941c6a83717411f363f8",
+      "sha256": "54711765392fb59d4ad09df32f5530fb8e6228163b1ff626a4ba11cf576ccefa",
+      "executedSha256": "54711765392fb59d4ad09df32f5530fb8e6228163b1ff626a4ba11cf576ccefa",
+      "passedCases": 4,
+      "testDefinitions": [
+        {
+          "name": "'loads and renders the milestone review shell'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders empty review sections without action rows'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows the read-only notice for archived milestone reviews'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'surfaces load errors and retries the review request'",
+          "registrationLoops": []
+        }
+      ],
+      "preservedAssertionSites": 29,
+      "additionalAssertionSites": 0,
+      "unchangedHttpResponses": 5,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/projects/project-planning-page.component.spec.ts",
+      "beforeSha256": "947721da5dd3a3349ed689e036ae114c7b17381486671a461ce487d06d57c08b",
+      "sha256": "bf9818df84361bc59ccd5e189b2a6ff0c87b9e1204e285f5ff1f8410a8490798",
+      "executedSha256": "bf9818df84361bc59ccd5e189b2a6ff0c87b9e1204e285f5ff1f8410a8490798",
+      "passedCases": 18,
+      "testDefinitions": [
+        {
+          "name": "'puts live health, cycle execution and populated risks before milestone targets and recent disclosures'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows an actionable no-active-cycle state even with upcoming and completed cycles'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'cancels superseded same-context planning, milestone and cycle reads'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps record errors and drafts local while serializing milestone writes'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'accepts native numeric cycle target points, rejects repeat submits and retains failed creation drafts'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'retries a failed summary without displaying stale execution evidence'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'opens planning review without duplicating project shell navigation'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'switches cycle management into a URL-backed planning view'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'switches milestone management into a URL-backed planning view'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders planning progress and risk links from the summary'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'uses exact counts and continuation links when the API returns only five risk preview rows'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders compact empty dashboard states'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'creates, edits, archives, and reactivates milestones'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'creates, edits, archives, and reactivates cycles'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows validation and duplicate-name API errors inline'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows cycle create validation and duplicate-name API errors inline'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders archived projects read-only'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders contributor access read-only'",
+          "registrationLoops": []
+        }
+      ],
+      "preservedAssertionSites": 148,
+      "additionalAssertionSites": 0,
+      "unchangedHttpResponses": 29,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/projects/status-reports/project-status-report-detail-page.component.spec.ts",
+      "beforeSha256": "f8ccd98a44cf45baae05b688ea6591452a47fe094e9eaee5d506b8f709405b9d",
+      "sha256": "adff308be6f773cc2589cd9f67cc833b21c72bcb93dea48c90180ec39c86f4f3",
+      "executedSha256": "adff308be6f773cc2589cd9f67cc833b21c72bcb93dea48c90180ec39c86f4f3",
+      "passedCases": 11,
+      "testDefinitions": [
+        {
+          "name": "'renders metadata, narrative, and snapshot notice from the published report'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders health reasons, counts, milestones, risk sections, and recent work'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'builds milestone, risk query, and work item return links'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'supports contributor-authored published reports'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'copies exported Markdown to the clipboard'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows copy failures when the clipboard write fails'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'downloads exported Markdown using the attachment filename'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'prints the report detail page'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps sharing actions grouped for wrapping and print hiding'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders archived project reports from their stored snapshot'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows an error state when the report cannot be loaded'",
+          "registrationLoops": []
+        }
+      ],
+      "preservedAssertionSites": 67,
+      "additionalAssertionSites": 0,
+      "unchangedHttpResponses": 3,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/projects/status-reports/project-status-report-draft-page.component.spec.ts",
+      "beforeSha256": "8ed444dacb49091538ba044fdbf11f9c7fb1f77c928cf10c883b925622b43ce3",
+      "sha256": "c469c82384c9f31e9725d2cfae7436f16e88fe8d895df420f4a8391a4492d08d",
+      "executedSha256": "c469c82384c9f31e9725d2cfae7436f16e88fe8d895df420f4a8391a4492d08d",
+      "passedCases": 7,
+      "testDefinitions": [
+        {
+          "name": "'renders generated draft fields and snapshot context'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'does not publish an invalid form'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'refreshes evidence without resetting an edited narrative in the same context'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'publishes the edited narrative with the reviewed snapshot and navigates to detail'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows publish API errors without losing the draft'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows forbidden load copy without rendering a broken form'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows archived project load copy without rendering a broken form'",
+          "registrationLoops": []
+        }
+      ],
+      "preservedAssertionSites": 30,
+      "additionalAssertionSites": 0,
+      "unchangedHttpResponses": 5,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/projects/status-reports/project-status-report-list-page.component.spec.ts",
+      "beforeSha256": "aaa8697d594b2a2dff35462fe18341b2cb5ecbb8c212480dd1cd5c0d53b8baec",
+      "sha256": "5ef4063b854519b03ced2282072d5f9a95b007912e46477fb814cae7f8e4f848",
+      "executedSha256": "5ef4063b854519b03ced2282072d5f9a95b007912e46477fb814cae7f8e4f848",
+      "passedCases": 7,
+      "testDefinitions": [
+        {
+          "name": "'shows loading state while report data is requested'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows an error state and retries both requests'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders empty state and create action for active owners'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders latest report prominently and previous reports newest-first'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'allows active maintainers to create reports'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'hides create action for contributors'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'hides create action for archived projects'",
+          "registrationLoops": []
+        }
+      ],
+      "preservedAssertionSites": 19,
+      "additionalAssertionSites": 0,
+      "unchangedHttpResponses": 4,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/work-items/components/work-item-attachments.component.spec.ts",
+      "beforeSha256": "73cd5a24fa7fa60f3d2eec03deddb6defcaf569b9be4e5f264edb956d1f0b708",
+      "sha256": "dc677006beb212bc761bc4577872f0595ab217a947f7663e63404fa0a130dbee",
+      "executedSha256": "dc677006beb212bc761bc4577872f0595ab217a947f7663e63404fa0a130dbee",
+      "passedCases": 17,
+      "testDefinitions": [
+        {
+          "name": "'renders compact loading, empty, and retry states'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders newest-first metadata, policy capacity, archived guidance, and contained long names'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'downloads the authorized Blob using the UTF-8 server filename'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps metadata visible and makes a failed row download retryable'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows removal only from server capability and supports filename confirmation cancellation'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'removes one attachment once and restores local count and byte capacity'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'retains a failed removal with the API message and permits explicit retry'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'cancels an active removal and clears its state when route identity changes'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'clears old rows immediately when the work item input changes'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'focuses and scrolls the Files target once after a requested load settles'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'fulfills a Files target after load error and ignores ordinary untargeted loads'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'cancels an in-flight list read when route identity changes'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'derives picker guidance and isolates invalid files from a valid media fallback'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'uploads files sequentially with determinate and indeterminate progress'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'continues after a server failure and retries the retained file without reselection'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'preflights the selected batch against aggregate bytes and attachment slots'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'clears the queue and cancels an active upload when route identity changes'",
+          "registrationLoops": []
+        }
+      ],
+      "preservedAssertionSites": 101,
+      "additionalAssertionSites": 0,
+      "unchangedHttpResponses": 37,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/work-items/components/work-item-child-work.component.spec.ts",
+      "beforeSha256": "749da33d7b55a8126df29d4907e02f153407c66ce1d8e3dedb91aed012a35442",
+      "sha256": "3217702960ef9ea185840ac9435e8eee2cb0b8e3ca8b2c495387d92c1e699070",
+      "executedSha256": "3217702960ef9ea185840ac9435e8eee2cb0b8e3ca8b2c495387d92c1e699070",
+      "passedCases": 3,
+      "testDefinitions": [
+        {
+          "name": "'loads bounded direct children and preserves hierarchy navigation context'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'owns its error, retry, and empty states independently'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'does not request children for a leaf work item'",
+          "registrationLoops": []
+        }
+      ],
+      "preservedAssertionSites": 18,
+      "additionalAssertionSites": 0,
+      "unchangedHttpResponses": 3,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/work-items/components/work-item-parent-components.spec.ts",
+      "beforeSha256": "03fb74603b9f920246424fea0625839b9bd01b04c576da99e1080ce834b85de5",
+      "sha256": "e1d79fa53b185e34ecc879053e6b29e72002b4d6ae18d78a3923946c029b964a",
+      "executedSha256": "e1d79fa53b185e34ecc879053e6b29e72002b4d6ae18d78a3923946c029b964a",
+      "passedCases": 6,
+      "testDefinitions": [
+        {
+          "name": "'links compact parent identity back through the current child detail'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'debounces two-character search, labels terminal results, and saves a selection'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'disables no-op save, replaces the current parent, and clears it'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'preserves a rejected selection and identifies a stale conflict'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders search errors and empty results as distinct recoverable states'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'does not present mutation controls for archived or parent items'",
+          "registrationLoops": []
+        }
+      ],
+      "preservedAssertionSites": 22,
+      "additionalAssertionSites": 0,
+      "unchangedHttpResponses": 8,
+      "unchangedClockAdvancements": [
+        "300",
+        "299",
+        "1",
+        "300",
+        "300",
+        "300"
+      ],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/work-items/work-item-detail-page.component.spec.ts",
+      "beforeSha256": "a2272e6ca67d787c6f7934102d555668c272e2e5d4b41389adb9bb0d50fdde59",
+      "sha256": "a2ab9818bec4f5e81d74409630995d6ae9d638497fd768e86359ad8a691bf400",
+      "executedSha256": "a2ab9818bec4f5e81d74409630995d6ae9d638497fd768e86359ad8a691bf400",
+      "passedCases": 112,
+      "testDefinitions": [
+        {
+          "name": "'targets a committed loaded section and opens its disclosure: ' + fragment",
+          "registrationLoops": [
+            "['discussion', 'dependencies', 'history']"
+          ]
+        },
+        {
+          "name": "'targets an identified comment after render and falls back for missing/deleted comments'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'rejects recursive return metadata and keeps the record project fallback'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'carries the same bounded origin through all dependency groups'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders plain empty/loading watcher messages without template implementation names'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'does not emit a late editor-close focus request after ' + departure",
+          "registrationLoops": [
+            "['route', 'destroy']"
+          ]
+        },
+        {
+          "name": "'starts read-first with a named project, independent status and compact disclosures'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'rejects incomplete native number/date input rather than clearing persisted planning facts'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'saves the numeric/null estimate contract: ' + estimate",
+          "registrationLoops": [
+            "[0, 13, null]"
+          ]
+        },
+        {
+          "name": "'rejects invalid estimates before PATCH: ' + value",
+          "registrationLoops": [
+            "[-1, 1.5, 2147483648, NaN, '3']"
+          ]
+        },
+        {
+          "name": "'rejects invalid calendar dates before PATCH: ' + date",
+          "registrationLoops": [
+            "['2027-02-29', '2026-04-31', '0000-01-01', 'not-a-date']"
+          ]
+        },
+        {
+          "name": "'sets or clears due date without timezone conversion: ' + date",
+          "registrationLoops": [
+            "['2028-02-29', '']"
+          ]
+        },
+        {
+          "name": "'retains planning fields, comment source and recipients on failure, and accepts an unchanged save'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps attachments mounted and independent discussion drafts when cancelling fields'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'does not let an older field-save DTO undo a completed status change'",
+          "registrationLoops": []
+        },
+        {
+          "name": "`validates new comment source before POST (${source.length} code units)`",
+          "registrationLoops": [
+            "['', ' \\r\\n\\t', 'x'.repeat(10_001)]"
+          ]
+        },
+        {
+          "name": "`preserves ${format} creation source and explicit mentions through failure and matching success`",
+          "registrationLoops": [
+            "['plain_text', 'markdown_v1'] as const"
+          ]
+        },
+        {
+          "name": "'does not infer recipients from typed names, Markdown links, code, or display keys'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'loads exact legacy source/format, permits deliberate conversion, and cancels without persisting it'",
+          "registrationLoops": []
+        },
+        {
+          "name": "`grandfathers unchanged legacy comments but validates conversion (${source.length} code units)`",
+          "registrationLoops": [
+            "['x'.repeat(10_001), ' \\r\\n']"
+          ]
+        },
+        {
+          "name": "'submits an explicit format-only edit without changing mentions or resending mention ids'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'preserves failed edit source, format, preview and other drafts, then recovers pending state'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders deleted rows before content or editors, even with retained source and an edit id'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps formatted archived discussion readable while preventing new/edit/delete authoring'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'preserves both comment editors and description drafts through activity, relationship and detail-save refreshes'",
+          "registrationLoops": []
+        },
+        {
+          "name": "`ignores a canceled save ${outcome} when the same comment has a newer edit`",
+          "registrationLoops": [
+            "['success', 'error'] as const"
+          ]
+        },
+        {
+          "name": "'ignores an old successful-edit refresh after a newer edit opens on the same route'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'does not let an old delete callback clear a newer edit or refresh its state'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'recovers from a discussion refresh failure without reposting or clearing a newer composer draft'",
+          "registrationLoops": []
+        },
+        {
+          "name": "`rejects stale ${action} ${outcome} after item/actor changes`",
+          "registrationLoops": [
+            "['create', 'edit', 'delete'] as const",
+            "['success', 'error'] as const"
+          ]
+        },
+        {
+          "name": "'clears all comment draft state when the actor changes without changing the item'",
+          "registrationLoops": []
+        },
+        {
+          "name": "`rejects a discussion refresh ${outcome} after navigation returns to the same item`",
+          "registrationLoops": [
+            "['success', 'error'] as const"
+          ]
+        },
+        {
+          "name": "'does not let an older discussion read undo a newer successful edit'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'does not let an older field-save DTO undo a successful comment write'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps legacy source literal until conversion, and discards an unsaved conversion'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'omits both unchanged description fields, including normalized line-ending equivalents'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'sends a format-only conversion once and adopts the successful pair as its new baseline'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'allows unrelated edits to oversized legacy content but rejects conversion until shortened'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'preserves the entire pair and preview after a failed save, and recovers pending state'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'does not reset description source, preview, or dirty state during attachment and discussion refreshes'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps description and comment drafts while applying parent and status changes'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'does not let an older status response replace a newly saved description or its baseline'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'preserves description and comment drafts through relationship refreshes'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'does not let an old save clear the pending state of a new route save'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'rejects old-actor responses even after returning to the same actor and item'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'ignores stale errors from superseded loads without breaking the current draft'",
+          "registrationLoops": []
+        },
+        {
+          "name": "`ignores a stale save ${outcome} after route reuse and return to the same item`",
+          "registrationLoops": [
+            "['success', 'error'] as const"
+          ]
+        },
+        {
+          "name": "'ignores superseded load responses for the same item'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'resets the editor on actor change and rejects the old actor save before the reload effect runs'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'ignores late discussion mutations rather than refreshing or clearing another item draft'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps formatted archived descriptions readable while disabling authoring'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'preserves the existing empty-description treatment below current-state facts'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders work item detail, comments, and activity'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'protects independent field and comment drafts and discards only the explicitly selected editor'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'does not mark unsaved fields as saved when a new comment succeeds'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'preserves inline comment source and format on Stay and treats a reverted editor as clean'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'refreshes only activity when the attachment child reports a mutation'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'retains activity when its attachment refresh fails and supports scoped retry'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders watcher state with count and watcher list'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'watches and unwatches the work item from detail'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'selects and removes comment mention members'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'uses safe return context and rejects external return URLs'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders relationship sections with linked work item metadata'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'searches relationship candidates while excluding the current work item'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'preserves relationship candidate loading, error, retry, and empty states'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'reloads detail when navigating to another work item on the same route component'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'issues one Files target generation for each same-item fragment request'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renews the Files target when route reuse changes the work item id'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps parent and child navigation current across same-route transitions'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'adds a blocker by posting from the selected blocker to the current work item'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'adds blocked work by posting from the current work item to the selected target'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'adds related work with the symmetric relationship type'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'removes a relationship and refreshes detail'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'prevents already-linked relationship candidates from being selected'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'edits a comment inline and refreshes activity'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'deletes a comment after confirmation and renders the tombstone'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'renders deleted comment tombstones from loaded detail'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'hides comment edit and delete actions when the local actor cannot modify the comment'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'prevents contributors from reopening terminal work items'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows a recoverable error when comment edit is rejected'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'updates editable fields and project labels through the patch endpoint'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'keeps the current inactive assignee selectable and marks inactive references'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows archived attached labels without offering them as active assignments'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'disables write controls and skips write calls when the project is archived'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'shows workflow errors when a status transition is rejected'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'adds a comment and refreshes comments and activity'",
+          "registrationLoops": []
+        },
+        {
+          "name": "'creates a comment with selected mention member ids and renders returned mentions'",
+          "registrationLoops": []
+        }
+      ],
+      "preservedAssertionSites": 409,
+      "additionalAssertionSites": 0,
+      "unchangedHttpResponses": 166,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    },
+    {
+      "file": "apps/web/src/app/features/work-items/work-item-detail-unavailable.spec.ts",
+      "beforeSha256": "584223c3e07d15cd6380ad6572b83b5ceaa822bd17735cb13587c5c5130cf578",
+      "sha256": "ae082a80f911b298df8067d7093e96b7121b850a52d99a7d52c6bfed305dfdfb",
+      "executedSha256": "ae082a80f911b298df8067d7093e96b7121b850a52d99a7d52c6bfed305dfdfb",
+      "passedCases": 1,
+      "testDefinitions": [
+        {
+          "name": "'retains the bounded historical return destination when the current record is unavailable'",
+          "registrationLoops": []
+        }
+      ],
+      "preservedAssertionSites": 2,
+      "additionalAssertionSites": 0,
+      "unchangedHttpResponses": 2,
+      "unchangedClockAdvancements": [],
+      "retainedAngularEffectFlushes": 0
+    }
+  ],
+  "discovery": {
+    "baselineFiles": 70,
+    "addedToolchainFiles": 1,
+    "intendedFiles": 71,
+    "vitestFiles": 71,
+    "karmaFiles": 0,
+    "totalIntendedCases": 888,
+    "phase4ExecutedCases": 228,
+    "previousPhaseSpecsUnchanged": true,
+    "noJasmineOrZoneTestClockConsumers": true,
+    "legacyTypeScope": "Explicit files: [] suppresses no-input diagnostics without inventing a legacy spec; exact exclusions preserve the empty complementary scope."
+  },
+  "acceptance": {
+    "runId": "381775c8-9128-47f4-8fa3-9f139ff388e4",
+    "entry": "Shared owned runWebTests implementation used by npm test and verify.",
+    "options": {
+      "runner": "vitest",
+      "include": [
+        "src/app/features/projects/cycle-closeout/cycle-closeout-result.component.spec.ts",
+        "src/app/features/projects/cycle-closeout/project-cycle-closeout-page.component.spec.ts",
+        "src/app/features/projects/planning/cycle-manager.component.spec.ts",
+        "src/app/features/projects/planning/cycle-options.spec.ts",
+        "src/app/features/projects/planning/cycle-summary-panel.component.spec.ts",
+        "src/app/features/projects/planning/planning-mutation-state.spec.ts",
+        "src/app/features/projects/project-cycle-review-page.component.spec.ts",
+        "src/app/features/projects/project-milestone-review-page.component.spec.ts",
+        "src/app/features/projects/project-planning-page.component.spec.ts",
+        "src/app/features/projects/status-reports/project-status-report-detail-page.component.spec.ts",
+        "src/app/features/projects/status-reports/project-status-report-draft-page.component.spec.ts",
+        "src/app/features/projects/status-reports/project-status-report-list-page.component.spec.ts",
+        "src/app/features/work-items/components/work-item-attachments.component.spec.ts",
+        "src/app/features/work-items/components/work-item-child-work.component.spec.ts",
+        "src/app/features/work-items/components/work-item-parent-components.spec.ts",
+        "src/app/features/work-items/work-item-detail-page.component.spec.ts",
+        "src/app/features/work-items/work-item-detail-unavailable.spec.ts",
+        "src/app/core/navigation/draft-departure-coordinator.spec.ts",
+        "src/app/core/navigation/page-context.spec.ts",
+        "src/app/core/api/attachments-api.spec.ts",
+        "src/app/core/api/cycles-api.spec.ts",
+        "src/app/shared/clipboard.service.spec.ts",
+        "src/app/shared/download-file.spec.ts",
+        "src/app/shared/navigation/section-target.spec.ts"
+      ],
+      "filter": null,
+      "help": false
+    },
+    "passed": true,
+    "cleaned": true,
+    "gates": [
+      {
+        "name": "test:web:vitest",
+        "passed": true
+      }
+    ],
+    "tests": {
+      "passed": 278,
+      "failed": 0,
+      "skipped": 0,
+      "total": 278
+    },
+    "files": [
+      {
+        "file": "src/app/shared/clipboard.service.spec.ts",
+        "status": "passed",
+        "passedCases": 3
+      },
+      {
+        "file": "src/app/shared/download-file.spec.ts",
+        "status": "passed",
+        "passedCases": 3
+      },
+      {
+        "file": "src/app/core/api/attachments-api.spec.ts",
+        "status": "passed",
+        "passedCases": 4
+      },
+      {
+        "file": "src/app/core/api/cycles-api.spec.ts",
+        "status": "passed",
+        "passedCases": 4
+      },
+      {
+        "file": "src/app/core/navigation/draft-departure-coordinator.spec.ts",
+        "status": "passed",
+        "passedCases": 11
+      },
+      {
+        "file": "src/app/core/navigation/page-context.spec.ts",
+        "status": "passed",
+        "passedCases": 23
+      },
+      {
+        "file": "src/app/features/projects/project-cycle-review-page.component.spec.ts",
+        "status": "passed",
+        "passedCases": 14
+      },
+      {
+        "file": "src/app/features/projects/project-milestone-review-page.component.spec.ts",
+        "status": "passed",
+        "passedCases": 4
+      },
+      {
+        "file": "src/app/features/projects/project-planning-page.component.spec.ts",
+        "status": "passed",
+        "passedCases": 18
+      },
+      {
+        "file": "src/app/features/work-items/work-item-detail-page.component.spec.ts",
+        "status": "passed",
+        "passedCases": 112
+      },
+      {
+        "file": "src/app/features/work-items/work-item-detail-unavailable.spec.ts",
+        "status": "passed",
+        "passedCases": 1
+      },
+      {
+        "file": "src/app/shared/navigation/section-target.spec.ts",
+        "status": "passed",
+        "passedCases": 2
+      },
+      {
+        "file": "src/app/features/projects/cycle-closeout/cycle-closeout-result.component.spec.ts",
+        "status": "passed",
+        "passedCases": 6
+      },
+      {
+        "file": "src/app/features/projects/cycle-closeout/project-cycle-closeout-page.component.spec.ts",
+        "status": "passed",
+        "passedCases": 8
+      },
+      {
+        "file": "src/app/features/projects/planning/cycle-manager.component.spec.ts",
+        "status": "passed",
+        "passedCases": 5
+      },
+      {
+        "file": "src/app/features/projects/planning/cycle-options.spec.ts",
+        "status": "passed",
+        "passedCases": 1
+      },
+      {
+        "file": "src/app/features/projects/planning/cycle-summary-panel.component.spec.ts",
+        "status": "passed",
+        "passedCases": 6
+      },
+      {
+        "file": "src/app/features/projects/planning/planning-mutation-state.spec.ts",
+        "status": "passed",
+        "passedCases": 2
+      },
+      {
+        "file": "src/app/features/projects/status-reports/project-status-report-detail-page.component.spec.ts",
+        "status": "passed",
+        "passedCases": 11
+      },
+      {
+        "file": "src/app/features/projects/status-reports/project-status-report-draft-page.component.spec.ts",
+        "status": "passed",
+        "passedCases": 7
+      },
+      {
+        "file": "src/app/features/projects/status-reports/project-status-report-list-page.component.spec.ts",
+        "status": "passed",
+        "passedCases": 7
+      },
+      {
+        "file": "src/app/features/work-items/components/work-item-attachments.component.spec.ts",
+        "status": "passed",
+        "passedCases": 17
+      },
+      {
+        "file": "src/app/features/work-items/components/work-item-child-work.component.spec.ts",
+        "status": "passed",
+        "passedCases": 3
+      },
+      {
+        "file": "src/app/features/work-items/components/work-item-parent-components.spec.ts",
+        "status": "passed",
+        "passedCases": 6
+      }
+    ],
+    "sourceHashes": {
+      "src/app/features/projects/cycle-closeout/cycle-closeout-result.component.spec.ts": "da55cd7b543189574fbf3720da513148f7e5a99a35ce77b11547d2982b109040",
+      "src/app/features/projects/cycle-closeout/project-cycle-closeout-page.component.spec.ts": "8548d7c1284c3bb8a31e026abe88dc365fa8a9b9b192b879388254f52d9a84a0",
+      "src/app/features/projects/planning/cycle-manager.component.spec.ts": "5a20b91aa8ae18ffb7c13d59d594195787d16b3c87391dfd542ae5b54c015e41",
+      "src/app/features/projects/planning/cycle-options.spec.ts": "c2ddd8976c7a4864a7f7976aa1a06cd944149c22f7ac0e316934247426ac04b1",
+      "src/app/features/projects/planning/cycle-summary-panel.component.spec.ts": "8cc7557939bdcacef3462d7abd1db18883247fef3975ecd631a7777f6c5be724",
+      "src/app/features/projects/planning/planning-mutation-state.spec.ts": "60003175b976d70abd3bf8a601f115891272d3c018bea2002bf537741ceae6f2",
+      "src/app/features/projects/project-cycle-review-page.component.spec.ts": "edbbb513beb1fd666d2c46cbaab135a6572fa6522a4e1900c2336424bca9a651",
+      "src/app/features/projects/project-milestone-review-page.component.spec.ts": "54711765392fb59d4ad09df32f5530fb8e6228163b1ff626a4ba11cf576ccefa",
+      "src/app/features/projects/project-planning-page.component.spec.ts": "bf9818df84361bc59ccd5e189b2a6ff0c87b9e1204e285f5ff1f8410a8490798",
+      "src/app/features/projects/status-reports/project-status-report-detail-page.component.spec.ts": "adff308be6f773cc2589cd9f67cc833b21c72bcb93dea48c90180ec39c86f4f3",
+      "src/app/features/projects/status-reports/project-status-report-draft-page.component.spec.ts": "c469c82384c9f31e9725d2cfae7436f16e88fe8d895df420f4a8391a4492d08d",
+      "src/app/features/projects/status-reports/project-status-report-list-page.component.spec.ts": "5ef4063b854519b03ced2282072d5f9a95b007912e46477fb814cae7f8e4f848",
+      "src/app/features/work-items/components/work-item-attachments.component.spec.ts": "dc677006beb212bc761bc4577872f0595ab217a947f7663e63404fa0a130dbee",
+      "src/app/features/work-items/components/work-item-child-work.component.spec.ts": "3217702960ef9ea185840ac9435e8eee2cb0b8e3ca8b2c495387d92c1e699070",
+      "src/app/features/work-items/components/work-item-parent-components.spec.ts": "e1d79fa53b185e34ecc879053e6b29e72002b4d6ae18d78a3923946c029b964a",
+      "src/app/features/work-items/work-item-detail-page.component.spec.ts": "a2ab9818bec4f5e81d74409630995d6ae9d638497fd768e86359ad8a691bf400",
+      "src/app/features/work-items/work-item-detail-unavailable.spec.ts": "ae082a80f911b298df8067d7093e96b7121b850a52d99a7d52c6bfed305dfdfb",
+      "src/app/core/navigation/draft-departure-coordinator.spec.ts": "c2049355d828fcf776b79419f726197361dc1b5ddbafeeb2ca51e76c433e2d52",
+      "src/app/core/navigation/page-context.spec.ts": "c49f07423c5d140f2137cebf9404bdfce6c4d4283627591b869b2b38cfdc5576",
+      "src/app/core/api/attachments-api.spec.ts": "a0167aac1cd0b4d497e36a2f9cb5b0be88245c3b33ecddf28073129d417ebd43",
+      "src/app/core/api/cycles-api.spec.ts": "7430164ca8ca4d9639a7bed69d500c18defae77aacf15bcd9e7515e3e27988b8",
+      "src/app/shared/clipboard.service.spec.ts": "1d3b4d9c62a500d172c6c8addac25c004f64e9c02bceef25984752a1f1b66463",
+      "src/app/shared/download-file.spec.ts": "603cc7cbfc96e9403c55513496d2d772fafb4344360cdd1f493450cc7b8e66f8",
+      "src/app/shared/navigation/section-target.spec.ts": "28ec58a5c78d4587171e437b162fbc8a6b3a14ea7d585cc6cee54950afa30d03"
+    }
+  },
+  "followUp": {
+    "runId": "74b4fae4-e944-4c9d-a24f-75f04a4f8483",
+    "entry": "Shared owned runWebTests implementation used by npm test and verify.",
+    "options": {
+      "runner": "vitest",
+      "include": [
+        "src/app/features/projects/cycle-closeout/project-cycle-closeout-page.component.spec.ts"
+      ],
+      "filter": null,
+      "help": false
+    },
+    "passed": true,
+    "cleaned": true,
+    "gates": [
+      {
+        "name": "test:web:vitest",
+        "passed": true
+      }
+    ],
+    "tests": {
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "total": 8
+    },
+    "files": [
+      {
+        "file": "src/app/features/projects/cycle-closeout/project-cycle-closeout-page.component.spec.ts",
+        "status": "passed",
+        "passedCases": 8
+      }
+    ],
+    "sourceHashes": {
+      "src/app/features/projects/cycle-closeout/project-cycle-closeout-page.component.spec.ts": "e0e6a17613538a0b72de91b6747ff09571f9cf59b5729f3f2169fc1eafa16590"
+    }
+  },
+  "negativeProbes": [
+    {
+      "runId": "b4ff157f-2b37-47b6-b28f-90531e192ba6",
+      "expectedFailureObserved": true,
+      "cleaned": true,
+      "mutation": "Private parent-search debounce changed from 300 ms to 301 ms.",
+      "options": {
+        "runner": "vitest",
+        "include": [
+          "src/app/features/work-items/components/work-item-parent-components.spec.ts"
+        ],
+        "filter": "debounces two-character search",
+        "help": false
+      },
+      "failedTest": "WorkItemParentManagerComponent debounces two-character search, labels terminal results, and saves a selection",
+      "reason": "The expected parent-candidates HTTP request is absent at the original 300 ms boundary."
+    }
+  ],
+  "checks": [
+    {
+      "command": "npm exec -- tsc -p apps/web/tsconfig.vitest.json --noEmit",
+      "passed": true
+    },
+    {
+      "command": "npm exec -- tsc -p apps/web/tsconfig.spec.json --noEmit",
+      "passed": true,
+      "scope": "Empty legacy input scope; not a legacy test execution."
+    },
+    {
+      "command": "npm exec -- eslint <17 Phase 4 spec paths> --max-warnings=0",
+      "passed": true
+    },
+    {
+      "command": "node --test scripts/verification/web.test.mjs",
+      "passed": true,
+      "tests": 8
+    },
+    {
+      "command": "TypeScript AST coverage/clock/HTTP and discovery reconciliation",
+      "passed": true
+    },
+    {
+      "command": "git diff --check",
+      "passed": true
+    }
+  ],
+  "diagnostics": [
+    "The first typecheck caught seven missing explicit vi imports; corrected before browser acceptance.",
+    "The original stale-type-scope probe used a broad include that became valid when migration completed; it now actually removes a required spec and fails at the intended validator boundary.",
+    "The 278-case selection passed but exposed an empty test router receiving a successful closeout navigation. An explicit resolved navigation double plus an exact destination assertion fixes that fixture gap. Only its eight-case file was rerun, passing without the route diagnostic."
+  ],
+  "teardown": "TestBed fixtures are destroyed before clock restoration; native focus/scroll/emitter spies retain Jasmine stub semantics explicitly. Mocks/descriptors, actor selection and only test-owned download anchors are restored/removed in failure-safe afterEach hooks.",
+  "unchangedInputs": {
+    "package.json": "c894b13805d7fa69c4a4634236385a1e2671fc75b3e67322fff2171cb84c2de1",
+    "package-lock.json": "57208d70478309a22961f487ef64122b23e30e9358dc9a0c5eb92a8f7d22f0c7",
+    "apps/web/package.json": "9991d6f7c6f93efc9c5ecd2299159dc19fe04dc18b0e69136ba47dbb839c459f",
+    "apps/web/angular.json": "a5e22f1b306337b9be5c7daafafd8d30f7e73cad602e343418b95e37281e82e5",
+    "apps/web/vitest.config.ts": "f275d59700f4947890b91a1baf1872426bb575259a40dacd257fb445dc1bfbb0",
+    "apps/web/src/testing/providers.ts": "9bb052784b6eec90f1079d6bc1b6fd3de5f14118c75b744481c3df4580ad2862",
+    "scripts/verification/web.mjs": "d714133dc1b53df280a3e28c17ffa9a27d8af46e7ffc4a0683e8994ca10800c4",
+    "scripts/test-web.mjs": "5728086f61786d557094977aeb97a28c738f844ec4b1c8d4e516fd3215f8f974"
+  },
+  "omitted": [
+    "Full 71-file/888-case single-runner execution and native-editor/E2E/preview/lifecycle integration are Phase 5.",
+    "Previously converted specs outside the seven named affected consumers were not rerun.",
+    "No app builds, install/audit refresh, API/database, site/setup or Linux lifecycle runs for spec-only edits."
+  ],
+  "scope": "No production source, dependency, scheduling provider, budget, SQL history, advisory deadline, CI trigger or release identity changes. Legacy runner/targets/dependencies remain for Phase 5 removal."
+}

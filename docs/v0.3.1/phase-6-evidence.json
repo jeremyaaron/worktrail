@@ -1,0 +1,1184 @@
+{
+  "schemaVersion": 1,
+  "phase": 6,
+  "recordedOn": "2026-10-18T23:20:30.034Z",
+  "releaseIdentity": "0.3.0",
+  "baseline": {
+    "commit": "b5bf78152baf3b38a0b0c141d750cd9a69e81074",
+    "branch": "v0.3.1",
+    "worktree": "clean",
+    "lockSha256": "eb74b05eb8ae37ce16b9a4d882c7ce06ccc4f0200242a8c5173836d0843817fa"
+  },
+  "implemented": {
+    "node": "v24.16.0",
+    "npm": "11.13.0",
+    "lockSha256": "5b43fb1f87ae625a7f7858f359fa6a3a593c8ae219165d25579b08f1c7b97257",
+    "kit": "1.0.0-rc.4",
+    "orm": "1.0.0-rc.4",
+    "sources": {
+      "apps/api/package.json": "5f0372b843568571ab3b03f49df0dbf1383740b81b33e4c8face173eb0c63b22",
+      "apps/api/src/db/client.ts": "91ffb83c6b586ebfe6e2cde7d7e4a89979e38b00755b0090ce5e9ff28ea47b9e",
+      "apps/api/src/db/migrate.ts": "01f729fec7d216208133a15e0d976aa2af0891de4d53ccf6670fe33d3977f083",
+      "apps/api/src/db/schema.ts": "6afb8f9dd66be540cf83f9fd29e01b39e496e8072041b2830146b65140b39f07",
+      "apps/api/drizzle.config.ts": "c886f163280ca0e60f0a5125deea1ff6fc2420b682a2f6fadd53207fa26b0e8c",
+      "apps/api/tsconfig.json": "b4226f6d8955df45f405f3a2614cce51e11bc98fd3099ae6f6dc2ef45bbe8ee9",
+      "apps/api/tsconfig.build.json": "7e2199b93b05c45a51fe41d13c1e8e9a9209fae5b64c2dcba0405e9166b043a3",
+      "apps/api/tests/authored-content-migration.test.ts": "ae8479fd8ea257ea3e063c9f8cfdf3450a892c74aa814038dfc8fc71632da54c",
+      "apps/api/tests/persistence.test.ts": "c7028b49faa3f0c39c0fbee37a88767e1536c6f5e883fbe73f3c5fe92762a452",
+      "apps/api/tests/persistence-integration.test.ts": "1dabf0a102abfb4b81815634309106bb4fc72eb695495ace7d13ddb285be843c",
+      "apps/api/tests/repository-read-transaction.test.ts": "5da7e0c2931a91232e99d489ddfac725c3341cd4792fe0e981055476e0cc2395",
+      "apps/api/tests/estimate-query-snapshots.test.ts": "7252bf298c535d9fcc357e6cd5e21c27bbdc2ae906a981b8da73ba1b184e0f69",
+      "scripts/verification/schema.mjs": "5d52ccb091435103e02be36f56d7365ff1ab46ff4af9f682fb4b84837e7822d7",
+      "scripts/verification/schema.test.mjs": "e6a324852eeb5f230459faf8d794e99df1e7612ccf05297363aaa2da95790508",
+      "docs/security/development-audit-exceptions.json": "7825ac5a6fda8735b132b5414b40884d1094c540b567b0f3dd9b197dee29a6f4"
+    }
+  },
+  "selectionRecheck": {
+    "stableKit": "0.31.11",
+    "stableOrm": "0.45.4",
+    "rcKit": "1.0.0-rc.4",
+    "rcOrm": "1.0.0-rc.4",
+    "stableKitStillDeclaresLegacyLoader": true,
+    "ownerGuide": "https://orm.drizzle.team/docs/upgrade-v1",
+    "changedCandidate": false
+  },
+  "installation": {
+    "priorVersionIndependentCleanInstall": true,
+    "workingCleanInstall": true,
+    "installedPeersValid": true,
+    "forcedPeersOrOverrides": false,
+    "lockDelta": {
+      "removed": [
+        "node_modules/@esbuild-kit/core-utils",
+        "node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/android-arm",
+        "node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/android-arm64",
+        "node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/android-x64",
+        "node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/darwin-arm64",
+        "node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/darwin-x64",
+        "node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/freebsd-arm64",
+        "node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/freebsd-x64",
+        "node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/linux-arm",
+        "node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/linux-arm64",
+        "node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/linux-ia32",
+        "node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/linux-loong64",
+        "node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/linux-mips64el",
+        "node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/linux-ppc64",
+        "node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/linux-riscv64",
+        "node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/linux-s390x",
+        "node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/linux-x64",
+        "node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/netbsd-x64",
+        "node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/openbsd-x64",
+        "node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/sunos-x64",
+        "node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/win32-arm64",
+        "node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/win32-ia32",
+        "node_modules/@esbuild-kit/core-utils/node_modules/@esbuild/win32-x64",
+        "node_modules/@esbuild-kit/core-utils/node_modules/esbuild",
+        "node_modules/@esbuild-kit/esm-loader"
+      ],
+      "added": [
+        {
+          "path": "node_modules/@js-temporal/polyfill",
+          "version": "0.5.1"
+        },
+        {
+          "path": "node_modules/jiti",
+          "version": "2.7.0"
+        },
+        {
+          "path": "node_modules/jsbi",
+          "version": "4.3.2"
+        }
+      ],
+      "changed": [
+        {
+          "path": "node_modules/@drizzle-team/brocli",
+          "before": "0.10.2",
+          "after": "0.12.1"
+        },
+        {
+          "path": "node_modules/drizzle-kit",
+          "before": "0.31.10",
+          "after": "1.0.0-rc.4"
+        },
+        {
+          "path": "node_modules/drizzle-orm",
+          "before": "0.45.2",
+          "after": "1.0.0-rc.4"
+        },
+        {
+          "path": "node_modules/get-tsconfig",
+          "before": "4.14.0",
+          "after": "4.14.3"
+        }
+      ]
+    }
+  },
+  "audits": {
+    "production": 0,
+    "full": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0,
+      "total": 0
+    },
+    "command": "npm run audit:dependencies",
+    "retired": [
+      "GHSA-67mh-4wv8-2f99"
+    ],
+    "remainingExceptions": 0,
+    "originalPolicyDatesAndBoundaryUnchanged": true
+  },
+  "conversion": {
+    "command": "npm exec --workspace @worktrail/api -- drizzle-kit up",
+    "sqlBytesAndOrderPreserved": true,
+    "snapshotIdsAndAncestryPreserved": true,
+    "domainDdlAdded": false,
+    "timestampSemantics": "Folders encode UTC seconds; original ledger millisecond timestamps are retained by owner augmentation.",
+    "mapping": [
+      {
+        "index": 0,
+        "originalTag": "0000_aberrant_centennial",
+        "originalTimestamp": 1783115439679,
+        "folder": "20260703215039_aberrant_centennial",
+        "folderTimestamp": 1783115439000,
+        "sha256": "ace5b1aa1c880376d0c997d5dfb19b021b35bbc21a97c3d7ac3065ecf4e7622c",
+        "breakpoints": true,
+        "snapshotId": "d62e438e-e03d-4e1e-bf92-8fecc0a64cdc",
+        "prevIds": [
+          "00000000-0000-0000-0000-000000000000"
+        ]
+      },
+      {
+        "index": 1,
+        "originalTag": "0001_easy_blade",
+        "originalTimestamp": 1783129808675,
+        "folder": "20260704015008_easy_blade",
+        "folderTimestamp": 1783129808000,
+        "sha256": "e9d9c596c1df20f3cb2a47cd9819cc427a1d66fb5bf601bed23f1d7de4d09ed8",
+        "breakpoints": true,
+        "snapshotId": "2d1a6918-73fe-46f0-bf15-497fb6e5f730",
+        "prevIds": [
+          "d62e438e-e03d-4e1e-bf92-8fecc0a64cdc"
+        ]
+      },
+      {
+        "index": 2,
+        "originalTag": "0002_wide_nicolaos",
+        "originalTimestamp": 1783180739472,
+        "folder": "20260704155859_wide_nicolaos",
+        "folderTimestamp": 1783180739000,
+        "sha256": "0fb99df7a0cd0da896a2f874a5dfca9195fcd87bd7fbd43bfe4749c3953904cd",
+        "breakpoints": true,
+        "snapshotId": "b07d032e-38f6-4d4b-8edc-cdf409e35961",
+        "prevIds": [
+          "2d1a6918-73fe-46f0-bf15-497fb6e5f730"
+        ]
+      },
+      {
+        "index": 3,
+        "originalTag": "0003_overrated_hercules",
+        "originalTimestamp": 1783193362168,
+        "folder": "20260704192922_overrated_hercules",
+        "folderTimestamp": 1783193362000,
+        "sha256": "380b18a2504a8662e16f7b9ddd81f52ef64672aeffb7353c7c6b94592e35df7b",
+        "breakpoints": true,
+        "snapshotId": "77759f71-298d-4880-bbba-1d97e5b514e6",
+        "prevIds": [
+          "b07d032e-38f6-4d4b-8edc-cdf409e35961"
+        ]
+      },
+      {
+        "index": 4,
+        "originalTag": "0004_modern_jane_foster",
+        "originalTimestamp": 1783200768507,
+        "folder": "20260704213248_modern_jane_foster",
+        "folderTimestamp": 1783200768000,
+        "sha256": "e61c6bf215111e93866867a66408444b4f66984fd90681516d3c5247378910b6",
+        "breakpoints": true,
+        "snapshotId": "6fd6ca3b-2e54-4806-a903-32a0e819abfb",
+        "prevIds": [
+          "77759f71-298d-4880-bbba-1d97e5b514e6"
+        ]
+      },
+      {
+        "index": 5,
+        "originalTag": "0005_hot_post",
+        "originalTimestamp": 1783220766995,
+        "folder": "20260705030606_hot_post",
+        "folderTimestamp": 1783220766000,
+        "sha256": "9bfce0aafbd08281b1c866ebb5f565163e7a39a4ff903c98343a25efaab3aff6",
+        "breakpoints": true,
+        "snapshotId": "bf95a426-6295-44b1-a7e0-84acae266f27",
+        "prevIds": [
+          "6fd6ca3b-2e54-4806-a903-32a0e819abfb"
+        ]
+      },
+      {
+        "index": 6,
+        "originalTag": "0006_odd_valeria_richards",
+        "originalTimestamp": 1783288022190,
+        "folder": "20260705214702_odd_valeria_richards",
+        "folderTimestamp": 1783288022000,
+        "sha256": "b342f7e1b43899cf766e6baf94ea675ed0afb8e54793512c025d2a54a8ff22e1",
+        "breakpoints": true,
+        "snapshotId": "bcc8b649-8bf1-4559-8edb-53a5ac15335a",
+        "prevIds": [
+          "bf95a426-6295-44b1-a7e0-84acae266f27"
+        ]
+      },
+      {
+        "index": 7,
+        "originalTag": "0007_panoramic_chimera",
+        "originalTimestamp": 1783303027541,
+        "folder": "20260706015707_panoramic_chimera",
+        "folderTimestamp": 1783303027000,
+        "sha256": "d305bc7aa042ee72107e56e0c26d78385993030be6374c4ef0833c2795d9ab9a",
+        "breakpoints": true,
+        "snapshotId": "831b258a-4c13-48d8-8b72-972a5f40e721",
+        "prevIds": [
+          "bcc8b649-8bf1-4559-8edb-53a5ac15335a"
+        ]
+      },
+      {
+        "index": 8,
+        "originalTag": "0008_careless_silver_fox",
+        "originalTimestamp": 1783307679945,
+        "folder": "20260706031439_careless_silver_fox",
+        "folderTimestamp": 1783307679000,
+        "sha256": "580631b9d1c70d4286fd82b26b5544e96c905d1eaaca1d8a000758b6a831e176",
+        "breakpoints": true,
+        "snapshotId": "0ecef256-31b6-433b-831c-80235b5b43dd",
+        "prevIds": [
+          "831b258a-4c13-48d8-8b72-972a5f40e721"
+        ]
+      },
+      {
+        "index": 9,
+        "originalTag": "0009_smart_tana_nile",
+        "originalTimestamp": 1783380599272,
+        "folder": "20260706232959_smart_tana_nile",
+        "folderTimestamp": 1783380599000,
+        "sha256": "4d5369e2445848687b10325c630a2fb1ac07038fdb0eaf0044087a7b55a0fdcd",
+        "breakpoints": true,
+        "snapshotId": "f552f937-6087-446f-ab84-14ee9e5d1f4a",
+        "prevIds": [
+          "0ecef256-31b6-433b-831c-80235b5b43dd"
+        ]
+      },
+      {
+        "index": 10,
+        "originalTag": "0010_free_quasar",
+        "originalTimestamp": 1783381168612,
+        "folder": "20260706233928_free_quasar",
+        "folderTimestamp": 1783381168000,
+        "sha256": "e05ce26eb0750c479038fcfdf8784a189394edcf038580d864f235de431f585a",
+        "breakpoints": true,
+        "snapshotId": "22522a84-8cf0-461b-b0bb-c8fbf47678eb",
+        "prevIds": [
+          "f552f937-6087-446f-ab84-14ee9e5d1f4a"
+        ]
+      },
+      {
+        "index": 11,
+        "originalTag": "0011_bouncy_zaladane",
+        "originalTimestamp": 1783391852692,
+        "folder": "20260707023732_bouncy_zaladane",
+        "folderTimestamp": 1783391852000,
+        "sha256": "d1171bdefe2a2da1bdbe6f15e23bb81eae6b5f98c6f4f73b7f9dc0a4296ff7a0",
+        "breakpoints": true,
+        "snapshotId": "7aa640a0-76ff-48ba-9693-6a1ac2be8956",
+        "prevIds": [
+          "22522a84-8cf0-461b-b0bb-c8fbf47678eb"
+        ]
+      },
+      {
+        "index": 12,
+        "originalTag": "0012_oval_deathstrike",
+        "originalTimestamp": 1783428382363,
+        "folder": "20260707124622_oval_deathstrike",
+        "folderTimestamp": 1783428382000,
+        "sha256": "f0e3408d089a35026b79e7bef07affcf272aafa82e74f966bb56391abcfef8d6",
+        "breakpoints": true,
+        "snapshotId": "bf6db565-85ea-4ea5-a345-8acc7b4a56b9",
+        "prevIds": [
+          "7aa640a0-76ff-48ba-9693-6a1ac2be8956"
+        ]
+      },
+      {
+        "index": 13,
+        "originalTag": "0013_cuddly_dreadnoughts",
+        "originalTimestamp": 1783637476626,
+        "folder": "20260709225116_cuddly_dreadnoughts",
+        "folderTimestamp": 1783637476000,
+        "sha256": "c3d28e74b73c3285a1b41a9a44db99df19a6cfaefea061498453e39c456ef80e",
+        "breakpoints": true,
+        "snapshotId": "b316c078-c409-4f5b-a833-40c8d643d341",
+        "prevIds": [
+          "bf6db565-85ea-4ea5-a345-8acc7b4a56b9"
+        ]
+      },
+      {
+        "index": 14,
+        "originalTag": "0014_dapper_hellfire_club",
+        "originalTimestamp": 1783792561762,
+        "folder": "20260711175601_dapper_hellfire_club",
+        "folderTimestamp": 1783792561000,
+        "sha256": "28ecce7bd5164e4bc034950b7d4768a6a205c665c0fd8918651fba8c81e6e639",
+        "breakpoints": true,
+        "snapshotId": "09182ae0-72c2-4a1b-bd6f-b02bf38f7b1e",
+        "prevIds": [
+          "b316c078-c409-4f5b-a833-40c8d643d341"
+        ]
+      },
+      {
+        "index": 15,
+        "originalTag": "0015_silky_tyger_tiger",
+        "originalTimestamp": 1784085671500,
+        "folder": "20260715032111_silky_tyger_tiger",
+        "folderTimestamp": 1784085671000,
+        "sha256": "30a88e81f510a299546af441d9055a92b26011f80488409144b3bf39bf4ab54f",
+        "breakpoints": true,
+        "snapshotId": "42d43fa7-f9a3-4a40-88ac-e0165238b8f0",
+        "prevIds": [
+          "09182ae0-72c2-4a1b-bd6f-b02bf38f7b1e"
+        ]
+      },
+      {
+        "index": 16,
+        "originalTag": "0016_scalable_search",
+        "originalTimestamp": 1784484444707,
+        "folder": "20260719180724_scalable_search",
+        "folderTimestamp": 1784484444000,
+        "sha256": "fec0e1c895b437604dc6910b81d21f391d38e0a720ae1563e0fe37fe49b9f714",
+        "breakpoints": true,
+        "snapshotId": "6f217e37-bad0-4f52-ae56-1c6f63e171f5",
+        "prevIds": [
+          "42d43fa7-f9a3-4a40-88ac-e0165238b8f0"
+        ]
+      },
+      {
+        "index": 17,
+        "originalTag": "0017_safe_pandemic",
+        "originalTimestamp": 1784510361560,
+        "folder": "20260720011921_safe_pandemic",
+        "folderTimestamp": 1784510361000,
+        "sha256": "0288a71ada18f91a104da0ec8be1d046235d58e6871a3a1d9beb985dd9edd6b2",
+        "breakpoints": true,
+        "snapshotId": "b4720715-d9a8-4890-881e-60c4c3084ae3",
+        "prevIds": [
+          "6f217e37-bad0-4f52-ae56-1c6f63e171f5"
+        ]
+      },
+      {
+        "index": 18,
+        "originalTag": "0018_sweet_apocalypse",
+        "originalTimestamp": 1784777429705,
+        "folder": "20260723033029_sweet_apocalypse",
+        "folderTimestamp": 1784777429000,
+        "sha256": "51bc79ce8c87cd235daf191adf7dc4e41425924e34ff58ea9588b1306c00519b",
+        "breakpoints": true,
+        "snapshotId": "df894ac9-cb91-4f9e-9299-7f46a9ef6f20",
+        "prevIds": [
+          "b4720715-d9a8-4890-881e-60c4c3084ae3"
+        ]
+      },
+      {
+        "index": 19,
+        "originalTag": "0019_nosy_junta",
+        "originalTimestamp": 1791775775513,
+        "folder": "20261012032935_nosy_junta",
+        "folderTimestamp": 1791775775000,
+        "sha256": "295cd60f134a89e06694e2353e5dd085754945d91bbc07ab7706131cd2bc4f95",
+        "breakpoints": true,
+        "snapshotId": "474cfd4f-d955-4a9b-bb6b-c81c6d5b1c5d",
+        "prevIds": [
+          "df894ac9-cb91-4f9e-9299-7f46a9ef6f20"
+        ]
+      }
+    ],
+    "normalization": [
+      {
+        "entity": "indexes:public:labels:labels_project_id_active_name_unique",
+        "field": "where",
+        "before": "\"labels\".\"archived_at\" is null",
+        "after": "\"archived_at\" is null"
+      },
+      {
+        "entity": "indexes:public:milestones:milestones_project_id_active_name_unique",
+        "field": "where",
+        "before": "\"milestones\".\"archived_at\" is null",
+        "after": "\"archived_at\" is null"
+      },
+      {
+        "entity": "indexes:public:notifications:notifications_recipient_source_event_unique",
+        "field": "where",
+        "before": "\"notifications\".\"source_event_key\" is not null",
+        "after": "\"source_event_key\" is not null"
+      },
+      {
+        "entity": "checks:public:project_cycles:project_cycles_date_range_check",
+        "field": "value",
+        "before": "\"project_cycles\".\"start_date\" <= \"project_cycles\".\"end_date\"",
+        "after": "\"start_date\" <= \"end_date\""
+      },
+      {
+        "entity": "checks:public:project_cycles:project_cycles_target_points_check",
+        "field": "value",
+        "before": "\"project_cycles\".\"target_points\" is null or \"project_cycles\".\"target_points\" > 0",
+        "after": "\"target_points\" is null or \"target_points\" > 0"
+      },
+      {
+        "entity": "indexes:public:project_cycles:project_cycles_project_id_active_unique",
+        "field": "where",
+        "before": "\"project_cycles\".\"status\" = 'active' and \"project_cycles\".\"archived_at\" is null",
+        "after": "\"status\" = 'active' and \"archived_at\" is null"
+      },
+      {
+        "entity": "indexes:public:project_cycles:project_cycles_project_id_active_name_unique",
+        "field": "where",
+        "before": "\"project_cycles\".\"archived_at\" is null",
+        "after": "\"archived_at\" is null"
+      },
+      {
+        "entity": "checks:public:projects:projects_key_check",
+        "field": "value",
+        "before": "\"projects\".\"key\" ~ '^[A-Z0-9]{2,8}$'",
+        "after": "\"key\" ~ '^[A-Z0-9]{2,8}$'"
+      },
+      {
+        "entity": "checks:public:projects:projects_next_work_item_number_check",
+        "field": "value",
+        "before": "\"projects\".\"next_work_item_number\" > 0",
+        "after": "\"next_work_item_number\" > 0"
+      },
+      {
+        "entity": "checks:public:saved_work_views:saved_work_views_scope_project_check",
+        "field": "value",
+        "before": "((\"saved_work_views\".\"scope\" = 'workspace' and \"saved_work_views\".\"project_id\" is null) or (\"saved_work_views\".\"scope\" = 'project' and \"saved_work_views\".\"project_id\" is not null))",
+        "after": "((\"scope\" = 'workspace' and \"project_id\" is null) or (\"scope\" = 'project' and \"project_id\" is not null))"
+      },
+      {
+        "entity": "indexes:public:saved_work_views:saved_work_views_project_scope_updated_idx",
+        "field": "where",
+        "before": "\"saved_work_views\".\"scope\" = 'project'",
+        "after": "\"scope\" = 'project'"
+      },
+      {
+        "entity": "indexes:public:saved_work_views:saved_work_views_workspace_personal_name_unique",
+        "field": "where",
+        "before": "\"saved_work_views\".\"scope\" = 'workspace' and \"saved_work_views\".\"visibility\" = 'personal'",
+        "after": "\"scope\" = 'workspace' and \"visibility\" = 'personal'"
+      },
+      {
+        "entity": "indexes:public:saved_work_views:saved_work_views_workspace_shared_name_unique",
+        "field": "where",
+        "before": "\"saved_work_views\".\"scope\" = 'workspace' and \"saved_work_views\".\"visibility\" = 'workspace'",
+        "after": "\"scope\" = 'workspace' and \"visibility\" = 'workspace'"
+      },
+      {
+        "entity": "indexes:public:saved_work_views:saved_work_views_project_personal_name_unique",
+        "field": "where",
+        "before": "\"saved_work_views\".\"scope\" = 'project' and \"saved_work_views\".\"visibility\" = 'personal'",
+        "after": "\"scope\" = 'project' and \"visibility\" = 'personal'"
+      },
+      {
+        "entity": "indexes:public:saved_work_views:saved_work_views_project_shared_name_unique",
+        "field": "where",
+        "before": "\"saved_work_views\".\"scope\" = 'project' and \"saved_work_views\".\"visibility\" = 'workspace'",
+        "after": "\"scope\" = 'project' and \"visibility\" = 'workspace'"
+      },
+      {
+        "entity": "checks:public:work_item_attachments:work_item_attachments_byte_size_check",
+        "field": "value",
+        "before": "\"work_item_attachments\".\"byte_size\" > 0 and \"work_item_attachments\".\"byte_size\" <= 4194304",
+        "after": "\"byte_size\" > 0 and \"byte_size\" <= 4194304"
+      },
+      {
+        "entity": "checks:public:work_item_attachments:work_item_attachments_file_name_check",
+        "field": "value",
+        "before": "char_length(\"work_item_attachments\".\"file_name\") between 1 and 180",
+        "after": "char_length(\"file_name\") between 1 and 180"
+      },
+      {
+        "entity": "checks:public:work_item_attachments:work_item_attachments_checksum_sha256_check",
+        "field": "value",
+        "before": "\"work_item_attachments\".\"checksum_sha256\" ~ '^[0-9a-f]{64}$'",
+        "after": "\"checksum_sha256\" ~ '^[0-9a-f]{64}$'"
+      },
+      {
+        "entity": "checks:public:work_item_attachments:work_item_attachments_storage_key_check",
+        "field": "value",
+        "before": "\"work_item_attachments\".\"storage_key\" ~ '^[0-9a-f]{64}$'",
+        "after": "\"storage_key\" ~ '^[0-9a-f]{64}$'"
+      },
+      {
+        "entity": "checks:public:work_item_relationships:work_item_relationships_no_self_check",
+        "field": "value",
+        "before": "\"work_item_relationships\".\"source_work_item_id\" <> \"work_item_relationships\".\"target_work_item_id\"",
+        "after": "\"source_work_item_id\" <> \"target_work_item_id\""
+      },
+      {
+        "entity": "indexes:public:work_item_watchers:work_item_watchers_active_unique",
+        "field": "where",
+        "before": "\"work_item_watchers\".\"unwatched_at\" is null",
+        "after": "\"unwatched_at\" is null"
+      },
+      {
+        "entity": "checks:public:work_items:work_items_item_number_check",
+        "field": "value",
+        "before": "\"work_items\".\"item_number\" > 0",
+        "after": "\"item_number\" > 0"
+      },
+      {
+        "entity": "checks:public:work_items:work_items_no_self_parent_check",
+        "field": "value",
+        "before": "\"work_items\".\"parent_work_item_id\" is null or \"work_items\".\"parent_work_item_id\" <> \"work_items\".\"id\"",
+        "after": "\"parent_work_item_id\" is null or \"parent_work_item_id\" <> \"id\""
+      }
+    ]
+  },
+  "generation": {
+    "consecutiveUnchangedRuns": 2,
+    "completeRecursiveInventory": [
+      [
+        "20260703215039_aberrant_centennial/migration.sql",
+        "ace5b1aa1c880376d0c997d5dfb19b021b35bbc21a97c3d7ac3065ecf4e7622c"
+      ],
+      [
+        "20260703215039_aberrant_centennial/snapshot.json",
+        "27780fadfa0ccbbbfe17d04f38858da1b59444ba1fff0f03a3a339cfec5d8a20"
+      ],
+      [
+        "20260704015008_easy_blade/migration.sql",
+        "e9d9c596c1df20f3cb2a47cd9819cc427a1d66fb5bf601bed23f1d7de4d09ed8"
+      ],
+      [
+        "20260704015008_easy_blade/snapshot.json",
+        "815ce2c0e9de108759cef1c77164e6bbb378d8ff495900373de138c82732412a"
+      ],
+      [
+        "20260704155859_wide_nicolaos/migration.sql",
+        "0fb99df7a0cd0da896a2f874a5dfca9195fcd87bd7fbd43bfe4749c3953904cd"
+      ],
+      [
+        "20260704155859_wide_nicolaos/snapshot.json",
+        "f7c84e9cefa567766a1b135823dcc6c3b202872d5b97aa0e8dcc1f8fb9caf92e"
+      ],
+      [
+        "20260704192922_overrated_hercules/migration.sql",
+        "380b18a2504a8662e16f7b9ddd81f52ef64672aeffb7353c7c6b94592e35df7b"
+      ],
+      [
+        "20260704192922_overrated_hercules/snapshot.json",
+        "36fa594d44165fed4c89bd5286930ed9e9cb90a47ad14f203979eda6a4294137"
+      ],
+      [
+        "20260704213248_modern_jane_foster/migration.sql",
+        "e61c6bf215111e93866867a66408444b4f66984fd90681516d3c5247378910b6"
+      ],
+      [
+        "20260704213248_modern_jane_foster/snapshot.json",
+        "2501604abe9add79387d00751c264611d04969422fa2927b231f13e610d965ab"
+      ],
+      [
+        "20260705030606_hot_post/migration.sql",
+        "9bfce0aafbd08281b1c866ebb5f565163e7a39a4ff903c98343a25efaab3aff6"
+      ],
+      [
+        "20260705030606_hot_post/snapshot.json",
+        "209ee777dc108b7bf3b9c5fe16fe16c430eeb1fa142ff718c89308eebe7838e2"
+      ],
+      [
+        "20260705214702_odd_valeria_richards/migration.sql",
+        "b342f7e1b43899cf766e6baf94ea675ed0afb8e54793512c025d2a54a8ff22e1"
+      ],
+      [
+        "20260705214702_odd_valeria_richards/snapshot.json",
+        "fecb5356c78b7a4eff090950b52f45f5a1aa131090434c19c126a1df7be82092"
+      ],
+      [
+        "20260706015707_panoramic_chimera/migration.sql",
+        "d305bc7aa042ee72107e56e0c26d78385993030be6374c4ef0833c2795d9ab9a"
+      ],
+      [
+        "20260706015707_panoramic_chimera/snapshot.json",
+        "db63e7e13dceabb9661395bc7da2548a7bb3495e7b00af0cbecaa2ea3ffa5c37"
+      ],
+      [
+        "20260706031439_careless_silver_fox/migration.sql",
+        "580631b9d1c70d4286fd82b26b5544e96c905d1eaaca1d8a000758b6a831e176"
+      ],
+      [
+        "20260706031439_careless_silver_fox/snapshot.json",
+        "1296574f2e9199abf56eaf83439b7d24c4227027fbd05d74f1eb38260c9bac56"
+      ],
+      [
+        "20260706232959_smart_tana_nile/migration.sql",
+        "4d5369e2445848687b10325c630a2fb1ac07038fdb0eaf0044087a7b55a0fdcd"
+      ],
+      [
+        "20260706232959_smart_tana_nile/snapshot.json",
+        "430071b3725f5fd84991969a4560c02a1324e4bbf67710c9a1175a4b8d3a9868"
+      ],
+      [
+        "20260706233928_free_quasar/migration.sql",
+        "e05ce26eb0750c479038fcfdf8784a189394edcf038580d864f235de431f585a"
+      ],
+      [
+        "20260706233928_free_quasar/snapshot.json",
+        "4efa4dc91c395bde63ad25251a28753dce9bbec384f31357ae280ccdc48821ef"
+      ],
+      [
+        "20260707023732_bouncy_zaladane/migration.sql",
+        "d1171bdefe2a2da1bdbe6f15e23bb81eae6b5f98c6f4f73b7f9dc0a4296ff7a0"
+      ],
+      [
+        "20260707023732_bouncy_zaladane/snapshot.json",
+        "28026183753cdca3839bc827dbcaae0418f49d873fa62b86c8a56b7a88857348"
+      ],
+      [
+        "20260707124622_oval_deathstrike/migration.sql",
+        "f0e3408d089a35026b79e7bef07affcf272aafa82e74f966bb56391abcfef8d6"
+      ],
+      [
+        "20260707124622_oval_deathstrike/snapshot.json",
+        "f290b366aca6aec62b430a21c6637a870e42065c099e192e5c9c2b8cb74850a2"
+      ],
+      [
+        "20260709225116_cuddly_dreadnoughts/migration.sql",
+        "c3d28e74b73c3285a1b41a9a44db99df19a6cfaefea061498453e39c456ef80e"
+      ],
+      [
+        "20260709225116_cuddly_dreadnoughts/snapshot.json",
+        "9fd62d5782d45ea2bab5890ba5f471c0e3c6b87431e3b97eb5ccf87fc92eaa15"
+      ],
+      [
+        "20260711175601_dapper_hellfire_club/migration.sql",
+        "28ecce7bd5164e4bc034950b7d4768a6a205c665c0fd8918651fba8c81e6e639"
+      ],
+      [
+        "20260711175601_dapper_hellfire_club/snapshot.json",
+        "72de491f03036d6778eaa4e333b530e9767d6455c4536f020d33285e3b2a318b"
+      ],
+      [
+        "20260715032111_silky_tyger_tiger/migration.sql",
+        "30a88e81f510a299546af441d9055a92b26011f80488409144b3bf39bf4ab54f"
+      ],
+      [
+        "20260715032111_silky_tyger_tiger/snapshot.json",
+        "8323d655b1870f681d0a36a04734a95ea8d9782fb28b8b58a295842dec7d0738"
+      ],
+      [
+        "20260719180724_scalable_search/migration.sql",
+        "fec0e1c895b437604dc6910b81d21f391d38e0a720ae1563e0fe37fe49b9f714"
+      ],
+      [
+        "20260719180724_scalable_search/snapshot.json",
+        "8d8cc846b24b147478f80b0342c841bc40d731260e1b0b169e229752653fe58a"
+      ],
+      [
+        "20260720011921_safe_pandemic/migration.sql",
+        "0288a71ada18f91a104da0ec8be1d046235d58e6871a3a1d9beb985dd9edd6b2"
+      ],
+      [
+        "20260720011921_safe_pandemic/snapshot.json",
+        "d07fd73b9cd2a0da81ef01d90e2b3b6e47866ae578de424e4f9f6cf9d35d3fdf"
+      ],
+      [
+        "20260723033029_sweet_apocalypse/migration.sql",
+        "51bc79ce8c87cd235daf191adf7dc4e41425924e34ff58ea9588b1306c00519b"
+      ],
+      [
+        "20260723033029_sweet_apocalypse/snapshot.json",
+        "f67db9e30a133fd5a5bfecd06d94c58a6335622ae516c61a3e6cd4ac74b5435c"
+      ],
+      [
+        "20261012032935_nosy_junta/migration.sql",
+        "295cd60f134a89e06694e2353e5dd085754945d91bbc07ab7706131cd2bc4f95"
+      ],
+      [
+        "20261012032935_nosy_junta/snapshot.json",
+        "4544ca1468ec02f63421f551f37869367117b8fbf313df24902e8ea394b89f9c"
+      ]
+    ]
+  },
+  "checks": [
+    {
+      "label": "schema-generation-1",
+      "args": [
+        "run",
+        "db:generate"
+      ],
+      "passed": true,
+      "durationMs": 1701
+    },
+    {
+      "label": "schema-generation-2",
+      "args": [
+        "run",
+        "db:generate"
+      ],
+      "passed": true,
+      "durationMs": 4958
+    },
+    {
+      "label": "api-lint",
+      "args": [
+        "run",
+        "lint",
+        "--workspace",
+        "@worktrail/api"
+      ],
+      "passed": true,
+      "durationMs": 2741
+    },
+    {
+      "label": "api-typecheck",
+      "args": [
+        "run",
+        "typecheck",
+        "--workspace",
+        "@worktrail/api"
+      ],
+      "passed": true,
+      "durationMs": 10435
+    },
+    {
+      "label": "contracts-build",
+      "args": [
+        "run",
+        "build:contracts"
+      ],
+      "passed": true,
+      "durationMs": 946
+    },
+    {
+      "label": "api-build",
+      "args": [
+        "run",
+        "build:api"
+      ],
+      "passed": true,
+      "durationMs": 4508
+    },
+    {
+      "label": "fresh-migrate",
+      "args": [
+        "run",
+        "db:migrate"
+      ],
+      "passed": true,
+      "durationMs": 1885
+    },
+    {
+      "label": "fresh-repeat-migrate",
+      "args": [
+        "run",
+        "db:migrate"
+      ],
+      "passed": true,
+      "durationMs": 1430
+    },
+    {
+      "label": "prior-version-migrate",
+      "args": [
+        "run",
+        "db:migrate"
+      ],
+      "passed": true,
+      "durationMs": 1327
+    },
+    {
+      "label": "upgrade-migrate",
+      "args": [
+        "run",
+        "db:migrate"
+      ],
+      "passed": true,
+      "durationMs": 969
+    },
+    {
+      "label": "upgrade-repeat-migrate",
+      "args": [
+        "run",
+        "db:migrate"
+      ],
+      "passed": true,
+      "durationMs": 1385
+    },
+    {
+      "label": "focused-api-tests",
+      "args": [
+        "run",
+        "test",
+        "--workspace",
+        "@worktrail/api",
+        "--",
+        "tests/authored-content-migration.test.ts",
+        "tests/persistence.test.ts",
+        "tests/persistence-integration.test.ts",
+        "tests/repository-read-transaction.test.ts",
+        "tests/estimate-query-snapshots.test.ts",
+        "--reporter=default",
+        "--reporter=json",
+        "--outputFile=/Users/jeremyaaron/Projects/worktrail/test-results/phase-6/api-tests.json"
+      ],
+      "passed": true,
+      "durationMs": 6186
+    }
+  ],
+  "helpers": {
+    "command": "node --test scripts/verification/schema.test.mjs scripts/verification/audit.test.mjs",
+    "tests": 23,
+    "passed": 23,
+    "coverage": [
+      "unchanged inventory",
+      "added migrations",
+      "unknown nested metadata",
+      "modified SQL",
+      "modified snapshots",
+      "deleted SQL",
+      "deleted snapshots",
+      "generator failure identity",
+      "unsupported symlinks before/after generation",
+      "strict audit/peer/policy gates"
+    ]
+  },
+  "focusedApi": {
+    "tests": 40,
+    "passed": 40,
+    "failed": 0,
+    "files": [
+      "tests/persistence.test.ts",
+      "tests/repository-read-transaction.test.ts",
+      "tests/authored-content-migration.test.ts",
+      "tests/estimate-query-snapshots.test.ts",
+      "tests/persistence-integration.test.ts"
+    ],
+    "addedRegression": "Provided client pool identity; no fallback construction",
+    "report": "test-results/phase-6/api-tests.json"
+  },
+  "databases": {
+    "fresh": {
+      "migrationRows": 20,
+      "reapplicationNoOp": true
+    },
+    "upgrade": {
+      "legacyRows": 4,
+      "originalLedgerColumnsUnchanged": true,
+      "migrationRows": 20,
+      "ownerAddsNameAndAppliedAt": true,
+      "historicalAppliedAtUnknown": true,
+      "populatedDataUnchanged": true,
+      "reapplicationNoOp": true,
+      "schemaUnchanged": true,
+      "schemaMatchesFresh": true,
+      "preservedDataSha256": "e700a3f7e3dd16bb5be6c7ee3658c52a7053ccd56ff1bedb9ce4e0fd91e0727d"
+    },
+    "ledgerMapping": {
+      "before": [
+        {
+          "id": 1,
+          "hash": "ace5b1aa1c880376d0c997d5dfb19b021b35bbc21a97c3d7ac3065ecf4e7622c",
+          "created_at": "1783115439679"
+        },
+        {
+          "id": 2,
+          "hash": "e9d9c596c1df20f3cb2a47cd9819cc427a1d66fb5bf601bed23f1d7de4d09ed8",
+          "created_at": "1783129808675"
+        },
+        {
+          "id": 3,
+          "hash": "0fb99df7a0cd0da896a2f874a5dfca9195fcd87bd7fbd43bfe4749c3953904cd",
+          "created_at": "1783180739472"
+        },
+        {
+          "id": 4,
+          "hash": "380b18a2504a8662e16f7b9ddd81f52ef64672aeffb7353c7c6b94592e35df7b",
+          "created_at": "1783193362168"
+        },
+        {
+          "id": 5,
+          "hash": "e61c6bf215111e93866867a66408444b4f66984fd90681516d3c5247378910b6",
+          "created_at": "1783200768507"
+        },
+        {
+          "id": 6,
+          "hash": "9bfce0aafbd08281b1c866ebb5f565163e7a39a4ff903c98343a25efaab3aff6",
+          "created_at": "1783220766995"
+        },
+        {
+          "id": 7,
+          "hash": "b342f7e1b43899cf766e6baf94ea675ed0afb8e54793512c025d2a54a8ff22e1",
+          "created_at": "1783288022190"
+        },
+        {
+          "id": 8,
+          "hash": "d305bc7aa042ee72107e56e0c26d78385993030be6374c4ef0833c2795d9ab9a",
+          "created_at": "1783303027541"
+        },
+        {
+          "id": 9,
+          "hash": "580631b9d1c70d4286fd82b26b5544e96c905d1eaaca1d8a000758b6a831e176",
+          "created_at": "1783307679945"
+        },
+        {
+          "id": 10,
+          "hash": "4d5369e2445848687b10325c630a2fb1ac07038fdb0eaf0044087a7b55a0fdcd",
+          "created_at": "1783380599272"
+        },
+        {
+          "id": 11,
+          "hash": "e05ce26eb0750c479038fcfdf8784a189394edcf038580d864f235de431f585a",
+          "created_at": "1783381168612"
+        },
+        {
+          "id": 12,
+          "hash": "d1171bdefe2a2da1bdbe6f15e23bb81eae6b5f98c6f4f73b7f9dc0a4296ff7a0",
+          "created_at": "1783391852692"
+        },
+        {
+          "id": 13,
+          "hash": "f0e3408d089a35026b79e7bef07affcf272aafa82e74f966bb56391abcfef8d6",
+          "created_at": "1783428382363"
+        },
+        {
+          "id": 14,
+          "hash": "c3d28e74b73c3285a1b41a9a44db99df19a6cfaefea061498453e39c456ef80e",
+          "created_at": "1783637476626"
+        },
+        {
+          "id": 15,
+          "hash": "28ecce7bd5164e4bc034950b7d4768a6a205c665c0fd8918651fba8c81e6e639",
+          "created_at": "1783792561762"
+        },
+        {
+          "id": 16,
+          "hash": "30a88e81f510a299546af441d9055a92b26011f80488409144b3bf39bf4ab54f",
+          "created_at": "1784085671500"
+        },
+        {
+          "id": 17,
+          "hash": "fec0e1c895b437604dc6910b81d21f391d38e0a720ae1563e0fe37fe49b9f714",
+          "created_at": "1784484444707"
+        },
+        {
+          "id": 18,
+          "hash": "0288a71ada18f91a104da0ec8be1d046235d58e6871a3a1d9beb985dd9edd6b2",
+          "created_at": "1784510361560"
+        },
+        {
+          "id": 19,
+          "hash": "51bc79ce8c87cd235daf191adf7dc4e41425924e34ff58ea9588b1306c00519b",
+          "created_at": "1784777429705"
+        },
+        {
+          "id": 20,
+          "hash": "295cd60f134a89e06694e2353e5dd085754945d91bbc07ab7706131cd2bc4f95",
+          "created_at": "1791775775513"
+        }
+      ],
+      "after": [
+        {
+          "id": 1,
+          "hash": "ace5b1aa1c880376d0c997d5dfb19b021b35bbc21a97c3d7ac3065ecf4e7622c",
+          "created_at": "1783115439679",
+          "name": "20260703215039_aberrant_centennial",
+          "applied_at": null
+        },
+        {
+          "id": 2,
+          "hash": "e9d9c596c1df20f3cb2a47cd9819cc427a1d66fb5bf601bed23f1d7de4d09ed8",
+          "created_at": "1783129808675",
+          "name": "20260704015008_easy_blade",
+          "applied_at": null
+        },
+        {
+          "id": 3,
+          "hash": "0fb99df7a0cd0da896a2f874a5dfca9195fcd87bd7fbd43bfe4749c3953904cd",
+          "created_at": "1783180739472",
+          "name": "20260704155859_wide_nicolaos",
+          "applied_at": null
+        },
+        {
+          "id": 4,
+          "hash": "380b18a2504a8662e16f7b9ddd81f52ef64672aeffb7353c7c6b94592e35df7b",
+          "created_at": "1783193362168",
+          "name": "20260704192922_overrated_hercules",
+          "applied_at": null
+        },
+        {
+          "id": 5,
+          "hash": "e61c6bf215111e93866867a66408444b4f66984fd90681516d3c5247378910b6",
+          "created_at": "1783200768507",
+          "name": "20260704213248_modern_jane_foster",
+          "applied_at": null
+        },
+        {
+          "id": 6,
+          "hash": "9bfce0aafbd08281b1c866ebb5f565163e7a39a4ff903c98343a25efaab3aff6",
+          "created_at": "1783220766995",
+          "name": "20260705030606_hot_post",
+          "applied_at": null
+        },
+        {
+          "id": 7,
+          "hash": "b342f7e1b43899cf766e6baf94ea675ed0afb8e54793512c025d2a54a8ff22e1",
+          "created_at": "1783288022190",
+          "name": "20260705214702_odd_valeria_richards",
+          "applied_at": null
+        },
+        {
+          "id": 8,
+          "hash": "d305bc7aa042ee72107e56e0c26d78385993030be6374c4ef0833c2795d9ab9a",
+          "created_at": "1783303027541",
+          "name": "20260706015707_panoramic_chimera",
+          "applied_at": null
+        },
+        {
+          "id": 9,
+          "hash": "580631b9d1c70d4286fd82b26b5544e96c905d1eaaca1d8a000758b6a831e176",
+          "created_at": "1783307679945",
+          "name": "20260706031439_careless_silver_fox",
+          "applied_at": null
+        },
+        {
+          "id": 10,
+          "hash": "4d5369e2445848687b10325c630a2fb1ac07038fdb0eaf0044087a7b55a0fdcd",
+          "created_at": "1783380599272",
+          "name": "20260706232959_smart_tana_nile",
+          "applied_at": null
+        },
+        {
+          "id": 11,
+          "hash": "e05ce26eb0750c479038fcfdf8784a189394edcf038580d864f235de431f585a",
+          "created_at": "1783381168612",
+          "name": "20260706233928_free_quasar",
+          "applied_at": null
+        },
+        {
+          "id": 12,
+          "hash": "d1171bdefe2a2da1bdbe6f15e23bb81eae6b5f98c6f4f73b7f9dc0a4296ff7a0",
+          "created_at": "1783391852692",
+          "name": "20260707023732_bouncy_zaladane",
+          "applied_at": null
+        },
+        {
+          "id": 13,
+          "hash": "f0e3408d089a35026b79e7bef07affcf272aafa82e74f966bb56391abcfef8d6",
+          "created_at": "1783428382363",
+          "name": "20260707124622_oval_deathstrike",
+          "applied_at": null
+        },
+        {
+          "id": 14,
+          "hash": "c3d28e74b73c3285a1b41a9a44db99df19a6cfaefea061498453e39c456ef80e",
+          "created_at": "1783637476626",
+          "name": "20260709225116_cuddly_dreadnoughts",
+          "applied_at": null
+        },
+        {
+          "id": 15,
+          "hash": "28ecce7bd5164e4bc034950b7d4768a6a205c665c0fd8918651fba8c81e6e639",
+          "created_at": "1783792561762",
+          "name": "20260711175601_dapper_hellfire_club",
+          "applied_at": null
+        },
+        {
+          "id": 16,
+          "hash": "30a88e81f510a299546af441d9055a92b26011f80488409144b3bf39bf4ab54f",
+          "created_at": "1784085671500",
+          "name": "20260715032111_silky_tyger_tiger",
+          "applied_at": null
+        },
+        {
+          "id": 17,
+          "hash": "fec0e1c895b437604dc6910b81d21f391d38e0a720ae1563e0fe37fe49b9f714",
+          "created_at": "1784484444707",
+          "name": "20260719180724_scalable_search",
+          "applied_at": null
+        },
+        {
+          "id": 18,
+          "hash": "0288a71ada18f91a104da0ec8be1d046235d58e6871a3a1d9beb985dd9edd6b2",
+          "created_at": "1784510361560",
+          "name": "20260720011921_safe_pandemic",
+          "applied_at": null
+        },
+        {
+          "id": 19,
+          "hash": "51bc79ce8c87cd235daf191adf7dc4e41425924e34ff58ea9588b1306c00519b",
+          "created_at": "1784777429705",
+          "name": "20260723033029_sweet_apocalypse",
+          "applied_at": null
+        },
+        {
+          "id": 20,
+          "hash": "295cd60f134a89e06694e2353e5dd085754945d91bbc07ab7706131cd2bc4f95",
+          "created_at": "1791775775513",
+          "name": "20261012032935_nosy_junta",
+          "applied_at": null
+        }
+      ]
+    }
+  },
+  "additionalChecks": {
+    "changedTestsAndSchemaHelperEslint": true,
+    "verificationTypecheck": true
+  },
+  "diagnostics": [
+    {
+      "kind": "constructor typecheck",
+      "finding": "Remove obsolete relational schema option; the query-builder-only API requires the explicit client, not RQB schema configuration.",
+      "resolvedBeforeAcceptance": true
+    },
+    {
+      "kind": "temporary fixture",
+      "passed": false,
+      "error": "null value in column \"created_at\" of relation \"workspaces\" violates not-null constraint",
+      "result": "test-results/phase-6/proof-attempt-1.json",
+      "correction": "Supply required fixture timestamps; no application/test timeout change.",
+      "reuse": "Reuse unchanged passed lint/types/build and generation checks; rerun database proofs/focused API only."
+    }
+  ],
+  "scope": {
+    "frontendSuitesRun": false,
+    "fullApiSuiteRun": false,
+    "workingDatabaseTouched": false,
+    "remaining": [
+      "Phase 7 broader populated/attachment preservation and full API acceptance",
+      "Phase 8 independent final combined installation/gate",
+      "Phase 10 setup/documentation",
+      "Phase 11 release identity/final acceptance"
+    ],
+    "versionBumpCommitTagOrPush": false
+  },
+  "cleanup": [
+    {
+      "runId": "e4afebc5-0d1b-4664-874c-7a89d0463be5",
+      "removed": true
+    },
+    {
+      "runId": "dee55af3-c166-48b1-aab4-508d1a7e58a3",
+      "removed": true
+    },
+    {
+      "runId": "4bb733be-44c4-4a48-93f5-d21fbf9e0ba4",
+      "removed": true
+    },
+    {
+      "runId": "125af24e-37e6-4de2-8bba-969b252b7604",
+      "removed": true
+    },
+    {
+      "runId": "ce9daff9-0d0b-4ac2-9100-245d9d518e0d",
+      "removed": true
+    },
+    {
+      "runId": "1ff647a2-55c8-48e2-9919-5b6dbf917d94",
+      "removed": true
+    }
+  ]
+}

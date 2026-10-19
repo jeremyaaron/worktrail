@@ -1,6 +1,8 @@
+import { afterEach, beforeEach, describe, expect, it, vi, type Mocked } from 'vitest';
+
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { ComponentFixture, TestBed, fakeAsync, flushMicrotasks, tick } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import type {
   LabelDto,
@@ -234,7 +236,7 @@ const readOnlyCapabilities: WorkspaceCapabilitiesDto = {
   canCreateWorkItems: false
 };
 
-let clipboard: jasmine.SpyObj<ClipboardService>;
+let clipboard: Mocked<Pick<ClipboardService, 'copyText'>>;
 
 function routeStub(query: Record<string, string> = {}, inputProjectId: string = projectId) {
   const queryParamMap = new BehaviorSubject(convertToParamMap(query));
@@ -272,8 +274,8 @@ function seedCurrentUser(actor: MemberDto = member) {
 }
 
 function spyOnCsvDownload(): void {
-  spyOn(URL, 'createObjectURL').and.returnValue('blob:worktrail-export');
-  spyOn(URL, 'revokeObjectURL');
+  vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:worktrail-export');
+  vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
 }
 
 function flushCreateContext(
@@ -431,7 +433,7 @@ describe('WorkItemListPageComponent', () => {
     http.expectOne(candidate => candidate.url === '/api/projects/' + projectId + '/work-items').flush(projectWorkItemPage([workItem]));
     const page = fixture.componentInstance;
     expect(page.savedViews).toBe(page.savedViewsState.views);
-    spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     page.openSavedView(sharedProjectSavedView);
     projectRoute.setQuery({ status: 'ready', sort: 'board_order' });
     fixture.detectChanges(); await fixture.whenStable();
@@ -458,8 +460,7 @@ describe('WorkItemListPageComponent', () => {
       search: 'api',
       sort: 'due_date_asc'
     });
-    clipboard = jasmine.createSpyObj<ClipboardService>('ClipboardService', ['copyText']);
-    clipboard.copyText.and.resolveTo();
+    clipboard = { copyText: vi.fn<ClipboardService['copyText']>().mockResolvedValue(undefined) };
 
     await TestBed.configureTestingModule({
       imports: [WorkItemListPageComponent],
@@ -492,7 +493,7 @@ describe('WorkItemListPageComponent', () => {
     currentUser.members.set([]);
     currentUser.selectedMemberId.set(null);
     projectRoute.setQuery({ status: 'ready', page: '2', pageSize: '10' });
-    const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
@@ -561,7 +562,7 @@ describe('WorkItemListPageComponent', () => {
         chipsElement!.compareDocumentPosition(filterPanelElement!) &
         Node.DOCUMENT_POSITION_FOLLOWING
       )
-    ).toBeTrue();
+    ).toBe(true);
     expect(compiled.textContent).toContain('WT-3');
     expect(compiled.textContent).toContain('Implement work item API client');
     expect(compiled.textContent).toContain('Case Contributor');
@@ -683,13 +684,14 @@ describe('WorkItemListPageComponent', () => {
     expect(fixture.componentInstance.appliedFilterValues().status).toBe('ready');
   });
 
-  it('keeps draft filters independent and focuses results after user paging', fakeAsync(() => {
+  it('keeps draft filters independent and focuses results after user paging', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     seedCurrentUser(ownerMember);
     projectRoute.setQuery({ status: 'ready', pageSize: '10' });
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
     const router = TestBed.inject(Router);
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     fixture.detectChanges();
     flushProjectWorkContext(http);
     http
@@ -724,9 +726,9 @@ describe('WorkItemListPageComponent', () => {
 
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
-      queryParams: jasmine.objectContaining({ status: 'ready', page: '2', pageSize: '10' })
+      queryParams: expect.objectContaining({ status: 'ready', page: '2', pageSize: '10' })
     });
-    const navigationQuery = navigate.calls.mostRecent().args[1]?.queryParams as Record<
+    const navigationQuery = navigate.mock.lastCall![1]?.queryParams as Record<
       string,
       unknown
     >;
@@ -756,7 +758,7 @@ describe('WorkItemListPageComponent', () => {
         })
       );
     fixture.detectChanges();
-    tick();
+    await vi.advanceTimersByTimeAsync(0);
 
     const focusedHeading = (fixture.nativeElement as HTMLElement).querySelector<HTMLHeadingElement>(
       '.list-heading h2'
@@ -768,7 +770,7 @@ describe('WorkItemListPageComponent', () => {
     expect(fixture.componentInstance.appliedFilterValues().status).toBe('ready');
     expect(fixture.componentInstance.appliedFilterValues().search).toBe('');
 
-    navigate.calls.reset();
+    navigate.mockClear();
     fixture.componentInstance.enterBulkEdit();
     fixture.componentInstance.toggleWorkItemSelection('page-work-item-11');
     fixture.componentInstance.bulkActionForm.patchValue({
@@ -779,7 +781,7 @@ describe('WorkItemListPageComponent', () => {
 
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
-      queryParams: jasmine.objectContaining({
+      queryParams: expect.objectContaining({
         status: 'ready',
         page: null,
         pageSize: null
@@ -787,14 +789,15 @@ describe('WorkItemListPageComponent', () => {
     });
     expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([]);
     expect(fixture.componentInstance.bulkActionForm.controls.actionType.value).toBe('');
-  }));
+  });
 
-  it('retains a paging focus request through an error and retry', fakeAsync(() => {
+  it('retains a paging focus request through an error and retry', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     projectRoute.setQuery({ pageSize: '10' });
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
     const router = TestBed.inject(Router);
-    spyOn(router, 'navigate').and.resolveTo(true);
+    vi.spyOn(router, 'navigate').mockResolvedValue(true);
     fixture.detectChanges();
     flushProjectWorkContext(http);
     http
@@ -820,7 +823,7 @@ describe('WorkItemListPageComponent', () => {
       })
       .flush('failed', { status: 500, statusText: 'Server Error' });
     fixture.detectChanges();
-    tick();
+    await vi.advanceTimersByTimeAsync(0);
 
     let heading = (fixture.nativeElement as HTMLElement).querySelector<HTMLHeadingElement>(
       '.list-heading h2'
@@ -848,14 +851,14 @@ describe('WorkItemListPageComponent', () => {
         })
       );
     fixture.detectChanges();
-    tick();
+    await vi.advanceTimersByTimeAsync(0);
 
     heading = (fixture.nativeElement as HTMLElement).querySelector<HTMLHeadingElement>(
       '.list-heading h2'
     );
     expect(document.activeElement).toBe(heading);
     expect(heading?.textContent?.trim()).toBe('11-12 of 12 work items');
-  }));
+  });
 
   it('lets owners select visible project work items locally', () => {
     seedCurrentUser(ownerMember);
@@ -873,8 +876,8 @@ describe('WorkItemListPageComponent', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(fixture.componentInstance.canEnterBulkEdit()).toBeTrue();
-    expect(fixture.componentInstance.canSelectWorkItems()).toBeFalse();
+    expect(fixture.componentInstance.canEnterBulkEdit()).toBe(true);
+    expect(fixture.componentInstance.canSelectWorkItems()).toBe(false);
     expect(compiled.querySelector('button.bulk-edit-entry')?.textContent?.trim()).toBe('Bulk edit');
     expect(compiled.querySelector('input[aria-label="Select all visible work items"]')).toBeNull();
     expect(compiled.querySelector('input[aria-label="Select WT-3"]')).toBeNull();
@@ -882,7 +885,7 @@ describe('WorkItemListPageComponent', () => {
     fixture.componentInstance.enterBulkEdit();
     fixture.detectChanges();
 
-    expect(fixture.componentInstance.canSelectWorkItems()).toBeTrue();
+    expect(fixture.componentInstance.canSelectWorkItems()).toBe(true);
     expect(
       compiled.querySelector('input[aria-label="Select all visible work items"]')
     ).not.toBeNull();
@@ -900,7 +903,7 @@ describe('WorkItemListPageComponent', () => {
     fixture.componentInstance.toggleWorkItemSelection(workItem.id);
     expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([workItem.id]);
     expect(fixture.componentInstance.selectedVisibleCount()).toBe(1);
-    expect(fixture.componentInstance.isAllVisibleSelected()).toBeFalse();
+    expect(fixture.componentInstance.isAllVisibleSelected()).toBe(false);
 
     fixture.componentInstance.toggleAllVisibleSelection();
     expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([
@@ -908,7 +911,7 @@ describe('WorkItemListPageComponent', () => {
       readyWorkItem.id
     ]);
     expect(fixture.componentInstance.selectedVisibleCount()).toBe(2);
-    expect(fixture.componentInstance.isAllVisibleSelected()).toBeTrue();
+    expect(fixture.componentInstance.isAllVisibleSelected()).toBe(true);
 
     fixture.componentInstance.toggleAllVisibleSelection();
     expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([]);
@@ -928,8 +931,8 @@ describe('WorkItemListPageComponent', () => {
       .flush(projectWorkItemPage([workItem]));
     fixture.detectChanges();
 
-    expect(fixture.componentInstance.canEnterBulkEdit()).toBeFalse();
-    expect(fixture.componentInstance.canSelectWorkItems()).toBeFalse();
+    expect(fixture.componentInstance.canEnterBulkEdit()).toBe(false);
+    expect(fixture.componentInstance.canSelectWorkItems()).toBe(false);
     expect(
       (fixture.nativeElement as HTMLElement).querySelector('button.bulk-edit-entry')
     ).toBeNull();
@@ -973,7 +976,7 @@ describe('WorkItemListPageComponent', () => {
 
     expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([readyWorkItem.id]);
     expect(fixture.componentInstance.selectedVisibleCount()).toBe(1);
-    expect(fixture.componentInstance.isAllVisibleSelected()).toBeTrue();
+    expect(fixture.componentInstance.isAllVisibleSelected()).toBe(true);
   });
 
   it('clears selection when opening a saved project view', () => {
@@ -981,7 +984,7 @@ describe('WorkItemListPageComponent', () => {
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
     const router = TestBed.inject(Router);
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     fixture.detectChanges();
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
     http
@@ -999,10 +1002,10 @@ describe('WorkItemListPageComponent', () => {
     fixture.componentInstance.openSavedView(sharedProjectSavedView);
 
     expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([]);
-    expect(fixture.componentInstance.isBulkEditActive()).toBeFalse();
+    expect(fixture.componentInstance.isBulkEditActive()).toBe(false);
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
-      queryParams: jasmine.objectContaining({
+      queryParams: expect.objectContaining({
         status: 'ready',
         sort: 'board_order',
         page: null,
@@ -1018,7 +1021,7 @@ describe('WorkItemListPageComponent', () => {
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
     const router = TestBed.inject(Router);
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     fixture.detectChanges();
     flushProjectWorkContext(http);
     http
@@ -1056,11 +1059,11 @@ describe('WorkItemListPageComponent', () => {
     expect(fixture.componentInstance.projectId()).toBe(nextProjectId);
     expect(fixture.componentInstance.activePageQuery()).toEqual({ page: 1, pageSize: 25 });
     expect(fixture.componentInstance.selectedWorkItemIds()).toEqual([]);
-    expect(fixture.componentInstance.isBulkEditActive()).toBeFalse();
+    expect(fixture.componentInstance.isBulkEditActive()).toBe(false);
     expect(fixture.componentInstance.bulkActionForm.controls.actionType.value).toBe('');
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
-      queryParams: jasmine.objectContaining({ page: null, pageSize: null })
+      queryParams: expect.objectContaining({ page: null, pageSize: null })
     });
   });
 
@@ -1070,7 +1073,7 @@ describe('WorkItemListPageComponent', () => {
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
     const router = TestBed.inject(Router);
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     fixture.detectChanges();
     flushProjectWorkContext(http);
     http
@@ -1100,7 +1103,7 @@ describe('WorkItemListPageComponent', () => {
     expect(fixture.componentInstance.bulkActionForm.controls.actionType.value).toBe('');
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
-      queryParams: jasmine.objectContaining({ page: null, pageSize: null })
+      queryParams: expect.objectContaining({ page: null, pageSize: null })
     });
   });
 
@@ -1121,15 +1124,15 @@ describe('WorkItemListPageComponent', () => {
         '.bulk-action-form button[type="submit"]'
       );
 
-    expect(applyButton()?.disabled).toBeTrue();
+    expect(applyButton()?.disabled).toBe(true);
 
     fixture.componentInstance.bulkActionForm.patchValue({ actionType: 'set_priority' });
     fixture.detectChanges();
-    expect(applyButton()?.disabled).toBeTrue();
+    expect(applyButton()?.disabled).toBe(true);
 
     fixture.componentInstance.bulkActionForm.patchValue({ priority: 'urgent' });
     fixture.detectChanges();
-    expect(applyButton()?.disabled).toBeFalse();
+    expect(applyButton()?.disabled).toBe(false);
   });
 
   it('gives bulk label controls explicit accessible names', () => {
@@ -1244,7 +1247,7 @@ describe('WorkItemListPageComponent', () => {
       fixture.componentInstance.bulkActionForm.patchValue(item.form);
       fixture.componentInstance.selectedBulkLabelIds.set([...item.labels]);
 
-      expect(fixture.componentInstance.canApplyBulkAction()).toBeTrue();
+      expect(fixture.componentInstance.canApplyBulkAction()).toBe(true);
       fixture.componentInstance.applyBulkAction();
 
       const request = http.expectOne(`/api/projects/${projectId}/work-items/bulk-update`);
@@ -1263,7 +1266,7 @@ describe('WorkItemListPageComponent', () => {
 
   it('confirms multi-item status transitions before submitting', () => {
     seedCurrentUser(ownerMember);
-    const confirm = spyOn(window, 'confirm').and.returnValue(true);
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
@@ -1347,7 +1350,7 @@ describe('WorkItemListPageComponent', () => {
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
     const router = TestBed.inject(Router);
-    spyOn(router, 'navigate').and.resolveTo(true);
+    vi.spyOn(router, 'navigate').mockResolvedValue(true);
     fixture.detectChanges();
     flushProjectWorkPage(http, [workItem]);
 
@@ -1440,7 +1443,7 @@ describe('WorkItemListPageComponent', () => {
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
     const router = TestBed.inject(Router);
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     fixture.detectChanges();
     flushProjectWorkContext(http);
     http
@@ -1471,7 +1474,7 @@ describe('WorkItemListPageComponent', () => {
           HTMLButtonElement | HTMLSelectElement
         >('app-work-item-pagination button, app-work-item-pagination select')
       ).every((control) => control.disabled)
-    ).toBeTrue();
+    ).toBe(true);
     fixture.componentInstance.goToPage(2);
     fixture.componentInstance.changePageSize(25);
     expect(navigate).not.toHaveBeenCalled();
@@ -1520,7 +1523,7 @@ describe('WorkItemListPageComponent', () => {
 
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
-      queryParams: jasmine.objectContaining({ page: '2', pageSize: '10' }),
+      queryParams: expect.objectContaining({ page: '2', pageSize: '10' }),
       replaceUrl: true
     });
 
@@ -1559,7 +1562,7 @@ describe('WorkItemListPageComponent', () => {
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
     const router = TestBed.inject(Router);
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     fixture.detectChanges();
 
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
@@ -1608,7 +1611,7 @@ describe('WorkItemListPageComponent', () => {
     openSavedViewFromToolbar(fixture, sharedProjectSavedView.id);
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
-      queryParams: jasmine.objectContaining({
+      queryParams: expect.objectContaining({
         status: 'ready',
         sort: 'board_order'
       })
@@ -1743,7 +1746,7 @@ describe('WorkItemListPageComponent', () => {
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
     const router = TestBed.inject(Router);
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     fixture.detectChanges();
 
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
@@ -1782,7 +1785,7 @@ describe('WorkItemListPageComponent', () => {
 
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
-      queryParams: jasmine.objectContaining({
+      queryParams: expect.objectContaining({
         status: 'ready',
         sort: 'board_order'
       })
@@ -1921,7 +1924,7 @@ describe('WorkItemListPageComponent', () => {
 
     expect(URL.createObjectURL).toHaveBeenCalled();
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:worktrail-export');
-    expect(fixture.componentInstance.isExporting()).toBeFalse();
+    expect(fixture.componentInstance.isExporting()).toBe(false);
   });
 
   it('shows project export failures inline', () => {
@@ -1950,7 +1953,7 @@ describe('WorkItemListPageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'CSV export could not be downloaded.'
     );
-    expect(fixture.componentInstance.isExporting()).toBeFalse();
+    expect(fixture.componentInstance.isExporting()).toBe(false);
   });
 
   it('shows the project export limit message from a structured error blob', async () => {
@@ -1990,10 +1993,11 @@ describe('WorkItemListPageComponent', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'More than 10,000 work items match. Narrow the applied filters and retry.'
     );
-    expect(fixture.componentInstance.isExporting()).toBeFalse();
+    expect(fixture.componentInstance.isExporting()).toBe(false);
   });
 
-  it('copies the applied project filtered view link', fakeAsync(() => {
+  it('copies the applied project filtered view link', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
@@ -2045,10 +2049,10 @@ describe('WorkItemListPageComponent', () => {
     fixture.detectChanges();
 
     fixture.componentInstance.copyViewLink();
-    flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(0);
     fixture.detectChanges();
 
-    const copiedUrl = new URL(clipboard.copyText.calls.mostRecent().args[0]);
+    const copiedUrl = new URL(clipboard.copyText.mock.lastCall![0]);
     expect(copiedUrl.pathname).toBe(`/projects/${projectId}/work-items`);
     expect(copiedUrl.searchParams.get('search')).toBe('api');
     expect(copiedUrl.searchParams.get('status')).toBe('in_progress');
@@ -2067,14 +2071,15 @@ describe('WorkItemListPageComponent', () => {
     ).toContain('returnUrl=');
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Link copied');
 
-    tick(2500);
+    await vi.advanceTimersByTimeAsync(2500);
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Link copied');
-  }));
+  });
 
-  it('shows copy link failures inline', fakeAsync(() => {
-    clipboard.copyText.and.rejectWith(new Error('denied'));
+  it('shows copy link failures inline', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
+    clipboard.copyText.mockRejectedValue(new Error('denied'));
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
@@ -2090,15 +2095,15 @@ describe('WorkItemListPageComponent', () => {
     fixture.detectChanges();
 
     fixture.componentInstance.copyViewLink();
-    flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(0);
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'Link could not be copied'
     );
 
-    tick(2500);
-  }));
+    await vi.advanceTimersByTimeAsync(2500);
+  });
 
   it('resolves inactive member names from filter state without making them default choices', () => {
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
@@ -2140,7 +2145,7 @@ describe('WorkItemListPageComponent', () => {
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
     const router = TestBed.inject(Router);
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     fixture.detectChanges();
 
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
@@ -2199,7 +2204,7 @@ describe('WorkItemListPageComponent', () => {
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
     const router = TestBed.inject(Router);
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     fixture.detectChanges();
 
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
@@ -2232,7 +2237,7 @@ describe('WorkItemListPageComponent', () => {
 
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
-      queryParams: jasmine.objectContaining({
+      queryParams: expect.objectContaining({
         priority: 'urgent',
         workRisk: 'stale_in_progress'
       })
@@ -2242,7 +2247,7 @@ describe('WorkItemListPageComponent', () => {
 
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
-      queryParams: jasmine.objectContaining({
+      queryParams: expect.objectContaining({
         workRisk: null
       })
     });
@@ -2252,7 +2257,7 @@ describe('WorkItemListPageComponent', () => {
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
     const router = TestBed.inject(Router);
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     fixture.detectChanges();
 
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
@@ -2275,14 +2280,14 @@ describe('WorkItemListPageComponent', () => {
     fixture.componentInstance.filterForm.controls.priority.setValue('urgent');
     expect(navigate).not.toHaveBeenCalled();
     fixture.componentInstance.applyFilters();
-    expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
-      jasmine.objectContaining({ priority: 'urgent', parentKey: 'WT-42', hierarchy: null })
+    expect(navigate.mock.lastCall![1]?.queryParams).toEqual(
+      expect.objectContaining({ priority: 'urgent', parentKey: 'WT-42', hierarchy: null })
     );
 
     fixture.componentInstance.filterForm.controls.hierarchy.setValue('parents');
     fixture.componentInstance.applyFilters();
-    expect(navigate.calls.mostRecent().args[1]?.queryParams).toEqual(
-      jasmine.objectContaining({ hierarchy: 'parents', parentKey: null })
+    expect(navigate.mock.lastCall![1]?.queryParams).toEqual(
+      expect.objectContaining({ hierarchy: 'parents', parentKey: null })
     );
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Parent: WT-42');
@@ -2291,7 +2296,8 @@ describe('WorkItemListPageComponent', () => {
     );
   });
 
-  it('uses hidden work risk filters for project export and copied links', fakeAsync(() => {
+  it('uses hidden work risk filters for project export and copied links', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     spyOnCsvDownload();
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
@@ -2328,19 +2334,19 @@ describe('WorkItemListPageComponent', () => {
     );
 
     fixture.componentInstance.copyViewLink();
-    flushMicrotasks();
+    await vi.advanceTimersByTimeAsync(0);
 
-    const copiedUrl = new URL(clipboard.copyText.calls.mostRecent().args[0]);
+    const copiedUrl = new URL(clipboard.copyText.mock.lastCall![0]);
     expect(copiedUrl.searchParams.get('workRisk')).toBe('unassigned_active');
 
-    tick(2500);
-  }));
+    await vi.advanceTimersByTimeAsync(2500);
+  });
 
   it('does not show active filter pills for unapplied pending form values', () => {
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
     const router = TestBed.inject(Router);
-    spyOn(router, 'navigate').and.resolveTo(true);
+    vi.spyOn(router, 'navigate').mockResolvedValue(true);
     fixture.detectChanges();
 
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
@@ -2363,7 +2369,7 @@ describe('WorkItemListPageComponent', () => {
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
     const router = TestBed.inject(Router);
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     fixture.detectChanges();
 
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
@@ -2381,17 +2387,18 @@ describe('WorkItemListPageComponent', () => {
 
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
-      queryParams: jasmine.objectContaining({
+      queryParams: expect.objectContaining({
         priority: 'urgent'
       })
     });
   });
 
-  it('keeps search pending until Apply', fakeAsync(() => {
+  it('keeps search pending until Apply', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     const fixture = TestBed.createComponent(WorkItemListPageComponent);
     const http = TestBed.inject(HttpTestingController);
     const router = TestBed.inject(Router);
-    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     fixture.detectChanges();
 
     http.expectOne(`/api/projects/${projectId}`).flush(activeProject);
@@ -2404,24 +2411,24 @@ describe('WorkItemListPageComponent', () => {
       .flush(projectWorkItemPage([workItem]));
 
     fixture.componentInstance.filterForm.controls.search.setValue('client query');
-    tick(399);
+    await vi.advanceTimersByTimeAsync(399);
     expect(navigate).not.toHaveBeenCalledWith(
       [],
-      jasmine.objectContaining({
-        queryParams: jasmine.objectContaining({ search: 'client query' })
+      expect.objectContaining({
+        queryParams: expect.objectContaining({ search: 'client query' })
       })
     );
 
-    tick(1);
+    await vi.advanceTimersByTimeAsync(1);
     expect(navigate).not.toHaveBeenCalled();
     fixture.componentInstance.applyFilters();
     expect(navigate).toHaveBeenCalledWith([], {
       relativeTo: TestBed.inject(ActivatedRoute),
-      queryParams: jasmine.objectContaining({
+      queryParams: expect.objectContaining({
         search: 'client query'
       })
     });
-  }));
+  });
 });
 
 describe('WorkItemImportPageComponent', () => {
@@ -2459,7 +2466,7 @@ describe('WorkItemImportPageComponent', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Import work items');
     expect(compiled.textContent).toContain('CSV file');
-    expect(compiled.querySelector('button')?.hasAttribute('disabled')).toBeTrue();
+    expect(compiled.querySelector('button')?.hasAttribute('disabled')).toBe(true);
   });
 
   it('previews a selected CSV file and enables apply when valid', async () => {
@@ -2509,8 +2516,8 @@ describe('WorkItemImportPageComponent', () => {
     expect(compiled.textContent).toContain('import.csv');
     expect(compiled.textContent).toContain('Valid rows');
     expect(compiled.textContent).toContain('Imported task');
-    expect(fixture.componentInstance.canApply()).toBeTrue();
-    expect(compiled.querySelector('button')?.hasAttribute('disabled')).toBeFalse();
+    expect(fixture.componentInstance.canApply()).toBe(true);
+    expect(compiled.querySelector('button')?.hasAttribute('disabled')).toBe(false);
   });
 
   it('renders validation errors and keeps apply disabled', async () => {
@@ -2544,8 +2551,8 @@ describe('WorkItemImportPageComponent', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Errors');
     expect(compiled.textContent).toContain('CSV field "title" is required.');
-    expect(fixture.componentInstance.canApply()).toBeFalse();
-    expect(compiled.querySelector('button')?.hasAttribute('disabled')).toBeTrue();
+    expect(fixture.componentInstance.canApply()).toBe(false);
+    expect(compiled.querySelector('button')?.hasAttribute('disabled')).toBe(true);
   });
 
   it('applies a valid preview and renders created item links', async () => {
@@ -2638,14 +2645,14 @@ describe('WorkItemImportPageComponent', () => {
       const details = table.querySelector<HTMLDetailsElement>('details')!;
       const summary = details.querySelector('summary')!;
       expect(table.textContent).toContain(format === 'markdown_v1' ? 'Markdown' : 'Plain text');
-      expect(details.open).toBeFalse();
+      expect(details.open).toBe(false);
       expect(summary.getAttribute('aria-label')).toBe('Description source for Source inspection');
       summary.click();
-      expect(details.open).toBeTrue();
+      expect(details.open).toBe(true);
       expect(details.querySelector('pre')?.textContent).toBe(excerpt);
       expect(table.querySelector('script, img, iframe, a, h1, ul')).toBeNull();
       summary.click();
-      expect(details.open).toBeFalse();
+      expect(details.open).toBe(false);
     });
   }
 
@@ -2682,8 +2689,8 @@ describe('WorkItemImportPageComponent', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Archived project');
-    expect(fixture.componentInstance.canApply()).toBeFalse();
-    expect(compiled.querySelector<HTMLInputElement>('input[type="file"]')?.disabled).toBeTrue();
+    expect(fixture.componentInstance.canApply()).toBe(false);
+    expect(compiled.querySelector<HTMLInputElement>('input[type="file"]')?.disabled).toBe(true);
     http.expectNone(`/api/projects/${projectId}/work-items/imports/preview`);
   });
 });
@@ -2752,7 +2759,7 @@ describe('WorkItemCreatePageComponent', () => {
     expect(component.workItemForm.controls.descriptionContent.value).toEqual({
       source: '', format: 'markdown_v1'
     });
-    expect(component.workItemForm.pristine).toBeTrue();
+    expect(component.workItemForm.pristine).toBe(true);
   });
 
   it('protects a new draft entered after creation before Create another resets it', async () => {
@@ -2768,11 +2775,11 @@ describe('WorkItemCreatePageComponent', () => {
       relationships: emptyRelationships, comments: [], activity: []
     });
     component.workItemForm.controls.title.setValue('Another unsaved title');
-    const confirm = spyOn(TestBed.inject(DraftConfirmationService), 'confirm').and.resolveTo(false);
-    expect(await component.requestCreateAnother()).toBeFalse();
+    const confirm = vi.spyOn(TestBed.inject(DraftConfirmationService), 'confirm').mockResolvedValue(false);
+    expect(await component.requestCreateAnother()).toBe(false);
     expect(component.workItemForm.controls.title.value).toBe('Another unsaved title');
-    confirm.and.resolveTo(true);
-    expect(await component.requestCreateAnother()).toBeTrue();
+    confirm.mockResolvedValue(true);
+    expect(await component.requestCreateAnother()).toBe(true);
     expect(component.workItemForm.controls.title.value).toBe('');
   });
 
@@ -2790,7 +2797,7 @@ describe('WorkItemCreatePageComponent', () => {
     const root = fixture.nativeElement as HTMLElement;
     expect(root.textContent).toContain('Description must be 10,000 characters or fewer.');
     expect(root.querySelector('#work-item-description')?.getAttribute('aria-invalid')).toBe('true');
-    expect(fixture.componentInstance.isCreating()).toBeFalse();
+    expect(fixture.componentInstance.isCreating()).toBe(false);
     http.expectNone((request) => request.method === 'POST');
   });
 
@@ -2952,7 +2959,7 @@ describe('WorkItemCreatePageComponent', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Archived project');
-    expect(compiled.querySelector('button[type="submit"]')?.hasAttribute('disabled')).toBeTrue();
+    expect(compiled.querySelector('button[type="submit"]')?.hasAttribute('disabled')).toBe(true);
 
     fixture.componentInstance.workItemForm.patchValue({
       title: 'Blocked archived create',
@@ -3128,7 +3135,7 @@ describe('WorkItemCreatePageComponent global route', () => {
     expect(fixture.componentInstance.workItemForm.controls.descriptionContent.value).toEqual({
       source: '  Keep this description.\n', format: 'plain_text'
     });
-    expect(fixture.componentInstance.isCreating()).toBeFalse();
+    expect(fixture.componentInstance.isCreating()).toBe(false);
   });
 
   it('shows create permission copy and disables submission', () => {
@@ -3141,7 +3148,7 @@ describe('WorkItemCreatePageComponent global route', () => {
 
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Create unavailable');
-    expect(compiled.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBeTrue();
+    expect(compiled.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(true);
   });
 });
 
@@ -3210,7 +3217,7 @@ describe('WorkItemCreatePageComponent child route', () => {
     fixture.componentInstance.createWorkItem();
     const create = http.expectOne(`/api/projects/${projectId}/work-items`);
     expect(create.request.body).toEqual(
-      jasmine.objectContaining({
+      expect.objectContaining({
         title: 'Implement child creation',
         description: '  Reuse the complete create form.\n',
         descriptionFormat: 'markdown_v1',
@@ -3303,7 +3310,7 @@ describe('WorkItemCreatePageComponent child route', () => {
       'A child work item cannot contain child work.'
     );
     expect(fixture.componentInstance.workItemForm.getRawValue()).toEqual(
-      jasmine.objectContaining({
+      expect.objectContaining({
         title: 'Keep child draft',
         descriptionContent: { source: 'Keep every entered field.', format: 'markdown_v1' },
         type: 'bug',
@@ -3329,7 +3336,7 @@ describe('WorkItemCreatePageComponent child route', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'Parent work must belong to this project.'
     );
-    expect(fixture.componentInstance.isCreateDisabled()).toBeTrue();
+    expect(fixture.componentInstance.isCreateDisabled()).toBe(true);
     fixture.componentInstance.createWorkItem();
     http.expectNone(`/api/projects/${projectId}/work-items`);
     expect(fixture.componentInstance.workItemForm.controls.title.value).toBe(
@@ -3351,4 +3358,15 @@ describe('WorkItemCreatePageComponent child route', () => {
       'Do not lose this title'
     );
   });
+});
+
+
+afterEach(() => {
+  try {
+    TestBed.resetTestingModule();
+  } finally {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    localStorage.removeItem('worktrail.selectedMemberId');
+  }
 });

@@ -1,0 +1,1424 @@
+{
+  "schemaVersion": 1,
+  "phase": 5,
+  "recordedOn": "2026-10-18T23:09:44.585Z",
+  "baselineCommit": "dcece57f1a803fe6b10aecf335e571a1fd3d53ec",
+  "branch": "v0.3.1",
+  "releaseVersion": "0.3.0",
+  "node": "v24.16.0",
+  "npm": "11.13.0",
+  "lockSha256": "eb74b05eb8ae37ce16b9a4d882c7ce06ccc4f0200242a8c5173836d0843817fa",
+  "disposition": "Sole Angular unit-test/Vitest/Chromium target, automatic complete discovery, no partition/legacy target/types/packages/launcher. All 71 specs and their 888 cases are unchanged from Phase 4.",
+  "inputs": {
+    "package.json": "69bbb107f92d836dea6a41f17fb30949d70b2d9e911ac4db6d1fa7457dbe857c",
+    "package-lock.json": "eb74b05eb8ae37ce16b9a4d882c7ce06ccc4f0200242a8c5173836d0843817fa",
+    "apps/web/package.json": "3115bf6e8490a648967fd0fe361636416dd304ce28abc1c33bd3fd1fe21005be",
+    "apps/web/angular.json": "9e41c2f11df5373fec0cca7cafa7576774b8d616589f30b4d1c6b7bd4639e601",
+    "apps/web/tsconfig.json": "2c59861f7c71951e418d8f183607983a57874805b8ad1eabf06b3e5a1fc41477",
+    "apps/web/tsconfig.spec.json": "c4175183afaa800495545a89e05d34e306ecb998774d881b9413ac8d1c0b7e22",
+    "apps/web/vitest.config.ts": "e191f64e9aa3decb8a462195d07bf3e151a0d540ff3e7c9d1079105ade98cec5",
+    "apps/web/src/testing/providers.ts": "9bb052784b6eec90f1079d6bc1b6fd3de5f14118c75b744481c3df4580ad2862",
+    "scripts/test-web.mjs": "e977cc793533d321335e6a3c3552ebff6002186a244234b8053ff8bac718f75e",
+    "scripts/verification/web.mjs": "eb640dc9f8b0d462e786642c1bda223563a697d52abe05ad1341abe005ee640a",
+    "scripts/verification/web.d.mts": "3cd88fa06b1b64354f4274a84e08ed54540f0879406fd4890436ddc5f7e93caf",
+    "scripts/verification/web.test.mjs": "140fd536baac09e50bf4cc9a5a155edd179dc4467b84dcef6b58916962c46abc",
+    "scripts/verification/web-lifecycle.check.mjs": "32f609cc975d51733fcea164c865d8f829ce37f910c394d8bcc44ee3ef8840c8"
+  },
+  "removedFiles": [
+    "apps/web/test-migration.json",
+    "apps/web/tsconfig.vitest.json",
+    "scripts/verification/karma.config.cjs"
+  ],
+  "discovery": {
+    "files": 71,
+    "cases": 888,
+    "specSourcesUnchanged": true,
+    "typeScope": "tsconfig.spec.json, explicit Vitest imports, types: []"
+  },
+  "files": [
+    {
+      "file": "src/app/app.routes.spec.ts",
+      "sha256": "82626880d1e5b074629e769d0051e90f893ce79fd68826e9c03089c80104b178",
+      "passedCases": 5
+    },
+    {
+      "file": "src/app/app.spec.ts",
+      "sha256": "1e1cce7c134c822e36e15df45dea2ff1aa8c8b9485ce87155394e40365c20fcd",
+      "passedCases": 11
+    },
+    {
+      "file": "src/testing/web-toolchain.spec.ts",
+      "sha256": "e2e2312a11017c7e9f0c73bc38b8c1f97b16d7801fd3dbfdc5d182262b45d19e",
+      "passedCases": 1
+    },
+    {
+      "file": "src/app/core/worktrail-api.service.spec.ts",
+      "sha256": "6125380a4135d7ac8a5904bdf890b7df65b99bae971ccf229a6cc6ae20c04ecb",
+      "passedCases": 16
+    },
+    {
+      "file": "src/app/shared/clipboard.service.spec.ts",
+      "sha256": "1d3b4d9c62a500d172c6c8addac25c004f64e9c02bceef25984752a1f1b66463",
+      "passedCases": 3
+    },
+    {
+      "file": "src/app/shared/download-file.spec.ts",
+      "sha256": "603cc7cbfc96e9403c55513496d2d772fafb4344360cdd1f493450cc7b8e66f8",
+      "passedCases": 3
+    },
+    {
+      "file": "src/app/shared/http-error-message.spec.ts",
+      "sha256": "bd7d44b79a23747998472186efbd696d3eaf678ff9ae244a6223b981f00f6583",
+      "passedCases": 2
+    },
+    {
+      "file": "src/app/core/api/api-error.spec.ts",
+      "sha256": "82d37c55815d20f381b1c7f65d7196c1a3583d8d717f97f0596cb4b8c359f2e8",
+      "passedCases": 3
+    },
+    {
+      "file": "src/app/core/api/attachments-api.spec.ts",
+      "sha256": "a0167aac1cd0b4d497e36a2f9cb5b0be88245c3b33ecddf28073129d417ebd43",
+      "passedCases": 4
+    },
+    {
+      "file": "src/app/core/api/cycles-api.spec.ts",
+      "sha256": "7430164ca8ca4d9639a7bed69d500c18defae77aacf15bcd9e7515e3e27988b8",
+      "passedCases": 4
+    },
+    {
+      "file": "src/app/core/api/quick-find-api.spec.ts",
+      "sha256": "0ebaed370a468c5c1a5153539433856bceeafcddbffbac8ce396c378e769d562",
+      "passedCases": 2
+    },
+    {
+      "file": "src/app/features/inbox/inbox-page.component.spec.ts",
+      "sha256": "e30992336f931ad0f5fae95fabc682ebe338ab325de37b195abb2b4b314dafa6",
+      "passedCases": 5
+    },
+    {
+      "file": "src/app/features/inbox/inbox-state.service.spec.ts",
+      "sha256": "7baa03f78b900749875d174257ecced5fbe2780f1ad9a3e2ab433115933259c7",
+      "passedCases": 4
+    },
+    {
+      "file": "src/app/features/my-work/my-work-page.component.spec.ts",
+      "sha256": "4105bc99f39a26507ce3d2b6ac750ba951e77123014447d145047a6810913a6e",
+      "passedCases": 5
+    },
+    {
+      "file": "src/app/features/portfolio/portfolio-display.spec.ts",
+      "sha256": "191df46805ea7464318c65d4e8bf918a22cd536fbee45421c663da7dd2e59343",
+      "passedCases": 1
+    },
+    {
+      "file": "src/app/features/portfolio/portfolio-page.component.spec.ts",
+      "sha256": "60192663366f459ba85af7315508e14874f29d6a859a948f50ed1773f8f387dc",
+      "passedCases": 9
+    },
+    {
+      "file": "src/app/features/projects/project-cycle-review-page.component.spec.ts",
+      "sha256": "edbbb513beb1fd666d2c46cbaab135a6572fa6522a4e1900c2336424bca9a651",
+      "passedCases": 14
+    },
+    {
+      "file": "src/app/features/projects/project-milestone-review-page.component.spec.ts",
+      "sha256": "54711765392fb59d4ad09df32f5530fb8e6228163b1ff626a4ba11cf576ccefa",
+      "passedCases": 4
+    },
+    {
+      "file": "src/app/features/projects/project-planning-page.component.spec.ts",
+      "sha256": "bf9818df84361bc59ccd5e189b2a6ff0c87b9e1204e285f5ff1f8410a8490798",
+      "passedCases": 18
+    },
+    {
+      "file": "src/app/features/projects/projects-page.component.spec.ts",
+      "sha256": "9938b44a044cdfe3b2e0c40dcfa0f0ac60b38e46d08f3979a7a79535a97ccb28",
+      "passedCases": 16
+    },
+    {
+      "file": "src/app/features/quick-find/quick-find-dialog-search.spec.ts",
+      "sha256": "1aa0440571b663cc786712029b2c483ddd1121e31d11c433a5ce8c4fb91287ef",
+      "passedCases": 14
+    },
+    {
+      "file": "src/app/features/quick-find/quick-find-dialog.component.spec.ts",
+      "sha256": "602cf3b47f236210074a6f2d2c3dcb6ea774a76cc13aac05977b127fb4a1ac16",
+      "passedCases": 3
+    },
+    {
+      "file": "src/app/features/quick-find/quick-find-navigation.spec.ts",
+      "sha256": "d4735608f1e044fc01223f488515633602402582a8137f1b78756edd60c2924f",
+      "passedCases": 8
+    },
+    {
+      "file": "src/app/features/quick-find/quick-find-session.service.spec.ts",
+      "sha256": "26bba3da0ffc95ed373f6705d25514a404dcba6ae8ffb606ef66429c12589e57",
+      "passedCases": 1
+    },
+    {
+      "file": "src/app/core/navigation/authorized-project-context.spec.ts",
+      "sha256": "28d7591458f47bbdb64b615803a7e49ceb9c9cf6f1a1027706ef9ca92038eaff",
+      "passedCases": 1
+    },
+    {
+      "file": "src/app/core/navigation/draft-departure-coordinator.spec.ts",
+      "sha256": "c2049355d828fcf776b79419f726197361dc1b5ddbafeeb2ca51e76c433e2d52",
+      "passedCases": 11
+    },
+    {
+      "file": "src/app/core/navigation/page-context.spec.ts",
+      "sha256": "c49f07423c5d140f2137cebf9404bdfce6c4d4283627591b869b2b38cfdc5576",
+      "passedCases": 23
+    },
+    {
+      "file": "src/app/features/work-items/work-item-board-page.component.spec.ts",
+      "sha256": "44e865544558eb526a4245d488e5b00fc1fb90d9974fdd748c3a8bea026d74dd",
+      "passedCases": 11
+    },
+    {
+      "file": "src/app/features/work-items/work-item-detail-page.component.spec.ts",
+      "sha256": "a2ab9818bec4f5e81d74409630995d6ae9d638497fd768e86359ad8a691bf400",
+      "passedCases": 112
+    },
+    {
+      "file": "src/app/features/work-items/work-item-detail-unavailable.spec.ts",
+      "sha256": "ae082a80f911b298df8067d7093e96b7121b850a52d99a7d52c6bfed305dfdfb",
+      "passedCases": 1
+    },
+    {
+      "file": "src/app/features/work-items/work-items-page.component.spec.ts",
+      "sha256": "5e7fdffd95e5c181677ada9da64c59919dc270d7e545ef9ccc1b3513bdc1fa84",
+      "passedCases": 65
+    },
+    {
+      "file": "src/app/features/work-items/workspace-work-item-list-page.component.spec.ts",
+      "sha256": "596a23c3c2d8d4e3258e90982409d273b8a4003c055bf0b864feeb07ea0032e6",
+      "passedCases": 32
+    },
+    {
+      "file": "src/app/features/workspace/workspace-settings-page.component.spec.ts",
+      "sha256": "0efd71899875d4bb7f83c93c752b679129d8e22f88e13421e0eafd7af472352d",
+      "passedCases": 6
+    },
+    {
+      "file": "src/app/shared/authored-content/authored-content-edit-commands.spec.ts",
+      "sha256": "a0613cb523c08e787a1d7e61f85b2f29d970164fd6f3cfaab9ad9b9304516321",
+      "passedCases": 36
+    },
+    {
+      "file": "src/app/shared/authored-content/authored-content-editor.component.spec.ts",
+      "sha256": "b939dd66959bae713c7092409af6b65dc4f69c9829711ef9d9b70ca1163bb6bf",
+      "passedCases": 35
+    },
+    {
+      "file": "src/app/shared/authored-content/authored-content-link.spec.ts",
+      "sha256": "da8854b8df33443e546645eb4e7b8b8fe0135f66dcdc85eae85bee14ae009ba8",
+      "passedCases": 33
+    },
+    {
+      "file": "src/app/shared/authored-content/authored-content-parser.spec.ts",
+      "sha256": "4d44cdd587a908059c10eff3ac16c758a47a0931ed281267c483bcd8ca6004fa",
+      "passedCases": 37
+    },
+    {
+      "file": "src/app/shared/authored-content/authored-content-validation.spec.ts",
+      "sha256": "b2e58c26b2c1e1dbc0b7eb1d98553638d84d1dbf084dfdc6cefaaf549ed5c047",
+      "passedCases": 12
+    },
+    {
+      "file": "src/app/shared/authored-content/authored-content-viewer.component.spec.ts",
+      "sha256": "1fbeff2dade89134464cd84f088a4faed7f82dc2f1bd1227c540c682414dabc7",
+      "passedCases": 22
+    },
+    {
+      "file": "src/app/shared/cycles/cycle-display.spec.ts",
+      "sha256": "c793397c3341ff21b9118ce97653ca6f9536bee2c6de02dc221fca1dbe5571db",
+      "passedCases": 2
+    },
+    {
+      "file": "src/app/shared/delivery-health/delivery-health-display.spec.ts",
+      "sha256": "ddfd55e5e1dfab79f82a2cdf1b0223e0bee100463bcd83625596dcb34b6ced0c",
+      "passedCases": 6
+    },
+    {
+      "file": "src/app/shared/display/display-format.spec.ts",
+      "sha256": "3dd7b7c658733f45bec1b0634c271e64613a9598a22538f25a5e8679e92156ca",
+      "passedCases": 2
+    },
+    {
+      "file": "src/app/shared/navigation/section-target.spec.ts",
+      "sha256": "28ec58a5c78d4587171e437b162fbc8a6b3a14ea7d585cc6cee54950afa30d03",
+      "passedCases": 2
+    },
+    {
+      "file": "src/app/shared/navigation/work-navigation.spec.ts",
+      "sha256": "ea26b5487454cabd58e7c0e50291daa677c828af6de820f8d4a6c0affbd09017",
+      "passedCases": 39
+    },
+    {
+      "file": "src/app/features/projects/cycle-closeout/cycle-closeout-result.component.spec.ts",
+      "sha256": "da55cd7b543189574fbf3720da513148f7e5a99a35ce77b11547d2982b109040",
+      "passedCases": 6
+    },
+    {
+      "file": "src/app/features/projects/cycle-closeout/project-cycle-closeout-page.component.spec.ts",
+      "sha256": "e0e6a17613538a0b72de91b6747ff09571f9cf59b5729f3f2169fc1eafa16590",
+      "passedCases": 8
+    },
+    {
+      "file": "src/app/features/projects/planning/cycle-manager.component.spec.ts",
+      "sha256": "5a20b91aa8ae18ffb7c13d59d594195787d16b3c87391dfd542ae5b54c015e41",
+      "passedCases": 5
+    },
+    {
+      "file": "src/app/features/projects/planning/cycle-options.spec.ts",
+      "sha256": "c2ddd8976c7a4864a7f7976aa1a06cd944149c22f7ac0e316934247426ac04b1",
+      "passedCases": 1
+    },
+    {
+      "file": "src/app/features/projects/planning/cycle-summary-panel.component.spec.ts",
+      "sha256": "8cc7557939bdcacef3462d7abd1db18883247fef3975ecd631a7777f6c5be724",
+      "passedCases": 6
+    },
+    {
+      "file": "src/app/features/projects/planning/planning-mutation-state.spec.ts",
+      "sha256": "60003175b976d70abd3bf8a601f115891272d3c018bea2002bf537741ceae6f2",
+      "passedCases": 2
+    },
+    {
+      "file": "src/app/features/projects/project-shell/project-navigation.spec.ts",
+      "sha256": "e5d8dfe6b0a05847994e90fabd3f43da0a5fb43778aedd33a1f13cec8ef8be8e",
+      "passedCases": 5
+    },
+    {
+      "file": "src/app/features/projects/project-shell/project-shell.component.spec.ts",
+      "sha256": "da7fd10d6f913bc2acf6d68f679b60ab3e4bfed0d899d075154bd11fc8f3949c",
+      "passedCases": 3
+    },
+    {
+      "file": "src/app/features/projects/status-reports/project-status-report-detail-page.component.spec.ts",
+      "sha256": "adff308be6f773cc2589cd9f67cc833b21c72bcb93dea48c90180ec39c86f4f3",
+      "passedCases": 11
+    },
+    {
+      "file": "src/app/features/projects/status-reports/project-status-report-draft-page.component.spec.ts",
+      "sha256": "c469c82384c9f31e9725d2cfae7436f16e88fe8d895df420f4a8391a4492d08d",
+      "passedCases": 7
+    },
+    {
+      "file": "src/app/features/projects/status-reports/project-status-report-list-page.component.spec.ts",
+      "sha256": "5ef4063b854519b03ced2282072d5f9a95b007912e46477fb814cae7f8e4f848",
+      "passedCases": 7
+    },
+    {
+      "file": "src/app/features/work-items/components/active-filter-chips.component.spec.ts",
+      "sha256": "0addb9bdba3fc8292dae2a1d991642d5785a14ab6a4474fb7b507e15dbc524e0",
+      "passedCases": 1
+    },
+    {
+      "file": "src/app/features/work-items/components/pinned-saved-views.component.spec.ts",
+      "sha256": "87b777e37ec9d5b6ee4cc6bef746f07797d032de9cb37051b0fea25039b1068c",
+      "passedCases": 5
+    },
+    {
+      "file": "src/app/features/work-items/components/saved-views-toolbar.component.spec.ts",
+      "sha256": "ae1491e2a7edbc0630f416462daf1004b7b7ec80c76d645df4de27c0f78f179e",
+      "passedCases": 18
+    },
+    {
+      "file": "src/app/features/work-items/components/work-item-attachments.component.spec.ts",
+      "sha256": "dc677006beb212bc761bc4577872f0595ab217a947f7663e63404fa0a130dbee",
+      "passedCases": 17
+    },
+    {
+      "file": "src/app/features/work-items/components/work-item-child-work.component.spec.ts",
+      "sha256": "3217702960ef9ea185840ac9435e8eee2cb0b8e3ca8b2c495387d92c1e699070",
+      "passedCases": 3
+    },
+    {
+      "file": "src/app/features/work-items/components/work-item-filter-panel.component.spec.ts",
+      "sha256": "938a40f8632d8f08963f0a1a1e5dcf4f57142b48e2b151c828c6da5fb0e234f5",
+      "passedCases": 2
+    },
+    {
+      "file": "src/app/features/work-items/components/work-item-pagination.component.spec.ts",
+      "sha256": "0f8eb9c30f8a6bafc657a8d7fcc55c6bc27a1bb9a49ce1b3b078c4755fe58992",
+      "passedCases": 10
+    },
+    {
+      "file": "src/app/features/work-items/components/work-item-parent-components.spec.ts",
+      "sha256": "e1d79fa53b185e34ecc879053e6b29e72002b4d6ae18d78a3923946c029b964a",
+      "passedCases": 6
+    },
+    {
+      "file": "src/app/features/work-items/components/work-item-result-list.component.spec.ts",
+      "sha256": "ca9f61f4bdf00bea7e87e358831c15c01ec0e4e255333ef62f2ab20c044cd2c0",
+      "passedCases": 8
+    },
+    {
+      "file": "src/app/features/work-items/query/work-item-filter-labels.spec.ts",
+      "sha256": "fafc54747632eadb59a728f112b2ead950e32585efd0c68dfdeec65ae4d987a8",
+      "passedCases": 2
+    },
+    {
+      "file": "src/app/features/work-items/query/work-item-page-query-serialization.spec.ts",
+      "sha256": "fa878263a6291b0e727e65c4686d46ccd686bd687522d6ced6ecec5b5e5048e0",
+      "passedCases": 8
+    },
+    {
+      "file": "src/app/features/work-items/query/work-item-query-serialization.spec.ts",
+      "sha256": "2a685272d8c4ce45e0ab5bf52af55aa34a464a3dc2f1c1708b5be0792db571c0",
+      "passedCases": 16
+    },
+    {
+      "file": "src/app/features/work-items/query/work-query-parity.spec.ts",
+      "sha256": "7567346e10f0f7dc7377d568243a958c8449f217a490cc548eaef3f529852413",
+      "passedCases": 55
+    },
+    {
+      "file": "src/app/features/work-items/state/project-bulk-triage.store.spec.ts",
+      "sha256": "5ad701968afcd05a9c502619c68303939acaade0f6b2848762cceefaa22176d5",
+      "passedCases": 5
+    },
+    {
+      "file": "src/app/features/work-items/state/saved-views.store.spec.ts",
+      "sha256": "200ae00f3b4e4fad2f131db5be69a2f02ba7e6b66925ee7e9c99002309296e38",
+      "passedCases": 18
+    },
+    {
+      "file": "src/app/features/work-items/state/work-list-query.store.spec.ts",
+      "sha256": "da4838c06bd44d5f3feccdc9dec395628b2ae2c814036fa905540139a4572241",
+      "passedCases": 9
+    }
+  ],
+  "fullWebProfile": {
+    "runId": "54a86ccd-4074-4c9d-81de-5eb05b0b9d35",
+    "command": "npm run verify -- --mode=web",
+    "summary": {
+      "runId": "54a86ccd-4074-4c9d-81de-5eb05b0b9d35",
+      "mode": "web",
+      "database": "none",
+      "apiTests": null,
+      "shard": null,
+      "passed": true,
+      "interactive": false,
+      "cleaned": true,
+      "interrupted": null,
+      "gates": [
+        {
+          "name": "lint:web",
+          "passed": true,
+          "durationMs": 4067
+        },
+        {
+          "name": "typecheck:web",
+          "passed": true,
+          "durationMs": 23511
+        },
+        {
+          "name": "test:web",
+          "passed": true,
+          "durationMs": 22148
+        },
+        {
+          "name": "test:web:vitest",
+          "passed": true,
+          "durationMs": 22021
+        },
+        {
+          "name": "build:web",
+          "passed": true,
+          "durationMs": 83995
+        }
+      ]
+    }
+  },
+  "ordinaryFullExecution": {
+    "runId": "80874a1c-d098-42e9-89ea-3eed7960106e",
+    "command": "ordinary web runner",
+    "summary": {
+      "passed": true,
+      "interactive": false,
+      "tests": {
+        "files": 71,
+        "passed": 888,
+        "failed": 0,
+        "skipped": 0
+      },
+      "cleaned": true,
+      "options": {
+        "include": [],
+        "filter": null,
+        "watch": false,
+        "headed": false,
+        "help": false
+      },
+      "results": [
+        {
+          "name": "test:web:vitest",
+          "passed": true,
+          "durationMs": 27385
+        }
+      ],
+      "interrupted": null
+    }
+  },
+  "finalFocusedExecution": {
+    "runId": "d7846428-473d-4e29-99e0-532c517a56c1",
+    "command": "ordinary web runner",
+    "summary": {
+      "passed": true,
+      "interactive": false,
+      "tests": {
+        "files": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      "cleaned": true,
+      "options": {
+        "include": [
+          "src/testing/web-toolchain.spec.ts"
+        ],
+        "filter": null,
+        "watch": false,
+        "headed": false,
+        "help": false
+      },
+      "results": [
+        {
+          "name": "test:web:vitest",
+          "passed": true,
+          "durationMs": 15157
+        }
+      ],
+      "interrupted": null
+    }
+  },
+  "reuse": "The full host profiles and Linux 888-case run preceded the final screenshot-export/context refinement. That changes output ownership/capture, not test compilation, dependency versions or application/spec behavior. Latest focused toolchain, typing/lint, runner checks and all lifecycle checks including real screenshot retention pass on host/Linux; unchanged 888-case groups and production builds were not repeated after this scoped refinement.",
+  "browser": {
+    "editor": {
+      "runId": "cad8f7b7-5675-411a-8a75-7e9076ab4a81",
+      "command": "npm run verify -- --mode=editor",
+      "summary": {
+        "runId": "cad8f7b7-5675-411a-8a75-7e9076ab4a81",
+        "mode": "editor",
+        "database": "none",
+        "apiTests": null,
+        "shard": null,
+        "passed": true,
+        "interactive": false,
+        "cleaned": true,
+        "interrupted": null,
+        "gates": [
+          {
+            "name": "browser:editor",
+            "passed": true,
+            "durationMs": 29173
+          }
+        ]
+      },
+      "stats": {
+        "startTime": "2026-10-18T22:46:51.307Z",
+        "duration": 28037.900999999998,
+        "expected": 5,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "cases": [
+        {
+          "file": "editor.spec.ts",
+          "title": "preserves native typing undo across preview and synchronizes undo/redo with its parent",
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "retry": 0
+            }
+          ]
+        },
+        {
+          "file": "editor.spec.ts",
+          "title": "handles keyboard link insertion, cancel, format conversion, reset, and post-command typing",
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "retry": 0
+            }
+          ]
+        },
+        {
+          "file": "editor.spec.ts",
+          "title": "contains editor, link form, and preview at desktop/mobile widths without remote requests",
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "retry": 0
+            }
+          ]
+        },
+        {
+          "file": "evidence.spec.ts",
+          "title": "records parser and projection-policy timing outside Angular rendering",
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "retry": 0
+            }
+          ]
+        },
+        {
+          "file": "evidence.spec.ts",
+          "title": "keeps composition input intact and performs keyboard-only formatting and link cancellation",
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "retry": 0
+            }
+          ]
+        }
+      ]
+    },
+    "preview": {
+      "runId": "d435c6fa-755a-4299-ab3c-a410872800d7",
+      "command": "npm run verify -- --mode=preview",
+      "summary": {
+        "runId": "d435c6fa-755a-4299-ab3c-a410872800d7",
+        "mode": "preview",
+        "database": "docker",
+        "apiTests": null,
+        "shard": null,
+        "passed": true,
+        "interactive": false,
+        "cleaned": true,
+        "interrupted": null,
+        "gates": [
+          {
+            "name": "database:provision",
+            "passed": true,
+            "durationMs": 9936
+          },
+          {
+            "name": "database:migrate",
+            "passed": true,
+            "durationMs": 3550
+          },
+          {
+            "name": "build:production",
+            "passed": true,
+            "durationMs": 149938
+          },
+          {
+            "name": "storage:preview:initialize",
+            "passed": true,
+            "durationMs": 952
+          },
+          {
+            "name": "storage:preview:reset",
+            "passed": true,
+            "durationMs": 3782
+          },
+          {
+            "name": "database:preview:seed",
+            "passed": true,
+            "durationMs": 3030
+          },
+          {
+            "name": "browser:preview",
+            "passed": true,
+            "durationMs": 16229
+          }
+        ]
+      },
+      "stats": {
+        "startTime": "2026-10-18T22:53:50.848Z",
+        "duration": 15009.839,
+        "expected": 2,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "cases": [
+        {
+          "file": "local-setup-proof.spec.ts",
+          "title": "independent local setup serves deep links and exact seeded bytes",
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "retry": 0
+            }
+          ]
+        },
+        {
+          "file": "production-preview.check.ts",
+          "title": "serves compiled assets and deep links with formatted read and preview behavior",
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "retry": 0
+            }
+          ]
+        }
+      ]
+    },
+    "initialSelection": {
+      "runId": "9b151fee-e837-44ee-a29c-b5ffe39f6c1b",
+      "command": "npm run verify -- --mode=e2e",
+      "summary": {
+        "runId": "9b151fee-e837-44ee-a29c-b5ffe39f6c1b",
+        "mode": "e2e",
+        "database": "docker",
+        "apiTests": null,
+        "shard": null,
+        "passed": false,
+        "interactive": false,
+        "cleaned": true,
+        "interrupted": null,
+        "gates": [
+          {
+            "name": "database:provision",
+            "passed": true,
+            "durationMs": 16212
+          },
+          {
+            "name": "database:migrate",
+            "passed": true,
+            "durationMs": 5339
+          },
+          {
+            "name": "storage:e2e:initialize",
+            "passed": true,
+            "durationMs": 476
+          },
+          {
+            "name": "storage:e2e:reset",
+            "passed": true,
+            "durationMs": 789
+          },
+          {
+            "name": "database:e2e:seed",
+            "passed": true,
+            "durationMs": 1730
+          },
+          {
+            "name": "browser:e2e",
+            "passed": false,
+            "durationMs": 193594
+          }
+        ]
+      },
+      "stats": {
+        "startTime": "2026-10-18T22:50:32.726Z",
+        "duration": 192658.78600000002,
+        "expected": 8,
+        "skipped": 0,
+        "unexpected": 1,
+        "flaky": 0
+      },
+      "cases": [
+        {
+          "file": "attachment-lifecycle.spec.ts",
+          "title": "downloads seeded files exactly and refreshes attachments across reused detail routes",
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "retry": 0
+            }
+          ]
+        },
+        {
+          "file": "authored-description.spec.ts",
+          "title": "authors descriptions across creation paths, preserves legacy text and drafts, and reuses detail routes",
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "retry": 0
+            }
+          ]
+        },
+        {
+          "file": "draft-departure.spec.ts",
+          "title": "draft departure protects independent editors, actor storage, native unload and Quick Find route reuse",
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "retry": 0
+            }
+          ]
+        },
+        {
+          "file": "draft-departure.spec.ts",
+          "title": "draft departure protects creation project changes and blocks departure during an unresolved create",
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "retry": 0
+            }
+          ]
+        },
+        {
+          "file": "draft-departure.spec.ts",
+          "title": "draft departure preserves report narratives on Stay and failure, then publishes without another prompt",
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "retry": 0
+            }
+          ]
+        },
+        {
+          "file": "execution-planning.spec.ts",
+          "title": "execution-first planning corrects exact unestimated cycle work and refreshes the same review",
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "retry": 0
+            }
+          ]
+        },
+        {
+          "file": "execution-planning.spec.ts",
+          "title": "execution-first planning discloses management, retains independent drafts and handles read-only recovery",
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "retry": 0
+            }
+          ]
+        },
+        {
+          "file": "query-risk-snapshots.spec.ts",
+          "title": "v0.3.0 estimate query survives Apply, saved pins, copy, return, reload and mobile",
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "retry": 0
+            }
+          ]
+        },
+        {
+          "file": "quick-find.spec.ts",
+          "title": "supports launcher, shortcut, navigation, keyboard movement, and focus restoration",
+          "status": "unexpected",
+          "results": [
+            {
+              "status": "failed",
+              "retry": 0
+            }
+          ]
+        }
+      ]
+    },
+    "quickFindFollowUp": {
+      "runId": "9407daf8-31a4-4ce2-8c68-61fe3c21fd42",
+      "command": "npm run verify -- --mode=e2e",
+      "summary": {
+        "runId": "9407daf8-31a4-4ce2-8c68-61fe3c21fd42",
+        "mode": "e2e",
+        "database": "docker",
+        "apiTests": null,
+        "shard": null,
+        "passed": true,
+        "interactive": false,
+        "cleaned": true,
+        "interrupted": null,
+        "gates": [
+          {
+            "name": "database:provision",
+            "passed": true,
+            "durationMs": 6128
+          },
+          {
+            "name": "database:migrate",
+            "passed": true,
+            "durationMs": 3937
+          },
+          {
+            "name": "storage:e2e:initialize",
+            "passed": true,
+            "durationMs": 645
+          },
+          {
+            "name": "storage:e2e:reset",
+            "passed": true,
+            "durationMs": 2646
+          },
+          {
+            "name": "database:e2e:seed",
+            "passed": true,
+            "durationMs": 2943
+          },
+          {
+            "name": "browser:e2e",
+            "passed": true,
+            "durationMs": 7487
+          }
+        ]
+      },
+      "stats": {
+        "startTime": "2026-10-18T23:04:05.480Z",
+        "duration": 6673.637,
+        "expected": 1,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "cases": [
+        {
+          "file": "quick-find.spec.ts",
+          "title": "supports launcher, shortcut, navigation, keyboard movement, and focus restoration",
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "retry": 0
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "e2eSelection": "authors descriptions across creation paths|draft departure|v0.3.0 estimate query|execution-first planning|supports launcher, shortcut|downloads seeded files exactly",
+  "residualRisk": {
+    "title": "One unreproduced Quick Find integration failure",
+    "observation": "The initial mixed selection passed eight cases but its Quick Find role locator missed a visibly rendered dialog. Trace/network/screenshot and installed CDK/Playwright source were inspected; a bare native-popover/modal control passes.",
+    "followUp": "One private instrumented case and eight fresh-page diagnostic repetitions pass, followed by an unmodified one-case ordinary E2E run passing. No app/test/deadline/retry/selector changes were made for Quick Find.",
+    "status": "Exact cause not established. Concurrent local builds/Linux execution were present in the failing run, but resource contention is a hypothesis, not a proven fix. Retain the original failed report/trace; do not label the failed aggregate or diagnostic repetitions as clean acceptance or an implemented product fix."
+  },
+  "hostLifecycle": {
+    "command": "npm run test:verification:web-lifecycle",
+    "passed": true,
+    "checks": 4,
+    "assertions": [
+      "Real failed browser assertion exits unsuccessfully and retains its JSON plus screenshot.",
+      "Live source edit reruns and SIGINT exits 130.",
+      "SIGTERM exits 143.",
+      "SIGKILL owner death is recovered by marker/identity-validated cleanup; repeat cleanup is idempotent.",
+      "Recorded Chromium descendants and endpoints close; unrelated service remains usable; watch summaries passed=null."
+    ],
+    "screenshotControl": {
+      "runId": "29d9d40d-6198-4712-a8f1-933c2d38ad42",
+      "expectedFailedCases": 1,
+      "retainedScreenshots": 1,
+      "originalAssertionPreserved": true,
+      "filesystemAccessError": false
+    }
+  },
+  "linux": {
+    "runId": "5d98f820-1772-41cd-87d1-9a49878f1cac",
+    "image": "mcr.microsoft.com/playwright:v1.61.1-noble",
+    "passed": true,
+    "cleaned": true,
+    "exitCode": 0,
+    "reports": [
+      {
+        "runId": "86173b0c-30b7-4424-b2fa-4664f8a2f452",
+        "summary": {
+          "passed": true,
+          "interactive": false,
+          "tests": {
+            "files": 71,
+            "passed": 888,
+            "failed": 0,
+            "skipped": 0
+          },
+          "cleaned": true,
+          "options": {
+            "include": [],
+            "filter": null,
+            "watch": false,
+            "headed": false,
+            "help": false
+          },
+          "results": [
+            {
+              "name": "test:web:vitest",
+              "passed": true,
+              "durationMs": 175816
+            }
+          ],
+          "interrupted": null
+        },
+        "files": 71,
+        "passed": 888,
+        "failed": 0,
+        "skipped": 0
+      }
+    ],
+    "lifecycleChecks": 4,
+    "node": "24.17.0",
+    "npm": "11.13.0",
+    "architecture": "arm64",
+    "cleanInstall": true
+  },
+  "linuxFinalOutputFollowUp": {
+    "runId": "ed9738ce-edab-4829-86fe-289fed0ffae7",
+    "image": "mcr.microsoft.com/playwright:v1.61.1-noble",
+    "passed": true,
+    "cleaned": true,
+    "exitCode": 0,
+    "reports": [
+      {
+        "runId": "db45baac-02f6-4cd7-837c-ee11384d8d70",
+        "summary": {
+          "passed": true,
+          "interactive": false,
+          "tests": {
+            "files": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0
+          },
+          "cleaned": true,
+          "options": {
+            "include": [
+              "src/testing/web-toolchain.spec.ts"
+            ],
+            "filter": null,
+            "watch": false,
+            "headed": false,
+            "help": false
+          },
+          "results": [
+            {
+              "name": "test:web:vitest",
+              "passed": true,
+              "durationMs": 22092
+            }
+          ],
+          "interrupted": null
+        },
+        "files": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ],
+    "lifecycleChecks": 4,
+    "node": "24.17.0",
+    "npm": "11.13.0",
+    "cleanInstall": true
+  },
+  "audits": {
+    "production": {
+      "auditReportVersion": 2,
+      "vulnerabilities": {},
+      "metadata": {
+        "vulnerabilities": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 0,
+          "critical": 0,
+          "total": 0
+        },
+        "dependencies": {
+          "prod": 120,
+          "dev": 712,
+          "optional": 175,
+          "peer": 3,
+          "peerOptional": 0,
+          "total": 832
+        }
+      }
+    },
+    "full": {
+      "auditReportVersion": 2,
+      "vulnerabilities": {
+        "@esbuild-kit/core-utils": {
+          "name": "@esbuild-kit/core-utils",
+          "severity": "moderate",
+          "isDirect": false,
+          "via": [
+            "esbuild"
+          ],
+          "effects": [
+            "@esbuild-kit/esm-loader"
+          ],
+          "range": "*",
+          "nodes": [
+            "node_modules/@esbuild-kit/core-utils"
+          ],
+          "fixAvailable": {
+            "name": "drizzle-kit",
+            "version": "0.18.1",
+            "isSemVerMajor": true
+          }
+        },
+        "@esbuild-kit/esm-loader": {
+          "name": "@esbuild-kit/esm-loader",
+          "severity": "moderate",
+          "isDirect": false,
+          "via": [
+            "@esbuild-kit/core-utils"
+          ],
+          "effects": [
+            "drizzle-kit"
+          ],
+          "range": "*",
+          "nodes": [
+            "node_modules/@esbuild-kit/esm-loader"
+          ],
+          "fixAvailable": {
+            "name": "drizzle-kit",
+            "version": "0.18.1",
+            "isSemVerMajor": true
+          }
+        },
+        "drizzle-kit": {
+          "name": "drizzle-kit",
+          "severity": "moderate",
+          "isDirect": true,
+          "via": [
+            "@esbuild-kit/esm-loader"
+          ],
+          "effects": [],
+          "range": "0.19.0 - 1.0.0-beta.1-fd8bfcc",
+          "nodes": [
+            "node_modules/drizzle-kit"
+          ],
+          "fixAvailable": {
+            "name": "drizzle-kit",
+            "version": "0.18.1",
+            "isSemVerMajor": true
+          }
+        },
+        "esbuild": {
+          "name": "esbuild",
+          "severity": "moderate",
+          "isDirect": false,
+          "via": [
+            {
+              "source": 1102341,
+              "name": "esbuild",
+              "dependency": "esbuild",
+              "title": "esbuild enables any website to send any requests to the development server and read the response",
+              "url": "https://github.com/advisories/GHSA-67mh-4wv8-2f99",
+              "severity": "moderate",
+              "cwe": [
+                "CWE-346"
+              ],
+              "cvss": {
+                "score": 5.3,
+                "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:N/A:N"
+              },
+              "range": "<=0.24.2"
+            }
+          ],
+          "effects": [
+            "@esbuild-kit/core-utils"
+          ],
+          "range": "<=0.24.2",
+          "nodes": [
+            "node_modules/@esbuild-kit/core-utils/node_modules/esbuild"
+          ],
+          "fixAvailable": {
+            "name": "drizzle-kit",
+            "version": "0.18.1",
+            "isSemVerMajor": true
+          }
+        }
+      },
+      "metadata": {
+        "vulnerabilities": {
+          "info": 0,
+          "low": 0,
+          "moderate": 4,
+          "high": 0,
+          "critical": 0,
+          "total": 4
+        },
+        "dependencies": {
+          "prod": 120,
+          "dev": 712,
+          "optional": 175,
+          "peer": 3,
+          "peerOptional": 0,
+          "total": 832
+        }
+      }
+    },
+    "gate": {
+      "production": 0,
+      "full": {
+        "info": 0,
+        "low": 0,
+        "moderate": 4,
+        "high": 0,
+        "critical": 0,
+        "total": 4
+      },
+      "advisories": 1,
+      "accountedPaths": 4
+    },
+    "removedPackages": [
+      "node_modules/@colors/colors",
+      "node_modules/@socket.io/component-emitter",
+      "node_modules/@types/jasmine",
+      "node_modules/@types/ws",
+      "node_modules/anymatch",
+      "node_modules/anymatch/node_modules/picomatch",
+      "node_modules/base64id",
+      "node_modules/binary-extensions",
+      "node_modules/braces",
+      "node_modules/connect",
+      "node_modules/connect/node_modules/debug",
+      "node_modules/connect/node_modules/encodeurl",
+      "node_modules/connect/node_modules/finalhandler",
+      "node_modules/connect/node_modules/ms",
+      "node_modules/connect/node_modules/on-finished",
+      "node_modules/connect/node_modules/statuses",
+      "node_modules/custom-event",
+      "node_modules/date-format",
+      "node_modules/destroy",
+      "node_modules/di",
+      "node_modules/dom-serialize",
+      "node_modules/engine.io",
+      "node_modules/engine.io-parser",
+      "node_modules/engine.io/node_modules/accepts",
+      "node_modules/engine.io/node_modules/mime-db",
+      "node_modules/engine.io/node_modules/mime-types",
+      "node_modules/engine.io/node_modules/negotiator",
+      "node_modules/ent",
+      "node_modules/eventemitter3",
+      "node_modules/extend",
+      "node_modules/fill-range",
+      "node_modules/follow-redirects",
+      "node_modules/fs-extra",
+      "node_modules/fs.realpath",
+      "node_modules/glob",
+      "node_modules/glob-parent",
+      "node_modules/html-escaper",
+      "node_modules/http-proxy",
+      "node_modules/inflight",
+      "node_modules/is-binary-path",
+      "node_modules/is-number",
+      "node_modules/is-regex",
+      "node_modules/isbinaryfile",
+      "node_modules/istanbul-lib-report",
+      "node_modules/istanbul-lib-report/node_modules/supports-color",
+      "node_modules/istanbul-lib-source-maps",
+      "node_modules/istanbul-lib-source-maps/node_modules/source-map",
+      "node_modules/istanbul-reports",
+      "node_modules/jasmine-core",
+      "node_modules/jsonfile",
+      "node_modules/karma",
+      "node_modules/karma-chrome-launcher",
+      "node_modules/karma-chrome-launcher/node_modules/which",
+      "node_modules/karma-coverage",
+      "node_modules/karma-coverage/node_modules/istanbul-lib-instrument",
+      "node_modules/karma-coverage/node_modules/semver",
+      "node_modules/karma-jasmine",
+      "node_modules/karma-jasmine-html-reporter",
+      "node_modules/karma-jasmine/node_modules/jasmine-core",
+      "node_modules/karma/node_modules/body-parser",
+      "node_modules/karma/node_modules/chokidar",
+      "node_modules/karma/node_modules/cliui",
+      "node_modules/karma/node_modules/debug",
+      "node_modules/karma/node_modules/iconv-lite",
+      "node_modules/karma/node_modules/media-typer",
+      "node_modules/karma/node_modules/mime-db",
+      "node_modules/karma/node_modules/mime-types",
+      "node_modules/karma/node_modules/ms",
+      "node_modules/karma/node_modules/picomatch",
+      "node_modules/karma/node_modules/raw-body",
+      "node_modules/karma/node_modules/readdirp",
+      "node_modules/karma/node_modules/source-map",
+      "node_modules/karma/node_modules/type-is",
+      "node_modules/karma/node_modules/yargs",
+      "node_modules/karma/node_modules/yargs-parser",
+      "node_modules/lodash",
+      "node_modules/log4js",
+      "node_modules/make-dir",
+      "node_modules/minimist",
+      "node_modules/mkdirp",
+      "node_modules/normalize-path",
+      "node_modules/path-is-absolute",
+      "node_modules/punycode",
+      "node_modules/qjobs",
+      "node_modules/requires-port",
+      "node_modules/rimraf",
+      "node_modules/safe-regex-test",
+      "node_modules/socket.io",
+      "node_modules/socket.io-adapter",
+      "node_modules/socket.io-parser",
+      "node_modules/socket.io/node_modules/accepts",
+      "node_modules/socket.io/node_modules/mime-db",
+      "node_modules/socket.io/node_modules/mime-types",
+      "node_modules/socket.io/node_modules/negotiator",
+      "node_modules/streamroller",
+      "node_modules/tmp",
+      "node_modules/to-regex-range",
+      "node_modules/ua-parser-js",
+      "node_modules/universalify",
+      "node_modules/utils-merge",
+      "node_modules/void-elements"
+    ],
+    "addedPackages": [],
+    "changedVersions": []
+  },
+  "retiredAngularAdvisories": [
+    "GHSA-82fw-gwwq-j7x9",
+    "GHSA-5gmw-xhrv-c9v3",
+    "GHSA-85c8-ppgw-ccpr",
+    "GHSA-vfj7-8cjw-p6xm"
+  ],
+  "remainingPolicy": {
+    "schemaVersion": 1,
+    "createdOn": "2026-10-17",
+    "releaseVersion": "0.3.0",
+    "reviewBeforeVersion": "0.3.1",
+    "releaseDate": "2026-10-18",
+    "maxExpiresOn": "2026-11-16",
+    "exceptions": [
+      {
+        "advisory": "GHSA-67mh-4wv8-2f99",
+        "owner": "jeremyaaron",
+        "expiresOn": "2026-11-16",
+        "commands": [
+          "npm run db:generate"
+        ],
+        "dependencyPaths": [
+          "@worktrail/api > drizzle-kit@0.31.10 > @esbuild-kit/esm-loader@2.6.5 > @esbuild-kit/core-utils@3.3.2 > esbuild@0.18.20"
+        ],
+        "trustBoundary": "Local schema tooling only. Production migrations use Drizzle ORM, not the Drizzle Kit CLI.",
+        "preconditions": "The vulnerable esbuild serve API must be started and a developer must visit an attacker-controlled website. drizzle-kit generate loads trusted local schema and generates SQL without starting esbuild serve. The legacy loader pins ~0.18.20, outside the fixed >=0.25.0 line.",
+        "mitigation": "Use Drizzle Kit only for local generation from reviewed schema; do not use drizzle-kit studio or start esbuild serve from this legacy graph. Do not expose schema tooling to a network or run it against untrusted schema/config.",
+        "followUp": "Adopt a maintainer release removing the legacy loader, or evaluate a separately scoped Drizzle Kit migration before expiry. Do not downgrade Kit to npm's suggested 0.18.1.",
+        "affected": [
+          {
+            "package": "@esbuild-kit/core-utils",
+            "path": "node_modules/@esbuild-kit/core-utils",
+            "version": "3.3.2",
+            "severity": "moderate"
+          },
+          {
+            "package": "@esbuild-kit/esm-loader",
+            "path": "node_modules/@esbuild-kit/esm-loader",
+            "version": "2.6.5",
+            "severity": "moderate"
+          },
+          {
+            "package": "drizzle-kit",
+            "path": "node_modules/drizzle-kit",
+            "version": "0.31.10",
+            "severity": "moderate"
+          },
+          {
+            "package": "esbuild",
+            "path": "node_modules/@esbuild-kit/core-utils/node_modules/esbuild",
+            "version": "0.18.20",
+            "severity": "moderate"
+          }
+        ]
+      }
+    ]
+  },
+  "checks": [
+    {
+      "command": "npm ci",
+      "passed": true,
+      "context": "Normal supported installation with lifecycle scripts; no forced peers/overrides."
+    },
+    {
+      "command": "npm run audit:dependencies",
+      "passed": true,
+      "production": 0,
+      "fullModerate": 4,
+      "advisoryIDs": 1
+    },
+    {
+      "command": "node --test scripts/verification/{web,ci,audit,ownership}.test.mjs",
+      "passed": true,
+      "checks": 31
+    },
+    {
+      "command": "npm exec -- tsc -p apps/web/tsconfig.spec.json --noEmit",
+      "passed": true
+    },
+    {
+      "command": "npm exec -- tsc -p tsconfig.verification.json --noEmit",
+      "passed": true
+    },
+    {
+      "command": "npm exec -- eslint <changed runner/config/test files> --max-warnings=0",
+      "passed": true
+    },
+    {
+      "command": "npm run check:site",
+      "passed": true,
+      "references": 43,
+      "repositoryLinks": 17,
+      "ids": 13
+    },
+    {
+      "command": "git diff --check",
+      "passed": true
+    }
+  ],
+  "build": {
+    "productionInitialKB": 410.31,
+    "budgetsUnchanged": true,
+    "lazyRoutesUnchanged": true,
+    "productionZoneSchedulingUnchanged": true
+  },
+  "diagnostics": [
+    "An early cheap-test launch overlapped npm ci and failed module resolution; a policy check also ran before retirement completed. These orchestration mistakes are not passing acceptance; checks pass after prerequisites complete.",
+    "Invalid-port validation correctly rejects the deliberately corrupted manifest. The test now restores that mutation before cleanup, and the one retained diagnostic directory was explicitly repaired/removed.",
+    "Angular unit-test options join tsConfig to the workspace; passing an absolute private path fails initialization. The runner passes its workspace-relative path while keeping the generated config private.",
+    "The first nested npm alias consumed --include as npm configuration and therefore executed all specs. The root command now enters the same Node wrapper directly; final real selection and regression coverage prove forwarding.",
+    "The context declaration was updated for screenshotDirectory before the passing verification typecheck.",
+    "A mismatched name filter yielded a green Vitest process with no executed cases; structured report validation correctly fails the ordinary command and cleanup succeeds.",
+    "A real DOM failure control exposed Vite denial when screenshots were written outside its workspace. Capture now stays in the owned checkout and is copied to retained results before cleanup, without relaxing fs.strict/allow lists. Host and Linux screenshot controls pass.",
+    "The original mixed application selection remains recorded as failed; its unmodified Quick Find follow-up passes, with the unreproduced residual risk recorded separately."
+  ],
+  "zeroMatchDiagnostic": {
+    "runId": "39f97b26-de07-467b-925d-10b24ca9ec17",
+    "command": "ordinary web runner",
+    "summary": {
+      "passed": false,
+      "interactive": false,
+      "cleaned": true,
+      "options": {
+        "include": [
+          "src/testing/web-toolchain.spec.ts"
+        ],
+        "filter": "keeps",
+        "watch": false,
+        "headed": false,
+        "help": false
+      },
+      "results": [
+        {
+          "name": "test:web:vitest",
+          "passed": false,
+          "durationMs": 9721
+        }
+      ],
+      "interrupted": null
+    }
+  },
+  "omitted": [
+    "Full API/contracts/schema/upgrade suites are unchanged and belong to Drizzle Phases 6-7.",
+    "Unselected application journeys, rendered site suite and fresh local setup proofs were not rerun.",
+    "No repeated full 888-case run after output-only refinement; focused real-host/Linux follow-ups exercise the changed behavior."
+  ],
+  "scope": "No production source, SQL history, budgets, scheduling providers, dependency-version upgrades, release identity, CI trigger/shards or advisory deadline changes. No commits/tags/pushes or user-data mutations.",
+  "cleanup": "Every verification summary reports cleanup. All temporary host/Linux checkouts, own Docker containers, registered browser/process groups and endpoints were removed; retained reports remain ignored under test-results/verification."
+}
