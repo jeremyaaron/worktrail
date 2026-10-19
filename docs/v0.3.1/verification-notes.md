@@ -642,3 +642,30 @@ API/contracts, schema-generation, database-upgrade, browser, rendered-site, buil
 rerun for this gate-only phase. A cheap static site/link check and whitespace validation cover the
 documentation completion. Conditional Phase 9 remains deferred; fresh setup/documentation and the
 actual versioned release boundary remain in Phases 10-11. Nothing was committed, tagged or pushed.
+
+## Phase 9: Conditional CI Efficiency
+
+Closed as **Deferred**, October 18, 2026, from clean commit
+`1e7590f99428f258b4aa5637e2b56a2f13a408da` on `v0.3.1`. This is the explicit acceptance path
+allowed by the plan, reaffirming the Phase 0 scope decision. No CI optimization was implemented
+and no measured speedup is claimed. Release identity remains `0.3.0`.
+
+The completed remediation and preservation work does not automatically reopen the optional
+shard-balancing effort. Finish the remaining setup/documentation and versioned release acceptance
+without adding another executable change boundary. The historical 39-of-60 journey distribution
+is only an investigation input; this phase collects no comparable post-migration per-job,
+setup, critical-path or total-runner-cost measurements.
+
+Read-only configuration inspection confirms the existing PR trigger, three application shards,
+disabled matrix fail-fast, one worker and zero retries remain in place. Reuse Phase 8's passing
+CI/gate controls rather than executing them again for unchanged configuration. No workflow,
+application/test source, dependency/lockfile, assertion, fixture ownership, timeout, caching or
+build-artifact behavior changed. Only this note, the implementation plan and dependency disposition
+are edited. No installation, audit, Angular/API/contracts/browser suite, timing run, database or
+server was started; no resources require cleanup.
+
+Documentation consistency, local links and `git diff --check` pass. A separately scoped future
+efficiency effort must measure a current baseline, preserve serial fixture ownership, prove exact
+discovery coverage, exercise moved groups in isolated resources and compare runner cost as well
+as wall-clock time. Phase 9 has no remaining work for v0.3.1; Phases 10-11 remain pending. Nothing
+was committed, tagged, pushed or changed remotely.

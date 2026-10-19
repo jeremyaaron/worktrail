@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementation baseline: October 18, 2026. Phases 0-8 are complete; required implementation phases 10-11 have not started. Conditional Phase 9 remains deferred by the Phase 0 scope decision.
+Implementation baseline: October 18, 2026. Phases 0-8 are complete; Phase 9 is closed as Deferred, reaffirming the Phase 0 scope decision. Required implementation phases 10-11 have not started.
 
 This plan implements the [PRD](prd.md) and [technical design](technical-design.md). The [dependency disposition](dependency-remediation.md), [verification notes](verification-notes.md), and [Phase 0 evidence](phase-0-evidence.json) record the selected versions, proofs, and inventories. [Phase 1 evidence](phase-1-evidence.json) records the implemented Angular foundation; [Phase 2 evidence](phase-2-evidence.json) maps the shared/core conversion and retained coverage. [Phase 3 evidence](phase-3-evidence.json) records discovery/workspace conversion, focused acceptance, and controlled negative probes. [Phase 4 evidence](phase-4-evidence.json) completes detail/Planning/history conversion and the full inventory reconciliation. [Phase 5 evidence](phase-5-evidence.json) records single-runner cutover, advisory retirement, host/Linux lifecycle and integration results, and one unreproduced Quick Find observation. SQL history and release identity remain unchanged.
 
@@ -12,6 +12,8 @@ the reviewed metadata conversion, focused runtime/upgrade checks, and retirement
 populated data/files/history preservation, full API/contracts acceptance and compiled runtime checks.
 [Phase 8 evidence](phase-8-evidence.json) records independent combined-install peer/audit acceptance,
 retirement of all five carried advisories, final-toolchain invariants and fail-closed gate controls.
+The [Phase 9 disposition](#phase-9-conditional-ci-efficiency) closes the conditional CI work as
+Deferred; its documentation-only review is recorded in the [verification notes](verification-notes.md#phase-9-conditional-ci-efficiency).
 
 The separately requested PR-only CI change is already in the working tree. Preserve it and its focused regression test; it is not unfinished feature scope to reimplement. Package/release identity remains `0.3.0` until closeout.
 
@@ -48,7 +50,7 @@ Angular conversion is split into infrastructure, three spec groups, and final cu
 | 6 | Proven Drizzle adoption and historical metadata conversion | Complete |
 | 7 | Upgrade preservation, transactions, and API compatibility | Complete |
 | 8 | Combined clean dependency graph and audit-gate acceptance | Complete |
-| 9 | Measured E2E shard balancing, if capacity permits | Deferred in Phase 0 |
+| 9 | Measured E2E shard balancing, if capacity permits | Closed: Deferred |
 | 10 | Developer guidance, setup acceptance, and release documentation | Not started |
 | 11 | Version identity, final verification, and closeout | Not started |
 
@@ -406,7 +408,10 @@ Completed work:
 
 Goal: reduce measured imbalance only if remediation has left capacity for a reliable improvement.
 
-Status: Deferred in Phase 0. No test redistribution or additional timing runs are required under the current scope. Revisit only through an explicit plan update after primary remediation is complete.
+Status: Closed as Deferred, October 18, 2026. The Phase 0 deferral is reaffirmed for this release;
+this satisfies the phase's explicit deferral acceptance path, not its optional optimization path.
+No test redistribution or additional timing runs are required. Reopening the work requires a
+separately scoped plan with current measurements and correctness evidence.
 
 Scope if included:
 
@@ -423,6 +428,14 @@ Acceptance:
 - Broader build caching, compiled-app E2E conversion, and runner redesign remain deferred unless a separately reviewed design change is justified.
 
 Verification if included: focused CI/discovery tests, moved groups and affected shards in isolated resources, cleanup checks, and comparable timing evidence. If deferred, document checks only; do not run browser suites to prove a non-change.
+
+Closeout disposition:
+
+- Keep the maintenance release focused on the completed Angular/Drizzle remediation and the remaining setup/documentation and versioned release acceptance. Completing remediation does not automatically reopen the optional optimization workstream.
+- No comparable post-migration CI timing/cost baseline was collected in this phase. The historical 39-of-60 journey distribution is not evidence of the current bottleneck, a speedup, or a reason to redistribute serial fixtures without measurement.
+- Preserve PR-only comprehensive CI, three application shards, one worker per mutable fixture, independent failures and zero retries. No workflow, test, fixture, assertion, timeout, cache or build-reuse behavior changes.
+- Reuse Phase 8's CI/gate evidence. Verification is limited to documentation consistency, local links and whitespace; no install, audit, application/browser suite, timing experiment or owned service is needed for this non-change.
+- A future CI-efficiency effort must establish comparable per-job/setup/critical-path and total-runner-cost measurements, inspect serial ownership, prove exact discovery coverage and validate affected isolated groups before claiming improvement. It is not a v0.3.1 release blocker.
 
 ## Phase 10: Documentation And Setup Acceptance
 

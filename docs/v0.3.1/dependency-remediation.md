@@ -2,7 +2,7 @@
 
 ## Status
 
-Updated through Phase 8, October 18, 2026. Angular/Vitest cutover, Drizzle adoption, data/API acceptance and the independent combined graph/audit gate are complete. A fresh private installation of the actual adopted lock validates physical peers and reports zero production/full audit findings. All five carried exceptions are retired without extending original dates or review boundaries. Release identity remains `0.3.0`; setup/documentation and release acceptance remain in Phases 10-11. Conditional Phase 9 stays deferred.
+Updated through Phase 9 closeout, October 18, 2026. Angular/Vitest cutover, Drizzle adoption, data/API acceptance and the independent combined graph/audit gate are complete. A fresh private installation of the actual adopted lock validates physical peers and reports zero production/full audit findings. All five carried exceptions are retired without extending original dates or review boundaries. Release identity remains `0.3.0`; setup/documentation and release acceptance remain in Phases 10-11. Conditional Phase 9 is closed as Deferred.
 
 See [structured evidence](phase-0-evidence.json), [verification notes](verification-notes.md), and the [technical design](technical-design.md).
 
@@ -148,3 +148,9 @@ Shared parent records must be reassessed when each owner changes. Do not add cha
 ## Deferred Work
 
 Defer E2E shard balancing for this sprint. The framework/test migration and schema/runtime migration already create substantial compatibility work. Preserve PR-only comprehensive CI and independent Pages deployment; do not trade correctness checks for lower utilization or quietly add a duplicate main-push run.
+
+Phase 9 closeout reaffirms that decision rather than reopening optimization after remediation.
+No new comparative CI timing/cost evidence was collected and no speedup is claimed. Shards,
+fixture isolation, assertions, workers, retries and failure reporting are unchanged. A future
+efficiency effort needs its own measured baseline and correctness proof; it does not block the
+remaining v0.3.1 setup and release acceptance. See the [closed disposition](implementation-plan.md#phase-9-conditional-ci-efficiency).
