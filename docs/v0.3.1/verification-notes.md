@@ -836,3 +836,34 @@ keeps its original identities/counts. Do not repeat application suites after the
 The [publication checklist](known-limits.md#ci-and-publication) remains user-controlled; no commit,
 push, merge, remote CI invocation, tag, npm publication, Pages deployment or repository settings
 change is performed locally.
+
+## CI Follow Up: Editor Sample Readiness
+
+The [editor job](https://github.com/jeremyaaron/worktrail/actions/runs/39181569676/job/117835230792?pr=31)
+failed after local closeout: four editor checks passed, but native undo/redo expected only the typed
+suffix while the parent correctly contained the loaded sample plus that suffix. The retained trace
+shows `inputValue()` returning `""` immediately after clicking Load sample. The sample reached the DOM
+before typing, so the test had captured a transient empty baseline, not evidence of lost editor data.
+Click completion and locator existence do not establish completion of Angular's scheduled rendering.
+
+Wait for the initially empty textarea to become nonempty before reading its baseline, then assert
+that the parent model matches it before native typing. Keep the actual keyboard typing, preview,
+undo/redo, parent synchronization and no-submit assertions unchanged. A missing sample load still
+fails readiness; wrong edited/undo/redo values still fail their original assertions. No product,
+fixture, timeout, sleep, retry, dependency or CI-workflow behavior changes.
+
+Targeted acceptance on October 18, 2026 (local time):
+
+- `npm run test:editor`: all five checks pass on macOS arm64, Node `24.16.0`, Chromium `149.0.7827.55`.
+  Run `6770e010-bb6f-42b4-9d1e-72c38c696f43` retains its report and the original CI artifact/trace/log.
+- A fresh independent Linux install in Playwright `v1.61.1-noble`, Node `24.17.0`, ARM64, passes the
+  same five checks with Chromium `149.0.7827.0`. Outer run `4275e624-cc0c-4630-9295-2edfd28a7946`
+  retains the Linux log and nested editor run `f4bf6ef3-3854-4d28-aeae-6ba25089b3d4` reports.
+- Both browser reports have zero failed/skipped/flaky cases and retries remain zero. Changed-spec
+  ESLint and `tsc -p tsconfig.verification.json --noEmit` pass. Owned summaries report cleanup;
+  private roots and the labeled Linux container are removed. No PostgreSQL resource is provisioned.
+
+These focused results supersede earlier editor-spec acceptance only for the added readiness checks;
+the prior full release record remains historical. Unchanged API/contracts/Angular/application/preview/
+site/audit suites are not repeated. This Linux ARM64 proof is not GitHub's AMD64 runner or a new remote
+CI pass. No commit, push or remote rerun is performed here.
